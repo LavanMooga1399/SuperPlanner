@@ -1,0 +1,184 @@
+{
+ "format": "superplanner.problem",
+ "format_version": 1,
+ "exported_at": "2026-10-15T09:30:00Z",
+ "problem": {
+  "id": "p_7f3a",
+  "name": "Workshop week 43",
+  "description": "",
+  "domain": "manufacturing",
+  "horizon_start": "2026-10-19T00:00:00+05:30",
+  "horizon_days": 14,
+  "time_unit": "minutes",
+  "currency": "INR",
+  "terminology": {
+   "task": "Operation",
+   "tasks": "Operations",
+   "resource": "Machine",
+   "resources": "Machines",
+   "group": "Job",
+   "milestone": "Milestone",
+   "schedule": "Production schedule",
+   "deadline": "Due date"
+  },
+  "tasks": [
+   {
+    "id": "J1-1",
+    "name": "J1 Cutting",
+    "description": "",
+    "group": "J1",
+    "type": "activity",
+    "duration_minutes": 90,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "CUT1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J1-2",
+    "name": "J1 Milling",
+    "description": "",
+    "group": "J1",
+    "type": "activity",
+    "duration_minutes": 120,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": "2026-10-21T18:00:00+05:30",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MILL1",
+       "MILL2"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   }
+  ],
+  "resources": [
+   {
+    "id": "CUT1",
+    "name": "Saw 1",
+    "kind": "machine",
+    "capacity": 1,
+    "cost_per_hour": 900.0,
+    "calendar": {
+     "weekly": {
+      "mon": [
+       [
+        "06:00",
+        "14:00"
+       ],
+       [
+        "14:00",
+        "22:00"
+       ]
+      ],
+      "tue": [
+       [
+        "06:00",
+        "22:00"
+       ]
+      ],
+      "wed": [
+       [
+        "06:00",
+        "22:00"
+       ]
+      ],
+      "thu": [
+       [
+        "06:00",
+        "22:00"
+       ]
+      ],
+      "fri": [
+       [
+        "06:00",
+        "22:00"
+       ]
+      ],
+      "sat": [
+       [
+        "06:00",
+        "14:00"
+       ]
+      ]
+     },
+     "blocked": []
+    },
+    "metadata": {}
+   },
+   {
+    "id": "MILL1",
+    "name": "Mill 1",
+    "kind": "machine",
+    "capacity": 1,
+    "cost_per_hour": 1200.0,
+    "calendar": {
+     "weekly": {
+      "mon": [
+       [
+        "06:00",
+        "22:00"
+       ]
+      ],
+      "tue": [
+       [
+        "06:00",
+        "22:00"
+       ]
+      ]
+     },
+     "blocked": [
+      {
+       "start": "2026-10-20T10:00:00+05:30",
+       "end": "2026-10-20T12:00:00+05:30",
+       "reason": "Maintenance"
+      }
+     ]
+    },
+    "metadata": {}
+   },
+   {
+    "id": "MILL2",
+    "name": "Mill 2",
+    "kind": "machine",
+    "capacity": 1,
+    "cost_per_hour": 1500.0,
+    "calendar": null,
+    "metadata": {}
+   }
+  ],
+  "dependencies": [
+   {
+    "predecessor": "J1-1",
+    "successor": "J1-2",
+    "type": "FS",
+    "lag_minutes": 0
+   }
+  ],
+  "objectives": {
+   "preset": "balanced",
+   "weights": {
+    "makespan": 1.0,
+    "tardiness": 1.0,
+    "cost": 0.2
+   }
+  },
+  "metadata": {}
+ }
+}

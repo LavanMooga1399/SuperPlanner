@@ -1,0 +1,916 @@
+{
+ "format": "superplanner.problem",
+ "format_version": 1,
+ "exported_at": "2026-10-15T09:30:00Z",
+ "problem": {
+  "id": "draft",
+  "name": "Calendar heavy",
+  "description": "",
+  "domain": "generic",
+  "horizon_start": "2026-10-19T00:00:00+05:30",
+  "horizon_days": 10,
+  "time_unit": "minutes",
+  "currency": "INR",
+  "terminology": {
+   "task": "Task",
+   "tasks": "Tasks",
+   "resource": "Resource",
+   "resources": "Resources",
+   "group": "Group",
+   "milestone": "Milestone",
+   "schedule": "Schedule",
+   "deadline": "Deadline"
+  },
+  "tasks": [
+   {
+    "id": "C1",
+    "name": "Batch 1",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 180,
+    "priority": 4,
+    "earliest_start": null,
+    "deadline": "2026-10-23T18:00:00+05:30",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "DAY",
+       "NIGHT"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": {
+     "start": "2026-10-19T08:00:00+05:30",
+     "resource_ids": [
+      "DAY"
+     ]
+    },
+    "metadata": {}
+   },
+   {
+    "id": "B1",
+    "name": "Bake 1",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 120,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C2",
+    "name": "Batch 2",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "DAY",
+       "NIGHT"
+      ],
+      "units": 1
+     },
+     {
+      "alternatives": [
+       "CREW"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B2",
+    "name": "Bake 2",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 150,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C3",
+    "name": "Batch 3",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "NIGHT",
+       "DAY"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B3",
+    "name": "Bake 3",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 150,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 2
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C4",
+    "name": "Batch 4",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "DAY",
+       "NIGHT"
+      ],
+      "units": 1
+     },
+     {
+      "alternatives": [
+       "CREW"
+      ],
+      "units": 2
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B4",
+    "name": "Bake 4",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 90,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C5",
+    "name": "Batch 5",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": "2026-10-23T18:00:00+05:30",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "DAY",
+       "NIGHT"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B5",
+    "name": "Bake 5",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 120,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C6",
+    "name": "Batch 6",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 240,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "NIGHT",
+       "DAY"
+      ],
+      "units": 1
+     },
+     {
+      "alternatives": [
+       "CREW"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B6",
+    "name": "Bake 6",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 90,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 2
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C7",
+    "name": "Batch 7",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "DAY",
+       "NIGHT"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B7",
+    "name": "Bake 7",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 120,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C8",
+    "name": "Batch 8",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "DAY",
+       "NIGHT"
+      ],
+      "units": 1
+     },
+     {
+      "alternatives": [
+       "CREW"
+      ],
+      "units": 2
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B8",
+    "name": "Bake 8",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 150,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C9",
+    "name": "Batch 9",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 4,
+    "earliest_start": null,
+    "deadline": "2026-10-23T18:00:00+05:30",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "NIGHT",
+       "DAY"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B9",
+    "name": "Bake 9",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 150,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 2
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C10",
+    "name": "Batch 10",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 360,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "DAY",
+       "NIGHT"
+      ],
+      "units": 1
+     },
+     {
+      "alternatives": [
+       "CREW"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B10",
+    "name": "Bake 10",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 150,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C11",
+    "name": "Batch 11",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 360,
+    "priority": 6,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "DAY",
+       "NIGHT"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B11",
+    "name": "Bake 11",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 90,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "C12",
+    "name": "Batch 12",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 120,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "NIGHT",
+       "DAY"
+      ],
+      "units": 1
+     },
+     {
+      "alternatives": [
+       "CREW"
+      ],
+      "units": 2
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "B12",
+    "name": "Bake 12",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 150,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "OVEN"
+      ],
+      "units": 2
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   }
+  ],
+  "resources": [
+   {
+    "id": "DAY",
+    "name": "Day line",
+    "kind": "generic",
+    "capacity": 1,
+    "cost_per_hour": 50.0,
+    "calendar": {
+     "weekly": {
+      "mon": [
+       [
+        "08:00",
+        "12:00"
+       ],
+       [
+        "13:00",
+        "17:00"
+       ]
+      ],
+      "tue": [
+       [
+        "08:00",
+        "12:00"
+       ],
+       [
+        "13:00",
+        "17:00"
+       ]
+      ],
+      "wed": [
+       [
+        "08:00",
+        "12:00"
+       ],
+       [
+        "13:00",
+        "17:00"
+       ]
+      ],
+      "thu": [
+       [
+        "08:00",
+        "12:00"
+       ],
+       [
+        "13:00",
+        "17:00"
+       ]
+      ],
+      "fri": [
+       [
+        "08:00",
+        "12:00"
+       ],
+       [
+        "13:00",
+        "17:00"
+       ]
+      ]
+     },
+     "blocked": [
+      {
+       "start": "2026-10-20T08:00:00+05:30",
+       "end": "2026-10-20T12:00:00+05:30",
+       "reason": "Service"
+      }
+     ]
+    },
+    "metadata": {}
+   },
+   {
+    "id": "NIGHT",
+    "name": "Night line",
+    "kind": "generic",
+    "capacity": 1,
+    "cost_per_hour": 70.0,
+    "calendar": {
+     "weekly": {
+      "mon": [
+       [
+        "22:00",
+        "24:00"
+       ],
+       [
+        "00:00",
+        "06:00"
+       ]
+      ],
+      "tue": [
+       [
+        "22:00",
+        "24:00"
+       ],
+       [
+        "00:00",
+        "06:00"
+       ]
+      ],
+      "wed": [
+       [
+        "22:00",
+        "24:00"
+       ],
+       [
+        "00:00",
+        "06:00"
+       ]
+      ],
+      "thu": [
+       [
+        "22:00",
+        "24:00"
+       ],
+       [
+        "00:00",
+        "06:00"
+       ]
+      ],
+      "fri": [
+       [
+        "22:00",
+        "24:00"
+       ],
+       [
+        "00:00",
+        "06:00"
+       ]
+      ],
+      "sat": [
+       [
+        "00:00",
+        "06:00"
+       ]
+      ]
+     },
+     "blocked": []
+    },
+    "metadata": {}
+   },
+   {
+    "id": "CREW",
+    "name": "Crew",
+    "kind": "person",
+    "capacity": 2,
+    "cost_per_hour": 30.0,
+    "calendar": {
+     "weekly": null,
+     "blocked": [
+      {
+       "start": "2026-10-21T00:00:00+05:30",
+       "end": "2026-10-21T12:00:00+05:30",
+       "reason": ""
+      }
+     ]
+    },
+    "metadata": {}
+   },
+   {
+    "id": "OVEN",
+    "name": "Oven",
+    "kind": "generic",
+    "capacity": 3,
+    "cost_per_hour": 10.0,
+    "calendar": {
+     "weekly": {
+      "mon": [
+       [
+        "06:00",
+        "20:00"
+       ]
+      ],
+      "tue": [
+       [
+        "06:00",
+        "20:00"
+       ]
+      ],
+      "wed": [
+       [
+        "06:00",
+        "20:00"
+       ]
+      ],
+      "thu": [
+       [
+        "06:00",
+        "20:00"
+       ]
+      ],
+      "fri": [
+       [
+        "06:00",
+        "20:00"
+       ]
+      ],
+      "sat": [
+       [
+        "06:00",
+        "20:00"
+       ]
+      ]
+     },
+     "blocked": []
+    },
+    "metadata": {}
+   }
+  ],
+  "dependencies": [
+   {
+    "predecessor": "C1",
+    "successor": "B1",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C2",
+    "successor": "B2",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C3",
+    "successor": "B3",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C4",
+    "successor": "B4",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C5",
+    "successor": "B5",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C6",
+    "successor": "B6",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C7",
+    "successor": "B7",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C8",
+    "successor": "B8",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C9",
+    "successor": "B9",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C10",
+    "successor": "B10",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C11",
+    "successor": "B11",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C12",
+    "successor": "B12",
+    "type": "FS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "C1",
+    "successor": "C5",
+    "type": "SS",
+    "lag_minutes": 60
+   },
+   {
+    "predecessor": "B2",
+    "successor": "C7",
+    "type": "FF",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "C3",
+    "successor": "C9",
+    "type": "SF",
+    "lag_minutes": 600
+   }
+  ],
+  "objectives": {
+   "preset": "balanced",
+   "weights": {
+    "makespan": 1.0,
+    "tardiness": 1.0,
+    "cost": 0.2
+   }
+  },
+  "metadata": {}
+ }
+}

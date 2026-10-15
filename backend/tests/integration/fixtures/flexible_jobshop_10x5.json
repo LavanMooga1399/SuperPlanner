@@ -1,0 +1,1485 @@
+{
+ "format": "superplanner.problem",
+ "format_version": 1,
+ "exported_at": "2026-10-15T09:30:00Z",
+ "problem": {
+  "id": "draft",
+  "name": "Flexible job shop 10x5",
+  "description": "",
+  "domain": "manufacturing",
+  "horizon_start": "2026-11-02T00:00:00+01:00",
+  "horizon_days": 7,
+  "time_unit": "minutes",
+  "currency": "USD",
+  "terminology": {
+   "task": "Task",
+   "tasks": "Tasks",
+   "resource": "Resource",
+   "resources": "Resources",
+   "group": "Group",
+   "milestone": "Milestone",
+   "schedule": "Schedule",
+   "deadline": "Deadline"
+  },
+  "tasks": [
+   {
+    "id": "J1-1",
+    "name": "Job 1 op 1",
+    "description": "",
+    "group": "J1",
+    "type": "activity",
+    "duration_minutes": 87,
+    "priority": 10,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J1-2",
+    "name": "Job 1 op 2",
+    "description": "",
+    "group": "J1",
+    "type": "activity",
+    "duration_minutes": 64,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC2"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J1-3",
+    "name": "Job 1 op 3",
+    "description": "",
+    "group": "J1",
+    "type": "activity",
+    "duration_minutes": 64,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J1-4",
+    "name": "Job 1 op 4",
+    "description": "",
+    "group": "J1",
+    "type": "activity",
+    "duration_minutes": 78,
+    "priority": 8,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J1-5",
+    "name": "Job 1 op 5",
+    "description": "",
+    "group": "J1",
+    "type": "activity",
+    "duration_minutes": 59,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": "2026-11-02T14:16:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC5",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J2-1",
+    "name": "Job 2 op 1",
+    "description": "",
+    "group": "J2",
+    "type": "activity",
+    "duration_minutes": 65,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J2-2",
+    "name": "Job 2 op 2",
+    "description": "",
+    "group": "J2",
+    "type": "activity",
+    "duration_minutes": 85,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC5",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J2-3",
+    "name": "Job 2 op 3",
+    "description": "",
+    "group": "J2",
+    "type": "activity",
+    "duration_minutes": 73,
+    "priority": 6,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC1",
+       "MC5"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J2-4",
+    "name": "Job 2 op 4",
+    "description": "",
+    "group": "J2",
+    "type": "activity",
+    "duration_minutes": 34,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC2"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J2-5",
+    "name": "Job 2 op 5",
+    "description": "",
+    "group": "J2",
+    "type": "activity",
+    "duration_minutes": 21,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": "2026-11-02T13:15:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J3-1",
+    "name": "Job 3 op 1",
+    "description": "",
+    "group": "J3",
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC2"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J3-2",
+    "name": "Job 3 op 2",
+    "description": "",
+    "group": "J3",
+    "type": "activity",
+    "duration_minutes": 24,
+    "priority": 2,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC2"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J3-3",
+    "name": "Job 3 op 3",
+    "description": "",
+    "group": "J3",
+    "type": "activity",
+    "duration_minutes": 59,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC3",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J3-4",
+    "name": "Job 3 op 4",
+    "description": "",
+    "group": "J3",
+    "type": "activity",
+    "duration_minutes": 58,
+    "priority": 2,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC3",
+       "MC5"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J3-5",
+    "name": "Job 3 op 5",
+    "description": "",
+    "group": "J3",
+    "type": "activity",
+    "duration_minutes": 41,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": "2026-11-02T15:48:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J4-1",
+    "name": "Job 4 op 1",
+    "description": "",
+    "group": "J4",
+    "type": "activity",
+    "duration_minutes": 56,
+    "priority": 4,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J4-2",
+    "name": "Job 4 op 2",
+    "description": "",
+    "group": "J4",
+    "type": "activity",
+    "duration_minutes": 43,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J4-3",
+    "name": "Job 4 op 3",
+    "description": "",
+    "group": "J4",
+    "type": "activity",
+    "duration_minutes": 55,
+    "priority": 2,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J4-4",
+    "name": "Job 4 op 4",
+    "description": "",
+    "group": "J4",
+    "type": "activity",
+    "duration_minutes": 21,
+    "priority": 10,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J4-5",
+    "name": "Job 4 op 5",
+    "description": "",
+    "group": "J4",
+    "type": "activity",
+    "duration_minutes": 26,
+    "priority": 8,
+    "earliest_start": null,
+    "deadline": "2026-11-02T15:29:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC5"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J5-1",
+    "name": "Job 5 op 1",
+    "description": "",
+    "group": "J5",
+    "type": "activity",
+    "duration_minutes": 66,
+    "priority": 1,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC5"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J5-2",
+    "name": "Job 5 op 2",
+    "description": "",
+    "group": "J5",
+    "type": "activity",
+    "duration_minutes": 63,
+    "priority": 2,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J5-3",
+    "name": "Job 5 op 3",
+    "description": "",
+    "group": "J5",
+    "type": "activity",
+    "duration_minutes": 30,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J5-4",
+    "name": "Job 5 op 4",
+    "description": "",
+    "group": "J5",
+    "type": "activity",
+    "duration_minutes": 24,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J5-5",
+    "name": "Job 5 op 5",
+    "description": "",
+    "group": "J5",
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 8,
+    "earliest_start": null,
+    "deadline": "2026-11-02T17:35:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J6-1",
+    "name": "Job 6 op 1",
+    "description": "",
+    "group": "J6",
+    "type": "activity",
+    "duration_minutes": 80,
+    "priority": 1,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC2"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J6-2",
+    "name": "Job 6 op 2",
+    "description": "",
+    "group": "J6",
+    "type": "activity",
+    "duration_minutes": 77,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J6-3",
+    "name": "Job 6 op 3",
+    "description": "",
+    "group": "J6",
+    "type": "activity",
+    "duration_minutes": 29,
+    "priority": 1,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC2"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J6-4",
+    "name": "Job 6 op 4",
+    "description": "",
+    "group": "J6",
+    "type": "activity",
+    "duration_minutes": 24,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J6-5",
+    "name": "Job 6 op 5",
+    "description": "",
+    "group": "J6",
+    "type": "activity",
+    "duration_minutes": 77,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": "2026-11-02T11:18:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J7-1",
+    "name": "Job 7 op 1",
+    "description": "",
+    "group": "J7",
+    "type": "activity",
+    "duration_minutes": 79,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J7-2",
+    "name": "Job 7 op 2",
+    "description": "",
+    "group": "J7",
+    "type": "activity",
+    "duration_minutes": 21,
+    "priority": 2,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC2",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J7-3",
+    "name": "Job 7 op 3",
+    "description": "",
+    "group": "J7",
+    "type": "activity",
+    "duration_minutes": 23,
+    "priority": 8,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC1",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J7-4",
+    "name": "Job 7 op 4",
+    "description": "",
+    "group": "J7",
+    "type": "activity",
+    "duration_minutes": 55,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J7-5",
+    "name": "Job 7 op 5",
+    "description": "",
+    "group": "J7",
+    "type": "activity",
+    "duration_minutes": 83,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": "2026-11-02T13:00:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J8-1",
+    "name": "Job 8 op 1",
+    "description": "",
+    "group": "J8",
+    "type": "activity",
+    "duration_minutes": 46,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC3",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J8-2",
+    "name": "Job 8 op 2",
+    "description": "",
+    "group": "J8",
+    "type": "activity",
+    "duration_minutes": 23,
+    "priority": 6,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC3",
+       "MC5"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J8-3",
+    "name": "Job 8 op 3",
+    "description": "",
+    "group": "J8",
+    "type": "activity",
+    "duration_minutes": 72,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J8-4",
+    "name": "Job 8 op 4",
+    "description": "",
+    "group": "J8",
+    "type": "activity",
+    "duration_minutes": 61,
+    "priority": 2,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J8-5",
+    "name": "Job 8 op 5",
+    "description": "",
+    "group": "J8",
+    "type": "activity",
+    "duration_minutes": 58,
+    "priority": 7,
+    "earliest_start": null,
+    "deadline": "2026-11-02T16:29:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC2",
+       "MC5"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J9-1",
+    "name": "Job 9 op 1",
+    "description": "",
+    "group": "J9",
+    "type": "activity",
+    "duration_minutes": 75,
+    "priority": 6,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC3"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J9-2",
+    "name": "Job 9 op 2",
+    "description": "",
+    "group": "J9",
+    "type": "activity",
+    "duration_minutes": 25,
+    "priority": 2,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC3",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J9-3",
+    "name": "Job 9 op 3",
+    "description": "",
+    "group": "J9",
+    "type": "activity",
+    "duration_minutes": 68,
+    "priority": 8,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC1",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J9-4",
+    "name": "Job 9 op 4",
+    "description": "",
+    "group": "J9",
+    "type": "activity",
+    "duration_minutes": 55,
+    "priority": 6,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC2"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J9-5",
+    "name": "Job 9 op 5",
+    "description": "",
+    "group": "J9",
+    "type": "activity",
+    "duration_minutes": 89,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": "2026-11-02T13:07:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J10-1",
+    "name": "Job 10 op 1",
+    "description": "",
+    "group": "J10",
+    "type": "activity",
+    "duration_minutes": 26,
+    "priority": 10,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC4"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J10-2",
+    "name": "Job 10 op 2",
+    "description": "",
+    "group": "J10",
+    "type": "activity",
+    "duration_minutes": 71,
+    "priority": 2,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC5",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J10-3",
+    "name": "Job 10 op 3",
+    "description": "",
+    "group": "J10",
+    "type": "activity",
+    "duration_minutes": 25,
+    "priority": 6,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J10-4",
+    "name": "Job 10 op 4",
+    "description": "",
+    "group": "J10",
+    "type": "activity",
+    "duration_minutes": 58,
+    "priority": 3,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC4",
+       "MC1"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "J10-5",
+    "name": "Job 10 op 5",
+    "description": "",
+    "group": "J10",
+    "type": "activity",
+    "duration_minutes": 20,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": "2026-11-02T17:46:00+01:00",
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "MC2",
+       "MC5"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   }
+  ],
+  "resources": [
+   {
+    "id": "MC1",
+    "name": "Machine 1",
+    "kind": "machine",
+    "capacity": 1,
+    "cost_per_hour": 76.0,
+    "calendar": null,
+    "metadata": {}
+   },
+   {
+    "id": "MC2",
+    "name": "Machine 2",
+    "kind": "machine",
+    "capacity": 1,
+    "cost_per_hour": 57.0,
+    "calendar": null,
+    "metadata": {}
+   },
+   {
+    "id": "MC3",
+    "name": "Machine 3",
+    "kind": "machine",
+    "capacity": 1,
+    "cost_per_hour": 42.0,
+    "calendar": null,
+    "metadata": {}
+   },
+   {
+    "id": "MC4",
+    "name": "Machine 4",
+    "kind": "machine",
+    "capacity": 1,
+    "cost_per_hour": 57.0,
+    "calendar": null,
+    "metadata": {}
+   },
+   {
+    "id": "MC5",
+    "name": "Machine 5",
+    "kind": "machine",
+    "capacity": 1,
+    "cost_per_hour": 70.0,
+    "calendar": null,
+    "metadata": {}
+   }
+  ],
+  "dependencies": [
+   {
+    "predecessor": "J1-1",
+    "successor": "J1-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J1-2",
+    "successor": "J1-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J1-3",
+    "successor": "J1-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J1-4",
+    "successor": "J1-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J2-1",
+    "successor": "J2-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J2-2",
+    "successor": "J2-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J2-3",
+    "successor": "J2-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J2-4",
+    "successor": "J2-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J3-1",
+    "successor": "J3-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J3-2",
+    "successor": "J3-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J3-3",
+    "successor": "J3-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J3-4",
+    "successor": "J3-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J4-1",
+    "successor": "J4-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J4-2",
+    "successor": "J4-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J4-3",
+    "successor": "J4-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J4-4",
+    "successor": "J4-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J5-1",
+    "successor": "J5-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J5-2",
+    "successor": "J5-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J5-3",
+    "successor": "J5-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J5-4",
+    "successor": "J5-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J6-1",
+    "successor": "J6-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J6-2",
+    "successor": "J6-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J6-3",
+    "successor": "J6-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J6-4",
+    "successor": "J6-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J7-1",
+    "successor": "J7-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J7-2",
+    "successor": "J7-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J7-3",
+    "successor": "J7-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J7-4",
+    "successor": "J7-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J8-1",
+    "successor": "J8-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J8-2",
+    "successor": "J8-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J8-3",
+    "successor": "J8-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J8-4",
+    "successor": "J8-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J9-1",
+    "successor": "J9-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J9-2",
+    "successor": "J9-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J9-3",
+    "successor": "J9-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J9-4",
+    "successor": "J9-5",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J10-1",
+    "successor": "J10-2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J10-2",
+    "successor": "J10-3",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J10-3",
+    "successor": "J10-4",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "J10-4",
+    "successor": "J10-5",
+    "type": "FS",
+    "lag_minutes": 0
+   }
+  ],
+  "objectives": {
+   "preset": "balanced",
+   "weights": {
+    "makespan": 1.0,
+    "tardiness": 1.0,
+    "cost": 0.2
+   }
+  },
+  "metadata": {}
+ }
+}

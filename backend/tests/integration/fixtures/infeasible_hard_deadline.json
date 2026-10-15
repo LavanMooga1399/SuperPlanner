@@ -1,0 +1,99 @@
+{
+ "format": "superplanner.problem",
+ "format_version": 1,
+ "exported_at": "2026-10-15T09:30:00Z",
+ "problem": {
+  "id": "draft",
+  "name": "Impossible deadline",
+  "description": "",
+  "domain": "generic",
+  "horizon_start": "2026-11-02T00:00:00+01:00",
+  "horizon_days": 5,
+  "time_unit": "minutes",
+  "currency": "USD",
+  "terminology": {
+   "task": "Task",
+   "tasks": "Tasks",
+   "resource": "Resource",
+   "resources": "Resources",
+   "group": "Group",
+   "milestone": "Milestone",
+   "schedule": "Schedule",
+   "deadline": "Deadline"
+  },
+  "tasks": [
+   {
+    "id": "P1",
+    "name": "Prepare",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 240,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [
+     {
+      "alternatives": [
+       "W"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "P2",
+    "name": "Weld",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 300,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": "2026-11-02T06:00:00+01:00",
+    "deadline_hard": true,
+    "requirements": [
+     {
+      "alternatives": [
+       "W"
+      ],
+      "units": 1
+     }
+    ],
+    "locked": null,
+    "metadata": {}
+   }
+  ],
+  "resources": [
+   {
+    "id": "W",
+    "name": "Welder",
+    "kind": "generic",
+    "capacity": 1,
+    "cost_per_hour": 0.0,
+    "calendar": null,
+    "metadata": {}
+   }
+  ],
+  "dependencies": [
+   {
+    "predecessor": "P1",
+    "successor": "P2",
+    "type": "FS",
+    "lag_minutes": 0
+   }
+  ],
+  "objectives": {
+   "preset": "balanced",
+   "weights": {
+    "makespan": 1.0,
+    "tardiness": 1.0,
+    "cost": 0.2
+   }
+  },
+  "metadata": {}
+ }
+}
