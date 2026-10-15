@@ -1790,7 +1790,8 @@ Additional UI behaviour required by the contract:
   3 times. A 409 `RUN_ALREADY_ACTIVE` on POST navigates to the active run (latest_run).
 - **UI preferences** (Gantt mode/zoom, expert toggle, theme) in `localStorage` with try/catch.
 - Times: placements carry minute offsets plus `start_at`; the UI renders in the plan's offset
-  (from `horizon_start`), not the browser's zone, and labels it ("Times shown in UTC+05:30").
+  (from the **schedule's** `horizon_start`), not the browser's zone, and labels it ("Times shown
+  in UTC+05:30"). Datetime inputs in editors are entered in the plan offset and serialized with it.
 - Terminology: every label for tasks/resources/groups/schedule comes from `useTerms()`.
 - Candidate vs approved: a persistent banner on the Schedule tab ("Candidate - not yet approved"
   vs "Approved on ..."), plus `StatusBadge`; Approve asks for confirmation naming the schedule
@@ -1815,9 +1816,11 @@ dashed for hard). Milestones as diamonds. Critical chain bars outlined. Virtuali
 
 ## 18. Repository layout and file ownership
 
-Owners: **BE-core** (backend-developer: engine core), **BE-solve** (backend-developer: solvers),
-**BE-api** (backend-developer: API + templates), **UI** (ui-developer), **QA** (tester),
-**ARCH** (architect), **LEAD** (team-lead). One owner per file; others request changes.
+Owners are the work packages of `docs/PLAN.md` (the authoritative split; this section was
+aligned with it in the team-lead review): **WP1** (backend-developer: engine + templates),
+**WP2** (backend-developer: API, DB, packaging), **WP3** (ui-developer: frontend), **WP4**
+(tester: integration + e2e tests), **ARCH** (architect), **LEAD** (team-lead). One owner per
+file; others request changes through the owner (or record an Implementation note).
 
 ```
 superplanner/
@@ -1827,60 +1830,83 @@ superplanner/
   docs/PLAN.md                                 LEAD
   docs/source/*                                read-only
   backend/
-    pyproject.toml                             BE-api   (package metadata, pytest config: pythonpath=["."], testpaths=["tests"])
-    requirements.txt                           BE-api   (fastapi, uvicorn, pydantic, sqlalchemy, ortools, httpx, pytest)
-    superplanner/__init__.py                   BE-core  (__version__ = "0.1.0")
-    superplanner/engine/__init__.py            BE-core  (public API 7.6)
-    superplanner/engine/model.py               BE-core
-    superplanner/engine/timeutil.py            BE-core
-    superplanner/engine/compiled.py            BE-core
-    superplanner/engine/objectives.py          BE-core
-    superplanner/engine/graph.py               BE-core
-    superplanner/engine/preflight.py           BE-core
-    superplanner/engine/validator.py           BE-core
-    superplanner/engine/explain.py             BE-core
-    superplanner/engine/decoder.py             BE-solve (decode + left_shift)
-    superplanner/engine/solvers/__init__.py    BE-solve (registry: {"heuristic":..., "cpsat":..., "ga":...})
-    superplanner/engine/solvers/base.py        BE-core  (protocol, SolverConfig, SolveResult, ProgressEvent, params) - frozen early
-    superplanner/engine/solvers/heuristic.py   BE-solve
-    superplanner/engine/solvers/cpsat.py       BE-solve
-    superplanner/engine/solvers/ga.py          BE-solve
-    superplanner/engine/selector.py            BE-solve
-    superplanner/engine/pipeline.py            BE-solve (optimize())
-    superplanner/templates/__init__.py         BE-api
-    superplanner/templates/base.py             BE-api
-    superplanner/templates/manufacturing.py    BE-api
-    superplanner/templates/exam_prep.py        BE-api
-    superplanner/templates/project.py          BE-api
-    superplanner/templates/blank.py            BE-api
-    superplanner/api/__init__.py               BE-api
-    superplanner/api/main.py                   BE-api   (create_app(), lifespan, CORS, error handlers, `app`)
-    superplanner/api/config.py                 BE-api   (DATABASE_URL, CORS_ORIGINS, RUN_WORKERS)
-    superplanner/api/errors.py                 BE-api
-    superplanner/api/schemas.py                BE-api   (API-only models: ProblemRecord, SolverRunRequest, ...)
-    superplanner/api/db/models.py              BE-api
-    superplanner/api/db/session.py             BE-api
-    superplanner/api/executor.py               BE-api
-    superplanner/api/services/*.py             BE-api   (problem_service, run_service, schedule_service, replan_service)
-    superplanner/api/routes/*.py               BE-api   (health, templates, problems, solver_runs, schedules)
-    tests/engine/test_model.py ...             BE-core  (unit tests for own modules)
-    tests/solvers/test_*.py                    BE-solve
-    tests/api/test_*.py                        BE-api
-    tests/integration/                         QA       (end-to-end API flows, property tests, benchmarks)
-    tests/conftest.py                          QA       (shared fixtures; others add fixtures in their own subfolder conftest.py)
-    tests/fixtures/*.json                      QA
-  frontend/**                                  UI (except frontend/e2e/** and playwright.config.ts: QA)
+    .venv/                                     preinstalled; not committed
+    pyproject.toml                             WP2 (package metadata; [tool.pytest.ini_options]:
+                                                    pythonpath=["."], testpaths=["tests"],
+                                                    addopts="--import-mode=importlib",
+                                                    markers=["slow: long benchmarks"])
+    requirements.txt                           WP2 (fastapi, uvicorn, pydantic, sqlalchemy, ortools, httpx, pytest;
+                                                    pinned to the versions installed in .venv)
+    run_api.sh                                 WP2 (starts uvicorn on :8000; honours DATABASE_URL, PORT)
+    superplanner/__init__.py                   WP1 (__version__ = "0.1.0")
+    superplanner/engine/__init__.py            WP1 (public API 7.6; re-exports __version__)
+    superplanner/engine/model.py               WP1
+    superplanner/engine/timeutil.py            WP1
+    superplanner/engine/compiled.py            WP1
+    superplanner/engine/objectives.py          WP1
+    superplanner/engine/graph.py               WP1
+    superplanner/engine/preflight.py           WP1
+    superplanner/engine/validator.py           WP1
+    superplanner/engine/explain.py             WP1
+    superplanner/engine/decoder.py             WP1 (decode + left_shift)
+    superplanner/engine/solvers/__init__.py    WP1 (registry: {"heuristic":..., "cpsat":..., "ga":...})
+    superplanner/engine/solvers/base.py        WP1 (protocol, SolverConfig, SolveResult, ProgressEvent, params) - frozen early
+    superplanner/engine/solvers/heuristic.py   WP1
+    superplanner/engine/solvers/cpsat.py       WP1
+    superplanner/engine/solvers/ga.py          WP1
+    superplanner/engine/selector.py            WP1
+    superplanner/engine/pipeline.py            WP1 (optimize())
+    superplanner/templates/__init__.py         WP1 (registry)
+    superplanner/templates/base.py             WP1
+    superplanner/templates/manufacturing.py    WP1
+    superplanner/templates/exam_prep.py        WP1
+    superplanner/templates/project.py          WP1
+    superplanner/templates/blank.py            WP1
+    superplanner/api/__init__.py               WP2
+    superplanner/api/main.py                   WP2 (create_app(), lifespan, CORS, error handlers, `app`)
+    superplanner/api/config.py                 WP2 (Settings: DATABASE_URL, CORS_ORIGINS, RUN_WORKERS)
+    superplanner/api/errors.py                 WP2
+    superplanner/api/schemas.py                WP2 (API-only models: ProblemRecord, SolverRunRequest, PlacementOut, ...)
+    superplanner/api/db/__init__.py            WP2
+    superplanner/api/db/models.py              WP2
+    superplanner/api/db/session.py             WP2
+    superplanner/api/executor.py               WP2
+    superplanner/api/services/*.py             WP2 (problem_service, run_service, schedule_service, replan_service)
+    superplanner/api/routes/*.py               WP2 (health, templates, problems, solver_runs, schedules)
+    tests/engine/**                            WP1 (unit tests incl. tests/engine/solvers/, tests/engine/templates/,
+                                                    own conftest.py and tests/engine/fixtures/*.json)
+    tests/api/**                               WP2 (own conftest.py with temp-DB app fixture)
+    tests/integration/**                       WP4 (end-to-end API flows, property tests, benchmarks,
+                                                    own conftest.py and tests/integration/fixtures/*.json)
+    (no tests/conftest.py and no __init__.py under tests/: each area is self-contained;
+     test file names are unique across areas, e.g. test_engine_*.py / test_api_*.py / test_int_*.py)
+  frontend/**                                  WP3 (except frontend/e2e/**)
+  frontend/e2e/**                              WP4 (incl. e2e/playwright.config.ts, e2e/tsconfig.json)
 ```
 
-Run commands:
-- Backend: `cd backend && .venv/bin/uvicorn superplanner.api.main:app --reload --port 8000`
-- Tests: `cd backend && .venv/bin/pytest -q`
-- Frontend: `cd frontend && npm install && npm run dev`; checks `npx tsc --noEmit && npm run build`
-- E2E: `cd frontend && npx playwright test` (Chromium from `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`)
+Rules that keep parallel packages from colliding:
+- Before WP2 creates `pyproject.toml`, WP1 runs its tests with
+  `cd backend && .venv/bin/python -m pytest --import-mode=importlib tests/engine`
+  (`python -m` puts `backend/` on `sys.path`). The same command keeps working afterwards.
+- All Python dependencies are already installed in `backend/.venv` (fastapi 0.143, pydantic 2.14,
+  SQLAlchemy 2.1, ortools 9.15.6755, httpx, pytest 9). No package may need anything else; a new
+  dependency requires a PLAN change and is added only by WP2 to `requirements.txt`.
+- Fixtures are `ExportFile` JSON. WP4 may copy WP1 fixtures into its own folder; nobody edits
+  another package's fixture files.
+- `frontend/package.json` (WP3) must list `@playwright/test@1.56.1` as a devDependency and the
+  `e2e` script; WP4 adds nothing outside `frontend/e2e/`.
 
-Parallelization: `model.py`, `compiled.py`, `solvers/base.py`, `api/schemas.py` and
-`frontend/src/api/types.ts` are transcriptions of this document and should land first; then the
-three backend streams and UI proceed in parallel against the contracts.
+Run commands:
+- Backend: `cd backend && ./run_api.sh` (= `.venv/bin/uvicorn superplanner.api.main:app --port ${PORT:-8000}`)
+- Tests: `cd backend && .venv/bin/pytest -q` (fast suite; `-m slow` for benchmarks)
+- Frontend: `cd frontend && npm install && npm run dev`; checks `npm run typecheck && npm run build`
+- E2E: `cd frontend && PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright test -c e2e/playwright.config.ts`
+  (never `playwright install`)
+
+Parallelization: WP1 lands `model.py`, `compiled.py`, `solvers/base.py` and the public API
+signatures in `engine/__init__.py` first (stubs allowed); WP3 transcribes `frontend/src/api/types.ts`
+from this document at the same time. WP2 starts once WP1 is complete; WP3 runs throughout against
+the contract; WP4 writes tests against the contract from day one and runs them as WP1/WP2/WP3 land.
 
 ---
 
@@ -1892,24 +1918,26 @@ hand-built schedules first.
 
 | Layer | Owner | What | Examples |
 |-------|-------|------|----------|
-| Model | BE-core | Pydantic rules | naive datetime rejected; milestone with duration 5 -> 422; custom weights all zero rejected |
-| Time/calendar | BE-core | expansion and offsets | windows in `+05:30`; `22:00-24:00` + `00:00-06:00` merge; blocked subtraction; weekly None + blocked |
-| Graph/CPM | BE-core | cycles, topo, all 4 dep types with positive/negative lag | ES/LS on textbook network; cycle reported in order |
-| Preflight | BE-core | each code in 9.1 fires with the right severity and readable message | |
-| Validator | BE-core | each violation code with minimal hand-made placements; sweep boundaries (touching intervals OK) | capacity 2 with three overlapping tasks -> exactly one `CAPACITY_EXCEEDED` with correct interval |
-| Decoder | BE-solve | earliest placement, calendars, multi-requirement, locks, alternatives, unschedulable cascade | |
-| Left-shift | BE-solve | never increases any end; never changes resources; output valid when input valid | property test |
-| Heuristic/CP-SAT/GA | BE-solve | valid results on fixtures; CP-SAT optimal on tiny instances equals brute force; GA deterministic with seed and generation stop; mutation never 0; cancel returns within 1 s | |
-| Selector | BE-solve | rule table 8.7 (each row), reasons text present, never worse than baseline | |
-| Explain | BE-core | each reason code on a crafted schedule; critical chain | |
-| Templates | BE-api | each template at defaults: preflight ok, optimize -> feasible | |
-| API | BE-api | each endpoint status code in section 14; If-Match/412/428; approve supersedes; stale approval; cancel; SSE replay with Last-Event-ID | FastAPI `TestClient` with temp SQLite file |
-| Integration | QA | template -> validate -> run -> SSE -> schedule -> approve -> replan -> compare -> CSV; property-based random small problems (stdlib `random`, 200 seeds): every strategy's result validated, CP-SAT score <= heuristic score | |
-| Benchmarks | QA | `tests/integration/test_benchmarks.py` marked `slow`: precedence-only, RCPSP-like (30 tasks, 4 resources), flexible job shop (10x5 with alternatives), calendar-heavy study plan, infeasible and nearly infeasible; record feasibility rate, time to first feasible, objective vs CP-SAT | |
-| E2E | QA | Playwright: create from template, edit a task, validate shows a cycle, optimize with live progress, Gantt renders, approve, compare two schedules, CSV download | |
+| Model | WP1 | Pydantic rules | naive datetime rejected; milestone with duration 5 -> 422; custom weights all zero rejected |
+| Time/calendar | WP1 | expansion and offsets | windows in `+05:30`; `22:00-24:00` + `00:00-06:00` merge; blocked subtraction; weekly None + blocked |
+| Graph/CPM | WP1 | cycles, topo, all 4 dep types with positive/negative lag | ES/LS on textbook network; cycle reported in order |
+| Preflight | WP1 | each code in 9.1 fires with the right severity and readable message | |
+| Validator | WP1 | each violation code with minimal hand-made placements; sweep boundaries (touching intervals OK) | capacity 2 with three overlapping tasks -> exactly one `CAPACITY_EXCEEDED` with correct interval |
+| Decoder | WP1 | earliest placement, calendars, multi-requirement, locks, alternatives, unschedulable cascade | |
+| Left-shift | WP1 | never increases any end; never changes resources; output valid when input valid | property test |
+| Heuristic/CP-SAT/GA | WP1 | valid results on fixtures; CP-SAT optimal on tiny instances equals brute force; GA deterministic with seed and generation stop; mutation never 0; cancel returns within 1 s | |
+| Selector | WP1 | rule table 8.7 (each row), reasons text present, never worse than baseline | |
+| Explain | WP1 | each reason code on a crafted schedule; critical chain | |
+| Templates | WP1 | each template at defaults: preflight ok, optimize -> feasible | |
+| API | WP2 | each endpoint status code in section 14; If-Match/412/428; approve supersedes; stale approval; cancel; SSE replay with Last-Event-ID | FastAPI `TestClient` with temp SQLite file |
+| Integration | WP4 | template -> validate -> run -> SSE -> schedule -> approve -> replan -> compare -> CSV; property-based random small problems (stdlib `random`, 200 seeds): every strategy's result validated, CP-SAT score <= heuristic score | |
+| Benchmarks | WP4 | `tests/integration/test_int_benchmarks.py` marked `slow`: precedence-only, RCPSP-like (30 tasks, 4 resources), flexible job shop (10x5 with alternatives), calendar-heavy study plan, infeasible and nearly infeasible; record feasibility rate, time to first feasible, objective vs CP-SAT | |
+| UI contract | WP3 | `api/contractExamples.ts` type-checks the JSON examples of sections 3.11/14/15 against `types.ts` | `npm run typecheck` |
+| E2E | WP4 | Playwright: create from template, edit a task, validate shows a cycle, optimize with live progress, Gantt renders, approve, compare two schedules, CSV download | |
 
-Fixtures in `tests/fixtures/` are `ExportFile` JSON so the same files work for engine and API
-tests and can be imported in the UI.
+Fixtures (`tests/engine/fixtures/`, `tests/integration/fixtures/`) are `ExportFile` JSON so the
+same files work for engine and API tests and can be imported in the UI. Engine-level tests call
+the engine directly; API and integration tests go through HTTP (`TestClient` or a live server).
 
 ---
 
@@ -1953,6 +1981,7 @@ tests and can be imported in the UI.
 | Selector auto/hybrid | Added the resource-free CPM shortcut (proven optimal), the `<2 s` heuristic-only rule, CP-SAT->GA fallback, and an infeasibility probe | Avoids expensive pipelines for trivial problems (blueprint 7) and gives actionable infeasibility explanations (5.3). |
 | Pareto archive from GA only | Alternatives drawn from all phases | CP-SAT-only runs can still offer "Cheapest" vs "Fastest" from heuristic rules. |
 | One active run per problem | Added (409) | Keeps progress UI and approval semantics simple. |
+| Blueprint 9.3 "store task dependencies relationally" | Whole `Problem` document (incl. dependencies) stored as JSON per problem/version (added by team-lead review) | The document is edited and snapshotted as a unit; relational tables add sync code with no MVP query that needs them. Revisit with Postgres and cross-plan queries. |
 
 ---
 
@@ -1968,7 +1997,70 @@ tests and can be imported in the UI.
 
 ## 23. Review notes (team lead)
 
-_(empty - for the team lead's review edits)_
+Review of 2026-10-15 against `docs/source/blueprint.txt` and the work-package split in
+`docs/PLAN.md`. All fixes below were applied in place in the sections named; this list is the
+change log. Where an earlier draft and these fixes disagree, the fixed section text is binding.
+
+Contradictions fixed:
+1. **Model vs preflight layer** (new 3.0; 3.4, 3.6, 3.7, 3.9, 9.1). The draft made
+   `successor != predecessor`, window ordering, `duration <= H`, `abs(lag) <= H` and lock alignment
+   Pydantic (422) rules while 14.3 said drafts with referential problems must be saveable and 9.1
+   listed `SELF_DEPENDENCY`/`INVALID_CALENDAR`/`LOCK_INVALID` as preflight codes that could then
+   never fire. All relational/horizon checks are now preflight-only; new code `LAG_OUT_OF_RANGE`.
+2. **`Problem.id` required vs "any id is replaced"** (3.2, 14.3). Now defaults to `"draft"`; the
+   server always overwrites it.
+3. **Reference values were circular** (8.0, 8.3, 7.3). `refs` came from the "best" baseline
+   schedule, but "best" needs `refs` to rank. Now per-objective minimum over complete rule
+   results via one shared `objectives.compute_refs`; `SolverConfig.refs` is optional for the
+   baseline call only.
+4. **Locked-task overloads ranked as feasible** (8.0, 8.1). The decoder reserves locked tasks
+   even when they overload a resource, but `rank_key` did not count that. Added
+   `DecodeResult.lock_conflicts` to `hard_violation_score`; final feasibility always from
+   `validate()`.
+5. **"Proven infeasible" preflight set was vague** (8.7 step 1). Now the explicit
+   `PROVEN_INFEASIBLE_CODES`; malformed input yields `unknown`.
+6. **Time budget** (8.7 step 4). "Not counted beyond 10%" was not implementable; replaced by a
+   single deadline with remaining-budget hand-off and a testable bound
+   (`time_limit_seconds + 3 s`).
+7. **Phase/solver naming mismatch** (7.4, 7.7, 15). `SolveResult.solver` is `"heuristic:edf"`
+   while SSE/phases use `"heuristic"`; the CPM shortcut had no selector row; SSE fields
+   `reason`/`status` had no engine source. Defined phase vs detailed names, the `cpm` selection
+   reason, and the exact `ProgressEvent -> SSE` mapping.
+8. **File ownership did not match the delivery plan** (18, 19). Templates moved from API owner to
+   WP1; `tests/solvers/` folded into `tests/engine/`; root `tests/conftest.py` and
+   `tests/fixtures/` (QA) removed because WP1 tests run before WP4 exists; `playwright.config.ts`
+   moved into `frontend/e2e/` so `frontend/**` (WP3) and `frontend/e2e/**` (WP4) do not overlap.
+
+Gaps closed (would have made parallel engine/API/UI work incompatible):
+9. SSE with named events: browser clients must use `addEventListener` per type (`onmessage`
+   gets nothing); terminal runs answer `204` so `EventSource` does not reconnect forever; `seq`
+   starts at 1 (15, 17.3).
+10. Approval: check order defined; current document with preflight errors -> 409
+    `STALE_SCHEDULE` with `issues` (engine `CompileError`); note stored in audit (14.6, 7.6).
+11. `ScheduleSummary.base_problem_version`/`approved_problem_version` added so the UI can show
+    staleness before approving (14.6).
+12. Schedules carry their snapshot `horizon_start`; Compare normalizes minutes to schedule a's
+    horizon and defines null handling for one-sided tasks (14.6).
+13. Replan: check order, full rollback on 4xx, cutoff range, conversion via the source
+    schedule's horizon, lock alignment when requirements changed, response shape (14.6).
+14. Cancel of a queued run: event emitted and the worker skips the engine (14.5, 16).
+15. Alternatives need violations/metrics/explanation for storage; the worker obtains them via
+    the public `validate_schedule`/`explain_schedule` (16).
+16. Concurrency: one process-wide lock + transaction around check-then-write (one active run,
+    one approved schedule, If-Match); SQLite PRAGMAs per connection (13).
+17. App factory `create_app(settings)` so API and integration tests use isolated temp DBs;
+    route ordering for `/problems/import` and `/schedules/compare` (14).
+18. Tooling facts verified in this environment: Python 3.13 venv already contains every backend
+    dependency (no SSE library, so SSE is hand-rolled); Node 22; preinstalled Chromium build 1194
+    => `@playwright/test` pinned to `1.56.1`; Vite `preview.proxy` added for e2e (17, 18).
+19. UI gaps vs blueprint 11/13: replan dialog, run history, "Lock at this time" from the task
+    drawer, generated ids/names for new rows (autosave never sends invalid documents), plan-offset
+    datetime inputs, stable `data-testid` hooks for e2e (17.2, 17.3).
+20. Accepted deviation recorded in 21: dependencies stored inside the JSON document rather than
+    relationally (blueprint 9.3).
+
+Not changed (reviewed and accepted): CP-SAT start-domain calendars, left-shift before
+validation, normalized objective, derived replan snapshots, deferred list in section 20.
 
 ## 24. Open questions
 
