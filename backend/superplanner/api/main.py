@@ -19,6 +19,7 @@ from superplanner import engine
 from .config import Settings
 from .context import AppContext
 from .errors import install_handlers
+from .limits import BodySizeLimitMiddleware
 from .routes import health, problems, schedules, solver_runs, templates
 
 API_PREFIX = "/api/v1"
@@ -38,6 +39,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="SuperPlanner API", version=engine.__version__, lifespan=lifespan)
     app.state.ctx = ctx
+    # Added before CORS so CORS stays the outer layer and a 413 still carries the CORS headers.
+    app.add_middleware(BodySizeLimitMiddleware, max_body_bytes=settings.max_body_bytes)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=False,
                        allow_methods=["*"], allow_headers=["*"], expose_headers=["ETag", "Location",
                                                                                  "Content-Disposition"])

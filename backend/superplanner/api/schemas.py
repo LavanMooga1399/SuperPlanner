@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from superplanner.engine import CpSatParams, GaParams, Objectives, Problem, Requirement, Task
+from superplanner.engine.model import MAX_BLOCKED, MAX_DOC_TASKS, MAX_REQUIREMENTS
 
 
 class _Strict(BaseModel):
@@ -52,21 +53,30 @@ class TaskUpdate(_Strict):
     earliest_start: AwareDatetime | None = None
     deadline: AwareDatetime | None = None
     deadline_hard: bool | None = None
-    requirements: list[Requirement] | None = None
+    requirements: list[Requirement] | None = Field(default=None, max_length=MAX_REQUIREMENTS)
+
+    # Omitting a field means "unchanged". An explicit null is only meaningful where the Task field itself is
+    # nullable (earliest_start, deadline: "clear it"); anywhere else it is rejected rather than reinterpreted.
+    @field_validator("name", "duration_minutes", "priority", "deadline_hard", "requirements")
+    @classmethod
+    def _not_null(cls, v: Any) -> Any:
+        if v is None:
+            raise ValueError("null is not allowed here; omit the field to leave it unchanged")
+        return v
 
 
 class ResourceUnavailable(_Strict):
     resource_id: str
     start: AwareDatetime
     end: AwareDatetime
-    reason: str = ""
+    reason: str = Field(default="", max_length=1000)
 
 
 class ReplanChanges(_Strict):
-    task_updates: list[TaskUpdate] = Field(default_factory=list)
-    add_tasks: list[Task] = Field(default_factory=list)
-    remove_task_ids: list[str] = Field(default_factory=list)
-    resource_unavailable: list[ResourceUnavailable] = Field(default_factory=list)
+    task_updates: list[TaskUpdate] = Field(default_factory=list, max_length=MAX_DOC_TASKS)
+    add_tasks: list[Task] = Field(default_factory=list, max_length=MAX_DOC_TASKS)
+    remove_task_ids: list[str] = Field(default_factory=list, max_length=MAX_DOC_TASKS)
+    resource_unavailable: list[ResourceUnavailable] = Field(default_factory=list, max_length=MAX_BLOCKED)
 
     def is_empty(self) -> bool:
         return not (self.task_updates or self.add_tasks or self.remove_task_ids or self.resource_unavailable)

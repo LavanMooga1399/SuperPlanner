@@ -25,6 +25,21 @@ export function offsetText(offsetMin: number): string {
   return `${sign}${pad(Math.floor(a / 60))}:${pad(a % 60)}`;
 }
 
+/**
+ * Parse "+05:30" / "-03:00" text into minutes. Returns null unless it is a real
+ * UTC offset: hours 00..14 (at most -12:00 west / +14:00 east), minutes 00..59.
+ */
+export function parseOffsetText(text: string): number | null {
+  const m = text.trim().match(/^([+-])(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[2]);
+  const min = Number(m[3]);
+  if (min > 59) return null;
+  const total = (m[1] === "-" ? -1 : 1) * (h * 60 + min);
+  if (total < -12 * 60 || total > 14 * 60) return null;
+  return total;
+}
+
 export function offsetLabel(offsetMin: number): string {
   return `UTC${offsetText(offsetMin)}`;
 }

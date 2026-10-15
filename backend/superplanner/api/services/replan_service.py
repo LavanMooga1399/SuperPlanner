@@ -32,7 +32,7 @@ def _apply_changes(doc: dict[str, Any], changes: ReplanChanges) -> Problem:
         for field in upd.model_fields_set - {"id"}:
             value = getattr(upd, field)
             if field == "requirements":
-                value = [r.model_dump(mode="json") for r in value or []]
+                value = [r.model_dump(mode="json") for r in value]  # null is rejected by TaskUpdate
             elif isinstance(value, datetime):
                 value = value.isoformat()
             t[field] = value

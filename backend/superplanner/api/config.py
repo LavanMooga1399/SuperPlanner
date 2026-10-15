@@ -23,6 +23,13 @@ def _env_origins() -> list[str]:
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 
+def _env_max_body() -> int:
+    try:
+        return max(1024, int(os.environ.get("MAX_BODY_BYTES", str(5 * 1024 * 1024))))
+    except ValueError:
+        return 5 * 1024 * 1024
+
+
 def _env_workers() -> int:
     try:
         return max(1, int(os.environ.get("RUN_WORKERS", "2")))
@@ -35,6 +42,7 @@ class Settings:
     database_url: str = field(default_factory=lambda: os.environ.get("DATABASE_URL") or DEFAULT_DATABASE_URL)
     cors_origins: list[str] = field(default_factory=_env_origins)
     run_workers: int = field(default_factory=_env_workers)
+    max_body_bytes: int = field(default_factory=_env_max_body)   # 413 PAYLOAD_TOO_LARGE above this
     sse_poll_seconds: float = 0.5
     sse_keepalive_seconds: float = 15.0
     progress_min_interval_seconds: float = 0.5   # max 2 progress events per second per run

@@ -364,6 +364,9 @@ export function ScheduleTab() {
           terms={terms}
           onClose={() => setReplanOpen(false)}
           beforeSubmit={async () => ((await plan.save()) ? plan.getVersion() : null)}
+          afterSubmit={async () => {
+            await plan.refreshRecord();
+          }}
         />
       ) : null}
     </div>

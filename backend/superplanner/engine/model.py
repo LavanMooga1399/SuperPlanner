@@ -6,14 +6,47 @@ checked by `preflight.py` so incomplete drafts stay saveable.
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 Id = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_.:\-]{1,64}$")]
 HHMM = Annotated[str, StringConstraints(pattern=r"^(([01]\d|2[0-3]):[0-5]\d|24:00)$")]
 Weekday = Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 WEEKDAYS: tuple[str, ...] = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+# Document size caps (section 3.0, Implementation notes). They bound what a single save can store; they are
+# deliberately looser than the preflight solve limits (MAX_TASKS etc.) so an oversized draft still gets a
+# readable TOO_LARGE preflight error instead of a schema rejection.
+MAX_DOC_TASKS = 5000
+MAX_DOC_RESOURCES = 1000
+MAX_DOC_DEPENDENCIES = 20000
+MAX_REQUIREMENTS = 50
+MAX_ALTERNATIVES = 1000
+MAX_BLOCKED = 2000
+MAX_WEEKLY_SLOTS = 48
+MAX_DESCRIPTION = 10000
+MAX_SHORT_TEXT = 200
+MAX_ITEM_METADATA_BYTES = 16 * 1024
+MAX_PROBLEM_METADATA_BYTES = 64 * 1024
+
+
+def _metadata_cap(limit: int):
+    def check(v: dict[str, Any]) -> dict[str, Any]:
+        try:
+            size = len(json.dumps(v, separators=(",", ":"), default=str).encode())
+        except (TypeError, ValueError) as exc:  # pragma: no cover - JSON input is always serialisable
+            raise ValueError("metadata must be JSON-serialisable") from exc
+        if size > limit:
+            raise ValueError(f"metadata is too large ({size} bytes, max {limit})")
+        return v
+    return check
+
+
+ItemMetadata = Annotated[dict[str, Any], AfterValidator(_metadata_cap(MAX_ITEM_METADATA_BYTES))]
+ProblemMetadata = Annotated[dict[str, Any], AfterValidator(_metadata_cap(MAX_PROBLEM_METADATA_BYTES))]
+ShortText = Annotated[str, StringConstraints(max_length=MAX_SHORT_TEXT)]
 
 
 class _Strict(BaseModel):
@@ -21,18 +54,18 @@ class _Strict(BaseModel):
 
 
 class Terminology(_Strict):
-    task: str = "Task"
-    tasks: str = "Tasks"
-    resource: str = "Resource"
-    resources: str = "Resources"
-    group: str = "Group"
-    milestone: str = "Milestone"
-    schedule: str = "Schedule"
-    deadline: str = "Deadline"
+    task: ShortText = "Task"
+    tasks: ShortText = "Tasks"
+    resource: ShortText = "Resource"
+    resources: ShortText = "Resources"
+    group: ShortText = "Group"
+    milestone: ShortText = "Milestone"
+    schedule: ShortText = "Schedule"
+    deadline: ShortText = "Deadline"
 
 
 class Requirement(_Strict):
-    alternatives: list[Id] = Field(min_length=1)
+    alternatives: list[Id] = Field(min_length=1, max_length=MAX_ALTERNATIVES)
     units: int = Field(default=1, ge=1)
 
     @model_validator(mode="after")
@@ -44,7 +77,7 @@ class Requirement(_Strict):
 
 class Lock(_Strict):
     start: AwareDatetime
-    resource_ids: list[Id] | None = None
+    resource_ids: list[Id] | None = Field(default=None, max_length=MAX_ALTERNATIVES)
 
 
 class Dependency(_Strict):
@@ -57,38 +90,38 @@ class Dependency(_Strict):
 class BlockedInterval(_Strict):
     start: AwareDatetime
     end: AwareDatetime
-    reason: str = ""
+    reason: str = Field(default="", max_length=1000)
 
 
 class Calendar(_Strict):
-    weekly: dict[Weekday, list[tuple[HHMM, HHMM]]] | None = None
-    blocked: list[BlockedInterval] = Field(default_factory=list)
+    weekly: dict[Weekday, Annotated[list[tuple[HHMM, HHMM]], Field(max_length=MAX_WEEKLY_SLOTS)]] | None = None
+    blocked: list[BlockedInterval] = Field(default_factory=list, max_length=MAX_BLOCKED)
 
 
 class Resource(_Strict):
     id: Id
     name: str = Field(min_length=1, max_length=200)
-    kind: str = "generic"
+    kind: ShortText = "generic"
     capacity: int = Field(default=1, ge=1, le=1000)
     cost_per_hour: float = Field(default=0.0, ge=0)
     calendar: Calendar | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: ItemMetadata = Field(default_factory=dict)
 
 
 class Task(_Strict):
     id: Id
     name: str = Field(min_length=1, max_length=200)
-    description: str = ""
-    group: str | None = None
+    description: str = Field(default="", max_length=MAX_DESCRIPTION)
+    group: ShortText | None = None
     type: Literal["activity", "milestone"] = "activity"
     duration_minutes: int = 0
     priority: int = Field(default=5, ge=1, le=10)
     earliest_start: AwareDatetime | None = None
     deadline: AwareDatetime | None = None
     deadline_hard: bool = False
-    requirements: list[Requirement] = Field(default_factory=list)
+    requirements: list[Requirement] = Field(default_factory=list, max_length=MAX_REQUIREMENTS)
     locked: Lock | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: ItemMetadata = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _type_rules(self) -> "Task":
@@ -124,18 +157,18 @@ class Objectives(_Strict):
 class Problem(_Strict):
     id: Id = "draft"
     name: str = Field(min_length=1, max_length=200)
-    description: str = ""
-    domain: str = "generic"
+    description: str = Field(default="", max_length=MAX_DESCRIPTION)
+    domain: ShortText = "generic"
     horizon_start: AwareDatetime
     horizon_days: int = Field(default=30, ge=1, le=366)
     time_unit: Literal["minutes"] = "minutes"
     currency: str = Field(default="USD", max_length=8)
     terminology: Terminology = Field(default_factory=Terminology)
-    tasks: list[Task] = Field(default_factory=list)
-    resources: list[Resource] = Field(default_factory=list)
-    dependencies: list[Dependency] = Field(default_factory=list)
+    tasks: list[Task] = Field(default_factory=list, max_length=MAX_DOC_TASKS)
+    resources: list[Resource] = Field(default_factory=list, max_length=MAX_DOC_RESOURCES)
+    dependencies: list[Dependency] = Field(default_factory=list, max_length=MAX_DOC_DEPENDENCIES)
     objectives: Objectives = Field(default_factory=Objectives)
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: ProblemMetadata = Field(default_factory=dict)
 
 
 class Placement(BaseModel):

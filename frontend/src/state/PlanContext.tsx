@@ -35,7 +35,10 @@ export interface PlanContextValue {
   /** Conflict banner "Keep editing": keep the draft; the next save overwrites the other change. */
   keepEditing(): Promise<void>;
   conflictDismissed: boolean;
-  /** Replace the record after a server-side change (e.g. replan bumped the version). */
+  /**
+   * Reload the record after a server-side change (e.g. replan bumped the version).
+   * Waits for an in-flight save; replaces the draft when there are no local edits.
+   */
   refreshRecord(): Promise<void>;
   /** Latest known server version (not subject to stale closures). */
   getVersion(): number | null;
@@ -60,6 +63,7 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
   const recordRef = useRef<ProblemRecord | null>(null);
   const editCounter = useRef(0);
   const savingPromise = useRef<Promise<boolean> | null>(null);
+  const saveToken = useRef<object | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conflictRef = useRef(false);
 
@@ -99,8 +103,10 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
   }, [load]);
 
   const doSave = useCallback(async (): Promise<boolean> => {
-    if (savingPromise.current) {
-      // Wait for the in-flight save, then save again if still dirty.
+    // Saves run strictly one after another: wait until no save is in flight.
+    // Re-check after every wait, since another waiter may have started a save
+    // with the same version in the meantime (two PUTs with one If-Match -> 412).
+    while (savingPromise.current) {
       await savingPromise.current;
     }
     const rec = recordRef.current;
@@ -112,7 +118,10 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
     }
     const counterAtStart = editCounter.current;
     if (counterAtStart === 0) return true;
+    const token = {};
+    saveToken.current = token;
     const p = (async () => {
+      await Promise.resolve(); // let `savingPromise.current = p` run first
       setSaveState("saving");
       setSaveError(null);
       try {
@@ -139,7 +148,10 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
         }
         return false;
       } finally {
-        savingPromise.current = null;
+        if (saveToken.current === token) {
+          saveToken.current = null;
+          savingPromise.current = null;
+        }
       }
     })();
     savingPromise.current = p;
@@ -202,8 +214,23 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
 
   const refreshRecord = useCallback(async () => {
     try {
+      while (savingPromise.current) await savingPromise.current;
       const latest = await getProblem(planId);
-      applyRecord(latest, editCounter.current === 0);
+      const clean = editCounter.current === 0;
+      if (!clean && latest.version !== recordRef.current?.version) {
+        // Local edits on top of an older version: adopting the new version number
+        // would let the next save silently overwrite the server-side change.
+        // Keep the old version so the next save reports a real conflict.
+        return;
+      }
+      applyRecord(latest, clean);
+      if (clean) {
+        setDirty(false);
+        if (!conflictRef.current) {
+          setSaveState("saved");
+          setSaveError(null);
+        }
+      }
     } catch {
       /* ignore */
     }

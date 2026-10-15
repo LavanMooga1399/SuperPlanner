@@ -20,6 +20,7 @@ export function ReplanDialog({
   terms,
   onClose,
   beforeSubmit,
+  afterSubmit,
 }: {
   schedule: Schedule;
   draft: Problem;
@@ -28,6 +29,11 @@ export function ReplanDialog({
   onClose(): void;
   /** Save pending edits; resolves with the version to send, or null to abort. */
   beforeSubmit(): Promise<number | null>;
+  /**
+   * Called once the replan was accepted. The replan writes its changes into the
+   * plan and bumps its version (`problemVersion`), so the caller must reload it.
+   */
+  afterSubmit(problemVersion: number): Promise<void>;
 }) {
   const navigate = useNavigate();
   const off = offsetMinutesOf(draft.horizon_start);
@@ -72,6 +78,7 @@ export function ReplanDialog({
         expected_problem_version: v,
       };
       const res = await replanSchedule(schedule.id, body);
+      await afterSubmit(res.problem_version);
       navigate(`../optimize?run=${encodeURIComponent(res.run_id)}`);
     } catch (err) {
       if (err instanceof ApiError) {

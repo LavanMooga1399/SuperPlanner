@@ -6,7 +6,7 @@ import { Banner, ErrorBanner, Loading } from "../components/Banner";
 import { Dialog } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { makeTerms } from "../lib/terms";
-import { inputToIso, isoToInput, offsetLabel, offsetMinutesOf, offsetText } from "../lib/time";
+import { inputToIso, isoToInput, offsetLabel, offsetMinutesOf, offsetText, parseOffsetText } from "../lib/time";
 import { PlanProvider, usePlan, type SaveState } from "../state/PlanContext";
 
 export function PlanWorkspace() {
@@ -37,15 +37,14 @@ function SaveIndicator({ state, dirty, error }: { state: SaveState; dirty: boole
 
 function PlanSettingsDialog({ draft, onClose, onApply }: { draft: Problem; onClose(): void; onApply(p: Problem): void }) {
   const [offset, setOffset] = useState(offsetText(offsetMinutesOf(draft.horizon_start)));
-  const offMin = (() => {
-    const m = offset.match(/^([+-])(\d{2}):(\d{2})$/);
-    return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : null;
-  })();
+  const offMin = parseOffsetText(offset);
   const [start, setStart] = useState(isoToInput(draft.horizon_start, offsetMinutesOf(draft.horizon_start)));
   const [days, setDays] = useState(draft.horizon_days);
   const [description, setDescription] = useState(draft.description);
   const [currency, setCurrency] = useState(draft.currency);
-  const valid = offMin !== null && !!start && days >= 1 && days <= 366;
+  const daysValid = Number.isInteger(days) && days >= 1 && days <= 366;
+  const startValid = !!start && offMin !== null && inputToIso(start, offMin) !== null;
+  const valid = offMin !== null && startValid && daysValid;
   return (
     <Dialog
       title="Plan settings"
@@ -71,16 +70,34 @@ function PlanSettingsDialog({ draft, onClose, onApply }: { draft: Problem; onClo
       <div className="form-grid">
         <div className="field">
           <label htmlFor="ps-start">Plan starts</label>
-          <input id="ps-start" className="input" type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+          <input id="ps-start" className="input" type="datetime-local" value={start} aria-invalid={!startValid && offMin !== null} onChange={(e) => setStart(e.target.value)} />
+          {!start ? (
+            <span className="hint" role="alert" style={{ color: "var(--danger)" }}>
+              <Icon name="alert" /> Choose when the plan starts.
+            </span>
+          ) : null}
         </div>
         <div className="field">
           <label htmlFor="ps-offset">UTC offset</label>
-          <input id="ps-offset" className="input" value={offset} onChange={(e) => setOffset(e.target.value)} aria-invalid={offMin === null} placeholder="+05:30" />
-          <span className="hint">All plan times use this offset.</span>
+          <input id="ps-offset" className="input" value={offset} onChange={(e) => setOffset(e.target.value)} aria-invalid={offMin === null} aria-describedby="ps-offset-hint" placeholder="+05:30" />
+          {offMin === null ? (
+            <span id="ps-offset-hint" className="hint" role="alert" style={{ color: "var(--danger)" }}>
+              <Icon name="alert" /> Enter an offset between -12:00 and +14:00, e.g. +05:30.
+            </span>
+          ) : (
+            <span id="ps-offset-hint" className="hint">All plan times use this offset.</span>
+          )}
         </div>
         <div className="field">
           <label htmlFor="ps-days">Planning horizon (days)</label>
-          <input id="ps-days" className="input" type="number" min={1} max={366} value={days} onChange={(e) => setDays(Number(e.target.value))} />
+          <input id="ps-days" className="input" type="number" min={1} max={366} step={1} value={Number.isNaN(days) ? "" : days}
+            aria-invalid={!daysValid} aria-describedby={!daysValid ? "ps-days-hint" : undefined}
+            onChange={(e) => setDays(e.target.value === "" ? NaN : Number(e.target.value))} />
+          {!daysValid ? (
+            <span id="ps-days-hint" className="hint" role="alert" style={{ color: "var(--danger)" }}>
+              <Icon name="alert" /> Enter a whole number of days from 1 to 366.
+            </span>
+          ) : null}
         </div>
         <div className="field">
           <label htmlFor="ps-currency">Currency</label>

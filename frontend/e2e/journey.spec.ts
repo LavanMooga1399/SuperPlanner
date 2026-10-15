@@ -48,7 +48,8 @@ test("manufacturing journey: edit, cycle, optimize live, Gantt, approve, compare
   await page.getByRole("radio", { name: /Quick/ }).click();
   await page.getByTestId("start-run").click();
   const prog = page.getByTestId("run-progress");
-  await expect(prog).toHaveAttribute("data-run-state", /queued|running/);
+  // a Quick run on 15 tasks can finish before the first poll; live SSE is asserted in contract.spec
+  await expect(prog).toHaveAttribute("data-run-state", /queued|running|completed/);
   await expect(page.locator('[data-testid^="phase-"]').first()).toBeVisible();
   await expect(prog).toHaveAttribute("data-run-state", "completed", { timeout: 30_000 });
   const run1 = (await prog.getAttribute("data-run-id"))!;
@@ -133,6 +134,9 @@ test("412 conflict banner on a concurrent edit", async ({ page, request }) => {
   const problems = watch(page, [/-> 412/, /412/]);
   const planId = await createFromTemplate(page, "manufacturing", "E2E conflict");
   const rec = await apiJson(request, `/problems/${planId}`);
+  // wait until the page has loaded version 1, otherwise it may load the other user's version 2
+  await expect(page.getByTestId(`task-row-${rec.problem.tasks[1].id}`)).toBeVisible();
+  await expect(page.getByTitle("Server version of this plan")).toHaveText("v1");
   // someone else saves version 2
   const doc = { ...rec.problem, name: "Changed elsewhere" };
   const put = await request.put(`${API}/problems/${planId}`, { data: doc, headers: { "If-Match": '"1"' } });

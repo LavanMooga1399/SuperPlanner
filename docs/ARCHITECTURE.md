@@ -2243,3 +2243,20 @@ Paths and field names are exactly those of sections 13-16. Interpretations and s
     arguments through to uvicorn. `tests/api/conftest.py` puts `backend/` and `tests/api/` on
     `sys.path` (shared helpers live in `tests/api/api_helpers.py`). It also hides Starlette's
     "use httpx2" deprecation warning, which `fastapi.testclient` triggers with the pinned httpx.
+14. **Size limits.** Request bodies over `Settings.max_body_bytes` (env `MAX_BODY_BYTES`, default
+    5 MiB) get 413 `PAYLOAD_TOO_LARGE` in the error envelope (`details.max_bytes`). A declared
+    `Content-Length` is checked before reading, and a chunked body is counted while it streams.
+    The `Problem` model caps documents (the 422 `loc` names the field): tasks 5000, resources 1000,
+    dependencies 20000, requirements per task 50, alternatives/lock resource_ids 1000, blocked
+    intervals 2000, weekly slots per day 48. Free text is capped too: `description` 10000 chars;
+    group, kind, domain and terminology 200; reason 1000. Serialised `metadata` is capped at 16 KiB
+    per task or resource and 64 KiB per problem. These caps are looser than the preflight solve
+    limits (2000/200/10000), so a draft between the two can still be saved and preflight returns
+    `TOO_LARGE` for it. Replan `changes` lists have the same caps.
+15. **Replan nulls.** In `task_updates`, a field that is left out means "unchanged". An explicit
+    `null` is accepted only for `earliest_start` and `deadline`, where it clears the value. For
+    `name`, `duration_minutes`, `priority`, `deadline_hard` and `requirements`, a `null` gets 422
+    `VALIDATION_ERROR` with `loc` `["body","changes","task_updates",i,<field>]`.
+16. **CSV export.** Text cells (task id, name, group, resource ids and names) that start with
+    `= + - @ TAB CR` get a leading `'` (OWASP CSV injection). `deadline` is converted to the plan's
+    UTC offset, the same as `start` and `end`. Header and column order are unchanged.

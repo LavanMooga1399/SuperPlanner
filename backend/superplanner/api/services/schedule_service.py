@@ -220,6 +220,26 @@ CSV_HEADER = ["task_id", "task_name", "group", "type", "start", "end", "duration
               "resource_names", "deadline", "deadline_hard", "lateness_minutes", "on_critical_chain"]
 
 
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def csv_text(value: Any) -> str:
+    """Neutralise spreadsheet formula injection in a free-text cell (OWASP CSV injection guidance).
+
+    Cells starting with = + - @ TAB or CR are prefixed with a single quote so Excel / LibreOffice show them
+    as text. Only user-supplied text columns (ids, names, groups) pass through here; ids are included because
+    the Id pattern allows a leading `-`. Numeric columns are not, so a negative number stays a number.
+    """
+    text = "" if value is None else str(value)
+    return "'" + text if text.startswith(_FORMULA_PREFIXES) else text
+
+
+def _deadline_in_plan_offset(value: str | None, horizon: datetime) -> str:
+    if not value:
+        return ""
+    return datetime.fromisoformat(value).astimezone(horizon.tzinfo).isoformat()
+
+
 def export_csv(ctx: AppContext, schedule_id: str) -> tuple[str, str]:
     with ctx.db.read() as s:
         row = get_schedule_row(s, schedule_id)
@@ -238,10 +258,11 @@ def export_csv(ctx: AppContext, schedule_id: str) -> tuple[str, str]:
             e = expl.get(t["id"], {})
             rids = list(p["resource_ids"]) if p else []
             w.writerow([
-                t["id"], t["name"], t.get("group") or "", t.get("type", "activity"),
+                csv_text(t["id"]), csv_text(t["name"]), csv_text(t.get("group") or ""), t.get("type", "activity"),
                 minute_iso(horizon, p["start"]) if p else "", minute_iso(horizon, p["end"]) if p else "",
-                t.get("duration_minutes", 0), ";".join(rids), ";".join(res_names.get(r, r) for r in rids),
-                t.get("deadline") or "", "true" if t.get("deadline_hard") else "false",
+                t.get("duration_minutes", 0), csv_text(";".join(rids)),
+                csv_text(";".join(res_names.get(r, r) for r in rids)),
+                _deadline_in_plan_offset(t.get("deadline"), horizon), "true" if t.get("deadline_hard") else "false",
                 e.get("lateness_minutes", 0) if p else "",
                 "true" if e.get("on_critical_chain") else "false",
             ])
