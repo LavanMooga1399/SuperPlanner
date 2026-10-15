@@ -85,8 +85,9 @@ test("manufacturing journey: edit, cycle, optimize live, Gantt, approve, compare
   await expect(table).toBeVisible();
   const r1 = await apiJson(request, `/solver-runs/${run1}`);
   const r2 = await apiJson(request, `/solver-runs/${run2}`);
-  await expect(page.locator("#cmp-a")).toHaveValue(r1.primary_schedule_id);
-  await expect(page.locator("#cmp-b")).toHaveValue(r2.primary_schedule_id);
+  await expect(page.locator("#cmp-a")).toHaveValue(r1.primary_schedule_id); // default A = approved
+  await page.locator("#cmp-b").selectOption(r2.primary_schedule_id);
+  await expect(page).toHaveURL(new RegExp(`b=${r2.primary_schedule_id}`));
   const cmp = await apiJson(request, `/schedules/compare?a=${r1.primary_schedule_id}&b=${r2.primary_schedule_id}`);
   for (const d of cmp.task_deltas.slice(0, 3)) await expect(page.getByTestId(`compare-row-${d.task_id}`)).toBeVisible();
 
@@ -118,7 +119,9 @@ test("all A.17.2 test hooks render", async ({ page, request }) => {
   const r = await request.get(new URL(href!, page.url()).toString());
   expect(r.status()).toBe(200);
   expect(r.headers()["content-type"]).toContain("text/csv");
-  await page.goto(`/plans/${planId}/compare?a=${run.primary_schedule_id}&b=${run.schedule_ids[1] ?? run.primary_schedule_id}`);
+  // a second run so there are two schedules to compare
+  const run2 = await apiJson(request, `/solver-runs/${await optimize(page)}`);
+  await page.goto(`/plans/${planId}/compare?a=${run.primary_schedule_id}&b=${run2.primary_schedule_id}`);
   await expect(page.getByTestId("compare-table")).toBeVisible();
   await page.goto("/");
   await expect(page.getByTestId("plan-list")).toBeVisible();

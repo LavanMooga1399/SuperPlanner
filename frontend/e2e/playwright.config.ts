@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 // Temp DB outside the repo (criterion 4.8); a fresh one per test session.
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-e2e-"));
+// The config is loaded by the runner and by every worker; share one temp dir through the env.
+process.env.SP_E2E_TMP ??= fs.mkdtempSync(path.join(os.tmpdir(), "sp-e2e-"));
+const tmpDir = process.env.SP_E2E_TMP;
 const dbUrl = `sqlite:///${path.join(tmpDir, "e2e.db")}`;
 const backendDir = path.resolve(here, "../../backend");
 const frontendDir = path.resolve(here, "..");

@@ -46,8 +46,8 @@ def test_int_property_random_problem(seed):
         elif r.feasibility == "infeasible":
             assert _proven(out, pf), (seed, strategy, [ph.model_dump() for ph in out.phases])
         if strategy == "cpsat" and r.feasibility == "feasible":
-            base = next(ph for ph in out.phases if ph.solver == "heuristic")
-            if base.feasibility == "feasible" and base.objectives is not None:
+            base = next((ph for ph in out.phases if ph.solver == "heuristic"), None)  # None: CPM shortcut
+            if base is not None and base.feasibility == "feasible" and base.objectives is not None:
                 assert r.objectives.score <= base.objectives.score + 1e-9, (seed, r.objectives, base.objectives)
     # an exact solver must not miss a schedule the heuristic found
     if feas["heuristic"] == "feasible":
