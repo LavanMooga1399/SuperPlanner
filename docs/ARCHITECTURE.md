@@ -2071,3 +2071,175 @@ validation, normalized objective, derived replan snapshots, deferred list in sec
 ## 25. Implementation notes
 
 _(developers: record interpretations of ambiguous contracts here, with date and owner)_
+
+### 2026-10-15 - WP1 engine (backend-developer)
+
+WP1 was delivered in one pass (contract stubs and implementation landed together), so there is no
+separate stub-complete moment. Interpretations and small deviations:
+
+1. **Model placement for validator independence.** `Placement` lives in `engine/model.py`,
+   `ObjectiveValues`/`ObjectiveRefs` in `engine/objectives.py`, `Violation`/`Metrics`/
+   `ValidationReport` in `engine/validator.py`. `solvers/base.py` and `superplanner.engine`
+   re-export them, so import paths in 7.x still work. Reason: `validator.py` may import only
+   `model`, `compiled`, `timeutil`, `objectives`.
+2. **Extra module `engine/evaluate.py`** (not in 18): shared candidate ranking. A fast path
+   (decoder output + `compute_metrics`) for heuristic/GA and an exact path (full `validate()`) for
+   the final pick, both producing the 8.0 `rank_key`.
+3. **`CompiledProblem` extras:** `terminology` (validator/explain messages) and `CTask.group`.
+   `compile_problem(problem, objectives=None)` takes the optional `OptimizeRequest.objectives`
+   override. `build_compiled()` is the internal builder without preflight (used by preflight's CPM,
+   `analyze`, and tests).
+4. **`compute_refs(rule_objectives, problem, cpm)`** accepts a `CpmResult` or the bare lower-bound
+   int (duck-typed, so `objectives.py` does not import `graph`).
+5. **`ValidateReport` and `analyze()`** live in `preflight.py`; `OptimizeRequest`, `PhaseSummary`,
+   `OptimizeOutcome` in `pipeline.py`; `Selection` in `selector.py`.
+6. **Preflight details.** Structural codes that suppress CPM checks: `TOO_LARGE`, `DUPLICATE_ID`,
+   `UNKNOWN_TASK`, `SELF_DEPENDENCY`, `DUPLICATE_DEPENDENCY`, `DEPENDENCY_CYCLE`.
+   `DEADLINE_BEFORE_HORIZON` replaces `DEADLINE_BEFORE_EARLIEST` for the same task; CPM deadline
+   codes are not repeated for a task that already has `DEADLINE_BEFORE_EARLIEST`. `LOCK_INVALID`
+   also covers a locked resource listed twice or without enough capacity. Issues are emitted in
+   the 9.1 table order.
+7. **Final pick (8.7 step 6).** Every phase result is left-shifted and fully validated before
+   ranking (stronger than "rank, then left-shift the winner"). On equal `rank_key` a CP-SAT OPTIMAL
+   result wins, so `optimality_proven` is not lost to an equally good heuristic schedule. Final
+   `termination_reason`: `cancelled` > `proven_infeasible` > `optimal` > the last phase's reason
+   if the baseline was kept, otherwise the reason of the phase that produced the pick.
+   `PhaseSummary.objectives` are the phase's raw (pre-left-shift) values.
+8. **Preflight-failed outcome:** `SolveResult.solver = "preflight"`, `Selection.used = []`,
+   `phases = []`, `refs` all 1.0.
+9. **Phase errors:** an exception in a cpsat/ga phase is caught, recorded as a phase with
+   `status="failed"`, `termination_reason="error"` and a diagnostics line; the pipeline continues
+   with the other phases. An exception in the baseline propagates (the API marks the run failed).
+10. **CP-SAT tuning.** Makespan is `M >= E_t` for every task (no `AddMaxEquality`). Hints are
+    completed with `M` and the tardiness variables. Presolve probing is limited to
+    `min(1.0, 0.05 * time_limit)` deterministic seconds. Without this, a 300-task model spent
+    about 2.5 s in presolve and found no solution within a 3 s budget. CP-SAT result
+    `status="cancelled"` only when cancelled and not OPTIMAL.
+11. **Decoder.** Locked tasks with fixed resources are reserved before start-only locks, so a
+    start-only lock does not grab a machine another lock needs. When two fixed GA resource
+    choices of one task collide, the later requirement falls back to greedy and `repairs` is
+    incremented. Assignment across several requirements backtracks over the sorted feasible
+    alternatives, instead of failing when the cheapest choice blocks a later requirement.
+12. **GA.** Seeds: `initial_solution` first, then one individual per rule; seeds are capped at 20%.
+    Mutation and sigma adaptation fires at every 10th non-improving generation, or when
+    diversity < 0.05. Heuristic progress events carry `extra={"rule": ...}`.
+13. **Alternatives (8.6).** Computed only when the primary is feasible. The pool has at most 12
+    validated candidates. Candidates dominated by the primary are dropped. "Fastest", "Fewest
+    late" and "Cheapest" are used only when strictly better than the primary on that objective.
+    Other alternatives are labelled `"Alternative N"`, with N = their position + 1.
+14. **Probe (8.7 step 7)** runs only if >= 1 s of the budget remains; its budget is
+    `min(remaining, 0.25 * time_limit)`. Messages: `If the hard deadlines of "X" were relaxed, a
+    schedule exists; it would be late by 50m.` and `Unlocking "A", "B" would remove the conflict:
+    ...`.
+15. **Explain.** `LOCKED` always says "Fixed by you at ..." (the engine cannot tell user locks
+    from replan locks). DEPENDENCY messages name the binding predecessors and the type ("Starts as
+    soon as X finishes", "30m after X starts", "Timed so it finishes when X finishes").
+16. **Templates.** `build()` returns `id="draft"` and `metadata={"template", "parameters"}`.
+    Manufacturing: every machine uses the two-shift calendar; `horizon_days = max(14,
+    due_in_days + 7)`. Exam prep: the revision-1 lag is 2 days (1 day if `exam_in_days < 14`); the
+    full mock's hard deadline is exam day - 1 at 10:00; the objective preset is `meet_deadlines`.
+    Project: a fixed roster of 8 members (the first `team_size` are used) and 11 work items.
+    Parameter type and range errors raise `ValueError`, like unknown names.
+17. **Test layout.** `tests/engine/conftest.py` puts `backend/` (and the test folder, for
+    `engine_helpers.py`) on `sys.path`. So `backend/.venv/bin/pytest backend/tests/engine -q`
+    works from the repo root before WP2's `pyproject.toml` exists, and still works afterwards.
+    The test registers a `slow` marker, but no WP1 test uses it: the 2000-task smoke test takes
+    about 3 s. The CP-SAT vs brute-force test (1.10) uses only FS/SS dependencies with lags
+    >= 0. With FF/SF a successor may start before its predecessor, so serial SGS enumeration is
+    not complete; FF/SF are covered by the validator, decoder and CPM tests instead.
+
+**WP3 (ui-developer), 2026-10-15** - frontend interpretations:
+1. `api/types.ts`: `Violation.code` and `Issue.code` are typed `string` (the known codes are exported
+   as `ViolationCode`/`IssueCode` unions) so a new server code never breaks the build.
+   `SolverRun.elapsed_seconds` is treated as nullable (null while queued/running).
+2. `api/contractExamples.ts` expands the document's `{"...": ...}` placeholders with values
+   consistent with the surrounding example (e.g. a full `Metrics` object in `ScheduleSummary`).
+3. The goal preset picked on the Optimize tab is stored in the plan (`Problem.objectives`, saved
+   with PUT); runs are created with `objectives: null`. Strategy, seed, alternatives, GA and
+   CP-SAT parameters are sent only while "Expert settings" is on; otherwise the request is
+   `{"time_limit_seconds": <budget>, "objectives": null}` and the server fills defaults.
+4. Conflict banner (412): "Reload" discards local edits; "Keep editing" fetches the current
+   version number and the next autosave replaces the other change (explicit user choice).
+   Autosave is paused while the conflict banner is unresolved.
+5. SSE: one `addEventListener` per type of section 15; events are de-duplicated by `seq`. On an
+   `EventSource` error with `readyState == CLOSED` (e.g. the 204 for a finished run) the client
+   reads `GET /solver-runs/{id}`; after 3 errors it polls `GET /solver-runs/{id}/events?stream=false&after=<seq>`
+   plus `GET /solver-runs/{id}` every 2 s.
+6. "Lock at this time" sets `locked.resource_ids` to the placement's resources only when their
+   count equals the task's current `requirements` length; otherwise only the start is locked.
+7. `ReplanDialog` sends `task_updates` (duration changes) and `resource_unavailable` only;
+   adding/removing tasks is done in the editor. `expected_problem_version` is the version after
+   saving pending edits.
+8. Compare tab defaults: `a` = approved schedule (else the second newest), `b` = newest other.
+   CSV export is a plain link to `/schedules/{id}/export.csv` (relies on `Content-Disposition`).
+9. Template instantiation sends `start_date` = the browser's local date and `utc_offset` = the
+   browser's current offset.
+10. Gantt closed-time shading mirrors section 4 calendar expansion client-side for display only;
+    the engine remains authoritative. Rows are virtualized above 300.
+
+### 2026-10-15 - WP2 API (backend-developer)
+
+Paths and field names are exactly those of sections 13-16. Interpretations and small deviations:
+
+1. **Extra module `api/context.py`** (not in 18): `AppContext` (settings, `Database`, `RunExecutor`)
+   and the process-wide `WRITE_LOCK` (an `RLock`, so replan can reuse run-creation helpers while
+   holding it). `create_app()` has no side effects: tables, startup recovery and the executor
+   start in the lifespan, or lazily on the first request (a `TestClient` used without `with`).
+   So importing `superplanner.api.main` never creates `backend/superplanner.db`.
+2. **SQLite transactions.** Write sessions start with `BEGIN IMMEDIATE` (pysqlite autobegin
+   turned off, `BEGIN` sent from an engine `begin` listener); readers use deferred `BEGIN`.
+   In WAL mode a deferred read-then-write transaction fails at once with `SQLITE_BUSY` when
+   another thread commits in between, and busy-waiting does not help. `busy_timeout=30000` is
+   set per connection with the two PRAGMAs of 13.
+3. **Check order for run creation:** 404 -> 409 `RUN_ALREADY_ACTIVE` -> 422 `PREFLIGHT_FAILED`
+   (same order as replan). `details.issues` of `PREFLIGHT_FAILED` and of `STALE_SCHEDULE` hold
+   only `error`-severity issues, and the message counts them ("Fix 2 problems before optimizing.").
+   `DELETE /problems/{id}` with an active run -> 409 `RUN_ALREADY_ACTIVE` with `details.run_id`.
+4. **Strict request bodies:** `SolverRunRequest`, `InstantiateRequest`, `ApproveRequest`,
+   `ReplanRequest` (and `task_updates` items) reject unknown fields with 422 `VALIDATION_ERROR`,
+   so `locked` in a `task_update` is a 422. A missing body is allowed for instantiate, solver-runs
+   and approve. Template parameter errors (`ValueError`) -> 422 `VALIDATION_ERROR` with
+   `details.errors[0].loc == ["body", "parameters"]`. `template_id` is `null` for `POST /problems`
+   and import.
+5. **Events.** Every event row's `payload` is the full SSE `data` object (common fields included),
+   so `?stream=false` returns the stored payloads verbatim. `?after` also applies with
+   `?stream=false` (the UI uses it). `elapsed_seconds` is measured by the worker from when it
+   picked the run up (engine events are re-timed on that clock; it starts ~1 ms before
+   `optimize()`). `run_cancelled` for a queued run is written by the request thread (seq 2). Startup
+   recovery also appends a `run_failed` event so open streams and reconnecting clients terminate.
+   Progress throttle: a `progress` event is written only if >= 0.5 s passed since the previous one;
+   otherwise it is held, and the latest held one is written just before `phase_completed` (so at
+   most one extra event per phase).
+6. **Shutdown:** `RunExecutor.shutdown()` sets every cancel event and waits, so runs interrupted by a
+   normal shutdown end as `cancelled` with their best-so-far schedule. Only a crash leaves rows for
+   startup recovery.
+7. **Schedules from a run** are stored only if the result has placements. A zero-task problem
+   therefore completes with `primary_schedule_id: null`. `objectives`/`metrics` of stored
+   schedules are never null.
+8. **Approve:** `approved_problem_version` is always set to the current `problems.version`, even
+   when it equals `base_problem_version`. When the version differs, placements are shifted by the
+   difference between the snapshot's and the current `horizon_start` before re-validation. Two
+   concurrent approvals both return 200 (serialized: the second supersedes the first); exactly one
+   schedule ends `approved`.
+9. **Compare:** `metric_deltas` are raw `b.metrics - a.metrics` (makespan is measured from each
+   schedule's own horizon; only `task_deltas` minutes are re-based on a's horizon). `cost` delta is
+   rounded to 2 decimals. In `task_deltas`, one-sided tasks (null `end_delta_minutes`) sort first,
+   as the largest change. The union only covers placed task ids.
+10. **CSV:** one row per task of the schedule's snapshot, in document order. An unplaced task has
+    empty `start`, `end` and `lateness_minutes`. Booleans are `true`/`false`, `deadline` is the
+    stored ISO string or empty, line endings are CRLF.
+11. **Replan:** the cutoff is checked against the current document **before** `changes` are applied.
+    An unknown task in `task_updates`, a duplicate id in `add_tasks` or an unknown `resource_id` in
+    `resource_unavailable` -> 422 `VALIDATION_ERROR` (with `details.errors[].loc`). A frozen task
+    without requirements (e.g. a milestone) is locked start-only (`resource_ids: null`). Tasks that
+    are not frozen keep any user lock they already had. The replan `initial_solution` is computed
+    by the worker from `source_schedule_id`: placements of the tasks that are unlocked in the
+    snapshot, converted through absolute time, with `end = start + current duration`.
+12. **Timestamps** generated by the API are UTC `...Z`, with milliseconds only when non-zero
+    (`2026-10-15T09:20:01.200Z`, `2026-10-15T09:00:00Z`).
+13. **Packaging.** `requirements.txt` pins the direct dependencies (fastapi, starlette, uvicorn,
+    pydantic, SQLAlchemy, ortools, httpx, pytest) to the `.venv` versions; `pip install --dry-run`
+    installs nothing. `run_api.sh` also honours `HOST` (default `127.0.0.1`) and passes extra
+    arguments through to uvicorn. `tests/api/conftest.py` puts `backend/` and `tests/api/` on
+    `sys.path` (shared helpers live in `tests/api/api_helpers.py`). It also hides Starlette's
+    "use httpx2" deprecation warning, which `fastapi.testclient` triggers with the pinned httpx.

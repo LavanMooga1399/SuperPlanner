@@ -36,6 +36,7 @@ class _Model:
         cost_terms = []
         ends = []
         tard_terms = []
+        tard_vars: list[tuple[int, cp_model.IntVar]] = []
         for t in problem.tasks:
             d = t.duration
             lo, hi = max(t.release, 0), H - d
@@ -91,6 +92,7 @@ class _Model:
                 tv = m.NewIntVar(0, H, f"T{t.idx}")
                 m.Add(tv >= s + d - t.deadline)
                 tard_terms.append(t.priority * tv)
+                tard_vars.append((t.idx, tv))
         for k, items in per_res.items():
             cap = problem.resources[k].capacity
             if cap == 1 and all(u == 1 for _, u in items):
@@ -109,8 +111,9 @@ class _Model:
             else:
                 m.Add(b + db >= a + dep.lag)
         self.M = m.NewIntVar(0, H, "M")
-        if ends:
-            m.AddMaxEquality(self.M, ends)
+        for e in ends:
+            m.Add(self.M >= e)
+        self.tard: list[tuple[int, cp_model.IntVar]] = tard_vars
         cm = _coef(w.makespan, refs.makespan)
         ct = _coef(w.tardiness, refs.weighted_tardiness)
         obj = []
@@ -130,6 +133,16 @@ class _Model:
 
     def _hint(self, placements: list[Placement]) -> None:
         pr = self.problem
+        starts: dict[int, int] = {}
+        for p in placements:
+            idx = pr.task_index.get(p.task_id)
+            if idx is not None:
+                starts[idx] = p.start
+        if len(starts) == len(pr.tasks):
+            self.m.AddHint(self.M, max((starts[t.idx] + t.duration for t in pr.tasks), default=0))
+            for idx, tv in self.tard:
+                t = pr.tasks[idx]
+                self.m.AddHint(tv, max(0, starts[idx] + t.duration - (t.deadline or 0)))
         for p in placements:
             idx = pr.task_index.get(p.task_id)
             if idx is None:
@@ -197,6 +210,10 @@ class CpSatSolver:
         prm.num_workers = config.cpsat.num_workers
         prm.random_seed = config.seed
         prm.relative_gap_limit = config.cpsat.relative_gap
+        # Probing in presolve can eat most of a short budget on medium models; scale it with the budget.
+        probe_dtime = max(0.05, min(1.0, 0.05 * config.time_limit_seconds))
+        prm.probing_deterministic_time_limit = probe_dtime
+        prm.presolve_probing_deterministic_time_limit = probe_dtime
         cb = _Callback(model, config, refs, progress_cb, cancel_event, t0)
         done = threading.Event()
 

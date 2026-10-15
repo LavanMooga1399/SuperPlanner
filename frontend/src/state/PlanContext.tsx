@@ -37,6 +37,8 @@ export interface PlanContextValue {
   conflictDismissed: boolean;
   /** Replace the record after a server-side change (e.g. replan bumped the version). */
   refreshRecord(): Promise<void>;
+  /** Latest known server version (not subject to stale closures). */
+  getVersion(): number | null;
 }
 
 export const PlanContextRaw = createContext<PlanContextValue | null>(null);
@@ -147,8 +149,7 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
       scheduleAutosave();
     }
     return ok;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applyRecord]);
+  }, [applyRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scheduleAutosave = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -219,6 +220,8 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
+  const getVersion = useCallback(() => recordRef.current?.version ?? null, []);
+
   const value = useMemo<PlanContextValue>(
     () => ({
       planId,
@@ -235,8 +238,9 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
       keepEditing,
       conflictDismissed,
       refreshRecord,
+      getVersion,
     }),
-    [planId, record, draft, dirty, saveState, saveError, loading, loadError, update, save, load, keepEditing, conflictDismissed, refreshRecord],
+    [planId, record, draft, dirty, saveState, saveError, loading, loadError, update, save, load, keepEditing, conflictDismissed, refreshRecord, getVersion],
   );
 
   return <PlanContextRaw.Provider value={value}>{children}</PlanContextRaw.Provider>;

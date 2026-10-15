@@ -149,7 +149,7 @@ function WorkspaceInner() {
   return (
     <div>
       <div className="ws-header">
-        <div className="ws-title grow">
+        <div className="ws-title">
           <label htmlFor="plan-name" className="sr-only">Plan name</label>
           <input
             id="plan-name"
@@ -164,7 +164,7 @@ function WorkspaceInner() {
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            size={Math.min(40, Math.max(10, name.length + 1))}
+            size={Math.min(40, Math.max(8, name.length + 1))}
           />
           <span className="chip" title="Server version of this plan">v{record.version}</span>
           <SaveIndicator state={saveState} dirty={dirty} error={saveError} />

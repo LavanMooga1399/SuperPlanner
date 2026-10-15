@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .compiled import kahn_order
-from .graph import cpm_core, dep_lower_bound, find_cycles
+from .graph import CpmResult, cpm_core, dep_lower_bound, find_cycles
 from .model import Problem, Task
 from .timeutil import expand_windows, fmt_duration, fmt_minute, parse_hhmm, to_minute
 
@@ -321,3 +321,28 @@ def run_preflight(problem: Problem):
 
     issues = [i for c in CHECK_ORDER for i in buckets[c]]
     return issues, cpm_data
+
+
+class ValidateReport(BaseModel):
+    """Returned by `analyze()` and the /validate endpoint (section 9.2)."""
+
+    ok: bool
+    issues: list[Issue]
+    cpm: CpmResult | None
+
+
+def analyze(problem: Problem) -> ValidateReport:
+    from .compiled import build_compiled
+    from .graph import cpm as run_cpm
+
+    issues, cpm_data = run_preflight(problem)
+    ok = not any(i.severity == "error" for i in issues)
+    structural = any(i.code in STRUCTURAL_CODES for i in issues)
+    result = None
+    if not structural:
+        try:
+            result = run_cpm(build_compiled(problem))
+        except ValueError:
+            result = None
+    return ValidateReport(ok=ok, issues=issues, cpm=result)
+

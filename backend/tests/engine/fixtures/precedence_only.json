@@ -1,0 +1,240 @@
+{
+ "format": "superplanner.problem",
+ "format_version": 1,
+ "exported_at": "2026-10-15T09:30:00Z",
+ "problem": {
+  "id": "draft",
+  "name": "Precedence network",
+  "description": "",
+  "domain": "generic",
+  "horizon_start": "2026-11-02T00:00:00+01:00",
+  "horizon_days": 7,
+  "time_unit": "minutes",
+  "currency": "USD",
+  "terminology": {
+   "task": "Task",
+   "tasks": "Tasks",
+   "resource": "Resource",
+   "resources": "Resources",
+   "group": "Group",
+   "milestone": "Milestone",
+   "schedule": "Schedule",
+   "deadline": "Deadline"
+  },
+  "tasks": [
+   {
+    "id": "A1",
+    "name": "Activity 1",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 120,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "A2",
+    "name": "Activity 2",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 60,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "A3",
+    "name": "Activity 3",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 90,
+    "priority": 5,
+    "earliest_start": "2026-11-02T05:00:00+01:00",
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "A4",
+    "name": "Activity 4",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 240,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "A5",
+    "name": "Activity 5",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 30,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "A6",
+    "name": "Activity 6",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 180,
+    "priority": 9,
+    "earliest_start": null,
+    "deadline": "2026-11-02T10:00:00+01:00",
+    "deadline_hard": false,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "A7",
+    "name": "Activity 7",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 45,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "A8",
+    "name": "Activity 8",
+    "description": "",
+    "group": null,
+    "type": "activity",
+    "duration_minutes": 75,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": null,
+    "deadline_hard": false,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   },
+   {
+    "id": "M_END",
+    "name": "Done",
+    "description": "",
+    "group": null,
+    "type": "milestone",
+    "duration_minutes": 0,
+    "priority": 5,
+    "earliest_start": null,
+    "deadline": "2026-11-05T00:00:00+01:00",
+    "deadline_hard": true,
+    "requirements": [],
+    "locked": null,
+    "metadata": {}
+   }
+  ],
+  "resources": [],
+  "dependencies": [
+   {
+    "predecessor": "A1",
+    "successor": "A2",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "A1",
+    "successor": "A3",
+    "type": "SS",
+    "lag_minutes": 30
+   },
+   {
+    "predecessor": "A2",
+    "successor": "A4",
+    "type": "FS",
+    "lag_minutes": 15
+   },
+   {
+    "predecessor": "A3",
+    "successor": "A4",
+    "type": "FF",
+    "lag_minutes": 60
+   },
+   {
+    "predecessor": "A3",
+    "successor": "A5",
+    "type": "SF",
+    "lag_minutes": 200
+   },
+   {
+    "predecessor": "A4",
+    "successor": "A6",
+    "type": "SS",
+    "lag_minutes": -20
+   },
+   {
+    "predecessor": "A5",
+    "successor": "A6",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "A6",
+    "successor": "A7",
+    "type": "FF",
+    "lag_minutes": -10
+   },
+   {
+    "predecessor": "A7",
+    "successor": "A8",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "A8",
+    "successor": "M_END",
+    "type": "FS",
+    "lag_minutes": 0
+   },
+   {
+    "predecessor": "A2",
+    "successor": "A7",
+    "type": "FS",
+    "lag_minutes": 600
+   }
+  ],
+  "objectives": {
+   "preset": "balanced",
+   "weights": {
+    "makespan": 1.0,
+    "tardiness": 1.0,
+    "cost": 0.2
+   }
+  },
+  "metadata": {}
+ }
+}

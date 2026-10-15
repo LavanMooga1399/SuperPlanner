@@ -192,7 +192,8 @@ export function quickCriticalPath(
   }
   // Chain: from a task with EF == PE back through binding predecessors.
   const path: string[] = [];
-  let cur = ids.find((id) => es.get(id)! + dur.get(id)! === pe && critical.has(id));
+  const ends = ids.filter((id) => es.get(id)! + dur.get(id)! === pe && critical.has(id));
+  let cur: string | undefined = ends.find((id) => succs.get(id)!.length === 0) ?? ends[0];
   const seen = new Set<string>();
   while (cur && !seen.has(cur)) {
     seen.add(cur);
@@ -202,4 +203,70 @@ export function quickCriticalPath(
     cur = binding?.predecessor;
   }
   return { critical, path: path.reverse(), makespan: pe };
+}
+
+/** Edges that lie on a directed cycle (both endpoints in the same strongly connected component). */
+export function cycleEdges(nodes: string[], edges: LayoutEdge[]): Set<string> {
+  const adj = new Map<string, string[]>(nodes.map((n) => [n, []]));
+  for (const e of edges) if (adj.has(e.from) && adj.has(e.to)) adj.get(e.from)!.push(e.to);
+  let index = 0;
+  const idx = new Map<string, number>();
+  const low = new Map<string, number>();
+  const onStack = new Set<string>();
+  const stack: string[] = [];
+  const comp = new Map<string, number>();
+  let compId = 0;
+  const compSize = new Map<number, number>();
+  for (const root of nodes) {
+    if (idx.has(root)) continue;
+    const work: Array<{ n: string; i: number }> = [{ n: root, i: 0 }];
+    idx.set(root, index);
+    low.set(root, index++);
+    stack.push(root);
+    onStack.add(root);
+    while (work.length) {
+      const top = work[work.length - 1];
+      const succ = adj.get(top.n)!;
+      if (top.i < succ.length) {
+        const m = succ[top.i++];
+        if (!idx.has(m)) {
+          idx.set(m, index);
+          low.set(m, index++);
+          stack.push(m);
+          onStack.add(m);
+          work.push({ n: m, i: 0 });
+        } else if (onStack.has(m)) {
+          low.set(top.n, Math.min(low.get(top.n)!, idx.get(m)!));
+        }
+      } else {
+        work.pop();
+        if (work.length) {
+          const parent = work[work.length - 1].n;
+          low.set(parent, Math.min(low.get(parent)!, low.get(top.n)!));
+        }
+        if (low.get(top.n) === idx.get(top.n)) {
+          let size = 0;
+          for (;;) {
+            const w = stack.pop()!;
+            onStack.delete(w);
+            comp.set(w, compId);
+            size++;
+            if (w === top.n) break;
+          }
+          compSize.set(compId, size);
+          compId++;
+        }
+      }
+    }
+  }
+  const out = new Set<string>();
+  for (const e of edges) {
+    if (e.from === e.to) {
+      out.add(edgeKey(e.from, e.to));
+      continue;
+    }
+    const c = comp.get(e.from);
+    if (c !== undefined && c === comp.get(e.to) && (compSize.get(c) ?? 0) > 1) out.add(edgeKey(e.from, e.to));
+  }
+  return out;
 }

@@ -212,10 +212,9 @@ def decode(problem: CompiledProblem, priority: Sequence[float],
             profiles[k].add(s, s + task.duration, req.units)
             busy[k] += req.units * task.duration
 
-    # 2. locked tasks first
-    for task in tasks:
-        if task.locked_start is None:
-            continue
+    # 2. locked tasks first (those with fixed resources before those that only fix the start)
+    for task in sorted((t for t in tasks if t.locked_start is not None),
+                       key=lambda t: (t.locked_resources is None, t.idx)):
         s = task.locked_start
         d = task.duration
         if task.locked_resources is not None:
