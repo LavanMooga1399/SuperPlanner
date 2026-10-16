@@ -544,7 +544,7 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
               })}
               {/* now line */}
               {nowMin > rangeStart && nowMin < rangeEnd ? (
-                <g aria-hidden>
+                <g aria-hidden pointerEvents="none">
                   <line x1={x(nowMin)} x2={x(nowMin)} y1={0} y2={totalH} stroke="var(--accent)" strokeWidth={1} strokeDasharray="2 3" />
                 </g>
               ) : null}

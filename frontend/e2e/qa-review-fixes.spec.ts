@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { acceptDisclaimer, finJson, planWithResult, uniqueName } from "./finance-helpers";
+import { acceptDisclaimer, apiPost, finJson, planWithResult, uniqueName, waitRun } from "./finance-helpers";
 
 // QA re-checks of the review defects that had no e2e coverage (what-if slider range, Re-run after a failed save).
 
@@ -22,6 +22,33 @@ for (const tid of ["young_professional", "family", "near_retirement"]) {
     if (avg > 20000) expect(Number(await slider.getAttribute("max"))).toBeGreaterThan(10000);
   });
 }
+
+test("what-if savings slider keeps step 1000 for an off-grid 'Try this' amount and snaps on the first move", async ({ page, request }) => {
+  const { planId, resultId } = await planWithResult(request, "young_professional", uniqueName("slider offgrid"));
+  const created = await apiPost(
+    request,
+    `/plans/${planId}/what-if`,
+    { changes: { extra_monthly_savings: 2345 }, replace_active: true, base_result_id: resultId },
+    202,
+  );
+  await waitRun(request, created.run_id);
+  await page.goto(`/finance/${planId}/what-if?base=${resultId}&run=${created.run_id}`);
+  await acceptDisclaimer(page);
+  const slider = page.getByTestId("whatif-savings");
+  await expect(slider).toHaveAttribute("aria-valuenow", "2345");
+  await expect(slider).toHaveAttribute("aria-valuetext", /2,?345/);
+  expect(await slider.getAttribute("step")).toBe("1000");
+  expect(Number(await slider.getAttribute("min")) % 1000 === 0).toBe(true);
+  expect(Number(await slider.getAttribute("max")) % 1000 === 0).toBe(true);
+  await slider.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(slider).toHaveAttribute("aria-valuenow", "3000");
+  await page.keyboard.press("ArrowRight");
+  await expect(slider).toHaveAttribute("aria-valuenow", "4000");
+  await page.keyboard.press("ArrowLeft");
+  await expect(slider).toHaveAttribute("aria-valuenow", "3000");
+  await expect(slider).toHaveValue("3000");
+});
 
 test("Results 'Re-run' does not start a run when the pending save fails", async ({ page, request }) => {
   const { planId } = await planWithResult(request, "young_professional", uniqueName("rerun save"));

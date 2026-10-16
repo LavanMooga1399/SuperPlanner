@@ -457,12 +457,14 @@ class FinanceLP:
             self.eta[tier] = eta
             fr = _Expr()
             for gid in gids:
-                # short_g <= eta * TR_g + head_g: the shortfall of an unfunded goal is TR + flooring headroom, so
-                # without the headroom term eta <= 1 would force `head` of value into every enabled goal (a fake
-                # cash deficit in MILP mode, micro-contributions to unfunded goals in LP mode).
+                # short_g <= eta * (TR_g + head_g): the shortfall of an unfunded goal is TR + flooring headroom,
+                # so eta <= 1 must allow it (otherwise `head` of value is forced into every enabled goal: a fake
+                # cash deficit in MILP mode, micro-contributions to unfunded goals in LP mode). The constraint is
+                # kept homogeneous (no constant right-hand side): with a `head` offset, fixing eta at ~0 left GLOP
+                # with a near-degenerate face on which the next tier (T4) ended ABNORMAL.
                 TRs = max(self.goals[gid].TR * S, 1e-12)
-                self._cons(_Expr().add(self.short[gid], 1.0).add(eta, -TRs), -inf,
-                           self.headroom.get(gid, 0.0) * S)
+                THs = max((self.goals[gid].TR + self.headroom.get(gid, 0.0)) * S, 1e-12)
+                self._cons(_Expr().add(self.short[gid], 1.0).add(eta, -THs), -inf, 0.0)
                 fr.add(self.short[gid], 1.0 / TRs)
             self.obj_frac[tier] = fr
         self.obj_T4 = _Expr()
@@ -509,7 +511,9 @@ class FinanceLP:
         obj.SetOffset(expr.const)
         obj.SetMinimization()
 
-    def _solve_once(self, deadline: float, cancel_event: threading.Event | None) -> int:
+    def _solve_once(self, deadline: float, cancel_event: threading.Event | None, fresh: int = 0) -> int:
+        """One solve. `fresh` >= 1 re-solves from scratch (no warm start), 2 also with presolve off: the
+        retries of a tier that ended INFEASIBLE / ABNORMAL on GLOP's incremental (warm-started) path."""
         remaining = max(0.05, deadline - time.monotonic())
         self.solver.SetTimeLimit(int(remaining * 1000))
         done = threading.Event()
@@ -526,12 +530,14 @@ class FinanceLP:
             watcher = threading.Thread(target=watch, daemon=True)
             watcher.start()
         try:
+            params = pywraplp.MPSolverParameters()
             if self.milp:
-                params = pywraplp.MPSolverParameters()
                 params.SetDoubleParam(params.RELATIVE_MIP_GAP, 1e-4)
-                status = self.solver.Solve(params)
-            else:
-                status = self.solver.Solve()
+            if fresh >= 1:
+                params.SetIntegerParam(params.INCREMENTALITY, params.INCREMENTALITY_OFF)
+            if fresh >= 2:
+                params.SetIntegerParam(params.PRESOLVE, params.PRESOLVE_OFF)
+            status = self.solver.Solve(params)
         finally:
             done.set()
             if watcher is not None:
@@ -543,6 +549,19 @@ class FinanceLP:
     def _snapshot(self) -> list[float]:
         return [v.solution_value() for v in self.solver.variables()]
 
+    _OK = (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE)
+
+    def _solve_retry(self, deadline: float, cancel_event: threading.Event | None) -> int:
+        """Solve; on a numerical failure (INFEASIBLE / ABNORMAL after earlier tiers were fixed) retry from
+        scratch, then from scratch without presolve. GLOP's warm-started path occasionally reports ABNORMAL on
+        the tiny tier slacks of 8.5 where a cold solve is fine."""
+        status = self._solve_once(deadline, cancel_event)
+        for fresh in (1, 2):
+            if status in self._OK or status == pywraplp.Solver.NOT_SOLVED or time.monotonic() >= deadline:
+                break
+            status = self._solve_once(deadline, cancel_event, fresh=fresh)
+        return status
+
     def lexicographic(self, deadline: float, cancel_event: threading.Event | None = None,
                       progress: Callable[[str, int, int], None] | None = None) -> OptimizerSolution:
         tiers = self.tier_list()
@@ -552,34 +571,47 @@ class FinanceLP:
         termination = "optimal"
         proven = True
         warnings = list(self.warnings)
+
+        def attempt(name: str, expr: _Expr) -> bool:
+            nonlocal snap, termination, proven
+            self._set_objective(expr)
+            t0 = time.monotonic()
+            status = self._solve_retry(deadline, cancel_event)
+            secs = round(time.monotonic() - t0, 4)
+            sname = _STATUS.get(status, str(status))
+            if status not in self._OK:
+                diags.append(TierDiagnostic(tier=name, status=sname, objective=None, seconds=secs))
+                self._last_status = status
+                return False
+            v = self.solver.Objective().Value()
+            if status == pywraplp.Solver.FEASIBLE:
+                proven = False
+                termination = "gap" if termination == "optimal" else termination
+            diags.append(TierDiagnostic(tier=name, status=sname, objective=self._report(name, v), seconds=secs))
+            values[name] = v
+            snap = self._snapshot()
+            return True
+
         for j, (name, expr) in enumerate(tiers):
             if progress:
                 progress(name, j, len(tiers))
-            self._set_objective(expr)
-            t0 = time.monotonic()
-            status = self._solve_once(deadline, cancel_event)
-            secs = time.monotonic() - t0
-            sname = _STATUS.get(status, str(status))
-            if status in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
-                v = self.solver.Objective().Value()
-                if status == pywraplp.Solver.FEASIBLE:
-                    proven = False
-                    termination = "gap" if termination == "optimal" else termination
-                diags.append(TierDiagnostic(tier=name, status=sname, objective=self._report(name, v),
-                                            seconds=round(secs, 4)))
-                values[name] = v
-                snap = self._snapshot()
+            if attempt(name, expr):
                 if j < len(tiers) - 1:
-                    self._cons(expr, -self.solver.infinity(), v + self.tier_eps(name, v))
+                    self._cons(expr, -self.solver.infinity(), values[name] + self.tier_eps(name, values[name]))
                 continue
-            diags.append(TierDiagnostic(tier=name, status=sname, objective=None, seconds=round(secs, 4)))
-            if status == pywraplp.Solver.NOT_SOLVED or time.monotonic() >= deadline:
+            if self._last_status == pywraplp.Solver.NOT_SOLVED or time.monotonic() >= deadline:
                 termination = "time_limit"
                 proven = False
                 break
             if j == 0:
-                raise RuntimeError(f"finance LP returned {sname} at T0")
+                raise RuntimeError(f"finance LP returned {diags[-1].status} at T0")
             warnings.append("TIER_NUMERIC_FALLBACK")
+            # The previous tier's vertex is arbitrary in everything later tiers decide (smoothing and, via T5,
+            # the 1e-4 penalty on sells u), so it can carry pure churn: sell u, buy (1 - tau) u of the same
+            # class. Try the cleanup tier T5 alone on top of the tiers already fixed; keep its solution only
+            # if it solves, otherwise the previous tier's (publishing then drops sell-without-buy rebalances).
+            if j < len(tiers) - 1 and time.monotonic() < deadline:
+                attempt(*tiers[-1])
             break
         if snap is None:
             return self._zero_solution(diags, termination, warnings)

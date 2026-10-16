@@ -1467,6 +1467,16 @@ _(developers: record interpretations here with date and owner)_
   `h_g = 0.01 x sum over contribution variables of Phi x rho^(months to D)` (an upper bound of the flooring
   loss). Without it every published plan sat a few currency units below `TR`, so zero-volatility goals got
   success 0 under 9.2's `V >= TR - 1`. `short` is bounded by `TR + h_g`; published shortfalls use `TR`.
+- 2026-10-16, FWP1 (regression fix): the tier constraint is `short_g <= eta x (TR_g + h_g)` (homogeneous),
+  so `eta = 1` still allows an unfunded goal's full shortfall. The first version, `short_g <= eta TR_g + h_g`
+  (constant right-hand side), left GLOP on a degenerate face once `eta` was fixed at ~0: T4 ended `ABNORMAL`
+  and the published T2b vertex carried pure churn (sell `u`, buy `(1 - tau) u` of the same class, which
+  publishing nets to a sell without buy, `REBALANCE_UNBALANCED`). `T1b..T3b` still minimise `short_g / TR_g`.
+- 2026-10-16, FWP1: **numerical fallback hardening (8.5 [R9])**: a tier that returns `INFEASIBLE`/`ABNORMAL` is
+  first re-solved from scratch (`INCREMENTALITY_OFF`), then also with presolve off; only if that fails is
+  `TIER_NUMERIC_FALLBACK` raised. The remaining tiers are then skipped except the cleanup tier T5, which is
+  tried once on top of the tiers already fixed (its solution is used if it solves; otherwise the previous
+  tier's). Publishing never emits a rebalance whose sells have no buys (it is dropped: it can only be LP churn).
 - 2026-10-16, FWP1: **caps only bind where they can be met** (8.4 rules 7-9, validator 11): the bucket glide
   cap at block k applies only if the goal has an allowed class outside the risky set that can still be bought
   at `s_k` (lock-in rule); the contribution-mix cap only if a non-risky class can receive contributions in the

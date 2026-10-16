@@ -185,6 +185,11 @@ def publish(plan: FinancePlan, proj: CashflowProjection, sol: OptimizerSolution,
                         v = floor2(b * ratio)
                         if v > 0:
                             buys[a] = v
+            if sells and not buys:
+                # a sell with nothing bought is a pure loss of tau (or of the whole amount) and is never a valid
+                # rebalance (validator REBALANCE_UNBALANCED); it can only come from LP churn left in a
+                # TIER_NUMERIC_FALLBACK vertex, so it is dropped rather than published.
+                sells = {}
             if sells or buys:
                 rebalances.append(Rebalance(month=months[s], goal_id=gid, sells=sells, buys=buys))
             return sells, buys

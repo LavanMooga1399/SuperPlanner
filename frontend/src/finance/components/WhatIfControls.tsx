@@ -1,3 +1,4 @@
+import type React from "react";
 import type { FinancePlan, GoalOverride, WhatIfChanges } from "../api/types";
 import { formatMoney, formatPct } from "../lib/money";
 import { addMonths, fmtDurationMonths, fmtMonth, monthsBetween } from "../lib/months";
@@ -22,10 +23,24 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
   const loc = plan.profile.locale;
   const base = Math.max(10000, avgSurplus);
   const extra = changes.extra_monthly_savings ?? 0;
-  // Keep a stored value (e.g. a ceil(e) amount from a "Try this" fix) inside the range and unsnapped.
-  const minSave = Math.min(-1000, roundTo(-0.5 * base, 1000), Math.floor(extra));
-  const maxSave = Math.max(1000, roundTo(1.0 * base, 1000), Math.ceil(extra));
-  const saveStep = Number.isInteger(extra) && extra % 1000 === 0 ? 1000 : 1;
+  // Step is always 1000 (20.5). The range stays on the 1000 grid but widens to the nearest grid
+  // points around a stored off-grid value (e.g. a ceil(e) amount from a "Try this" fix), which is
+  // still shown as-is in the label; the first move snaps it onto the grid.
+  const SAVE_STEP = 1000;
+  const minSave = Math.min(-1000, roundTo(-0.5 * base, SAVE_STEP), Math.floor(extra / SAVE_STEP) * SAVE_STEP);
+  const maxSave = Math.max(1000, roundTo(1.0 * base, SAVE_STEP), Math.ceil(extra / SAVE_STEP) * SAVE_STEP);
+  const offGrid = extra % SAVE_STEP !== 0;
+  const setExtra = (v: number) => onChange({ ...changes, extra_monthly_savings: Math.min(maxSave, Math.max(minSave, v)) });
+  // The browser shows an off-grid value at the nearest grid point, so a plain arrow press could skip
+  // a grid point; snap to the next grid point in the pressed direction instead.
+  const onSaveKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!offGrid) return;
+    const up = e.key === "ArrowRight" || e.key === "ArrowUp";
+    const down = e.key === "ArrowLeft" || e.key === "ArrowDown";
+    if (!up && !down) return;
+    e.preventDefault();
+    setExtra(up ? Math.ceil(extra / SAVE_STEP) * SAVE_STEP : Math.floor(extra / SAVE_STEP) * SAVE_STEP);
+  };
   const risk = changes.risk_tolerance ?? plan.profile.risk_tolerance;
   const shift = changes.return_shift_pct ?? 0;
   const drop = changes.income_drop ?? null;
@@ -58,11 +73,13 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
           type="range"
           min={minSave}
           max={maxSave}
-          step={saveStep}
+          step={SAVE_STEP}
           value={extra}
           data-testid="whatif-savings"
+          aria-valuenow={extra}
           aria-valuetext={`${formatMoney(extra, cur, loc, { signed: true })} per month`}
-          onChange={(e) => onChange({ ...changes, extra_monthly_savings: Number(e.target.value) })}
+          onKeyDown={onSaveKey}
+          onChange={(e) => setExtra(Number(e.target.value))}
         />
         <span className="small faint">Negative means saving less (for example, spending more each month).</span>
       </div>
