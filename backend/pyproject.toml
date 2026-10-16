@@ -2,7 +2,7 @@
 name = "superplanner"
 version = "0.1.0"
 description = "SuperPlanner MVP: universal planning engine and FastAPI service"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.143.1",
     "starlette==1.8.0",
