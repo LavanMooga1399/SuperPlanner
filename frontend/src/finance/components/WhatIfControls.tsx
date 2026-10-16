@@ -21,9 +21,11 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
   const cur = plan.profile.currency;
   const loc = plan.profile.locale;
   const base = Math.max(10000, avgSurplus);
-  const minSave = Math.min(-1000, roundTo(-0.5 * base, 1000));
-  const maxSave = Math.max(1000, roundTo(1.0 * base, 1000));
   const extra = changes.extra_monthly_savings ?? 0;
+  // Keep a stored value (e.g. a ceil(e) amount from a "Try this" fix) inside the range and unsnapped.
+  const minSave = Math.min(-1000, roundTo(-0.5 * base, 1000), Math.floor(extra));
+  const maxSave = Math.max(1000, roundTo(1.0 * base, 1000), Math.ceil(extra));
+  const saveStep = Number.isInteger(extra) && extra % 1000 === 0 ? 1000 : 1;
   const risk = changes.risk_tolerance ?? plan.profile.risk_tolerance;
   const shift = changes.return_shift_pct ?? 0;
   const drop = changes.income_drop ?? null;
@@ -56,7 +58,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
           type="range"
           min={minSave}
           max={maxSave}
-          step={1000}
+          step={saveStep}
           value={extra}
           data-testid="whatif-savings"
           aria-valuetext={`${formatMoney(extra, cur, loc, { signed: true })} per month`}

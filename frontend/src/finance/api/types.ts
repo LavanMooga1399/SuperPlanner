@@ -465,6 +465,8 @@ export interface AssumptionsUsed {
   risky_cap_by_tolerance_pct: number[];
   /** goal id -> class id -> cautious real return % */
   planning_returns_pct: Record<Id, Record<Id, number>>;
+  /** Note on where the assumptions come from (copied from the plan); shown with results. */
+  source_note?: string;
 }
 
 export interface TierDiagnostic {
@@ -483,6 +485,10 @@ export interface FinanceDiagnostics {
   simulation_seconds: number;
   fix_solves: number;
   warnings: string[];
+  /** Cash deficit found by the feasibility tier, in currency units (0 when cash flow is feasible). */
+  cash_deficit_real?: number;
+  /** Total wall-clock seconds of the run. */
+  seconds_total?: number;
 }
 
 export interface FinanceResult {

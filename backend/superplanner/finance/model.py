@@ -324,6 +324,11 @@ class SimulationSettings(_Strict):
     income_interruption: IncomeInterruption = Field(default_factory=IncomeInterruption)
 
 
+class ResultSimulationSettings(SimulationSettings):
+    """`FinanceResult.simulation_settings` (F.14): the run's simulation settings plus the seed it used."""
+    seed: int = Field(default=0, ge=0, le=2**31 - 1)
+
+
 class FinanceRunRequest(_Strict):
     time_limit_seconds: float = Field(default=30, ge=5, le=120)
     seed: int = Field(default=0, ge=0, le=2**31 - 1)
@@ -598,7 +603,7 @@ class FinanceResult(BaseModel):
     explanation: Explanation = Field(default_factory=Explanation)
     violations: list[FinanceViolation] = Field(default_factory=list)
     assumptions_used: AssumptionsUsed = Field(default_factory=AssumptionsUsed)
-    simulation_settings: SimulationSettings = Field(default_factory=SimulationSettings)
+    simulation_settings: ResultSimulationSettings = Field(default_factory=ResultSimulationSettings)
     diagnostics: Diagnostics = Field(default_factory=Diagnostics)
 
 
@@ -691,7 +696,7 @@ __all__ = [
     "Debt", "Holding", "OneOff", "Earmark", "Goal", "EmergencyFundSettings", "AssetClass", "Correlation",
     "GlideStep", "Assumptions", "PlanConstraints", "FinancePlan", "FinanceIssue", "FinancePreflightReport",
     "AssignableItem", "InitialSplit", "CashflowProjection", "DebtPayoff", "CashflowYear", "CashflowSummary",
-    "IncomeInterruption", "SimulationSettings", "FinanceRunRequest", "FinanceProgress", "FinanceViolation",
+    "IncomeInterruption", "SimulationSettings", "ResultSimulationSettings", "FinanceRunRequest", "FinanceProgress", "FinanceViolation",
     "GoalOverride", "IncomeDrop", "WhatIfChanges", "Reason", "Fix", "GoalExplanation", "Binding", "Explanation",
     "ResultSummary", "GoalResult", "ContributionLine", "HoldingAssignment", "Rebalance", "GlidePoint",
     "ResultSeries", "ResultCashflow", "Scenarios", "AssumptionsUsed", "TierDiagnostic", "Diagnostics",

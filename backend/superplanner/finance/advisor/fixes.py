@@ -201,10 +201,14 @@ def compute_fixes(plan: FinancePlan, proj: CashflowProjection, base: OptimizerSo
         if not low_prob_only and gr.target_real > 0:
             new_amount = floor2(goal.target_amount * (gr.target_real - gr.shortfall_real) / gr.target_real)
             if new_amount > 0:
+                # the reduction is stated in the units of the goal's target field (today's money), so that
+                # target_amount - amount = new; shortfall_real is in real-target units, which differ when the
+                # goal has its own inflation rate
+                cut = round(goal.target_amount - new_amount, 2)
                 wi = WhatIfChanges(goal_overrides=[GoalOverride(goal_id=gid, target_amount=new_amount)])
                 fixes.append(Fix(kind="REDUCE_TARGET", goal_id=gid, message=render(
-                    "FIX_REDUCE", goal=goal.name, amount=format_money(gr.shortfall_real, cur),
-                    new=format_money(new_amount, cur)), amount=round(gr.shortfall_real, 2),
+                    "FIX_REDUCE", goal=goal.name, amount=format_money(cut, cur),
+                    new=format_money(new_amount, cur)), amount=cut,
                     resulting_shortfall_real=0.0, relative_change=gr.shortfall_real / gr.target_real, what_if=wi))
 
         # LOWER_EF_BUILD_SHARE (must goals that run out of cash while the EF is built)

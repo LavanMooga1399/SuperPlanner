@@ -67,7 +67,7 @@ export function formatMoney(
 
 function trim(v: number): string {
   const s = v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
-  return s.replace(/\.?0+$/, "");
+  return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
 }
 
 export function formatPct(v: number | null | undefined, decimals = 0, signed = false): string {

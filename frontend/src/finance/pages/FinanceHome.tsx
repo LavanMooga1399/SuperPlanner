@@ -229,7 +229,7 @@ function FinTemplateCard({ template }: { template: FinanceTemplateInfo }) {
 
   return (
     <article className="card template-card" data-testid={`fin-template-card-${template.id}`} aria-labelledby={`${idPrefix}-title`}>
-      <form className="card-body" onSubmit={(e) => void submit(e)}>
+      <form className="card-body" noValidate onSubmit={(e) => void submit(e)}>
         <div className="row">
           <span className="template-icon" aria-hidden>
             <Icon name={ICONS[template.id] ?? "file"} size={18} />
@@ -254,7 +254,7 @@ function FinTemplateCard({ template }: { template: FinanceTemplateInfo }) {
                     type="number"
                     min={p.min ?? undefined}
                     max={p.max ?? undefined}
-                    step={p.type === "money" ? 1000 : 1}
+                    step={p.type === "money" ? "any" : 1}
                     value={Number.isFinite(values[p.name]) ? values[p.name] : ""}
                     aria-invalid={!Number.isFinite(values[p.name]) || (p.min !== null && values[p.name] < p.min) || (p.max !== null && values[p.name] > p.max) || undefined}
                     onChange={(e) => setValues({ ...values, [p.name]: e.target.value === "" ? NaN : Number(e.target.value) })}

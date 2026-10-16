@@ -17,7 +17,7 @@ from . import defaults as Dfl
 from . import timegrid as tg
 from .cashflow import ef_complete_t
 from .model import CashflowProjection, FinanceCancelled, FinancePlan, Goal, TierDiagnostic
-from .returns import (allowed_classes, annuity_due, can_dilute, gamma, goal_cap, inflation_vol, is_equity, is_risky,
+from .returns import (active_caps, allowed_classes, annuity_due, gamma, goal_cap, inflation_vol, is_equity, is_risky,
                       mix_cap_applies, pi_general,
                       planning_rho,
                       real_target)
@@ -340,7 +340,7 @@ class FinanceLP:
                         self.LR_cls.setdefault((k, a), _Expr()).add_expr(Fk)
                 cap = gd.caps[k]
                 if (any(is_risky(self.classes[a]) for a in gd.bucket_classes) and cap < 1.0
-                        and can_dilute(self.plan, gd.goal, gd.D, s, is_risky)):
+                        and active_caps(self.plan, gd.goal, gd.D, s).risk):
                     e = _Expr()
                     for a in gd.bucket_classes:
                         e.add(self.H[(gid, a, k)], (1.0 if is_risky(self.classes[a]) else 0.0) - cap)
@@ -374,23 +374,20 @@ class FinanceLP:
         L = self.plan.constraints.contribution_block_months
         for k, entries in self.Hblock.items():
             s_k = k * L
+            act = {g: active_caps(self.plan, self.goals[g].goal, self.goals[g].D, s_k)
+                   for g in {e_[0] for e_ in entries}}
             if maxeq is not None:
-                dil = {g: can_dilute(self.plan, self.goals[g].goal, self.goals[g].D, s_k, is_equity)
-                       for g in {e_[0] for e_ in entries}}
                 e = _Expr()
                 for (g_, a, Hv) in entries:
-                    e.add(Hv, (1.0 if is_equity(self.classes[a]) and dil[g_] else 0.0) - maxeq / 100.0)
+                    e.add(Hv, (1.0 if is_equity(self.classes[a]) and act[g_].equity else 0.0) - maxeq / 100.0)
                 e.add_expr(self.LR_eq.get(k, _Expr()), -1.0)
                 self._cons(e, -inf, 0.0)
             for a_cap, pct in self.plan.constraints.max_class_pct.items():
                 if a_cap not in self.classes:
                     continue
-                dil = {g: can_dilute(self.plan, self.goals[g].goal, self.goals[g].D, s_k,
-                                     lambda c, a_cap=a_cap: c.id == a_cap)
-                       for g in {e_[0] for e_ in entries}}
                 e = _Expr()
                 for (g_, a, Hv) in entries:
-                    e.add(Hv, (1.0 if a == a_cap and dil[g_] else 0.0) - pct / 100.0)
+                    e.add(Hv, (1.0 if a == a_cap and a_cap in act[g_].classes else 0.0) - pct / 100.0)
                 e.add_expr(self.LR_cls.get((k, a_cap), _Expr()), -1.0)
                 self._cons(e, -inf, 0.0)
 
@@ -460,8 +457,12 @@ class FinanceLP:
             self.eta[tier] = eta
             fr = _Expr()
             for gid in gids:
+                # short_g <= eta * TR_g + head_g: the shortfall of an unfunded goal is TR + flooring headroom, so
+                # without the headroom term eta <= 1 would force `head` of value into every enabled goal (a fake
+                # cash deficit in MILP mode, micro-contributions to unfunded goals in LP mode).
                 TRs = max(self.goals[gid].TR * S, 1e-12)
-                self._cons(_Expr().add(self.short[gid], 1.0).add(eta, -TRs), -inf, 0.0)
+                self._cons(_Expr().add(self.short[gid], 1.0).add(eta, -TRs), -inf,
+                           self.headroom.get(gid, 0.0) * S)
                 fr.add(self.short[gid], 1.0 / TRs)
             self.obj_frac[tier] = fr
         self.obj_T4 = _Expr()
@@ -498,7 +499,7 @@ class FinanceLP:
             return max(TIER_ABS_EPS, TIER_REL_EPS * abs(v))
         tier = {"T1": "must", "T2": "should", "T3": "nice"}[name[:2]]
         trmax = max((gd.TR for gd in self.goals.values() if gd.tier == tier), default=1.0) * SCALE
-        return max(TIER_ABS_EPS / max(trmax, 1e-9), TIER_REL_EPS * abs(v), 1e-10)
+        return max(TIER_ABS_EPS / max(trmax, 1e-9), 1e-12)
 
     def _set_objective(self, expr: _Expr) -> None:
         obj = self.solver.Objective()

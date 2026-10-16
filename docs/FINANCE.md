@@ -1549,6 +1549,23 @@ _(developers: record interpretations here with date and owner)_
   passes the stored summaries and `what_if_b` through the new `compare_results` keywords.
 - 2026-10-16, FWP2: test seam `run_service._before_final_write(run_id)` is called after `run_plan` returned and
   before the final transaction (used by the 2.7 race test).
+- 2026-10-16, review fixes (backend-developer): tier rows read `short_g <= eta * TR_g + head_g` (the goal row
+  allows `short_g` up to `TR_g + head_g`), so an unfunded goal no longer gets `head_g` of forced value. The
+  shortfall-fraction tiers (T1-T3 a/b) are fixed with a slack of 0.1 currency as a fraction of the tier's largest
+  target only (the `1e-6 * v` relative term let a short must goal leak ~1e-6 TR into lower tiers).
+- 2026-10-16, review fixes: caps for a goal's bucket are chosen by `returns.active_caps` (optimizer and validator):
+  goal risky cap, then the global equity cap, then the class caps in plan order, each binding only when it can
+  hold together with the caps already binding given the classes the goal can buy at the block start (exact
+  check for the laminar cap sets). A cap that does not bind counts the goal's positions as allowance, as before.
+- 2026-10-16, review fixes: `FinanceResult.simulation_settings` carries `seed` (`ResultSimulationSettings`).
+  `REDUCE_TARGET`'s `amount` (and message) is `target_amount - new target`, in the goal's target-field units.
+  Templates raise `ValueError` (422) when `retirement_age <= age`; the family template earmarks the 10-year
+  locked holding to education only when `education_in_years >= 10`.
+- 2026-10-16, review fixes: the validator recomputes earmark / initial EF / initial cash splits and the pool from
+  its own projection (`HOLDING_SPLIT_MISMATCH` when rows differ), checks `assigned` rows (pool item and enabled
+  goal, else `HOLDING_NOT_ASSIGNABLE`; class allowed, else `CLASS_NOT_ALLOWED`; unlocked by the goal date, else
+  `LOCKIN_PAST_GOAL`) and reports rebalances that are not at a block start of an enabled goal
+  (`REBALANCE_OFF_SCHEDULE`); goal buckets use the validator's own earmarks.
 
 ---
 

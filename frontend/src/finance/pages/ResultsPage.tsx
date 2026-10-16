@@ -84,7 +84,11 @@ export function ResultsPage() {
     setRerunning(true);
     setRerunError(null);
     try {
-      await ctx.save();
+      const saved = await ctx.save();
+      if (!saved) {
+        setRerunError("Your latest changes could not be saved, so the plan was not re-run. Open Setup to save them, then try again.");
+        return;
+      }
       const created = await createFinanceRun(planId);
       setRunEnd(null);
       setParams({ run: created.run_id });

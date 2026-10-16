@@ -37,6 +37,16 @@ def _years(start: str, years: int) -> str:
     return tg.add_months(start, 12 * max(1, int(years)))
 
 
+def _years_to_retirement(p: dict[str, float]) -> int:
+    """`retirement_age - age`; the parameter ranges overlap, so a retirement age at or below the age is rejected
+    here (`ValueError`, mapped to 422 VALIDATION_ERROR) instead of being clamped to a goal one year out."""
+    years = int(p["retirement_age"]) - int(p["age"])
+    if years <= 0:
+        raise ValueError(f"parameter 'retirement_age' ({int(p['retirement_age'])}) must be greater than "
+                         f"'age' ({int(p['age'])})")
+    return years
+
+
 def _retirement_target(expenses: list[Expense]) -> float:
     """25 x annual (essential + discretionary) expenses at plan start (15)."""
     monthly = sum(e.amount * tg.MONTHLY_FACTOR[e.frequency] for e in expenses if e.start_month is None)
@@ -65,7 +75,7 @@ def _young(name: str, start: str, p: dict[str, float]) -> FinancePlan:
         Goal(id="car", name="Car", kind="vehicle", target_amount=p["car_price"],
              target_month=_years(start, p["car_in_years"]), priority="should", flexibility_months=12),
         Goal(id="retirement", name="Retirement", kind="retirement", target_amount=_retirement_target(exps),
-             target_month=_years(start, p["retirement_age"] - p["age"]), priority="must"),
+             target_month=_years(start, _years_to_retirement(p)), priority="must"),
     ]
     return FinancePlan(
         name=name, start_month=start,
@@ -76,7 +86,14 @@ def _young(name: str, start: str, p: dict[str, float]) -> FinancePlan:
         goals=goals, emergency_fund=EmergencyFundSettings(months_of_essentials=6))
 
 
+PPF_LOCK_YEARS = 10
+
+
 def _family(name: str, start: str, p: dict[str, float]) -> FinancePlan:
+    # The long lock-in holding is earmarked to education only when it unlocks by the education date; otherwise
+    # the earmark would fail preflight (EARMARK_LOCKED_PAST_GOAL) and the holding stays in the pool.
+    edu_earmarks = ([Earmark(holding_id="h_ppf", amount=300000)]
+                    if int(p["education_in_years"]) >= PPF_LOCK_YEARS else [])
     exps = [Expense(id="living", name="Household costs", category="living", amount=p["essentials"], essential=True),
             Expense(id="school_fees", name="School fees", category="education", amount=60000, frequency="yearly",
                     essential=True, inflation_pct=9.0),
@@ -87,9 +104,9 @@ def _family(name: str, start: str, p: dict[str, float]) -> FinancePlan:
              target_month=_years(start, p["home_in_years"]), priority="must", flexibility_months=6),
         Goal(id="education", name="Child education", kind="education", target_amount=p["education_cost"],
              target_month=_years(start, p["education_in_years"]), priority="must", inflation_pct=9.0,
-             earmarked=[Earmark(holding_id="h_ppf", amount=300000)]),
+             earmarked=edu_earmarks),
         Goal(id="retirement", name="Retirement", kind="retirement", target_amount=_retirement_target(exps),
-             target_month=_years(start, p["retirement_age"] - p["age"]), priority="must"),
+             target_month=_years(start, _years_to_retirement(p)), priority="must"),
     ]
     return FinancePlan(
         name=name, start_month=start,
@@ -101,7 +118,7 @@ def _family(name: str, start: str, p: dict[str, float]) -> FinancePlan:
         holdings=[Holding(id="h_cash", name="Savings account", asset_class_id="cash", amount=200000),
                   Holding(id="h_eq", name="Equity investments", asset_class_id="equity_index", amount=500000),
                   Holding(id="h_ppf", name="Long lock-in savings", asset_class_id="govt_long", amount=300000,
-                          locked_until_month=_years(start, 10))],
+                          locked_until_month=_years(start, PPF_LOCK_YEARS))],
         goals=goals, emergency_fund=EmergencyFundSettings(months_of_essentials=6))
 
 
@@ -111,7 +128,7 @@ def _near(name: str, start: str, p: dict[str, float]) -> FinancePlan:
                     essential=False)]
     goals = [
         Goal(id="retirement", name="Retirement", kind="retirement", target_amount=_retirement_target(exps),
-             target_month=_years(start, p["retirement_age"] - p["age"]), priority="must"),
+             target_month=_years(start, _years_to_retirement(p)), priority="must"),
         Goal(id="wedding", name="Wedding", kind="wedding", target_amount=p["wedding_cost"],
              target_month=_years(start, p["wedding_in_years"]), priority="nice", flexibility_months=12),
     ]

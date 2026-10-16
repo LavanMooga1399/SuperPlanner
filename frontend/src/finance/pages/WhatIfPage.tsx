@@ -110,6 +110,12 @@ interface WhatIfView {
   cmp: FinanceComparison;
 }
 
+/** Mean of the first 12 monthly surpluses (FINANCE.md 20.5 slider range). */
+export function firstYearAvgSurplus(surplus: number[] | undefined): number {
+  const first = (surplus ?? []).slice(0, 12).filter((v) => Number.isFinite(v));
+  return first.length ? first.reduce((a, b) => a + b, 0) / first.length : 0;
+}
+
 export function WhatIfPage() {
   const ctx = useLoadedFinancePlan();
   const planId = ctx.record.id;
@@ -292,7 +298,7 @@ export function WhatIfPage() {
             </button>
           </div>
           <div className="card-body">
-            <WhatIfControls plan={base.plan} changes={changes} onChange={onChange} avgSurplus={base.result.summary.monthly_investable_now} />
+            <WhatIfControls plan={base.plan} changes={changes} onChange={onChange} avgSurplus={firstYearAvgSurplus(base.result.cashflow.surplus)} />
           </div>
         </section>
         <div className="col gap-lg" aria-live="polite">

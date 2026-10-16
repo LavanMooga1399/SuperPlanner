@@ -7,6 +7,7 @@ a bucket with exactly the same formulas.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from statistics import NormalDist
 from typing import TYPE_CHECKING, Callable
 
@@ -157,6 +158,63 @@ def can_dilute(plan: "FinancePlan", goal: "Goal", D_g: int, s_k: int, capped: Ca
     the LP could meet the cap only by destroying value (buy and sell the same class), or not at all."""
     classes = {a.id: a for a in plan.assumptions.asset_classes}
     return any(not capped(classes[a]) and buyable(classes[a], s_k, D_g) for a in allowed_classes(plan, goal))
+
+
+@dataclass(frozen=True)
+class ActiveCaps:
+    """Which caps bind a goal's bucket in the block starting at `s_k` (see `active_caps`)."""
+    risk: bool
+    equity: bool
+    classes: frozenset[str]
+
+
+def _caps_jointly_feasible(buy: list["AssetClass"], risk: float | None, equity: float | None,
+                           cls: dict[str, float]) -> bool:
+    """True when some mix of the buyable classes `buy` meets every given cap at once.
+
+    The cap sets are laminar (single classes, equity within risky), so the largest mass that fits is: every
+    non-risky class up to its own class cap, plus the risky classes up to the risky cap, where the equity classes
+    are limited by the equity cap first. The caps can all hold iff that mass reaches 100 %."""
+    def lim(ac: "AssetClass") -> float:
+        return min(1.0, cls.get(ac.id, 1.0))
+    non_r = sum(lim(ac) for ac in buy if not is_risky(ac))
+    r_not_e = sum(lim(ac) for ac in buy if is_risky(ac) and not is_equity(ac))
+    e = sum(lim(ac) for ac in buy if is_equity(ac))
+    e_fit = min(equity, e) if equity is not None else e
+    r_fit = r_not_e + e_fit
+    if risk is not None:
+        r_fit = min(risk, r_fit)
+    return non_r + r_fit >= 1.0 - 1e-12
+
+
+def active_caps(plan: "FinancePlan", goal: "Goal", D_g: int, s_k: int) -> ActiveCaps:
+    """Caps that bind goal g's bucket at block start `s_k` (F.24.3 rule 4: caps bind only where they can be met).
+
+    Implementation note: caps are taken greedily in priority order - the goal's risky cap, then the global
+    equity cap, then the class caps in plan order - and a cap binds only when it can hold together with the caps
+    already binding, given the classes the goal can buy at `s_k`. Testing each cap alone (`can_dilute`) is not
+    enough: with only {fixed_deposit, equity} allowed, an equity cap of 0 % and a fixed_deposit cap of 40 % can
+    each be met but not both, and requiring both would force the LP to empty the bucket. A cap that does not bind
+    a goal makes that goal's capped positions count as allowance, as for locked positions [R8]."""
+    classes = {a.id: a for a in plan.assumptions.asset_classes}
+    buy = [classes[a] for a in allowed_classes(plan, goal) if buyable(classes[a], s_k, D_g)]
+    risk: float | None = None
+    cap_g = goal_cap(plan, goal, D_g, s_k)
+    if cap_g < 1.0 and _caps_jointly_feasible(buy, cap_g, None, {}):
+        risk = cap_g
+    equity: float | None = None
+    maxeq = plan.constraints.max_equity_pct
+    if maxeq is not None and _caps_jointly_feasible(buy, risk, maxeq / 100.0, {}):
+        equity = maxeq / 100.0
+    cls: dict[str, float] = {}
+    for a, pct in plan.constraints.max_class_pct.items():
+        if a not in classes:
+            continue
+        trial = dict(cls)
+        trial[a] = pct / 100.0
+        if _caps_jointly_feasible(buy, risk, equity, trial):
+            cls = trial
+    return ActiveCaps(risk=risk is not None, equity=equity is not None, classes=frozenset(cls))
 
 
 def mix_cap_applies(plan: "FinancePlan", goal: "Goal", D_g: int, s_k: int, n_k: int) -> bool:

@@ -14,7 +14,8 @@ import numpy as np
 from .cashflow import FlowComponents, ef_complete_t, flow_components, locked_index, project_cashflow
 from .model import (AssumptionsUsed, CashflowProjection, ContributionLine, Diagnostics, FinanceCancelled,
                     FinancePlan, FinancePreflightError, FinanceProgress, FinanceResult, FinanceRunRequest, GlidePoint,
-                    GoalResult, HoldingAssignment, Rebalance, ResultCashflow, ResultSeries, ResultSummary, Scenarios)
+                    GoalResult, HoldingAssignment, Rebalance, ResultCashflow, ResultSeries, ResultSimulationSettings,
+                    ResultSummary, Scenarios)
 from .optimizer import FinanceLP, OptimizerSolution
 from .preflight import preflight
 from .returns import floor2, gamma, goal_cap, initial_z, is_risky, min_probability, pi_general
@@ -509,7 +510,10 @@ def assemble(plan: FinancePlan, proj: CashflowProjection, fc: FlowComponents, pu
         goals=goal_results, contributions=pub.lines, holdings_assignment=pub.assignment, rebalances=pub.rebalances,
         glide_paths=glide_paths, series=series, cashflow=cash,
         scenarios=Scenarios(goals=sc_goals), assumptions_used=assumptions_used,
-        simulation_settings=request.simulation, diagnostics=diag)
+        simulation_settings=ResultSimulationSettings(
+            n_paths=request.simulation.n_paths, income_interruption=request.simulation.income_interruption,
+            seed=request.seed),
+        diagnostics=diag)
 
 
 def _l(xs) -> list[float]:

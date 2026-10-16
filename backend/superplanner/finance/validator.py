@@ -14,7 +14,7 @@ from typing import Any, Callable
 from . import timegrid as tg
 from .cashflow import ef_complete_t, locked_index, project_cashflow
 from .model import FinancePlan, FinanceResult, FinanceViolation
-from .returns import (allowed_classes, can_dilute, gamma, goal_cap, inflation_vol, initial_z, is_equity, is_risky,
+from .returns import (active_caps, allowed_classes, gamma, goal_cap, inflation_vol, initial_z, is_equity, is_risky,
                       min_probability, mix_cap_applies, pi_general,
                       planning_rho, real_target)
 
@@ -165,23 +165,83 @@ def validate_result(plan: FinancePlan, result: FinanceResult) -> list[FinanceVio
             X[t] += amt
 
     # ---------------- holdings
+    # The t = 0 splits (earmarks, initial EF, initial cash buffer) and the assignable pool come from the
+    # validator's own projection; the result's rows must match them, and LP rows ("assigned", "sold_to_cash")
+    # may only use pool items under the same rules as the optimizer (8.3: unlocked by the goal date, a class the
+    # goal allows; only unlocked items may be sold).
+    expected_split: dict[tuple[str, str, str], float] = defaultdict(float)
+    for sp in proj.initial_splits:
+        if sp.source != "pool":
+            expected_split[(sp.holding_id, sp.source, sp.goal_id or "cash_buffer")] += sp.amount
+    pool = {p.holding_id: p for p in proj.assignable}
+    reported_split: dict[tuple[str, str, str], float] = defaultdict(float)
     per_holding: dict[str, float] = defaultdict(float)
+    from_pool: dict[str, float] = defaultdict(float)
+    assigned: dict[str, list[tuple[str, float, int | None]]] = defaultdict(list)  # goal -> (class, amt, lock)
     sold = 0.0
     for row in result.holdings_assignment:
         if row.source == "unallocated":
             continue
+        h = holdings.get(row.holding_id)
+        hname = h.name if h is not None else row.holding_id
         per_holding[row.holding_id] += row.amount
+        if row.amount < -tol:
+            add("HOLDING_NOT_ASSIGNABLE", "hard", f'A negative amount is taken from holding "{hname}".',
+                amount=row.amount, details={"holding_id": row.holding_id})
+            continue
+        if row.source in ("earmark", "initial_ef", "initial_cash"):
+            reported_split[(row.holding_id, row.source, row.goal_id)] += row.amount
+            continue
+        p = pool.get(row.holding_id)
+        if p is None:
+            add("HOLDING_NOT_ASSIGNABLE", "hard", f'Holding "{hname}" is not available to assign or sell (it is '
+                "earmarked, used for the emergency fund or the cash buffer, or unknown).", goal_id=row.goal_id,
+                amount=row.amount, details={"holding_id": row.holding_id, "source": row.source})
+            continue
+        from_pool[row.holding_id] += row.amount
         if row.source == "sold_to_cash":
             sold += row.amount
-            h = holdings.get(row.holding_id)
-            li = locked_index(plan, h.locked_until_month) if h else None
-            if li is not None and li > 0:
+            if p.locked_until_index is not None and h is not None:
                 add("LOCKED_SOLD", "hard", f'Holding "{h.name}" is sold before it is unlocked ({h.locked_until_month}).',
                     amount=row.amount, details={"holding_id": h.id})
+            continue
+        # source == "assigned"
+        g = gmap.get(row.goal_id)
+        if g is None:
+            add("HOLDING_NOT_ASSIGNABLE", "hard", f'Holding "{hname}" is assigned to "{row.goal_id}", which is not an '
+                "enabled goal of the plan.", goal_id=row.goal_id, amount=row.amount,
+                details={"holding_id": row.holding_id})
+            continue
+        D = Dg[g.id]
+        if p.asset_class_id not in set(allowed_classes(plan, g)):
+            add("CLASS_NOT_ALLOWED", "hard", f'Holding "{hname}" is assigned to "{g.name}", which does not allow its '
+                "class.", goal_id=g.id, asset_class_id=p.asset_class_id, amount=row.amount,
+                details={"holding_id": row.holding_id})
+        if p.locked_until_index is not None and p.locked_until_index > D:
+            add("LOCKIN_PAST_GOAL", "hard", f'Holding "{hname}" is assigned to "{g.name}" but stays locked until '
+                f"{h.locked_until_month if h else '?'}, after the goal date.", goal_id=g.id,
+                asset_class_id=p.asset_class_id, amount=row.amount, details={"holding_id": row.holding_id})
+        assigned[g.id].append((p.asset_class_id, row.amount, p.locked_until_index))
+    for key in sorted(set(expected_split) | set(reported_split)):
+        exp_v, rep_v = expected_split.get(key, 0.0), reported_split.get(key, 0.0)
+        if abs(exp_v - rep_v) > tol:
+            hid, src, gid = key
+            h = holdings.get(hid)
+            add("HOLDING_SPLIT_MISMATCH", "hard", f'The {src.replace("_", " ")} amount reported for holding '
+                f'"{h.name if h else hid}" does not match the plan.', goal_id=gid, amount=rep_v - exp_v,
+                details={"holding_id": hid, "source": src, "reported": rep_v, "expected": exp_v})
+    over: set[str] = set()
+    for hid, amt in from_pool.items():
+        cap = pool[hid].amount
+        if amt > cap + tol:
+            over.add(hid)
+            h = holdings.get(hid)
+            add("HOLDING_OVERASSIGNED", "hard", f'More is taken from holding "{h.name if h else hid}" than is free '
+                "to assign.", amount=amt - cap, details={"holding_id": hid})
     for hid, amt in per_holding.items():
         h = holdings.get(hid)
         cap = h.amount if h is not None else 0.0
-        if amt > cap + tol:
+        if amt > cap + tol and hid not in over:
             add("HOLDING_OVERASSIGNED", "hard", f'More is taken from holding "{h.name if h else hid}" than it holds.',
                 amount=amt - cap, details={"holding_id": hid})
 
@@ -200,10 +260,17 @@ def validate_result(plan: FinancePlan, result: FinanceResult) -> list[FinanceVio
             "need more money than is available.", months=_months(months, a, b),
             amount=round(max(worst[t] for t in range(a, b + 1)), 2))
 
-    # ---------------- rebalances index
+    # ---------------- rebalances index (only at block starts of enabled goals before their date, 8.3)
     reb: dict[tuple[str, int], tuple[dict[str, float], dict[str, float]]] = {}
+    starts = {g.id: {s_ for (_, s_, _) in tg.blocks(Dg[g.id], L)} for g in goals}
     for r in result.rebalances:
         key = (r.goal_id, tg.month_index(start, r.month))
+        if key[1] not in starts.get(r.goal_id, set()):
+            g = gmap.get(r.goal_id)
+            add("REBALANCE_OFF_SCHEDULE", "hard", f'A rebalance of "{g.name if g else r.goal_id}" in {r.month} is not '
+                "at a block start of an enabled goal before its date.", goal_id=r.goal_id, months=[r.month],
+                details={"sells": dict(r.sells), "buys": dict(r.buys)})
+            continue
         sells, buys = reb.get(key, ({}, {}))
         sells = dict(sells)
         buys = dict(buys)
@@ -223,16 +290,18 @@ def validate_result(plan: FinancePlan, result: FinanceResult) -> list[FinanceVio
         allowed = set(allowed_classes(plan, g))
         F: dict[str, float] = defaultdict(float)
         locked_pos: list[tuple[str, float, int]] = []
-        for row in result.holdings_assignment:
-            if row.goal_id != g.id or row.source not in ("earmark", "assigned"):
+        for (hid, src, gid_), amt in expected_split.items():   # earmarks from the validator's own projection
+            h = holdings.get(hid)
+            if src != "earmark" or gid_ != g.id or h is None:
                 continue
-            h = holdings.get(row.holding_id)
-            if h is None:
-                continue
-            F[h.asset_class_id] += row.amount
+            F[h.asset_class_id] += amt
             li = locked_index(plan, h.locked_until_month)
             if li is not None and li > 0:
-                locked_pos.append((h.asset_class_id, row.amount, li))
+                locked_pos.append((h.asset_class_id, amt, li))
+        for (c, amt, li) in assigned.get(g.id, []):
+            F[c] += amt
+            if li is not None and li > 0:
+                locked_pos.append((c, amt, li))
         risk_reported = mix_reported = False
         records, F = replay_goal(classes, rho, F, tg.blocks(D, L), lambda k, s, Fb: reb.get((g.id, s), ({}, {})),
                                  x[g.id])
@@ -277,7 +346,7 @@ def validate_result(plan: FinancePlan, result: FinanceResult) -> list[FinanceVio
             total = sum(H.values())
             risky = sum(v for a, v in H.items() if a in classes and is_risky(classes[a]))
             LR = sum(v for a, v in LR_cls.items() if is_risky(classes[a]))
-            if (not risk_reported and can_dilute(plan, g, D, s, is_risky)
+            if (not risk_reported and active_caps(plan, g, D, s).risk
                     and risky - LR > (cap + SHARE_TOL) * total + tol):
                 risk_reported = True
                 add("RISK_CAP_EXCEEDED", "hard", f'"{g.name}" holds more growth assets than its cap of '
@@ -318,7 +387,7 @@ def validate_result(plan: FinancePlan, result: FinanceResult) -> list[FinanceVio
             for H, LRc, g, D in entries:
                 held = sum(v for a, v in H.items() if a in classes and is_equity(classes[a]))
                 eq += held
-                lr += held if not can_dilute(plan, g, D, s, is_equity) else sum(
+                lr += held if not active_caps(plan, g, D, s).equity else sum(
                     v for a, v in LRc.items() if is_equity(classes[a]))
             if eq - lr > (maxeq / 100.0 + SHARE_TOL) * total + tol:
                 add("EQUITY_CAP_EXCEEDED", "hard", f"Equity is above the {maxeq:g}% limit across goals.",
@@ -328,7 +397,7 @@ def validate_result(plan: FinancePlan, result: FinanceResult) -> list[FinanceVio
             for H, LRc, g, D in entries:
                 held = H.get(a, 0.0)
                 v += held
-                lr += held if not can_dilute(plan, g, D, s, lambda c, a=a: c.id == a) else LRc.get(a, 0.0)
+                lr += held if a not in active_caps(plan, g, D, s).classes else LRc.get(a, 0.0)
             if v - lr > (pct / 100.0 + SHARE_TOL) * total + tol:
                 add("CLASS_CAP_EXCEEDED", "hard", f"{classes[a].name if a in classes else a} is above its {pct:g}% "
                     "limit across goals.", asset_class_id=a, months=[months[s]])

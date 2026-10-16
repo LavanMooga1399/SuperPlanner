@@ -585,7 +585,35 @@ def independent_check(plan: dict[str, Any], result: dict[str, Any], *, check_cas
                      con["max_equity_pct"] / 100))
     for c, p in con.get("max_class_pct", {}).items():
         caps.append(("CLASS_CAP_EXCEEDED", {c}, p / 100))
-    for code, cset, cp in caps:
+
+    def binding(gid: str, s_k: int) -> set[int]:
+        # F.24.3 rule 4 for several caps: the goal's risky cap, then the global caps in order, each binding only
+        # when it can hold together with the caps already binding, given the classes the goal can buy.
+        buy = [c for c in m.allowed(gid) if c in m.classes and (not m.lock(c) or s_k + m.lock(c) <= m.D[gid])]
+        eq_set = {c for c in m.classes if m.classes[c]["category"] == "equity"}
+
+        def fits(sets: list[tuple[str, set[str], float]]) -> bool:
+            # laminar sets (single classes, equity within risky): largest mass that meets every cap
+            def mass(group: list[str]) -> float:
+                return sum(min([1.0] + [cp_ for k, cs, cp_ in sets if k == "CLASS_CAP_EXCEEDED" and c in cs])
+                           for c in group)
+            eq_lim = min([cp_ for k, _, cp_ in sets if k == "EQUITY_CAP_EXCEEDED"] + [9.0])
+            r_lim = min([cp_ for k, _, cp_ in sets if k == "RISK"] + [9.0])
+            e = min(eq_lim, mass([c for c in buy if c in eq_set]))
+            r = min(r_lim, e + mass([c for c in buy if m.risky(c) and c not in eq_set]))
+            return mass([c for c in buy if not m.risky(c)]) + r >= 1 - 1e-12
+        chosen: list[tuple[str, set[str], float]] = []
+        rc = m.cap(gid, s_k)
+        if rc < 1 and fits([("RISK", set(), rc)]):
+            chosen.append(("RISK", set(), rc))
+        out: set[int] = set()
+        for i, cap_ in enumerate(caps):
+            if fits(chosen + [cap_]):
+                chosen.append(cap_)
+                out.add(i)
+        return out
+
+    for ci, (code, cset, cp) in enumerate(caps):
         for s_k, per_goal in H_at.items():
             tot = capped = allow = 0.0
             for gid, F in per_goal.items():
@@ -594,7 +622,7 @@ def independent_check(plan: dict[str, Any], result: dict[str, Any], *, check_cas
                 tot += sum(F.values())
                 cv = sum(v for c, v in F.items() if c in cset)
                 capped += cv
-                can = any(c not in cset and (not m.lock(c) or s_k + m.lock(c) <= m.D[gid]) for c in m.allowed(gid))
+                can = ci in binding(gid, s_k)
                 if not can:
                     allow += cv
                 else:
