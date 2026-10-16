@@ -1523,6 +1523,33 @@ _(developers: record interpretations here with date and owner)_
   the retirement preset counts every expense active at the plan start (so the family template includes the
   yearly school fees as 1/12 per month).
 
+- 2026-10-16, FWP2 (backend-developer): the API imports `default_label` from `superplanner.finance.whatif`
+  (the only non-`__init__` engine import in `api/finance`), because the default what-if label (13) uses the
+  engine's message catalog and `__init__` does not export it; FWP1 may re-export it, then the import moves.
+  Label precedence: `changes.label`, then `run.label`, then `default_label(base plan, changes)`.
+- 2026-10-16, FWP2: the worker re-runs `finance.validate_result` on the snapshot before the final write; if the
+  engine said `feasible` but a hard violation is found, the stored result becomes `unknown` with the
+  validator's violations (logged with codes only). `send-to-planner` then answers 422 `NOT_FEASIBLE`
+  (`details.feasibility`).
+- 2026-10-16, FWP2: `stage_started` is written on the first progress callback of a new stage (its `message`);
+  `stage_completed` when the next stage starts or `run_plan` returns, after flushing the pending throttled
+  `progress`. A cancelled/failed run still closes its open stage before the terminal event.
+- 2026-10-16, FWP2: what-if: `expected_plan_version` is compared with the current version even when
+  `base_result_id` is given; `base_result_id` must be a **baseline** result of this plan (a what-if snapshot
+  already contains `whatif_` items, which `apply_what_if` rejects) -> 422 `VALIDATION_ERROR`
+  (`loc = ["body","base_result_id"]`); the what-if snapshot's `base_version` is that of the base document.
+  A rejected request (412/422/409) rolls back the whole transaction, so `replace_active` never cancels the old
+  run unless the new one is queued. What-if run defaults apply to every field not explicitly sent in `run`
+  (`simulation.n_paths` counts as explicit only when sent inside `run.simulation`).
+- 2026-10-16, FWP2: `RUN_ALREADY_ACTIVE` details carry `{run_id, kind}`; `finance_results.summary` stores
+  `FinanceResultSummary` minus ids and `created_at`. `send-to-planner` defaults the name to
+  `"<plan name> - money calendar"` and sets `problem.metadata.finance_plan_id/finance_result_id`; a
+  `ValueError` from the bridge is 422 `VALIDATION_ERROR`. The engine's extra fields (`termination_reason =
+  "gap"`, `diagnostics.cash_deficit_real`, `diagnostics.seconds_total`) are passed through unchanged; compare
+  passes the stored summaries and `what_if_b` through the new `compare_results` keywords.
+- 2026-10-16, FWP2: test seam `run_service._before_final_write(run_id)` is called after `run_plan` returned and
+  before the final transaction (used by the 2.7 race test).
+
 ---
 
 ## 25. Review notes (team lead)

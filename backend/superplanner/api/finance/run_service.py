@@ -199,6 +199,10 @@ def create_what_if(ctx: AppContext, plan_id: str, body: WhatIfRequest) -> dict[s
                 base = s.get(FinanceResultRow, body.base_result_id)
                 if base is None or base.plan_id != plan_id:
                     raise not_found("Finance result", body.base_result_id)
+                if base.kind != "baseline":
+                    raise ApiError(422, "VALIDATION_ERROR", "base_result_id must be a baseline result of this plan.",
+                                   {"errors": [{"loc": ["body", "base_result_id"], "type": "value_error",
+                                                "msg": "a what-if result cannot be the base of another what-if"}]})
                 base_pv = s.get(FinancePlanVersionRow, base.plan_version_id)
                 base_doc, base_version = base_pv.document, base_pv.base_version
             else:
@@ -333,13 +337,19 @@ def _summary_dict(result: finance.FinanceResult, kind: str, label: str | None, b
             "what_if": what_if}
 
 
-def _independent_check(plan: finance.FinancePlan, result: finance.FinanceResult, run_id: str) -> None:
-    """Re-run the independent validator: a result with a hard violation is never reported feasible."""
-    hard = [v for v in finance.validate_result(plan, result) if v.severity == "hard"]
-    if hard and result.feasibility == "feasible":
-        log.error("finance run %s: engine reported feasible but the validator found %d hard violation(s) (%s)",
-                  run_id, len(hard), ",".join(sorted({v.code for v in hard})))
-        result.feasibility = "unknown"
+def independent_check(plan: finance.FinancePlan, result: finance.FinanceResult,
+                      run_id: str) -> finance.FinanceResult:
+    """Re-run the independent validator before persisting: a result with a hard violation is never stored as
+    feasible. On disagreement the result becomes `unknown` and carries the validator's violations."""
+    if result.feasibility != "feasible":
+        return result
+    violations = finance.validate_result(plan, result)
+    hard = [v for v in violations if v.severity == "hard"]
+    if not hard:
+        return result
+    log.error("finance run %s: engine reported feasible but the validator found %d hard violation(s) (%s)",
+              run_id, len(hard), ",".join(sorted({v.code for v in hard})))
+    return result.model_copy(update={"feasibility": "unknown", "violations": violations})
 
 
 def _finish(ctx: AppContext, run_id: str, status: str, t0: float, error: str | None = None) -> None:
@@ -378,7 +388,7 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
         req = finance.FinanceRunRequest.model_validate(request)
         result = finance.run_plan(plan, req, writer, cancel_event)
         writer.finish()
-        _independent_check(plan, result, run_id)
+        result = independent_check(plan, result, run_id)
         _before_final_write(run_id)
         with WRITE_LOCK, ctx.db.write() as s:
             run = s.get(FinanceRunRow, run_id)
@@ -408,6 +418,7 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
         log.exception("finance run %s failed", run_id)
         message = str(exc) or exc.__class__.__name__
         try:
+            writer.finish()
             _finish(ctx, run_id, "failed", t0, message)
         except Exception:
             log.exception("could not mark finance run %s failed", run_id)

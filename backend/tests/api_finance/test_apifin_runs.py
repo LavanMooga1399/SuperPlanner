@@ -322,3 +322,21 @@ def test_run_audit_has_ids_only(fin):
     assert got == {("finance_run.created", ("kind", "plan_id", "plan_version_id")),
                    ("finance_run.cancelled", ("status_at_cancel",))}
     assert all("private" not in t for t in texts)
+
+
+def test_engine_exception_marks_run_failed(fin, monkeypatch):
+    def boom(plan, request, progress_cb=None, cancel_event=None):
+        progress_cb(run_service.finance.FinanceProgress(stage="optimize", fraction=0.1, message="Optimizing"))
+        raise RuntimeError("solver exploded")
+
+    monkeypatch.setattr(run_service.finance, "run_plan", boom)
+    plan = fin.create()
+    run = fin.wait(fin.start_run(plan["id"])["run_id"])
+    assert run["status"] == "failed" and run["error"] == "solver exploded" and run["result_id"] is None
+    types = [e["type"] for e in fin.events(run["id"])]
+    assert types[-3:] == ["progress", "stage_completed", "run_failed"] or types[-2:] == ["stage_completed",
+                                                                                          "run_failed"]
+    assert fin.events(run["id"])[-1]["error"] == "solver exploded"
+    assert _count(fin, FinanceResultRow) == 0
+    # the plan is free for a new run afterwards
+    assert fin.c.post(f"{FIN}/plans/{plan['id']}/runs", json=FAST).status_code == 202
