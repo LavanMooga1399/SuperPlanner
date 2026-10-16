@@ -28,10 +28,14 @@ class AppContext:
         with self._start_lock:
             if self._started:
                 return
+            from .finance import db_models as _finance_db_models  # noqa: F401  (registers finance tables)
+
             self.db.create_all()
+            from .finance import run_service as finance_run_service
             from .services import run_service
 
             run_service.recover_interrupted_runs(self)
+            finance_run_service.recover_interrupted_runs(self)
             self._executor = RunExecutor(self.settings.run_workers)
             self._started = True
 

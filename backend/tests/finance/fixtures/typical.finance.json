@@ -1,0 +1,135 @@
+{
+ "name": "Typical household",
+ "start_month": "2026-11",
+ "profile": {
+  "age": 32
+ },
+ "incomes": [
+  {
+   "id": "salary",
+   "name": "Salary",
+   "amount": 120000.0,
+   "growth_pct": 7.0
+  },
+  {
+   "id": "rent_in",
+   "name": "Rental income",
+   "kind": "rental",
+   "amount": 15000.0,
+   "growth_pct": 5.0,
+   "interruptible": false
+  }
+ ],
+ "expenses": [
+  {
+   "id": "living",
+   "name": "Living costs",
+   "amount": 50000.0
+  },
+  {
+   "id": "insurance",
+   "name": "Insurance",
+   "amount": 24000.0,
+   "frequency": "yearly"
+  },
+  {
+   "id": "fun",
+   "name": "Eating out and travel",
+   "amount": 12000.0,
+   "essential": false
+  }
+ ],
+ "debts": [
+  {
+   "id": "home_loan",
+   "name": "Home loan",
+   "kind": "home",
+   "balance": 2500000.0,
+   "interest_rate_pct": 8.5,
+   "emi": 25000.0
+  }
+ ],
+ "holdings": [
+  {
+   "id": "h_cash",
+   "name": "Savings account",
+   "asset_class_id": "cash",
+   "amount": 150000.0
+  },
+  {
+   "id": "h_eq",
+   "name": "Equity investments",
+   "asset_class_id": "equity_index",
+   "amount": 600000.0
+  },
+  {
+   "id": "h_gold",
+   "name": "Gold",
+   "asset_class_id": "gold",
+   "amount": 100000.0
+  }
+ ],
+ "one_offs": [
+  {
+   "id": "bonus",
+   "name": "Bonus",
+   "kind": "inflow",
+   "month": "2027-03",
+   "amount": 100000.0
+  },
+  {
+   "id": "repair",
+   "name": "House repair",
+   "month": "2028-06",
+   "amount": 80000.0
+  }
+ ],
+ "goals": [
+  {
+   "id": "car",
+   "name": "Car",
+   "kind": "vehicle",
+   "target_amount": 800000.0,
+   "target_month": "2030-10",
+   "flexibility_months": 12
+  },
+  {
+   "id": "trip",
+   "name": "Family trip",
+   "kind": "travel",
+   "target_amount": 300000.0,
+   "target_month": "2028-12",
+   "priority": "nice"
+  },
+  {
+   "id": "school",
+   "name": "Child education",
+   "kind": "education",
+   "target_amount": 2000000.0,
+   "target_month": "2040-06",
+   "priority": "must",
+   "inflation_pct": 9.0
+  },
+  {
+   "id": "wedding",
+   "name": "Wedding",
+   "kind": "wedding",
+   "target_amount": 1000000.0,
+   "target_month": "2045-01"
+  },
+  {
+   "id": "retirement",
+   "name": "Retirement",
+   "kind": "retirement",
+   "target_amount": 30000000.0,
+   "target_month": "2056-10",
+   "priority": "must",
+   "earmarked": [
+    {
+     "holding_id": "h_eq",
+     "amount": 400000.0
+    }
+   ]
+  }
+ ]
+}

@@ -19,6 +19,7 @@ from superplanner import engine
 from .config import Settings
 from .context import AppContext
 from .errors import install_handlers
+from .finance import router as finance_router
 from .limits import BodySizeLimitMiddleware
 from .routes import health, problems, schedules, solver_runs, templates
 
@@ -45,7 +46,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                        allow_methods=["*"], allow_headers=["*"], expose_headers=["ETag", "Location",
                                                                                  "Content-Disposition"])
     install_handlers(app)
-    for r in (health.router, templates.router, problems.router, solver_runs.router, schedules.router):
+    for r in (health.router, templates.router, problems.router, solver_runs.router, schedules.router,
+              finance_router.router):
         app.include_router(r, prefix=API_PREFIX)
     return app
 

@@ -12,6 +12,7 @@ import { ValidateTab } from "./pages/tabs/ValidateTab";
 import { OptimizeTab } from "./pages/tabs/OptimizeTab";
 import { ScheduleTab } from "./pages/tabs/ScheduleTab";
 import { CompareTab } from "./pages/tabs/CompareTab";
+import { financeRoutes } from "./finance/routes";
 
 const router = createBrowserRouter([
   {
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
           { path: "*", element: <NotFound /> },
         ],
       },
+      ...financeRoutes,
       { path: "*", element: <NotFound /> },
     ],
   },

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { getHealth } from "./api/client";
 import type { Health } from "./api/types";
 import { Icon } from "./components/Icon";
@@ -67,6 +67,22 @@ function ServerStatus() {
   );
 }
 
+/** Top-level sections. Finance is active iff the path starts with /finance; Scheduling otherwise (FINANCE.md 20.1). */
+function MainNav() {
+  const { pathname } = useLocation();
+  const finance = pathname === "/finance" || pathname.startsWith("/finance/");
+  return (
+    <nav aria-label="Main" className="main-nav">
+      <Link to="/" className={`main-nav-link${finance ? "" : " active"}`} aria-current={finance ? undefined : "page"} data-testid="nav-scheduling">
+        Scheduling
+      </Link>
+      <Link to="/finance" className={`main-nav-link${finance ? " active" : ""}`} aria-current={finance ? "page" : undefined} data-testid="nav-finance">
+        Finance
+      </Link>
+    </nav>
+  );
+}
+
 export function App() {
   return (
     <div className="app-shell">
@@ -80,6 +96,7 @@ export function App() {
           </svg>
           SuperPlanner <span className="muted hide-sm" style={{ fontWeight: 500 }}>Studio</span>
         </Link>
+        <MainNav />
         <div className="topbar-spacer" />
         <ServerStatus />
         <ThemeToggle />

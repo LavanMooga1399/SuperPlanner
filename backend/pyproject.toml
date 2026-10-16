@@ -10,6 +10,7 @@ dependencies = [
     "pydantic==2.14.1",
     "SQLAlchemy==2.1.4",
     "ortools==9.15.6755",
+    "numpy==2.5.4",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,55 @@
+{
+ "name": "Single goal",
+ "start_month": "2026-11",
+ "incomes": [
+  {
+   "id": "salary",
+   "name": "Salary",
+   "amount": 50000.0
+  }
+ ],
+ "expenses": [
+  {
+   "id": "living",
+   "name": "Living",
+   "amount": 20000.0
+  }
+ ],
+ "goals": [
+  {
+   "id": "g1",
+   "name": "House",
+   "target_amount": 100000.0,
+   "target_month": "2028-11",
+   "priority": "must",
+   "allowed_asset_class_ids": [
+    "debt"
+   ]
+  }
+ ],
+ "emergency_fund": {
+  "months_of_essentials": 0.0,
+  "asset_class_id": "debt"
+ },
+ "assumptions": {
+  "inflation_volatility_pct": 0.0,
+  "asset_classes": [
+   {
+    "id": "cash",
+    "name": "Cash",
+    "category": "cash",
+    "expected_return_pct": 3.0,
+    "volatility_pct": 0.0
+   },
+   {
+    "id": "debt",
+    "name": "Debt",
+    "category": "debt",
+    "expected_return_pct": 8.0,
+    "volatility_pct": 0.0,
+    "liquidity_days": 2
+   }
+  ],
+  "correlations": []
+ }
+}
