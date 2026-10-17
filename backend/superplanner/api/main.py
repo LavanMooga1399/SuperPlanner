@@ -20,6 +20,8 @@ from .config import Settings
 from .context import AppContext
 from .errors import install_handlers
 from .finance import router as finance_router
+from .intake import router as intake_router
+from .intake import service as intake_service
 from .limits import BodySizeLimitMiddleware
 from .routes import health, problems, schedules, solver_runs, templates
 
@@ -47,8 +49,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                                                                                  "Content-Disposition"])
     install_handlers(app)
     for r in (health.router, templates.router, problems.router, solver_runs.router, schedules.router,
-              finance_router.router):
+              finance_router.router, intake_router.router):
         app.include_router(r, prefix=API_PREFIX)
+    intake_service.install(app, settings)   # per-app AI concurrency slots (PHASE2 2.10)
     return app
 
 

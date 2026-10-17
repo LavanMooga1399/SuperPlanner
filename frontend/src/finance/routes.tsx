@@ -2,7 +2,7 @@
  * Finance routes (FINANCE.md 20.1), spread into the existing `App` children before the `*` route.
  * Unknown deep paths such as /finance/foo/bar/baz match only `finance/*` and show NotFound.
  */
-import type { RouteObject } from "react-router-dom";
+import type { RouteObject } from "react-router";
 import { NotFound } from "../App";
 import "./finance.css";
 import { ComparePage } from "./pages/ComparePage";

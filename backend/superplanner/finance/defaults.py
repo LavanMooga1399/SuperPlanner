@@ -19,18 +19,19 @@ DISCLAIMER = (
     "decisions."
 )
 DISCLAIMER_VERSION = "fin-disclaimer-1"
-FINANCE_ENGINE_VERSION = "fin-0.1.0"
+FINANCE_ENGINE_VERSION = "fin-0.2.0"
 
-SOURCE_NOTE = "Illustrative long-run assumptions, not forecasts. Edit them to match your own view."
+SOURCE_NOTE = ("Illustrative long-run assumptions, not forecasts: equity 12%, fixed deposit 7%, inflation 5.5% a "
+               "year are within commonly cited long-run ranges. Edit them to match your own view.")
 
 # (id, name, category, expected_return_pct, volatility_pct, expense_ratio_pct, liquidity_days, lock_in_months)
 ASSET_CLASSES: tuple[tuple[str, str, str, float, float, float, int, int], ...] = (
-    ("cash", "Cash / savings account", "cash", 3.0, 0.5, 0.0, 0, 0),
-    ("fixed_deposit", "Fixed deposit", "debt", 6.75, 1.0, 0.0, 2, 0),
-    ("short_debt", "Short-term debt fund", "debt", 7.0, 2.0, 0.35, 2, 0),
+    ("cash", "Cash / savings account", "cash", 3.5, 0.5, 0.0, 0, 0),
+    ("fixed_deposit", "Fixed deposit", "debt", 7.0, 1.0, 0.0, 2, 0),
+    ("short_debt", "Short-term debt fund", "debt", 7.25, 2.5, 0.3, 2, 0),
     ("govt_long", "Government long lock-in savings (PPF-like)", "debt", 7.1, 0.5, 0.0, 7, 180),
-    ("equity_index", "Diversified equity index fund", "equity", 11.5, 18.0, 0.2, 3, 0),
-    ("gold", "Gold", "gold", 8.0, 15.0, 0.4, 3, 0),
+    ("equity_index", "Diversified equity index fund", "equity", 12.0, 18.0, 0.2, 3, 0),
+    ("gold", "Gold", "gold", 8.5, 15.0, 0.4, 3, 0),
 )
 
 CORRELATIONS: tuple[tuple[str, str, float], ...] = (
@@ -47,11 +48,21 @@ RISKY_CAP_BY_TOLERANCE_PCT: tuple[float, ...] = (20.0, 40.0, 60.0, 75.0, 90.0)
 GLIDE_PATH: tuple[tuple[int, float], ...] = ((120, 1.0), (84, 0.85), (60, 0.70), (36, 0.50), (24, 0.35),
                                              (12, 0.20), (0, 0.0))
 
-INFLATION_PCT = 6.0
+INFLATION_PCT = 5.5
 INFLATION_VOLATILITY_PCT = 1.5
 CASH_CLASS_ID = "cash"
 EF_CLASS_ID = "fixed_deposit"
 EF_MONTHS = 6.0
+
+# Cautious-planning margin (PHASE2 1.5): share of the median real return kept as a floor for distant goals,
+# phased in between `FLOOR_START_YEARS` and `FLOOR_FULL_YEARS`, lowered by `STEP` pp per unit of extra caution.
+CAUTION_FLOOR_SHARE = 0.5
+CAUTION_FLOOR_START_YEARS = 3.0
+CAUTION_FLOOR_FULL_YEARS = 10.0
+CAUTION_FLOOR_STEP_PCT_PER_Z = 2.0
+
+# Calibration aims at the minimum probability plus this margin (PHASE2 1.6).
+CALIBRATION_AIM = 0.01
 
 # Default minimum success probability by priority (section 4.8).
 DEFAULT_MIN_PROBABILITY = {"must": 0.85, "should": 0.70, "nice": 0.50}

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from .. import __version__
 from .compiled import CompileError, CompiledProblem, compile_problem
-from .explain import ScheduleExplanation, StartReason, TaskExplanation
+from .explain import DurationRisk, ScheduleExplanation, StartReason, TaskExplanation
 from .explain import explain as _explain
 from .graph import CpmResult, CpmTask
-from .model import (BlockedInterval, Calendar, Dependency, Lock, Objectives, Placement, Problem, Requirement,
-                    Resource, Task, Terminology, Weights)
+from .model import (BlockedInterval, Calendar, Dependency, DurationEstimate, Lock, Objectives, Placement, Problem,
+                    Requirement, Resource, Task, Terminology, Weights, pert_minutes)
 from .objectives import PRESET_WEIGHTS, ObjectiveRefs, ObjectiveValues
 from .pipeline import OptimizeOutcome, OptimizeRequest, PhaseSummary
 from .pipeline import optimize as _optimize
@@ -53,4 +53,5 @@ __all__ = [
     "PreflightReport", "ValidateReport", "CpmResult", "CpmTask", "PROVEN_INFEASIBLE_CODES", "Alternative",
     "CpSatParams", "GaParams", "ProgressCallback", "ProgressEvent", "SolveResult", "SolverConfig", "Metrics",
     "ValidationReport", "Violation", "ScheduleExplanation", "StartReason", "TaskExplanation",
+    "DurationEstimate", "DurationRisk", "pert_minutes",
 ]

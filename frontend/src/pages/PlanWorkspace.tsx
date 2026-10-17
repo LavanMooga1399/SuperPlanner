@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useParams } from "react-router-dom";
+import { NavLink, Outlet, useParams } from "react-router";
 import { downloadJson, errorMessage, exportProblem } from "../api/client";
 import type { Problem } from "../api/types";
 import { Banner, ErrorBanner, Loading } from "../components/Banner";

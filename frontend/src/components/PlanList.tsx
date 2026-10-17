@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { deleteProblem, downloadJson, errorMessage, exportProblem } from "../api/client";
 import type { ProblemSummary } from "../api/types";
 import { fmtRelative } from "../lib/time";

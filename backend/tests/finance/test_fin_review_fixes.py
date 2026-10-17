@@ -26,7 +26,9 @@ def test_min_contribution_zero_surplus_plan_stays_feasible():
 
 
 def test_unfunded_nice_goal_gets_no_micro_contributions():
-    p = get_template("near_retirement").build(name="x", start_month="2026-11", params={"wedding_in_years": 1})
+    # PHASE2 1.8 made the template affordable; a lower take-home pay keeps retirement short of cash
+    p = get_template("near_retirement").build(name="x", start_month="2026-11",
+                                              params={"wedding_in_years": 1, "take_home": 120000})
     r = run(p)
     goals = {g.goal_id: g for g in r.goals}
     assert goals["retirement"].shortfall_fraction > 0.1

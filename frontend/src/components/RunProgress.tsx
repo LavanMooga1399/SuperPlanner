@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { cancelRun, errorMessage, getRun, listRunEvents } from "../api/client";
 import { subscribeRunEvents, type StreamMode } from "../api/sse";
 import {

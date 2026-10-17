@@ -1,28 +1,16 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useRef, useState, type ChangeEvent } from "react";
+import { Link, useNavigate } from "react-router";
 import { errorMessage } from "../../api/client";
 import { ErrorBanner, Loading } from "../../components/Banner";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { Icon, type IconName } from "../../components/Icon";
+import { Icon } from "../../components/Icon";
 import { useAsync } from "../../lib/useAsync";
 import { fmtRelative } from "../../lib/time";
-import {
-  deleteFinancePlan,
-  importFinancePlan,
-  instantiateFinanceTemplate,
-  listFinancePlans,
-  listFinanceTemplates,
-} from "../api/client";
-import type { FinanceExportFile, FinancePlan, FinancePlanSummary, FinanceTemplateInfo, FinanceTemplateParameter } from "../api/types";
+import { deleteFinancePlan, importFinancePlan, listFinancePlans } from "../api/client";
+import type { FinanceExportFile, FinancePlan, FinancePlanSummary } from "../api/types";
+import { FinanceTemplateCards } from "../components/FinanceTemplateCards";
 import { StatusPill } from "../components/StatusPill";
-import { currentUtcMonth } from "../lib/months";
-
-const ICONS: Record<string, IconName> = {
-  young_professional: "briefcase",
-  family: "star",
-  near_retirement: "flag",
-  blank: "file",
-};
+import { startBlankFinancePlan } from "../lib/startBlank";
 
 function toExportFile(data: unknown): FinanceExportFile {
   if (typeof data !== "object" || data === null) throw new Error("The file does not contain a JSON object.");
@@ -37,7 +25,6 @@ function toExportFile(data: unknown): FinanceExportFile {
 export function FinanceHome() {
   const navigate = useNavigate();
   const plans = useAsync((s) => listFinancePlans(s), []);
-  const templates = useAsync((s) => listFinanceTemplates(s), []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -46,7 +33,7 @@ export function FinanceHome() {
     setBusy("blank");
     setError(null);
     try {
-      const rec = await instantiateFinanceTemplate("blank", { name: "My financial plan", start_month: currentUtcMonth() });
+      const rec = await startBlankFinancePlan();
       navigate(`/finance/${rec.id}/setup/profile`);
     } catch (err) {
       setError(errorMessage(err));
@@ -68,8 +55,6 @@ export function FinanceHome() {
       setBusy(null);
     }
   };
-
-  const visibleTemplates = (templates.data?.items ?? []).filter((t) => t.id !== "blank");
 
   return (
     <div className="col gap-lg">
@@ -103,17 +88,7 @@ export function FinanceHome() {
           <h2 id="fin-templates-title">Start from an example</h2>
         </div>
         <p className="muted" style={{ marginTop: 0 }}>Examples come with sensible defaults; you can change everything in the next steps.</p>
-        {templates.loading && !templates.data ? (
-          <Loading label="Loading examples…" />
-        ) : templates.error ? (
-          <ErrorBanner error={templates.error} onRetry={templates.reload} />
-        ) : (
-          <div className="grid-3">
-            {visibleTemplates.map((t) => (
-              <FinTemplateCard key={t.id} template={t} />
-            ))}
-          </div>
-        )}
+        <FinanceTemplateCards />
       </section>
     </div>
   );
@@ -187,91 +162,5 @@ function PlanList({ items, onChanged }: { items: FinancePlanSummary[]; onChanged
         </ConfirmDialog>
       ) : null}
     </section>
-  );
-}
-
-function paramLabelHint(p: FinanceTemplateParameter): string {
-  const parts: string[] = [];
-  if (p.min !== null && p.max !== null) parts.push(`${p.min} to ${p.max}`);
-  if (p.help) parts.push(p.help);
-  return parts.join(" · ");
-}
-
-function FinTemplateCard({ template }: { template: FinanceTemplateInfo }) {
-  const navigate = useNavigate();
-  const [name, setName] = useState(template.name);
-  const [values, setValues] = useState<Record<string, number>>(() => Object.fromEntries(template.parameters.map((p) => [p.name, p.default])));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const idPrefix = `fin-tpl-${template.id}`;
-  const valid = template.parameters.every((p) => {
-    const v = values[p.name];
-    return Number.isFinite(v) && (p.min === null || v >= p.min) && (p.max === null || v <= p.max);
-  });
-
-  const submit = async (e?: FormEvent) => {
-    e?.preventDefault();
-    if (!valid) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const rec = await instantiateFinanceTemplate(template.id, {
-        name: name.trim() || template.name,
-        start_month: currentUtcMonth(),
-        parameters: values,
-      });
-      navigate(`/finance/${rec.id}/setup/profile`);
-    } catch (err) {
-      setError(errorMessage(err));
-      setBusy(false);
-    }
-  };
-
-  return (
-    <article className="card template-card" data-testid={`fin-template-card-${template.id}`} aria-labelledby={`${idPrefix}-title`}>
-      <form className="card-body" noValidate onSubmit={(e) => void submit(e)}>
-        <div className="row">
-          <span className="template-icon" aria-hidden>
-            <Icon name={ICONS[template.id] ?? "file"} size={18} />
-          </span>
-          <h3 id={`${idPrefix}-title`}>{template.name}</h3>
-        </div>
-        <p className="muted" style={{ margin: 0 }}>{template.description}</p>
-        <div className="field">
-          <label htmlFor={`${idPrefix}-name`}>Plan name</label>
-          <input id={`${idPrefix}-name`} className="input" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
-        </div>
-        {template.parameters.length ? (
-          <details>
-            <summary className="small" style={{ cursor: "pointer" }}>Adjust the example ({template.parameters.length} values)</summary>
-            <div className="fin-form mt">
-              {template.parameters.map((p) => (
-                <div className="field" key={p.name}>
-                  <label htmlFor={`${idPrefix}-${p.name}`}>{p.label}</label>
-                  <input
-                    id={`${idPrefix}-${p.name}`}
-                    className="input sm"
-                    type="number"
-                    min={p.min ?? undefined}
-                    max={p.max ?? undefined}
-                    step={p.type === "money" ? "any" : 1}
-                    value={Number.isFinite(values[p.name]) ? values[p.name] : ""}
-                    aria-invalid={!Number.isFinite(values[p.name]) || (p.min !== null && values[p.name] < p.min) || (p.max !== null && values[p.name] > p.max) || undefined}
-                    onChange={(e) => setValues({ ...values, [p.name]: e.target.value === "" ? NaN : Number(e.target.value) })}
-                  />
-                  {paramLabelHint(p) ? <span className="hint">{paramLabelHint(p)}</span> : null}
-                </div>
-              ))}
-            </div>
-          </details>
-        ) : null}
-        {error ? <span className="small" role="alert" style={{ color: "var(--danger)" }}><Icon name="alert" /> {error}</span> : null}
-        <div style={{ marginTop: "auto" }}>
-          <button className="btn primary" type="submit" disabled={busy || !valid}>
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="plus" />} Create plan
-          </button>
-        </div>
-      </form>
-    </article>
   );
 }

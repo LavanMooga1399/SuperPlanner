@@ -17,10 +17,8 @@ from . import defaults as Dfl
 from . import timegrid as tg
 from .cashflow import ef_complete_t
 from .model import CashflowProjection, FinanceCancelled, FinancePlan, Goal, TierDiagnostic
-from .returns import (active_caps, allowed_classes, annuity_due, gamma, goal_cap, inflation_vol, is_equity, is_risky,
-                      mix_cap_applies, pi_general,
-                      planning_rho,
-                      real_target)
+from .returns import (active_caps, allowed_classes, annuity_due, gamma, goal_cap, inflation_vol, initial_z, is_equity,
+                      is_risky, mix_cap_applies, pi_general, planning_rho, real_target)
 
 SCALE = 1e-3
 TIER_ABS_EPS = 1e-4
@@ -110,7 +108,9 @@ def build_goal_data(plan: FinancePlan, proj: CashflowProjection, z: dict[str, fl
         bc = list(dict.fromkeys(bc))
         blocks = tg.blocks(D, L)
         out[g.id] = GoalData(goal=g, index=i, D=D, TR=real_target(plan, g, D), tier=g.priority, z=zg,
-                             rho={a: planning_rho(ac, pi, zg, D, inflation_vol(plan)) for a, ac in classes.items()}, blocks=blocks,
+                             rho={a: planning_rho(ac, pi, zg, D, inflation_vol(plan), z0=initial_z(g),
+                                                     caution=plan.assumptions.caution)
+                                  for a, ac in classes.items()}, blocks=blocks,
                              allowed=allowed, bucket_classes=bc, caps=[goal_cap(plan, g, D, s) for (_, s, _) in blocks],
                              earmarks=ems)
     return out

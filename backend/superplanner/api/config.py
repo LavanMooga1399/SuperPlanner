@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Callable
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_DATABASE_URL = f"sqlite:///{BACKEND_DIR / 'superplanner.db'}"
@@ -37,6 +38,18 @@ def _env_workers() -> int:
         return 2
 
 
+def _env_flag(name: str) -> bool:
+    return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        v = float(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+    return v if v > 0 else default
+
+
 @dataclass
 class Settings:
     database_url: str = field(default_factory=lambda: os.environ.get("DATABASE_URL") or DEFAULT_DATABASE_URL)
@@ -46,3 +59,11 @@ class Settings:
     sse_poll_seconds: float = 0.5
     sse_keepalive_seconds: float = 15.0
     progress_min_interval_seconds: float = 0.5   # max 2 progress events per second per run
+    # Intake (PHASE2 2.12). AI assist is off unless INTAKE_AI_ENABLED is set and credentials resolve.
+    intake_ai_enabled: bool = field(default_factory=lambda: _env_flag("INTAKE_AI_ENABLED"))
+    intake_ai_timeout_seconds: float = field(default_factory=lambda: _env_float("INTAKE_AI_TIMEOUT_SECONDS", 60.0))
+    intake_ai_max_retries: int = 2
+    intake_ai_max_concurrent: int = 2
+    intake_max_text_chars: int = 20000
+    intake_max_table_chars: int = 1_000_000
+    intake_ai_client_factory: Callable[[], Any] | None = None   # tests only: returns a fake SDK client

@@ -1,4 +1,5 @@
 import { Icon } from "../../components/Icon";
+import { Term } from "../../components/Term";
 import type { GoalResult } from "../api/types";
 import { formatMoney, formatProb, roundDisplay } from "../lib/money";
 import { fmtMonth } from "../lib/months";
@@ -24,7 +25,7 @@ export function GoalCard({ goal, currency, locale }: { goal: GoalResult; currenc
         <div className="chance">
           <div className="chance-text" data-testid={`goal-success-${goal.goal_id}`}>
             <span>
-              Estimated chance: <strong>{formatProb(goal.success_probability)}</strong>
+              <Term k="chance_of_success">Estimated chance</Term>: <strong>{formatProb(goal.success_probability)}</strong>
             </span>
             <span className="small muted">you asked for {formatProb(goal.min_success_probability)}</span>
           </div>
@@ -71,10 +72,12 @@ export function GoalCard({ goal, currency, locale }: { goal: GoalResult; currenc
         </dl>
         {goal.shortfall_real > 0.5 ? (
           <div className="small row" style={{ color: "var(--danger)" }}>
-            <Icon name="alert" /> Short by {m(goal.shortfall_real)} even with cautious planning.
+            <Icon name="alert" /> Short by {m(goal.shortfall_real)} even with cautious planning. <Term k="shortfall" bare />
           </div>
         ) : null}
-        <div className="small faint">All values in today's money unless marked as future.</div>
+        <div className="small faint">
+          All values in <Term k="todays_money">today's money</Term> unless marked as future.
+        </div>
       </div>
     </article>
   );

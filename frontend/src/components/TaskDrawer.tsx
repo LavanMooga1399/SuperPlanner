@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { PlacementOut, Problem, Schedule, StartReasonCode } from "../api/types";
 import type { Terms } from "../lib/terms";
 import { fmtDuration, fmtIso, isoToMs, offsetMinutesOf } from "../lib/time";

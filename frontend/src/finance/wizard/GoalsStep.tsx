@@ -1,4 +1,5 @@
 import { Icon } from "../../components/Icon";
+import { Term } from "../../components/Term";
 import type { Earmark, Goal, GoalKind, Priority } from "../api/types";
 import { currentUtcMonth, fmtMonth, monthInYears, yearsFromStart } from "../lib/months";
 import { addItem, patchItem, removeItem, type StepProps } from "./common";
@@ -32,7 +33,7 @@ export function GoalsStep({ plan, update, expert }: StepProps) {
   return (
     <div className="col gap-lg">
       <HelpText>
-        What are you saving for? Enter the cost in today's money; the plan adds inflation. Priority decides who gets money first when it is
+        What are you saving for? Enter the cost in <Term k="todays_money">today's money</Term>; the plan adds inflation. Priority decides who gets money first when it is
         short: <strong>must have</strong> goals are funded first, then <strong>should have</strong>, then <strong>nice to have</strong>.
         Should and nice-to-have goals start after your emergency fund is complete.
       </HelpText>

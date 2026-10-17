@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { ErrorBanner, Loading } from "../../components/Banner";
 import { useAsync } from "../../lib/useAsync";
 import { fmtLocal } from "../../lib/time";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router";
 import { errorMessage } from "../../api/client";
 import { ErrorBanner, Loading } from "../../components/Banner";
 import { listFinanceResults } from "../api/client";

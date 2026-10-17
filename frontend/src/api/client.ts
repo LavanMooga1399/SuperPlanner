@@ -77,7 +77,7 @@ async function raw<T>(path: string, opts: RequestOptions = {}): Promise<RawRespo
     res = await fetch(API_BASE + path, { method: opts.method ?? "GET", headers, body, signal: opts.signal });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new ApiError(0, "NETWORK_ERROR", "Cannot reach the SuperPlanner server. Is the backend running on port 8000?");
+    throw networkError();
   }
   if (res.status === 204) {
     return { data: undefined as T, headers: res.headers, status: 204 };
@@ -95,6 +95,7 @@ async function raw<T>(path: string, opts: RequestOptions = {}): Promise<RawRespo
     if (isEnvelope(parsed)) {
       throw new ApiError(res.status, parsed.error.code, parsed.error.message, parsed.error.details ?? {});
     }
+    if (looksLikeProxyFailure(res.status, text)) throw networkError(res.status);
     const detail =
       typeof parsed === "object" && parsed !== null && "detail" in parsed
         ? String((parsed as { detail: unknown }).detail)
@@ -197,8 +198,138 @@ export const scheduleCsvUrl = (id: string) => `${API_BASE}/schedules/${enc(id)}/
 export const replanSchedule = (id: string, body: ReplanRequest) =>
   request<ReplanCreated>(`/schedules/${enc(id)}/replan`, { method: "POST", body });
 
-/** Human-readable message for any thrown value. */
+/** Shown whenever the server cannot be reached (PHASE2.md 3.6). */
+export const NETWORK_MESSAGE = "Cannot reach the server. Check that it is running and try again.";
+
+export function networkError(status = 0): ApiError {
+  return new ApiError(status, "NETWORK_ERROR", NETWORK_MESSAGE);
+}
+
+/**
+ * The dev/preview proxy answers 500 with an empty body when the backend is down; gateways answer
+ * 502/503/504. Real API errors always carry the A.14 envelope, so these are treated as "unreachable".
+ */
+export function looksLikeProxyFailure(status: number, text: string): boolean {
+  return status === 502 || status === 503 || status === 504 || (status === 500 && text.trim() === "");
+}
+
+export function isNetworkError(err: unknown): boolean {
+  return err instanceof ApiError && err.code === "NETWORK_ERROR";
+}
+
+const LOC_ROOTS = new Set(["body", "query", "path", "header"]);
+
+/** Names of list fields in plan documents (scheduling and finance), singular, for "Task 3". */
+const LIST_LABELS: Record<string, string> = {
+  tasks: "Task",
+  resources: "Resource",
+  dependencies: "Dependency",
+  requirements: "Requirement",
+  alternatives: "Option",
+  blocked: "Closed time",
+  task_updates: "Change",
+  goals: "Goal",
+  incomes: "Income",
+  expenses: "Expense",
+  debts: "Loan",
+  holdings: "Savings",
+  asset_classes: "Asset class",
+  earmarked: "Set-aside amount",
+  items: "Item",
+};
+
+/** Field labels as the forms show them. Unknown names are turned into words ("start_month" -> "Start month"). */
+const FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  description: "Description",
+  horizon_start: "Plan start",
+  horizon_days: "Planning window (days)",
+  duration_minutes: "Duration",
+  duration_estimate: "Duration range",
+  earliest_start: "Earliest start",
+  deadline: "Deadline",
+  deadline_type: "Deadline type",
+  capacity: "Capacity",
+  cost_per_hour: "Cost per hour",
+  calendar: "Working time",
+  weekly: "Weekly working time",
+  lag_minutes: "Lag",
+  predecessor: "Comes after",
+  successor: "Task",
+  units: "Units",
+  time_limit_seconds: "Time limit",
+  weights: "Weights",
+  target_amount: "Cost in today's money",
+  target_month: "Target month",
+  start_month: "Start month",
+  end_month: "End month",
+  amount: "Amount",
+  monthly_amount: "Monthly amount",
+  growth_pct: "Yearly raise",
+  inflation_pct: "Inflation",
+  risk_tolerance: "Risk level",
+  min_success_probability: "Minimum chance",
+  flexibility_months: "Could wait (months)",
+  emergency_months: "Emergency fund (months of expenses)",
+  balance: "Balance",
+  interest_pct: "Interest rate",
+  emi: "Monthly instalment",
+  parameters: "Example settings",
+  utc_offset: "Time zone",
+  start_date: "Start date",
+  currency: "Currency",
+  locale: "Number format",
+};
+
+function words(name: string): string {
+  const w = name.replace(/_/g, " ").trim();
+  return w ? w[0].toUpperCase() + w.slice(1) : name;
+}
+
+/** "["body", "tasks", 2, "duration_minutes"]" -> "Task 3, Duration". Empty for the whole request. */
+export function describeLoc(loc: unknown[]): string {
+  const parts: string[] = [];
+  const path = loc.filter((x, i) => !(i === 0 && typeof x === "string" && LOC_ROOTS.has(x)));
+  for (let i = 0; i < path.length; i++) {
+    const seg = path[i];
+    const next = path[i + 1];
+    if (typeof seg === "string" && typeof next === "number" && LIST_LABELS[seg]) {
+      parts.push(`${LIST_LABELS[seg]} ${next + 1}`);
+      i++;
+    } else if (typeof seg === "string") {
+      if (seg === "problem" || seg === "plan" || seg === "profile" || seg === "assumptions") continue;
+      parts.push(FIELD_LABELS[seg] ?? words(seg));
+    }
+  }
+  return parts.join(", ");
+}
+
+function cleanMsg(msg: string): string {
+  const m = msg.replace(/^Value error, /, "").replace(/^Assertion failed, /, "");
+  return m ? m[0].toUpperCase() + m.slice(1) : m;
+}
+
+/** One line per field error of a 422 `VALIDATION_ERROR` (A.14 `details.errors`), with form labels. */
+export function fieldErrors(err: unknown): { field: string; message: string; loc: unknown[] }[] {
+  if (!(err instanceof ApiError) || err.code !== "VALIDATION_ERROR") return [];
+  const list = err.details.errors;
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((e): e is { loc?: unknown; msg?: unknown } => typeof e === "object" && e !== null)
+    .map((e) => {
+      const loc = Array.isArray(e.loc) ? e.loc : [];
+      return { field: describeLoc(loc), message: cleanMsg(String(e.msg ?? "is not valid")), loc };
+    });
+}
+
+/** Human-readable message for any thrown value. Validation errors name the fields as the forms label them. */
 export function errorMessage(err: unknown): string {
+  const fields = fieldErrors(err);
+  if (fields.length) {
+    const shown = fields.slice(0, 3).map((f) => (f.field ? `${f.field}: ${f.message}` : f.message));
+    const more = fields.length > 3 ? ` (and ${fields.length - 3} more)` : "";
+    return `Please check ${fields.length === 1 ? "this field" : "these fields"}. ${shown.join("; ")}${more}.`.replace(/\.\.$/, ".");
+  }
   if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;
   return String(err);

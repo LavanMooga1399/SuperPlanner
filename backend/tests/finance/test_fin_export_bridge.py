@@ -39,7 +39,11 @@ def test_csv_shape_order_and_disclaimer(results):
     assert keys == sorted(keys)
     for row in body:
         assert float(row[7]) >= 1.0 and re.match(r"^\d+\.\d{2}$", row[7])
-    assert {row[1] for row in body} >= {"contribute", "emergency_fund", "goal_withdrawal"}
+    assert {row[1] for row in body} >= {"contribute", "goal_withdrawal"}
+    # the family's emergency fund is complete at the start since PHASE2 1.8; the young professional builds one
+    p2, r2 = results["young_professional"]
+    rows2 = list(csv.reader(io.StringIO("\n".join(contributions_csv(p2, r2).splitlines()[1:]))))
+    assert "emergency_fund" in {row[1] for row in rows2[1:]}
 
 
 def test_csv_formula_injection():

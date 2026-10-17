@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Term } from "../../components/Term";
+import { Link, useSearchParams } from "react-router";
 import { ApiError, errorMessage, isAbort } from "../../api/client";
 import { Banner, ErrorBanner, Loading } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
@@ -310,6 +311,10 @@ function GlideCard({ result: r }: { result: FinanceResult }) {
             <p>No investment buckets to show yet.</p>
           </div>
         )}
+        <p className="small muted" style={{ margin: "8px 0 0" }}>
+          How much may be in <Term k="growth_assets">growth assets</Term> follows your <Term k="risk_level">risk level</Term> and the{" "}
+          <Term k="glide_path">glide path</Term>.
+        </p>
       </div>
     </section>
   );

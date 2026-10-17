@@ -108,6 +108,29 @@ class Resource(_Strict):
     metadata: ItemMetadata = Field(default_factory=dict)
 
 
+def pert_minutes(optimistic: int, likely: int, pessimistic: int) -> int:
+    """PERT expected value (o + 4m + p) / 6 rounded half up to whole minutes (PHASE2 2.14)."""
+    return (optimistic + 4 * likely + pessimistic + 3) // 6
+
+
+class DurationEstimate(_Strict):
+    """Optional three-point estimate of an activity (PHASE2 2.14). Informational: engines use duration_minutes."""
+
+    optimistic_minutes: int = Field(ge=1)
+    likely_minutes: int = Field(ge=1)
+    pessimistic_minutes: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "DurationEstimate":
+        if not (self.optimistic_minutes <= self.likely_minutes <= self.pessimistic_minutes):
+            raise ValueError("duration_estimate must satisfy optimistic <= likely <= pessimistic")
+        return self
+
+    @property
+    def expected_minutes(self) -> int:
+        return pert_minutes(self.optimistic_minutes, self.likely_minutes, self.pessimistic_minutes)
+
+
 class Task(_Strict):
     id: Id
     name: str = Field(min_length=1, max_length=200)
@@ -122,6 +145,8 @@ class Task(_Strict):
     requirements: list[Requirement] = Field(default_factory=list, max_length=MAX_REQUIREMENTS)
     locked: Lock | None = None
     metadata: ItemMetadata = Field(default_factory=dict)
+    # Omitted from dumps when absent, so documents without a range serialise exactly as before PHASE2.
+    duration_estimate: DurationEstimate | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @model_validator(mode="after")
     def _type_rules(self) -> "Task":
@@ -130,8 +155,14 @@ class Task(_Strict):
                 raise ValueError("a milestone must have duration_minutes == 0")
             if self.requirements:
                 raise ValueError("a milestone must not have requirements")
+            if self.duration_estimate is not None:
+                raise ValueError("a milestone must not have duration_estimate")
         elif self.duration_minutes < 1:
             raise ValueError("an activity must have duration_minutes >= 1")
+        if self.duration_estimate is not None:
+            e = self.duration_estimate.expected_minutes
+            if self.duration_minutes != e:
+                raise ValueError(f"duration_minutes must be {e}, the expected value of duration_estimate")
         return self
 
 

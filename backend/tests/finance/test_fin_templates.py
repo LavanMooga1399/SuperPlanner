@@ -34,7 +34,7 @@ def test_parameters_and_relative_dates():
     p = t.build(name="x", start_month="2030-01", params={"car_in_years": 2, "age": 30, "retirement_age": 50})
     g = {x.id: x for x in p.goals}
     assert g["car"].target_month == "2032-01" and g["retirement"].target_month == "2050-01"
-    assert g["retirement"].target_amount == 25 * 12 * (25000 + 10000)
+    assert g["retirement"].target_amount == 25 * 12 * (26000 + 12000)
     with pytest.raises(ValueError):
         t.build(name="x", start_month="2030-01", params={"bogus": 1})
     with pytest.raises(ValueError):

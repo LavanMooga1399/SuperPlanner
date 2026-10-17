@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { ApiError, approveSchedule, errorMessage, getSchedule, listSchedules, scheduleCsvUrl } from "../../api/client";
 import type { Issue, PlacementOut, Schedule, ScheduleSummary, Violation } from "../../api/types";
 import { Banner, ErrorBanner, Loading } from "../../components/Banner";

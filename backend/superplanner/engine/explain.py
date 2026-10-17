@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import bisect
+import math
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -31,11 +32,63 @@ class TaskExplanation(BaseModel):
     deadline_status: Literal["none", "on_time", "late_soft", "late_hard"]
 
 
+class DurationRisk(BaseModel):
+    """PERT note for tasks with a duration range (PHASE2 2.14)."""
+
+    tasks_with_range: int
+    chain_task_ids: list[str]               # activities on the schedule critical chain
+    chain_expected_minutes: int             # sum of duration_minutes
+    chain_optimistic_minutes: int           # sum of o (duration if no estimate)
+    chain_pessimistic_minutes: int          # sum of p
+    chain_sigma_minutes: float              # sqrt(sum(((p - o) / 6)^2))
+    buffer_85_minutes: int                  # round(1.04 * sigma)
+    message: str
+
+
 class ScheduleExplanation(BaseModel):
     tasks: dict[str, TaskExplanation]
     critical_chain: list[str]
     cpm_critical_path: list[str]
     summary: list[str]
+    # None when no task has a range; omitted from dumps then, so existing results serialise unchanged.
+    duration_risk: DurationRisk | None = Field(default=None, exclude_if=lambda v: v is None)
+
+
+def fmt_work(minutes: int | float) -> str:
+    """Working time with 8-hour days: `1 d 2 h`, `3 h 30 min`, `45 min`, `0 min`."""
+    m = max(0, int(round(minutes)))
+    days, rem = divmod(m, 480)
+    hours, mins = divmod(rem, 60)
+    parts = []
+    if days:
+        parts.append(f"{days} d")
+    if hours:
+        parts.append(f"{hours} h")
+    if mins or not parts:
+        parts.append(f"{mins} min")
+    return " ".join(parts)
+
+
+def duration_risk(problem: CompiledProblem, chain: list[int]) -> DurationRisk | None:
+    tasks = problem.tasks
+    n = sum(1 for t in tasks if t.estimate is not None)
+    if n == 0:
+        return None
+    acts = [tasks[i] for i in chain if not tasks[i].is_milestone]
+    exp = sum(t.duration for t in acts)
+    opt = sum(t.estimate[0] if t.estimate else t.duration for t in acts)
+    pes = sum(t.estimate[2] if t.estimate else t.duration for t in acts)
+    sigma = math.sqrt(sum(((t.estimate[2] - t.estimate[0]) / 6) ** 2 for t in acts if t.estimate))
+    buffer = int(round(1.04 * sigma))
+    term = problem.terminology
+    plural = term.tasks.lower()
+    subject = f"1 {term.task.lower()} has" if n == 1 else f"{n} {plural} have"
+    message = (f"{subject} a duration range; the plan uses the expected values. If the {plural} on the critical "
+               f"chain take their longest estimates, the work runs about {fmt_work(pes - exp)} longer; keeping about "
+               f"{fmt_work(buffer)} spare gives roughly an 85% chance of finishing on time.")
+    return DurationRisk(tasks_with_range=n, chain_task_ids=[t.id for t in acts], chain_expected_minutes=exp,
+                        chain_optimistic_minutes=opt, chain_pessimistic_minutes=pes,
+                        chain_sigma_minutes=round(sigma, 3), buffer_85_minutes=buffer, message=message)
 
 
 _DEP_PHRASE = {"FS": "finishes", "SS": "starts", "FF": "finishes", "SF": "starts"}
@@ -209,5 +262,9 @@ def explain(problem: CompiledProblem, placements: list[Placement], cpm_result: C
             summary.append(f"All {len(tasks)} {term.tasks} finish on time.")
     if chain:
         summary.append("Completion is driven by the chain " + " -> ".join(tasks[i].name for i in chain) + ".")
+    risk = duration_risk(problem, chain)
+    if risk is not None:
+        summary.append(risk.message)
     return ScheduleExplanation(tasks=out, critical_chain=[tasks[i].id for i in chain],
-                               cpm_critical_path=list(cpm_result.critical_path), summary=summary)
+                               cpm_critical_path=list(cpm_result.critical_path), summary=summary,
+                               duration_risk=risk)

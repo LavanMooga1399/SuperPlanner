@@ -286,7 +286,8 @@ def validate_result(plan: FinancePlan, result: FinanceResult) -> list[FinanceVio
         D = Dg[g.id]
         gr = gres.get(g.id)
         z = gr.planning_z if gr is not None else initial_z(g)
-        rho = {a: planning_rho(ac, pi, z, D, inflation_vol(plan)) for a, ac in classes.items()}
+        rho = {a: planning_rho(ac, pi, z, D, inflation_vol(plan), z0=initial_z(g), caution=plan.assumptions.caution)
+               for a, ac in classes.items()}
         allowed = set(allowed_classes(plan, g))
         F: dict[str, float] = defaultdict(float)
         locked_pos: list[tuple[str, float, int]] = []

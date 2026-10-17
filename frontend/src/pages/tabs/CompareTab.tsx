@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { compareSchedules, errorMessage, listSchedules } from "../../api/client";
 import type { Comparison } from "../../api/types";
 import { ErrorBanner, Loading } from "../../components/Banner";

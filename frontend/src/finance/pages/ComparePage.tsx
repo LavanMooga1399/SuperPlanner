@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { errorMessage, isAbort } from "../../api/client";
 import { ErrorBanner, Loading } from "../../components/Banner";
 import { Icon } from "../../components/Icon";

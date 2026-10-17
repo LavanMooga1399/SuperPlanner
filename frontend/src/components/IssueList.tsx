@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { Issue, Problem } from "../api/types";
 import type { Terms } from "../lib/terms";
 import { Icon } from "./Icon";

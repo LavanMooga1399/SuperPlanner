@@ -27,7 +27,7 @@ def test_apply_what_if_is_pure_and_deterministic():
     assert a.emergency_fund.build_share == 0.5
     eq = next(c for c in a.assumptions.asset_classes if c.id == "equity_index")
     cash = next(c for c in a.assumptions.asset_classes if c.id == "cash")
-    assert eq.expected_return_pct == pytest.approx(10.5) and cash.expected_return_pct == 3.0
+    assert eq.expected_return_pct == pytest.approx(11.0) and cash.expected_return_pct == 3.5
     extra = next(i for i in a.incomes if i.id == "whatif_extra")
     assert extra.amount == 10000 and extra.growth_pct == 7 and not extra.interruptible
     drop = next(e for e in a.expenses if e.id == "whatif_income_drop")

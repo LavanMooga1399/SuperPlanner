@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { errorMessage, validateProblem } from "../../api/client";
 import type { ValidateResponse } from "../../api/types";
 import { Banner, ErrorBanner, Loading } from "../../components/Banner";

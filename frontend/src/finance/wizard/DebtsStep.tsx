@@ -38,7 +38,7 @@ export function DebtsStep({ plan, update, preview, expert }: StepProps) {
         items={plan.debts}
         rowTestId="debt"
         addLabel="Add loan"
-        emptyText="No loans."
+        emptyText="No loans. Add one if you pay a monthly instalment on a home, car or other loan."
         max={20}
         onAdd={() => update((p) => addItem(p, "debts", newDebt()))}
         onRemove={(i) => update((p) => removeItem(p, "debts", i))}

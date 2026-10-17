@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Callable
 from . import defaults as D
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .model import AssetClass, Assumptions, FinancePlan, Goal
+    from .model import AssetClass, Assumptions, CautionSettings, FinancePlan, Goal
 
 _ND = NormalDist()
 
@@ -60,22 +60,44 @@ def real_volatility(ac: "AssetClass", inflation_vol: float) -> float:
     return math.sqrt((ac.volatility_pct / 100.0) ** 2 + inflation_vol ** 2)
 
 
-def planning_return(ac: "AssetClass", pi: float, z: float, D_g: int, inflation_vol: float) -> float:
-    """Cautious annual real return for goal date `D_g` (8.2), interpreted as the z-quantile of the annualized
-    lognormal real return over `Y = max(1, D/12)` years:
-    `Rplan = max(-0.5, (1 + R) exp(-s^2/2 - z s / sqrt(Y)) - 1)`, `s = sqrt(ln(1 + (sigma_real/(1+R))^2))`.
-    With zero volatility this is exactly `R` (see F.24.3)."""
+def caution_ramp(caution: "CautionSettings", Y: float) -> float:
+    """`ramp(Y) = clamp((Y - start) / (full - start), 0, 1)` (PHASE2 1.5)."""
+    span = caution.floor_full_years - caution.floor_start_years
+    if span <= 0:  # pragma: no cover - the model validator forbids it
+        return 1.0 if Y >= caution.floor_full_years else 0.0
+    return min(1.0, max(0.0, (Y - caution.floor_start_years) / span))
+
+
+def planning_return(ac: "AssetClass", pi: float, z: float, D_g: int, inflation_vol: float, *, z0: float,
+                    caution: "CautionSettings") -> float:
+    """Cautious annual real return of class `ac` for goal date `D_g` (FINANCE 8.2 as changed by PHASE2 1.5).
+
+    `q` is the honest z-quantile of the annualised lognormal real return over `Y = max(1, D/12)` years,
+    `q = (1 + R) exp(-s^2/2 - z s / sqrt(Y)) - 1`, `s = sqrt(ln(1 + (sigma_real/(1+R))^2))`. For distant goals
+    the value is floored at a horizon-phased share of the median real return,
+    `phi(Y) = floor_share * ramp(Y)`, and the calibration penalty `ramp(Y) * step * max(0, z - z0)` is
+    subtracted from every class alike, so the class ranking at any `z` is the ranking at `z0`:
+    `Rplan = max(-0.5, max(q, phi * max(med, 0)) - ramp * delta)`; `Rplan = max(-0.5, q)` when `phi == 0`.
+    With zero volatility this is exactly `R` (F.24.3)."""
     Y = max(1.0, D_g / 12.0)
     R = real_annual(ac, pi)
     sig = real_volatility(ac, inflation_vol)
     if sig <= 0:
         return max(-0.5, R)
     s = math.sqrt(math.log(1.0 + (sig / max(1e-6, 1.0 + R)) ** 2))
-    return max(-0.5, (1.0 + R) * math.exp(-s * s / 2.0 - z * s / math.sqrt(Y)) - 1.0)
+    q = (1.0 + R) * math.exp(-s * s / 2.0 - z * s / math.sqrt(Y)) - 1.0
+    ramp = caution_ramp(caution, Y)
+    phi = caution.floor_share * ramp
+    if phi <= 0.0:
+        return max(-0.5, q)
+    med = (1.0 + R) * math.exp(-s * s / 2.0) - 1.0
+    delta = caution.floor_step_pct_per_z / 100.0 * max(0.0, z - z0)
+    return max(-0.5, max(q, phi * max(med, 0.0)) - ramp * delta)
 
 
-def planning_rho(ac: "AssetClass", pi: float, z: float, D_g: int, inflation_vol: float) -> float:
-    return (1.0 + planning_return(ac, pi, z, D_g, inflation_vol)) ** (1.0 / 12.0)
+def planning_rho(ac: "AssetClass", pi: float, z: float, D_g: int, inflation_vol: float, *, z0: float,
+                 caution: "CautionSettings") -> float:
+    return (1.0 + planning_return(ac, pi, z, D_g, inflation_vol, z0=z0, caution=caution)) ** (1.0 / 12.0)
 
 
 def inflation_vol(plan: "FinancePlan") -> float:

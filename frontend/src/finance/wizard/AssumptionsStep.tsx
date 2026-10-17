@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Term } from "../../components/Term";
 import { errorMessage } from "../../api/client";
 import { Banner } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
@@ -42,7 +43,7 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
   return (
     <div className="col gap-lg">
       <HelpText>
-        These are illustrative assumptions, not forecasts. The plan uses cautious versions of these returns, then tests thousands of possible
+        These are illustrative assumptions, not forecasts. The plan uses <Term k="cautious_return">cautious</Term> versions of these returns, then tests thousands of possible
         market outcomes to estimate the chance of each goal. Change them to match your own view.
       </HelpText>
       <section className="col" aria-labelledby="fin-risk-h">

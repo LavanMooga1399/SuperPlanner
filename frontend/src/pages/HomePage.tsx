@@ -1,11 +1,12 @@
 import { useRef, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { errorMessage, importProblem, listProblems, listTemplates } from "../api/client";
 import type { ExportFile, Problem } from "../api/types";
 import { ErrorBanner, Loading } from "../components/Banner";
 import { Icon } from "../components/Icon";
 import { PlanList } from "../components/PlanList";
 import { TemplateCard } from "../components/TemplateCard";
+import { PlanChooser } from "../landing/PlanChooser";
 import { useAsync } from "../lib/useAsync";
 
 function toExportFile(data: unknown): ExportFile {
@@ -46,10 +47,11 @@ export function HomePage() {
 
   return (
     <div className="col gap-lg">
-      <div className="page-header">
+      <PlanChooser />
+      <div className="page-header mt-lg" style={{ marginBottom: 0 }}>
         <div>
-          <h1>Your plans</h1>
-          <p>Describe what has to be done, with what and by when; SuperPlanner finds a schedule that works.</p>
+          <h2 id="plans-title">Your plans</h2>
+          <p>Schedules you have made. Financial plans are under Finance.</p>
         </div>
         <div className="row">
           <input ref={fileRef} type="file" accept=".json,application/json" className="sr-only" onChange={onFile} id="import-file" aria-label="Import plan JSON file" />
@@ -70,7 +72,7 @@ export function HomePage() {
 
       <section aria-labelledby="templates-title" className="mt">
         <div className="section-title">
-          <h2 id="templates-title">Create from template</h2>
+          <h2 id="templates-title">Start from an example</h2>
         </div>
         {templates.loading && !templates.data ? (
           <Loading label="Loading templates…" />

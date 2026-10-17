@@ -12,6 +12,7 @@ from typing import Callable
 import numpy as np
 
 from .cashflow import FlowComponents, ef_complete_t, flow_components, locked_index, project_cashflow
+from .defaults import CALIBRATION_AIM
 from .model import (AssumptionsUsed, CashflowProjection, ContributionLine, Diagnostics, FinanceCancelled,
                     FinancePlan, FinancePreflightError, FinanceProgress, FinanceResult, FinanceRunRequest, GlidePoint,
                     GoalResult, HoldingAssignment, Rebalance, ResultCashflow, ResultSeries, ResultSimulationSettings,
@@ -333,7 +334,7 @@ def run_plan(plan: FinancePlan, request: FinanceRunRequest | None = None, progre
         changed = []
         for g in goals:
             prob = float(cur.sim.success[idx[g.id]])
-            if cur.pub.sol.short.get(g.id, 0.0) <= 1.0 and prob < min_probability(g) - 0.02 and new_z[g.id] < Z_MAX:
+            if cur.pub.sol.short.get(g.id, 0.0) <= 1.0 and prob < min_probability(g) + CALIBRATION_AIM and new_z[g.id] < Z_MAX:
                 new_z[g.id] = min(Z_MAX, new_z[g.id] + Z_STEP)
                 changed.append(g.id)
         if not changed:
@@ -441,6 +442,9 @@ def assemble(plan: FinancePlan, proj: CashflowProjection, fc: FlowComponents, pu
         total = sum(v for a in xs for v in xs[a].values())
         held = sum(r.amount for r in pub.assignment if r.goal_id == gid and r.source in ("earmark", "assigned"))
         alloc: dict[str, float] = {}
+        cap_s = gd.blocks[0][1] if gd.blocks else 0
+        if paying:
+            cap_s = next((s for (_k, s, n) in gd.blocks if s <= paying[0] < s + n), cap_s)
         if paying:
             t1 = paying[0]
             tot = sum(xs[a].get(t1, 0.0) for a in xs)
@@ -475,7 +479,9 @@ def assemble(plan: FinancePlan, proj: CashflowProjection, fc: FlowComponents, pu
             contribution_start_month=months[paying[0]] if paying else None,
             contribution_end_month=months[paying[-1]] if paying else None, monthly_contribution_now=_r2(now),
             total_contributions_real=_r2(total), holdings_used_real=_r2(held), allocation_now_pct=alloc,
-            planning_z=pub.z[gid]))
+            planning_z=pub.z[gid],
+            growth_share_now_pct=round(sum(v for a, v in alloc.items() if is_risky(classes[a])), 1),
+            growth_cap_now_pct=round(100.0 * goal_cap(plan, g, gd.D, cap_s), 2)))
     tE = ef_complete_t(proj)
     summary = ResultSummary(
         goals_total=len(goal_results), goals_on_track=sum(1 for g in goal_results if g.status == "on_track"),
@@ -484,7 +490,8 @@ def assemble(plan: FinancePlan, proj: CashflowProjection, fc: FlowComponents, pu
         monthly_investable_now=_r2(proj.investable[0]), monthly_contribution_now=_r2(pub.X_total[0]),
         emergency_fund_target=_r2(proj.ef_target), emergency_fund_now=_r2(proj.ef_initial),
         emergency_fund_complete_month=months[tE] if tE < T else None,
-        liquidity_risk_probability=round(sim.liquidity_risk, 4), total_contributions_real=_r2(sum(pub.X_total)))
+        liquidity_risk_probability=round(sim.liquidity_risk, 4), total_contributions_real=_r2(sum(pub.X_total)),
+        **funding_split(plan, proj, pub))
     corpus = {}
     for i, a in enumerate(order):
         series = central.corpus_by_class[i]
@@ -521,8 +528,28 @@ def assemble(plan: FinancePlan, proj: CashflowProjection, fc: FlowComponents, pu
         diagnostics=diag)
 
 
+def funding_split(plan: FinancePlan, proj: CashflowProjection, pub: Published) -> dict[str, float]:
+    """First-year averages and where the invested money comes from (PHASE2 1.11), real, 2 dp."""
+    n = min(12, proj.T)
+    if n <= 0:
+        return {}
+    tau = plan.constraints.rebalance_cost_pct / 100.0
+    X = pub.X_total[:n]
+    inv = proj.investable[:n]
+    contrib = sum(X) / n
+    from_surplus = sum(min(x, max(i, 0.0)) for x, i in zip(X, inv)) / n
+    c2, s2 = _r2(contrib), _r2(from_surplus)
+    return dict(
+        monthly_surplus_avg_12m=_r2(sum(proj.surplus[:n]) / n),
+        monthly_ef_contribution_avg_12m=_r2(sum(proj.ef_contribution[:n]) / n),
+        monthly_investable_avg_12m=_r2(sum(inv) / n),
+        monthly_contribution_avg_12m=c2, monthly_from_surplus_avg_12m=s2,
+        monthly_from_savings_avg_12m=_r2(max(0.0, c2 - s2)),
+        savings_to_cash_at_start=_r2(proj.cash_buffer_initial + (1.0 - tau) * pub.sold_to_cash))
+
+
 def _l(xs) -> list[float]:
     return [_r2(float(v)) for v in xs]
 
 
-__all__ = ["run_plan", "publish", "assemble", "goal_status", "Published", "tolerances"]
+__all__ = ["run_plan", "publish", "assemble", "goal_status", "funding_split", "Published", "tolerances"]

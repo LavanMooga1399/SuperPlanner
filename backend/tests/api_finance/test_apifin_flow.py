@@ -66,7 +66,8 @@ def test_full_finance_flow(fin):
 
     # 6. compare
     comp = c.get(f"{FIN}/results/compare", params={"a": base_id, "b": wrun["result_id"]}).json()
-    assert comp["totals"]["monthly_contribution_now_b"] >= comp["totals"]["monthly_contribution_now_a"] - 0.01
+    # month 0 only: the LP may move a few rupees of an on-track goal between blocks (PHASE2 9.P1)
+    assert comp["totals"]["monthly_contribution_now_b"] >= 0.995 * comp["totals"]["monthly_contribution_now_a"]
     assert comp["b"]["label"] == wrun["label"]
 
     # 7. CSV + send to planner

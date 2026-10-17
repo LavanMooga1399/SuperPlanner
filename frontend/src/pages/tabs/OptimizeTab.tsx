@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { ApiError, createRun, errorMessage, listRuns } from "../../api/client";
 import { ACTIVE_RUN_STATUSES, type Issue, type Objectives, type SolverRunRequest } from "../../api/types";
 import { Banner, ErrorBanner } from "../../components/Banner";
@@ -143,6 +143,11 @@ export function OptimizeTab() {
                 Optimize
               </button>
             </div>
+            {draft.tasks.length === 0 ? (
+              <p className="small muted" style={{ margin: "8px 0 0" }} data-testid="optimize-needs-tasks">
+                Add at least one {terms.taskL} on the <Link to="../tasks">{terms.tasks} tab</Link> to optimize.
+              </p>
+            ) : null}
           </div>
         </div>
       )}

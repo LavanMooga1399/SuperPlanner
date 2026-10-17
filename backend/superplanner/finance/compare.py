@@ -49,5 +49,7 @@ def compare_results(a: FinanceResult, b: FinanceResult, *, summary_a: FinanceRes
             monthly_now_a=x.monthly_contribution_now if x else None,
             monthly_now_b=y.monthly_contribution_now if y else None,
             status_a=x.status if x else None, status_b=y.status if y else None))
+    # results from different engine versions mix the engine change into the deltas (PHASE2 1.13)
     return FinanceComparison(a=sa, b=sb, totals=totals, goals=goals,
-                             what_if_b=what_if_b if what_if_b is not None else sb.what_if)
+                             what_if_b=what_if_b if what_if_b is not None else sb.what_if,
+                             engine_versions_differ=a.engine_version != b.engine_version)

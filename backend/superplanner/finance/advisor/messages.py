@@ -9,6 +9,21 @@ from __future__ import annotations
 import re
 
 MESSAGES: dict[str, str] = {
+    # growth-asset decision, always the first reason of a goal (PHASE2 1.10)
+    "GROWTH_NONE_RESTRICTED": "{goal}: safer classes only, because you limited this goal to {names}.",
+    "GROWTH_LIMITED_GLOBAL": "{goal}: about {share}% in growth assets, limited by your overall equity limit of {pct}% "
+                             "(your risk level {level} of 5 would allow more).",
+    "GROWTH_HIGH": "{goal}: about {share}% in growth assets ({names}) for now, because the goal is {years} away and "
+                   "your risk level {level} of 5 allows up to {base}%. The share steps down from {glide_month} as the "
+                   "goal gets closer.",
+    "GROWTH_LIMITED_TIME": "{goal}: about {share}% in growth assets ({names}), because the goal is {years} away; at that "
+                           "distance the plan allows at most {cap}% (your risk level {level} of 5 allows {base}% for "
+                           "distant goals).",
+    "GROWTH_NONE_SHORT": "{goal}: safer classes only, because the goal is {years} away; growth assets can fall sharply "
+                         "over a few years; your risk level {level} of 5 matters for goals further away.",
+    "GROWTH_NONE_RETURNS": "{goal}: safer classes only, because under your return assumptions growth assets do not beat "
+                           "{safe} once the cautious margin is applied, even at your risk level {level} of 5.",
+    "SAFE_RETURN": "{name} at {pct}% after inflation",
     # goal reasons (12.2)
     "ALLOCATION_SPLIT": "{goal}: {amount}/month from {start} to {end} - {mix}.",
     "ALLOCATION_NONE": "{goal}: no new monthly contributions are planned.",
@@ -32,6 +47,16 @@ MESSAGES: dict[str, str] = {
                           "savings and investments; the plan below is shown for reference.",
     "SUMMARY_UNKNOWN": "The plan could not be fully checked; treat the numbers with care.",
     "SUMMARY_INVEST": "You can invest about {investable}/month now; the plan allocates {contributing}/month.",
+    "SUMMARY_SURPLUS": "In the first year you have about {surplus}/month left after expenses and loans.",
+    "SUMMARY_SURPLUS_EF": "In the first year you have about {surplus}/month left after expenses and loans; about "
+                          "{ef}/month of it first builds your emergency fund.",
+    "SUMMARY_SURPLUS_NEGATIVE": "In the first year your spending and loan payments are about {amount}/month more than "
+                                "your income.",
+    "SUMMARY_FUNDING": "The plan invests about {contributing}/month on average in the first year: {from_surplus} from "
+                       "your monthly surplus and {from_savings} from savings you already have.",
+    "SUMMARY_FUNDING_SURPLUS": "The plan invests about {contributing}/month on average in the first year, all from "
+                               "your monthly surplus.",
+    "SUMMARY_FUNDING_NONE": "The plan needs no new monthly investments in the first year.",
     "SUMMARY_EF": "Your emergency fund target is {target}; it is complete in {month}.",
     "SUMMARY_EF_DONE": "Your emergency fund of {target} is already complete.",
     "SUMMARY_EF_NEVER": "Your emergency fund of {target} is not complete within the plan horizon.",
@@ -47,12 +72,15 @@ MESSAGES: dict[str, str] = {
     "EQUITY_CAP": "The overall equity limit of {pct}% is reached in {count} block(s).",
     "CLASS_CAP": "The limit of {pct}% for {name} is reached in {count} block(s).",
     "DEBT_PAYOFF": "{debt} is paid off in {month}, which frees about {amount}/month.",
+    "SHARED_SHORTFALL": "{count} {tier} goals are each short by about {pct}% because the plan spreads an unavoidable "
+                        "shortfall fairly across them; to fund one fully, lower the priority of another.",
     # assumptions
     "ASSUMPTION_INFLATION": "Inflation is assumed at {pct}% a year (your assumption).",
     "ASSUMPTION_CLASS": "{name}: assumed {expected}% a year before costs and inflation, {real}% after (your "
                         "assumption).",
     "ASSUMPTION_CAUTIOUS": "{goal} is planned with cautious returns, for example {name} at {plan}% after inflation.",
     "ASSUMPTION_SOURCE": "Source of assumptions: {note}",
+    "ASSUMPTION_RANGE": "{item}: you gave a range of {low} to {high}; the plan uses {used}.",
     # limitations (fixed)
     "LIMIT_TAX": "No taxes are calculated; incomes are take-home amounts.",
     "LIMIT_PRODUCTS": "The plan uses asset classes only and does not recommend specific products.",
@@ -151,6 +179,18 @@ def pct(v: float, digits: int = 0) -> str:
     """A percentage number without the % sign (0.62 -> "62")."""
     s = f"{v * 100:.{digits}f}"
     return "0" if s in ("-0", "-0.0") else s
+
+
+def duration_text(months: int) -> str:
+    """"25 years", "3 years 6 months", "1 year", "8 months" (PHASE2 1.10)."""
+    months = max(0, int(months))
+    y, m = divmod(months, 12)
+    parts = []
+    if y:
+        parts.append(f"{y} year" + ("s" if y != 1 else ""))
+    if m or not y:
+        parts.append(f"{m} month" + ("s" if m != 1 else ""))
+    return " ".join(parts)
 
 
 def years_text(months: int) -> str:

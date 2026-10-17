@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { ApiError, errorMessage, replanSchedule } from "../api/client";
 import type { Issue, Problem, ReplanRequest, ResourceUnavailable, Schedule, TaskUpdate } from "../api/types";
 import type { Terms } from "../lib/terms";

@@ -405,3 +405,33 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------------------------------------------------------------- landing (PHASE2.md 3.2) */
+.kind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.kind-card .card-body { display: flex; flex-direction: column; gap: 12px; height: 100%; }
+.kind-card h2.kind-title, .kind-card h3.kind-title { font-size: 15px; margin: 0; }
+.kind-card.large h2.kind-title { font-size: 18px; }
+.kind-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
+.kind-actions .kind-action { justify-content: flex-start; text-align: left; height: auto; min-height: 34px; padding: 6px 10px; white-space: normal; }
+.kind-actions.large { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.kind-actions.large .kind-action { min-height: 72px; padding: 12px 14px; font-size: 15px; align-items: flex-start; }
+.kind-action-text { display: flex; flex-direction: column; gap: 2px; }
+.kind-action-hint { font-size: 12.5px; font-weight: 400; color: var(--text-muted); }
+.btn.primary .kind-action-hint { color: inherit; opacity: 0.85; }
+.start-page { max-width: 960px; }
+
+/* ---------------------------------------------------------------- terms, field errors (PHASE2.md 3.6) */
+.term { position: relative; display: inline-flex; align-items: center; gap: 2px; }
+.term-btn { all: unset; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: var(--text-faint); cursor: help; }
+.term-btn:hover { color: var(--accent); }
+.term-btn:focus-visible { color: var(--accent); box-shadow: var(--focus); }
+.term-tip {
+  position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: max-content; max-width: min(320px, 80vw);
+  padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface); color: var(--text);
+  border: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); font-size: 12.5px; font-weight: 400;
+  line-height: 1.4; white-space: normal; text-align: left;
+}
+.field-error { color: var(--danger); display: inline-flex; align-items: flex-start; gap: 4px; font-size: 12px; }
+.field-error svg { flex: 0 0 auto; margin-top: 1px; }
+.textarea[aria-invalid="true"], .select[aria-invalid="true"] { border-color: var(--danger); }
+.error-summary ul { margin: 4px 0 0; padding-left: 18px; }

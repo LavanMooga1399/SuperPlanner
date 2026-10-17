@@ -1,4 +1,5 @@
 import { useStoredState } from "../../lib/useAsync";
+import { Term } from "../../components/Term";
 
 export type MoneyBasis = "real" | "nominal";
 
@@ -9,6 +10,7 @@ export function useMoneyBasis(): [MoneyBasis, (b: MoneyBasis) => void] {
 /** Today's money (real) vs expected future (nominal) amounts. */
 export function RealNominalToggle({ value, onChange }: { value: MoneyBasis; onChange(b: MoneyBasis): void }) {
   return (
+    <span className="row" style={{ gap: 2 }}>
     <div className="btn-group" role="group" aria-label="Show amounts in">
       <button type="button" className="btn sm" aria-pressed={value === "real"} onClick={() => onChange("real")} data-testid="basis-real">
         Today's money
@@ -17,5 +19,7 @@ export function RealNominalToggle({ value, onChange }: { value: MoneyBasis; onCh
         Expected future
       </button>
     </div>
+    <Term k="real_vs_nominal" bare />
+    </span>
   );
 }

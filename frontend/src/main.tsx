@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router";
+import { RouterProvider } from "react-router/dom";
 import "./styles/theme.css";
 import { App, NotFound } from "./App";
 import { HomePage } from "./pages/HomePage";
@@ -13,6 +14,9 @@ import { OptimizeTab } from "./pages/tabs/OptimizeTab";
 import { ScheduleTab } from "./pages/tabs/ScheduleTab";
 import { CompareTab } from "./pages/tabs/CompareTab";
 import { financeRoutes } from "./finance/routes";
+import { intakeRoutes } from "./intake/routes";
+import { ExamplePage } from "./landing/ExamplePage";
+import { StartPage } from "./landing/StartPage";
 
 const router = createBrowserRouter([
   {
@@ -36,6 +40,9 @@ const router = createBrowserRouter([
         ],
       },
       ...financeRoutes,
+      { path: "new/:kind", element: <StartPage /> },
+      { path: "new/:kind/example", element: <ExamplePage /> },
+      ...intakeRoutes,
       { path: "*", element: <NotFound /> },
     ],
   },

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { DependencyType } from "../../api/types";
 import { Banner } from "../../components/Banner";
 import { DependencyGraph } from "../../components/DependencyGraph";
@@ -119,7 +119,14 @@ export function DependenciesTab() {
 
       {view === "graph" ? (
         draft.tasks.length === 0 ? (
-          <div className="card empty"><Icon name="graph" size={32} /><span>Add {terms.tasksL} first.</span></div>
+          <div className="card empty">
+            <Icon name="graph" size={32} />
+            <strong>Nothing to connect yet</strong>
+            <span>Dependencies say which {terms.taskL} waits for which. Add {terms.tasksL} first.</span>
+            <Link className="btn primary" to="../tasks">
+              <Icon name="plus" /> Add {terms.tasksL}
+            </Link>
+          </div>
         ) : (
           <div className="split">
             <div className="graph-wrap" data-testid="dependency-graph">

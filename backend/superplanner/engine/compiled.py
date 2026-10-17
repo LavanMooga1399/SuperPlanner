@@ -46,6 +46,7 @@ class CTask:
     locked_start: int | None
     locked_resources: tuple[int, ...] | None
     group: str | None = None
+    estimate: tuple[int, int, int] | None = None   # (optimistic, likely, pessimistic) minutes, PHASE2 2.14
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +136,9 @@ def build_compiled(problem: Problem, objectives: Objectives | None = None) -> Co
             release=release, deadline=deadline, deadline_hard=bool(t.deadline_hard and deadline is not None),
             priority=t.priority, requirements=tuple(reqs), locked_start=locked_start,
             locked_resources=locked_res, group=t.group,
+            estimate=None if t.duration_estimate is None or t.type == "milestone" else (
+                t.duration_estimate.optimistic_minutes, t.duration_estimate.likely_minutes,
+                t.duration_estimate.pessimistic_minutes),
         ))
     task_index = {t.id: i for i, t in enumerate(problem.tasks)}
     deps = tuple(CDependency(pred=task_index[d.predecessor], succ=task_index[d.successor], type=d.type,

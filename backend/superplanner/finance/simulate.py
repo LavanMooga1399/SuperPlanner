@@ -195,13 +195,15 @@ def simulate(plan: FinancePlan, fc: FlowComponents, proj: CashflowProjection, po
             total_q[:, t] = np.quantile(W, [0.1, 0.5, 0.9])
 
         # 1. cash flow of the month (nominal)
-        inc = fc.inc_nonint[t] + fc.inc_int[t] * np.ones(n)
+        # interruptible inflation-linked incomes are real and re-priced with the path's P (PHASE2 1.7)
+        lk = fc.inc_int_linked[t] if fc.inc_int_linked is not None else 0.0
+        inc = fc.inc_nonint[t] + (fc.inc_int[t] + lk * P) * np.ones(n)
         if spells_on:
             yt = t // 12
             in_spell = np.zeros(n, dtype=bool)
             for y in range(max(0, yt - 2), yt + 1):
                 in_spell |= flags[:, y] & (starts[:, y] <= t) & (t < starts[:, y] + dur)
-            inc = fc.inc_nonint[t] + np.where(in_spell, 0.0, fc.inc_int[t])
+            inc = fc.inc_nonint[t] + np.where(in_spell, 0.0, fc.inc_int[t] + lk * P)
         C = B + inc + fc.real_linked[t] * P + fc.nominal_fixed[t]
         # 2. cover a deficit from the EF
         neg = C < 0

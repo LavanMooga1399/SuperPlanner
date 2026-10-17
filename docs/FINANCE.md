@@ -360,6 +360,8 @@ Real target: `TR_g = target_amount * ((1 + pi_g)/(1 + pi))^(D_g/12)` with `pi_g 
 
 ## 5. Default assumptions (`finance/defaults.py`)
 
+> Phase 2a: the default figures, `SOURCE_NOTE` and the caution defaults are replaced by `docs/PHASE2.md` 1.4 and 1.5.
+
 Illustrative, user-editable, labelled as such everywhere. Never fetched from the network.
 
 ### 5.1 Asset classes
@@ -520,6 +522,8 @@ holdings earmarked to g}` (classes in `BC_g \ A_g` are **sell-only**: no `x`, no
 `m_buf = min_cash_buffer`.
 
 ### 8.2 Planning (cautious) returns - `finance/returns.py`
+
+> Phase 2a: the formula below gains a horizon-phased growth floor and a common calibration penalty (`Assumptions.caution`), see `docs/PHASE2.md` 1.5.
 
 Per goal `g` and class `a`, with caution `z_g` (initially `Phi^-1(p_g)` via `statistics.NormalDist`,
 `p_g` = goal minimum success probability), horizon years `Y_g = max(1, D_g/12)`:
@@ -699,6 +703,8 @@ Ranges: `time_limit_seconds` 5..120, `seed` 0..2^31-1, `n_paths` 100..10000, `an
 
 ### 10.2 Steps
 
+> Phase 2a: calibration now aims at `min_probability + CALIBRATION_AIM` (0.01) instead of `- 0.02`, see `docs/PHASE2.md` 1.6.
+
 1. `preflight` -> `FinancePreflightError` if errors.
 2. `project_cashflow` (progress stage `cashflow`).
 3. `optimize` with `z_g = Phi^-1(p_g)` (stage `optimize`, progress per tier).
@@ -765,6 +771,8 @@ class FinanceViolation(BaseModel):
 ---
 
 ## 12. Explanations and fixes (`finance/advisor/`)
+
+> Phase 2a: every goal starts with a `GROWTH_*` reason, `SHARED_SHORTFALL` is new and `SUMMARY_INVEST` is replaced by `SUMMARY_SURPLUS*` / `SUMMARY_FUNDING*`, see `docs/PHASE2.md` 1.10-1.12.
 
 All text is produced by `advisor/explain.py` from fixed message templates in `advisor/messages.py`
 (single catalog, tested for compliance wording, section 21). Money formatted with the plan currency
@@ -906,6 +914,8 @@ Goals are the union by id, ordered as in b then a; missing side fields `null`.
 
 ## 14. Result model (`FinanceResult`)
 
+> Phase 2a: new `ResultSummary`, `GoalResult` and `FinanceComparison` fields and engine version `fin-0.2.0`, see `docs/PHASE2.md` 1.10, 1.11 and 1.13.
+
 ```json
 {"engine_version": "fin-0.1.0", "disclaimer": "...", "disclaimer_version": "fin-disclaimer-1",
  "start_month": "2026-11", "horizon_months": 408, "end_month": "2060-10", "currency": "INR",
@@ -973,6 +983,8 @@ monthly_contribution_now, created_at, what_if}`.
 ---
 
 ## 15. Templates (`finance/templates.py`)
+
+> Phase 2a: new template figures, inflation-linked incomes and the `retirement_target` preset, see `docs/PHASE2.md` 1.7 and 1.8.
 
 ```python
 class FinanceTemplateParameter(BaseModel):

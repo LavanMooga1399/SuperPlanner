@@ -1,4 +1,5 @@
 import type { AssetClass } from "../api/types";
+import { Term } from "../../components/Term";
 import { formatPct } from "../lib/money";
 import { realReturnPct } from "../lib/resultView";
 import { FinNumber } from "../wizard/fields";
@@ -37,7 +38,9 @@ export function AssetClassTable({
             {expert ? (
               <>
                 <th scope="col" className="num">Yearly costs %<br /><span className="label-tag">Your assumption</span></th>
-                <th scope="col" className="num">Lock-in months<br /><span className="label-tag">Your assumption</span></th>
+                <th scope="col" className="num">
+                  <Term k="lock_in">Lock-in</Term> months<br /><span className="label-tag">Your assumption</span>
+                </th>
               </>
             ) : null}
             <th scope="col" className="num">After costs and inflation<br /><span className="label-tag">Calculated</span></th>

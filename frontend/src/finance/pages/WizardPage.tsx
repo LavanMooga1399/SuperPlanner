@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { ApiError, errorMessage } from "../../api/client";
 import { NotFound } from "../../App";
 import { Banner } from "../../components/Banner";

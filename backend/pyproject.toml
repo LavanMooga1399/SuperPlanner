@@ -11,6 +11,7 @@ dependencies = [
     "SQLAlchemy==2.1.4",
     "ortools==9.15.6755",
     "numpy==2.5.4",
+    "anthropic==1.15.0",
 ]
 
 [project.optional-dependencies]

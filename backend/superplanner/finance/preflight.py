@@ -18,7 +18,7 @@ ERROR_CODES = (
 )
 WARNING_CODES = (
     "NO_INCOME", "NO_GOALS", "NEGATIVE_SURPLUS", "DEBT_TERM_MISMATCH", "CORRELATION_NOT_PSD", "HIGH_INTEREST_DEBT",
-    "GOAL_TARGET_HUGE",
+    "GOAL_TARGET_HUGE", "AMOUNT_OUTSIDE_RANGE",
 )
 
 _LISTS = ("incomes", "expenses", "debts", "holdings", "one_offs", "goals")
@@ -231,6 +231,20 @@ def preflight(plan: FinancePlan) -> FinancePreflightReport:
                 add("HIGH_INTEREST_DEBT", "warning", f"Debt {_q(d.name)} costs {d.interest_rate_pct:g}% a year, more "
                     "than any asset class is assumed to earn. Paying it down early may help more than investing.",
                     f"debts[{di}]", [d.id])
+
+    # amount ranges are informational; the amount used must lie inside the range given (PHASE2 1.12)
+    from .advisor.messages import format_money
+
+    cur = plan.profile.currency
+    ranged = ([(f"incomes[{i}].amount", x.id, x.name, x.amount, x.amount_range) for i, x in enumerate(plan.incomes)]
+              + [(f"expenses[{i}].amount", x.id, x.name, x.amount, x.amount_range)
+                 for i, x in enumerate(plan.expenses)]
+              + [(f"goals[{i}].target_amount", x.id, x.name, x.target_amount, x.target_range)
+                 for i, x in enumerate(plan.goals)])
+    for path, iid, name, amount, rng in ranged:
+        if rng is not None and not (rng.low - 0.005 <= amount <= rng.high + 0.005):
+            add("AMOUNT_OUTSIDE_RANGE", "warning", f"{name}: the amount {format_money(amount, cur)} is outside the "
+                f"range you gave ({format_money(rng.low, cur)} to {format_money(rng.high, cur)})", path, [iid])
 
     structural = {"DUPLICATE_ID", "UNKNOWN_ASSET_CLASS", "HORIZON_TOO_LONG"}
     if not any(i.code in structural for i in issues):

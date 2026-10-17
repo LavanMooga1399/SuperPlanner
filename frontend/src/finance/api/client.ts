@@ -3,7 +3,7 @@
  * `src/api/client.ts` keeps `raw`/`request` private, so this module has its own `finRaw`/`finRequest`
  * with the same A.14 error-envelope parsing, importing only exported names [R21].
  */
-import { API_BASE, ApiError } from "../../api/client";
+import { API_BASE, ApiError, looksLikeProxyFailure, networkError } from "../../api/client";
 import type {
   FinanceCancelResponse,
   FinanceComparison,
@@ -62,7 +62,7 @@ export async function finRaw<T>(path: string, opts: FinRequestOptions = {}): Pro
     res = await fetch(API_BASE + path, { method: opts.method ?? "GET", headers, body, signal: opts.signal });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new ApiError(0, "NETWORK_ERROR", "Cannot reach the SuperPlanner server. Is the backend running on port 8000?");
+    throw networkError();
   }
   if (res.status === 204) return { data: undefined as T, headers: res.headers, status: 204 };
   const text = await res.text();
@@ -77,6 +77,7 @@ export async function finRaw<T>(path: string, opts: FinRequestOptions = {}): Pro
   if (!res.ok) {
     const env = envelopeOf(parsed);
     if (env) throw new ApiError(res.status, env.code, env.message, env.details ?? {});
+    if (looksLikeProxyFailure(res.status, text)) throw networkError(res.status);
     const detail =
       typeof parsed === "object" && parsed !== null && "detail" in parsed
         ? String((parsed as { detail: unknown }).detail)

@@ -15,13 +15,16 @@ def _all_ids(plan: FinancePlan) -> list[str]:
     return ids
 
 
-def interruptible_monthly_income(plan: FinancePlan, month: str) -> float:
-    """Nominal monthly-equivalent of interruptible incomes active in `month` (13: income drop base)."""
+def interruptible_monthly_income(plan: FinancePlan, month: str, *, linked: bool = False) -> float:
+    """Monthly-equivalent of interruptible incomes active in `month` (13: income drop base).
+
+    `linked=False`: the nominal (not inflation-linked) streams, nominal amounts, as before PHASE2.
+    `linked=True`: the inflation-linked streams, real amounts (today's money) at `month` (PHASE2 1.7)."""
     start = plan.start_month
     t = max(0, tg.month_index(start, month))
     total = 0.0
     for inc in plan.incomes:
-        if not inc.interruptible:
+        if not inc.interruptible or inc.inflation_linked != linked:
             continue
         t0, t1 = tg.item_bounds(start, inc.start_month, inc.end_month, t + 1)
         if t0 <= t <= t1:
@@ -70,6 +73,13 @@ def apply_what_if(plan: FinancePlan, changes: WhatIfChanges) -> FinancePlan:
             doc["expenses"].append(Expense(
                 id="whatif_income_drop", name="Income drop", category="what-if", amount=amount, frequency="monthly",
                 essential=True, inflation_linked=False, start_month=start,
+                end_month=tg.add_months(start, d.months - 1)).model_dump())
+        amount_l = d.percent / 100.0 * interruptible_monthly_income(plan, d.start_month, linked=True)
+        if amount_l > 0:
+            start = d.start_month if plan.start_month is None or d.start_month >= plan.start_month else plan.start_month
+            doc["expenses"].append(Expense(
+                id="whatif_income_drop_linked", name="Income drop (inflation-linked income)", category="what-if",
+                amount=amount_l, frequency="monthly", essential=True, inflation_linked=True, start_month=start,
                 end_month=tg.add_months(start, d.months - 1)).model_dump())
     return FinancePlan.model_validate(doc)
 

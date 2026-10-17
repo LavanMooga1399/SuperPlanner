@@ -20,12 +20,16 @@ from .returns import gamma, pi_general
 @dataclass
 class FlowComponents:
     """Per-month flows, length T. Real value in a world with price index P is
-    `(inc_int + inc_nonint + nominal_fixed) / P + real_linked`."""
+    `(inc_int + inc_nonint + nominal_fixed) / P + inc_int_linked + real_linked`.
+
+    Inflation-linked incomes (PHASE2 1.7) are real: interruptible ones are kept apart in `inc_int_linked` so an
+    income interruption can zero them; non-interruptible ones are part of `real_linked`."""
     T: int
     inc_int: np.ndarray            # nominal income of interruptible streams
     inc_nonint: np.ndarray         # nominal income of other streams
     real_linked: np.ndarray        # signed real flows that move with prices (linked expenses and one-offs)
     nominal_fixed: np.ndarray      # signed nominal flows (fixed expenses, EMIs, nominal one-offs)
+    inc_int_linked: np.ndarray = field(default=None)  # type: ignore[assignment]  # real, interruptible, linked
     # deterministic real breakdown at the plan inflation (for reporting)
     income: np.ndarray = field(default=None)  # type: ignore[assignment]
     essential: np.ndarray = field(default=None)  # type: ignore[assignment]
@@ -83,13 +87,20 @@ def flow_components(plan: FinancePlan, T: int | None = None) -> FlowComponents:
     debt_pay = np.zeros(T)
     one_off_nominal = np.zeros(T)
     one_off_real = np.zeros(T)
+    inc_int_linked = np.zeros(T)
+    inc_real_linked = np.zeros(T)   # non-interruptible linked incomes (real; also in real_linked)
 
     for inc in plan.incomes:
         t0, t1 = tg.item_bounds(start, inc.start_month, inc.end_month, T)
         g = inc.growth_pct / 100.0
-        target = inc_int if inc.interruptible else inc_nonint
+        if inc.inflation_linked:
+            # amount in today's money; growth_pct is the yearly raise above inflation (real)
+            target = inc_int_linked if inc.interruptible else inc_real_linked
+        else:
+            target = inc_int if inc.interruptible else inc_nonint
         for m in tg.occurrence_months(t0, t1, inc.frequency):
             target[m] += inc.amount * (1.0 + g) ** ((m - t0) // 12)
+    real_linked += inc_real_linked
 
     for e in plan.expenses:
         t0, t1 = tg.item_bounds(start, e.start_month, e.end_month, T)
@@ -127,9 +138,9 @@ def flow_components(plan: FinancePlan, T: int | None = None) -> FlowComponents:
             nominal_fixed[to] += sign * o.amount
             one_off_nominal[to] += sign * o.amount
 
-    income = (inc_int + inc_nonint) / P
+    income = (inc_int + inc_nonint) / P + inc_int_linked + inc_real_linked
     return FlowComponents(T=T, inc_int=inc_int, inc_nonint=inc_nonint, real_linked=real_linked,
-                          nominal_fixed=nominal_fixed, income=income, essential=essential,
+                          nominal_fixed=nominal_fixed, inc_int_linked=inc_int_linked, income=income, essential=essential,
                           discretionary=discretionary, debt_payments=debt_pay,
                           one_off_net=one_off_real + one_off_nominal / P, price=P,
                           debt_first_payment=first, debt_payoff=payoff)

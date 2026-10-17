@@ -148,7 +148,8 @@ def test_unfunded_lower_priority_goal_gets_no_forced_micro_contributions(fin):
     """near_retirement: the must goal (retirement) is ~57 % short, so by the lexicographic order (F.8.5) every
     rupee goes to it and the nice goal (wedding) gets nothing. The flooring headroom forces a few rupees into
     the wedding anyway, which surface as planner tasks like 'Start ₹0/month into ... for "Wedding"'."""
-    rec = fin.instantiate("near_retirement", wedding_in_years=1)
+    # PHASE2 1.8 made the template affordable; a lower take-home pay keeps retirement short (9.P1)
+    rec = fin.instantiate("near_retirement", wedding_in_years=1, take_home=120000)
     out = fin.solve(rec["id"])
     res = out["result"]
     goals = {g["goal_id"]: g for g in res["goals"]}

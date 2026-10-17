@@ -68,7 +68,8 @@ def test_compare_shape_and_route_order(fin):
     assert r.status_code == 200, r.text
     comp = r.json()
     finance.FinanceComparison.model_validate(comp)
-    assert set(comp) == {"a", "b", "totals", "goals", "what_if_b"}
+    assert set(comp) == {"a", "b", "totals", "goals", "what_if_b", "engine_versions_differ"}  # PHASE2 1.13
+    assert comp["engine_versions_differ"] is False
     assert comp["a"]["id"] == a and comp["b"]["id"] == b and comp["b"]["kind"] == "what_if"
     assert comp["what_if_b"]["extra_monthly_savings"] == 10000
     t = comp["totals"]

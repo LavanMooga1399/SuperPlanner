@@ -44,7 +44,7 @@ def test_run_lifecycle_and_events(fin):
     assert set(run) == {"id", "plan_id", "plan_version_id", "kind", "label", "status", "request", "what_if",
                         "engine_version", "feasibility", "result_id", "error", "cancel_requested", "created_at",
                         "started_at", "finished_at", "elapsed_seconds"}
-    assert run["engine_version"] == "fin-0.1.0" and run["what_if"] is None
+    assert run["engine_version"] == "fin-0.2.0" and run["what_if"] is None
     assert run["request"]["simulation"]["n_paths"] == 200 and run["request"]["seed"] == 0  # fully defaulted
     assert "income_interruption" in run["request"]["simulation"]
     assert run["elapsed_seconds"] >= 0 and run["finished_at"].endswith("Z")
@@ -281,7 +281,7 @@ def test_startup_recovery_marks_runs_failed(db_url):
             ids = []
             for status in ("queued", "running"):
                 run = FinanceRunRow(id=f"frun_{status}", plan_id=plan["id"], plan_version_id=pv.id, kind="baseline",
-                                    status=status, request=FAST, seed=0, engine_version="fin-0.1.0")
+                                    status=status, request=FAST, seed=0, engine_version="fin-0.2.0")
                 s.add(run)
                 s.flush()
                 run_service.add_event(s, run.id, "run_queued", {"plan_version_id": pv.id, "kind": "baseline"}, 0)

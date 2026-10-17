@@ -56,7 +56,7 @@ def test_public_api_exact():
     for n in names:
         assert getattr(f, n) is not None
         assert n in f.__all__
-    assert f.__version__ == "fin-0.1.0"
+    assert f.__version__ == "fin-0.2.0"
     assert f.DISCLAIMER_VERSION == "fin-disclaimer-1"
     assert issubclass(f.FinancePreflightError, Exception) and issubclass(f.FinanceCancelled, Exception)
     for n in f.__all__:

@@ -26,7 +26,7 @@ def test_single_goal_level_amount_equals_target_over_phi():
     assert_clean(p, r)
     assert r.feasibility == "feasible"
     ac = AssetClass(id="debt", name="Debt", category="debt", expected_return_pct=8.0, volatility_pct=0.0)
-    rho = (1 + real_annual(ac, 0.06)) ** (1 / 12)
+    rho = (1 + real_annual(ac, p.assumptions.inflation_pct / 100)) ** (1 / 12)  # fixture uses the default inflation
     expected = 100000 / annuity_due(rho, 24)
     lines = _lines(r, "g1")
     assert lines and all(ln.asset_class_id == "debt" for ln in lines)
@@ -222,7 +222,8 @@ def _recompute_matches(p, r):
     for gr in r.goals:
         g = next(x for x in p.goals if x.id == gr.goal_id)
         D = tg.month_index(p.start_month, g.target_month)
-        rho = {a: planning_rho(ac, pi_general(p), gr.planning_z, D, inflation_vol(p)) for a, ac in classes.items()}
+        rho = {a: planning_rho(ac, pi_general(p), gr.planning_z, D, inflation_vol(p), z0=initial_z(g),
+                               caution=p.assumptions.caution) for a, ac in classes.items()}
         val = {a: 0.0 for a in classes}
         for row in r.holdings_assignment:
             if row.goal_id == g.id and row.source in ("earmark", "assigned"):

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import type { Resource } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Icon } from "../../components/Icon";

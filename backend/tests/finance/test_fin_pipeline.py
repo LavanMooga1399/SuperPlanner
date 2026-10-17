@@ -6,6 +6,7 @@ import time
 import pytest
 
 from fin_helpers import assert_clean, expense, goal, income, load_fixture, quick_request, run, size_cap_plan, zplan
+from superplanner.finance.defaults import CALIBRATION_AIM
 from superplanner.finance import (DISCLAIMER, FinanceCancelled, FinancePreflightError, FinanceRunRequest, get_template,
                                   run_plan)
 
@@ -35,7 +36,7 @@ def test_progress_stages_in_order_and_result_shape():
     assert stages[0] == "preflight" and "validate" in stages
     assert any(e.detail.get("tier") == "T0" for e in events)
     assert all(0.0 <= e.fraction <= 1.0 for e in events)
-    assert r.disclaimer == DISCLAIMER and r.engine_version == "fin-0.1.0"
+    assert r.disclaimer == DISCLAIMER and r.engine_version == "fin-0.2.0"
     assert r.horizon_months == len(r.series.months) and r.end_month == r.series.months[-1]
     assert {g.goal_id for g in r.goals} == {"car", "trip", "school", "wedding", "retirement"}
     assert r.feasibility == "feasible"
@@ -49,7 +50,10 @@ def test_calibration_raises_z_and_probability():
     assert_clean(p, r2)
     g0 = {g.goal_id: g for g in r0.goals}
     g2 = {g.goal_id: g for g in r2.goals}
-    low = [gid for gid, g in g0.items() if g.success_probability < g.min_success_probability - 0.02]
+    # calibration aims at the minimum + CALIBRATION_AIM and only raises z of goals planned to their target
+    # (PHASE2 1.6; the young professional's car is short by design, PHASE2 1.8)
+    low = [gid for gid, g in g0.items()
+           if g.shortfall_real <= 1.0 and g.success_probability < g.min_success_probability + CALIBRATION_AIM]
     assert low, "fixture must have a goal below its minimum after round 0"
     assert r2.diagnostics.calibration_rounds >= 1
     for gid in low:

@@ -8,10 +8,10 @@ from .. import timegrid as tg
 from ..cashflow import ef_complete_t
 from ..model import (Binding, CashflowProjection, Explanation, FinancePlan, FinanceResult, Fix, GoalExplanation,
                      Reason)
-from ..returns import (base_cap, goal_cap, inflation_vol, is_equity, is_risky, pi_general, planning_return, real_annual,
-                       tolerance_of)
+from ..returns import (active_caps, allowed_classes, base_cap, goal_cap, inflation_vol, initial_z, is_equity, is_risky,
+                       pi_general, planning_return, real_annual, tolerance_of)
 from ..validator import tolerances
-from .messages import format_money, pct, render, years_text
+from .messages import duration_text, format_money, pct, render, years_text
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..pipeline import Published
@@ -30,6 +30,94 @@ def _runs(ts: list[int]) -> list[tuple[int, int]]:
 def _f1(v: float) -> str:
     s = f"{v:.1f}"
     return "0.0" if s == "-0.0" else s
+
+
+def _plan_ret(plan: FinancePlan, ac, gd) -> float:
+    """The goal's planning return of class `ac` (PHASE2 1.5), exactly as the optimizer valued it."""
+    return planning_return(ac, pi_general(plan), gd.z, gd.D, inflation_vol(plan), z0=initial_z(gd.goal),
+                           caution=plan.assumptions.caution)
+
+
+def _names(classes: dict, ids) -> str:
+    return ", ".join(classes[a].name for a in ids)
+
+
+def growth_reason(plan: FinancePlan, pub: "Published", gd, gr) -> Reason:
+    """The goal's growth-asset decision (PHASE2 1.10), first matching rule of the table."""
+    classes = {a.id: a for a in plan.assumptions.asset_classes}
+    g = gd.goal
+    D = gd.D
+    level = tolerance_of(plan, g)
+    base = base_cap(plan.assumptions, level)
+    allowed = allowed_classes(plan, g)
+    share = gr.growth_share_now_pct
+    cap = gr.growth_cap_now_pct
+    risky_mix = [a for a, v in gr.allocation_now_pct.items() if v > 0 and is_risky(classes[a])]
+    vals: dict[str, float | str] = {"growth_share_pct": share, "growth_cap_pct": cap, "risk_level": level,
+                                    "base_cap_pct": round(base * 100, 2)}
+    years = duration_text(D)
+    if not any(is_risky(classes[a]) for a in allowed):
+        return Reason(code="GROWTH_NONE_RESTRICTED", message=render(
+            "GROWTH_NONE_RESTRICTED", goal=g.name, names=_names(classes, allowed)), asset_class_ids=list(allowed),
+            values=vals)
+    if share >= 1.0:
+        # the first contribution block (or block 0) of the goal, as for growth_cap_now_pct
+        s0 = gd.blocks[0][1] if gd.blocks else 0
+        if gr.contribution_start_month:
+            t1 = tg.month_index(plan.start_month, gr.contribution_start_month)
+            s0 = next((s for (_k, s, n) in gd.blocks if s <= t1 < s + n), s0)
+        maxeq = plan.constraints.max_equity_pct
+        eq_share = sum(v for a, v in gr.allocation_now_pct.items() if is_equity(classes[a]))
+        if (maxeq is not None and maxeq < 100 and active_caps(plan, g, D, s0).equity
+                and eq_share >= maxeq - 0.5 and maxeq < cap - 0.5):
+            return Reason(code="GROWTH_LIMITED_GLOBAL", message=render(
+                "GROWTH_LIMITED_GLOBAL", goal=g.name, share=f"{share:.0f}", pct=f"{maxeq:g}", level=level),
+                asset_class_ids=risky_mix, values=vals)
+        if D >= 120:
+            glide_s = next((s for (_k, s, _n) in gd.blocks if goal_cap(plan, g, D, s) < base - 1e-9), None)
+            glide_month = tg.add_months(plan.start_month, glide_s if glide_s is not None else max(0, D - 120))
+            return Reason(code="GROWTH_HIGH", message=render(
+                "GROWTH_HIGH", goal=g.name, share=f"{share:.0f}", names=_names(classes, risky_mix), years=years,
+                level=level, base=pct(base), glide_month=glide_month), months=[glide_month],
+                asset_class_ids=risky_mix, values=vals)
+        return Reason(code="GROWTH_LIMITED_TIME", message=render(
+            "GROWTH_LIMITED_TIME", goal=g.name, share=f"{share:.0f}", names=_names(classes, risky_mix), years=years,
+            cap=f"{cap:.0f}", level=level, base=pct(base)), asset_class_ids=risky_mix, values=vals)
+    if cap <= 0.0 or D < 84:
+        return Reason(code="GROWTH_NONE_SHORT", message=render(
+            "GROWTH_NONE_SHORT", goal=g.name, years=years, level=level), values=vals)
+    safe = [a for a in allowed if not is_risky(classes[a])]
+    best = max(safe, key=lambda a: gd.rho[a]) if safe else None
+    safe_txt = (render("SAFE_RETURN", name=classes[best].name, pct=_f1((gd.rho[best] ** 12 - 1.0) * 100))
+                if best is not None else "safer classes")
+    return Reason(code="GROWTH_NONE_RETURNS", message=render(
+        "GROWTH_NONE_RETURNS", goal=g.name, safe=safe_txt, level=level),
+        asset_class_ids=[best] if best else [], values=vals)
+
+
+_TIER_WORDS = {"must": "must-have", "should": "should-have", "nice": "nice-to-have"}
+
+
+def shared_shortfalls(result: FinanceResult) -> list[Binding]:
+    """`SHARED_SHORTFALL` (PHASE2 1.10): >= 2 goals of one tier short by fractions > 0.001 within 0.01."""
+    out: list[Binding] = []
+    for tier in ("must", "should", "nice"):
+        short = sorted((g for g in result.goals if g.priority == tier and g.shortfall_fraction > 0.001),
+                       key=lambda g: g.shortfall_fraction)
+        groups: list[list] = []
+        for g in short:
+            if groups and g.shortfall_fraction - groups[-1][0].shortfall_fraction <= 0.01:
+                groups[-1].append(g)
+            else:
+                groups.append([g])
+        for grp in groups:
+            if len(grp) < 2:
+                continue
+            avg = sum(g.shortfall_fraction for g in grp) / len(grp)
+            out.append(Binding(code="SHARED_SHORTFALL", message=render(
+                "SHARED_SHORTFALL", count=len(grp), tier=_TIER_WORDS[tier], pct=pct(avg)),
+                goal_ids=[g.goal_id for g in grp]))
+    return out
 
 
 def explain(plan: FinancePlan, proj: CashflowProjection, pub: "Published", result: FinanceResult,
@@ -53,7 +141,7 @@ def explain(plan: FinancePlan, proj: CashflowProjection, pub: "Published", resul
     for gid, gd in sol.goals.items():
         g = gd.goal
         gr = gres[gid]
-        reasons: list[Reason] = []
+        reasons: list[Reason] = [growth_reason(plan, pub, gd, gr)]
         xs = pub.x_month[gid]
         # ALLOCATION_SPLIT
         if gr.contribution_start_month:
@@ -130,7 +218,7 @@ def explain(plan: FinancePlan, proj: CashflowProjection, pub: "Published", resul
             gd.allowed[0] if gd.allowed else None)
         if main is not None:
             ac = classes[main]
-            rp = planning_return(ac, pi, gd.z, gd.D, inflation_vol(plan))
+            rp = _plan_ret(plan, ac, gd)
             re_ = real_annual(ac, pi)
             reasons.append(Reason(code="CAUTIOUS_RETURNS", message=render(
                 "CAUTIOUS_RETURNS", name=ac.name, plan=_f1(rp * 100), expected=_f1(re_ * 100)),
@@ -168,6 +256,7 @@ def explain(plan: FinancePlan, proj: CashflowProjection, pub: "Published", resul
                                                                  last=months[efm[-1]]),
                                months=[months[efm[0]], months[efm[-1]]]))
     _global_caps(plan, pub, classes, binding)
+    binding.extend(shared_shortfalls(result))
     for d in plan.debts:
         po = proj.debt_payoff.get(d.id)
         if po is not None and po < T - 1:
@@ -184,8 +273,22 @@ def explain(plan: FinancePlan, proj: CashflowProjection, pub: "Published", resul
         summary.append(render("SUMMARY_FEASIBLE", on_track=s.goals_on_track, total=s.goals_total))
     else:
         summary.append(render("SUMMARY_UNKNOWN"))
-    summary.append(render("SUMMARY_INVEST", investable=money(max(0.0, s.monthly_investable_now)),
-                          contributing=money(s.monthly_contribution_now)))
+    # first-year surplus and funding split (PHASE2 1.11; SUMMARY_INVEST is no longer emitted)
+    if s.monthly_surplus_avg_12m < 0:
+        summary.append(render("SUMMARY_SURPLUS_NEGATIVE", amount=money(-s.monthly_surplus_avg_12m)))
+    elif s.monthly_ef_contribution_avg_12m >= 1:
+        summary.append(render("SUMMARY_SURPLUS_EF", surplus=money(s.monthly_surplus_avg_12m),
+                              ef=money(s.monthly_ef_contribution_avg_12m)))
+    else:
+        summary.append(render("SUMMARY_SURPLUS", surplus=money(s.monthly_surplus_avg_12m)))
+    if s.monthly_contribution_avg_12m < 0.5:
+        summary.append(render("SUMMARY_FUNDING_NONE"))
+    elif s.monthly_from_savings_avg_12m >= 1:
+        summary.append(render("SUMMARY_FUNDING", contributing=money(s.monthly_contribution_avg_12m),
+                              from_surplus=money(s.monthly_from_surplus_avg_12m),
+                              from_savings=money(s.monthly_from_savings_avg_12m)))
+    else:
+        summary.append(render("SUMMARY_FUNDING_SURPLUS", contributing=money(s.monthly_contribution_avg_12m)))
     if proj.ef_target <= 0:
         summary.append(render("SUMMARY_EF_NONE"))
     elif tE == 0:
@@ -223,7 +326,13 @@ def explain(plan: FinancePlan, proj: CashflowProjection, pub: "Published", resul
         main = max(gr.allocation_now_pct.items(), key=lambda kv: kv[1])[0] if gr.allocation_now_pct else None
         if main:
             assumptions.append(render("ASSUMPTION_CAUTIOUS", goal=gd.goal.name, name=classes[main].name,
-                                      plan=_f1(planning_return(classes[main], pi, gd.z, gd.D, inflation_vol(plan)) * 100)))
+                                      plan=_f1(_plan_ret(plan, classes[main], gd) * 100)))
+    for item, used, rng in ([(x.name, x.amount, x.amount_range) for x in plan.incomes]
+                            + [(x.name, x.amount, x.amount_range) for x in plan.expenses]
+                            + [(x.name, x.target_amount, x.target_range) for x in plan.goals if x.enabled]):
+        if rng is not None:
+            assumptions.append(render("ASSUMPTION_RANGE", item=item, low=money(rng.low), high=money(rng.high),
+                                      used=money(used)))
     assumptions.append(render("ASSUMPTION_SOURCE", note=plan.assumptions.source_note))
 
     limitations = [render(c) for c in ("LIMIT_TAX", "LIMIT_PRODUCTS", "LIMIT_RETURNS", "LIMIT_RETIREMENT",

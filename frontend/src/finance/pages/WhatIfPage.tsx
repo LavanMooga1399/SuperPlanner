@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { ApiError, errorMessage, isAbort } from "../../api/client";
 import { Banner, ErrorBanner, Loading } from "../../components/Banner";
 import { Icon } from "../../components/Icon";

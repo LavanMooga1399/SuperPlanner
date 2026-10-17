@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NETWORK_MESSAGE } from "../api/client";
 import { Icon, type IconName } from "./Icon";
 
 export interface BannerProps {
@@ -32,14 +33,17 @@ export function Banner({ tone = "info", icon, title, children, actions, testId, 
   );
 }
 
+/** Error with an optional Retry. A network failure gets its own title (PHASE2.md 3.6). */
 export function ErrorBanner({ error, onRetry }: { error: string | null; onRetry?: () => void }) {
   if (!error) return null;
+  const network = error === NETWORK_MESSAGE;
   return (
     <Banner
       tone="danger"
       role="alert"
-      title="Something went wrong"
-      actions={onRetry ? <button className="btn sm" onClick={onRetry}>Retry</button> : null}
+      title={network ? "Server not reachable" : "Something went wrong"}
+      testId={network ? "network-error" : undefined}
+      actions={onRetry ? <button className="btn sm" onClick={onRetry}><Icon name="refresh" /> Retry</button> : null}
     >
       {error}
     </Banner>

@@ -36,6 +36,9 @@ def _apply_changes(doc: dict[str, Any], changes: ReplanChanges) -> Problem:
             elif isinstance(value, datetime):
                 value = value.isoformat()
             t[field] = value
+        if "duration_minutes" in upd.model_fields_set:
+            # PHASE2 2.14: a real-world duration replaces the three-point estimate (else the PERT rule -> 422).
+            t.pop("duration_estimate", None)
     for i, new_task in enumerate(changes.add_tasks):
         if new_task.id in by_id:
             raise ApiError(422, "VALIDATION_ERROR", f"Task id {new_task.id!r} in add_tasks already exists.",

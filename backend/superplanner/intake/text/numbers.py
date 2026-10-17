@@ -1,0 +1,253 @@
+"""Numbers, money, percent, frequency and ranges (PHASE2 2.7.2). All patterns are linear-time."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+WORD_UNITS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+              "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
+              "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20}
+WORD_TENS = {"thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
+_SMALL = "one|two|three|four|five|six|seven|eight|nine"
+_UNITS_ALT = "|".join(sorted(WORD_UNITS, key=len, reverse=True))
+_TENS_ALT = "|".join(WORD_TENS)
+
+# A number written with digits or words (bounded: at most two words).
+WORD_NUM = rf"(?:(?:twenty|{_TENS_ALT})(?:[- ](?:{_SMALL}))?|{_UNITS_ALT}|hundred|dozen|a couple of|a few|half|an?)"
+# Linear time: a number never starts right after a digit or comma, and the group repetitions are possessive, so
+# a failed attempt never rescans ("1,21,21,..." or "111..." of 20,000 characters stay fast).
+DIGITS = r"(?<![\d,])(?:\d{1,3}(?:,\d{3}(?!\d))++|\d{1,2}(?:,\d{2}(?=,\d))*+,\d{3}(?!\d)|\d++)(?:\.\d++)?(?!\d)"
+NUM = rf"(?:{DIGITS}|\b{WORD_NUM}\b)"
+
+
+def parse_number(token: str) -> tuple[float, float] | None:
+    """(value, confidence) of a digit or word number; None if not a number."""
+    s = token.strip().lower()
+    if not s:
+        return None
+    if s[0].isdigit():
+        try:
+            return float(s.replace(",", "")), 0.95
+        except ValueError:
+            return None
+    if s in ("a", "an"):
+        return 1.0, 0.95
+    if s == "half":
+        return 0.5, 0.95
+    if s == "a couple of":
+        return 2.0, 0.6
+    if s == "a few":
+        return 3.0, 0.4
+    if s == "dozen":
+        return 12.0, 0.95
+    if s == "hundred":
+        return 100.0, 0.95
+    if s in WORD_UNITS:
+        return float(WORD_UNITS[s]), 0.95
+    parts = re.split(r"[- ]", s)
+    if parts[0] in WORD_TENS or parts[0] == "twenty":
+        v = WORD_TENS.get(parts[0], 20)
+        if len(parts) == 2 and parts[1] in WORD_UNITS:
+            v += WORD_UNITS[parts[1]]
+        return float(v), 0.95
+    return None
+
+
+# ---------------------------------------------------------------- money
+
+MULTIPLIERS = {"k": 1e3, "thousand": 1e3, "l": 1e5, "lakh": 1e5, "lakhs": 1e5, "lac": 1e5, "lacs": 1e5, "lk": 1e5,
+               "lpa": 1e5, "cr": 1e7, "crore": 1e7, "crores": 1e7, "m": 1e6, "mn": 1e6, "million": 1e6,
+               "b": 1e9, "bn": 1e9, "billion": 1e9}
+_MULT_ALT = "|".join(sorted(MULTIPLIERS, key=len, reverse=True))
+CURRENCY_WORDS = {"₹": "INR", "rs": "INR", "rs.": "INR", "inr": "INR", "rupee": "INR", "rupees": "INR",
+                  "$": "USD", "usd": "USD", "dollar": "USD", "dollars": "USD", "€": "EUR", "eur": "EUR",
+                  "euro": "EUR", "euros": "EUR"}
+
+_ATOM_RE = re.compile(
+    rf"(?:(?P<pre>₹|\$|€|\brs\.?|\binr|\busd|\beur)\s?|(?<![\w.,]))(?P<num>{DIGITS})"
+    rf"(?:\s?(?P<mult>{_MULT_ALT})\b)?(?:\s?(?P<suf>rupees?|inr|usd|eur|dollars?|euros?)\b|\s?(?P<sufsym>₹|\$|€))?",
+    re.IGNORECASE)
+_APPROX_RE = re.compile(r"(?:\b(?:about|around|approx(?:imately)?\.?|roughly|nearly|almost|some)|~)\s*$", re.I)
+_RANGE_SEP_RE = re.compile(r"^\s*(?:-|to)\s*$", re.I)
+_BETWEEN_RE = re.compile(r"\bbetween\s*$", re.I)
+_AND_RE = re.compile(r"^\s*and\s*$", re.I)
+_NON_MONEY_UNIT_RE = re.compile(
+    r"^\s*(?:%|percent\b|pc\b|years?\b|yrs?\b|months?\b|mos?\b|weeks?\b|days?\b|hours?\b|hrs?\b|minutes?\b|mins?\b|"
+    r"times\b|people\b|persons?\b|kids?\b|children\b|members?\b|x\b|th\b|st\b|nd\b|rd\b|am\b|:\d)", re.I)
+
+FREQ_PATTERNS: list[tuple[str, str]] = [
+    ("half_yearly", r"half[- ]yearly|half[- ]annually|every (?:6|six) months|twice a year|semi[- ]annually"),
+    ("quarterly", r"per quarter|a quarter|quarterly|every quarter|each quarter|every (?:3|three) months"),
+    ("monthly", r"per month|a month|each month|every month|monthly|/\s?month|/\s?mo\b|\bpm\b|p\.m\.|per mon\b|"
+                r"in a month|month on month"),
+    ("yearly", r"per year|a year|annually|yearly|per annum|p\.a\.?|/\s?yr\b|/\s?year|every year|each year|annual\b|"
+               r"\bpa\b"),
+    ("once", r"one[- ]time|one[- ]off|lump ?sum|\bonce\b"),
+]
+_FREQ_ALT = "|".join(f"(?P<{k}>{p})" for k, p in FREQ_PATTERNS)
+_FREQ_ADJ_RE = re.compile(rf"\s*(?:{_FREQ_ALT})", re.I)   # used with match(s, pos)
+_FREQ_ANY_RE = re.compile(rf"(?:{_FREQ_ALT})", re.I)
+
+
+@dataclass
+class MoneyMatch:
+    start: int          # local offsets in the searched string (span incl. approx word and frequency)
+    end: int
+    low: float
+    high: float
+    currency: str | None
+    approx: bool
+    frequency: str | None
+    explicit: bool      # had a currency marker or multiplier
+    amount_start: int   # start of the number itself (without approx word)
+    amount_end: int     # end of the amount (without the frequency)
+    lpa: bool = False
+
+    @property
+    def confidence(self) -> float:
+        if self.approx:
+            return 0.8
+        return 0.95 if self.explicit else 0.7
+
+
+def _atom_value(m: re.Match[str]) -> float:
+    v = float(m.group("num").replace(",", ""))
+    mult = m.group("mult")
+    return v * MULTIPLIERS[mult.lower()] if mult else v
+
+
+def _atom_currency(m: re.Match[str]) -> str | None:
+    for g in ("pre", "suf", "sufsym"):
+        c = m.group(g)
+        if c:
+            return CURRENCY_WORDS.get(c.lower().rstrip("."), CURRENCY_WORDS.get(c.lower()))
+    return None
+
+
+def frequency_at(s: str, pos: int) -> tuple[str, int] | None:
+    """Frequency phrase starting at `pos` (after optional spaces): (frequency, end)."""
+    m = _FREQ_ADJ_RE.match(s, pos)
+    if not m:
+        return None
+    for k, _ in FREQ_PATTERNS:
+        if m.group(k):
+            return k, m.end()
+    return None  # pragma: no cover
+
+
+def frequency_anywhere(s: str) -> str | None:
+    m = _FREQ_ANY_RE.search(s)
+    if not m:
+        return None
+    for k, _ in FREQ_PATTERNS:
+        if m.group(k):
+            return k
+    return None  # pragma: no cover
+
+
+def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
+    """Money expressions (single amounts and ranges) in `s`, left to right."""
+    atoms = list(_ATOM_RE.finditer(s))
+    out: list[MoneyMatch] = []
+    i = 0
+    while i < len(atoms):
+        a = atoms[i]
+        b = None
+        between = False
+        if i + 1 < len(atoms):
+            gap = s[a.end():atoms[i + 1].start()]
+            if _RANGE_SEP_RE.match(gap):
+                b = atoms[i + 1]
+            elif _AND_RE.match(gap) and _BETWEEN_RE.search(s[:a.start()]):
+                b = atoms[i + 1]
+                between = True
+        parts = [a] if b is None else [a, b]
+        mult = next((p.group("mult") for p in reversed(parts) if p.group("mult")), None)
+        cur = next((c for c in (_atom_currency(p) for p in parts) if c), None)
+        lpa = any((p.group("mult") or "").lower() == "lpa" for p in parts)
+        vals = []
+        for p in parts:
+            v = float(p.group("num").replace(",", ""))
+            pm = p.group("mult") or mult
+            vals.append(v * MULTIPLIERS[pm.lower()] if pm else v)
+        explicit = bool(mult or cur)
+        last = parts[-1]
+        tail = s[last.end():]
+        if not explicit:
+            if _NON_MONEY_UNIT_RE.match(tail) or max(vals) < min_bare:
+                i += 1
+                continue
+            # a bare year such as "2027" next to a date word is not money
+            if all(1900 <= v <= 2100 and float(v).is_integer() for v in vals) and "," not in a.group("num"):
+                i += 1 + (b is not None)
+                continue
+        start = a.start()
+        if between:
+            bm = _BETWEEN_RE.search(s[:a.start()])
+            start = bm.start() if bm else start
+        amount_start = start
+        am = _APPROX_RE.search(s[:start])
+        approx = bool(am)
+        if am:
+            start = am.start()
+        end = last.end()
+        amount_end = end
+        freq = frequency_at(s, end)
+        frequency = None
+        if freq:
+            frequency, end = freq
+        if lpa:
+            frequency = frequency or "yearly"
+        if max(vals) > 1e12:   # not a plausible amount (also keeps drafts valid)
+            i += len(parts)
+            continue
+        low, high = (vals[0], vals[-1]) if len(vals) == 2 else (vals[0], vals[0])
+        if low > high:
+            low, high = high, low
+        out.append(MoneyMatch(start=start, end=end, low=low, high=high, currency=cur, approx=approx,
+                              frequency=frequency, explicit=explicit, amount_start=amount_start,
+                              amount_end=amount_end, lpa=lpa))
+        i += len(parts)
+    return out
+
+
+def parse_money_text(s: str) -> tuple[float, float] | None:
+    """A whole answer or cell such as "40-50k", "₹1,20,000", "1.2 lakh" -> (low, high)."""
+    ms = find_money(s, min_bare=0.0)
+    if not ms:
+        return None
+    m = ms[0]
+    return m.low, m.high
+
+
+# ---------------------------------------------------------------- percent
+
+_PCT_RE = re.compile(r"(?P<num>\d{1,3}(?:\.\d{1,4})?)\s?(?:%|percent\b|pc\b|per cent\b)(?:\s?p\.?a\.?)?", re.I)
+
+
+@dataclass
+class PercentMatch:
+    start: int
+    end: int
+    value: float
+
+
+def find_percent(s: str) -> list[PercentMatch]:
+    return [PercentMatch(m.start(), m.end(), float(m.group("num"))) for m in _PCT_RE.finditer(s)]
+
+
+def parse_percent_text(s: str) -> float | None:
+    ps = find_percent(s)
+    if ps:
+        return ps[0].value
+    m = re.fullmatch(r"\s*(\d{1,3}(?:\.\d{1,4})?)\s*", s)
+    return float(m.group(1)) if m else None
+
+
+def parse_number_text(s: str) -> float | None:
+    m = re.search(NUM, s, re.I)
+    if not m:
+        return None
+    r = parse_number(m.group(0))
+    return r[0] if r else None

@@ -1,4 +1,5 @@
 import type { Holding } from "../api/types";
+import { Term } from "../../components/Term";
 import { nextId } from "../lib/ids";
 import { formatMoney, roundDisplay } from "../lib/money";
 import { fmtMonth } from "../lib/months";
@@ -26,7 +27,7 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
     <div className="col gap-lg">
       <HelpText>
         Add money you already have: savings accounts, deposits, investments. Pick the closest asset class; product names are not needed.
-        Existing savings first fill your emergency fund; the rest can go towards goals.
+        Existing savings first fill your <Term k="emergency_fund">emergency fund</Term>; the rest can go towards goals.
       </HelpText>
       <section className="col" aria-labelledby="fin-holdings-h">
         <h2 id="fin-holdings-h">Savings and investments you have</h2>
@@ -34,7 +35,7 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
           items={plan.holdings}
           rowTestId="holding"
           addLabel="Add savings"
-          emptyText="No savings yet."
+          emptyText="No savings yet. Add money you already have in the bank, deposits or investments."
           max={50}
           onAdd={() => update((p) => addItem(p, "holdings", newHolding()))}
           onRemove={(i) => update((p) => removeItem(p, "holdings", i))}

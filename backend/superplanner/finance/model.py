@@ -42,6 +42,18 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class AmountRange(_Strict):
+    """A low-high range the user gave for an amount (PHASE2 1.12). Informational: the engine uses the amount."""
+    low: Money
+    high: Money
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "AmountRange":
+        if self.low > self.high:
+            raise ValueError("the low end of a range must not be above the high end")
+        return self
+
+
 # ---------------------------------------------------------------- plan document (section 4)
 
 class Profile(_Strict):
@@ -63,6 +75,8 @@ class IncomeStream(_Strict):
     start_month: Month | None = None
     end_month: Month | None = None
     interruptible: bool = True
+    inflation_linked: bool = False
+    amount_range: AmountRange | None = None
 
 
 class Expense(_Strict):
@@ -76,6 +90,7 @@ class Expense(_Strict):
     inflation_pct: float | None = Field(default=None, ge=-5, le=30)
     start_month: Month | None = None
     end_month: Month | None = None
+    amount_range: AmountRange | None = None
 
 
 class Debt(_Strict):
@@ -124,6 +139,7 @@ class Goal(_Strict):
     allowed_asset_class_ids: list[Id] | None = Field(default=None, max_length=10)
     earmarked: list[Earmark] = Field(default_factory=list, max_length=20)
     enabled: bool = True
+    target_range: AmountRange | None = None
 
 
 class EmergencyFundSettings(_Strict):
@@ -175,6 +191,20 @@ def _default_glide() -> list[GlideStep]:
     return [GlideStep(**d) for d in D.default_glide_data()]
 
 
+class CautionSettings(_Strict):
+    """Cautious-planning margin of the planning return (PHASE2 1.5)."""
+    floor_share: float = Field(default=D.CAUTION_FLOOR_SHARE, ge=0, le=1)
+    floor_start_years: float = Field(default=D.CAUTION_FLOOR_START_YEARS, ge=0, le=50)
+    floor_full_years: float = Field(default=D.CAUTION_FLOOR_FULL_YEARS, ge=0.5, le=50)
+    floor_step_pct_per_z: float = Field(default=D.CAUTION_FLOOR_STEP_PCT_PER_Z, ge=0, le=10)
+
+    @model_validator(mode="after")
+    def _years(self) -> "CautionSettings":
+        if self.floor_full_years <= self.floor_start_years:
+            raise ValueError("floor_full_years must be greater than floor_start_years")
+        return self
+
+
 class Assumptions(_Strict):
     inflation_pct: float = Field(default=D.INFLATION_PCT, ge=-2, le=25)
     inflation_volatility_pct: float = Field(default=D.INFLATION_VOLATILITY_PCT, ge=0, le=10)
@@ -185,6 +215,7 @@ class Assumptions(_Strict):
         default_factory=lambda: list(D.RISKY_CAP_BY_TOLERANCE_PCT))
     glide_path: list[GlideStep] = Field(default_factory=_default_glide, min_length=1, max_length=12)
     source_note: Annotated[str, StringConstraints(max_length=1000)] = D.SOURCE_NOTE
+    caution: CautionSettings = Field(default_factory=CautionSettings)
 
     @model_validator(mode="after")
     def _shape(self) -> "Assumptions":
@@ -451,6 +482,14 @@ class ResultSummary(BaseModel):
     emergency_fund_complete_month: str | None = None
     liquidity_risk_probability: float = 0.0
     total_contributions_real: float = 0.0
+    # first-year averages and the funding split (PHASE2 1.11)
+    monthly_surplus_avg_12m: float = 0.0
+    monthly_ef_contribution_avg_12m: float = 0.0
+    monthly_investable_avg_12m: float = 0.0
+    monthly_contribution_avg_12m: float = 0.0
+    monthly_from_surplus_avg_12m: float = 0.0
+    monthly_from_savings_avg_12m: float = 0.0
+    savings_to_cash_at_start: float = 0.0
 
 
 class GoalResult(BaseModel):
@@ -483,6 +522,8 @@ class GoalResult(BaseModel):
     holdings_used_real: float = 0.0
     allocation_now_pct: dict[str, float] = Field(default_factory=dict)
     planning_z: float = 0.0
+    growth_share_now_pct: float = 0.0
+    growth_cap_now_pct: float = 0.0
 
 
 class ContributionLine(BaseModel):
@@ -664,6 +705,7 @@ class FinanceComparison(BaseModel):
     totals: ComparisonTotals
     goals: list[GoalComparison]
     what_if_b: WhatIfChanges | None = None
+    engine_versions_differ: bool = False
 
 
 # ---------------------------------------------------------------- templates (section 15)
@@ -692,7 +734,7 @@ class FinanceCancelled(Exception):
 
 
 __all__ = [
-    "Id", "Month", "Money", "SignedMoney", "Frequency", "Priority", "Name", "Profile", "IncomeStream", "Expense",
+    "AmountRange", "CautionSettings", "Id", "Month", "Money", "SignedMoney", "Frequency", "Priority", "Name", "Profile", "IncomeStream", "Expense",
     "Debt", "Holding", "OneOff", "Earmark", "Goal", "EmergencyFundSettings", "AssetClass", "Correlation",
     "GlideStep", "Assumptions", "PlanConstraints", "FinancePlan", "FinanceIssue", "FinancePreflightReport",
     "AssignableItem", "InitialSplit", "CashflowProjection", "DebtPayoff", "CashflowYear", "CashflowSummary",

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
 import type { FinanceIssue, FinanceValidateResponse } from "../api/types";
 import { formatMoney, roundDisplay } from "../lib/money";

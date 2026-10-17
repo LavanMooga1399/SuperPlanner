@@ -63,6 +63,9 @@ CASES = [
     ("HIGH_INTEREST_DEBT", "warning", "Card", dict(debts=[dict(id="d", name="Card", balance=10000,
                                                                interest_rate_pct=42, emi=2000)])),
     ("GOAL_TARGET_HUGE", "warning", "Holiday", dict(goals=[goal(name="Holiday", target=600 * 1000.0)])),
+    # PHASE2 1.12: an amount outside the range the user gave
+    ("AMOUNT_OUTSIDE_RANGE", "warning", "Bonus", dict(incomes=[income(), income(id="bonus", name="Bonus", amount=500,
+                                                                               amount_range=dict(low=600, high=900))])),
 ]
 
 

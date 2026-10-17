@@ -23,7 +23,8 @@ def yp(shared_fin):
 
 @pytest.fixture(scope="module")
 def family(shared_fin):
-    pid = shared_fin.instantiate("family")["id"]
+    # PHASE2 1.8 made the family template affordable; a lower take-home pay keeps every goal short (9.P1)
+    pid = shared_fin.instantiate("family", take_home=120000)["id"]
     return pid, shared_fin.solve(pid, RUN)
 
 
@@ -92,7 +93,7 @@ def test_return_shift_moves_outcomes_in_the_right_direction(shared_fin, family, 
     tw = sum(g["shortfall_real"] for g in _goals(rec).values())
     assert (tw < tb) if shift > 0 else (tw > tb), (tb, tw)
     eq = next(c for c in rec["plan"]["assumptions"]["asset_classes"] if c["id"] == "equity_index")
-    assert eq["expected_return_pct"] == pytest.approx(11.5 + shift)
+    assert eq["expected_return_pct"] == pytest.approx(12.0 + shift)
 
 
 def test_income_drop_does_not_raise_success(shared_fin, yp):

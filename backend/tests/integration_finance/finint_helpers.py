@@ -238,9 +238,12 @@ class Model:
             sp = self._span(i)
             if sp is None:
                 continue
+            # PHASE2 1.7: an inflation-linked income is in today's money with a real yearly raise
+            per = 1.0 if i.get("inflation_linked", False) else None
             for t in range(T):
                 if self._occurs(i, t, sp):
-                    inc[t] += i["amount"] * (1 + i.get("growth_pct", 0) / 100) ** ((t - sp[0]) // 12) / self.P(t)
+                    inc[t] += i["amount"] * (1 + i.get("growth_pct", 0) / 100) ** ((t - sp[0]) // 12) / (
+                        per if per is not None else self.P(t))
         for e in plan["expenses"]:
             sp = self._span(e)
             if sp is None:
@@ -337,14 +340,31 @@ class Model:
             B = (avail + d) * g
         return tot
 
-    # ---- FINANCE.md 8.2 as amended in 24.3 (lognormal real-return quantile)
+    # ---- FINANCE.md 8.2 as amended in 24.3 (lognormal real-return quantile) and PHASE2 1.5 (cautious margin)
     def plan_rho(self, gid: str, cid: str, z: float) -> float:
         c = self.classes[cid]
         R = self.real_return(cid)
         sig = math.sqrt((c["volatility_pct"] / 100) ** 2 + self.sig_pi ** 2)
         Y = max(1.0, self.D[gid] / 12)
-        s = math.sqrt(math.log(1 + (sig / (1 + R)) ** 2)) if sig > 0 else 0.0
-        rp = max(-0.5, (1 + R) * math.exp(-s * s / 2 - z * s / math.sqrt(Y)) - 1)
+        if sig <= 0:
+            return (1 + max(-0.5, R)) ** (1 / 12)
+        s = math.sqrt(math.log(1 + (sig / (1 + R)) ** 2))
+        q = (1 + R) * math.exp(-s * s / 2 - z * s / math.sqrt(Y)) - 1
+        cau = {"floor_share": 0.5, "floor_start_years": 3.0, "floor_full_years": 10.0, "floor_step_pct_per_z": 2.0}
+        cau.update(self.plan["assumptions"].get("caution") or {})
+        ramp = min(1.0, max(0.0, (Y - cau["floor_start_years"]) / (cau["floor_full_years"] - cau["floor_start_years"])))
+        phi = cau["floor_share"] * ramp
+        if phi <= 0:
+            rp = max(-0.5, q)
+        else:
+            g = self.gmap[gid]
+            p_min = g.get("min_success_probability")
+            if p_min is None:
+                p_min = {"must": 0.85, "should": 0.70, "nice": 0.50}[g.get("priority", "should")]
+            z0 = norm_ppf(p_min)
+            med = (1 + R) * math.exp(-s * s / 2) - 1
+            delta = cau["floor_step_pct_per_z"] / 100 * max(0.0, z - z0)
+            rp = max(-0.5, max(q, phi * max(med, 0.0)) - ramp * delta)
         return (1 + rp) ** (1 / 12)
 
 

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { SolverRun } from "../api/types";
 import type { Terms } from "../lib/terms";
 import { fmtDuration, fmtLocal, fmtMoney, fmtSeconds } from "../lib/time";
@@ -28,7 +28,7 @@ export function RunHistory({
         </button>
       </div>
       {runs.length === 0 ? (
-        <div className="empty small">No runs yet.</div>
+        <div className="empty small">No runs yet. Each time you press Optimize, the run and its result are listed here.</div>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table className="table">

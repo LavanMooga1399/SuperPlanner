@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRef, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router";
 import { errorMessage, instantiateTemplate } from "../api/client";
 import type { TemplateInfo, TemplateParameter } from "../api/types";
 import { browserUtcOffset, todayDate } from "../lib/time";
@@ -20,18 +20,42 @@ function initialValue(p: TemplateParameter): ParamValue {
   return p.default === null || p.default === undefined ? "" : String(p.default);
 }
 
+/** Plain error for one parameter value, or null (checked on blur and on submit, PHASE2.md 3.6). */
+function paramError(p: TemplateParameter, v: ParamValue): string | null {
+  if (p.type === "int") {
+    const n = v as number;
+    if (!Number.isFinite(n)) return `Enter a whole number${p.min !== null && p.max !== null ? ` from ${p.min} to ${p.max}` : ""}.`;
+    if (!Number.isInteger(n)) return "Enter a whole number.";
+    if ((p.min !== null && n < p.min) || (p.max !== null && n > p.max))
+      return `${p.label} must be between ${p.min ?? "…"} and ${p.max ?? "…"}.`;
+  }
+  if (p.type === "string_list") {
+    const n = (v as string[]).map((x) => x.trim()).filter(Boolean).length;
+    if (p.min !== null && n < p.min) return `Enter at least ${p.min} ${p.min === 1 ? "line" : "lines"}.`;
+    if (p.max !== null && n > p.max) return `Enter at most ${p.max} lines.`;
+  }
+  return null;
+}
+
 function ParamInput({
   p,
   value,
   onChange,
+  onBlur,
   idPrefix,
+  error,
 }: {
   p: TemplateParameter;
   value: ParamValue;
   onChange(v: ParamValue): void;
+  onBlur(): void;
   idPrefix: string;
+  error: string | null;
 }) {
   const id = `${idPrefix}-${p.name}`;
+  const errId = `${id}-error`;
+  const hintIds = [p.type === "string_list" ? `${id}-hint` : null, error ? errId : null].filter(Boolean).join(" ") || undefined;
+  const a11y = { "aria-invalid": error ? true : undefined, "aria-describedby": hintIds, onBlur } as const;
   let control;
   if (p.type === "int") {
     control = (
@@ -44,10 +68,11 @@ function ParamInput({
         step={1}
         value={Number.isFinite(value as number) ? (value as number) : ""}
         onChange={(e) => onChange(e.target.value === "" ? NaN : Number(e.target.value))}
+        {...a11y}
       />
     );
   } else if (p.type === "date") {
-    control = <input id={id} className="input" type="date" value={value as string} onChange={(e) => onChange(e.target.value)} />;
+    control = <input id={id} className="input" type="date" value={value as string} onChange={(e) => onChange(e.target.value)} {...a11y} />;
   } else if (p.type === "string_list") {
     const list = value as string[];
     control = (
@@ -57,16 +82,21 @@ function ParamInput({
         rows={3}
         value={list.join("\n")}
         onChange={(e) => onChange(e.target.value.split("\n"))}
-        aria-describedby={`${id}-hint`}
+        {...a11y}
       />
     );
   } else {
-    control = <input id={id} className="input" type="text" value={value as string} onChange={(e) => onChange(e.target.value)} />;
+    control = <input id={id} className="input" type="text" value={value as string} onChange={(e) => onChange(e.target.value)} {...a11y} />;
   }
   return (
     <div className="field">
       <label htmlFor={id}>{p.label}</label>
       {control}
+      {error ? (
+        <span id={errId} className="field-error">
+          <Icon name="alert" size={13} /> {error}
+        </span>
+      ) : null}
       {p.type === "string_list" ? (
         <span id={`${id}-hint`} className="hint">
           One per line
@@ -94,15 +124,22 @@ export function TemplateCard({ template }: { template: TemplateInfo }) {
   const [error, setError] = useState<string | null>(null);
   const idPrefix = `tpl-${template.id}`;
 
-  const invalid = template.parameters.find((p) => {
-    if (p.type !== "int") return false;
-    const v = values[p.name] as number;
-    return !Number.isFinite(v) || (p.min !== null && v < p.min) || (p.max !== null && v > p.max);
-  });
+  const [touched, setTouched] = useState<Set<string>>(() => new Set());
+  const [submitted, setSubmitted] = useState(false);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const errors = template.parameters
+    .map((p) => ({ p, error: paramError(p, values[p.name]) }))
+    .filter((x): x is { p: TemplateParameter; error: string } => x.error !== null);
+  const shownError = (p: TemplateParameter) => (submitted || touched.has(p.name) ? paramError(p, values[p.name]) : null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (invalid) return;
+    if (errors.length) {
+      setSubmitted(true);
+      setOpen(true);
+      requestAnimationFrame(() => summaryRef.current?.focus());
+      return;
+    }
     setBusy(true);
     setError(null);
     const parameters: Record<string, unknown> = {};
@@ -168,14 +205,28 @@ export function TemplateCard({ template }: { template: TemplateInfo }) {
                 p={p}
                 idPrefix={idPrefix}
                 value={values[p.name]}
+                error={shownError(p)}
+                onBlur={() => setTouched((t) => (t.has(p.name) ? t : new Set(t).add(p.name)))}
                 onChange={(v) => setValues((s) => ({ ...s, [p.name]: v }))}
               />
             ))}
           </div>
         ) : null}
-        {invalid ? (
-          <div className="small" style={{ color: "var(--danger)" }} role="alert">
-            {invalid.label} must be between {invalid.min} and {invalid.max}.
+        {submitted && errors.length ? (
+          <div className="small error-summary field-error" role="alert" tabIndex={-1} ref={summaryRef} data-testid={`${idPrefix}-errors`}>
+            <Icon name="alert" size={13} />
+            <div>
+              Please fix {errors.length === 1 ? "this value" : "these values"} first:
+              <ul>
+                {errors.map(({ p, error }) => (
+                  <li key={p.name}>
+                    <a href={`#${idPrefix}-${p.name}`} onClick={(e) => (e.preventDefault(), document.getElementById(`${idPrefix}-${p.name}`)?.focus())}>
+                      {error}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         ) : null}
         {error ? (
@@ -186,7 +237,7 @@ export function TemplateCard({ template }: { template: TemplateInfo }) {
       </div>
       <div className="card-footer row between">
         <span className="small faint">Times in your zone ({browserUtcOffset()})</span>
-        <button type="submit" className="btn primary" disabled={busy || !!invalid}>
+        <button type="submit" className="btn primary" disabled={busy}>
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="plus" />}
           Create plan
         </button>

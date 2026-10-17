@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
-import { getHealth } from "./api/client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, Outlet, useLocation } from "react-router";
+import { NETWORK_MESSAGE, getHealth } from "./api/client";
 import type { Health } from "./api/types";
+import { Banner } from "./components/Banner";
 import { Icon } from "./components/Icon";
 import { useStoredState } from "./lib/useAsync";
 
@@ -36,22 +37,32 @@ function ThemeToggle() {
   );
 }
 
-function ServerStatus() {
+/** Polls /health; shared by the top bar dot and the offline banner. */
+function useServerHealth() {
   const [health, setHealth] = useState<Health | null>(null);
   const [down, setDown] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const alive = useRef(true);
+  const check = useCallback(() => {
+    setChecking(true);
+    return getHealth()
+      .then((h) => alive.current && (setHealth(h), setDown(false)))
+      .catch(() => alive.current && setDown(true))
+      .finally(() => alive.current && setChecking(false));
+  }, []);
   useEffect(() => {
-    let alive = true;
-    const check = () =>
-      getHealth()
-        .then((h) => alive && (setHealth(h), setDown(false)))
-        .catch(() => alive && setDown(true));
+    alive.current = true;
     void check();
     const t = setInterval(check, 30000);
     return () => {
-      alive = false;
+      alive.current = false;
       clearInterval(t);
     };
-  }, []);
+  }, [check]);
+  return { health, down, checking, check };
+}
+
+function ServerStatus({ health, down }: { health: Health | null; down: boolean }) {
   if (down)
     return (
       <span className="server-dot" role="status" style={{ color: "var(--danger)" }}>
@@ -67,10 +78,15 @@ function ServerStatus() {
   );
 }
 
-/** Top-level sections. Finance is active iff the path starts with /finance; Scheduling otherwise (FINANCE.md 20.1). */
+/** True for the finance area: /finance* (FINANCE.md 20.1) and the money start pages /new/money* (PHASE2.md 3.1). */
+export function isFinancePath(pathname: string): boolean {
+  return /^\/finance(\/|$)/.test(pathname) || /^\/new\/money(\/|$)/.test(pathname);
+}
+
+/** Top-level sections. Finance is active for finance paths; Scheduling otherwise. */
 function MainNav() {
   const { pathname } = useLocation();
-  const finance = pathname === "/finance" || pathname.startsWith("/finance/");
+  const finance = isFinancePath(pathname);
   return (
     <nav aria-label="Main" className="main-nav">
       <Link to="/" className={`main-nav-link${finance ? "" : " active"}`} aria-current={finance ? undefined : "page"} data-testid="nav-scheduling">
@@ -84,6 +100,7 @@ function MainNav() {
 }
 
 export function App() {
+  const server = useServerHealth();
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -98,10 +115,27 @@ export function App() {
         </Link>
         <MainNav />
         <div className="topbar-spacer" />
-        <ServerStatus />
+        <ServerStatus health={server.health} down={server.down} />
         <ThemeToggle />
       </header>
       <main className="main">
+        {server.down ? (
+          <div className="mb">
+            <Banner
+              tone="danger"
+              role="alert"
+              testId="server-offline"
+              title="Server not reachable"
+              actions={
+                <button className="btn sm" onClick={() => void server.check()} disabled={server.checking}>
+                  {server.checking ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Retry
+                </button>
+              }
+            >
+              {NETWORK_MESSAGE}
+            </Banner>
+          </div>
+        ) : null}
         <Outlet />
       </main>
     </div>
