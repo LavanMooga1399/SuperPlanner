@@ -2269,3 +2269,30 @@ Paths and field names are exactly those of sections 13-16. Interpretations and s
     window holding the whole task. `DurationRisk.chain_sigma_minutes` adds the spreads of parts of one split
     estimate before squaring (`CTask.estimate_key` from `metadata.intake_key` with `parts > 1`). See PHASE2
     9.P2-fix item 3.
+
+### 2026-10-19 - Phase 2 fix round 3: rule-based reader (backend-developer)
+
+Interpretations of PHASE2 2.7.2 / 2.7.8 / 2.7.9 made while fixing four silent wrong-number defects (tests:
+`backend/tests/integration_phase2/test_p2int_fixround3.py`):
+
+1. **Clock windows vs duration ranges.** `CLOCK_RE` hours are whole 1-2 digit numbers (possessive, never the "10-1"
+   of "10-15 hours"), and a range followed by a duration unit (hours/hrs/h, days/d, weeks/w, minutes, months) is a
+   duration, never a working-time window. Bare windows without am/pm or ":" ("We work 9 to 5") are still read
+   when the segment has a working-time word, as 2.7.8 requires.
+2. **Bare 4-digit numbers** (no currency, multiplier, comma or decimal), in order: a frequency right after it is
+   money; in a date-like position (in/by/of/since/from/until/before/after/during/year/born/joined/... or a
+   month name, without a money word just before) a 1900-9999 number is a year, so an out-of-range year is never
+   money; a 1900-2100 number is money when a frequency phrase is anywhere in the same clause ("I give 2000 to my
+   parents each month"), asked (confidence 0.45) right after a money word (list extended with maintenance,
+   charges, donation, subscription, tuition, electricity, ... and an optional "is/are/about"), and otherwise a
+   year. `find_money` reports that last case through `years_skipped`; a clause that yields nothing else gets the
+   new info note `YEAR_OR_AMOUNT` ("Water can 2000"). `find_money("2027")` is still `[]`.
+3. **Far-future goal years.** A year in a date-like position more than 100 years after `today` (the existing
+   goal-date limit) gets a `DATE_OUT_OF_RANGE` note and no target month, so the goal keeps the stated amount and
+   asks `FIN_GOAL_DATE`. Years within 100 years (e.g. "by 2101") and full dates up to 2200 ("December 2140") are
+   still used as goal months.
+4. **Past payments.** Bare "paid" is no longer an income cue (only "get/gets/getting/am/is/are/being paid").
+   A clause with a past one-off cue (bought, purchased, spent, paid, last week/month/year, ... ago, yesterday), no
+   frequency, no forward goal cue (want, need, save, plan to, will, next, ...), no loan or holding words and no
+   future date gets only `PAST_PURCHASE`; this check now runs before the income branch. A recurring amount with
+   a spending cue and no forward goal cue is an expense, not a goal ("I pay 5k a month for the gym").

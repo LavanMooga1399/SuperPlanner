@@ -64,6 +64,8 @@ NOTES: dict[str, str] = {
                          "left out. Enter a shorter duration.",
     "PAST_PURCHASE": "\"{text}\" sounds like a one-off purchase in the past, so it was not added as a regular "
                      "cost. Add it by hand if it repeats.",
+    "YEAR_OR_AMOUNT": "\"{number}\" in \"{text}\" was read as a year, so it was not added as an amount. If it is "
+                      "an amount, write it with a currency or how often (for example \"Rs {number} a month\").",
     "LIST_CAPPED": "Only the first {limit} {what} were read; the rest of the text was left out.",
     "LINKS_CAPPED": "\"{task}\" would come after {n} items; only the first {limit} were linked.",
 }

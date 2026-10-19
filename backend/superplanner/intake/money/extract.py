@@ -25,7 +25,9 @@ RETIRE_AGE_RE = re.compile(r"\bretir(?:e|ing|ement)\s+(?:at|by|when\s+i'?m|when\
                            r"(?P<n>\d{2})\b", re.I)
 RETIRE_IN_RE = re.compile(rf"\bretir(?:e|ing)\s+in\s+(?P<n>{NUM})\s+years?\b", re.I)
 GROSS_RE = re.compile(r"\b(?:ctc|gross|cost to company|before tax|pre-?tax|lpa)\b", re.I)
-INCOME_RE = re.compile(r"\b(?:earn(?:s|ing)?|salary|take[- ]?home|in[- ]hand|income|get paid|paid|stipend|pension|"
+# "paid" alone is not income ("I paid 50k for a fridge"); only "get / am / is ... paid" is
+INCOME_RE = re.compile(r"\b(?:earn(?:s|ing)?|salary|take[- ]?home|in[- ]hand|income|"
+                       r"(?:get|gets|getting|am|is|are|being)\s+paid|stipend|pension|"
                        r"freelanc\w*|business income|rent (?:income|from)|tenant pays|rental|consult\w*)\b", re.I)
 PARTNER_RE = re.compile(r"\bmy\s+(?:wife|husband|partner|spouse)\b|\b(?:wife|husband|partner|spouse)\s+earns\b", re.I)
 DEBT_RE = re.compile(r"\b(?:loan|emi|mortgage|credit card|outstanding|borrowed|owe)\b", re.I)
@@ -68,9 +70,18 @@ BALANCE_BEFORE_RE = re.compile(r"\b(?:balance(?:\s+of)?|outstanding(?:\s+of)?|lo
 EMI_BEFORE_RE = re.compile(r"\bemi\b[^,.;\d]{0,15}$", re.I)
 YEAR_IN_RE = re.compile(r"\b(?:in|by|before|until|till)\s+(?:the\s+year\s+)?(?P<y>(?:19|20|21)\d{2})\b", re.I)
 # a one-off purchase in the past is not a regular cost ("Bought a phone for 60000 last month")
-PAST_ONE_OFF_RE = re.compile(r"\b(?:bought|purchased|spent|splurged|gifted|got\s+(?:a|an|my|our|the)|paid\s+for|"
+# "paid" counts unless it is the present "get / am / is paid" of a salary
+PAST_ONE_OFF_RE = re.compile(r"\b(?:bought|purchased|spent|splurged|gifted|got\s+(?:a|an|my|our|the)|"
+                             r"(?<!get )(?<!gets )(?<!getting )(?<!am )(?<!is )(?<!are )(?<!being )paid|"
                              r"last\s+(?:week|month|year|summer|winter|diwali)|yesterday|(?:days?|weeks?|months?|"
                              r"years?)\s+ago|earlier this (?:week|month|year))\b", re.I)
+
+# a forward-looking cue: the amount is wanted in the future, so a past or recurring reading does not apply
+FORWARD_GOAL_RE = re.compile(r"\b(?:want|wants|need|needs|goal|target|plan(?:ning)?\s+to|save|saving|(?:must|should)\s+"
+                             r"have|would\s+(?:like|love)|wish|dream|will|going\s+to|next)\b", re.I)
+# "in 2150", "by the year 2160": a year in a date-like position (too far ones get DATE_OUT_OF_RANGE)
+YEAR_POS_RE = re.compile(r"\b(?:in|by|before|until|till|after|since|during)\s+(?:the\s+year\s+)?(?P<y>\d{4})(?!\d|[,.]\d)",
+                         re.I)
 
 HOLDING_CLASS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\b(?:fds?|fixed deposits?)\b", re.I), "fixed_deposit", "Fixed deposit"),
@@ -175,6 +186,7 @@ class _State:
     sent_kind: dict[int, str] = field(default_factory=dict)
     sent_dates: dict[int, tuple[re.Match[str] | None, re.Match[str] | None]] = field(default_factory=dict)
     sent_goal: dict[int, "_SentGoal"] = field(default_factory=dict)
+    years_skipped: list[tuple[int, int]] = field(default_factory=list)   # of the clause read last (see _money)
 
     def p(self, path: str, a: int, b: int, conf: float, source: str = "text", note: str = "") -> None:
         self.prov[path] = Provenance(source=source, confidence=round(conf, 3), span=self.t.span(a, b),  # type: ignore
@@ -241,7 +253,8 @@ def _money(st: _State, c: _Clause) -> list[MoneyMatch]:
             list(RETIRE_AGE_RE.finditer(work)) + list(REMAINING_RE.finditer(work)):
         ranges.append((m.start(), m.end()))
     work = blank(work, ranges)
-    ms = find_money(work)
+    st.years_skipped = []
+    ms = find_money(work, years_skipped=st.years_skipped)
     for m in ms:
         # unmarked money uses ctx.currency (2.7.2), so it takes part in the mixed-currency check
         st.currencies.add(m.currency or st.ctx.currency)
@@ -263,8 +276,10 @@ def extract_finance(text: str, ctx: ExtractContext) -> FinanceExtractionResult:
     st = _State(t=t, ctx=ctx)
     st.profile = DraftProfile(currency=ctx.currency, locale=ctx.locale)
     start = _start_month(ctx)
-    for a, b in out_of_range_dates(t.norm, ctx.today, ctx.locale):
+    oor = out_of_range_dates(t.norm, ctx.today, ctx.locale)
+    for a, b in oor:
         st.note("DATE_OUT_OF_RANGE", "warning", note_text("DATE_OUT_OF_RANGE", text=t.norm[a:b][:80]), a, b)
+    _far_year_notes(st, oor)
     clauses = _clauses(t)
     prev_class: dict[int, str] = {}
     used_sentences: set[int] = set()
@@ -316,6 +331,23 @@ def extract_finance(text: str, ctx: ExtractContext) -> FinanceExtractionResult:
 
 
 MAX_GOAL_MONTHS = 12 * 100     # "in 9999 years" is not a plan date (left out with DATE_OUT_OF_RANGE)
+
+
+def _far_year_notes(st: _State, taken: list[tuple[int, int]]) -> None:
+    """DATE_OUT_OF_RANGE for a year in a date-like position that is too far to be a goal date ("Wedding in 2150"):
+    the reader leaves it out (never an amount, never a month), so it says so instead of dropping it silently."""
+    s, limit, n = st.t.norm, st.ctx.today.year + MAX_GOAL_MONTHS // 12, 0
+    for m in YEAR_POS_RE.finditer(s):
+        if int(m.group("y")) <= limit or any(a < m.end() and m.start() < b for a, b in taken):
+            continue
+        off = m.start("y") - m.start()
+        if any(x.amount_start == off for x in find_money(s[m.start():m.end() + 40], min_bare=0.0)):
+            continue        # "in 2150 rupees", "by 2150 a month": an amount, not a year
+        st.note("DATE_OUT_OF_RANGE", "warning", note_text("DATE_OUT_OF_RANGE", text=m.group(0)[:80]), m.start(),
+                m.end())
+        n += 1
+        if n >= 20:
+            break
 
 _MONTHLY = {"monthly": 1.0, "quarterly": 1 / 3, "half_yearly": 1 / 6, "yearly": 1 / 12, "once": 0.0}
 
@@ -391,7 +423,18 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             return "debt"
         if found:
             return found
+        if st.years_skipped:          # "Water can 2000": read as a year, which may be wrong, so say so
+            a, b = st.years_skipped[0]
+            st.note("YEAR_OR_AMOUNT", "info", note_text("YEAR_OR_AMOUNT", number=s[a:b], text=s[:120]),
+                    a0 + a, a0 + b)
         return None
+    # a one-off payment in the past ("I paid 50k for a fridge last month") is never income, a cost or a goal
+    if all(m.frequency is None for m in money) and frequency_info_anywhere(s) is None and \
+            PAST_ONE_OFF_RE.search(s) and not (FORWARD_GOAL_RE.search(s) or DEBT_RE.search(s)
+                                              or HOLDING_RE.search(s) or PRODUCT_RE.search(s)) and \
+            _future_month(st, s) is None:
+        st.note("PAST_PURCHASE", "info", note_text("PAST_PURCHASE", text=s[:120]), a0, c.end)
+        return "past"
     # gross pay / income
     paid_out = bool(PAID_TO_OTHERS_RE.search(s))
     if not paid_out and (GROSS_RE.search(s) or (INCOME_RE.search(s) and not DEBT_RE.search(s)) or (
@@ -496,7 +539,9 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
     if no_freq and PAST_ONE_OFF_RE.search(s) and not GOAL_RE.search(s) and own_month is None:
         st.note("PAST_PURCHASE", "info", note_text("PAST_PURCHASE", text=s[:120]), a0, c.end)
         return "past"
-    if GOAL_RE.search(s) or prev == "goal" or goal_like:
+    # a recurring cost is not a goal because of a weak cue ("I pay 5k a month for the gym")
+    recurring_cost = not no_freq and bool(EXPENSE_RE.search(s)) and not FORWARD_GOAL_RE.search(s)
+    if (GOAL_RE.search(s) or prev == "goal" or goal_like) and not recurring_cost:
         m = money[0]
         kind = "other"
         for rx, k in GOAL_KINDS:

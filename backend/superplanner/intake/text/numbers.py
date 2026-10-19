@@ -76,10 +76,13 @@ _ATOM_RE = re.compile(
     re.IGNORECASE)
 # a year-like number right after a money word ("Rent 2000", "fee of 1999") is read as money and asked
 _MONEY_BEFORE_RE = re.compile(r"\b(?:rent|fees?|costs?|spend|spends|pay|pays|paid|salary|earn|earns|bills?|emi|"
-                              r"groceries|price|budget|amount|insurance|premium|allowance|expenses?)\s*(?:is|of|=|:)?\s*$",
-                              re.I)
+                              r"groceries|price|budget|amount|insurance|premium|allowance|expenses?|maintenance|"
+                              r"charges?|donations?|subscriptions?|tuition|electricity|petrol|fuel|recharge|dues|"
+                              r"contribution|wages?)\s*(?:is|are|of|=|:)?\s*(?:about|around|approx\.?|roughly|nearly)?"
+                              r"\s*$", re.I)
 # a year-like number (1900-2100) right after one of these words is a year ("in 2035", "since 2019")
-_YEAR_BEFORE_RE = re.compile(r"\b(?:in|by|of|since|from|until|till|before|after|year|until|during|around the year|"
+_YEAR_BEFORE_RE = re.compile(r"\b(?:in|by|of|since|from|until|till|before|after|year|during|around the year|born|"
+                             r"batch|graduated|joined|married|"
                              r"jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|"
                              r"july|august|september|october|november|december)\s*,?\s*$", re.I)
 _APPROX_RE = re.compile(r"(?:\b(?:about|around|approx(?:imately)?\.?|roughly|nearly|almost|some)|~)\s*$", re.I)
@@ -226,9 +229,12 @@ def frequency_anywhere(s: str) -> str | None:
     return fi.frequency if fi and fi.factor == 1.0 else None
 
 
-def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
-    """Money expressions (single amounts and ranges) in `s`, left to right."""
+def find_money(s: str, *, min_bare: float = 100.0,
+               years_skipped: list[tuple[int, int]] | None = None) -> list[MoneyMatch]:
+    """Money expressions (single amounts and ranges) in `s`, left to right. `years_skipped`, when given, receives
+    the spans of bare 1900-2100 numbers read as years only because nothing marked them as money."""
     atoms = list(_ATOM_RE.finditer(s))
+    freq_any: bool | None = None      # a frequency anywhere in `s`: searched at most once (linear time)
     out: list[MoneyMatch] = []
     i = 0
     while i < len(atoms):
@@ -257,15 +263,33 @@ def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
             if _NON_MONEY_UNIT_AT_RE.match(s, last.end()) or max(vals) < min_bare:
                 i += 1
                 continue
-            # a bare year such as "2027" is not money, unless a frequency follows ("Rent 2000 a month"); with
-            # neither a frequency nor a year word before it, it is read as money and asked (year_like)
-            year_like = all(1900 <= v <= 2100 and float(v).is_integer() for v in vals) and "," not in a.group("num")
-            if year_like and frequency_info_at(s, last.end()) is None and (
-                    b is not None or _YEAR_BEFORE_RE.search(s[max(0, a.start() - 24):a.start()])
-                    or not _MONEY_BEFORE_RE.search(s[max(0, a.start() - 24):a.start()])):
-                i += 1 + (b is not None)
-                continue
-            if year_like and frequency_info_at(s, last.end()) is not None:
+            # Bare 4-digit numbers (PHASE2 2.7.2, fix round 3), in this order:
+            # 1. a frequency right after it is money ("Rent 2000 a month", "2000/month");
+            # 2. in a date-like position ("in 2150", "by the year 2130", "since 2019") it is a year, whatever its
+            #    value: never money, so an out-of-range year never becomes a second goal amount;
+            # 3. a 1900-2100 number is money when a frequency is anywhere in the searched clause ("I give 2000 to
+            #    my parents each month"), asked (year_like) right after a money word ("Rent 2000."), and otherwise
+            #    a year ("2027"); the caller gets that span in `years_skipped` so it can add a note.
+            four = all(1900 <= v <= 9999 and float(v).is_integer() for v in vals) and "," not in a.group("num") \
+                and "." not in a.group("num")
+            year_like = four and all(1900 <= v <= 2100 for v in vals)
+            if four and frequency_info_at(s, last.end()) is None:
+                before = s[max(0, a.start() - 24):a.start()]
+                money_word = bool(_MONEY_BEFORE_RE.search(before))
+                if _YEAR_BEFORE_RE.search(before) and not money_word:
+                    i += 1 + (b is not None)
+                    continue
+                if year_like:
+                    if freq_any is None:
+                        freq_any = _FREQ_ANY_RE.search(s) is not None
+                    if freq_any:
+                        year_like = False
+                    elif b is not None or not money_word:
+                        if years_skipped is not None:
+                            years_skipped.append((a.start(), last.end()))
+                        i += 1 + (b is not None)
+                        continue
+            else:
                 year_like = False
         else:
             year_like = False

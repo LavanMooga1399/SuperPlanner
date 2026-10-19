@@ -113,8 +113,12 @@ TOGETHER_RE = re.compile(r"\b(?:together|both)\b", re.I)
 # working time (2.7.8)
 HOURS_RE = re.compile(rf"\b(?P<n>{NUM})\s+hours?\s+(?:(?:on|every|each|per|a)\s+)?(?P<when>weekdays?|weekends?|"
                       r"week-?days?|weekend days|days?|daily|evenings?|mornings?)\b", re.I)
-CLOCK_RE = re.compile(r"\b(?P<a>\d{1,2})(?::(?P<am>\d{2}))?\s*(?P<ap>am|pm)?\s*(?:-|to|till|until)\s*"
-                      r"(?P<b>\d{1,2})(?::(?P<bm>\d{2}))?\s*(?P<bp>am|pm)?(?!\s*(?:days?|weeks?|hours?|h\b|d\b|w\b))",
+# Linear time and no backtracking into the digits: each hour is a whole 1-2 digit number (possessive, never "10-1"
+# of "10-15 hours"), and a range followed by a duration unit ("10-15 hours", "2-3 weeks") is a duration, never a
+# clock window.
+CLOCK_RE = re.compile(r"\b(?P<a>\d{1,2}+)(?!\d)(?::(?P<am>\d{2}+)(?!\d))?\s*+(?P<ap>am|pm)?\s*+(?:-|to|till|until)\s*+"
+                      r"(?P<b>\d{1,2}+)(?!\d)(?::(?P<bm>\d{2}+)(?!\d))?\s*+(?P<bp>(?:am|pm)\b)?+"
+                      r"(?!\s*(?:days?\b|weeks?\b|hours?\b|hrs?\b|minutes?\b|mins?\b|months?\b|h\b|d\b|w\b))",
                       re.I)
 DAYS_RE = re.compile(r"\b(?P<d>monday\s+to\s+friday|mon\s*-\s*fri|mon\s+to\s+fri|monday\s*-\s*friday|weekdays|"
                      r"monday\s+to\s+saturday|mon\s*-\s*sat|mon\s+to\s+sat|six days a week|every day|daily|"
