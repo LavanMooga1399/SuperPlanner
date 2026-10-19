@@ -188,7 +188,12 @@ def test_ai_success_through_settings_factory(db_url):
         body = r.json()
         assert body["extractor"]["used"] == "ai+rule" and body["extractor"]["model"] == "claude-opus-5-5"
         assert any(n["code"] == "KEPT_TYPED_NUMBER" for n in body["notes"])
-        b = c.post(f"{IN}/schedule/build", json={"draft": body["draft"], "context": CTX_JSON}).json()
+        # fix round: an AI duration without a quote in the text is a required confirm question
+        unquoted = [q for q in body["questions"] if q["code"] == "SCHED_LOW_CONFIDENCE" and q["required"]]
+        assert unquoted
+        a = c.post(f"{IN}/schedule/answer", json={"draft": body["draft"], "context": CTX_JSON, "answers": [
+            {"question_id": q["id"], "value": True} for q in unquoted]}).json()
+        b = c.post(f"{IN}/schedule/build", json={"draft": a["draft"], "context": CTX_JSON}).json()
         assert b["ready"] and b["problem"]["metadata"]["intake"]["extractor"] == "ai+rule"
     assert len(fake.calls) == 1
 

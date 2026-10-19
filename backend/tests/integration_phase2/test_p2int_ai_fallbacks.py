@@ -218,9 +218,12 @@ def test_success_schedule_typed_numbers_win_and_flow_solves(db_url):
         assert tasks["Write release notes"]["after"] == [tasks["Testing"]["key"]]
         # answer every question with its default, build, create, solve, independent check
         draft, qs = body["draft"], body["questions"]
+        # fix round: the AI-only duration has no quote in the text -> required confirm (answered yes here)
         r = c.post(f"{IN}/schedule/answer", json={"draft": draft, "context": CTX_JSON,
                                                   "answers": [{"question_id": q["id"], "use_default": True}
-                                                              for q in qs if q.get("default") is not None]})
+                                                              for q in qs if q.get("default") is not None]
+                                                  + [{"question_id": q["id"], "value": True} for q in qs
+                                                     if q["code"] == "SCHED_LOW_CONFIDENCE" and q["required"]]})
         assert r.status_code == 200, r.text
         b = c.post(f"{IN}/schedule/build", json={"draft": r.json()["draft"], "context": CTX_JSON}).json()
         assert b["ready"], b
@@ -243,6 +246,11 @@ def test_success_finance_typed_numbers_win_and_plan_runs(db_url):
         inc = body["draft"]["incomes"][0]
         assert inc["amount"] == {"low": 120000, "high": 120000}        # typed "1.2 lakh" beats AI 125000
         assert any(n["code"] == "KEPT_TYPED_NUMBER" for n in body["notes"])
+        # fix round: the invented amount is a required confirm question; keep it
+        q = next(q for q in body["questions"] if q["path"] == f"/expenses/{maid['key']}/amount")
+        assert q["required"] and q["code"] == "FIN_LOW_CONFIDENCE"
+        body = c.post(f"{IN}/finance/answer", json={"draft": body["draft"], "context": FIN_CTX_JSON,
+                                                    "answers": [{"question_id": q["id"], "value": True}]}).json()
         b = c.post(f"{IN}/finance/build", json={"draft": body["draft"], "context": FIN_CTX_JSON}).json()
         assert b["ready"], b
         assert b["plan"]["metadata"]["intake"]["extractor"] == "ai+rule"

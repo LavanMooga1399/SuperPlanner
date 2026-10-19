@@ -6,6 +6,7 @@ import { addItem, patchItem, removeItem, type StepProps } from "./common";
 import { Field, FinNumber, FinOptionalNumber, FinText, MonthInput, MoneyInput, Select, Toggle } from "./fields";
 import { goalFromPreset, presets } from "./goalPresets";
 import { HelpText } from "./HelpText";
+import { RangeChip } from "./IncomeExpenseStep";
 import { ListEditor } from "./ListEditor";
 
 const KINDS: { value: GoalKind; label: string }[] = [
@@ -76,6 +77,7 @@ export function GoalsStep({ plan, update, expert }: StepProps) {
                 <Field label="Cost in today's money">
                   {(id) => <MoneyInput id={id} value={g.target_amount} min={1} currency={cur} locale={loc} onChange={(v) => v > 0 && set({ target_amount: v })} testId={`goal-amount-${g.id}`} />}
                 </Field>
+                <RangeChip range={g.target_range} used={g.target_amount} locale={loc} testId={`goal-range-${g.id}`} />
                 <Field label="In how many years" hint={`Needed by ${fmtMonth(g.target_month)}`}>
                   {(id) => <FinNumber id={id} value={years} min={0.1} max={50} step={0.5} onChange={(v) => set({ target_month: monthInYears(start, v) })} testId={`goal-years-${g.id}`} />}
                 </Field>

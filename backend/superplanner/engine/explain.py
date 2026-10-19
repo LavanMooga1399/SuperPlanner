@@ -78,7 +78,13 @@ def duration_risk(problem: CompiledProblem, chain: list[int]) -> DurationRisk | 
     exp = sum(t.duration for t in acts)
     opt = sum(t.estimate[0] if t.estimate else t.duration for t in acts)
     pes = sum(t.estimate[2] if t.estimate else t.duration for t in acts)
-    sigma = math.sqrt(sum(((t.estimate[2] - t.estimate[0]) / 6) ** 2 for t in acts if t.estimate))
+    # Parts of one split estimate are one uncertainty: their spreads add up before squaring.
+    spread: dict[str, float] = {}
+    for t in acts:
+        if t.estimate:
+            k = t.estimate_key or t.id
+            spread[k] = spread.get(k, 0.0) + (t.estimate[2] - t.estimate[0]) / 6
+    sigma = math.sqrt(sum(v * v for v in spread.values()))
     buffer = int(round(1.04 * sigma))
     term = problem.terminology
     plural = term.tasks.lower()
@@ -133,8 +139,37 @@ def explain(problem: CompiledProblem, placements: list[Placement], cpm_result: C
             pk = max(pk, lvl)
         return pk
 
+    win_starts: dict[int, list[int]] = {}
+
+    def first_fit(t, rids: list[str], frm: int) -> int | None:
+        """Earliest minute >= frm at which every assigned resource has a window holding the whole task."""
+        d = t.duration
+        cand = frm
+        for _ in range(64):
+            moved = False
+            for i, rid in enumerate(rids):
+                k = problem.resource_index.get(rid)
+                if k is None or i >= len(t.requirements):
+                    continue
+                ws = problem.resources[k].windows
+                if k not in win_starts:
+                    win_starts[k] = [w[0] for w in ws]
+                j = max(0, bisect.bisect_right(win_starts[k], cand) - 1) if ws else 0
+                while j < len(ws) and ws[j][1] - max(ws[j][0], cand) < d:
+                    j += 1
+                if j >= len(ws):
+                    return None
+                nxt = max(ws[j][0], cand)
+                if nxt != cand:
+                    cand, moved = nxt, True
+            if not moved:
+                return cand
+        return None
+
     primary: dict[int, StartReason] = {}
     binding: dict[int, int | None] = {}
+    # CALENDAR starts that are the first possible working minute after a dependency: the chain runs through it.
+    calendar_dep: dict[int, int] = {}
     out: dict[str, TaskExplanation] = {}
     for t in tasks:
         p = pos.get(t.idx)
@@ -193,6 +228,8 @@ def explain(problem: CompiledProblem, placements: list[Placement], cpm_result: C
                         found = StartReason(code="CALENDAR", resource_ids=[rid],
                                             message=f'Waits for {r.name} to become available at {fmt_minute(s, hs)}.')
                         binding[t.idx] = None
+                        if lb_dep is not None and bind and lb_dep < s and first_fit(t, p.resource_ids, lb_dep) == s:
+                            calendar_dep[t.idx] = max(bind, key=lambda x: (pos[x[0]].end, -x[0]))[0]
                         break
                 if found is None:
                     for i, rid in enumerate(p.resource_ids):
@@ -244,6 +281,8 @@ def explain(problem: CompiledProblem, placements: list[Placement], cpm_result: C
             code = primary[cur].code
             if code in ("DEPENDENCY", "RESOURCE_BUSY"):
                 cur = binding.get(cur)
+            elif code == "CALENDAR" and cur in calendar_dep:
+                cur = calendar_dep[cur]
             else:
                 cur = None
         chain.reverse()

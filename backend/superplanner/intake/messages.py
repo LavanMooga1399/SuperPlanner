@@ -45,7 +45,9 @@ def fallback_message(code: str, **values: object) -> str:
 NOTES: dict[str, str] = {
     "UNSUPPORTED_RULE": "I could not turn this into a plan rule: \"{text}\". Add it by hand after creating the plan, "
                         "or rephrase it.",
-    "MIXED_CURRENCY": "The text mentions more than one currency; amounts are read as {currency}.",
+    "MIXED_CURRENCY": "The text mentions a currency other than {currency}, or more than one currency; all amounts "
+                      "are read as {currency} without conversion.",
+    "FREQUENCY_CONVERTED": "\"{raw} {phrase}\" was counted as about {amount} {unit}.",
     "EXPANDED_COUNT": "\"{text}\" became {count} separate items; you can rename or remove them.",
     "MONTHS_AS_WEEKS": "A month was counted as about 4.33 weeks.",
     "PARALLEL": "\"{text}\" can happen at the same time as other work, so no order was added.",
@@ -56,6 +58,8 @@ NOTES: dict[str, str] = {
     "AI_REFERENCE_DROPPED": "AI assist linked \"{name}\" to something that is not in the draft, so that link was left out.",
     "AI_NOTE": "{text}",
     "TABLE_ROW": "Row {n}: {text}",
+    "DATE_OUT_OF_RANGE": "\"{text}\" is too far from today to plan with, so this date was left out.",
+    "TABLE_MORE_NOTES": "{n} more row problems are not listed; check the imported rows.",
 }
 
 
@@ -95,6 +99,10 @@ PROMPTS: dict[str, str] = {
     "FIN_RISK": "How much ups and downs in value can you live with?",
     "FIN_EF_MONTHS": "How many months of essential costs should your emergency fund cover?",
     "FIN_LOW_CONFIDENCE": "Is this right: \"{text}\"?",
+    "FIN_AI_UNQUOTED": "The assistant added {value} for \"{name}\", but this is not in your text. Keep it? "
+                       "Choose No to remove the amount.",
+    "SCHED_AI_UNQUOTED": "The assistant suggested {value} for \"{name}\", but this is not in your text. Keep it? "
+                         "Choose No to enter the duration yourself.",
 }
 
 QUESTION_ERRORS: dict[str, str] = {

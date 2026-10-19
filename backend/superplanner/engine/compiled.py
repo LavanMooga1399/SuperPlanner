@@ -47,6 +47,8 @@ class CTask:
     locked_resources: tuple[int, ...] | None
     group: str | None = None
     estimate: tuple[int, int, int] | None = None   # (optimistic, likely, pessimistic) minutes, PHASE2 2.14
+    # Parts of one split estimate share one uncertainty (intake `metadata.intake_key` with `parts > 1`).
+    estimate_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +141,7 @@ def build_compiled(problem: Problem, objectives: Objectives | None = None) -> Co
             estimate=None if t.duration_estimate is None or t.type == "milestone" else (
                 t.duration_estimate.optimistic_minutes, t.duration_estimate.likely_minutes,
                 t.duration_estimate.pessimistic_minutes),
+            estimate_key=_estimate_key(t),
         ))
     task_index = {t.id: i for i, t in enumerate(problem.tasks)}
     deps = tuple(CDependency(pred=task_index[d.predecessor], succ=task_index[d.successor], type=d.type,
@@ -170,3 +173,14 @@ def compile_problem(problem: Problem, objectives: Objectives | None = None) -> C
     if errors:
         raise CompileError(errors)
     return build_compiled(problem, objectives)
+
+
+def _estimate_key(t) -> str | None:
+    """Split parts of one intake estimate (PHASE2 2.9.1 step 6) share a key; otherwise the task id."""
+    md = t.metadata if isinstance(t.metadata, dict) else {}
+    key, parts = md.get("intake_key"), md.get("parts")
+    if t.duration_estimate is None:
+        return None
+    if isinstance(key, str) and isinstance(parts, int) and parts > 1:
+        return "intake:" + key
+    return t.id

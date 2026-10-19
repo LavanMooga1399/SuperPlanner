@@ -10,7 +10,7 @@ from ..models import Answer, ExtractContext, IntakeError, Provenance, Question, 
 from ..qa import (AnswerError, ApplyOutcome, apply_answers, as_choice, as_confirm, as_date, as_duration, as_multi,
                   as_working_time, mark_answered, value_text)
 from .extract import _Extractor, extract_schedule
-from .questions import DEFAULT_DURATION, DETECTED_NOTE, IMPLIED_NOTE, questions
+from .questions import DEFAULT_DURATION, DETECTED_NOTE, IMPLIED_NOTE, duration_families, questions
 
 
 def parse_working_time_text(text: str, ctx: ExtractContext, kind: str) -> WorkingTime | None:
@@ -83,8 +83,14 @@ def _apply_one(ctx: ExtractContext):
             append_draft(draft, extra)
         elif code == "SCHED_TASK_DURATION":
             t = _task(draft, q.path or "")
+            family = duration_families(draft).get(t.key, [t.key])
             t.duration = as_duration(value, DEFAULT_DURATION[draft.kind][1])
             mark_answered(prov, q.path or "", keep_span=False)
+            for k in family[1:]:            # the other copies of the same item share the answer
+                other = next((x for x in draft.tasks if x.key == k), None)
+                if other is not None and other.duration is None:
+                    other.duration = t.duration.model_copy()
+                    mark_answered(prov, f"/tasks/{k}/duration", keep_span=False)
         elif code == "SCHED_DEP_REFERENCE":
             t = _task(draft, q.path or "")
             choice = as_choice(value, q)

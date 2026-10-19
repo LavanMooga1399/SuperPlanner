@@ -7,14 +7,14 @@ Cue lists may contain product words (`ppf`, ...): they only read the user's text
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from ..messages import note_text
 from ..models import (DraftAmount, DraftDebt, DraftExpense, DraftGoal, DraftHolding, DraftIncome, DraftProfile,
                       ExtractContext, FinanceDraft, IntakeNote, Provenance)
-from ..text.dates import find_dates
+from ..text.dates import find_dates, out_of_range_dates
 from ..text.names import STOP_WORDS
-from ..text.numbers import NUM, MoneyMatch, find_money, find_percent, frequency_anywhere, parse_number
+from ..text.numbers import (NUM, MoneyMatch, find_money, find_percent, frequency_info_anywhere, parse_number)
 from ..text.segment import Text, blank, clean_name, normalise, segments
 
 EF_RE = re.compile(r"\bemergency\s+(?:fund|corpus|savings|buffer)\b", re.I)
@@ -29,11 +29,23 @@ INCOME_RE = re.compile(r"\b(?:earn(?:s|ing)?|salary|take[- ]?home|in[- ]hand|inc
                        r"freelanc\w*|business income|rent (?:income|from)|tenant pays|rental|consult\w*)\b", re.I)
 PARTNER_RE = re.compile(r"\bmy\s+(?:wife|husband|partner|spouse)\b|\b(?:wife|husband|partner|spouse)\s+earns\b", re.I)
 DEBT_RE = re.compile(r"\b(?:loan|emi|mortgage|credit card|outstanding|borrowed|owe)\b", re.I)
-HOLDING_RE = re.compile(r"\b(?:have|saved|savings|invested|in\s+(?:fds?|fixed deposits?|mutual funds?|sips?|stocks?|"
+HOLDING_RE = re.compile(r"\b(?:have|saved|savings|invested|hold|holding|holdings|own|portfolio|corpus|maturing|"
+                        r"matures?|maturity|in\s+(?:fds?|fixed deposits?|mutual funds?|sips?|stocks?|"
                         r"shares|equity|index funds?|ppf|epf|provident fund|nps|gold|(?:the\s+)?bank|savings account|"
                         r"debt funds?|bonds?))\b", re.I)
 GOAL_RE = re.compile(r"\b(?:save|saving for|need|want|goal|target|plan(?:ning)? to|buy|for\s+(?:a|my|our|the)|"
                      r"retire|retirement|(?:must|should)\s+have|would (?:like|love)|wish|dream)\b", re.I)
+# A product noun with an amount and no frequency is a statement of what is held ("FD of 5L", "gold worth 3 lakh").
+PRODUCT_RE = re.compile(r"\b(?:fds?|fixed deposits?|mutual funds?|stocks?|shares|equity|index funds?|ppf|epf|"
+                        r"provident fund|nps|gold|debt funds?|bonds?|savings account|bank balance)\b", re.I)
+# Paying someone else's salary is spending ("maid salary 6,000"), never the user's income.
+PAID_TO_OTHERS_RE = re.compile(
+    r"\b(?:maid|maids|driver|cook|nanny|servant|helper|house ?help|domestic help|gardener|watchman|guard|tutor|"
+    r"staff|employees?|workers?|cleaner|ayah|babysitter|caretaker)(?:'s|s')?\s+(?:salary|salaries|wages?|pay)\b"
+    r"|\b(?:salary|salaries|wages?)\s+(?:of|for|to)\s+(?:the|my|our)?\s*(?:maid|driver|cook|nanny|servant|helper|"
+    r"staff|employees?|workers?|cleaner|babysitter|caretaker)\b"
+    r"|\bpay(?:ing)?\s+(?:the|my|our)?\s*(?:maid|driver|cook|nanny|servant|helper|staff|cleaner|babysitter)\b",
+    re.I)
 GOAL_NOT_HOLDING_RE = re.compile(r"\b(?:want|need|goal|target|buy|plan(?:ning)? to|(?:must|should)\s+have)\b", re.I)
 NEXT_YEAR_RE = re.compile(r"\bnext\s+year\b", re.I)
 EXPENSE_RE = re.compile(r"\b(?:spend|spending|expenses?|costs?|pay|rent|groceries|bills|fees|insurance|premium|"
@@ -120,7 +132,7 @@ def _clauses(t: Text) -> list[_Clause]:
         s = seg.text
         cuts = [0]
         for m in re.finditer(r",\s+|;\s+|\s+and\s+|\s+but\s+|\s+plus\s+", s, re.I):
-            if m.group(0).strip().lower() == "and" and re.search(r"\bbetween\s+\S{1,20}\s*$", s[:m.start()], re.I):
+            if m.group(0).strip().lower() == "and" and re.search(r"\bbetween\s+\S{1,20}\s*$", s[max(0, m.start() - 40):m.start()], re.I):
                 continue
             cuts.append(m.start())
             cuts.append(m.end())
@@ -183,8 +195,8 @@ def _money(st: _State, c: _Clause) -> list[MoneyMatch]:
     work = blank(work, ranges)
     ms = find_money(work)
     for m in ms:
-        if m.currency:
-            st.currencies.add(m.currency)
+        # unmarked money uses ctx.currency (2.7.2), so it takes part in the mixed-currency check
+        st.currencies.add(m.currency or st.ctx.currency)
     return ms
 
 
@@ -203,6 +215,8 @@ def extract_finance(text: str, ctx: ExtractContext) -> FinanceExtractionResult:
     st = _State(t=t, ctx=ctx)
     st.profile = DraftProfile(currency=ctx.currency, locale=ctx.locale)
     start = _start_month(ctx)
+    for a, b in out_of_range_dates(t.norm, ctx.today, ctx.locale):
+        st.note("DATE_OUT_OF_RANGE", "warning", note_text("DATE_OUT_OF_RANGE", text=t.norm[a:b][:80]), a, b)
     clauses = _clauses(t)
     prev_class: dict[int, str] = {}
     used_sentences: set[int] = set()
@@ -232,7 +246,7 @@ def extract_finance(text: str, ctx: ExtractContext) -> FinanceExtractionResult:
             st.ef_months = round(min(24.0, st.ef_amount[0] / ess), 1)
             st.p("/emergency_fund_months", st.ef_amount[1], st.ef_amount[2], 0.5, "derived",
                  "From the amount you gave and your essential costs")
-    if len(st.currencies) > 1:
+    if len(st.currencies) > 1 or (st.currencies and st.currencies != {ctx.currency}):
         st.note("MIXED_CURRENCY", "warning", note_text("MIXED_CURRENCY", currency=ctx.currency))
     # unsupported rules: sentences with a rule cue that produced nothing
     for si, seg in enumerate(segments(t)):
@@ -244,6 +258,8 @@ def extract_finance(text: str, ctx: ExtractContext) -> FinanceExtractionResult:
                          emergency_fund_months=st.ef_months, provenance=st.prov)
     return FinanceExtractionResult(draft=draft, notes=st.notes)
 
+
+MAX_GOAL_MONTHS = 12 * 100     # "in 9999 years" is not a plan date (left out with DATE_OUT_OF_RANGE)
 
 _MONTHLY = {"monthly": 1.0, "quarterly": 1 / 3, "half_yearly": 1 / 6, "yearly": 1 / 12, "once": 0.0}
 
@@ -306,7 +322,7 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
         ri = RETIRE_IN_RE.search(s)
         if ri:
             n = parse_number(ri.group("n"))
-            if n:
+            if n and 0 <= 12 * n[0] <= MAX_GOAL_MONTHS:
                 g.target_month = add_months_str(_start_month(st.ctx), int(round(12 * n[0])))
                 st.p(f"/goals/{g.key}/target_month", a0 + ri.start(), a0 + ri.end(), 0.95)
         if money:
@@ -321,8 +337,10 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             return found
         return None
     # gross pay / income
-    if GROSS_RE.search(s) or (INCOME_RE.search(s) and not DEBT_RE.search(s)) or (prev == "income" and not (
-            DEBT_RE.search(s) or HOLDING_RE.search(s) or GOAL_RE.search(s) or EXPENSE_RE.search(s))):
+    paid_out = bool(PAID_TO_OTHERS_RE.search(s))
+    if not paid_out and (GROSS_RE.search(s) or (INCOME_RE.search(s) and not DEBT_RE.search(s)) or (
+            prev == "income" and not (DEBT_RE.search(s) or HOLDING_RE.search(s) or GOAL_RE.search(s)
+                                      or EXPENSE_RE.search(s)))):
         gross = bool(GROSS_RE.search(s)) or any(m.lpa for m in money)
         m = money[0]
         low = s.lower()
@@ -339,13 +357,14 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
         if any(i.name == name for i in st.incomes):
             name = f"{name} {sum(1 for i in st.incomes if i.name.startswith(name)) + 1}"
         key = f"i{len(st.incomes) + 1}"
-        freq = m.frequency or (frequency_anywhere(s) if not m.lpa else "yearly")
+        m, freq = _with_frequency(m, s, m.lpa)
         inc = DraftIncome(key=key, name=name, kind=kind, amount=DraftAmount(low=m.low, high=m.high),  # type: ignore
                           frequency=freq or "monthly",  # type: ignore[arg-type]
                           interruptible=kind not in ("pension", "rental"))
         st.incomes.append(inc)
         conf = _amount_conf(m, freq is not None)
         st.p(f"/incomes/{key}/amount", a0 + m.start, a0 + m.end, conf, note="GROSS" if gross else "")
+        _converted(st, m, f"/incomes/{key}/amount", a0)
         st.p(f"/incomes/{key}/name", a0, c.end, 0.9)
         if gross:
             st.note("GROSS_INCOME", "warning", note_text("GROSS_INCOME"), a0, c.end)
@@ -366,7 +385,7 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
         work = s
         for m in money:
             amt = DraftAmount(low=m.low, high=m.high)
-            before, after = work[:m.amount_start], work[m.amount_end:]
+            before, after = work[max(0, m.amount_start - 60):m.amount_start], work[m.amount_end:m.amount_end + 60]
             if EMI_BEFORE_RE.search(before) or re.match(r"^\s*(?:emi|a month|per month|monthly)\b", after, re.I) \
                     or m.frequency == "monthly":
                 d.emi = amt
@@ -378,8 +397,10 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
         _debt_terms(st, d, s, a0)
         return "debt"
     # holdings
-    if (HOLDING_RE.search(s) or (prev == "holding" and any(rx.search(s) for rx, _, _ in HOLDING_CLASS)
-                                 and not (EXPENSE_RE.search(s) or DEBT_RE.search(s)))) \
+    product_held = bool(PRODUCT_RE.search(s)) and all(m.frequency is None for m in money) and not (
+        EXPENSE_RE.search(s) or DEBT_RE.search(s) or paid_out)
+    if (HOLDING_RE.search(s) or product_held or (prev == "holding" and any(rx.search(s) for rx, _, _ in HOLDING_CLASS)
+                                                 and not (EXPENSE_RE.search(s) or DEBT_RE.search(s)))) \
             and not GOAL_NOT_HOLDING_RE.search(s):
         for i, m in enumerate(money):
             seg_end = money[i + 1].start if i + 1 < len(money) else len(s)
@@ -399,8 +420,14 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             if cls:
                 st.p(f"/holdings/{key}/asset_class_id", a0, c.end, 0.95 if name else 0.7)
         return "holding"
-    # goals
-    if GOAL_RE.search(s) or prev == "goal":
+    # goals; also a cue-less amount with a goal noun or a date and no frequency ("Trip of 2 lakh in 2 years")
+    no_cue = not EXPENSE_RE.search(s) and all(m.frequency is None for m in money) and \
+        frequency_info_anywhere(s) is None
+    goal_like = no_cue and (any(rx.search(s) for rx, _ in GOAL_KINDS) or bool(IN_YEARS_RE.search(s))
+                            or bool(re.search(r"\b(?:in|by)\s+20\d{2}\b", s))
+                            or any(d.kind in ("monyear", "dmy", "mdy", "iso", "numeric")
+                                   for d in find_dates(s, st.ctx.today, st.ctx.locale)))
+    if GOAL_RE.search(s) or prev == "goal" or goal_like:
         m = money[0]
         kind = "other"
         for rx, k in GOAL_KINDS:
@@ -453,8 +480,9 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             n = parse_number(iy.group("n"))
             if n:
                 months = int(round(n[0] * (12 if iy.group("u").lower().startswith("y") else 1)))
-                g.target_month = add_months_str(_start_month(st.ctx), months)
-                st.p(f"/goals/{key}/target_month", a0 + iy.start(), a0 + iy.end(), 0.95)
+                if 0 <= months <= MAX_GOAL_MONTHS:
+                    g.target_month = add_months_str(_start_month(st.ctx), months)
+                    st.p(f"/goals/{key}/target_month", a0 + iy.start(), a0 + iy.end(), 0.95)
         elif dm:
             d = dm[0]
             g.target_month = f"{d.value.year:04d}-{d.value.month:02d}"
@@ -472,11 +500,12 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
         return "goal"
     # expenses (also any other money phrase: its category is asked when unclear)
     if True:
+        # per clause, not per amount (linear time): the category cue of the whole clause
+        clause_cat = next(((cc, ess, inf) for rx, cc, ess, inf in EXPENSE_CATS if rx.search(s)), None)
         for i, m in enumerate(money):
-            before = s[:m.start]
-            if i > 0:
-                before = s[money[i - 1].end:m.start]
-            after = s[m.end:]
+            before = s[max(0, m.start - 200):m.start] if i == 0 else s[max(money[i - 1].end, m.start - 200):m.start]
+            nxt = money[i + 1].start if i + 1 < len(money) else len(s)
+            after = s[m.end:min(nxt, m.end + 200)]
             on = _ON_NAME_RE.match(after)
             if on:
                 name = on.group("n")
@@ -491,22 +520,53 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             if not words:
                 name = "Spending"
             cat, essential, infl = "other", None, None
-            for rx, cc, ess, inf in EXPENSE_CATS:
-                if rx.search(name) or rx.search(s):
-                    cat, essential, infl = cc, ess, inf
-                    break
+            hit = next(((cc, ess, inf) for rx, cc, ess, inf in EXPENSE_CATS if rx.search(name)), None) or clause_cat
+            if hit:
+                cat, essential, infl = hit
             key = f"e{len(st.expenses) + 1}"
-            freq = m.frequency or frequency_anywhere(after) or None
+            m, freq = _with_frequency(m, after, False)
             e = DraftExpense(key=key, name=name[:200], category=cat, amount=DraftAmount(low=m.low, high=m.high),
                              frequency=freq or "monthly", essential=essential,  # type: ignore[arg-type]
                              inflation_pct=infl)
             st.expenses.append(e)
-            st.p(f"/expenses/{key}/amount", a0 + m.start, a0 + m.end, _amount_conf(m, freq is not None))
+            # no spending cue and no frequency: only a guess, so it is asked (FIN_LOW_CONFIDENCE), never silent
+            conf = 0.45 if (no_cue and freq is None) else _amount_conf(m, freq is not None)
+            st.p(f"/expenses/{key}/amount", a0 + m.start, a0 + m.end, conf)
+            _converted(st, m, f"/expenses/{key}/amount", a0)
             st.p(f"/expenses/{key}/name", a0, c.end, 0.9)
             if cat == "education":
                 st.note("EDUCATION_INFLATION", "info", note_text("EDUCATION_INFLATION", name=name), a0, c.end)
         return "expense"
     return None  # pragma: no cover
+
+
+def _with_frequency(m: MoneyMatch, s: str, lpa: bool) -> tuple[MoneyMatch, str | None]:
+    """The amount's frequency: the phrase right after it, else the first one in `s` (converted phrases such as
+    "a week" or "every 2 months" scale the amount to a supported frequency)."""
+    if m.frequency:
+        return m, m.frequency
+    if lpa:
+        return m, "yearly"
+    fi = frequency_info_anywhere(s)
+    if fi is None:
+        return m, None
+    if fi.factor != 1.0:
+        m = replace(m, low=round(m.low * fi.factor, 2), high=round(m.high * fi.factor, 2), freq_factor=fi.factor,
+                    freq_phrase=fi.phrase)
+    return m, fi.frequency
+
+
+def _converted(st: _State, m: MoneyMatch, path: str, a0: int) -> None:
+    """Provenance note and info note when an amount was converted from a frequency the model has no member for."""
+    if m.freq_factor == 1.0:
+        return
+    unit = "a year" if m.frequency == "yearly" else "a month"
+    raw_low, raw_high = m.low / m.freq_factor, m.high / m.freq_factor
+    raw = f"{raw_low:,.0f}" if round(raw_low) == round(raw_high) else f"{raw_low:,.0f}-{raw_high:,.0f}"
+    amount = f"{m.low:,.0f}" if round(m.low) == round(m.high) else f"{m.low:,.0f}-{m.high:,.0f}"
+    msg = note_text("FREQUENCY_CONVERTED", phrase=m.freq_phrase[:60], amount=amount, unit=unit, raw=raw)
+    st.p(path, a0 + m.start, a0 + m.end, 0.8, "derived", msg[:300])
+    st.note("FREQUENCY_CONVERTED", "info", msg, a0 + m.start, a0 + m.end)
 
 
 def _debt_terms(st: _State, d: DraftDebt, s: str, a0: int) -> bool:

@@ -256,7 +256,8 @@ def test_ai_output_spans_and_confidence():
     r = describe_schedule(SCHEDULE_TEXT, CTX, ai=opts(fake))
     added = next(t for t in r.draft.tasks if t.name == "Write release notes")
     p = r.draft.provenance[f"/tasks/{added.key}/name"]
-    assert p.source == "ai" and p.span is None and p.confidence == 0.5      # quote not in the text
+    # quote not in the text: low confidence (fix round, PHASE2 9.P2 fix-round note 5)
+    assert p.source == "ai" and p.span is None and p.confidence == 0.3 and p.note == "AI_UNQUOTED"
     for path, prov in r.draft.provenance.items():
         if prov.source == "ai":
             assert prov.confidence <= 0.8, path

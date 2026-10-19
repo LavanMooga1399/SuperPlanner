@@ -12,7 +12,7 @@ from ..money.extract import (DEBT_KINDS, EXPENSE_CATS, GOAL_KINDS, HOLDING_CLASS
 from ..schedule.extract import MILESTONE_RE, detect_kind
 from ..text.dates import parse_date_text, parse_month_text
 from ..text.durations import parse_duration_text
-from ..text.names import resolve, slug
+from ..text.names import NameIndex, slug
 from ..text.numbers import frequency_anywhere, parse_money_text, parse_percent_text
 from .mapping import fields_of, norm_header
 from .parse import parse_rows
@@ -58,6 +58,18 @@ def _rows(req: TableApply, max_chars: int) -> tuple[list[str] | None, list[list[
 
 def _row_note(n: int, text: str) -> IntakeNote:
     return IntakeNote(code="TABLE_ROW", severity="warning", message=note_text("TABLE_ROW", n=n, text=text))
+
+
+MAX_ROW_NOTES = 200
+
+
+def cap_notes(notes: list[IntakeNote], limit: int = MAX_ROW_NOTES) -> list[IntakeNote]:
+    """At most `limit` row notes, then one note saying how many more rows had problems (bounded response)."""
+    if len(notes) <= limit:
+        return notes
+    rest = len(notes) - limit
+    return notes[:limit] + [IntakeNote(code="TABLE_ROW", severity="warning",
+                                       message=note_text("TABLE_MORE_NOTES", n=rest))]
 
 
 def _prov(row: int, col: int, conf: float = 0.95) -> Provenance:
@@ -180,28 +192,45 @@ def apply_schedule_rows(req: TableApply, ctx: ExtractContext, base: ScheduleDraf
         created.append((i, start + i, task, refs))
     # predecessors: by id, then name, then row number
     names = [(t.key, t.name) for _, _, t, _ in created] + [(t.key, t.name) for t in draft.tasks]
+    # built once per apply (linear time): exact names -> keys in row order, and the token index for fuzzy matches
+    exact_of: dict[str, list[str]] = {}
+    for k, nm in names:
+        exact_of.setdefault(nm.lower(), []).append(k)
+    index: NameIndex | None = None
     row_key = {i + 1: t.key for i, _, t, _ in created}
     mode = req.options.predecessor_ref
     for i, _, task, refs in created:
+        unmatched: list[str] = []
         for ref in refs[:50]:
             target = None
             low = ref.lower()
             if mode in ("auto", "id"):
                 target = ids.get(low)
             if target is None and mode in ("auto", "name"):
-                exact = [k for k, nm in names if nm.lower() == low and k != task.key]
-                target = exact[0] if exact else resolve(ref, names, exclude=task.key).key
+                exact = [k for k in exact_of.get(low, ())[:2] if k != task.key]
+                if exact:
+                    target = exact[0]
+                else:
+                    if index is None:
+                        index = NameIndex(names)
+                    target = index.resolve(ref, exclude=task.key).key
             if target is None and mode in ("auto", "row") and re.fullmatch(r"\d{1,4}", ref):
                 target = row_key.get(int(ref))
             if target is None or target == task.key:
-                notes.append(_row_note(i + 1, f"\"{ref[:40]}\" does not match another row, so that link was left out."))
+                unmatched.append(ref)
                 continue
             if target not in task.after:
                 task.after.append(target)
+        if unmatched:
+            shown = ", ".join(f"\"{r[:40]}\"" for r in unmatched[:3])
+            more = f" and {len(unmatched) - 3} more" if len(unmatched) > 3 else ""
+            verb = "does" if len(unmatched) == 1 else "do"
+            links = "that link was" if len(unmatched) == 1 else "those links were"
+            notes.append(_row_note(i + 1, f"{shown}{more} {verb} not match another row, so {links} left out."))
         if task.after and "predecessors" in fmap:
             draft.provenance[f"/tasks/{task.key}/after"] = _prov(i, fmap["predecessors"])
     draft.tasks.extend(t for _, _, t, _ in created)
-    return ScheduleDraft.model_validate(draft.model_dump()), notes
+    return ScheduleDraft.model_validate(draft.model_dump()), cap_notes(notes)
 
 
 def _infer_kind(name: str) -> str | None:
@@ -340,4 +369,4 @@ def apply_finance_rows(req: TableApply, ctx: ExtractContext, base: FinanceDraft 
                     cls = cid
                     break
             items.append(DraftHolding(key=key, name=name[:200], asset_class_id=cls, amount=amount))
-    return FinanceDraft.model_validate(draft.model_dump()), notes
+    return FinanceDraft.model_validate(draft.model_dump()), cap_notes(notes)

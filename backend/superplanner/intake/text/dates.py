@@ -33,13 +33,24 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("fromnow", re.compile(rf"\b(?P<n>{NUM})\s+(?P<u>days?|weeks?|months?|years?)\s+from\s+(?:now|today)\b", re.I)),
     ("endof", re.compile(r"\b(?:the\s+)?end\s+of\s+(?:the\s+)?(?P<which>this|next)\s+(?P<u>week|month|year)\b", re.I)),
     ("nextunit", re.compile(r"\bnext\s+(?P<u>week|month|year)\b", re.I)),
+    # a bare weekday counts only right after a deadline word ("due Friday", "by Monday"); checked in find_dates
+    ("barewd", re.compile(rf"\b(?P<wd>{_WD})\b", re.I)),
 ]
+_BAREWD_ROLE_RE = re.compile(r"\b(?:due|by|before|until|till|deadline|no later than)\s*(?:on\s+)?(?::\s*)?$", re.I)
 
 DEADLINE_RE = re.compile(r"(?:\b(?:no later than|at the latest by|latest by|due(?:\s+(?:on|by))?|by|before|until|"
                          r"till|deadline(?:\s+is)?|finish(?:ed)? by|due date)\s*:?\s*)$", re.I)
 START_RE = re.compile(r"(?:\b(?:not before|starting(?:\s+(?:on|from))?|starts?(?:\s+on)?|start(?:ing)? on|"
                       r"beginning(?:\s+on)?|begins?(?:\s+on)?|from|after)\s*:?\s*)$", re.I)
 HARD_RE = re.compile(r"\b(?:no later than|must|hard|latest|at the latest|strict|strictly|absolutely)\b", re.I)
+
+
+# Dates outside this range are not read (they would overflow date arithmetic later; PHASE2 2.7 robustness).
+MIN_YEAR, MAX_YEAR = 1900, 2200
+
+
+def in_range(d: date | None) -> bool:
+    return d is not None and MIN_YEAR <= d.year <= MAX_YEAR
 
 
 @dataclass
@@ -150,6 +161,10 @@ def _make(kind: str, mt: re.Match[str], today: date, locale: str) -> DateMatch |
         else:
             v = date(today.year + (1 if nxt else 0), 12, 31)
         return DateMatch(s, e, v, "day", 0.8, relative=True, kind=kind, deadline_like=True)
+    if kind == "barewd":     # "due Friday": the next such weekday on or after today (like "this Friday")
+        wd = WEEKDAYS[g["wd"].lower()]
+        return DateMatch(s, e, today + timedelta(days=(wd - today.weekday()) % 7), "day", 0.7, relative=True,
+                         kind=kind)
     if kind == "nextunit":
         u = g["u"].lower()
         if u == "week":
@@ -169,12 +184,37 @@ def find_dates(s: str, today: date, locale: str = "en-IN") -> list[DateMatch]:
         for mt in rx.finditer(s):
             if any(mt.start() < b and a < mt.end() for a, b in taken):
                 continue
-            d = _make(kind, mt, today, locale)
-            if d is None:
+            if kind == "barewd" and not _BAREWD_ROLE_RE.search(s[max(0, mt.start() - 30):mt.start()]):
                 continue
+            try:
+                d = _make(kind, mt, today, locale)
+            except (ValueError, OverflowError):     # "in 9999 years", "in 99999999 months": not a usable date
+                d = None
+            if d is None or not in_range(d.value):
+                continue
+            if d.alternative is not None and not in_range(d.alternative):
+                d.alternative = None
             taken.append((mt.start(), mt.end()))
             out.append(d)
     out.sort(key=lambda d: d.start)
+    return out
+
+
+def out_of_range_dates(s: str, today: date, locale: str = "en-IN") -> list[tuple[int, int]]:
+    """Spans of date phrases that look like dates but are outside MIN_YEAR..MAX_YEAR (or overflow); the readers
+    add a note for them instead of dropping them silently."""
+    out: list[tuple[int, int]] = []
+    for kind, rx in _PATTERNS:
+        for mt in rx.finditer(s):
+            try:
+                d = _make(kind, mt, today, locale)
+            except (ValueError, OverflowError):
+                out.append((mt.start(), mt.end()))
+                continue
+            if d is not None and not in_range(d.value):
+                out.append((mt.start(), mt.end()))
+            if len(out) >= 20:
+                return out
     return out
 
 

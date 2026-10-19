@@ -2264,3 +2264,8 @@ Paths and field names are exactly those of sections 13-16. Interpretations and s
 16. **CSV export.** Text cells (task id, name, group, resource ids and names) that start with
     `= + - @ TAB CR` get a leading `'` (OWASP CSV injection). `deadline` is converted to the plan's
     UTC offset, the same as `start` and `end`. Header and column order are unchanged.
+17. **Explanations across closed time (phase 2 fix round).** The schedule critical chain follows a `CALENDAR` start
+    to its binding dependency when the task starts at the first minute after it at which all its resources have a
+    window holding the whole task. `DurationRisk.chain_sigma_minutes` adds the spreads of parts of one split
+    estimate before squaring (`CTask.estimate_key` from `metadata.intake_key` with `parts > 1`). See PHASE2
+    9.P2-fix item 3.

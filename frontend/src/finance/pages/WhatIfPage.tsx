@@ -13,7 +13,8 @@ import {
 } from "../api/client";
 import type { FinanceComparison, FinancePlan, FinanceResultRecord, FinanceRun, WhatIfChanges } from "../api/types";
 import { FinRunProgress } from "../components/FinRunProgress";
-import { GoalCard } from "../components/GoalCard";
+import { GoalCard, growthReason } from "../components/GoalCard";
+import { EngineVersionBanner } from "../components/EngineVersionBanner";
 import { ScenarioCompareTable } from "../components/ScenarioCompareTable";
 import { isEmptyChanges, WhatIfControls } from "../components/WhatIfControls";
 import { nextId, WHATIF_PREFIX } from "../lib/ids";
@@ -313,10 +314,11 @@ export function WhatIfPage() {
           {showing ? (
             <section className="col gap-lg" data-testid="whatif-result" aria-labelledby="wi-result-h">
               <h2 id="wi-result-h">{showing.record.label ? `Effect of: ${showing.record.label}` : "Effect of your changes"}</h2>
+              <EngineVersionBanner show={showing.cmp.engine_versions_differ} />
               <ScenarioCompareTable cmp={showing.cmp} currency={cur} locale={loc} labelA="Your plan" labelB="What-if" testId="whatif-compare-table" />
               <div className="goal-cards">
                 {showing.record.result.goals.map((g) => (
-                  <GoalCard key={g.goal_id} goal={g} currency={cur} locale={loc} />
+                  <GoalCard key={g.goal_id} goal={g} currency={cur} locale={loc} reason={growthReason(showing.record.result.explanation?.goals?.[g.goal_id]?.reasons)} />
                 ))}
               </div>
             </section>

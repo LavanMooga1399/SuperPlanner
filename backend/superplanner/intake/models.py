@@ -43,7 +43,8 @@ class IntakeTextError(IntakeError):
 # ---------------------------------------------------------------- common (2.3)
 
 class ExtractContext(_Strict):
-    today: date
+    # bounded (fix round): date arithmetic on an extreme `today` overflowed into 500 errors
+    today: Annotated[date, Field(ge=date(1970, 1, 1), le=date(2200, 12, 31))]
     utc_offset: Annotated[str, StringConstraints(pattern=r"^[+-]\d{2}:\d{2}$")] = "+00:00"
     locale: Annotated[str, StringConstraints(max_length=16)] = "en-IN"
     currency: Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")] = "INR"

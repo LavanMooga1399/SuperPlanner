@@ -52,7 +52,7 @@ def test_typed_number_wins_finance_and_ai_only_expense_added():
     maid = next(e for e in r.draft.expenses if e.name == "Maid and cook")
     assert maid.key == "e3"
     prov = r.draft.provenance[f"/expenses/{maid.key}/amount"]
-    assert prov.source == "ai" and prov.confidence == 0.5   # quote "invented" not found in the text
+    assert prov.source == "ai" and prov.confidence == 0.3   # quote "invented" not found in the text (fix round)
     assert len(r.draft.incomes) == 2                         # AI salary matched the typed one
 
 

@@ -7,8 +7,10 @@ import math
 from datetime import date, datetime, timedelta, timezone
 
 from superplanner import engine
-from superplanner.engine.model import (Calendar, Dependency, DurationEstimate, Objectives, Problem, Requirement,
-                                       Resource, Task, Terminology, pert_minutes)
+from superplanner.engine.model import (MAX_DOC_DEPENDENCIES, MAX_DOC_RESOURCES, MAX_DOC_TASKS, Calendar,
+                                       Dependency, DurationEstimate, Objectives, Problem, Requirement, Resource,
+                                       Task, Terminology, pert_minutes)
+from superplanner.engine.preflight import Issue, ValidateReport
 from superplanner.templates import exam_prep, manufacturing, project
 
 from ..models import (DurationSummary, ExtractContext, ScheduleBuildResult, ScheduleDraft, TimeWindow,
@@ -85,6 +87,11 @@ def build_schedule_problem(draft: ScheduleDraft, ctx: ExtractContext, *, source:
     kind = draft.kind
     wt = draft.working_time or default_working_time(kind)
     start = draft.start_date or next_working_day(ctx.today, wt)
+    bad = _out_of_range_dates(draft, start)
+    if bad:
+        return _plain_issue("DATE_OUT_OF_RANGE",
+                            f"Some dates are outside the years {MIN_YEAR}-{MAX_YEAR - 1} the planner works with "
+                            f"({', '.join(bad[:3])}). Change or remove them.", "tasks")
     tz = _tz(ctx.utc_offset)
     weekly = weekly_of(wt)
     per_day, per_week, max_part = calendar_figures(weekly)
@@ -116,7 +123,11 @@ def build_schedule_problem(draft: ScheduleDraft, ctx: ExtractContext, *, source:
     parts_of: dict[str, list[str]] = {}
     with_range = expected = optimistic = pessimistic = 0
     deadlines: list[date] = []
+    work_of: dict[str, int] = {}
+    too_large = len(resources) > MAX_DOC_RESOURCES
     for dt in draft.tasks:
+        if too_large:
+            break
         group = dt.group or None
         if dt.milestone:
             parts_of[dt.key] = [dt.key]
@@ -136,13 +147,20 @@ def build_schedule_problem(draft: ScheduleDraft, ctx: ExtractContext, *, source:
         m = max(o, m)
         p = max(m, p)
         e = pert_minutes(o, m, p)
+        work_of[dt.key] = e
         if o < p:
             with_range += 1
         expected += e
         optimistic += o
         pessimistic += p
+        if len(tasks) + _part_count(e, max_part) > MAX_DOC_TASKS:
+            too_large = True
+            break
         pieces = split_parts(o, m, p, max_part)
         n = len(pieces)
+        if len(tasks) + n > MAX_DOC_TASKS:
+            too_large = True
+            break
         reqs = _requirements(dt.resources, dt.resource_mode, expanded, worker_ids)
         ids = [dt.key] if n == 1 else [f"{dt.key}_{i}" for i in range(1, n + 1)]
         parts_of[dt.key] = ids
@@ -162,6 +180,11 @@ def build_schedule_problem(draft: ScheduleDraft, ctx: ExtractContext, *, source:
             deadlines.append(dt.deadline)
         for a, b in zip(ids, ids[1:]):
             deps.append(Dependency(predecessor=a, successor=b, type="FS", lag_minutes=0))
+    if not too_large:
+        n_deps = len(deps) + sum(len(dt.after) for dt in draft.tasks)
+        too_large = n_deps > MAX_DOC_DEPENDENCIES
+    if too_large:
+        return _too_large(len(draft.tasks), len(resources))
     for dt in draft.tasks:
         for pred in dt.after:
             deps.append(Dependency(predecessor=parts_of[pred][-1], successor=parts_of[dt.key][0], type="FS",
@@ -172,7 +195,16 @@ def build_schedule_problem(draft: ScheduleDraft, ctx: ExtractContext, *, source:
     else:
         d_last = max(((d - start).days for d in deadlines), default=0)
         r_count = len(all_ids)
-        work = math.ceil(1.5 * 7 * expected / (per_week * max(1, r_count))) + 7 if per_week else 30
+        if per_week:
+            # W/R assumes every task can run in parallel on every resource; the longest dependency chain and the
+            # busiest resource group are lower bounds the horizon must also cover (working minutes -> calendar
+            # days with per_week / 7, same 1.5 safety factor).
+            chain = _longest_chain_minutes(draft, work_of, start, per_week)
+            load = _busiest_load_minutes(tasks)
+            spread = expected / max(1, r_count)
+            work = math.ceil(1.5 * 7 * max(spread, chain, load) / per_week) + 7
+        else:
+            work = 30
         horizon = max(7, min(366, max(d_last + 7, work)))
     objective = draft.objective or {"project": "meet_deadlines" if deadlines else "finish_asap", "study": "meet_deadlines",
                                     "production": "meet_deadlines", "generic": "balanced"}[kind]
@@ -186,10 +218,102 @@ def build_schedule_problem(draft: ScheduleDraft, ctx: ExtractContext, *, source:
         log.error("intake schedule builder produced an invalid problem: %s", type(exc).__name__)
         raise BuilderBug("invalid problem from the intake builder") from None
     report = engine.analyze(problem)
+    report = _check_horizon(report, problem, per_week)
     summary = DurationSummary(tasks_with_range=with_range, expected_work_minutes=expected,
                               optimistic_work_minutes=optimistic, pessimistic_work_minutes=pessimistic)
     return ScheduleBuildResult(ready=report.ok, problem=problem, report=report, blocking=[], parts=parts_of,
                                duration_summary=summary)
+
+
+def _part_count(e: int, max_part: int) -> int:
+    """Lower bound of the number of parts `split_parts` makes (cheap; used before the parts are built)."""
+    return max(1, math.ceil(e / max_part)) if e > max_part else 1
+
+
+MIN_YEAR, MAX_YEAR = 1970, 2200     # dates (and start + 366-day horizon) must stay inside these years
+
+
+def _out_of_range_dates(draft: ScheduleDraft, start: date) -> list[str]:
+    bad = []
+    if not (MIN_YEAR <= start.year < MAX_YEAR):
+        bad.append(f"start {start.isoformat()}")
+    for t in draft.tasks:
+        for d in (t.deadline, t.earliest_start):
+            if d is not None and not (MIN_YEAR <= d.year < MAX_YEAR):
+                bad.append(f"\"{t.name[:40]}\" {d.isoformat()}")
+    return bad
+
+
+def _too_large(n_tasks: int, n_resources: int) -> ScheduleBuildResult:
+    return _plain_issue("DRAFT_TOO_LARGE",
+                        f"This plan is too large to build: after long items are split into working sessions it "
+                        f"would have more than {MAX_DOC_TASKS} steps (or more than {MAX_DOC_RESOURCES} "
+                        f"resources or {MAX_DOC_DEPENDENCIES} links). Shorten the longest durations, use a "
+                        f"larger time unit per step, or split the work into several plans.", "tasks")
+
+
+def _plain_issue(code: str, message: str, fld: str) -> ScheduleBuildResult:
+    """ready = False with one plain-language issue and no problem (never a 500)."""
+    issue = Issue(code=code, severity="error", message=message, field=fld)
+    return ScheduleBuildResult(ready=False, problem=None, report=ValidateReport(ok=False, issues=[issue], cpm=None),
+                               blocking=[], parts={}, duration_summary=None)
+
+
+def _longest_chain_minutes(draft: ScheduleDraft, work_of: dict[str, int], start: date, per_week: int) -> float:
+    """Longest `after` chain in working minutes (Kahn order; tasks in a cycle are ignored, preflight reports them).
+    An earliest start counts as its calendar offset converted to working minutes."""
+    keys = {dt.key: dt for dt in draft.tasks}
+    succ: dict[str, list[str]] = {k: [] for k in keys}
+    indeg = {k: 0 for k in keys}
+    for dt in draft.tasks:
+        for pred in dt.after:
+            if pred in keys:
+                succ[pred].append(dt.key)
+                indeg[dt.key] += 1
+    es: dict[str, float] = {}
+    for k, dt in keys.items():
+        es[k] = max(0.0, (dt.earliest_start - start).days * per_week / 7) if dt.earliest_start else 0.0
+    queue = [k for k, d in indeg.items() if d == 0]
+    best = 0.0
+    while queue:
+        k = queue.pop()
+        ef = es[k] + work_of.get(k, 0)
+        best = max(best, ef)
+        for s2 in succ[k]:
+            es[s2] = max(es[s2], ef)
+            indeg[s2] -= 1
+            if indeg[s2] == 0:
+                queue.append(s2)
+    return best
+
+
+def _busiest_load_minutes(tasks: list[Task], max_groups: int = 200) -> float:
+    """Lower bound from resource load: the work whose every alternative lies inside a group S, spread over |S|."""
+    reqs: list[tuple[frozenset[str], int]] = [(frozenset(rq.alternatives), t.duration_minutes)
+                                              for t in tasks for rq in t.requirements if t.duration_minutes]
+    groups: dict[frozenset[str], int] = {}
+    for alts, d in reqs:
+        groups[alts] = groups.get(alts, 0) + d
+    best = 0.0
+    candidates = sorted(groups, key=lambda g: -groups[g] / len(g))[:max_groups]
+    for g in candidates:
+        total = sum(d for alts, d in groups.items() if alts <= g)
+        best = max(best, total / len(g))
+    return best
+
+
+def _check_horizon(report: ValidateReport, problem: Problem, per_week: int) -> ValidateReport:
+    """Re-check the CPM length (working minutes) against the horizon in working time (2.9.1 step 10)."""
+    if report.cpm is None or not per_week:
+        return report
+    needed_days = math.ceil(7 * report.cpm.lower_bound_makespan_minutes / per_week)
+    if needed_days <= problem.horizon_days or any(i.code == "HORIZON_TOO_SHORT" for i in report.issues):
+        return report
+    issue = Issue(code="HORIZON_TOO_SHORT", severity="error",
+                  message=(f"The planning horizon of {problem.horizon_days} days is too short: with the working "
+                           f"time of this plan the dependency chain alone needs about {needed_days} calendar "
+                           f"days."), field="horizon_days")
+    return ValidateReport(ok=False, issues=[*report.issues, issue], cpm=report.cpm)
 
 
 def _requirements(keys: list[str], mode: str, expanded: dict[str, list[str]], workers: list[str]) -> list[Requirement]:

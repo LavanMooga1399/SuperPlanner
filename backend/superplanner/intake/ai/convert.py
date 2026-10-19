@@ -1,6 +1,7 @@
 """Validated AI output -> drafts (PHASE2 2.10 step 5): same key scheme, `source="ai"` provenance, spans found by
-locating `source_quote` in the text, values clipped to model limits. AI confidence is capped at 0.8 and is 0.5
-when the quote is not found."""
+locating `source_quote` in the text, values clipped to model limits. AI confidence is capped at 0.8; when the quote
+is not found it is UNQUOTED_CONF with the note AI_UNQUOTED (fix round: an unsupported value is the clearest sign of a
+hallucination, so it is always asked about, see questions.py)."""
 
 from __future__ import annotations
 
@@ -17,6 +18,8 @@ from ..text.names import resolve, slug
 from .schemas import AiAmount, AiFinanceOutput, AiScheduleOutput
 
 AI_CAP = 0.8
+UNQUOTED_CONF = 0.3
+AI_UNQUOTED = "AI_UNQUOTED"
 
 
 def locate(quote: str, text: str) -> SourceSpan | None:
@@ -38,7 +41,9 @@ def locate(quote: str, text: str) -> SourceSpan | None:
 
 def ai_prov(quote: str, conf: float, text: str) -> Provenance:
     span = locate(quote, text)
-    return Provenance(source="ai", confidence=min(conf, AI_CAP) if span else 0.5, span=span)
+    if span is None:
+        return Provenance(source="ai", confidence=UNQUOTED_CONF, span=None, note=AI_UNQUOTED)
+    return Provenance(source="ai", confidence=min(conf, AI_CAP), span=span)
 
 
 def _iso(s: str | None) -> date | None:
@@ -186,7 +191,7 @@ def ai_to_finance_draft(out: AiFinanceOutput, text: str, ctx: ExtractContext) ->
         p = ai_prov(x.source_quote, x.confidence, text)
         prov[f"/incomes/{key}/name"] = p
         if incomes[-1].amount is not None:
-            prov[f"/incomes/{key}/amount"] = p.model_copy(update={"note": "GROSS" if x.is_gross else ""})
+            prov[f"/incomes/{key}/amount"] = p.model_copy(update={"note": "GROSS" if x.is_gross else p.note})
     expenses = []
     for i, x in enumerate(out.expenses[:100], start=1):
         key = f"e{i}"

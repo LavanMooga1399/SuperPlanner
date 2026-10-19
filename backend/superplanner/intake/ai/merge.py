@@ -11,6 +11,7 @@ from ..extractors import AiFallback
 from ..messages import note_text
 from ..models import FinanceDraft, IntakeNote, Provenance, ScheduleDraft
 from ..text.names import jaccard, norm_tokens
+from .convert import AI_UNQUOTED, UNQUOTED_CONF
 
 AI_CAP = 0.8
 SCHEDULE_TASK_FIELDS = ("duration", "deadline", "deadline_hard", "earliest_start", "group")   # milestone: R decides
@@ -49,7 +50,7 @@ def _typed(p: Provenance | None) -> bool:
 
 def _cap(p: Provenance | None) -> Provenance:
     if p is None:
-        return Provenance(source="ai", confidence=0.5)
+        return Provenance(source="ai", confidence=UNQUOTED_CONF, note=AI_UNQUOTED)
     return p.model_copy(update={"source": "ai", "confidence": min(p.confidence, AI_CAP)})
 
 
@@ -218,7 +219,7 @@ def merge_finance(R: FinanceDraft, A: FinanceDraft, a_notes: list[IntakeNote]) -
                         else p.model_copy(update={"source": "ai"})
     if out.emergency_fund_months is None and A.emergency_fund_months is not None:
         out.emergency_fund_months = A.emergency_fund_months
-        prov["/emergency_fund_months"] = Provenance(source="ai", confidence=0.5)
+        prov["/emergency_fund_months"] = Provenance(source="ai", confidence=UNQUOTED_CONF, note=AI_UNQUOTED)
     notes.extend(a_notes)
     try:
         merged = FinanceDraft.model_validate(out.model_dump())

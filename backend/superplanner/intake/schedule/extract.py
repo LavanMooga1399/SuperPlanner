@@ -14,9 +14,9 @@ from datetime import date, timedelta
 from ..messages import note_text
 from ..models import (DraftDuration, DraftResource, DraftTask, ExtractContext, IntakeNote, Provenance, ScheduleDraft,
                       ScheduleKind, TimeWindow, WorkingTime)
-from ..text.dates import HARD_RE, DateMatch, find_dates, role_of
+from ..text.dates import HARD_RE, DateMatch, find_dates, out_of_range_dates, role_of
 from ..text.durations import DurMatch, find_durations
-from ..text.names import NOT_NAMES, capitalised_names, norm_tokens, resolve, slug
+from ..text.names import NOT_NAMES, NameIndex, capitalised_names, norm_tokens, resolve, slug
 from ..text.numbers import NUM, parse_number
 from ..text.segment import Segment, Text, blank, clean_name, normalise, segments
 
@@ -67,6 +67,18 @@ REVISE_RE = re.compile(rf"\brevis(?:e|ing)\s+(?:everything|it all|all|all of it|
 EXAM_DAYS_RE = re.compile(rf"\b(?P<n>{NUM})\s+(?P<u>days?|weeks?|months?)\s+(?:left\s+)?(?:to|until|before)\s+"
                           r"(?:prepare|study|revise|get ready|the exam|my exam|the test|exam)\b", re.I)
 EXAM_DATE_RE = re.compile(r"\b(?:exam|test|paper)\b[^.\n]{0,40}?\b(?P<w>on|in|by)\s+", re.I)
+
+# study subjects (2.7.5): "Subjects: Physics, Chemistry and Maths" -> one study task (and group) per subject
+SUBJECTS_RE = re.compile(r"^\s*(?:(?:my|the|our)\s+)?subjects?\s*(?::|-|are\b|is\b|include\b)\s*(?P<list>[^\n]{1,300})$",
+                         re.I)
+_LIST_SPLIT_RE = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+|\s*&\s*|\s*/\s*", re.I)
+# deadline wording left before a removed date ("..., must be done by 25 Oct") is not part of the name
+DEADLINE_LEAD_RE = re.compile(
+    r"(?:,\s*|\s+)(?:and\s+)?(?:(?:it|this|that)\s+)?(?:(?:must|should|has to|have to|needs? to|is to|will)\s+be\s+"
+    r"(?:done|finished|completed?|ready|delivered|submitted|paid|sent|over)|(?:must|should)\s+(?:finish|end)|"
+    r"(?:hard\s+)?deadline(?:\s+is)?|at the latest|latest)\s*$", re.I)
+# "Order A: cutting 3 h, ..." / "Steps: design, build and test": a short label before a colon
+LABEL_RE = re.compile(r"^\s*(?P<label>[^:\n]{1,40}):\s*(?P<rest>\S.*)$")
 
 # resources (2.7.7)
 COUNTED_RES_NOUNS = {"machines": "machine", "machine": "machine", "cnc machines": "machine", "ovens": "machine",
@@ -211,6 +223,8 @@ class _Extractor:
         self.revise_times = 0
         self.revise_span: tuple[int, int] | None = None
         self._dropped: list[_Item] = []
+        self.subject_items: list[_Item] = []
+        self.subject_spans: list[tuple[int, int]] = []
         self.cross: list[tuple[_Item, _Item, int, int]] = []
 
     # ------------------------------------------------------------ helpers
@@ -340,14 +354,58 @@ class _Extractor:
                 return
             m = EXAM_DATE_RE.search(seg.text)
             if m:
-                rest = seg.text[m.end():]
+                # from the role word on, so relative dates such as "in 90 days" are read too
+                w0 = m.start("w")
+                rest = seg.text[w0:]
                 ds = find_dates(rest, self.ctx.today, self.ctx.locale)
-                if ds and ds[0].start == 0:
+                if ds and ds[0].start <= m.end() - w0:
                     dm = ds[0]
-                    self.exam = (dm.value, seg.start + m.start(), seg.start + m.end() + dm.end, dm.confidence)
-                    if not TASK_VERB_RE.search(blank(seg.text, [(m.start(), m.end() + dm.end)])) or not seg.bullet:
+                    end = w0 + dm.end
+                    self.exam = (dm.value, seg.start + m.start(), seg.start + end, dm.confidence)
+                    if not TASK_VERB_RE.search(blank(seg.text, [(m.start(), end)])) or not seg.bullet:
                         seg.consumed = True
                     return
+
+    def pass_subjects(self) -> None:
+        """`Subjects: a, b and c` (2.7.5): one study task per subject, grouped by subject; never people."""
+        for seg in self.segs:
+            m = SUBJECTS_RE.match(seg.text)
+            if not m:
+                continue
+            base = seg.start + m.start("list")
+            lst = m.group("list")
+            pos = 0
+            pieces: list[tuple[int, int]] = []
+            for sm in _LIST_SPLIT_RE.finditer(lst):
+                pieces.append((pos, sm.start()))
+                pos = sm.end()
+            pieces.append((pos, len(lst)))
+            made = 0
+            for x, y in pieces[:30]:
+                piece = lst[x:y]
+                if not piece.strip(" .;"):
+                    continue
+                ds = find_durations(piece)
+                work = piece
+                dur = None
+                if ds:
+                    d = ds[0]
+                    dur = DurMatch(base + x + d.start, base + x + d.end, d.optimistic, d.likely, d.pessimistic,
+                                   d.unit, d.confidence, d.note, d.ranged)
+                    work = piece[:d.start] + " " * (d.end - d.start) + piece[d.end:]
+                name = clean_name(work, 60)
+                if not name or not re.search(r"[A-Za-z]", name):
+                    continue
+                a, b = base + x, base + y
+                it = _Item(start=a, end=b, seg=seg, work=work, name=name, duration=dur, group=name)
+                if dur is not None and dur.confidence < 0.5:
+                    it.low_conf.append(("duration", dur.confidence))
+                self.subject_items.append(it)
+                made += 1
+            if made:
+                seg.consumed = True
+                self.subject_spans.append((seg.start, seg.end))
+                self.claimed.append((seg.start, seg.end))
 
     def pass_people(self) -> None:
         initial = {g.start for g in self.segs}
@@ -360,6 +418,8 @@ class _Extractor:
             hits.extend(capitalised_names(seg.text, seg.start, initial_positions=initial, extra_stop=set()))
         for h in hits:
             if self.exam and self.exam[1] <= h.start < self.exam[2]:
+                continue
+            if any(a <= h.start < b for a, b in self.subject_spans):
                 continue
             self.add_person(h.name, h.start, h.end)
         for m in COUNTED_RES_RE.finditer(self.s):
@@ -423,7 +483,16 @@ class _Extractor:
             else:
                 if not self._is_task_prose(seg, work):
                     continue
+                listed = self._label_list(seg)
+                if listed is not None:
+                    items.extend(listed)
+                    continue
                 ranges = self._split_prose(seg)
+            if seg.bullet:
+                listed = self._label_list(seg)
+                if listed is not None:
+                    items.extend(listed)
+                    continue
             for a, b in ranges:
                 sub = self.s[a:b]
                 # inline list "Steps: design, build and test"
@@ -455,8 +524,16 @@ class _Extractor:
                     bounds = [(x, y) for x, y in bounds if sub[x:y].strip()]
                     if len(bounds) >= 2:
                         prev = None
+                        label = None
+                        lm2 = LABEL_RE.match(sub[bounds[0][0]:bounds[0][1]])
+                        if lm2 and self._is_label(lm2.group("label")):
+                            # "Order A: cutting 3 h, then ...": the label groups the chain, it is not a name
+                            label = clean_name(lm2.group("label"), 60)
+                            bounds[0] = (bounds[0][0] + lm2.start("rest"), bounds[0][1])
                         for x, y in bounds:
                             it = self._item(seg, a + x, a + y)
+                            if label:
+                                it.group = it.group or label
                             if prev is not None:
                                 it.chain_prev = prev
                                 it.explicit_dep = True
@@ -465,6 +542,41 @@ class _Extractor:
                         continue
                 items.append(self._item(seg, a, b))
         return items
+
+    @staticmethod
+    def _is_label(label: str) -> bool:
+        return bool(label.strip()) and not TASK_VERB_RE.search(label) and len(label.split()) <= 4 and \
+            not find_durations(label) and not re.search(r"\d{1,2}[:.]\d{2}", label)
+
+    def _label_list(self, seg: Segment) -> list[_Item] | None:
+        """2.7.1 inline list after a colon: "Steps: design, build and test" / "Steps: design 2 days, build 5 days
+        and test 2 days." -> one item per entry; the label itself is not a task. A then-chain is left alone."""
+        text = seg.text
+        lm = LABEL_RE.match(text)
+        if not lm or not self._is_label(lm.group("label")):
+            return None
+        rest_off = lm.start("rest")
+        rest = text[rest_off:]
+        if THEN_SPLIT_RE.search(rest):
+            return None
+        pieces: list[tuple[int, int]] = []
+        pos = 0
+        for m in re.finditer(r"\s*,\s*(?:and\s+)?|\s+and\s+", rest, re.I):
+            pieces.append((pos, m.start()))
+            pos = m.end()
+        pieces.append((pos, len(rest)))
+        pieces = [(x, y) for x, y in pieces if rest[x:y].strip(" .;")]
+        if len(pieces) < 2:
+            return None
+        # every entry must name something (not only a duration, date or person)
+        for x, y in pieces:
+            piece = rest[x:y]
+            for d in find_durations(piece):
+                piece = piece[:d.start] + " " * (d.end - d.start) + piece[d.end:]
+            if not re.search(r"[A-Za-z]{2,}", piece) or len(piece.split()) > 8:
+                return None
+        base = seg.start + rest_off
+        return [self._item(seg, base + x, base + y) for x, y in pieces]
 
     def _item(self, seg: Segment, a: int, b: int) -> _Item:
         sub = self.s[a:b]
@@ -500,6 +612,9 @@ class _Extractor:
             conf = dm.confidence if dm.alternative is None else 0.4
             if role == "deadline":
                 hard = bool(HARD_RE.search(it.work))
+                lead_m = DEADLINE_LEAD_RE.search(it.work[max(0, rs - 60):rs])
+                if lead_m:
+                    rs = max(0, rs - 60) + lead_m.start()
                 it.deadline = (dm.value, hard, a + rs, a + dm.end, conf)
             else:
                 it.earliest = (dm.value, a + dm.start, a + dm.end, conf)
@@ -663,10 +778,15 @@ class _Extractor:
 
     # ------------------------------------------------------------ assemble
     def run(self) -> ScheduleExtractionResult:
+        for a, b in out_of_range_dates(self.s, self.ctx.today, self.ctx.locale):
+            self.note("DATE_OUT_OF_RANGE", "warning", note_text("DATE_OUT_OF_RANGE", text=self.s[a:b][:80]), a, b)
         self.pass_working_time()
         self.pass_exam()
+        self.pass_subjects()
         self.pass_people()
         items = self.build_items()
+        if self.subject_items:
+            items = sorted(items + self.subject_items, key=lambda x: x.start)
         rules = [it for it in items if it.is_revision_rule]
         items = [it for it in items if not it.is_revision_rule]
         items = self._merge_assignment_sentences(items)
@@ -752,26 +872,30 @@ class _Extractor:
 
     def _cross_dependencies(self, items: list[_Item]) -> list[_Item]:
         keep: list[_Item] = []
-        for it in items:
+        index: NameIndex | None = None          # built once, on the first cross sentence (linear time)
+        before = {id(x) for x in self._dropped}
+        dropped_pos = {str(i) for i, x in enumerate(items) if id(x) in before}
+        for pos, it in enumerate(items):
             if it.seg.bullet:
                 keep.append(it)
                 continue
             text = self.s[it.start:it.end].strip()
-            others = [x for x in items if x is not it and x not in self._dropped]
-            cands = [(str(i), x.name) for i, x in enumerate(others) if x.name]
             pair = None
             for rx, xg, yg in ((CROSS_BEFORE_RE, "x", "y"), (CROSS_WHEN_RE, "x", "y"), (CROSS_AFTER_RE, "x", "y")):
                 m = rx.match(text)
                 if not m:
                     continue
-                rx_ = resolve(m.group(xg), cands)
-                ry_ = resolve(m.group(yg), cands)
+                if index is None:
+                    index = NameIndex([(str(i), x.name) for i, x in enumerate(items) if x.name])
+                rx_ = index.resolve(m.group(xg), exclude=str(pos), exclude_keys=dropped_pos)
+                ry_ = index.resolve(m.group(yg), exclude=str(pos), exclude_keys=dropped_pos)
                 if rx_.key is not None and ry_.key is not None and rx_.key != ry_.key:
-                    pair = (others[int(rx_.key)], others[int(ry_.key)])
+                    pair = (items[int(rx_.key)], items[int(ry_.key)])
                     break
             if pair is not None:
                 self.cross.append((pair[0], pair[1], it.start, it.end))
                 self._dropped.append(it)
+                dropped_pos.add(str(pos))
                 continue
             keep.append(it)
         return keep
@@ -842,14 +966,14 @@ class _Extractor:
                 pending_refs.append(("before", it, ref))
         by_key = {t.key: t for t in tasks}
         # explicit references
-        cands = [(t.key, t.name) for t in tasks]
+        cands = NameIndex([(t.key, t.name) for t in tasks])
         for direction, it, (ref, ra, rb, conf) in pending_refs:
             first = it.keys[0]
             last = it.keys[-1]
-            res = resolve(ref, cands, exclude=None)
+            res = cands.resolve(ref)
             target = res.key if res.key not in it.keys else None
             if target is None:
-                res2 = resolve(ref, [c for c in cands if c[0] not in it.keys])
+                res2 = cands.resolve(ref, exclude_keys=set(it.keys))
                 target = res2.key
                 res = res2
             if target is None:

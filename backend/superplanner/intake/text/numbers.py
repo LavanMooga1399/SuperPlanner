@@ -76,6 +76,9 @@ _NON_MONEY_UNIT_RE = re.compile(
     r"^\s*(?:%|percent\b|pc\b|years?\b|yrs?\b|months?\b|mos?\b|weeks?\b|days?\b|hours?\b|hrs?\b|minutes?\b|mins?\b|"
     r"times\b|people\b|persons?\b|kids?\b|children\b|members?\b|x\b|th\b|st\b|nd\b|rd\b|am\b|:\d)", re.I)
 
+_NON_MONEY_UNIT_AT_RE = re.compile(_NON_MONEY_UNIT_RE.pattern[1:], re.I)   # same, for match(s, pos)
+_LOOKBACK = 40   # "between" / "about" are looked for only this far back (keeps find_money linear)
+
 FREQ_PATTERNS: list[tuple[str, str]] = [
     ("half_yearly", r"half[- ]yearly|half[- ]annually|every (?:6|six) months|twice a year|semi[- ]annually"),
     ("quarterly", r"per quarter|a quarter|quarterly|every quarter|each quarter|every (?:3|three) months"),
@@ -85,9 +88,75 @@ FREQ_PATTERNS: list[tuple[str, str]] = [
                r"\bpa\b"),
     ("once", r"one[- ]time|one[- ]off|lump ?sum|\bonce\b"),
 ]
-_FREQ_ALT = "|".join(f"(?P<{k}>{p})" for k, p in FREQ_PATTERNS)
+# Frequencies the finance model has no member for (fix round): converted to a supported one with a factor.
+_EVERY_NUM = r"\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|other"
+FREQ_CONVERTED: list[tuple[str, str]] = [
+    ("every_n_weeks", rf"every\s+(?P<nw>{_EVERY_NUM})\s+weeks?\b"),
+    ("every_n_months", rf"every\s+(?P<nm>{_EVERY_NUM})\s+months?\b"),
+    ("every_n_years", rf"every\s+(?P<ny>{_EVERY_NUM})\s+years?\b"),
+    ("weekly", r"(?:per week|a week|each week|every week|weekly|/\s?week|/\s?wk|per wk|a wk)\b"),
+    ("fortnightly", r"(?:fortnightly|every fortnight|a fortnight|per fortnight|bi-?weekly)\b"),
+    ("daily", r"(?:per day|a day|each day|every day|daily|/\s?day)\b"),
+]
+_FREQ_ALT = "|".join(f"(?P<{k}>{p})" for k, p in FREQ_PATTERNS + FREQ_CONVERTED)
 _FREQ_ADJ_RE = re.compile(rf"\s*(?:{_FREQ_ALT})", re.I)   # used with match(s, pos)
 _FREQ_ANY_RE = re.compile(rf"(?:{_FREQ_ALT})", re.I)
+_EVERY_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+                "ten": 10, "eleven": 11, "twelve": 12, "other": 2}
+
+
+@dataclass(frozen=True)
+class FreqInfo:
+    """A frequency phrase: the supported `frequency`, the factor applied to the amount and the phrase itself
+    (factor != 1 means the amount was converted, e.g. 5000 a week -> 5000 * 52 / 12 a month)."""
+
+    frequency: str
+    factor: float
+    phrase: str
+
+
+def _every_n(token: str) -> int:
+    t = token.lower()
+    return int(t) if t.isdigit() else _EVERY_WORDS.get(t, 1)
+
+
+def _freq_info(m: re.Match[str]) -> FreqInfo | None:
+    phrase = m.group(0).strip()
+    for k, _ in FREQ_PATTERNS:
+        if m.group(k):
+            return FreqInfo(k, 1.0, phrase)
+    if m.group("weekly"):
+        return FreqInfo("monthly", 52 / 12, phrase)
+    if m.group("fortnightly"):
+        return FreqInfo("monthly", 26 / 12, phrase)
+    if m.group("daily"):
+        return FreqInfo("monthly", 365 / 12, phrase)
+    if m.group("every_n_weeks"):
+        n = max(1, _every_n(m.group("nw")))
+        return FreqInfo("monthly", 52 / (12 * n), phrase)
+    if m.group("every_n_months"):
+        n = max(1, _every_n(m.group("nm")))
+        named = {1: "monthly", 3: "quarterly", 6: "half_yearly", 12: "yearly"}
+        if n in named:
+            return FreqInfo(named[n], 1.0, phrase)
+        return FreqInfo("monthly", 1 / n, phrase)
+    if m.group("every_n_years"):
+        n = max(1, _every_n(m.group("ny")))
+        return FreqInfo("yearly", 1 / n, phrase)
+    return None  # pragma: no cover
+
+
+def frequency_info_at(s: str, pos: int) -> tuple[FreqInfo, int] | None:
+    m = _FREQ_ADJ_RE.match(s, pos)
+    if not m:
+        return None
+    fi = _freq_info(m)
+    return (fi, m.end()) if fi else None
+
+
+def frequency_info_anywhere(s: str) -> FreqInfo | None:
+    m = _FREQ_ANY_RE.search(s)
+    return _freq_info(m) if m else None
 
 
 @dataclass
@@ -103,6 +172,8 @@ class MoneyMatch:
     amount_start: int   # start of the number itself (without approx word)
     amount_end: int     # end of the amount (without the frequency)
     lpa: bool = False
+    freq_factor: float = 1.0     # != 1: low/high were converted from `freq_phrase` (e.g. weekly -> monthly)
+    freq_phrase: str = ""
 
     @property
     def confidence(self) -> float:
@@ -126,24 +197,15 @@ def _atom_currency(m: re.Match[str]) -> str | None:
 
 
 def frequency_at(s: str, pos: int) -> tuple[str, int] | None:
-    """Frequency phrase starting at `pos` (after optional spaces): (frequency, end)."""
-    m = _FREQ_ADJ_RE.match(s, pos)
-    if not m:
-        return None
-    for k, _ in FREQ_PATTERNS:
-        if m.group(k):
-            return k, m.end()
-    return None  # pragma: no cover
+    """Frequency phrase starting at `pos` (after optional spaces): (frequency, end). Converted phrases (weekly,
+    every N months, ...) are reported with their target frequency; use `frequency_info_at` for the factor."""
+    r = frequency_info_at(s, pos)
+    return (r[0].frequency, r[1]) if r else None
 
 
 def frequency_anywhere(s: str) -> str | None:
-    m = _FREQ_ANY_RE.search(s)
-    if not m:
-        return None
-    for k, _ in FREQ_PATTERNS:
-        if m.group(k):
-            return k
-    return None  # pragma: no cover
+    fi = frequency_info_anywhere(s)
+    return fi.frequency if fi and fi.factor == 1.0 else None
 
 
 def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
@@ -159,7 +221,7 @@ def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
             gap = s[a.end():atoms[i + 1].start()]
             if _RANGE_SEP_RE.match(gap):
                 b = atoms[i + 1]
-            elif _AND_RE.match(gap) and _BETWEEN_RE.search(s[:a.start()]):
+            elif _AND_RE.match(gap) and _BETWEEN_RE.search(s[max(0, a.start() - _LOOKBACK):a.start()]):
                 b = atoms[i + 1]
                 between = True
         parts = [a] if b is None else [a, b]
@@ -173,9 +235,8 @@ def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
             vals.append(round(v * MULTIPLIERS[pm.lower()], 6) if pm else v)   # 1.1 lakh == 110000 exactly
         explicit = bool(mult or cur)
         last = parts[-1]
-        tail = s[last.end():]
         if not explicit:
-            if _NON_MONEY_UNIT_RE.match(tail) or max(vals) < min_bare:
+            if _NON_MONEY_UNIT_AT_RE.match(s, last.end()) or max(vals) < min_bare:
                 i += 1
                 continue
             # a bare year such as "2027" next to a date word is not money
@@ -184,19 +245,23 @@ def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
                 continue
         start = a.start()
         if between:
-            bm = _BETWEEN_RE.search(s[:a.start()])
-            start = bm.start() if bm else start
+            w0 = max(0, a.start() - _LOOKBACK)
+            bm = _BETWEEN_RE.search(s[w0:a.start()])
+            start = w0 + bm.start() if bm else start
         amount_start = start
-        am = _APPROX_RE.search(s[:start])
+        w0 = max(0, start - _LOOKBACK)
+        am = _APPROX_RE.search(s[w0:start])
         approx = bool(am)
         if am:
-            start = am.start()
+            start = w0 + am.start()
         end = last.end()
         amount_end = end
-        freq = frequency_at(s, end)
+        freq = frequency_info_at(s, end)
         frequency = None
+        factor, phrase = 1.0, ""
         if freq:
-            frequency, end = freq
+            frequency, end = freq[0].frequency, freq[1]
+            factor, phrase = freq[0].factor, freq[0].phrase
         if lpa:
             frequency = frequency or "yearly"
         if max(vals) > 1e12:   # not a plausible amount (also keeps drafts valid)
@@ -205,9 +270,11 @@ def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
         low, high = (vals[0], vals[-1]) if len(vals) == 2 else (vals[0], vals[0])
         if low > high:
             low, high = high, low
+        if factor != 1.0:
+            low, high = round(low * factor, 2), round(high * factor, 2)
         out.append(MoneyMatch(start=start, end=end, low=low, high=high, currency=cur, approx=approx,
                               frequency=frequency, explicit=explicit, amount_start=amount_start,
-                              amount_end=amount_end, lpa=lpa))
+                              amount_end=amount_end, lpa=lpa, freq_factor=factor, freq_phrase=phrase))
         i += len(parts)
     return out
 

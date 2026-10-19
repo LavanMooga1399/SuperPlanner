@@ -2,13 +2,17 @@ import { useState } from "react";
 import { Term } from "../../components/Term";
 import { errorMessage } from "../../api/client";
 import { Banner } from "../../components/Banner";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Icon } from "../../components/Icon";
 import { getFinanceDefaults } from "../api/client";
-import type { GlideStep } from "../api/types";
+import type { CautionSettings, GlideStep } from "../api/types";
 import { AssetClassTable } from "../components/AssetClassTable";
 import type { StepProps } from "./common";
 import { Field, FinNumber, FinOptionalNumber, MoneyInput, Select } from "./fields";
 import { HelpText } from "./HelpText";
+
+/** Server defaults of PHASE2 1.5, used when a stored plan has no `caution` yet. */
+const DEFAULT_CAUTION: CautionSettings = { floor_share: 0.5, floor_start_years: 3, floor_full_years: 10, floor_step_pct_per_z: 2 };
 
 const LEVELS = [
   { v: 1, title: "Very cautious", desc: "Steady value matters most. Little in growth assets." },
@@ -25,12 +29,37 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
   const [error, setError] = useState<string | null>(null);
   const caps = a.risky_cap_by_tolerance_pct;
 
+  const [confirmReset, setConfirmReset] = useState(false);
+  const caution = a.caution ?? DEFAULT_CAUTION;
+  const setCaution = (patch: Partial<CautionSettings>) =>
+    update((p) => ({ ...p, assumptions: { ...p.assumptions, caution: { ...(p.assumptions.caution ?? DEFAULT_CAUTION), ...patch } } }));
+
+  /** PHASE2 1.13 / 3.4: replace asset classes, inflation and caution with the current defaults. */
   const reset = async () => {
     setResetting(true);
     setError(null);
     try {
       const d = await getFinanceDefaults();
-      update((p) => ({ ...p, assumptions: d.plan.assumptions, constraints: d.plan.constraints }));
+      const da = d.plan.assumptions;
+      update((p) => {
+        const ids = new Set(da.asset_classes.map((x) => x.id));
+        const maxClass = Object.fromEntries(Object.entries(p.constraints.max_class_pct).filter(([k]) => ids.has(k)));
+        return {
+          ...p,
+          assumptions: {
+            ...p.assumptions,
+            asset_classes: da.asset_classes,
+            correlations: da.correlations,
+            cash_class_id: da.cash_class_id,
+            inflation_pct: da.inflation_pct,
+            inflation_volatility_pct: da.inflation_volatility_pct,
+            caution: da.caution ?? DEFAULT_CAUTION,
+            source_note: da.source_note,
+          },
+          constraints: { ...p.constraints, max_class_pct: maxClass },
+        };
+      });
+      setConfirmReset(false);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -73,11 +102,26 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
       <section className="col" aria-labelledby="fin-assume-h">
         <div className="row between wrap">
           <h2 id="fin-assume-h">Assumptions</h2>
-          <button type="button" className="btn sm" onClick={() => void reset()} disabled={resetting} data-testid="fin-reset-assumptions">
-            {resetting ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Reset to defaults
+          <button type="button" className="btn sm" onClick={() => setConfirmReset(true)} disabled={resetting} data-testid="fin-reset-assumptions">
+            <Icon name="refresh" /> Reset to current defaults
           </button>
         </div>
-        {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
+        {confirmReset ? (
+          <ConfirmDialog
+            title="Reset to current defaults?"
+            confirmLabel="Reset"
+            busy={resetting}
+            onConfirm={() => void reset()}
+            onCancel={() => setConfirmReset(false)}
+          >
+            <p>
+              This replaces your asset classes and their returns, the inflation figures and the caution settings with the planner's current
+              defaults. Your income, spending, savings and goals stay as they are.
+            </p>
+            {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
+          </ConfirmDialog>
+        ) : null}
+        {error && !confirmReset ? <Banner tone="danger" role="alert">{error}</Banner> : null}
         <div className="fin-form">
           <Field label="Inflation % a year" hint="Your assumption">
             {(id) => <FinNumber id={id} value={a.inflation_pct} min={-2} max={25} step={0.1} onChange={(v) => update((p) => ({ ...p, assumptions: { ...p.assumptions, inflation_pct: v } }))} />}
@@ -142,6 +186,27 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
               ))}
             </div>
           </section>
+          <section className="col" aria-labelledby="fin-caution-h" data-testid="fin-caution-settings">
+            <h2 id="fin-caution-h">Advanced: how cautious the plan is</h2>
+            <p className="small muted" style={{ margin: 0 }}>
+              The plan assumes lower returns than expected so it does not rely on good luck. For long goals it still counts on part of the
+              typical growth, so growth assets stay useful.
+            </p>
+            <div className="fin-form">
+              <Field label={`Keep at least this share of growth for goals ${Math.round(caution.floor_full_years)}+ years away (%)`} hint="0 = no minimum">
+                {(id) => <FinNumber id={id} value={Math.round(caution.floor_share * 100)} min={0} max={100} step={5} onChange={(v) => setCaution({ floor_share: v / 100 })} />}
+              </Field>
+              <Field label="No minimum for goals up to this many years away">
+                {(id) => <FinNumber id={id} value={caution.floor_start_years} min={0} max={Math.min(49.5, caution.floor_full_years - 0.5)} step={0.5} onChange={(v) => setCaution({ floor_start_years: v })} />}
+              </Field>
+              <Field label="Full minimum from this many years away">
+                {(id) => <FinNumber id={id} value={caution.floor_full_years} min={Math.max(0.5, caution.floor_start_years + 0.5)} max={50} step={0.5} onChange={(v) => setCaution({ floor_full_years: v })} />}
+              </Field>
+              <Field label="Extra safety margin for more important goals (% points)" hint="Taken off the yearly growth for each step of extra caution">
+                {(id) => <FinNumber id={id} value={caution.floor_step_pct_per_z} min={0} max={10} step={0.5} onChange={(v) => setCaution({ floor_step_pct_per_z: v })} />}
+              </Field>
+            </div>
+          </section>
           <section className="col" aria-labelledby="fin-glide-h">
             <h2 id="fin-glide-h">Getting safer near a goal (glide path)</h2>
             <p className="small muted" style={{ margin: 0 }}>
@@ -200,7 +265,7 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
           </section>
         </>
       ) : (
-        <p className="small muted" style={{ margin: 0 }}>Limits, caps and the glide path are under "Show expert settings".</p>
+        <p className="small muted" style={{ margin: 0 }}>Limits, caps, the glide path and the caution settings are under "Show expert settings".</p>
       )}
     </div>
   );

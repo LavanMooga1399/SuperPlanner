@@ -166,6 +166,16 @@ def questions(draft: FinanceDraft, ctx: ExtractContext) -> list[Question]:
     for path, p in prov.items():
         if p.confidence < 0.5 and p.source in ("text", "table", "ai", "derived") and not p.note.startswith("AT_AGE:") \
                 and _exists(draft, path):
+            unquoted = _unquoted_amount(draft, path, p, ctx.currency)
+            if unquoted is not None:
+                # an AI amount with no supporting quote: required, "No" removes it (fix round, 2.10)
+                name, value = unquoted
+                add(Question(id=qid("FIN_LOW_CONFIDENCE", path), code="FIN_LOW_CONFIDENCE", path=path, kind="confirm",
+                             prompt=M.prompt("FIN_AI_UNQUOTED", name=name, value=value), required=True,
+                             reason="low_confidence"))
+                continue
+            if p.source == "ai" and p.note == "AI_UNQUOTED" and _item_field(path):
+                continue    # one question per unquoted AI item: its amount (above), not its name or other fields
             add(Question(id=qid("FIN_LOW_CONFIDENCE", path), code="FIN_LOW_CONFIDENCE", path=path, kind="confirm",
                          prompt=M.prompt("FIN_LOW_CONFIDENCE", text=p.span.text if p.span else path), default=True,
                          default_label="Yes", required=False, reason="low_confidence", span=p.span))
@@ -173,6 +183,28 @@ def questions(draft: FinanceDraft, ctx: ExtractContext) -> list[Question]:
 
 
 _COLL = ("incomes", "expenses", "debts", "holdings", "goals")
+_AMOUNT_FIELDS = ("amount", "target", "balance", "emi")
+
+
+def _item_field(path: str) -> bool:
+    parts = path.strip("/").split("/")
+    return len(parts) == 3 and parts[0] in _COLL
+
+
+def _unquoted_amount(draft: FinanceDraft, path: str, p, currency: str) -> tuple[str, str] | None:
+    """(item name, formatted amount) for an AI amount that has no quote in the user's text, else None."""
+    if p.source != "ai" or p.note != "AI_UNQUOTED":
+        return None
+    parts = path.strip("/").split("/")
+    if len(parts) != 3 or parts[0] not in _COLL or parts[2] not in _AMOUNT_FIELDS:
+        return None
+    item = next((x for x in getattr(draft, parts[0]) if x.key == parts[1]), None)
+    amt = getattr(item, parts[2], None) if item is not None else None
+    if amt is None:
+        return None
+    value = format_money(amt.low, currency) if amt.low == amt.high else \
+        f"{format_money(amt.low, currency)}-{format_money(amt.high, currency)}"
+    return item.name, value
 
 
 def _exists(draft: FinanceDraft, path: str) -> bool:

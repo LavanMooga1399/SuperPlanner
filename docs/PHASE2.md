@@ -2130,6 +2130,71 @@ Tests (`backend/tests/intake/`, 293, fake clients only, also green with the G8 e
 limit, 413, DB row counts unchanged, no user text in logs), `test_intake_boundaries.py`. Full backend suite:
 1341 passed.
 
+### 9.P2-fix Fix round (backend, 2026-10-19)
+
+Interpretations and intended behaviour changes (existing tests updated only where listed here):
+1. **Build never raises for user drafts.** When the split parts exceed `MAX_DOC_TASKS` (or resources or links exceed
+   the document caps), or a date lies outside 1970-2199, `build` returns 200 with `ready: false`, `problem: null`,
+   `blocking: []` and `report = {ok: false, cpm: null, issues: [one error]}` with code `DRAFT_TOO_LARGE` or
+   `DATE_OUT_OF_RANGE`. `BuilderBug` (500) stays reserved for real builder bugs.
+2. **Horizon (2.9.1 step 10, pending LEAD amendment).** `work` uses the largest of three working-minute lower
+   bounds: `W / R` (as before), the longest `after` chain (earliest starts count as their calendar offset), and the
+   busiest resource group (work whose alternatives all lie in a set S, divided by |S|). It is converted with
+   `ceil(1.5 * 7 * x / minutes_per_week) + 7`. After `analyze`, if `ceil(7 * cpm.lower_bound / minutes_per_week)`
+   exceeds `horizon_days`, an error issue `HORIZON_TOO_SHORT` is added and `ready` becomes false. This can happen
+   with a user-set `horizon_days` or the 366-day clamp.
+3. **Duration risk (2.14).** The schedule critical chain also follows a `CALENDAR` start when the task starts at
+   the first minute after its binding dependency at which all its resources have a window holding the whole task.
+   That minute is the closed time between split parts. Sigma treats the parts of one split estimate as one
+   uncertainty: `sqrt(sum_k (sum_parts (p - o) / 6)^2)`, keyed by `metadata.intake_key` when `parts > 1`
+   (`CTask.estimate_key`). Tasks without that metadata behave as before.
+4. **Linear-time readers.** `NameIndex` (token postings, built once per draft/table) replaces per-reference
+   rescans. Tokens shared by more than 64 candidates are skipped when the reference has a rarer token. This is an
+   approximation: such candidates score 0. `ranked` lists the overlapping candidates first, then at most 5 others.
+   Money lookbacks are bounded to 40 characters, and the expense category is found once per clause. Table row
+   notes: one note per row for its unmatched references ("a", "b" and N more), and at most 200 notes plus one
+   summary note (`TABLE_MORE_NOTES`).
+5. **AI values without a quote (2.8/2.10, pending LEAD alignment).** Provenance gets `confidence 0.3` and
+   `note "AI_UNQUOTED"`. That replaces 0.5, which skipped the question. For amounts (`amount/target/balance/emi`)
+   and task durations, the `FIN_LOW_CONFIDENCE` / `SCHED_LOW_CONFIDENCE` question is **required**, with no
+   default; "No" removes the amount or duration. The other fields of the same item ask nothing, so each invented
+   item gets one question. Updated tests: `test_ai_extractor.py::test_ai_output_spans_and_confidence` and
+   `test_merge.py::test_typed_number_wins_finance_and_ai_only_expense_added` (0.5 -> 0.3), plus
+   `test_api_intake.py::test_ai_success_through_settings_factory` and
+   `test_p2int_ai_fallbacks.py::test_success_{schedule,finance}_*` (they now answer the new required question).
+6. **Frequencies (2.7.2, pending LEAD addition).** Weekly (`per/a/each/every week`, `weekly`, `/week`) is
+   converted to monthly x 52/12. Fortnightly is x 26/12, daily is x 365/12, and `every N weeks` is
+   x 52/(12N). `every N months`: 1/3/6/12 map to monthly/quarterly/half_yearly/yearly; any other N gives monthly / N.
+   `every N years` gives yearly / N. A converted amount gets `derived` provenance (0.8) with a note, plus an info
+   note `FREQUENCY_CONVERTED`. `FIN_FREQUENCY` is not added: every phrase that is recognised can be converted.
+7. **Currency.** Unmarked money counts as `ctx.currency`, so `MIXED_CURRENCY` is raised when more than one
+   currency is used, or when any marked currency differs from `ctx.currency`.
+8. **Finance classes.** A product noun (FD, gold, PPF, funds, ...) with an amount, no frequency and no spending or
+   debt cue is a holding. `hold/own/portfolio/corpus/maturing` are holding cues. Paying someone else's salary
+   (`maid salary`, `pay the driver`) is spending, never income. A phrase with no cue and no frequency is a goal
+   when it has a goal noun or a date ("Trip of 2 lakh in 2 years"). Otherwise it stays an expense with confidence
+   0.45, so it is asked (`FIN_LOW_CONFIDENCE`) instead of silently becoming a monthly cost.
+9. **Dates.** Dates outside 1900-2200, and relative dates that overflow, are not read. Each such phrase gets a
+   `DATE_OUT_OF_RANGE` warning note. Finance "in N years" goal dates are limited to 100 years.
+   `ExtractContext.today` is bounded to 1970-01-01..2200-12-31 (422 otherwise). A bare weekday is a date only
+   right after a deadline word ("due Friday" is the next Friday on or after today).
+10. **Schedule grammar (2.7.1/2.7.5).** A sentence or bullet `Label: a, b and c`, with a short label (up to 4
+    words, no task verb, no duration), gives one item per entry. Entries may have durations; the label is
+    dropped. A `Label:` before a then-chain becomes the chain's `group` ("Order A"). `Subjects: a, b and c` gives
+    one study task per subject, named and grouped by the subject, with an optional duration per subject. Subjects
+    are never people. `exam ... in N days` is read as the exam date. Deadline wording before a removed date
+    ("must be done by", "it should be sent by") is removed from the name.
+11. **One duration question per family.** Activities without a duration that are numbered copies of one item
+    ("Mock test 1..10") or the revisions of one subject ("Revise x (k/N)") get one `SCHED_TASK_DURATION`
+    question ("<base> (each of N)"); the answer applies to all of them. Updated test:
+    `test_schedule_extract.py::test_study_example` (13 questions -> 3).
+12. **Not changed: `contract.spec.ts:64` (GA Cancel race).** The GA stops by its documented stagnation rule
+    (40 generations, about 0.5 s on the manufacturing template) before the Cancel click arrives. Making a
+    "Thorough" run use its full 30 s would change the stopping contract of ARCHITECTURE section 10 (determinism,
+    `max_generations` 300). It is a test-timing problem that predates phase 2, and the e2e file is outside
+    `backend/`. LEAD decision needed: either a time-scaled stagnation rule in the contract, or a test that does not
+    depend on GA run length.
+
 ### 9.P3a Router upgrade, usability, landing
 
 2026-10-17, steps 1-3 (router, landing, usability). Steps 4 (finance UI 3.4) and 5 (scheduling ranges

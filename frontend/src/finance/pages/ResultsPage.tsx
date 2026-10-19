@@ -15,7 +15,7 @@ import { ExplanationPanel } from "../components/ExplanationPanel";
 import { FinanceResultHistory } from "../components/FinanceResultHistory";
 import { FinRunProgress } from "../components/FinRunProgress";
 import { FixList } from "../components/FixList";
-import { GoalCard } from "../components/GoalCard";
+import { GoalCard, growthReason } from "../components/GoalCard";
 import { RealNominalToggle, useMoneyBasis } from "../components/RealNominalToggle";
 import { ResultHeader } from "../components/ResultHeader";
 import { ResultKpis } from "../components/ResultKpis";
@@ -177,7 +177,7 @@ function ResultView({
         {r.goals.length ? (
           <div className="goal-cards">
             {r.goals.map((g) => (
-              <GoalCard key={g.goal_id} goal={g} currency={r.currency} locale={locale} />
+              <GoalCard key={g.goal_id} goal={g} currency={r.currency} locale={locale} reason={growthReason(r.explanation?.goals?.[g.goal_id]?.reasons)} />
             ))}
           </div>
         ) : (

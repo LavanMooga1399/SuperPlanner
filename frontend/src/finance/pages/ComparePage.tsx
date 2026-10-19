@@ -7,6 +7,7 @@ import { useAsync } from "../../lib/useAsync";
 import { fmtLocal } from "../../lib/time";
 import { compareFinanceResults, listFinanceResults } from "../api/client";
 import type { FinanceComparison, FinanceResultSummary } from "../api/types";
+import { EngineVersionBanner } from "../components/EngineVersionBanner";
 import { ScenarioCompareTable } from "../components/ScenarioCompareTable";
 import { useLoadedFinancePlan } from "../state/FinancePlanContext";
 
@@ -94,6 +95,7 @@ export function ComparePage() {
       {loading && !cmp ? <Loading label="Comparing…" /> : null}
       {cmp ? (
         <>
+          <EngineVersionBanner show={cmp.engine_versions_differ} />
           {cmp.what_if_b?.label ? <p className="muted" style={{ margin: 0 }}>B changes: {cmp.what_if_b.label}</p> : null}
           <ScenarioCompareTable
             cmp={cmp}

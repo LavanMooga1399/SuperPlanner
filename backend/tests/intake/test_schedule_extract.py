@@ -97,7 +97,9 @@ def test_study_example():
     assert all(k in keys for k in exam.after)
     assert any(n.code == "EXPANDED_COUNT" for n in r.notes)
     dq = [q for q in r.questions if q.code == "SCHED_TASK_DURATION"]
-    assert len(dq) == 13 and all(q.required for q in dq)
+    # fix round: one question per family of copies (syllabus, its 2 revisions, the 10 mock tests)
+    assert len(dq) == 3 and all(q.required for q in dq)
+    assert "(each of 10)" in dq[2].prompt and "(each of 2)" in dq[1].prompt
     assert dq[0].default == {"optimistic": 6.0, "likely": 6.0, "pessimistic": 6.0, "unit": "hours"}
     assert not r.ready
 

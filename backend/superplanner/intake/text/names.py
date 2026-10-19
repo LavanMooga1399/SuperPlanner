@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 
 from .dates import MONTHS, WEEKDAYS
 
@@ -28,6 +29,7 @@ _CAP_RE = re.compile(r"(?<![\w'])[A-Z][a-z]{1,29}(?![\w'])")
 _FOLLOW_OK = re.compile(r"^\s+(?:will|can|does|is|should|to|has|are|and|&|,|works?|handles?|leads?)\b|^\s*,", re.I)
 
 
+@lru_cache(maxsize=8192)
 def stem(tok: str) -> str:
     """Light stemmer: plural s, -ing, -ed; then a final silent e and a doubled consonant (prepare/preparing,
     plan/planning) so word forms of one verb compare equal."""
@@ -69,26 +71,83 @@ class Resolution:
     ranked: list[tuple[str, float]]       # (key, score) best first
 
 
-def resolve(ref: str, candidates: list[tuple[str, str]], exclude: str | None = None) -> Resolution:
-    """Match a reference phrase against (key, name) candidates (2.7.6 reference resolution)."""
-    r = norm_tokens(ref)
-    cands = [(k, norm_tokens(n)) for k, n in candidates if k != exclude]
-    if not r or not cands:
-        return Resolution(None, 0.0, [])
-    scored = sorted(((k, jaccard(r, toks)) for k, toks in cands), key=lambda x: -x[1])
-    subs = [k for k, toks in cands if _contains(toks, r)]
-    if len(subs) == 1:
-        return Resolution(subs[0], 0.95, scored)
-    if len(subs) > 1:
-        ranked = [x for x in scored if x[0] in subs]
-        if len(ranked) == 1 or ranked[0][1] - ranked[1][1] >= 0.15:
-            return Resolution(ranked[0][0], 0.8, scored)
-        return Resolution(None, 0.0, ranked + [x for x in scored if x[0] not in subs])
-    best = scored[0][1]
-    second = scored[1][1] if len(scored) > 1 else 0.0
-    if best >= 0.5 and best - second >= 0.15:
-        return Resolution(scored[0][0], 0.8, scored)
-    return Resolution(None, 0.0, scored)
+class NameIndex:
+    """(key, name) candidates normalised once, with a token -> candidates map (linear-time reference resolution).
+
+    Only candidates sharing a token with the reference can score above 0 or contain it, so only those are scored.
+    Tokens shared by more than `common` candidates are skipped when the reference also has a rarer token
+    (approximation: a candidate sharing only such frequent tokens is treated as scoring 0)."""
+
+    def __init__(self, candidates: list[tuple[str, str]], common: int = 64) -> None:
+        self.keys: list[str] = []
+        self.toks: list[list[str]] = []
+        self.post: dict[str, list[int]] = {}
+        self.common = common
+        for k, n in candidates:
+            idx = len(self.keys)
+            self.keys.append(k)
+            toks = norm_tokens(n)
+            self.toks.append(toks)
+            for t in set(toks):
+                self.post.setdefault(t, []).append(idx)
+
+    def resolve(self, ref: str, exclude: str | None = None, exclude_keys: set[str] | None = None) -> Resolution:
+        r = norm_tokens(ref)
+        skip = _Skip(exclude, exclude_keys)
+        if not r or not self.keys:
+            return Resolution(None, 0.0, [])
+        rs = set(r)
+        rare = [t for t in rs if t in self.post and len(self.post[t]) <= self.common]
+        use = rare or [t for t in rs if t in self.post]
+        hit: set[int] = set()
+        for t in use:
+            hit.update(self.post[t])
+        hit = {i for i in hit if self.keys[i] not in skip}
+        order = sorted(hit)
+        scored = sorted(((self.keys[i], jaccard(r, self.toks[i])) for i in order), key=lambda x: -x[1])
+        # zero-score candidates (in candidate order) so `ranked` still offers choices; bounded
+        pad: list[tuple[str, float]] = []
+        for i, k in enumerate(self.keys):
+            if len(pad) >= 5:
+                break
+            if i not in hit and k not in skip:
+                pad.append((k, 0.0))
+        subs = [self.keys[i] for i in order if _contains(self.toks[i], r)]
+        if len(subs) == 1:
+            return Resolution(subs[0], 0.95, scored + pad)
+        if len(subs) > 1:
+            sub_set = set(subs)
+            ranked = [x for x in scored if x[0] in sub_set]
+            if len(ranked) == 1 or ranked[0][1] - ranked[1][1] >= 0.15:
+                return Resolution(ranked[0][0], 0.8, scored + pad)
+            return Resolution(None, 0.0, ranked + [x for x in scored if x[0] not in sub_set] + pad)
+        full = scored + pad
+        if not full:
+            return Resolution(None, 0.0, [])
+        best = full[0][1]
+        second = full[1][1] if len(full) > 1 else 0.0
+        if best >= 0.5 and best - second >= 0.15:
+            return Resolution(full[0][0], 0.8, full)
+        return Resolution(None, 0.0, full)
+
+
+class _Skip:
+    """Membership test for one excluded key plus a set, without copying the set (linear time)."""
+
+    __slots__ = ("one", "many")
+
+    def __init__(self, one: str | None, many: set[str] | None) -> None:
+        self.one, self.many = one, many
+
+    def __contains__(self, k: object) -> bool:
+        return k == self.one or (self.many is not None and k in self.many)
+
+
+def resolve(ref: str, candidates: list[tuple[str, str]] | NameIndex, exclude: str | None = None) -> Resolution:
+    """Match a reference phrase against (key, name) candidates (2.7.6 reference resolution). Pass a `NameIndex`
+    when resolving many references against the same candidates."""
+    index = candidates if isinstance(candidates, NameIndex) else NameIndex(candidates)
+    return index.resolve(ref, exclude=exclude)
 
 
 def slug(name: str) -> str:

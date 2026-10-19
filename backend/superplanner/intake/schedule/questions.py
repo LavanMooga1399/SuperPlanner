@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 from .. import messages as M
 from ..models import ExtractContext, Question, QuestionOption, ScheduleDraft, WorkingTime
 from ..qa import answered, order, pathless_done, qid
-from ..text.names import resolve
+from ..text.names import NameIndex
 from .extract import default_working_time
 
 DEFAULT_DURATION = {"project": (1.0, "days"), "generic": (1.0, "days"), "study": (6.0, "hours"),
@@ -55,10 +56,44 @@ def working_days(wt: WorkingTime) -> set[str]:
 def next_working_day(today: date, wt: WorkingTime) -> date:
     days = working_days(wt)
     for k in range(8):
-        d = today + timedelta(days=k)
+        try:
+            d = today + timedelta(days=k)
+        except OverflowError:       # date.max: no later day exists
+            return today
         if _ORDER[d.weekday()] in days:
             return d
     return today  # pragma: no cover
+
+
+_NUMBERED_RE = re.compile(r"^(?P<base>.{1,190}?) (?P<i>\d{1,3})$")
+_REVISION_RE = re.compile(r"^(?P<base>Revise .{1,180}?) \((?P<i>\d{1,2})/(?P<n>\d{1,2})\)$")
+
+
+def duration_families(draft: ScheduleDraft) -> dict[str, list[str]]:
+    """Activities without a duration that are copies of one item ("Mock test 1..10" from a count, or the
+    revisions "Revise x (k/N)" of one subject): first key -> all keys. One duration question per family; the
+    answer applies to every member (fix round)."""
+    groups: dict[tuple[str, str], list[str]] = {}
+    for t in draft.tasks:
+        if t.milestone or t.duration is not None:
+            continue
+        m = _REVISION_RE.match(t.name)
+        if m:
+            k = ("rev", m.group("base").lower() + "|" + (t.group or ""))
+        else:
+            m = _NUMBERED_RE.match(t.name)
+            if not m:
+                continue
+            k = ("num", m.group("base").lower() + "|" + (t.group or ""))
+        groups.setdefault(k, []).append(t.key)
+    return {keys[0]: keys for keys in groups.values() if len(keys) >= 2}
+
+
+def family_label(draft: ScheduleDraft, keys: list[str]) -> str:
+    first = next(t for t in draft.tasks if t.key == keys[0])
+    m = _REVISION_RE.match(first.name) or _NUMBERED_RE.match(first.name)
+    base = m.group("base") if m else first.name
+    return f"{base} (each of {len(keys)})"
 
 
 def questions(draft: ScheduleDraft, ctx: ExtractContext) -> list[Question]:
@@ -92,20 +127,25 @@ def questions(draft: ScheduleDraft, ctx: ExtractContext) -> list[Question]:
                      prompt=M.prompt("SCHED_PEOPLE", names=M.join_names([r.name for r in detected])),
                      default=True, default_label="Yes", required=False, reason="confirm_default"))
     cands = [(t.key, t.name) for t in draft.tasks]
+    index = NameIndex(cands)
+    name_of = dict(cands)
+    families = duration_families(draft)
+    in_family = {k for keys in families.values() for k in keys[1:]}
     for t in draft.tasks:
         base = f"/tasks/{t.key}"
-        if not t.milestone and t.duration is None:
+        if not t.milestone and t.duration is None and t.key not in in_family:
             v, u = DEFAULT_DURATION[draft.kind]
+            label = family_label(draft, families[t.key]) if t.key in families else t.name
             add(Question(id=qid("SCHED_TASK_DURATION", f"{base}/duration"), code="SCHED_TASK_DURATION",
-                         path=f"{base}/duration", kind="duration", prompt=M.prompt("SCHED_TASK_DURATION", task=t.name),
+                         path=f"{base}/duration", kind="duration", prompt=M.prompt("SCHED_TASK_DURATION", task=label),
                          default={"optimistic": v, "likely": v, "pessimistic": v, "unit": u},
                          default_label=duration_label(v, u), required=True, reason="missing",
                          span=prov[f"{base}/name"].span if f"{base}/name" in prov else None))
         ref = prov.get(f"{base}/after_ref")
         if ref is not None and ref.source not in ("answer", "edit") and ref.note.startswith("REF:"):
             text = ref.note[4:]
-            ranked = resolve(text, cands, exclude=t.key).ranked[:3]
-            opts = [QuestionOption(value=k, label=next(n for kk, n in cands if kk == k)) for k, _ in ranked]
+            ranked = index.resolve(text, exclude=t.key).ranked[:3]
+            opts = [QuestionOption(value=k, label=name_of[k]) for k, _ in ranked]
             opts.append(QuestionOption(value="none", label="None of these"))
             add(Question(id=qid("SCHED_DEP_REFERENCE", f"{base}/after_ref"), code="SCHED_DEP_REFERENCE",
                          path=f"{base}/after_ref", kind="choice",
@@ -143,10 +183,32 @@ def questions(draft: ScheduleDraft, ctx: ExtractContext) -> list[Question]:
     for path, p in prov.items():
         if p.confidence < 0.5 and p.source in ("text", "table", "ai", "derived") and not path.endswith("/after_ref") \
                 and not p.note.startswith("AMBIGUOUS:") and _path_exists(draft, path):
+            t_unq = _unquoted_duration(draft, path, p)
+            if t_unq is not None:
+                # an AI duration with no supporting quote: required, "No" clears it (fix round, 2.10)
+                add(Question(id=qid("SCHED_LOW_CONFIDENCE", path), code="SCHED_LOW_CONFIDENCE", path=path,
+                             kind="confirm", prompt=M.prompt("SCHED_AI_UNQUOTED", name=t_unq[0], value=t_unq[1]),
+                             required=True, reason="low_confidence"))
+                continue
+            if p.source == "ai" and p.note == "AI_UNQUOTED" and path.startswith(("/tasks/", "/resources/")):
+                continue    # one question per unquoted AI task: its duration (above), not its name or links
             add(Question(id=qid("SCHED_LOW_CONFIDENCE", path), code="SCHED_LOW_CONFIDENCE", path=path, kind="confirm",
                          prompt=M.prompt("SCHED_LOW_CONFIDENCE", text=p.span.text if p.span else path),
                          default=True, default_label="Yes", required=False, reason="low_confidence", span=p.span))
     return order(out)
+
+
+def _unquoted_duration(draft: ScheduleDraft, path: str, p) -> tuple[str, str] | None:
+    if p.source != "ai" or p.note != "AI_UNQUOTED" or not (path.startswith("/tasks/") and path.endswith("/duration")):
+        return None
+    key = path.split("/")[2]
+    t = next((x for x in draft.tasks if x.key == key), None)
+    if t is None or t.duration is None:
+        return None
+    d = t.duration
+    value = duration_label(d.likely, d.unit) if d.optimistic == d.pessimistic else \
+        f"{fmt_amount(d.optimistic)}-{duration_label(d.pessimistic, d.unit)}"
+    return t.name, value
 
 
 def _path_exists(draft: ScheduleDraft, path: str) -> bool:

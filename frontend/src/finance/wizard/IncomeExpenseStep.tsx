@@ -1,5 +1,5 @@
 import { Icon } from "../../components/Icon";
-import type { Expense, IncomeKind, IncomeStream, OneOff } from "../api/types";
+import type { AmountRange, Expense, IncomeKind, IncomeStream, OneOff } from "../api/types";
 import { nextId } from "../lib/ids";
 import { formatMoney, roundDisplay } from "../lib/money";
 import { addMonths, currentUtcMonth } from "../lib/months";
@@ -16,6 +16,19 @@ const INCOME_KINDS: { value: IncomeKind; label: string }[] = [
   { value: "interest", label: "Interest" },
   { value: "other", label: "Other" },
 ];
+
+/** PHASE2 3.4: "range 70,000-80,000, using 75,000" for items that came with an amount range. */
+export function RangeChip({ range, used, locale, testId }: { range: AmountRange | null | undefined; used: number; locale: string; testId?: string }) {
+  if (!range) return null;
+  const n = (v: number) => Math.round(v).toLocaleString(locale);
+  return (
+    <div className="fin-check-row">
+      <span className="chip" data-testid={testId} title="You gave a range; the plan uses this amount">
+        <Icon name="info" /> range {n(range.low)}-{n(range.high)}, using {n(used)}
+      </span>
+    </div>
+  );
+}
 
 export function InvestablePreview({ preview, currency, locale }: Pick<StepProps, "preview"> & { currency: string; locale: string }) {
   const cf = preview.data?.cashflow ?? null;
@@ -58,6 +71,7 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
     start_month: null,
     end_month: null,
     interruptible: true,
+    inflation_linked: false,
   });
   const newExpense = (name: string, essential: boolean, category = "other"): Expense => ({
     id: nextId(plan, "exp"),
@@ -108,9 +122,18 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
                   {(id) => <MoneyInput id={id} value={it.amount} currency={cur} locale={loc} onChange={(v) => set({ amount: v })} testId={`income-amount-${it.id}`} />}
                 </Field>
                 <Field label="How often">{(id) => <Select id={id} value={it.frequency} options={FREQUENCY_OPTIONS} onChange={(v) => set({ frequency: v })} />}</Field>
-                <Field label="Yearly raise %" hint="Typical salary increase">
+                <RangeChip range={it.amount_range} used={it.amount} locale={loc} testId={`income-range-${it.id}`} />
+                <Field label={it.inflation_linked ? "Yearly raise above inflation (%)" : "Yearly raise (%)"} hint="Typical salary increase">
                   {(id) => <FinNumber id={id} value={it.growth_pct} min={-50} max={50} step={0.5} onChange={(v) => set({ growth_pct: v })} />}
                 </Field>
+                <div className="fin-check-row">
+                  <Toggle
+                    checked={it.inflation_linked ?? false}
+                    onChange={(v) => set({ inflation_linked: v })}
+                    label="Rises with inflation"
+                    hint="On = the amount is in today's money and the raise is on top of inflation"
+                  />
+                </div>
                 {expert ? (
                   <>
                     <Field label="Starts (optional)">{(id) => <MonthInput id={id} value={it.start_month} optional onChange={(v) => set({ start_month: v })} />}</Field>
@@ -153,6 +176,7 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
                   {(id) => <MoneyInput id={id} value={it.amount} currency={cur} locale={loc} onChange={(v) => set({ amount: v })} testId={`expense-amount-${it.id}`} />}
                 </Field>
                 <Field label="How often">{(id) => <Select id={id} value={it.frequency} options={FREQUENCY_OPTIONS} onChange={(v) => set({ frequency: v })} />}</Field>
+                <RangeChip range={it.amount_range} used={it.amount} locale={loc} testId={`expense-range-${it.id}`} />
                 <div className="fin-check-row wide">
                   <Toggle checked={it.essential} onChange={(v) => set({ essential: v })} label="Essential" hint="Essentials size the emergency fund" />
                   <Toggle checked={it.inflation_linked} onChange={(v) => set({ inflation_linked: v })} label="Rises with inflation" />
