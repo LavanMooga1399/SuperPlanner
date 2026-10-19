@@ -21,6 +21,8 @@ _REPLACE = {"‘": "'", "’": "'", "‚": "'", "‛": "'", "′": "'",
 BULLET_RE = re.compile(r"^\s*([-*•·]|\d{1,3}[.)]|[a-zA-Z][.)])\s+")
 _ABBREV = ("rs", "p.a", "e.g", "i.e", "etc", "approx", "vs", "no", "mr", "mrs", "ms", "dr", "st", "inc", "ltd",
            "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec", "p.m", "a.m")
+_ENDING_ABBREV = frozenset(("jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+                            "etc"))
 _SENT_END = re.compile(r"[.!?;](?=\s|$)")
 
 
@@ -76,7 +78,17 @@ def _is_abbrev(line: str, pos: int) -> bool:
         if pos - j > 8:
             return False
     word = line[j:pos].lower()
-    return word in _ABBREV
+    if word not in _ABBREV:
+        return False
+    if word in _ENDING_ABBREV:
+        # "1 Dec. Send invites": a month (or "etc.") followed by a capitalised word ends the sentence;
+        # "Dec. 5" and "Dec. 2026" keep the full stop as an abbreviation
+        k = pos + 1
+        while k < len(line) and line[k] == " ":
+            k += 1
+        if k < len(line) and line[k].isupper():
+            return False
+    return True
 
 
 def split_sentences(line: str, base: int) -> list[tuple[int, int]]:

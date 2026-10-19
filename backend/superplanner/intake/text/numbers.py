@@ -62,12 +62,26 @@ MULTIPLIERS = {"k": 1e3, "thousand": 1e3, "l": 1e5, "lakh": 1e5, "lakhs": 1e5, "
 _MULT_ALT = "|".join(sorted(MULTIPLIERS, key=len, reverse=True))
 CURRENCY_WORDS = {"₹": "INR", "rs": "INR", "rs.": "INR", "inr": "INR", "rupee": "INR", "rupees": "INR",
                   "$": "USD", "usd": "USD", "dollar": "USD", "dollars": "USD", "€": "EUR", "eur": "EUR",
-                  "euro": "EUR", "euros": "EUR"}
+                  "euro": "EUR", "euros": "EUR", "£": "GBP", "gbp": "GBP", "pound": "GBP", "pounds": "GBP",
+                  "quid": "GBP", "sterling": "GBP", "¥": "JPY", "jpy": "JPY", "yen": "JPY", "aed": "AED",
+                  "dirham": "AED", "dirhams": "AED", "sgd": "SGD", "aud": "AUD", "cad": "CAD", "chf": "CHF",
+                  "francs": "CHF", "franc": "CHF"}
+_CUR_PRE = r"₹|\$|€|£|¥|\brs\.?|\binr|\busd|\beur|\bgbp|\bjpy|\baed|\bsgd|\baud|\bcad|\bchf"
+_CUR_SUF = (r"rupees?|inr|usd|eur|gbp|jpy|aed|sgd|aud|cad|chf|dollars?|euros?|pounds?(?:\s+sterling)?|sterling|quid|"
+            r"yen|dirhams?|francs?")
 
 _ATOM_RE = re.compile(
-    rf"(?:(?P<pre>₹|\$|€|\brs\.?|\binr|\busd|\beur)\s?|(?<![\w.,]))(?P<num>{DIGITS})"
-    rf"(?:\s?(?P<mult>{_MULT_ALT})\b)?(?:\s?(?P<suf>rupees?|inr|usd|eur|dollars?|euros?)\b|\s?(?P<sufsym>₹|\$|€))?",
+    rf"(?:(?P<pre>{_CUR_PRE})\s?|(?<![\w.,]))(?P<num>{DIGITS})"
+    rf"(?:\s?(?P<mult>{_MULT_ALT})\b)?(?:\s?(?P<suf>{_CUR_SUF})\b|\s?(?P<sufsym>₹|\$|€|£|¥))?",
     re.IGNORECASE)
+# a year-like number right after a money word ("Rent 2000", "fee of 1999") is read as money and asked
+_MONEY_BEFORE_RE = re.compile(r"\b(?:rent|fees?|costs?|spend|spends|pay|pays|paid|salary|earn|earns|bills?|emi|"
+                              r"groceries|price|budget|amount|insurance|premium|allowance|expenses?)\s*(?:is|of|=|:)?\s*$",
+                              re.I)
+# a year-like number (1900-2100) right after one of these words is a year ("in 2035", "since 2019")
+_YEAR_BEFORE_RE = re.compile(r"\b(?:in|by|of|since|from|until|till|before|after|year|until|during|around the year|"
+                             r"jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|"
+                             r"july|august|september|october|november|december)\s*,?\s*$", re.I)
 _APPROX_RE = re.compile(r"(?:\b(?:about|around|approx(?:imately)?\.?|roughly|nearly|almost|some)|~)\s*$", re.I)
 _RANGE_SEP_RE = re.compile(r"^\s*(?:-|to)\s*$", re.I)
 _BETWEEN_RE = re.compile(r"\bbetween\s*$", re.I)
@@ -174,9 +188,12 @@ class MoneyMatch:
     lpa: bool = False
     freq_factor: float = 1.0     # != 1: low/high were converted from `freq_phrase` (e.g. weekly -> monthly)
     freq_phrase: str = ""
+    year_like: bool = False      # a bare 1900-2100 number read as money: asked, since it could be a year
 
     @property
     def confidence(self) -> float:
+        if self.year_like:
+            return 0.45
         if self.approx:
             return 0.8
         return 0.95 if self.explicit else 0.7
@@ -192,7 +209,8 @@ def _atom_currency(m: re.Match[str]) -> str | None:
     for g in ("pre", "suf", "sufsym"):
         c = m.group(g)
         if c:
-            return CURRENCY_WORDS.get(c.lower().rstrip("."), CURRENCY_WORDS.get(c.lower()))
+            low = c.lower().split()[0]
+            return CURRENCY_WORDS.get(low.rstrip("."), CURRENCY_WORDS.get(low))
     return None
 
 
@@ -239,10 +257,18 @@ def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
             if _NON_MONEY_UNIT_AT_RE.match(s, last.end()) or max(vals) < min_bare:
                 i += 1
                 continue
-            # a bare year such as "2027" next to a date word is not money
-            if all(1900 <= v <= 2100 and float(v).is_integer() for v in vals) and "," not in a.group("num"):
+            # a bare year such as "2027" is not money, unless a frequency follows ("Rent 2000 a month"); with
+            # neither a frequency nor a year word before it, it is read as money and asked (year_like)
+            year_like = all(1900 <= v <= 2100 and float(v).is_integer() for v in vals) and "," not in a.group("num")
+            if year_like and frequency_info_at(s, last.end()) is None and (
+                    b is not None or _YEAR_BEFORE_RE.search(s[max(0, a.start() - 24):a.start()])
+                    or not _MONEY_BEFORE_RE.search(s[max(0, a.start() - 24):a.start()])):
                 i += 1 + (b is not None)
                 continue
+            if year_like and frequency_info_at(s, last.end()) is not None:
+                year_like = False
+        else:
+            year_like = False
         start = a.start()
         if between:
             w0 = max(0, a.start() - _LOOKBACK)
@@ -274,7 +300,8 @@ def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
             low, high = round(low * factor, 2), round(high * factor, 2)
         out.append(MoneyMatch(start=start, end=end, low=low, high=high, currency=cur, approx=approx,
                               frequency=frequency, explicit=explicit, amount_start=amount_start,
-                              amount_end=amount_end, lpa=lpa, freq_factor=factor, freq_phrase=phrase))
+                              amount_end=amount_end, lpa=lpa, freq_factor=factor, freq_phrase=phrase,
+                              year_like=year_like))
         i += len(parts)
     return out
 

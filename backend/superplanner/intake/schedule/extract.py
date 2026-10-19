@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from ..messages import note_text
 from ..models import (DraftDuration, DraftResource, DraftTask, ExtractContext, IntakeNote, Provenance, ScheduleDraft,
                       ScheduleKind, TimeWindow, WorkingTime)
-from ..text.dates import HARD_RE, DateMatch, find_dates, out_of_range_dates, role_of
+from ..text.dates import HARD_RE, DateMatch, find_dates, in_range, out_of_range_dates, role_of
 from ..text.durations import DurMatch, find_durations
 from ..text.names import NOT_NAMES, NameIndex, capitalised_names, norm_tokens, resolve, slug
 from ..text.numbers import NUM, parse_number
@@ -28,7 +28,8 @@ KIND_CUES: dict[str, tuple[str, ...]] = {
 _KIND_RES = {k: re.compile(r"\b(?:" + "|".join(v) + r")\w{0,4}\b", re.I) for k, v in KIND_CUES.items()}
 
 TASK_VERBS = (r"build|write|design|test|prepare|study|revise|review|cut|assemble|paint|pack|deliver|install|plan|"
-              r"launch|finish|complete|do|make")
+              r"launch|finish|complete|do|make|book|send|pay|buy|hire|submit|arrange|draft|publish|organi[sz]e|"
+              r"implement|practi[cs]e")
 TASK_VERB_RE = re.compile(rf"\b(?:{TASK_VERBS})(?:s|es|ed|ing)?\b", re.I)
 MILESTONE_RE = re.compile(r"\b(?:launch|release|go-live|go live|deadline|exam|delivery|handover|milestone|submission|"
                           r"demo day)\b", re.I)
@@ -60,8 +61,12 @@ COUNT_NOUNS = r"mock tests?|mock exams?|practice tests?|chapters?|modules?|units
               r"episodes?|interviews?|papers?"
 COUNT_RE = re.compile(rf"\b(?P<n>{NUM})\s+(?P<noun>{COUNT_NOUNS})\b", re.I)
 EACH_CHAIN_RE = re.compile(r"\beach\s+(?:one\s+)?(?:needs|goes through|is|requires|has)\s+(?P<ops>[^.;\n]{1,200})", re.I)
-REVISE_RE = re.compile(rf"\brevis(?:e|ing)\s+(?:everything|it all|all|all of it|each(?:\s+\w+)?|every\s+\w+|the lot)\s+"
+REVISE_RE = re.compile(rf"\brevis(?:e|ing)\s+(?:(?:everything|it all|all|all of it|each(?:\s+\w+)?|every\s+\w+|"
+                       rf"the lot|them(?: all)?|it|the (?:subjects|syllabus|topics|chapters))\s+)?"
                        rf"(?P<n>twice|thrice|once|(?:{NUM})\s+times)\b", re.I)
+# "I'm studying for the exam": context, not a task (study plans)
+STUDY_CONTEXT_RE = re.compile(r"^\s*(?:i'?m|i am|we'?re|we are|i have been|i've been)\s+(?:studying|preparing|revising|"
+                              r"getting ready)\s+(?:for|to)\b[^,;]{0,60}$", re.I)
 
 # study exam (2.7.5)
 EXAM_DAYS_RE = re.compile(rf"\b(?P<n>{NUM})\s+(?P<u>days?|weeks?|months?)\s+(?:left\s+)?(?:to|until|before)\s+"
@@ -77,6 +82,16 @@ DEADLINE_LEAD_RE = re.compile(
     r"(?:,\s*|\s+)(?:and\s+)?(?:(?:it|this|that)\s+)?(?:(?:must|should|has to|have to|needs? to|is to|will)\s+be\s+"
     r"(?:done|finished|completed?|ready|delivered|submitted|paid|sent|over)|(?:must|should)\s+(?:finish|end)|"
     r"(?:hard\s+)?deadline(?:\s+is)?|at the latest|latest)\s*$", re.I)
+# a clause that only holds deadline wording ("must be done by" before a removed date) belongs to the clause before
+DEADLINE_ONLY_RE = re.compile(
+    r"^\s*(?:and\s+)?(?:(?:it|this|that)\s+)?(?:(?:must|should|has to|have to|needs? to|is to|will)\s+be\s+"
+    r"(?:done|finished|completed?|ready|delivered|submitted|paid|sent|over|booked)|(?:must|should)\s+(?:finish|end)|"
+    r"(?:hard\s+)?deadline(?:\s+is)?|at the latest|latest|due)?\s*(?:(?:no later than|by|before|on|until|till)\s*)?"
+    r":?\s*$", re.I)
+# deadline wording in a sentence makes it a task even without a known task verb ("Pay the advance, must be done by")
+DEADLINE_CUE_RE = re.compile(r"\b(?:(?:must|should|has to|have to|needs? to)\s+be\s+(?:done|finished|completed?|ready|"
+                             r"delivered|submitted|paid|sent|booked)\s+(?:by|before)|due\s+(?:on\s+|by\s+)?"
+                             r"(?=\d|(?-i:[A-Z])))", re.I)
 # "Order A: cutting 3 h, ..." / "Steps: design, build and test": a short label before a colon
 LABEL_RE = re.compile(r"^\s*(?P<label>[^:\n]{1,40}):\s*(?P<rest>\S.*)$")
 
@@ -226,6 +241,19 @@ class _Extractor:
         self.subject_items: list[_Item] = []
         self.subject_spans: list[tuple[int, int]] = []
         self.cross: list[tuple[_Item, _Item, int, int]] = []
+        self.bad_dates: list[tuple[int, int]] = []
+
+    def _usable_duration(self, d: DurMatch, a: int) -> bool:
+        """Durations above the 10,000-unit model limit, or inside an out-of-range date ("in 99999999 days"),
+        are left out with a plain note (`a` is the absolute offset of the text `d` was found in)."""
+        x, y = a + d.start, a + d.end
+        if any(p < y and x < q for p, q in self.bad_dates):
+            return False
+        if d.pessimistic > 10000:
+            self.note("DURATION_TOO_LONG", "warning",
+                      note_text("DURATION_TOO_LONG", text=self.s[x:y][:80], unit=d.unit), x, y)
+            return False
+        return True
 
     # ------------------------------------------------------------ helpers
     def span(self, a: int, b: int):
@@ -348,7 +376,16 @@ class _Extractor:
                 k = int(round(n[0]))
                 u = m.group("u").lower().rstrip("s")
                 today = self.ctx.today
-                d = today + timedelta(days=k if u == "day" else 7 * k if u == "week" else 30 * k)
+                try:
+                    d = today + timedelta(days=k if u == "day" else 7 * k if u == "week" else 30 * k)
+                except (OverflowError, ValueError):
+                    d = None
+                if d is None or not in_range(d):
+                    a_, b_ = seg.start + m.start(), seg.start + m.end()
+                    self.note("DATE_OUT_OF_RANGE", "warning",
+                              note_text("DATE_OUT_OF_RANGE", text=self.s[a_:b_][:80]), a_, b_)
+                    self.claimed.append((a_, b_))
+                    continue
                 self.exam = (d, seg.start + m.start(), seg.start + m.end(), 0.8 if u == "day" else 0.7)
                 seg.consumed = seg.consumed or not seg.bullet
                 return
@@ -388,6 +425,10 @@ class _Extractor:
                 ds = find_durations(piece)
                 work = piece
                 dur = None
+                for d in ds:
+                    if not self._usable_duration(d, base + x):
+                        work = work[:d.start] + " " * (d.end - d.start) + work[d.end:]
+                ds = [d for d in ds if work[d.start:d.end].strip()]
                 if ds:
                     d = ds[0]
                     dur = DurMatch(base + x + d.start, base + x + d.end, d.optimistic, d.likely, d.pessimistic,
@@ -450,7 +491,29 @@ class _Extractor:
     def _is_task_prose(self, seg: Segment, work: str) -> bool:
         if seg.consumed:
             return False
-        return bool(TASK_VERB_RE.search(work) or find_durations(work))
+        if self.kind == "study" and STUDY_CONTEXT_RE.match(work) and not find_durations(work):
+            seg.consumed = True
+            return False
+        return bool(TASK_VERB_RE.search(work) or find_durations(work) or DEADLINE_CUE_RE.search(work))
+
+    def _deadline_only(self, piece: str) -> bool:
+        """True when a clause holds nothing but deadline wording and a date ("must be done by 1 Dec")."""
+        ds = find_dates(piece, self.ctx.today, self.ctx.locale)
+        if not ds:
+            return False
+        for d in reversed(ds):
+            piece = piece[:d.start] + " " * (d.end - d.start) + piece[d.end:]
+        return bool(DEADLINE_ONLY_RE.match(piece.strip(" .;,")))
+
+    def _merge_deadline_clauses(self, text: str, parts: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        """Join a deadline-only clause to the clause before it (local offsets into `text`)."""
+        out: list[tuple[int, int]] = []
+        for x, y in parts:
+            if out and self._deadline_only(text[x:y]):
+                out[-1] = (out[-1][0], y)
+            else:
+                out.append((x, y))
+        return out
 
     def _split_prose(self, seg: Segment) -> list[tuple[int, int]]:
         """Clauses of a prose sentence that each start with a task verb (study example), else the whole."""
@@ -463,6 +526,7 @@ class _Extractor:
             parts.append((pos, m.start()))
             pos = m.end()
         parts.append((pos, len(text)))
+        parts = self._merge_deadline_clauses(text, parts)
         verb_parts = [p for p in parts if TASK_VERB_RE.match(FILLER_RE.sub("", text[p[0]:p[1]].strip()))
                       or REVISE_RE.search(text[p[0]:p[1]])]
         if len(parts) >= 2 and len(verb_parts) == len(parts):
@@ -566,6 +630,13 @@ class _Extractor:
             pos = m.end()
         pieces.append((pos, len(rest)))
         pieces = [(x, y) for x, y in pieces if rest[x:y].strip(" .;")]
+        merged = self._merge_deadline_clauses(rest, pieces)
+        if len(merged) == 1 and len(pieces) >= 2:
+            # "Wedding planning: book the venue 1 day, must be done by 1 Dec": one task, grouped by the label
+            it = self._item(seg, seg.start + rest_off + merged[0][0], seg.start + rest_off + merged[0][1])
+            it.group = it.group or clean_name(lm.group("label"), 60)
+            return [it]
+        pieces = merged
         if len(pieces) < 2:
             return None
         # every entry must name something (not only a duration, date or person)
@@ -636,6 +707,13 @@ class _Extractor:
                         cut(em.start(), em.end())
         # durations
         ds = find_durations(it.work)
+        for d in ds:
+            if not self._usable_duration(d, a):
+                cut(d.start, d.end)
+        for p, q in self.bad_dates:           # "Launch in 99999999 days": the whole phrase leaves the name
+            if a <= p and q <= b:
+                cut(p - a, q - a)
+        ds = [d for d in ds if it.work[d.start:d.end].strip()]
         if ds:
             d = ds[0]
             it.duration = DurMatch(a + d.start, a + d.end, d.optimistic, d.likely, d.pessimistic, d.unit,
@@ -689,6 +767,8 @@ class _Extractor:
         raw = FILLER_RE.sub("", it.work.strip())
         raw = FILLER_RE.sub("", raw)
         it.name = clean_name(raw)
+        if it.name:      # "Exam is" (after a removed phrase): a trailing linking verb is not part of the name
+            it.name = clean_name(re.sub(r"\s+(?:is|are|was|were|will be|is due)$", "", it.name, flags=re.I))
         if it.count is not None:
             noun = it.count[1].lower()
             it.name = clean_name(re.sub(rf"\b{re.escape(noun)}\b", "", it.name, flags=re.I)) or ""
@@ -779,6 +859,7 @@ class _Extractor:
     # ------------------------------------------------------------ assemble
     def run(self) -> ScheduleExtractionResult:
         for a, b in out_of_range_dates(self.s, self.ctx.today, self.ctx.locale):
+            self.bad_dates.append((a, b))
             self.note("DATE_OUT_OF_RANGE", "warning", note_text("DATE_OUT_OF_RANGE", text=self.s[a:b][:80]), a, b)
         self.pass_working_time()
         self.pass_exam()
@@ -1042,6 +1123,19 @@ class _Extractor:
                     prev_k = key
             tasks = new_tasks
             by_key = {t.key: t for t in tasks}
+        # at most 500 tasks, the exam milestone included: cut the tail and every link to it (plain note)
+        limit = 500 - (1 if self.exam is not None else 0)
+        if len(tasks) > limit:
+            kept = {t.key for t in tasks[:limit]}
+            tasks = tasks[:limit]
+            for t in tasks:
+                t.after = [x for x in t.after if x in kept]
+            self.prov = {p_: v for p_, v in self.prov.items()
+                         if not (p_.startswith("/tasks/") and p_.split("/")[2] not in kept)}
+            by_key = {t.key: t for t in tasks}
+            for it in items:
+                it.keys = [k_ for k_ in it.keys if k_ in kept]
+            self.note("LIST_CAPPED", "warning", note_text("LIST_CAPPED", limit=500, what="items"))
         # exam milestone
         if self.exam is not None:
             d, ea, eb, conf = self.exam
@@ -1076,11 +1170,15 @@ class _Extractor:
             if t.milestone:
                 t.resources = []
         tasks = self._renumber(tasks)
+        if len(resources) > 100:
+            dropped = {r.key for r in resources[100:]}
+            resources = resources[:100]
+            for t in tasks:
+                t.resources = [x for x in t.resources if x not in dropped]
+            self.note("LIST_CAPPED", "warning", note_text("LIST_CAPPED", limit=100, what="people and machines"))
         draft = ScheduleDraft(kind=self.kind, name=(self.name or "My plan")[:200], start_date=self.start_date,
-                              working_time=self.working_time, tasks=tasks[:500], resources=resources[:100],
+                              working_time=self.working_time, tasks=tasks, resources=resources,
                               provenance=self.prov)
-        if len(tasks) > 500:
-            self.note("UNSUPPORTED_RULE", "warning", "Only the first 500 items were read.")
         _ = unit_default
         return ScheduleExtractionResult(draft=draft, notes=self.notes)
 

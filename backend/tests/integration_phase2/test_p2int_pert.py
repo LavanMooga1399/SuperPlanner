@@ -98,7 +98,7 @@ def test_duration_risk_reported_on_schedule(client):
     d, b = built(SPEC_TEXT, SPEC_ANSWERS)
     _, _, sch = solve_and_check(client, b.problem.model_dump(mode="json"), strategy="heuristic")
     risk = sch["explanation"]["duration_risk"]
-    assert risk["tasks_with_range"] == 7                     # 3 + 4 parts carry an estimate
+    assert risk["tasks_with_range"] == 2                     # 2 user tasks (split into 3 + 4 parts) have a range
     tasks = {x.id: x for x in b.problem.tasks}
     chain = risk["chain_task_ids"]
     assert chain and all(not tasks[i].type == "milestone" for i in chain)

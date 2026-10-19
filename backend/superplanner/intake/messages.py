@@ -60,6 +60,12 @@ NOTES: dict[str, str] = {
     "TABLE_ROW": "Row {n}: {text}",
     "DATE_OUT_OF_RANGE": "\"{text}\" is too far from today to plan with, so this date was left out.",
     "TABLE_MORE_NOTES": "{n} more row problems are not listed; check the imported rows.",
+    "DURATION_TOO_LONG": "\"{text}\" is longer than a plan can hold (at most 10,000 {unit}), so this duration was "
+                         "left out. Enter a shorter duration.",
+    "PAST_PURCHASE": "\"{text}\" sounds like a one-off purchase in the past, so it was not added as a regular "
+                     "cost. Add it by hand if it repeats.",
+    "LIST_CAPPED": "Only the first {limit} {what} were read; the rest of the text was left out.",
+    "LINKS_CAPPED": "\"{task}\" would come after {n} items; only the first {limit} were linked.",
 }
 
 

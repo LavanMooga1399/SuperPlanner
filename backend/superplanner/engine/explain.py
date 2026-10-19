@@ -71,7 +71,8 @@ def fmt_work(minutes: int | float) -> str:
 
 def duration_risk(problem: CompiledProblem, chain: list[int]) -> DurationRisk | None:
     tasks = problem.tasks
-    n = sum(1 for t in tasks if t.estimate is not None)
+    # split parts of one user task share an estimate key and count once ("1 task has a duration range")
+    n = len({t.estimate_key or t.id for t in tasks if t.estimate is not None})
     if n == 0:
         return None
     acts = [tasks[i] for i in chain if not tasks[i].is_milestone]

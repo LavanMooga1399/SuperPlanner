@@ -204,17 +204,28 @@ def out_of_range_dates(s: str, today: date, locale: str = "en-IN") -> list[tuple
     """Spans of date phrases that look like dates but are outside MIN_YEAR..MAX_YEAR (or overflow); the readers
     add a note for them instead of dropping them silently."""
     out: list[tuple[int, int]] = []
+    taken: list[tuple[int, int]] = []        # a phrase read by an earlier pattern ("31 Dec 9999") is reported once
     for kind, rx in _PATTERNS:
         for mt in rx.finditer(s):
+            if any(mt.start() < b and a < mt.end() for a, b in taken):
+                continue
+            if kind == "barewd":
+                continue
             try:
                 d = _make(kind, mt, today, locale)
             except (ValueError, OverflowError):
-                out.append((mt.start(), mt.end()))
-                continue
-            if d is not None and not in_range(d.value):
+                d, bad = None, True
+            else:
+                bad = d is not None and not in_range(d.value)
+            if d is not None or bad:
+                taken.append((mt.start(), mt.end()))
+            if bad:
                 out.append((mt.start(), mt.end()))
             if len(out) >= 20:
-                return out
+                break
+        if len(out) >= 20 or len(taken) > 2000:
+            break
+    out.sort()
     return out
 
 

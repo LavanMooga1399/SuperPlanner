@@ -213,7 +213,7 @@ def apply_schedule_rows(req: TableApply, ctx: ExtractContext, base: ScheduleDraf
                 else:
                     if index is None:
                         index = NameIndex(names)
-                    target = index.resolve(ref, exclude=task.key).key
+                    target = index.resolve_key(ref, exclude=task.key)
             if target is None and mode in ("auto", "row") and re.fullmatch(r"\d{1,4}", ref):
                 target = row_key.get(int(ref))
             if target is None or target == task.key:

@@ -2193,7 +2193,66 @@ Interpretations and intended behaviour changes (existing tests updated only wher
     "Thorough" run use its full 30 s would change the stopping contract of ARCHITECTURE section 10 (determinism,
     `max_generations` 300). It is a test-timing problem that predates phase 2, and the e2e file is outside
     `backend/`. LEAD decision needed: either a time-scaled stagnation rule in the contract, or a test that does not
-    depend on GA run length.
+    depend on GA run length. (Resolved in 9.P2-fix2 item 1 by making the test deterministic.)
+
+### 9.P2-fix2 Second fix round (backend + one e2e file, 2026-10-19)
+
+Regression tests: `backend/tests/integration_phase2/test_p2int_fixround2.py`. Each defect has tests that
+reproduce the tester's steps and fail on the previous code, plus guard tests for behaviour that must not change.
+Interpretations and intended behaviour changes:
+1. **GA Cancel race (`contract.spec.ts:64`): the test is deterministic now, the product is unchanged.** The GA
+   stopping rules (ARCHITECTURE section 10: stagnation 40, `max_generations` 300) stay as they are. That test
+   only, through `page.route`, adds `ga.stagnation_generations = 1000` and `ga.max_generations = 10000` to the
+   browser's own `POST /problems/{id}/solver-runs`. The UI path (Thorough, Start, SSE through the dev proxy,
+   `phase-ga`, Cancel button) is unchanged. On the manufacturing template such a run can end only by its 30 s
+   time limit or by Cancel. Before the click, the test checks through the API that the run is `running` and
+   that it received those parameters. Why not the other options: a bigger problem would still be a timing
+   bet, and starting the run through the API would skip the UI start path that the test is meant to cover.
+2. **Table import is bounded per reference.** `NameIndex` keeps one bitset per token. Rare tokens (in at most
+   64 names) are used rarest first, and at most 32 candidates are scored. When every token of a reference is
+   common, only names holding all its tokens, or all but one, are compared, using bitset ANDs only. If more than
+   32 qualify, the reference counts as ambiguous unless exactly one name has the same word set. The table path
+   uses `resolve_key` (same decision rules, no ranked list). Measured at about 1 MB: the tester's common-word
+   table takes 0.25 s, a table where every token is shared by about 50 names takes 0.9 s, and 2,000 rows take
+   0.3 s. This is an approximation: a name that shares only common words with a reference, and not all or all
+   but one of them, is not considered.
+3. **Sentences and deadlines (2.7.1, 2.7.5).** A month abbreviation or "etc." followed by a full stop and a
+   capitalised word ends the sentence ("1 Dec. Send invites"). "Dec. 5" stays one date. A clause that holds only
+   deadline wording and a date ("must be done by 1 Dec") joins the clause before it. If that leaves a single
+   entry after `Label:`, the entry becomes one task grouped by the label. Deadline wording ("must be done by",
+   "due 3 Jan") makes a prose sentence a task even without a listed verb. The task verbs gain book, send, pay,
+   buy, hire, submit, arrange, draft, publish, organise, implement and practise. The same imperative verbs are
+   never names.
+4. **People.** A capitalised word at an item or sentence start followed by a comma is a name only when another
+   capitalised word follows the comma ("Ravi, Priya and Anil"), and never when it ends in "-ing". So
+   "- Painting, due Friday" gives no resource.
+5. **Study.** "I'm studying / preparing for ..." with no duration is context, not a task. "revise twice" with no
+   object, or with them/it/the subjects, is the revision rule.
+6. **No 422 for valid text.** A duration above the 10,000-unit model limit is left out and gets a warning note
+   `DURATION_TOO_LONG`. A duration inside an out-of-range relative date ("Launch in 99999999 days") is left out
+   with the existing `DATE_OUT_OF_RANGE` note, and that phrase is removed from the name. An exam "in N days"
+   that overflows gets `DATE_OUT_OF_RANGE` and no exam date. Schedule drafts keep at most 500 tasks, the exam
+   milestone included. The tail is cut, along with every `after` link and provenance entry pointing into it,
+   and a note `LIST_CAPPED` is added. Resources keep at most 100. Finance collections are capped at
+   20/100/20/50/12 and now get the same note. A trailing linking verb leaves a name ("Exam is" -> "Exam").
+7. **Year-like numbers (2.7.2).** A bare 1900-2100 number followed by a frequency phrase is money ("Rent 2000 a
+   month", "2000 a week"). Without a frequency it is still a year, except right after a money word (rent, fee,
+   cost, spend, pay, ...) with no year word before it. Then it is read as money with confidence 0.45, so
+   `FIN_LOW_CONFIDENCE` asks about it. A bare "2027" is still never money. Out-of-range date phrases are masked
+   before money is read ("31 Dec 9999" is never an amount), and `out_of_range_dates` reports each phrase once
+   (no second note for "Dec 9999" inside it).
+8. **Goals vs expenses (2.7.9).** A cue-less amount is a goal when its sentence has a goal noun or a future date
+   in another clause ("Wedding of my daughter in 2035, 20 lakh"). The goal month then comes from that clause. A
+   future date with no frequency makes even a spending phrase a goal ("We spend 10 lakh on a car in 2028" ->
+   goal "Car", 2028). A one-off purchase in the past (bought, purchased, spent, "last month", "... ago",
+   yesterday) with no frequency is not added; it gets an info note `PAST_PURCHASE`. Cue-less amounts that are
+   not goals stay asked (0.45), as before.
+9. **Currencies.** £/GBP/pound(s)/quid/sterling, ¥/JPY/yen, AED/dirham(s), SGD, AUD, CAD and CHF/franc(s) are
+   recognised next to the existing ₹/$/€ words, so they raise `MIXED_CURRENCY`. Amounts are still not
+   converted.
+10. **Duration risk (2.14).** `DurationRisk.tasks_with_range` and its message count distinct estimates (the
+    split parts of one user task share `estimate_key`), so one 3-5 day task says "1 task has a duration range".
+    Updated test: `test_p2int_pert.py::test_duration_risk_reported_on_schedule` (7 parts -> 2 tasks).
 
 ### 9.P3a Router upgrade, usability, landing
 

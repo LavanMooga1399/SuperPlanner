@@ -66,6 +66,11 @@ REMAINING_RE = re.compile(rf"\b(?P<n>{NUM})\s+(?P<u>years?|months?)\s+(?:left|re
 BALANCE_AFTER_RE = re.compile(r"^\s*(?:is\s+)?(?:left|outstanding|balance|remaining|pending|due|to go|still owed)\b", re.I)
 BALANCE_BEFORE_RE = re.compile(r"\b(?:balance(?:\s+of)?|outstanding(?:\s+of)?|loan\s+of|borrowed|owe)\s*$", re.I)
 EMI_BEFORE_RE = re.compile(r"\bemi\b[^,.;\d]{0,15}$", re.I)
+YEAR_IN_RE = re.compile(r"\b(?:in|by|before|until|till)\s+(?:the\s+year\s+)?(?P<y>(?:19|20|21)\d{2})\b", re.I)
+# a one-off purchase in the past is not a regular cost ("Bought a phone for 60000 last month")
+PAST_ONE_OFF_RE = re.compile(r"\b(?:bought|purchased|spent|splurged|gifted|got\s+(?:a|an|my|our|the)|paid\s+for|"
+                             r"last\s+(?:week|month|year|summer|winter|diwali)|yesterday|(?:days?|weeks?|months?|"
+                             r"years?)\s+ago|earlier this (?:week|month|year))\b", re.I)
 
 HOLDING_CLASS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\b(?:fds?|fixed deposits?)\b", re.I), "fixed_deposit", "Fixed deposit"),
@@ -169,6 +174,7 @@ class _State:
     at_age: dict[str, tuple[int, int, int]] = field(default_factory=dict)
     sent_kind: dict[int, str] = field(default_factory=dict)
     sent_dates: dict[int, tuple[re.Match[str] | None, re.Match[str] | None]] = field(default_factory=dict)
+    sent_goal: dict[int, "_SentGoal"] = field(default_factory=dict)
 
     def p(self, path: str, a: int, b: int, conf: float, source: str = "text", note: str = "") -> None:
         self.prov[path] = Provenance(source=source, confidence=round(conf, 3), span=self.t.span(a, b),  # type: ignore
@@ -179,7 +185,48 @@ class _State:
                                      span=self.t.span(a, b) if a is not None and b is not None else None))
 
 
+@dataclass
+class _SentGoal:
+    """Goal context of a whole sentence, computed once per sentence (linear time)."""
+    kind: str | None                       # goal noun kind ("wedding", "travel", ...)
+    month: tuple[str, int, int, float] | None   # future target month with its sentence-local span and confidence
+
+
+def _future_month(st: _State, s: str) -> tuple[str, int, int, float] | None:
+    """The first future date in `s` as a target month ("in 2035", "Dec 2030", "in 3 years")."""
+    today = st.ctx.today
+    iy = IN_YEARS_RE.search(s)
+    best: tuple[str, int, int, float] | None = None
+    if iy:
+        n = parse_number(iy.group("n"))
+        if n:
+            months = int(round(n[0] * (12 if iy.group("u").lower().startswith("y") else 1)))
+            if 0 < months <= MAX_GOAL_MONTHS:
+                best = (add_months_str(_start_month(st.ctx), months), iy.start(), iy.end(), 0.95)
+    for d in find_dates(s, today, st.ctx.locale):
+        if d.kind in ("monyear", "dmy", "mdy", "iso", "numeric") and d.value > today:
+            if best is None or d.start < best[1]:
+                best = (f"{d.value.year:04d}-{d.value.month:02d}", d.start, d.end, d.confidence)
+            break
+    ym = YEAR_IN_RE.search(s)
+    if ym and int(ym.group("y")) >= today.year and (best is None or ym.start() < best[1]) and \
+            int(ym.group("y")) - today.year <= 100:
+        month = f"{ym.group('y')}-{today.month:02d}" if int(ym.group("y")) > today.year else \
+            f"{today.year:04d}-12"
+        best = (month, ym.start(), ym.end(), 0.8)
+    return best
+
+
+def _sent_goal(st: _State, c: _Clause) -> _SentGoal:
+    if c.sentence not in st.sent_goal:
+        kind = next((k for rx, k in GOAL_KINDS if rx.search(c.sent_text)), None)
+        st.sent_goal[c.sentence] = _SentGoal(kind, _future_month(st, c.sent_text))
+    return st.sent_goal[c.sentence]
+
+
 def _amount_conf(m: MoneyMatch, freq_known: bool = True) -> float:
+    if m.year_like:
+        return 0.45
     if m.approx:
         return 0.8
     return 0.95 if (m.explicit and freq_known) else 0.7
@@ -189,6 +236,7 @@ def _money(st: _State, c: _Clause) -> list[MoneyMatch]:
     # dates are masked so years are never read as money
     work = c.text
     ranges = [(d.start, d.end) for d in find_dates(work, st.ctx.today, st.ctx.locale)]
+    ranges += out_of_range_dates(work, st.ctx.today, st.ctx.locale)     # "31 Dec 9999": never an amount
     for m in list(IN_YEARS_RE.finditer(work)) + list(AGE_RE.finditer(work)) + list(AT_AGE_RE.finditer(work)) + \
             list(RETIRE_AGE_RE.finditer(work)) + list(REMAINING_RE.finditer(work)):
         ranges.append((m.start(), m.end()))
@@ -253,6 +301,14 @@ def extract_finance(text: str, ctx: ExtractContext) -> FinanceExtractionResult:
         if si not in used_sentences and RULE_CUE_RE.search(seg.text):
             st.note("UNSUPPORTED_RULE", "warning", note_text("UNSUPPORTED_RULE", text=seg.text.strip()[:200]),
                     seg.start, seg.end)
+    for coll, limit, what in (("incomes", 20, "incomes"), ("expenses", 100, "costs"), ("debts", 20, "loans"),
+                              ("holdings", 50, "savings"), ("goals", 12, "goals")):
+        items = getattr(st, coll)
+        if len(items) > limit:
+            dropped = {x.key for x in items[limit:]}
+            st.prov = {p_: v for p_, v in st.prov.items()
+                       if not (p_.startswith(f"/{coll}/") and p_.split("/")[2] in dropped)}
+            st.note("LIST_CAPPED", "warning", note_text("LIST_CAPPED", limit=limit, what=what))
     draft = FinanceDraft(start_month=start, profile=st.profile, incomes=st.incomes[:20], expenses=st.expenses[:100],
                          debts=st.debts[:20], holdings=st.holdings[:50], goals=st.goals[:12],
                          emergency_fund_months=st.ef_months, provenance=st.prov)
@@ -420,13 +476,26 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             if cls:
                 st.p(f"/holdings/{key}/asset_class_id", a0, c.end, 0.95 if name else 0.7)
         return "holding"
-    # goals; also a cue-less amount with a goal noun or a date and no frequency ("Trip of 2 lakh in 2 years")
-    no_cue = not EXPENSE_RE.search(s) and all(m.frequency is None for m in money) and \
-        frequency_info_anywhere(s) is None
+    # goals; also a cue-less amount with a goal noun or a date and no frequency ("Trip of 2 lakh in 2 years"),
+    # where the noun or date may sit in another clause of the sentence ("Wedding of my daughter in 2035, 20 lakh").
+    # A future date with no frequency makes even a spending phrase a goal ("We spend 10 lakh on a car in 2028").
+    no_freq = all(m.frequency is None for m in money) and frequency_info_anywhere(s) is None
+    no_cue = not EXPENSE_RE.search(s) and no_freq
+    own_month = _future_month(st, s) if no_freq else None
+    sg = _sent_goal(st, c) if no_freq else None
+    sent_month = None
     goal_like = no_cue and (any(rx.search(s) for rx, _ in GOAL_KINDS) or bool(IN_YEARS_RE.search(s))
                             or bool(re.search(r"\b(?:in|by)\s+20\d{2}\b", s))
                             or any(d.kind in ("monyear", "dmy", "mdy", "iso", "numeric")
                                    for d in find_dates(s, st.ctx.today, st.ctx.locale)))
+    if no_cue and not goal_like and sg is not None and (sg.kind or sg.month):
+        goal_like = True
+        sent_month = sg.month
+    if no_freq and own_month is not None and not PAST_ONE_OFF_RE.search(s):
+        goal_like = True
+    if no_freq and PAST_ONE_OFF_RE.search(s) and not GOAL_RE.search(s) and own_month is None:
+        st.note("PAST_PURCHASE", "info", note_text("PAST_PURCHASE", text=s[:120]), a0, c.end)
+        return "past"
     if GOAL_RE.search(s) or prev == "goal" or goal_like:
         m = money[0]
         kind = "other"
@@ -438,6 +507,7 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             if c.sentence not in st.sent_kind:
                 st.sent_kind[c.sentence] = next((k for rx, k in GOAL_KINDS if rx.search(c.sent_text)), "other")
             kind = st.sent_kind[c.sentence]
+
         nm = re.search(r"\bfor\s+(?:a|an|my|our|the)?\s*(?P<n>[a-z][^,.;]{1,60}?)(?=\s+(?:in|by|within|at|when|before|"
                        r"after|next|this)\b|[,.;]|$)", s, re.I)
         name = _cap(nm.group("n")) if nm else ""
@@ -476,6 +546,13 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
                 iy, a0 = siy, c.sent_start
             elif sag:
                 ag, a0 = sag, c.sent_start
+            elif sent_month is None and not re.search(r"\b(?:in|by)\s+20\d{2}\b", s):
+                sent_month = _sent_goal(st, c).month
+            if not (iy or ag) and sent_month is not None and not re.search(r"\b(?:in|by)\s+20\d{2}\b", s):
+                g.target_month = sent_month[0]
+                st.p(f"/goals/{key}/target_month", c.sent_start + sent_month[1], c.sent_start + sent_month[2],
+                     sent_month[3])
+                return "goal"
         if iy:
             n = parse_number(iy.group("n"))
             if n:

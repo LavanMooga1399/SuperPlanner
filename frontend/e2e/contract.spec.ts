@@ -68,6 +68,17 @@ test("live progress arrives over SSE through the dev proxy, and Cancel works", a
   await page.getByTestId("expert-toggle").check();
   await page.locator("#ex-strategy").selectOption("ga");
   await page.getByRole("radio", { name: /Thorough/ }).click();
+  // Deterministic Cancel (PHASE2 9.P2-fix2): on this small template the GA stops by its stagnation rule
+  // (40 generations without improvement, about 0.5 s), which can beat the Cancel click. The product is not
+  // slowed down; only this test's run request asks the GA not to stop early (stagnation 1000, 10,000
+  // generations), so the run can end only by its 30 s time limit or by Cancel.
+  await page.route("**/api/v1/problems/*/solver-runs", async (route) => {
+    const req = route.request();
+    if (req.method() !== "POST") return route.continue();
+    const body = JSON.parse(req.postData() ?? "{}");
+    body.ga = { ...(body.ga ?? {}), stagnation_generations: 1000, max_generations: 10000 };
+    return route.continue({ postData: JSON.stringify(body) });
+  });
   const sse = page.waitForResponse((r) => /\/solver-runs\/run_[0-9a-f]+\/events(\?|$)/.test(r.url()) && !r.url().includes("stream=false"));
   await page.getByTestId("start-run").click();
   const resp = await sse;
@@ -77,6 +88,11 @@ test("live progress arrives over SSE through the dev proxy, and Cancel works", a
   await expect(prog).toHaveAttribute("data-run-state", "running");
   await expect(prog).toContainText("Live");
   await expect(page.getByTestId("phase-ga")).toBeVisible({ timeout: 10_000 });
+  const liveRunId = (await prog.getAttribute("data-run-id"))!;
+  const started = await apiJson(request, `/solver-runs/${liveRunId}`);
+  expect(started.status).toBe("running");                         // verified running before Cancel
+  expect(started.request.ga.stagnation_generations).toBe(1000);
+  expect(started.request.time_limit_seconds).toBe(30);
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(prog).toHaveAttribute("data-run-state", "cancelled", { timeout: 5_000 });
   const run = await apiJson(request, `/solver-runs/${await prog.getAttribute("data-run-id")}`);
