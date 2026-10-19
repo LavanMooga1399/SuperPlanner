@@ -4,6 +4,7 @@ import type { DependencyType } from "../../api/types";
 import { Banner } from "../../components/Banner";
 import { DependencyGraph } from "../../components/DependencyGraph";
 import { Icon } from "../../components/Icon";
+import { Term } from "../../components/Term";
 import { NumberInput } from "../../components/Inputs";
 import { DEP_TYPE_HELP, DEP_TYPE_LABEL } from "../../components/TaskTable";
 import { cycleEdges, edgeKey, quickCriticalPath } from "../../lib/graphLayout";
@@ -110,6 +111,7 @@ export function DependenciesTab() {
           <input type="checkbox" checked={showCritical} onChange={(e) => setShowCritical(e.target.checked)} />
           <span>Highlight critical path</span>
         </label>
+        <Term k="critical_chain" bare />
         {cpm && showCritical ? (
           <span className="small muted">
             Shortest possible duration: <strong>{fmtDuration(cpm.makespan)}</strong> (ignores {terms.resourcesL} and calendars)
@@ -183,7 +185,12 @@ export function DependenciesTab() {
             </thead>
             <tbody>
               {draft.dependencies.length === 0 ? (
-                <tr><td colSpan={5} className="muted">No dependencies yet: every {terms.taskL} can start independently.</td></tr>
+                <tr>
+                  <td colSpan={5} className="muted" data-testid="deps-empty">
+                    No dependencies yet: every {terms.taskL} can start independently. Add one in the &ldquo;After&rdquo; column on the{" "}
+                    <Link to="../tasks">{terms.tasks} tab</Link>.
+                  </td>
+                </tr>
               ) : null}
               {draft.dependencies.map((d) => {
                 const k = edgeKey(d.predecessor, d.successor);

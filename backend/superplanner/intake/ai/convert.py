@@ -23,12 +23,17 @@ def locate(quote: str, text: str) -> SourceSpan | None:
     q = (quote or "").strip()
     if not q or len(q) > 2000:
         return None
-    i = text.find(q)
-    if i < 0:
-        i = text.lower().find(q.lower())
-    if i < 0:
-        return None
-    return SourceSpan(start=i, end=i + len(q), text=text[i:i + len(q)][:300])
+    i, j = text.find(q), -1
+    if i >= 0:
+        j = i + len(q)
+    else:
+        # case-insensitive on the original text, so offsets stay code points of `text` even when lower() would
+        # change the length of a character
+        m = re.search(re.escape(q), text, re.I)
+        if m is None:
+            return None
+        i, j = m.start(), m.end()
+    return SourceSpan(start=i, end=j, text=text[i:j][:300])
 
 
 def ai_prov(quote: str, conf: float, text: str) -> Provenance:

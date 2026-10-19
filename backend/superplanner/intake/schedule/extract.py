@@ -77,7 +77,9 @@ _RES_ALT = "|".join(sorted(COUNTED_RES_NOUNS, key=len, reverse=True))
 COUNTED_RES_RE = re.compile(rf"\b(?P<n>{NUM})\s+(?P<noun>{_RES_ALT})\b", re.I)
 TEAM_OF_RE = re.compile(rf"\bteam\s+of\s+(?P<n>{NUM})\b", re.I)
 ASSIGN_RE = re.compile(r"\b(?:assigned to|assign to|owned by|done by|owner\s*:|by|with)\s+", re.I)
-LEAD_NAME_RE = re.compile(r"^(?P<name>[A-Z][a-z]{1,29})\s+(?:will|can|should|does|is going to)\s+", re.U)
+LEAD_NAME_RE = re.compile(r"^(?P<name>[A-Z][a-z]{1,29}(?:\s{0,3}(?:,|and|&)\s{0,3}[A-Z][a-z]{1,29}){0,5})\s+"
+                          r"(?:will|can|should|does|is going to)\s+", re.U)
+_NAME_SPLIT_RE = re.compile(r"\s*(?:,|\band\b|&)\s*")
 ME_RE = re.compile(r"\b(?:by me|\(me\)|myself)\b|^i\s+(?:will|can|should)\b", re.I)
 TOGETHER_RE = re.compile(r"\b(?:together|both)\b", re.I)
 
@@ -393,6 +395,8 @@ class _Extractor:
     def _split_prose(self, seg: Segment) -> list[tuple[int, int]]:
         """Clauses of a prose sentence that each start with a task verb (study example), else the whole."""
         text = seg.text
+        if THEN_SPLIT_RE.search(text):          # "A 1 day, then B 2 days, then C": one then-chain, not clauses
+            return [(seg.start, seg.end)]
         parts: list[tuple[int, int]] = []
         pos = 0
         for m in re.finditer(rf",\s*(?:and\s+)?|\s+and\s+(?=(?:{TASK_VERBS})\b)", text, re.I):
@@ -613,9 +617,10 @@ class _Extractor:
                     spans.append((m.start(), m.end() + nm.end()))
         # NAME will ...
         lm = LEAD_NAME_RE.match(w.lstrip())
-        if lm and lm.group("name").lower() not in NOT_NAMES:
+        lead = [x for x in _NAME_SPLIT_RE.split(lm.group("name")) if x] if lm else []
+        if lead and all(x.lower() not in NOT_NAMES for x in lead):
             off = len(w) - len(w.lstrip())
-            names.append(lm.group("name"))
+            names += lead
             spans.append((off + lm.start("name"), off + lm.end()))
         if ME_RE.search(w):
             m = ME_RE.search(w)
@@ -664,6 +669,7 @@ class _Extractor:
         items = self.build_items()
         rules = [it for it in items if it.is_revision_rule]
         items = [it for it in items if not it.is_revision_rule]
+        items = self._merge_assignment_sentences(items)
         # plan name and start date from non-task prose
         task_segs = {id(it.seg) for it in items} | {id(it.seg) for it in rules}
         for i, seg in enumerate(self.segs):
@@ -686,6 +692,8 @@ class _Extractor:
                     self.name = cand
                     self.p_text("/name", seg.start, seg.end, 0.6)
                     seg.consumed = True
+            elif not seg.consumed and self._cross_assignment(seg, work, items):
+                seg.consumed = True
             elif not seg.consumed and RULE_CUE_RE.search(work):
                 self.note("UNSUPPORTED_RULE", "warning", note_text("UNSUPPORTED_RULE", text=seg.text.strip()[:200]),
                           seg.start, seg.end)
@@ -694,6 +702,53 @@ class _Extractor:
         # cross-sentence dependency statements
         items = self._cross_dependencies(items)
         return self._assemble(items)
+
+    @staticmethod
+    def _merge_assignment_sentences(items: list[_Item]) -> list[_Item]:
+        """"Write report 2 days. Ravi and Priya will write report together.": the second sentence only assigns
+        people to the task already named, so it adds its resources to that task instead of a duplicate task."""
+        out: list[_Item] = []
+        by_name: dict[str, _Item] = {}
+        for it in items:
+            key = (it.name or "").strip().lower()
+            prev = by_name.get(key)
+            if (prev is not None and not it.seg.bullet and it.res_names and it.duration is None
+                    and it.deadline is None and it.earliest is None and it.count is None and not it.after_refs
+                    and not it.before_refs and not it.milestone):
+                prev.res_names = prev.res_names + [n for n in it.res_names if n not in prev.res_names]
+                prev.res_span = prev.res_span or it.res_span
+                if it.mode == "all":
+                    prev.mode = "all"
+                continue
+            if key and key not in by_name:
+                by_name[key] = it
+            out.append(it)
+        return out
+
+    def _cross_assignment(self, seg: Segment, work: str, items: list[_Item]) -> bool:
+        """`NAME will <task words>` in a sentence that is not itself a task: assign NAME to that task (2.7.7)."""
+        stripped = work.lstrip()
+        lm = LEAD_NAME_RE.match(stripped)
+        lead = [x for x in _NAME_SPLIT_RE.split(lm.group("name")) if x] if lm else []
+        if not lead or any(x.lower() in NOT_NAMES for x in lead):
+            return False
+        rest = stripped[lm.end():].strip(" .!?;")
+        cands = [(str(i), x.name) for i, x in enumerate(items) if x.name]
+        res = resolve(rest, cands) if rest else None
+        if res is None or res.key is None:
+            return False
+        it = items[int(res.key)]
+        off = seg.start + (len(work) - len(stripped))
+        it.res_span = it.res_span or (off + lm.start("name"), off + lm.end("name"))
+        for name in lead:
+            if name not in it.res_names:
+                it.res_names = it.res_names + [name]
+            if self.resource_by_name(name) is None:
+                idx = self.s.find(name, off)
+                self.add_person(name, idx, idx + len(name))
+        if len(lead) >= 2 and TOGETHER_RE.search(rest):
+            it.mode = "all"
+        return True
 
     def _cross_dependencies(self, items: list[_Item]) -> list[_Item]:
         keep: list[_Item] = []

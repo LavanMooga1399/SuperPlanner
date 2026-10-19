@@ -6,6 +6,7 @@ import { Banner, ErrorBanner, Loading } from "../../components/Banner";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Gantt, ZOOM_LEVELS, type GanttMode } from "../../components/Gantt";
 import { Icon } from "../../components/Icon";
+import { Term } from "../../components/Term";
 import { KpiCards } from "../../components/KpiCards";
 import { ReplanDialog } from "../../components/ReplanDialog";
 import { methodLabel } from "../../components/RunProgress";
@@ -255,11 +256,19 @@ export function ScheduleTab() {
 
           {schedule.explanation?.summary.length ? (
             <div className="card card-body small">
-              {schedule.explanation.summary.map((s, i) => (
+              {schedule.explanation.summary.filter((s) => s !== schedule.explanation?.duration_risk?.message).map((s, i) => (
                 <div key={i} className="row" style={{ alignItems: "flex-start" }}>
                   <Icon name="info" style={{ marginTop: 2 }} /> {s}
                 </div>
               ))}
+              {schedule.explanation.duration_risk ? (
+                <div className="row" style={{ alignItems: "flex-start" }} data-testid="duration-risk">
+                  <Icon name="clock" style={{ marginTop: 2 }} />
+                  <span>
+                    {schedule.explanation.duration_risk.message} <Term k="duration_range" bare />
+                  </span>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -296,12 +305,15 @@ export function ScheduleTab() {
           </div>
           <div className="legend">
             <span className="legend-item"><span className="swatch" style={{ background: "var(--bar)" }} /> Scheduled</span>
-            <span className="legend-item"><span className="swatch" style={{ background: "var(--bar-crit)", outline: "1.5px solid var(--text)" }} /> Critical chain</span>
+            <span className="legend-item"><span className="swatch" style={{ background: "var(--bar-crit)", outline: "1.5px solid var(--text)" }} /> <Term k="critical_chain">Critical chain</Term></span>
             <span className="legend-item"><span className="swatch" style={{ background: "repeating-linear-gradient(45deg, var(--warn) 0 3px, #fff8 3px 5px)" }} /> Late</span>
             <span className="legend-item"><span className="swatch" style={{ border: "1.5px dashed var(--danger)" }} /> Rule broken</span>
-            <span className="legend-item"><span style={{ color: "var(--warn)" }}>◆</span> {terms.deadline}</span>
-            <span className="legend-item"><span style={{ color: "var(--danger)" }}>◆</span> Hard {terms.deadlineL}</span>
+            <span className="legend-item"><span style={{ color: "var(--warn)" }}>◆</span> {terms.deadline} <Term k="soft_deadline" bare /></span>
+            <span className="legend-item"><span style={{ color: "var(--danger)" }}>◆</span> Hard {terms.deadlineL} <Term k="hard_deadline" bare /></span>
             <span className="legend-item"><span className="swatch" style={{ background: "var(--shade)" }} /> Closed</span>
+            {draft.tasks.some((t) => t.duration_estimate && t.type !== "milestone") ? (
+              <span className="legend-item"><span aria-hidden style={{ color: "var(--text-muted)", letterSpacing: -1 }}>- - -|</span> Could take up to its longest estimate <Term k="duration_range" bare /></span>
+            ) : null}
           </div>
           {schedule.placements.length ? (
             <Gantt

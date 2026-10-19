@@ -39,6 +39,13 @@ export interface Lock {
 
 export type TaskType = "activity" | "milestone";
 
+/** Three-point duration estimate (PHASE2.md 2.14); `duration_minutes` is its PERT expected value. */
+export interface DurationEstimate {
+  optimistic_minutes: number;
+  likely_minutes: number;
+  pessimistic_minutes: number;
+}
+
 export interface Task {
   id: Id;
   name: string;
@@ -53,6 +60,8 @@ export interface Task {
   requirements: Requirement[];
   locked: Lock | null;
   metadata: Record<string, unknown>;
+  /** optional; absent on documents without a range. Activities only. */
+  duration_estimate?: DurationEstimate | null;
 }
 
 export type DependencyType = "FS" | "SS" | "FF" | "SF";
@@ -322,11 +331,25 @@ export interface TaskExplanation {
   deadline_status: DeadlineStatus;
 }
 
+/** PERT note for plans with duration ranges (PHASE2.md 2.14). */
+export interface DurationRisk {
+  tasks_with_range: number;
+  chain_task_ids: Id[];
+  chain_expected_minutes: number;
+  chain_optimistic_minutes: number;
+  chain_pessimistic_minutes: number;
+  chain_sigma_minutes: number;
+  buffer_85_minutes: number;
+  message: string;
+}
+
 export interface ScheduleExplanation {
   tasks: Record<Id, TaskExplanation>;
   critical_chain: Id[];
   cpm_critical_path: Id[];
   summary: string[];
+  /** null/absent when no task has a duration range */
+  duration_risk?: DurationRisk | null;
 }
 
 // ---------------------------------------------------------------- 12 / 14.2

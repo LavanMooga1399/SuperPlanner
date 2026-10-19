@@ -219,6 +219,7 @@ All `str`, used by UI labels and by preflight/explanation messages.
 | `requirements` | `list[Requirement]` | `[]` | Milestones must have `[]` (422). An activity with `[]` needs no resource and has no calendar. |
 | `locked` | `Lock \| None` | `None` | User or replan freeze. |
 | `metadata` | `dict[str, Any]` | `{}` | e.g. `{"difficulty": 3}` for exam prep, `{"skills": ["backend"]}`. Ignored by the engine. |
+| `duration_estimate` | `DurationEstimate \| None` | `None` | Phase 2a, see `docs/PHASE2.md` 2.14: optional three-point estimate; when set, `duration_minutes` must equal `pert_minutes(o, m, p)` and milestones may not have one (422). Omitted from dumps when absent. Engines use `duration_minutes` only. |
 
 ### 3.5 `Requirement`
 
@@ -1177,6 +1178,9 @@ Schedule critical chain: start from the placed task with `end == makespan` (ties
 priority, then lowest index); repeatedly follow the primary reason: `DEPENDENCY` -> the binding
 predecessor; `RESOURCE_BUSY` -> the blocking task with the latest end; stop at `CALENDAR`,
 `EARLIEST_START`, `HORIZON_START`, `LOCKED`. Reverse to start-to-end order.
+
+Phase 2a (`docs/PHASE2.md` 2.14): `ScheduleExplanation.duration_risk` (`DurationRisk`, optional, omitted when no
+task has a `duration_estimate`) sums the critical chain's estimates and appends a PERT note to `summary`.
 
 ---
 

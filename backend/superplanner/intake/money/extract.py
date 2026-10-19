@@ -21,7 +21,7 @@ EF_RE = re.compile(r"\bemergency\s+(?:fund|corpus|savings|buffer)\b", re.I)
 AGE_RE = re.compile(r"\b(?:i'?m|i am|my age is|age|aged)\s+(?P<n>\d{2})\b(?!\s*(?:%|k\b|l\b|lakh|years?\s+(?:left|to)))"
                     r"|\b(?P<n2>\d{2})\s+(?:years?|yrs?)\s+old\b", re.I)
 RETIRE_RE = re.compile(r"\bretir(?:e|ing|ement)\b", re.I)
-RETIRE_AGE_RE = re.compile(r"\bretir(?:e|ing)\s+(?:at|by|when\s+i'?m|when\s+i\s+am|at\s+age|at\s+the\s+age\s+of)\s+"
+RETIRE_AGE_RE = re.compile(r"\bretir(?:e|ing|ement)\s+(?:at|by|when\s+i'?m|when\s+i\s+am|at\s+age|at\s+the\s+age\s+of)\s+"
                            r"(?P<n>\d{2})\b", re.I)
 RETIRE_IN_RE = re.compile(rf"\bretir(?:e|ing)\s+in\s+(?P<n>{NUM})\s+years?\b", re.I)
 GROSS_RE = re.compile(r"\b(?:ctc|gross|cost to company|before tax|pre-?tax|lpa)\b", re.I)
@@ -33,7 +33,9 @@ HOLDING_RE = re.compile(r"\b(?:have|saved|savings|invested|in\s+(?:fds?|fixed de
                         r"shares|equity|index funds?|ppf|epf|provident fund|nps|gold|(?:the\s+)?bank|savings account|"
                         r"debt funds?|bonds?))\b", re.I)
 GOAL_RE = re.compile(r"\b(?:save|saving for|need|want|goal|target|plan(?:ning)? to|buy|for\s+(?:a|my|our|the)|"
-                     r"retire|retirement)\b", re.I)
+                     r"retire|retirement|(?:must|should)\s+have|would (?:like|love)|wish|dream)\b", re.I)
+GOAL_NOT_HOLDING_RE = re.compile(r"\b(?:want|need|goal|target|buy|plan(?:ning)? to|(?:must|should)\s+have)\b", re.I)
+NEXT_YEAR_RE = re.compile(r"\bnext\s+year\b", re.I)
 EXPENSE_RE = re.compile(r"\b(?:spend|spending|expenses?|costs?|pay|rent|groceries|bills|fees|insurance|premium|"
                         r"household|living|tuition|utilities|maid|fuel|petrol|school)\b", re.I)
 RISK_WORDS: list[tuple[re.Pattern[str], int]] = [
@@ -102,6 +104,8 @@ class _Clause:
     end: int
     text: str
     sentence: int
+    sent_start: int = 0
+    sent_text: str = ""
 
 
 @dataclass
@@ -125,7 +129,7 @@ def _clauses(t: Text) -> list[_Clause]:
             text = s[a:b]
             if text.strip():
                 lead = len(text) - len(text.lstrip())
-                out.append(_Clause(seg.start + a + lead, seg.start + b, text.strip(), si))
+                out.append(_Clause(seg.start + a + lead, seg.start + b, text.strip(), si, seg.start, s))
     return out
 
 
@@ -151,6 +155,8 @@ class _State:
     currencies: set[str] = field(default_factory=set)
     retire_age_span: tuple[int, int] | None = None
     at_age: dict[str, tuple[int, int, int]] = field(default_factory=dict)
+    sent_kind: dict[int, str] = field(default_factory=dict)
+    sent_dates: dict[int, tuple[re.Match[str] | None, re.Match[str] | None]] = field(default_factory=dict)
 
     def p(self, path: str, a: int, b: int, conf: float, source: str = "text", note: str = "") -> None:
         self.prov[path] = Provenance(source=source, confidence=round(conf, 3), span=self.t.span(a, b),  # type: ignore
@@ -249,6 +255,9 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
     found = None
     # profile: age
     am = AGE_RE.search(s)
+    if am and any(x.start() <= am.start() < x.end() or am.start() <= x.start() < am.end()
+                  for x in list(AT_AGE_RE.finditer(s)) + list(RETIRE_AGE_RE.finditer(s))):
+        am = None      # "when I'm 50" / "at age 55" date a goal; they are not the user's age
     if am and not RETIRE_RE.search(s[:am.start()][-12:]):
         n = int(am.group("n") or am.group("n2"))
         if 16 <= n <= 100 and st.profile.age is None:
@@ -306,6 +315,8 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             st.p(f"/goals/{g.key}/target", a0 + m.start, a0 + m.end, _amount_conf(m))
         return "goal"
     if not money:
+        if prev == "debt" and st.debts and _debt_terms(st, st.debts[-1], s, a0):
+            return "debt"
         if found:
             return found
         return None
@@ -364,22 +375,12 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
                 d.balance = amt
                 end = m.end + (BALANCE_AFTER_RE.match(after).end() if BALANCE_AFTER_RE.match(after) else 0)
                 st.p(f"/debts/{d.key}/balance", a0 + m.start, a0 + end, _amount_conf(m))
-        for pm in find_percent(s):
-            if 0 <= pm.value <= 60:
-                d.interest_rate_pct = pm.value
-                st.p(f"/debts/{d.key}/interest_rate_pct", a0 + pm.start, a0 + pm.end, 0.95)
-                break
-        rm = REMAINING_RE.search(s)
-        if rm:
-            n = parse_number(rm.group("n"))
-            if n:
-                months = int(round(n[0] * (12 if rm.group("u").lower().startswith("y") else 1)))
-                if 1 <= months <= 600:
-                    d.remaining_months = months
-                    st.p(f"/debts/{d.key}/remaining_months", a0 + rm.start(), a0 + rm.end(), 0.95)
+        _debt_terms(st, d, s, a0)
         return "debt"
     # holdings
-    if HOLDING_RE.search(s) and not re.search(r"\b(?:want|need|goal|target|buy|plan(?:ning)? to)\b", s, re.I):
+    if (HOLDING_RE.search(s) or (prev == "holding" and any(rx.search(s) for rx, _, _ in HOLDING_CLASS)
+                                 and not (EXPENSE_RE.search(s) or DEBT_RE.search(s)))) \
+            and not GOAL_NOT_HOLDING_RE.search(s):
         for i, m in enumerate(money):
             seg_end = money[i + 1].start if i + 1 < len(money) else len(s)
             tail = s[m.end:seg_end]
@@ -406,6 +407,10 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             if rx.search(s):
                 kind = k
                 break
+        if kind == "other":       # "Wedding of my daughter when I'm 50, must have 20 lakh": kind from the sentence
+            if c.sentence not in st.sent_kind:
+                st.sent_kind[c.sentence] = next((k for rx, k in GOAL_KINDS if rx.search(c.sent_text)), "other")
+            kind = st.sent_kind[c.sentence]
         nm = re.search(r"\bfor\s+(?:a|an|my|our|the)?\s*(?P<n>[a-z][^,.;]{1,60}?)(?=\s+(?:in|by|within|at|when|before|"
                        r"after|next|this)\b|[,.;]|$)", s, re.I)
         name = _cap(nm.group("n")) if nm else ""
@@ -434,6 +439,16 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
         dm = [d for d in find_dates(s, st.ctx.today, st.ctx.locale) if d.kind in ("monyear", "dmy", "mdy", "iso",
                                                                                      "numeric")]
         ag = AT_AGE_RE.search(s)
+        ny = NEXT_YEAR_RE.search(s)
+        if not (iy or dm or ag or ny):
+            # the date may sit in another clause of the same sentence that has no money of its own
+            if c.sentence not in st.sent_dates:      # computed once per sentence (linear time)
+                st.sent_dates[c.sentence] = (AT_AGE_RE.search(c.sent_text), IN_YEARS_RE.search(c.sent_text))
+            sag, siy = st.sent_dates[c.sentence]
+            if siy:
+                iy, a0 = siy, c.sent_start
+            elif sag:
+                ag, a0 = sag, c.sent_start
         if iy:
             n = parse_number(iy.group("n"))
             if n:
@@ -446,6 +461,9 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
             st.p(f"/goals/{key}/target_month", a0 + d.start, a0 + d.end, d.confidence)
         elif ag:
             st.at_age[key] = (int(ag.group("n")), a0 + ag.start(), a0 + ag.end())
+        elif ny:
+            g.target_month = add_months_str(_start_month(st.ctx), 12)
+            st.p(f"/goals/{key}/target_month", a0 + ny.start(), a0 + ny.end(), 0.8)
         else:
             ym = re.search(r"\b(?:in|by)\s+(?P<y>20\d{2})\b", s)
             if ym:
@@ -489,3 +507,24 @@ def _classify(st: _State, c: _Clause, prev: str | None) -> str | None:
                 st.note("EDUCATION_INFLATION", "info", note_text("EDUCATION_INFLATION", name=name), a0, c.end)
         return "expense"
     return None  # pragma: no cover
+
+
+def _debt_terms(st: _State, d: DraftDebt, s: str, a0: int) -> bool:
+    """Rate (`at 9%`) and months left (`180 months left`) of a debt; True when something was read."""
+    got = False
+    for pm in find_percent(s):
+        if 0 <= pm.value <= 60:
+            d.interest_rate_pct = pm.value
+            st.p(f"/debts/{d.key}/interest_rate_pct", a0 + pm.start, a0 + pm.end, 0.95)
+            got = True
+            break
+    rm = REMAINING_RE.search(s)
+    if rm:
+        n = parse_number(rm.group("n"))
+        if n:
+            months = int(round(n[0] * (12 if rm.group("u").lower().startswith("y") else 1)))
+            if 1 <= months <= 600:
+                d.remaining_months = months
+                st.p(f"/debts/{d.key}/remaining_months", a0 + rm.start(), a0 + rm.end(), 0.95)
+                got = True
+    return got

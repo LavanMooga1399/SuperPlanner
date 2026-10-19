@@ -80,9 +80,10 @@ def questions(draft: FinanceDraft, ctx: ExtractContext) -> list[Question]:
                          kind="money", prompt=M.prompt("FIN_GOAL_TARGET", name=g.name), required=True,
                          reason="missing", span=span(f"{base}/name")))
         age_dep = (p := prov.get(f"{base}/target_month")) is not None and p.note.startswith("AT_AGE:")
-        retire_dep = g.kind == "retirement" and draft.profile.age is None
+        # retirement and "at age N" months follow from the age: FIN_AGE is asked when it is unknown, and the
+        # month is derived (answers, build) once it is known
         if g.target_month is None and not answered(prov, f"{base}/target_month") and not (
-                (age_dep or retire_dep) and draft.profile.age is None):
+                age_dep or g.kind == "retirement"):
             d = add_months_str(start, 60)
             add(Question(id=qid("FIN_GOAL_DATE", f"{base}/target_month"), code="FIN_GOAL_DATE",
                          path=f"{base}/target_month", kind="month", prompt=M.prompt("FIN_GOAL_DATE", name=g.name),

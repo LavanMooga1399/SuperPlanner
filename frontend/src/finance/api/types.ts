@@ -22,6 +22,12 @@ export interface Profile {
   tax_note: string;
 }
 
+/** PHASE2 1.12: a range the user gave; informational, the engine uses the single amount. */
+export interface AmountRange {
+  low: number;
+  high: number;
+}
+
 export type IncomeKind = "salary" | "business" | "rental" | "pension" | "interest" | "other";
 
 export interface IncomeStream {
@@ -35,6 +41,9 @@ export interface IncomeStream {
   start_month: Month | null;
   end_month: Month | null;
   interruptible: boolean;
+  /** PHASE2 1.7: true = `amount` in today's money and `growth_pct` is the raise above inflation. Missing = false. */
+  inflation_linked?: boolean;
+  amount_range?: AmountRange | null;
 }
 
 export interface Expense {
@@ -49,6 +58,7 @@ export interface Expense {
   inflation_pct: number | null;
   start_month: Month | null;
   end_month: Month | null;
+  amount_range?: AmountRange | null;
 }
 
 export type DebtKind = "home" | "vehicle" | "education" | "personal" | "credit_card" | "other";
@@ -102,6 +112,7 @@ export interface Goal {
   allowed_asset_class_ids: Id[] | null;
   earmarked: Earmark[];
   enabled: boolean;
+  target_range?: AmountRange | null;
 }
 
 export interface EmergencyFundSettings {
@@ -137,6 +148,14 @@ export interface GlideStep {
   multiplier: number;
 }
 
+/** PHASE2 1.5 cautious-planning margin. */
+export interface CautionSettings {
+  floor_share: number;
+  floor_start_years: number;
+  floor_full_years: number;
+  floor_step_pct_per_z: number;
+}
+
 export interface Assumptions {
   inflation_pct: number;
   inflation_volatility_pct: number;
@@ -146,6 +165,8 @@ export interface Assumptions {
   risky_cap_by_tolerance_pct: number[];
   glide_path: GlideStep[];
   source_note: string;
+  /** Missing in stored documents: the server uses the defaults. */
+  caution?: CautionSettings;
 }
 
 export interface PlanConstraints {
@@ -352,6 +373,14 @@ export interface FinanceResultTotals {
   emergency_fund_complete_month: Month | null;
   liquidity_risk_probability: number;
   total_contributions_real: number;
+  // PHASE2 1.11 first-year averages (absent in results from fin-0.1.0)
+  monthly_surplus_avg_12m?: number;
+  monthly_ef_contribution_avg_12m?: number;
+  monthly_investable_avg_12m?: number;
+  monthly_contribution_avg_12m?: number;
+  monthly_from_surplus_avg_12m?: number;
+  monthly_from_savings_avg_12m?: number;
+  savings_to_cash_at_start?: number;
 }
 
 export interface GoalResult {
@@ -384,6 +413,9 @@ export interface GoalResult {
   holdings_used_real: number;
   allocation_now_pct: Record<Id, number>;
   planning_z: number;
+  /** PHASE2 1.10: growth (risky) share of the mix now and its cap, in % (absent in fin-0.1.0 results). */
+  growth_share_now_pct?: number;
+  growth_cap_now_pct?: number;
 }
 
 export interface ContributionLine {
@@ -585,6 +617,8 @@ export interface FinanceComparison {
   totals: ComparisonTotals;
   goals: ComparisonGoal[];
   what_if_b: WhatIfChanges | null;
+  /** PHASE2 1.13: the two results come from different engine versions. */
+  engine_versions_differ?: boolean;
 }
 
 // ---------------------------------------------------------------- F.15 templates

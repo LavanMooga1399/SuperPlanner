@@ -29,12 +29,19 @@ _FOLLOW_OK = re.compile(r"^\s+(?:will|can|does|is|should|to|has|are|and|&|,|work
 
 
 def stem(tok: str) -> str:
+    """Light stemmer: plural s, -ing, -ed; then a final silent e and a doubled consonant (prepare/preparing,
+    plan/planning) so word forms of one verb compare equal."""
     t = tok.lower()
+    suffix = False
     if len(t) > 5 and t.endswith("ing"):
-        t = t[:-3]
+        t, suffix = t[:-3], True
     elif len(t) > 4 and t.endswith("ed"):
-        t = t[:-2]
+        t, suffix = t[:-2], True
     elif len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
+        t = t[:-1]
+    if suffix and len(t) > 3 and t[-1] == t[-2] and t[-1] not in "lsz":
+        t = t[:-1]
+    elif not suffix and len(t) > 4 and t.endswith("e"):
         t = t[:-1]
     return t
 

@@ -46,7 +46,7 @@ def recompute_age_months(draft: FinanceDraft, ctx: ExtractContext) -> None:
             g.target_month = add_months_str(start, 12 * max(0, n - age))
             draft.provenance[path] = Provenance(source="derived", confidence=0.9, span=p.span,
                                                 note=f"Age {age} + {max(0, n - age)} years")
-        elif g.kind == "retirement" and g.target_month is None:
+        elif g.kind == "retirement" and (g.target_month is None or (p is not None and p.source == "derived")):
             ra = draft.profile.retirement_age or 60
             g.target_month = add_months_str(start, 12 * max(1, ra - age))
             draft.provenance[path] = Provenance(source="derived", confidence=0.9,
@@ -61,7 +61,9 @@ def _apply_one(ctx: ExtractContext):
             lo, hi = as_money(value)
             if hi <= 0:
                 raise AnswerError("Please enter an amount above zero.")
-            _item(draft, path).amount = DraftAmount(low=lo, high=hi)
+            inc = _item(draft, path)
+            inc.amount = DraftAmount(low=lo, high=hi)
+            inc.frequency = "monthly"            # both prompts ask for the amount taken home each month
             mark_answered(prov, path, keep_span=False)
         elif code == "FIN_INCOME":
             lo, hi = as_money(value)
@@ -144,6 +146,7 @@ def answer_finance_draft(draft: FinanceDraft, answers: list[Answer], ctx: Extrac
         -> tuple[FinanceDraft, ApplyOutcome]:
     work = draft.model_copy(deep=True)
     outcome = apply_answers(work, answers, questions(work, ctx), _apply_one(ctx))
+    recompute_age_months(work, ctx)        # goal months that follow from the age, whichever answer set it
     try:
         work = FinanceDraft.model_validate(work.model_dump())
     except ValidationError as exc:  # pragma: no cover

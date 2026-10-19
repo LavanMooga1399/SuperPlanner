@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router";
 import type { Resource } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Icon } from "../../components/Icon";
+import { Term } from "../../components/Term";
 import { ResourceTable } from "../../components/ResourceTable";
 import { makeResource, removeResource } from "../../lib/planEdit";
 import { useTerms } from "../../lib/terms";
@@ -28,6 +29,7 @@ export function ResourcesTab() {
     <div>
       <div className="toolbar">
         <span className="small muted">{terms.countResources(draft.resources.length)}</span>
+        <Term k="resource" bare />
         <div className="grow" />
         <button className="btn primary" onClick={add}>
           <Icon name="plus" /> Add {terms.resourceL}

@@ -114,7 +114,7 @@ class MoneyMatch:
 def _atom_value(m: re.Match[str]) -> float:
     v = float(m.group("num").replace(",", ""))
     mult = m.group("mult")
-    return v * MULTIPLIERS[mult.lower()] if mult else v
+    return round(v * MULTIPLIERS[mult.lower()], 6) if mult else v
 
 
 def _atom_currency(m: re.Match[str]) -> str | None:
@@ -170,7 +170,7 @@ def find_money(s: str, *, min_bare: float = 100.0) -> list[MoneyMatch]:
         for p in parts:
             v = float(p.group("num").replace(",", ""))
             pm = p.group("mult") or mult
-            vals.append(v * MULTIPLIERS[pm.lower()] if pm else v)
+            vals.append(round(v * MULTIPLIERS[pm.lower()], 6) if pm else v)   # 1.1 lakh == 110000 exactly
         explicit = bool(mult or cur)
         last = parts[-1]
         tail = s[last.end():]

@@ -297,7 +297,10 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
     const w = Math.max(2, x(b.p.end) - x1);
     const top = y + (ROW_H - BAR_H) / 2;
     const isSel = selected === id;
-    const label = `${b.name}: ${fmtDuration(b.p.end - b.p.start)}${b.late ? ", Late" : ""}${b.critical ? ", on critical chain" : ""}${b.violated ? ", has a rule violation" : ""}${b.locked ? ", fixed" : ""}`;
+    const est = b.milestone ? null : taskById.get(id)?.duration_estimate ?? null;
+    const label = `${b.name}: ${fmtDuration(b.p.end - b.p.start)}${b.late ? ", Late" : ""}${b.critical ? ", on critical chain" : ""}${b.violated ? ", has a rule violation" : ""}${b.locked ? ", fixed" : ""}${est ? `, duration range ${fmtDuration(est.optimistic_minutes)} to ${fmtDuration(est.pessimistic_minutes)}` : ""}`;
+    // PERT range whisker: how much longer the bar could run at its longest estimate (working minutes, drawn to scale)
+    const extra = est ? Math.max(0, est.pessimistic_minutes - (b.p.end - b.p.start)) : 0;
     const textInside = w > 60;
     const fill = b.violated ? "var(--danger)" : b.late ? "var(--warn)" : b.critical ? "var(--bar-crit)" : "var(--bar)";
     if (b.milestone) {
@@ -320,6 +323,12 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
         <rect className="bar-rect" x={x1} y={top} width={w} height={BAR_H} rx={4} fill={fill} stroke={b.critical ? "var(--text)" : "none"} strokeWidth={b.critical ? 1.5 : 0} />
         {b.late ? <rect x={x1} y={top} width={w} height={BAR_H} rx={4} fill="url(#gantt-hatch)" pointerEvents="none" /> : null}
         {b.violated ? <rect x={x1 - 2} y={top - 2} width={w + 4} height={BAR_H + 4} rx={5} fill="none" stroke="var(--danger)" strokeDasharray="4 3" strokeWidth={1.5} /> : null}
+        {extra > 0 ? (
+          <g className="gantt-range" pointerEvents="none" data-testid={testId ? `gantt-range-${id}` : undefined}>
+            <line x1={x1 + w} x2={x(b.p.end + extra)} y1={top + BAR_H / 2} y2={top + BAR_H / 2} stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="3 2" />
+            <line x1={x(b.p.end + extra)} x2={x(b.p.end + extra)} y1={top + 3} y2={top + BAR_H - 3} stroke="var(--text-muted)" strokeWidth={1.5} />
+          </g>
+        ) : null}
         {textInside ? (
           <>
             <clipPath id={`clip-${id}-${y}`}>
@@ -331,7 +340,7 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
             </text>
           </>
         ) : (
-          <text x={x1 + w + 12} y={top + 14} fontSize={11} fill="var(--text-muted)">
+          <text x={(extra > 0 ? x(b.p.end + extra) : x1 + w) + 12} y={top + 14} fontSize={11} fill="var(--text-muted)">
             {b.late ? "Late · " : ""}
             {b.name}
           </text>

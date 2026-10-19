@@ -5,6 +5,7 @@ import { hhmmToMin, updateResource } from "../lib/planEdit";
 import { fmtDuration, offsetMinutesOf } from "../lib/time";
 import { CalendarEditor } from "./CalendarEditor";
 import { Icon } from "./Icon";
+import { Term } from "./Term";
 import { NumberInput, TextInput } from "./Inputs";
 
 const KINDS = ["generic", "person", "machine", "room", "team", "time"];
@@ -68,7 +69,9 @@ export function ResourceTable({
             <th>Kind</th>
             <th className="num" title="How many can be used at the same time">Capacity</th>
             <th className="num">Cost / hour ({draft.currency})</th>
-            <th>Availability</th>
+            <th>
+              Availability <Term k="calendar_window" bare />
+            </th>
             <th className="num">Used by</th>
             <th><span className="sr-only">Actions</span></th>
           </tr>

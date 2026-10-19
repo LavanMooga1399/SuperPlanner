@@ -1,15 +1,26 @@
 import { Icon } from "../../components/Icon";
 import { Term } from "../../components/Term";
-import type { GoalResult } from "../api/types";
+import type { GoalResult, Reason } from "../api/types";
 import { formatMoney, formatProb, roundDisplay } from "../lib/money";
 import { fmtMonth } from "../lib/months";
 import { StatusPill } from "./StatusPill";
 
 const PRIORITY_LABEL = { must: "Must have", should: "Should have", nice: "Nice to have" } as const;
 
-export function GoalCard({ goal, currency, locale }: { goal: GoalResult; currency: string; locale: string }) {
+/** The goal's "why this mix" reason (PHASE2 1.10): its first reason when that is a `GROWTH_*` one. */
+export function growthReason(reasons: Reason[] | undefined): Reason | null {
+  const r = reasons?.[0];
+  return r && r.code.startsWith("GROWTH_") ? r : null;
+}
+
+export function GoalCard({ goal, currency, locale, reason }: { goal: GoalResult; currency: string; locale: string; reason?: Reason | null }) {
   const m = (v: number) => formatMoney(roundDisplay(v), currency, locale);
   const pct = Math.max(0, Math.min(1, goal.success_probability));
+  const likelyPct = goal.target_real > 0 ? Math.round((goal.p50_real / goal.target_real) * 100) : null;
+  const share = goal.growth_share_now_pct;
+  const cap = goal.growth_cap_now_pct;
+  const hasGrowth = share !== undefined && cap !== undefined;
+  const fmtPct = (v: number) => `${Math.round(v)}%`;
   return (
     <article className="card goal-card" data-testid={`goal-card-${goal.goal_id}`} aria-labelledby={`gc-${goal.goal_id}`}>
       <div className="card-body">
@@ -42,6 +53,36 @@ export function GoalCard({ goal, currency, locale }: { goal: GoalResult; currenc
             <div className="target" style={{ left: `${goal.min_success_probability * 100}%` }} title="Your minimum" />
           </div>
         </div>
+        {likelyPct !== null ? (
+          <div className="small" data-testid={`goal-likely-${goal.goal_id}`}>
+            Likely outcome: about {likelyPct}% of the target
+            <span className="muted"> (in a typical market{likelyPct < 100 && goal.success_probability < goal.min_success_probability ? "; the gap may be smaller than the chance suggests" : ""})</span>
+          </div>
+        ) : null}
+        {hasGrowth ? (
+          <div className="chance" data-testid={`goal-growth-${goal.goal_id}`}>
+            <div className="small">
+              <Term k="growth_assets">Growth assets</Term> now: {fmtPct(share)} (limit {fmtPct(cap)})
+            </div>
+            <div
+              className="chance-bar growth-bar"
+              role="meter"
+              aria-label={`Share of growth assets for ${goal.name} now`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(share)}
+              aria-valuetext={`${fmtPct(share)}, limit ${fmtPct(cap)}`}
+            >
+              <div className="fill" style={{ width: `${Math.max(0, Math.min(100, share))}%` }} />
+              <div className="target" style={{ left: `${Math.max(0, Math.min(100, cap))}%` }} title="Limit for this goal now" />
+            </div>
+          </div>
+        ) : null}
+        {reason ? (
+          <div className="small why-mix" data-testid={`goal-why-${goal.goal_id}`}>
+            <strong>Why this mix:</strong> {reason.message}
+          </div>
+        ) : null}
         <dl className="goal-facts">
           <dt>Target (today's money)</dt>
           <dd>{m(goal.target_real)}</dd>

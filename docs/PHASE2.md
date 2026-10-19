@@ -2081,9 +2081,173 @@ document compatibility, mixed engine versions).
 
 ### 9.P2 Intake backend and duration ranges
 
+2026-10-17 (P2, backend-developer B).
+
+Done: `anthropic==1.15.0` installed in `backend/.venv` and pinned in `requirements.txt` and `pyproject.toml`;
+engine PERT (2.14: `pert_minutes`, `DurationEstimate`, the `Task` rule, `CTask.estimate`, `DurationRisk`,
+exports; replan drops the estimate when `duration_minutes` is updated); package `superplanner.intake` (2.2-2.13);
+API `/api/v1/intake/*` (2.15) with the settings of 2.12 and AI slots on `app.state.intake_ai_slots`.
+Endpoints: `GET /intake/capabilities`; `POST /intake/{schedule,finance}/{describe,answer,build,table/parse,
+table/apply}`. Existing tests are unchanged; `test_engine_explain.py` passes as is.
+
+Interpretations:
+1. `Task.duration_estimate` and `ScheduleExplanation.duration_risk` use `exclude_if=None`, so documents and
+   results without ranges serialise byte for byte as before (old documents round-trip unchanged).
+2. Finance: a debt with neither an EMI nor enough data for the annuity formula raises the required question
+   `FIN_DEBT_EMI` (2.9.2 "otherwise required question"; the code is not in the 2.8 table).
+3. Study durations: 2.7.5 ("missing study durations default 6 hours (question)") wins over the 2.8 table's
+   "2 h"; the `SCHED_TASK_DURATION` default for study is 6 hours.
+4. Retirement and "at age N" goal months are derived from the age wherever the age becomes known (extraction,
+   any answer, build of a client-edited draft); `FIN_GOAL_DATE` is not asked for them, `FIN_AGE` is
+   (required) while the age is unknown. A derived retirement month follows a later age change.
+5. Table rows use `row<k>` keys in both domains (2.3); in finance the index is unique across the five
+   collections, and with `base` it continues after the highest existing `row<k>`. A finance debt row whose name
+   says EMI/instalment (or whose frequency is monthly) stores the amount as `emi`, else as `balance`.
+6. Answering `FIN_INCOME` / `FIN_TAKE_HOME` sets the income frequency to monthly (both prompts ask for the
+   monthly take-home amount; an "18 LPA" income was yearly before).
+7. `TEXT_TOO_LONG` / `TABLE_TOO_LARGE` for over-long `text` come from the request models' `max_length` (a route
+   class maps the Pydantic `string_too_long` error on `body.text` to the documented code with
+   `details.max_chars`); the settings' `intake_max_*_chars` are checked again in the package.
+8. The availability check builds the client once per request and reuses it for the call. Every SDK exception
+   and every response problem becomes a fallback (HTTP 200); merge validation failure discards the AI result
+   (`AI_SCHEMA_MISMATCH`). Unexpected errors log only the exception type name.
+9. `source_quote` lookup is exact first, then case-insensitive with `re.I` on the original text, so offsets stay
+   code points of the submitted text even where `str.lower()` changes a character's length.
+10. Grammar additions beyond 2.7 found while testing: `NAME[, NAME and NAME] will <task>` in a sentence that is
+    not itself a task assigns those people to the named task (and "together"/"both" sets mode `all`); a prose
+    sentence with a then-chain is not split into comma clauses first; the name stemmer also drops a final
+    silent e and a doubled consonant (prepare/preparing, plan/planning); `retirement at age N`; `next year` for
+    goals; continuation clauses of a debt ("..., 180 months left") and of holdings ("... and 3 lakh FD");
+    "must have / would like / wish" as goal cues; "when I'm N" / "at age N" never set the profile age; money
+    multipliers are rounded (1.1 lakh = 110000 exactly). Per-sentence lookups are cached so the 20,000-character
+    adversarial texts stay linear (all < 2 s).
+
+Tests (`backend/tests/intake/`, 293, fake clients only, also green with the G8 environment): `test_engine_pert.py`,
+`test_grammar.py`, `test_schedule_extract.py`, `test_finance_extract.py`, `test_questions_answers.py`,
+`test_schedule_build.py` (incl. `POST /problems` 201 and a solver run `feasible`), `test_finance_build.py`
+(incl. `POST /finance/plans` 201 and a run `feasible`), `test_tables.py`, `test_ai_extractor.py`,
+`test_json_schema.py`, `test_merge.py`, `test_api_intake.py` (status/error codes, capabilities, 1,000,000-char
+limit, 413, DB row counts unchanged, no user text in logs), `test_intake_boundaries.py`. Full backend suite:
+1341 passed.
+
 ### 9.P3a Router upgrade, usability, landing
 
+2026-10-17, steps 1-3 (router, landing, usability). Steps 4 (finance UI 3.4) and 5 (scheduling ranges
+3.5) are not done yet.
+
+- Step 1: `react-router-dom` 6.30.6 replaced by `react-router` 7.18.4 (`npm ls react-router` -> 7.18.4);
+  every import is from `react-router`, `RouterProvider` from `react-router/dom`. Same route table and
+  URLs. `npm audit --omit=dev` and `npm audit`: 0 vulnerabilities.
+- Step 2: `src/landing/` = `kinds.ts` (labels, icons, template ids, terminology, starter resource,
+  `DOMAIN_OF_KIND`), `PlanChooser.tsx`, `KindCard.tsx` (the group with four buttons; shared with
+  `StartPage`), `StartPage.tsx`, `ExamplePage.tsx`, `startPlan.ts` ("Build step by step": empty
+  problem with `domain` from `DOMAIN_OF_KIND`, one working resource, name "My <kind> plan"; money uses
+  `finance/lib/startBlank.ts`, the same call as `fin-start-blank`). `FinanceTemplateCards` extracted from
+  `FinanceHome` with the same test ids. `HomePage`: h1 "What do you want to plan?", h2 "Your plans", the
+  template section is titled "Start from an example" (ids and `#import-file` unchanged). `MainNav` marks
+  Finance active for `/finance*` and `/new/money*` (`isFinancePath`). `main.tsx` adds `new/:kind`,
+  `new/:kind/example` and spreads `intakeRoutes` from the empty stub `src/intake/routes.tsx` (handed to
+  P3b); until P3b lands, `/new/<kind>/describe|import` show NotFound. Checked by hand against the API: an
+  empty study plan is accepted (`POST /problems`, 0 tasks) and lists as "Exam preparation".
+- Step 3: `components/Term.tsx` + `lib/glossary.ts` (all 19 terms of 3.6). Terms placed: scheduling ->
+  KPI "Completion" (makespan), schedule legend (critical chain, soft and hard deadline), task table
+  headers (deadline, "After" = dependency), resource table "Availability" (working time), resources
+  toolbar (resource), dependencies toolbar (critical chain); finance -> lock-in, chance of success,
+  shortfall, today's money, real vs nominal, growth assets, risk level, glide path, cautious return,
+  emergency fund. `expected_duration` and `duration_range` are used by the step 5 range chips. The
+  tooltip button holds only an icon and the tooltip is rendered only while open, so element text used
+  by existing tests does not change; no `Term` sits inside a `<label>` or heading.
+  `errorMessage()` maps `VALIDATION_ERROR` loc paths to form labels ("Task 3, Duration: ...");
+  network failures (fetch error, or 502/503/504 / empty 500 from the dev proxy) give
+  "Cannot reach the server. Check that it is running and try again." with Retry in `ErrorBanner`
+  (`network-error`) and an app-level `server-offline` banner driven by the health poll. Inline
+  validation with `aria-invalid` + `aria-describedby` and a linked error summary on submit in
+  `TemplateCard`; the same attributes in `FinanceTemplateCards` and `DurationInput` (which now shows its
+  message next to the field). `ConfirmDialog` for removing wizard list rows (`ListEditor`); task,
+  resource and plan deletes already used it. Empty states with a primary action: dependencies
+  graph and list, Optimize without tasks, wizard lists.
+- Results: `npm run typecheck` and `npm run build` pass. Full Playwright run: 39 existing tests pass,
+  plus a temporary self-check spec (landing 4 x 4 ids and keyboard activation, study example ->
+  `template-card-exam_prep`, `/new/unknown` -> NotFound, study "Build step by step" ->
+  `domain == "exam_prep"` and "Exam preparation" in the list, money -> `/finance/<id>/setup/profile`,
+  `Term` on focus and Escape, offline banner with Retry). That spec was deleted afterwards, because
+  `landing.spec.ts` belongs to P4.
+- Known flaky existing test, not caused by P3a: `contract.spec.ts:64` "... and Cancel works" sometimes
+  fails because the GA run stops with "No further improvement" after about 0.5 s, before the Cancel
+  click reaches the server ("The run has already finished"). Measured with `--repeat-each`: current
+  tree 3 of 5 failed; current tree without the P3a working-copy edits 4 of 6; current frontend with
+  the backend of 73d7c3f 1 of 5; the untouched pre-phase-2 commit 73d7c3f (react-router 6) 2 of 6.
+  So it is a solver timing race that exists before phase 2, and P3a does not cause it. In the final
+  G5 runs it was the only failure (38 of 39 passed, twice); every other existing test passed each
+  time. Reported to LEAD/P4 for G5/G6 ("0 flaky"). Existing e2e files are not edited.
+
 ### 9.P3b Intake UI
+
+2026-10-17. Built against the 2.15 contract and checked against the in-progress P2 backend (live
+server, rule-based reader; AI was not available, `ai_reason = AI_DISABLED`).
+
+- Files: `src/intake/api/{types,client}.ts` (hand-written mirrors of 2.3-2.5, 2.9, 2.13, 2.15; the calls
+  reuse `finRequest`'s A.14 envelope parsing), `state/IntakeContext.tsx`, `pages/{DescribePage,ImportPage,
+  IntakeShell}.tsx`, `components/{AiAssistToggle,ExtractorBanner,QuestionPanel,QuestionInput,SourceText,
+  ScheduleDraftEditor,FinanceDraftEditor,ConfidenceBadge,ColumnMapper,CreatePlanBar,IntakeReview,
+  LinkedField,StepIndicator,fields}.tsx`, `lib/{codepoints,pert,draft,paths}.ts`, `intake.css`, and
+  `routes.tsx` (`new/:kind/describe`, `new/:kind/import`; unknown kind -> NotFound). `StartPage` and
+  `ExamplePage` stay in `src/landing/` where P3a put them. `package.json` is unchanged.
+- State: `sessionStorage["sp.intake.<kind>"]` holds step, text, table, the last intake response, the build
+  result and the answer history. It is removed on "Create plan" and on Cancel. The AI toggle is
+  component state only, so it is off on every visit. The request context is `today` and `utc_offset`
+  from the browser, `locale` = browser locale if en-IN/en-GB/en-US else en-IN, and `currency` always INR
+  (the finance default), so the money example shows ₹ whatever the browser locale is.
+- Requests: describe, answer, apply and create are foreground requests (one at a time). A describe with
+  AI has a 200 s client timeout and a Stop button (`intake-cancel-request`). Draft edits mark their paths
+  `{"source": "edit", "confidence": 1}` and send one `answer` with no answers after 600 ms. A response
+  is only applied if the draft has not changed since it was sent (revision counter). When no required
+  question is open, the draft is built automatically, so the review shows counts, the PERT note,
+  preflight issues and the finance cash-flow line without an extra click. "Check draft" forces it.
+  "Create plan" is enabled only for a build of the current draft with `ready` true, no required
+  question and no preflight error. Nothing is POSTed to `/problems` or `/finance/plans` before the click.
+- Client-side checks mirror the 422 rules (names, o <= m <= p, amount low <= high, mapping has `name` and
+  no duplicate field). The field is marked inline and no request is sent. Removing a draft item asks for
+  confirmation and also removes references to it (`after`, task `resources`).
+- Spans: offsets are code points (`Array.from`). Where spans nest (task line vs. "2-3 days"), each
+  character goes to the shortest covering span. `mark`s are focusable and labelled. Hover or focus on a
+  mark highlights the `[data-intake-path]` field and scrolls it into view; hover or focus on a field
+  highlights the mark.
+- Import: files are refused in the browser if they are not .csv/.tsv/.txt or are over 1 MiB, with no
+  request. Changing the header checkbox or the delimiter re-parses. `import-row-notes` is always shown in
+  the import review (it says "Every row was read without problems." when empty).
+- Test ids of 3.3 all exist; extras: `intake-ai-unavailable`, `intake-cancel`, `intake-cancel-request`,
+  `intake-start-over`, `intake-edit-text`, `intake-questions-left`, `intake-no-questions`,
+  `intake-build-summary`, `intake-pert-note`, `intake-cashflow`, `intake-notes`, `import-file-error`,
+  `import-map-errors`, `draft-add-task|resource|<list>`. `intake-question-<code>` is the open question
+  bubble only (the input inside it is `intake-question-input`).
+- Also done here (P3a step 5 / 3.5, same role; the P3b-3 range chip depends on it): `api/types.ts`
+  `DurationEstimate`, `Task.duration_estimate?`, `DurationRisk`, `ScheduleExplanation.duration_risk?`.
+  `TaskTable`: range chip `task-range-<id>` ("5h 20m-8h", opens the details). An inline duration edit
+  removes the estimate and shows "Range removed" (`task-range-removed-<id>`), and so does switching to
+  milestone. The details row has "Duration is uncertain" with shortest / most likely / longest, writing
+  `duration_minutes = pertMinutes(o, m, p)`. The schedule `TaskDrawer` is read-only, so it shows the
+  range and the expected duration (`drawer-duration-range`) instead of the edit toggle described in 3.5.
+  `Gantt`: dashed whisker `gantt-range-<id>` up to the longest estimate (approximate: drawn in working
+  minutes, not through closed time), the range in the bar label, and a legend entry when any task has a
+  range. `ScheduleTab`: `duration_risk.message` as its own line (`duration-risk`), not repeated from
+  `summary`.
+- Results: `npx tsc --noEmit` and `npm run build` pass. Checked with a scratch Playwright script against
+  the live API:
+  - Schedule describe with the 2.15 text gives 4 questions. "Use suggestions for all remaining" leaves
+    none, and the review says "23 tasks in 5 steps, 2 people" with the PERT note (172 h, 160-184 h).
+  - Create leads to `/plans/<id>/tasks`, which shows "Gather requirements (1/3)" and 7 range chips. No
+    `sp.intake.*` key is left.
+  - Editing a range, and an inline duration edit, both save (PUT accepted, expected value matches). The
+    schedule shows `duration_risk` and 6 whiskers.
+  - Finance describe gives "About ₹89,200 left each month in the first year". Create leads to
+    `/finance/<id>/setup/review`.
+  - Pasting the TSV gives the suggested mapping name/duration/predecessors/resources/deadline. Ignoring
+    one column and applying gives `row0..row2`.
+  - A file over 1 MB is refused with 0 requests, and the quoted CSV upload works.
+  - Spans are highlighted both ways.
+  - Full Playwright suite: 38 of 39 pass. The one failure is the known flaky
+    `contract.spec.ts:64` (9.P3a). No e2e file was added or edited.
 
 ### 9.P4 Testing
 

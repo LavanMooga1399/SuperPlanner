@@ -231,6 +231,8 @@ def apply_finance_rows(req: TableApply, ctx: ExtractContext, base: FinanceDraft 
         draft.profile.locale = ctx.locale
     notes: list[IntakeNote] = []
     prov = draft.provenance
+    start = _next_row_index({x.key for c in ("incomes", "expenses", "debts", "holdings", "goals")
+                             for x in getattr(draft, c)})
     for i, row in enumerate(data):
         n = i + 1
         cell = lambda f: row[fmap[f]].strip() if f in fmap else ""  # noqa: E731
@@ -267,25 +269,24 @@ def apply_finance_rows(req: TableApply, ctx: ExtractContext, base: FinanceDraft 
             freq = frequency_anywhere(amt_cell)
         freq = freq or req.options.amount_frequency
         coll = {"income": "incomes", "expense": "expenses", "goal": "goals", "debt": "debts", "holding": "holdings"}[kind]
-        prefix = {"income": "i", "expense": "e", "goal": "g", "debt": "d", "holding": "h"}[kind]
         items = getattr(draft, coll)
         limit = {"incomes": 20, "expenses": 100, "goals": 12, "debts": 20, "holdings": 50}[coll]
         if len(items) >= limit:
             notes.append(_row_note(n, f"the plan already has the most {coll} allowed, so the row was skipped."))
             continue
-        keys = {x.key for x in items}
-        k = len(items) + 1
-        while f"{prefix}{k}" in keys:
-            k += 1
-        key = f"{prefix}{k}"
+        key = f"row{start + i}"           # table rows use row<k> keys (2.3), unique across the collections
         base_path = f"/{coll}/{key}"
         prov[f"{base_path}/name"] = _prov(i, fmap["name"])
         if "row_kind" in fmap or kconf < 0.95:
             prov[f"{base_path}/kind"] = Provenance(source="table", confidence=kconf,
                                                    cell=CellRef(row=i, column=fmap.get("row_kind", fmap["name"])))
+        # a debt row's bare amount is its monthly payment when the name or frequency says so ("Car loan EMI")
+        debt_amount_is_emi = kind == "debt" and (bool(re.search(r"\b(?:emi|instal?lment|monthly payment)\b", name,
+                                                                re.I)) or (freq_cell != "" and freq == "monthly"))
         if amount is not None:
-            prov[f"{base_path}/{'target' if kind == 'goal' else 'amount' if kind != 'debt' else 'balance'}"] = \
-                _prov(i, fmap["amount"])
+            field_name = ("target" if kind == "goal" else "amount" if kind != "debt"
+                          else "emi" if debt_amount_is_emi else "balance")
+            prov[f"{base_path}/{field_name}"] = _prov(i, fmap["amount"])
         if kind == "income":
             items.append(DraftIncome(key=key, name=name[:200], amount=amount, frequency=freq))  # type: ignore
         elif kind == "expense":
@@ -327,9 +328,10 @@ def apply_finance_rows(req: TableApply, ctx: ExtractContext, base: FinanceDraft 
                 rate = None
             emi = parse_money_text(cell("emi")) if cell("emi") else None
             bal = parse_money_text(cell("balance")) if cell("balance") else None
-            balance = DraftAmount(low=bal[0], high=bal[1]) if bal else amount
+            balance = DraftAmount(low=bal[0], high=bal[1]) if bal else (None if debt_amount_is_emi else amount)
+            emi_amt = DraftAmount(low=emi[0], high=emi[1]) if emi else (amount if debt_amount_is_emi else None)
             items.append(DraftDebt(key=key, name=name[:200], kind=dk, balance=balance,  # type: ignore[arg-type]
-                                   interest_rate_pct=rate, emi=DraftAmount(low=emi[0], high=emi[1]) if emi else None))
+                                   interest_rate_pct=rate, emi=emi_amt))
         else:
             cls = None
             src = cell("asset_class") or name

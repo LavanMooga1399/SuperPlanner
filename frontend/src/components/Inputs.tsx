@@ -23,6 +23,7 @@ export function DurationInput({
 }) {
   const [text, setText] = useState(fmtDuration(value));
   const [invalid, setInvalid] = useState(false);
+  const errId = `dur-err-${useId()}`;
   useEffect(() => setText(fmtDuration(value)), [value]);
   const commit = () => {
     const v = parseDuration(text);
@@ -34,7 +35,8 @@ export function DurationInput({
     if (v !== value) onChange(v);
     else setText(fmtDuration(value));
   };
-  return (
+  const message = `Enter a duration such as 90, 1h 30m or 2d (at least ${min} min)`;
+  const input = (
     <input
       id={id}
       className={className}
@@ -42,7 +44,8 @@ export function DurationInput({
       value={text}
       aria-label={label}
       aria-invalid={invalid}
-      title={invalid ? `Enter a duration such as 90, 1h 30m or 2d (at least ${min} min)` : `${value} minutes`}
+      aria-describedby={invalid ? errId : undefined}
+      title={invalid ? message : `${value} minutes`}
       disabled={disabled}
       onChange={(e) => {
         setText(e.target.value);
@@ -54,6 +57,15 @@ export function DurationInput({
         if (e.key === "Escape") setText(fmtDuration(value));
       }}
     />
+  );
+  if (!invalid) return input;
+  return (
+    <span className="col" style={{ gap: 2, alignItems: "flex-start" }}>
+      {input}
+      <span id={errId} className="field-error" role="alert">
+        <Icon name="alert" size={12} /> {message}
+      </span>
+    </span>
   );
 }
 

@@ -1,6 +1,9 @@
+import type { ReactNode } from "react";
 import type { Metrics, Schedule } from "../api/types";
+import type { GlossaryKey } from "../lib/glossary";
 import type { Terms } from "../lib/terms";
 import { fmtDuration, fmtMinute, fmtMoney } from "../lib/time";
+import { Term } from "./Term";
 
 export function avgUtilization(m: Metrics | null): number | null {
   if (!m) return null;
@@ -12,9 +15,10 @@ export function avgUtilization(m: Metrics | null): number | null {
 export function KpiCards({ schedule, terms, currency }: { schedule: Schedule; terms: Terms; currency: string }) {
   const m = schedule.metrics;
   const util = avgUtilization(m);
-  const cards = [
+  const cards: { label: string; term?: GlossaryKey; value: ReactNode; sub: string; tone?: string }[] = [
     {
       label: "Completion",
+      term: "makespan",
       value: m ? fmtMinute(m.makespan_minutes, schedule.horizon_start) : "-",
       sub: m ? `${fmtDuration(m.makespan_minutes)} after the plan start` : "",
     },
@@ -47,7 +51,10 @@ export function KpiCards({ schedule, terms, currency }: { schedule: Schedule; te
     <div className="kpis" data-testid="kpi-cards">
       {cards.map((c) => (
         <div className="card kpi" key={c.label}>
-          <div className="kpi-label">{c.label}</div>
+          <div className="kpi-label">
+            {c.label}
+            {c.term ? <Term k={c.term} bare /> : null}
+          </div>
           <div className="kpi-value" style={c.tone ? { color: c.tone } : undefined}>
             {c.value}
           </div>

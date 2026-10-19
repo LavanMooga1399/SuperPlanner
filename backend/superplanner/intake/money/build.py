@@ -34,7 +34,11 @@ def annuity_emi(balance: float, rate_pct: float, months: int) -> float:
 
 def build_finance_plan(draft: FinanceDraft, ctx: ExtractContext, *, source: str = "describe",
                        extractor: str = "rule") -> tuple[FinanceBuildResult, list[IntakeNote]]:
+    from .answers import recompute_age_months
+
     notes: list[IntakeNote] = []
+    draft = draft.model_copy(deep=True)
+    recompute_age_months(draft, ctx)        # a client-edited age still dates retirement / "at age N" goals
     blocking = [q for q in questions(draft, ctx) if q.required]
     if blocking:
         return FinanceBuildResult(ready=False, plan=None, preflight=None, cashflow=None, blocking=blocking), notes

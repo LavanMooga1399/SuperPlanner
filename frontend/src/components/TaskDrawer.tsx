@@ -5,6 +5,7 @@ import type { Terms } from "../lib/terms";
 import { fmtDuration, fmtIso, isoToMs, offsetMinutesOf } from "../lib/time";
 import { Icon, type IconName } from "./Icon";
 import { StatusBadge } from "./StatusBadge";
+import { Term } from "./Term";
 
 const REASON_ICON: Record<StartReasonCode, IconName> = {
   LOCKED: "lock",
@@ -88,6 +89,18 @@ export function TaskDrawer({
           <dd>{fmtIso(placement.end_at, off)}</dd>
           <dt>Duration</dt>
           <dd>{fmtDuration(placement.end - placement.start)}</dd>
+          {task?.duration_estimate && task.type !== "milestone" ? (
+            <>
+              <dt>
+                Duration range <Term k="duration_range" bare />
+              </dt>
+              <dd data-testid="drawer-duration-range">
+                {fmtDuration(task.duration_estimate.optimistic_minutes)} to {fmtDuration(task.duration_estimate.pessimistic_minutes)}, most likely{" "}
+                {fmtDuration(task.duration_estimate.likely_minutes)}; planned with the{" "}
+                <Term k="expected_duration">expected duration</Term> {fmtDuration(task.duration_minutes)}
+              </dd>
+            </>
+          ) : null}
           <dt>{terms.resources}</dt>
           <dd>{placement.resource_ids.length ? placement.resource_ids.map(resName).join(", ") : <span className="faint">none</span>}</dd>
           {task?.deadline ? (
