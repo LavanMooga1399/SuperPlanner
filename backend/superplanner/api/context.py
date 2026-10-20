@@ -43,6 +43,8 @@ class AppContext:
         self._jobs: Any = None
         self._started = False
         self._start_lock = threading.Lock()
+        self._prune_thread: threading.Thread | None = None
+        self._prune_stop = threading.Event()
 
     def write_guard(self) -> ContextManager[Any]:
         """SQLite: the process-wide RLock (unchanged behaviour). PostgreSQL: no-op (row locks + indexes)."""
@@ -52,8 +54,9 @@ class AppContext:
         """Idempotent: schema (create/upgrade), local user, recovery, job backend (PHASE2B 2.2).
 
         inline: interrupted runs -> failed (+ their jobs), executor + `InlineQueue`.
-        queue:  the API never fails runs that have a job (workers own them); only orphan runs without a job row
-                are failed. `PgQueue` with optional embedded worker threads (`WORKER_EMBEDDED`)."""
+        queue:  the API never fails runs whose job holds a queue lease (workers own them); orphan runs without a
+                job row, and jobs left `running` with no lease expiry by a dead inline-backend process, are failed
+                (`common.queue_start_recovery`). `PgQueue` with optional embedded worker threads (`WORKER_EMBEDDED`)."""
         with self._start_lock:
             if self._started:
                 return
@@ -66,7 +69,7 @@ class AppContext:
                     from superplanner.jobs import common
                     from superplanner.jobs.pg import PgQueue
 
-                    common.fail_orphan_runs(self)
+                    common.queue_start_recovery(self)
                     jobs: Any = PgQueue(self)
                 else:
                     from superplanner.jobs.inline import InlineQueue
@@ -78,10 +81,44 @@ class AppContext:
                     finance_run_service.recover_interrupted_runs(self)
                     self._executor = RunExecutor(self.settings.run_workers)
                     jobs = InlineQueue(self)
+                    if self.settings.auth_mode == "accounts":
+                        self._start_auth_prune()
                 self._jobs = jobs
                 self._started = True
                 _LIVE.add(self)
                 jobs.start()
+
+    def _start_auth_prune(self) -> None:
+        """Inline backend + accounts: nothing else prunes sessions / rate-limit buckets (queue mode: worker
+        maintenance), so a daemon thread does it every AUTH_PRUNE_INTERVAL_SECONDS (fix round)."""
+        self._prune_stop = threading.Event()
+        t = threading.Thread(target=self._auth_prune_loop, args=(self._prune_stop,), name="sp-auth-prune",
+                             daemon=True)
+        self._prune_thread = t
+        t.start()
+
+    def _auth_prune_loop(self, stop: threading.Event) -> None:
+        from datetime import UTC, datetime
+
+        from .auth.maintenance import prune_auth_tables
+
+        interval = float(self.settings.auth_prune_interval_seconds)
+        while not stop.wait(interval):
+            try:
+                with system_scope(), self.db.write() as s:
+                    counts = prune_auth_tables(s, datetime.now(UTC))
+                if any(counts.values()):
+                    log.info("auth prune: %s", ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+            except Exception:
+                if stop.is_set():
+                    return
+                log.warning("auth prune failed; retrying in %.0f s", interval, exc_info=True)
+
+    def _stop_auth_prune(self) -> None:
+        t, self._prune_thread = self._prune_thread, None
+        self._prune_stop.set()
+        if t is not None:
+            t.join(timeout=10)
 
     @property
     def is_queue(self) -> bool:
@@ -111,6 +148,7 @@ class AppContext:
             jobs.stop(self.settings.worker_shutdown_grace_seconds)
         if executor is not None:
             executor.shutdown()
+        self._stop_auth_prune()
         with self._start_lock:
             self._jobs = None
             self._executor = None

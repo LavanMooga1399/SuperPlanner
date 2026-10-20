@@ -56,10 +56,12 @@ def hit(s: Session, bucket: str, limit: int, window: timedelta, now: datetime | 
 
 def hit_all(s: Session, buckets: list[tuple[str, int, timedelta]],
             now: datetime | None = None) -> tuple[bool, int]:
-    """Count a hit in every bucket (all must allow). Returns (allowed, the longest retry_after)."""
-    allowed, retry = True, 0
+    """Count a hit in each bucket, in order, until one denies (all must allow). Returns (allowed, retry_after).
+
+    Buckets after a denying one are not touched (fix round): a client blocked by its IP bucket must not create a
+    new per-email row per request. So list the broad bucket (IP) first."""
     for bucket, limit, window in buckets:
         ok, r = hit(s, bucket, limit, window, now)
         if not ok:
-            allowed, retry = False, max(retry, r)
-    return allowed, retry
+            return False, r
+    return True, 0

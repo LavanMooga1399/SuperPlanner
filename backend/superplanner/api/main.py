@@ -27,6 +27,8 @@ from superplanner import engine
 from superplanner.obs.logging import configure_logging
 from superplanner.obs.request_context import RequestContextMiddleware
 
+from .auth import body_gate
+from .auth import passwords
 from .auth import router as auth_router
 from .auth.deps import require_user
 from .config import ConfigError, Settings
@@ -68,11 +70,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                        expose_headers=EXPOSE_HEADERS)
     app.add_middleware(RequestContextMiddleware)
     install_handlers(app)
+    passwords.configure_hash_slots(settings.hash_concurrency, settings.auth_hash_wait_seconds)   # per process
     app.include_router(health.router, prefix=API_PREFIX)
     app.include_router(auth_router.router, prefix=API_PREFIX)   # auth routes resolve the session themselves
-    for r in (templates.router, problems.router, solver_runs.router, schedules.router, finance_router.router,
-              intake_router.router):
+    protected = (templates.router, problems.router, solver_runs.router, schedules.router, finance_router.router,
+                 intake_router.router)
+    for r in protected:
         app.include_router(r, prefix=API_PREFIX, dependencies=[Depends(require_user)])
+    body_gate.install(app, protected)   # 401/403 before 422 also for unparseable JSON bodies
     if settings.metrics_enabled:
         app.include_router(metrics.router)   # root, outside /api/v1 (B 5.4)
     intake_service.install(app, settings)   # per-app AI concurrency slots (PHASE2 2.10)

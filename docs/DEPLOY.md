@@ -110,7 +110,12 @@ docker compose ps           # postgres healthy, migrate exited 0, api/worker hea
 | `worker` | backend `worker` target | `python -m superplanner.worker`, `WORKER_REPLICAS` replicas (default 2), metrics :9101 |
 | `frontend` | `frontend/Dockerfile` | nginx-unprivileged on :8080 (published as `HTTP_PORT`), serves the SPA, proxies `/api/` |
 
-All images run as non-root users (backend uid 10001, nginx uid 101).
+All images run as non-root users (backend uid 10001, nginx uid 101). The backend code under `/app` is owned by root,
+so the runtime user cannot change it. The images install only the runtime dependencies (`backend/requirements-runtime.txt`,
+the same pins as `pyproject.toml`); pytest and httpx are left out (`backend/requirements.txt` adds them for development).
+The `migrate`, `api` and `worker` services run with `read_only: true`, `cap_drop: [ALL]`,
+`no-new-privileges:true` and a 64 MiB tmpfs on `/tmp`. Nothing writes under `/app` at runtime, because the
+database is PostgreSQL. If you build a derived image that needs a writable directory, mount a volume or tmpfs there.
 
 **TLS** is terminated by your reverse proxy or load balancer in front of `HTTP_PORT`. `COOKIE_SECURE=true` (the
 production default) means the browser only sends the session cookie over https. If that proxy forwards client IPs,
@@ -165,7 +170,9 @@ defaults (shown as "dev / prod" below).
 | `COOKIE_SECURE` | false / true | `Secure` cookie (`__Host-sp_session`) |
 | `PUBLIC_BASE_URL` | `http://127.0.0.1:5173` / required with accounts | browser origin; used by the Origin check |
 | `PASSWORD_HASH_PROFILE` | `default` | `fast` is for tests only and is refused in production |
-| `AUTH_RATE_LIMIT_ENABLED`, `AUTH_SIGNIN_LIMIT_PER_IP`, `AUTH_SIGNIN_LIMIT_PER_EMAIL`, `AUTH_SIGNUP_LIMIT_PER_IP`, `AUTH_CHANGE_PASSWORD_LIMIT_PER_USER` | true, 30, 10, 5, 10 | auth rate limits (per 5 min / hour / 15 min) |
+| `AUTH_RATE_LIMIT_ENABLED`, `AUTH_SIGNIN_LIMIT_PER_IP`, `AUTH_SIGNIN_LIMIT_PER_EMAIL`, `AUTH_SIGNUP_LIMIT_PER_IP`, `AUTH_CHANGE_PASSWORD_LIMIT_PER_USER` | true, 30, 10, 5, 10 | auth rate limits (per 5 min / hour / 15 min); the per-IP sign-in bucket is checked first, so a blocked IP does not touch per-email buckets |
+| `AUTH_HASH_CONCURRENCY`, `AUTH_HASH_WAIT_SECONDS` | 0 (= max(1, CPUs / 2)), 1 | password hashes (argon2id, 64 MiB each with the `default` profile) running at once per API process; a request that waits longer than the wait time for a slot gets `429 RATE_LIMITED` with `Retry-After`. Peak hashing memory per process is about `AUTH_HASH_CONCURRENCY` x 64 MiB |
+| `AUTH_PRUNE_INTERVAL_SECONDS` | 600 | `JOB_BACKEND=inline` with accounts only: how often the API deletes expired sessions and stale rate-limit buckets (in queue mode the workers' maintenance does it) |
 | `CORS_ORIGINS` | four localhost dev origins / empty | comma list; `*` is refused in accounts mode |
 | `TRUSTED_PROXY_CIDRS` | unset | external load balancer addresses (nginx `set_real_ip_from`) |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` (compose: internal subnet) | who uvicorn trusts for `X-Forwarded-For`; never `*` |

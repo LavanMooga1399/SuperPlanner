@@ -3,6 +3,8 @@
 #   docker build -f backend/Dockerfile --target api    -t superplanner-api    backend
 #   docker build -f backend/Dockerfile --target worker -t superplanner-worker backend
 # Both targets run as the non-root user "sp" (uid 10001). SP_ENV=production and LOG_FORMAT=json are image defaults.
+# /app stays owned by root (read-only for uid 10001): nothing at runtime writes under /app, so a file-write bug in
+# the API cannot change the application code. Only runtime dependencies are installed (no pytest/httpx extras).
 
 FROM python:3.13-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,13 +14,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     SP_ENV=production \
     LOG_FORMAT=json
 WORKDIR /app
-COPY requirements.txt ./
-RUN pip install -r requirements.txt \
+COPY requirements-runtime.txt ./
+RUN pip install -r requirements-runtime.txt \
  && groupadd --gid 10001 sp \
  && useradd --uid 10001 --gid sp --no-create-home --home-dir /app --shell /usr/sbin/nologin sp
 COPY alembic.ini pyproject.toml ./
 COPY superplanner/ ./superplanner/
-RUN python -m compileall -q superplanner && chown -R 10001:10001 /app
+RUN python -m compileall -q superplanner
 USER 10001:10001
 
 # ---------------------------------------------------------------- API

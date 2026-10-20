@@ -121,7 +121,7 @@ def _downgrade(conn: Connection, target: str) -> None:
 def _migration_engine(url: str) -> Engine:
     url = normalize_database_url(url)
     if url.startswith("sqlite"):
-        eng = create_engine(url, poolclass=pool.NullPool, connect_args={"timeout": 60})
+        eng = create_engine(url, poolclass=pool.NullPool, hide_parameters=True, connect_args={"timeout": 60})
 
         @event.listens_for(eng, "connect")
         def _on_connect(dbapi_conn, _rec):  # noqa: ANN001
@@ -136,7 +136,7 @@ def _migration_engine(url: str) -> Engine:
             conn.exec_driver_sql("BEGIN IMMEDIATE")
 
         return eng
-    return create_engine(url, poolclass=pool.NullPool,
+    return create_engine(url, poolclass=pool.NullPool, hide_parameters=True,
                          connect_args={"options": "-c statement_timeout=0 -c lock_timeout=60s",
                                        "application_name": "superplanner-migrate"})
 

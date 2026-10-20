@@ -45,7 +45,7 @@ def run_migrations_online() -> None:
             context.run_migrations()
         return
     url = _url()
-    engine = create_engine(url, poolclass=pool.NullPool)
+    engine = create_engine(url, poolclass=pool.NullPool, hide_parameters=True)
     if url.startswith("sqlite"):
         # Plain `alembic` CLI on SQLite: never run batch table rebuilds with foreign keys ON (review R1).
         from sqlalchemy import event

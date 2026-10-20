@@ -2,7 +2,9 @@
 
 Included without `require_user`: these routes resolve the session themselves. Gates run as dependencies so the
 mode (409 `AUTH_DISABLED`), Origin/CSRF (403) and session (401) checks answer before body validation (422).
-Rate limits (4.6) are committed in their own transaction before any password is verified.
+Rate limits (4.6) are committed in their own transaction before any password is verified. Every argon2 operation
+holds a process-wide hash slot (`passwords`); when none frees up in time the endpoint answers 429 `RATE_LIMITED`
+with `Retry-After` (fix round: bounded memory and request threads under parallel sign-in floods).
 """
 
 from __future__ import annotations
@@ -41,6 +43,11 @@ def auth_disabled() -> ApiError:
 def rate_limited(retry_after: int) -> ApiError:
     return ApiError(429, "RATE_LIMITED", "Too many attempts. Try again later.",
                     {"retry_after_seconds": retry_after}, headers={"Retry-After": str(retry_after)})
+
+
+def hash_busy(exc: passwords.HashBusy) -> ApiError:
+    log.warning("auth.hash_busy retry_after=%s", exc.retry_after)
+    return rate_limited(exc.retry_after)
 
 
 def weak_password(reasons: list[str]) -> ApiError:
@@ -148,9 +155,15 @@ def sign_up(body: SignUpIn, request: Request, response: Response,
     reasons = passwords.policy_reasons(body.password, body.email)
     if reasons:
         raise weak_password(reasons)
-    pw_hash = passwords.hash_password(body.password, st.password_hash_profile)
-    now = datetime.now(UTC)
     email_taken = ApiError(409, "EMAIL_TAKEN", "An account with this email already exists.")
+    with system_scope(), ctx.db.read() as s:   # cheap check first: no hash work for a taken email
+        if s.scalar(select(UserRow.id).where(UserRow.email == body.email)) is not None:
+            raise email_taken
+    try:
+        pw_hash = passwords.hash_password(body.password, st.password_hash_profile)
+    except passwords.HashBusy as exc:
+        raise hash_busy(exc) from None
+    now = datetime.now(UTC)
     try:
         with system_scope(), ctx.db.write() as s:
             if s.scalar(select(UserRow.id).where(UserRow.email == body.email)) is not None:
@@ -179,15 +192,18 @@ def sign_in(body: SignInIn, request: Request, response: Response,
     with system_scope(), ctx.db.read() as s:
         found = s.execute(select(UserRow.id, UserRow.password_hash, UserRow.disabled, UserRow.is_local)
                           .where(UserRow.email == body.email)).first()
-    if found is None or not found.password_hash or found.disabled or found.is_local:
-        ok = passwords.verify_dummy(body.password, profile)   # same work as a real verification
-    else:
-        ok = passwords.verify_password(found.password_hash, body.password, profile)
-    if not ok or found is None:
-        log.info("auth.sign_in_failed")
-        raise ApiError(401, "INVALID_CREDENTIALS", INVALID_CREDENTIALS_MESSAGE)
-    new_hash = (passwords.hash_password(body.password, profile)
-                if passwords.needs_rehash(found.password_hash, profile) else None)
+    try:
+        if found is None or not found.password_hash or found.disabled or found.is_local:
+            ok = passwords.verify_dummy(body.password, profile)   # same work as a real verification
+        else:
+            ok = passwords.verify_password(found.password_hash, body.password, profile)
+        if not ok or found is None:
+            log.info("auth.sign_in_failed")
+            raise ApiError(401, "INVALID_CREDENTIALS", INVALID_CREDENTIALS_MESSAGE)
+        new_hash = (passwords.hash_password(body.password, profile)
+                    if passwords.needs_rehash(found.password_hash, profile) else None)
+    except passwords.HashBusy as exc:
+        raise hash_busy(exc) from None
     now = datetime.now(UTC)
     with system_scope(), ctx.db.write() as s:
         u = s.get(UserRow, found.id)
@@ -228,12 +244,15 @@ def change_password(body: ChangePasswordIn, request: Request, response: Response
         found = s.execute(select(UserRow.password_hash, UserRow.email).where(UserRow.id == v.user_id)).first()
     if found is None or not found.password_hash:
         raise auth_required()
-    if not passwords.verify_password(found.password_hash, body.current_password, profile):
-        raise ApiError(422, "WRONG_PASSWORD", "The current password is not correct.")
-    reasons = passwords.policy_reasons(body.new_password, found.email)
-    if reasons:
-        raise weak_password(reasons)
-    new_hash = passwords.hash_password(body.new_password, profile)
+    try:
+        if not passwords.verify_password(found.password_hash, body.current_password, profile):
+            raise ApiError(422, "WRONG_PASSWORD", "The current password is not correct.")
+        reasons = passwords.policy_reasons(body.new_password, found.email)
+        if reasons:
+            raise weak_password(reasons)
+        new_hash = passwords.hash_password(body.new_password, profile)
+    except passwords.HashBusy as exc:
+        raise hash_busy(exc) from None
     now = datetime.now(UTC)
     with system_scope(), ctx.db.write() as s:
         u = s.get(UserRow, v.user_id)

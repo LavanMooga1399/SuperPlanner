@@ -243,6 +243,53 @@ def fail_orphan_runs(ctx: Any) -> int:
     return n
 
 
+def fail_inline_leftovers(ctx: Any) -> int:
+    """Queue-mode startup: `running` jobs without a lease expiry -> failed with RESTART_ERROR (+ their runs).
+
+    Only the inline backend writes `status='running'` with `lease_expires_at = NULL` (`lease_owner = 'inline:<pid>'`).
+    Such a job is left behind when an inline process on this database died mid-run (kill -9, closed console). The
+    reaper never selects it (`NULL < now()` is not true), `fail_orphan_runs` skips it (it has a job row) and no
+    worker can claim it, so its run would stay active forever and block new runs (one-active-run index). Inline
+    restart recovery fails such runs too, so the outcome matches. Mixing an inline and a queue process on one
+    database at the same time is not supported; this assumes the inline process is gone.
+    """
+    from ..api.db import JobRow, utcnow
+    from ..api.db.ownership import system_scope
+
+    n = 0
+    with system_scope():
+        with ctx.db.read() as s:
+            rows = s.execute(select(JobRow.id, JobRow.kind, JobRow.solver_run_id, JobRow.finance_run_id)
+                             .where(JobRow.status == "running", JobRow.lease_expires_at.is_(None))).all()
+        for row in rows:
+            run_id = row.solver_run_id if row.kind == "solver_run" else row.finance_run_id
+            with ctx.write_guard(), ctx.db.write() as s:
+                run = lock_run(s, row.kind, run_id) if run_id else None
+                job = s.get(JobRow, row.id, with_for_update=True)
+                if job is None or job.status != "running" or job.lease_expires_at is not None:
+                    continue   # finished or claimed meanwhile
+                wall = utcnow()
+                if run is not None and run.status in ACTIVE_RUN_STATUSES:
+                    run.status = "failed"
+                    run.error = RESTART_ERROR
+                    run.finished_at = wall
+                    add_run_event(row.kind, s, run.id, "run_failed", {"error": RESTART_ERROR})
+                    status = "failed"
+                else:
+                    status = RUN_TO_JOB_STATUS.get(run.status, "failed") if run is not None else "failed"
+                _set(s, job, status=status, finished_at=wall, last_error=RESTART_ERROR, lease_token=None,
+                     lease_expires_at=None, updated_at=wall)
+                n += 1
+    if n:
+        log.info("failed %d job(s) left running by an inline-backend process", n)
+    return n
+
+
+def queue_start_recovery(ctx: Any) -> dict[str, int]:
+    """Queue-mode startup (API `AppContext.start` and `superplanner.worker`): inline leftovers, then orphan runs."""
+    return {"inline_leftovers": fail_inline_leftovers(ctx), "orphan_runs": fail_orphan_runs(ctx)}
+
+
 def job_for_run(s: Session, kind: str, run_id: str) -> Any:
     from ..api.db import JobRow
 

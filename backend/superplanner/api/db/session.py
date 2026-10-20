@@ -31,7 +31,9 @@ class Database:
         self.url = url
         self.is_sqlite = url.startswith("sqlite")
         self.is_postgres = is_postgres_url(url)
-        kwargs: dict[str, Any] = {}
+        # Bound values (password hashes, session/CSRF tokens, emails) must never reach the error log: without this,
+        # every StatementError text carries `[parameters: (...)]` (fix round).
+        kwargs: dict[str, Any] = {"hide_parameters": True}
         if self.is_sqlite:
             kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
         elif self.is_postgres:

@@ -26,6 +26,7 @@ include = ["superplanner*"]
 
 [tool.setuptools.package-data]
 "superplanner.migrations" = ["script.py.mako"]
+"superplanner.api.auth" = ["common_passwords.txt"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

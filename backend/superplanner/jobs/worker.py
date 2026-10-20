@@ -550,7 +550,7 @@ def main(argv: list[str] | None = None) -> int:
     install_ownership(db, single_user=settings.single_user)
     wctx = WorkerContext(settings, db)
     with system_scope():
-        common.fail_orphan_runs(wctx)
+        common.queue_start_recovery(wctx)
 
     port = settings.worker_metrics_port if args.metrics_port is None else args.metrics_port
     if port:

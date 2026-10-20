@@ -240,6 +240,11 @@ class Settings:
     auth_signup_limit_per_ip: int = field(default_factory=_int("AUTH_SIGNUP_LIMIT_PER_IP", 5, 1))
     auth_change_password_limit_per_user: int = field(
         default_factory=_int("AUTH_CHANGE_PASSWORD_LIMIT_PER_USER", 10, 1))
+    # Process-wide argon2 slots (0 = max(1, cpu_count // 2)); a request waits at most AUTH_HASH_WAIT_SECONDS, then 429.
+    auth_hash_concurrency: int = field(default_factory=_int("AUTH_HASH_CONCURRENCY", 0, 0))
+    auth_hash_wait_seconds: float = field(default_factory=_float("AUTH_HASH_WAIT_SECONDS", 1.0))
+    # Inline job backend only (no worker maintenance): how often the API prunes sessions / rate-limit buckets.
+    auth_prune_interval_seconds: float = field(default_factory=_float("AUTH_PRUNE_INTERVAL_SECONDS", 600.0))
     trusted_proxy_cidrs: str | None = field(default_factory=_str("TRUSTED_PROXY_CIDRS"))
     forwarded_allow_ips: str = field(default_factory=lambda: _env("FORWARDED_ALLOW_IPS") or "127.0.0.1")
 
@@ -356,6 +361,15 @@ class Settings:
     @property
     def cors_allow_credentials(self) -> bool:
         return self.auth_mode == "accounts"
+
+    @property
+    def hash_concurrency(self) -> int:
+        """Effective number of argon2 hash slots per process (`AUTH_HASH_CONCURRENCY`, 0 = auto)."""
+        if self.auth_hash_concurrency and self.auth_hash_concurrency > 0:
+            return int(self.auth_hash_concurrency)
+        from .auth.passwords import default_hash_concurrency
+
+        return default_hash_concurrency()
 
     @property
     def embedded_workers(self) -> int:

@@ -16,6 +16,14 @@ x-backend-env: &backend-env
   JOB_BACKEND: queue
   LOG_FORMAT: ${LOG_FORMAT:-json}
 
+# Backend containers (migrate, api, worker): read-only root filesystem (the code under /app is root-owned and
+# never written at runtime), no Linux capabilities, no privilege escalation; /tmp is a small tmpfs.
+x-backend-hardening: &backend-hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+
 x-backend-build: &backend-build
   context: ./backend
   dockerfile: Dockerfile
@@ -41,6 +49,7 @@ services:
     # ports: ["5432:5432"]   # debugging only - never expose the database publicly
 
   migrate:
+    <<: *backend-hardening
     build:
       <<: *backend-build
       target: api
@@ -58,6 +67,7 @@ services:
     networks: [backend]
 
   api:
+    <<: *backend-hardening
     build:
       <<: *backend-build
       target: api
@@ -86,6 +96,7 @@ services:
     networks: [backend]
 
   worker:
+    <<: *backend-hardening
     build:
       <<: *backend-build
       target: worker

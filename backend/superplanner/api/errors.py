@@ -67,7 +67,14 @@ def install_handlers(app: FastAPI) -> None:
                             headers=exc.headers)
 
     @app.exception_handler(RequestValidationError)
-    async def _request_validation(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def _request_validation(request: Request, exc: RequestValidationError) -> JSONResponse:
+        # Unparseable JSON is decoded before dependencies run: answer the auth gates' error first (401/403).
+        gate = getattr(request.app.state, "unparsed_body_gate", None)
+        if gate is not None and any(e.get("type") == "json_invalid" for e in exc.errors()):
+            try:
+                await gate(request)
+            except ApiError as auth_exc:
+                return await _api_error(request, auth_exc)
         return JSONResponse(envelope("VALIDATION_ERROR", "The request is not valid.",
                                      validation_details(list(exc.errors()))), status_code=422)
 
