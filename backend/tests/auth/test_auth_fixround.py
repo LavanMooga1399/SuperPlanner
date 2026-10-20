@@ -315,3 +315,40 @@ def test_prune_thread_stops_with_the_app(db_url):
     time.sleep(0.3)
     ctx = app.state.ctx
     assert ctx._prune_thread is None
+
+
+# ---------------------------------------------------------------- final fix round (main loop)
+
+def test_cold_dummy_hash_is_computed_once_inside_the_slots(monkeypatch):
+    """A burst of unknown-email sign-ins right after start must not run one unbounded hash per thread."""
+    fake = _SlowHasher(0.1)
+    monkeypatch.setattr(passwords, "hasher", lambda profile="default": fake)
+    monkeypatch.setattr(passwords, "_dummy_hashes", {})
+    passwords.configure_hash_slots(2, 30.0)
+    try:
+        threads = [threading.Thread(target=passwords.verify_dummy, args=("x" * 12,)) for _ in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    finally:
+        passwords.configure_hash_slots(None, None)
+    assert fake.peak <= 2
+    assert fake.calls == 21   # one dummy hash + 20 verifications
+
+
+def test_accounts_app_warms_the_dummy_hash(db_url, monkeypatch):
+    monkeypatch.setattr(passwords, "_dummy_hashes", {})
+    acc_app(db_url)
+    assert passwords._dummy_hashes   # computed at start, before any request
+
+
+def test_undecodable_body_anonymous_is_401_and_without_csrf_is_403(db_url):
+    bad = b'{"name":"\xff\xfe"}'
+    with TestClient(acc_app(db_url)) as c:
+        error(c.post(f"{API}/problems", content=bad, headers=JSON), 401, "AUTH_REQUIRED")
+        sign_up(c, "ana@example.com")
+        token = c.headers.pop("X-CSRF-Token")
+        error(c.post(f"{API}/problems", content=bad, headers=JSON), 403, "CSRF_FAILED")
+        r = c.post(f"{API}/problems", content=bad, headers={**JSON, "X-CSRF-Token": token})
+        assert r.status_code == 400, r.text   # signed in with CSRF: the original parse error stands

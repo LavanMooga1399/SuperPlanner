@@ -13,6 +13,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 log = logging.getLogger(__name__)
 
+_BODY_PARSE_DETAIL = "There was an error parsing the body"   # FastAPI routing.py, undecodable body
+
 _HTTP_CODES = {
     400: "BAD_REQUEST",
     401: "AUTH_REQUIRED",
@@ -84,7 +86,16 @@ def install_handlers(app: FastAPI) -> None:
                                      validation_details(list(exc.errors()))), status_code=422)
 
     @app.exception_handler(StarletteHTTPException)
-    async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    async def _http(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        # A body FastAPI cannot decode at all (e.g. JSON that is not valid UTF-8) fails with this 400 before
+        # dependencies run: answer the auth gates' error first (401/403), as for unparseable JSON above.
+        if exc.status_code == 400 and exc.detail == _BODY_PARSE_DETAIL:
+            gate = getattr(request.app.state, "unparsed_body_gate", None)
+            if gate is not None:
+                try:
+                    await gate(request)
+                except ApiError as auth_exc:
+                    return await _api_error(request, auth_exc)
         if exc.status_code == 405:  # FastAPI's own 405 keeps its default body (A.14)
             return JSONResponse({"detail": exc.detail}, status_code=405, headers=getattr(exc, "headers", None))
         code = _HTTP_CODES.get(exc.status_code, "HTTP_ERROR")

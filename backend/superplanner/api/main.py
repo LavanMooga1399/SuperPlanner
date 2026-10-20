@@ -71,6 +71,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
     install_handlers(app)
     passwords.configure_hash_slots(settings.hash_concurrency, settings.auth_hash_wait_seconds)   # per process
+    if settings.auth_mode == "accounts":
+        passwords.warm_dummy_hash(settings.password_hash_profile)   # no cold-start burst of unbounded hashes
     app.include_router(health.router, prefix=API_PREFIX)
     app.include_router(auth_router.router, prefix=API_PREFIX)   # auth routes resolve the session themselves
     protected = (templates.router, problems.router, solver_runs.router, schedules.router, finance_router.router,

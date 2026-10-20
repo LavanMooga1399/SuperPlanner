@@ -151,11 +151,31 @@ def needs_rehash(password_hash: str, profile: str = "default") -> bool:
         return True
 
 
-@functools.cache
+_dummy_hashes: dict[str, str] = {}
+_dummy_lock = threading.Lock()
+
+
 def dummy_hash(profile: str = "default") -> str:
     """A constant hash of a random-looking secret, verified for unknown emails so timing matches (B 4.3).
-    Computed once per profile (cached), outside the slots."""
-    return hasher(profile).hash("sp-dummy-password-never-valid-7f3c")
+    Computed once per profile under a lock and inside a hash slot, so a cold-start burst of sign-ins cannot run
+    one unbounded argon2 hash per request thread. `warm_dummy_hash` precomputes it at app start."""
+    cached = _dummy_hashes.get(profile)
+    if cached is not None:
+        return cached
+    with _dummy_lock:
+        cached = _dummy_hashes.get(profile)
+        if cached is None:
+            with _slot():
+                cached = hasher(profile).hash("sp-dummy-password-never-valid-7f3c")
+            _dummy_hashes[profile] = cached
+        return cached
+
+
+def warm_dummy_hash(profile: str = "default") -> None:
+    """Precompute the dummy hash before serving traffic (waits for a slot without the request timeout)."""
+    with _dummy_lock:
+        if profile not in _dummy_hashes:
+            _dummy_hashes[profile] = hasher(profile).hash("sp-dummy-password-never-valid-7f3c")
 
 
 def verify_dummy(password: str, profile: str = "default") -> bool:
