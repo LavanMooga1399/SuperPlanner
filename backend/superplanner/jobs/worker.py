@@ -343,9 +343,23 @@ class WorkerLoop:
     def _execute(self, act: _Active) -> None:
         from ..api.db.ownership import system_scope
 
+        from ..obs.request_context import bound
+
         lease = act.lease
         kind, run_id = lease.kind, lease.run_id
         t0 = time.monotonic()
+        # Log context for every line of this job (B 5.3): the enqueuing request id plus job fields.
+        with bound(request_id=lease.request_id, job_id=lease.job_id, run_id=run_id, kind=kind,
+                   worker_id=self.worker_id, attempt=lease.attempt):
+            self._execute_bound(act, t0)
+
+    def _execute_bound(self, act: _Active, t0: float) -> None:
+        from ..api.db.ownership import system_scope
+
+        lease = act.lease
+        kind, run_id = lease.kind, lease.run_id
+        log.info("job.started job=%s run=%s kind=%s attempt=%d worker=%s", lease.job_id, run_id, kind,
+                 lease.attempt, self.worker_id)
         try:
             with system_scope():
                 try:
@@ -365,8 +379,9 @@ class WorkerLoop:
             if outcome == "lease_lost":
                 log.info("job.lease_lost job=%s run=%s attempt=%d", lease.job_id, run_id, lease.attempt)
             else:
-                log.info("job.finished job=%s run=%s outcome=%s duration_ms=%d", lease.job_id, run_id, outcome,
-                         int((time.monotonic() - t0) * 1000))
+                log.info("job.finished job=%s run=%s outcome=%s duration_ms=%d queue_wait_ms=%d", lease.job_id,
+                         run_id, outcome, int((time.monotonic() - t0) * 1000),
+                         int((getattr(lease, "queue_wait_seconds", None) or 0.0) * 1000))
             if outcome != "requeued":
                 job_metrics.job_finished(kind, outcome, time.monotonic() - t0)
             if outcome == "failed":
@@ -491,13 +506,12 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
-    if not logging.getLogger().handlers:
-        logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper(),
-                            format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     from ..api.config import ConfigError, Settings
+    from ..obs.logging import configure_logging
 
     try:
         settings = Settings()
+        configure_logging(settings, "worker")
         if args.kinds is not None:
             settings.worker_kinds = [k.strip() for k in args.kinds.split(",") if k.strip()]
             bad = [k for k in settings.worker_kinds if k not in ("solver_run", "finance_run")]
@@ -543,7 +557,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             from prometheus_client import start_http_server
 
-            start_http_server(port)
+            start_http_server(port)   # also the worker's liveness probe (compose healthcheck, B 5.2)
+            log.info("worker metrics on :%d/metrics", port)
         except Exception as exc:
             log.warning("metrics server on :%d not started (%s)", port, exc)
 

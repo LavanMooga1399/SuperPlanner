@@ -1576,10 +1576,173 @@ script.py.mako, versions/0001_initial.py, versions/0002_phase2b.py}`, `superplan
 | extra | config resolution/validation (`test_db_nul_and_config.py`), uvicorn import exit 2, `prune_auth_tables`, inline job rows + recovery of jobs (`test_db_concurrency.py`) |
 
 ### 10.WP-2 Job queue and worker
-(to be filled; include the `load_queue.py` report)
+
+Implemented by Q2. Nothing committed.
+
+**Running it**
+```
+# PostgreSQL (JOB_BACKEND=queue is the default there). API with embedded workers (dev default WORKER_EMBEDDED=auto):
+DATABASE_URL=postgresql+psycopg://... backend/run_api.sh
+# or API without workers + separate worker processes (production shape):
+WORKER_EMBEDDED=0 DATABASE_URL=... backend/run_api.sh
+DATABASE_URL=... backend/run_worker.sh --concurrency 1          # Windows: .\run_worker.ps1 --concurrency 1
+python -m superplanner.worker --once                            # drain the queue, exit 0
+```
+SQLite stays inline (thread pool in the API, no worker process); `python -m superplanner.worker` with SQLite exits 2.
+
+**Files**: `superplanner/jobs/{__init__,types,common,inline,pg,idempotency,worker}.py`, `superplanner/worker/{__init__,__main__}.py`,
+`superplanner/obs/{__init__,job_metrics}.py`, `api/context.py`, `api/services/{run_service,replan_service}.py`,
+`api/finance/run_service.py`, `api/routes/{solver_runs,schedules}.py`, `api/finance/router.py`,
+`tests/jobs/**`, `tests/api_finance/apifin_helpers.py::worker_done`, `run_worker.sh`, `run_worker.ps1`.
+`api/executor.py` is unchanged (InlineQueue wraps it).
+
+**Interpretations and deviations (for LEAD review)**
+
+1. *Shared job-row code* lives in `jobs/common.py` (enqueue row, `request_cancel`, `requeue_or_fail`, fenced
+   `requeue_lease`, `mirror_finish` safety net, `fail_orphan_runs`, inline `mark_jobs_failed`); only claim, lease check,
+   renewal, reaper scan, worker registry and retention are raw SQL (`jobs/pg.py`). `Lease` also carries `kind`, `run_id`,
+   `max_attempts`, `request_id`, `outcome` (metrics/logging). `HANDLERS[kind]` resolves the run-service function at call
+   time, so tests that monkeypatch module attributes keep working.
+2. *requeue_or_fail* (reaper, transient error, shutdown) first looks at the locked run: a run that already finished
+   mirrors its status onto the job; a run with `cancel_requested` (run or job) becomes `cancelled` + `run_cancelled`
+   (the user asked for it; never for a lost lease without a cancel request, R6). `worker_shutdown` decrements `attempts`
+   (attempt not consumed) and uses no delay; the `run_requeued.attempt` field is `attempts + 1` after that adjustment.
+   `retry_at`/`run_after` use the DB clock.
+3. *Start transaction*: a run that is no longer `queued` (cancelled in the claim window) finishes the job with the
+   run's status mapped (`completed->succeeded`, else `cancelled`/`failed`) and the engine never runs; a gone run (plan
+   deleted, job cascaded) is `LeaseLost`.
+4. *Cancel latency*: queue mode reads `jobs.cancel_requested` in the heartbeat tick (`JOB_CANCEL_POLL_SECONDS`).
+   `PgQueue.notify_cancel` additionally sets the event at once when the run executes on an embedded worker of the same
+   process (same effect, lower latency; other processes rely on the DB flag - tested cross-instance, < 3 s).
+5. *Lease loss detection*: the heartbeat's per-tick check (`status`/`lease_token` of all active jobs in one query) also
+   marks a lease lost when another worker took the job over; renewal failures for `JOB_LEASE_SECONDS -
+   JOB_HEARTBEAT_SECONDS` mark it lost (lost FIRST, then cancel). Progress writers skip writes once `lost` is set; a
+   `LeaseLost` inside a writer marks the lease lost and is not logged as an error.
+6. *Shutdown* (`WorkerLoop.stop`, also used by `AppContext.stop` for embedded workers): stop claiming, wait up to the
+   grace period, then per remaining job (1) fenced requeue `worker_shutdown`, (2)+(3) `mark_lost()`; then wait up to 15 s
+   for handler threads, mark `job_workers.stopped_at`. A second SIGTERM/SIGINT skips the grace wait. The root test
+   conftest sets `WORKER_SHUTDOWN_GRACE_SECONDS=1` on Postgres so app teardown stays fast.
+7. *Transient errors*: `OperationalError`/`InterfaceError`/invalidated `DBAPIError` in a handler become
+   `RetryableJobError` only when `job_backend == "queue"` (inline keeps today's `failed`); the worker requeues with
+   reason `transient_error` and backoff. If that requeue itself fails (DB still down) the lease is marked lost and the
+   reaper requeues after expiry.
+8. *Idempotency* (`jobs/idempotency.py`): header parsed in the route (`from_header`, 422 `VALIDATION_ERROR` with
+   `loc ["header","idempotency-key"]`); `request_hash` = sha256 of `route_kind + "\n" + canonical JSON {path, body}` where
+   body is the validated request model dumped in JSON mode (defaults filled in, so `{}` and the explicit defaults are the
+   same request). The lookup row is locked `FOR UPDATE` after the plan/problem lock. Replay = `created_dict` of the run
+   with its current status (+ `source_schedule_id`/`problem_version` for replans); a key whose job belongs to another
+   run kind is a mismatch. The `uq_jobs_idempotency` race path re-runs the lookup in a new transaction.
+9. *Orphans*: `AppContext.start()` in queue mode and the worker at start fail queued/running runs without a job row
+   (`RESTART_ERROR`). Inline start keeps `recover_interrupted_runs` and also fails their jobs.
+10. *Worker exits*: 2 = configuration (SQLite URL, `JOB_BACKEND=inline`, bad `--kinds`/`--concurrency`); 3 = schema not at
+    head with `DB_AUTO_MIGRATE=false` (message names the revision and `python -m superplanner.migrate upgrade`) or the
+    database is unreachable. Empty databases are created as in Q1 (interpretation 2 of 10.WP-1).
+11. *Maintenance* runs from the claim loop: retention of terminal jobs (batches of 1000, at most 20 batches per pass),
+    stale `job_workers` (> 1 day), `prune_auth_tables(s, now)`; every 10 minutes (first pass 5 s after start of a worker
+    process; embedded workers wait the full interval).
+12. *Metrics* (`obs/job_metrics.py`, default registry; no-op if `prometheus_client` were missing): `sp_jobs_total{kind,
+    outcome}`, `sp_job_duration_seconds`, `sp_job_queue_wait_seconds`, `sp_job_failures_total{kind,reason}`,
+    `sp_worker_slots`, `sp_worker_busy_slots`. The worker starts `prometheus_client.start_http_server(WORKER_METRICS_PORT)`
+    (0 disables); Q5 owns the logging bind and may move the metrics server.
+13. *Test edits outside `tests/jobs`*: the root conftest's Postgres env switched to `JOB_BACKEND=queue`,
+    `WORKER_EMBEDDED=auto`, `WORKER_SHUTDOWN_GRACE_SECONDS=1` (B 3.6) and stops leftover app contexts before a test DB is
+    dropped; `apifin_helpers.worker_done` -> `ctx.jobs.wait_idle` (B 8.2). Three Q1 tests in `tests/db/` that test the
+    inline contract got the `inline_jobs` marker (no assertion changed): `test_inline_mode_writes_one_job_per_run_with_the_terminal_status`,
+    `test_lazy_start_recovers_runs_inside_a_request` (queue-mode equivalent: `tests/jobs/test_queue_api.py::test_queue_start_fails_orphan_runs_without_a_job`,
+    also a lazy start), and `test_sqlite_mode_works_without_psycopg` (its SQLite subprocess inherited `JOB_BACKEND=queue`).
+14. *Load script*: `backend/scripts/load_queue.py` belongs to Q5 (PLAN 0.1); its report goes into 10.WP-4.
+    `Lease.finish` keeps `lease_owner`, which that script's per-worker check needs.
+
+**Results (2026-10-20, this machine; the trees also contained Q3's in-progress `tests/auth/`)**
+- SQLite (G1): `cd backend && .venv/bin/pytest -rs` -> `1934 passed, 23 skipped in 550.04s` (skips: Postgres-only tests).
+- PostgreSQL 16 (G2, queue + embedded workers): `SP_TEST_DB=postgres SP_TEST_PG_URL=postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres
+  .venv/bin/pytest -rs` -> `1956 passed, 1 skipped in 771.89s` (skip: the SQLite-only WAL backup test).
+- `tests/jobs` alone on PostgreSQL, three consecutive runs: `33 passed` each (~85 s); on SQLite `15 passed, 18 skipped`.
+
+**Acceptance criteria -> tests** (`backend/tests/jobs/`)
+
+| Criterion | Test(s) |
+|---|---|
+| Q2-1 | full runs below |
+| Q2-2 | `test_queue_core.py::test_concurrent_claimers_claim_every_job_exactly_once` |
+| Q2-3 | `::test_expired_lease_is_requeued_by_the_reaper_and_completes_once` |
+| Q2-4 | `::test_max_attempts_of_expiries_fail_the_run_with_worker_lost` |
+| Q2-5 | `::test_stale_lease_cannot_write_after_takeover` |
+| Q2-6 | `::test_lost_heartbeat_is_not_a_cancel` |
+| Q2-7 | `test_queue_api.py::test_cancel_running_solver_and_finance_runs_in_queue_mode`, `::test_finance_cancel_racing_the_final_write_stores_no_result` |
+| Q2-8 | `test_queue_core.py::test_graceful_shutdown_requeues_without_consuming_an_attempt`, `test_worker_process.py::test_sigterm_requeues_and_once_mode_finishes_the_queue` (real process) |
+| Q2-9 | `test_worker_process.py::test_kill_9_mid_run_another_worker_completes_it_exactly_once` (solver + finance run on worker 1, `SIGKILL`, worker 2 completes both: attempts 2, one `run_requeued lease_expired`, one terminal event, ranks `0..k`, one result) |
+| Q2-10 | `test_idempotency.py` (all four endpoints, mismatch, invalid formats, 10 concurrent identical requests, per-owner keys, TTL release; both dialects) |
+| Q2-11 | `test_queue_api.py::test_two_api_instances_share_runs_sse_and_cancel` |
+| Q2-12 | `::test_idle_worker_wakes_on_notify` (`WORKER_POLL_SECONDS=5`, claim < 1 s, twice) |
+| Q2-13 | `::test_api_restart_in_queue_mode_keeps_the_run`, `::test_api_restart_with_a_running_job_of_a_dead_worker`; inline: existing `test_api_startup_recovery` / `test_startup_recovery_marks_runs_failed` (SQLite) |
+| Q2-14 | `test_worker_process.py::test_queue_backend_with_sqlite_is_refused`, `::test_inline_with_postgres_in_production_is_refused`, `::test_worker_with_sqlite_url_exits_2`, `::test_uvicorn_import_with_queue_on_sqlite_exits_2`, `::test_worker_with_schema_behind_head_exits_3` |
+| Q2-15 | `test_inline_jobs.py` (succeeded / failed / cancelled-running / cancelled-queued, both kinds) |
+| extra | `test_queue_core.py::test_transient_db_error_requeues_and_retries`, `::test_engine_error_is_not_retried`, `test_queue_api.py::test_queue_start_fails_orphan_runs_without_a_job` |
 
 ### 10.WP-3 Accounts backend
-(to be filled)
+
+Files: `sp/api/auth/{deps,router,passwords,sessions,csrf,ratelimit,schemas}.py`, `common_passwords.txt`,
+`sp/api/errors.py` (`_HTTP_CODES` 401/403/429), `sp/manage.py`, `backend/tests/auth/**` (61 tests, both dialects).
+Run: `cd backend && .venv/bin/pytest tests/auth` (SQLite) or with `SP_TEST_DB=postgres` (Postgres).
+
+Interpretations (contract gaps, most reasonable reading):
+- **Common-password list**: the "1000 most common passwords" would be almost useless under a 10-character
+  minimum (only ~12 of the classic top 1000 are that long). The bundled list is the 1000 most frequent passwords
+  of length >= 10 from SecLists `100k-most-used-passwords-NCSC.txt` (MIT), lower-cased; comparison is
+  case-insensitive after NFKC. Passwords are NFKC-normalised before hashing and verifying too.
+- **Gate order**: the mode check (409 `AUTH_DISABLED`), Origin check (sign-in/up) and session/CSRF checks
+  (sign-out, change-password) run as dependencies, i.e. before body validation; so single_user answers 409 even
+  for an invalid body and change-password without a session answers 401 even for `{}`.
+- **Malformed JSON** (not parseable at all) on a protected POST/PUT is rejected by FastAPI's body parser before any
+  dependency runs -> 422 `VALIDATION_ERROR` (`json_invalid`), not 401. No lookup happens, nothing owned is revealed;
+  schema-invalid bodies (`{}`, wrong types, extra fields) do get 401. Turning this into 401 too needs a pre-parse
+  ASGI layer in `main.py` (frozen; change request for Q5/LEAD if wanted). The coverage test accepts either.
+- **Origin check**: absent `Origin` passes (non-browser clients); `null` or any origin not in `CORS_ORIGINS` /
+  the `PUBLIC_BASE_URL` origin -> 403. Comparison is scheme+host+port, case-insensitive.
+- **Cookie**: header written by hand to get exact `SameSite=Lax` casing; clearing uses `Max-Age=0` with the same
+  attributes. An invalid/expired cookie is cleared on the 401 of protected routes and on `GET /auth/session`.
+  With `COOKIE_SECURE=true` only `__Host-sp_session` is read.
+- **Sessions**: valid = not revoked, `expires_at` in the future, `last_seen_at` within `SESSION_IDLE_DAYS`, user
+  not disabled, not `is_local`, has a password. `last_seen_at` is written only when older than 5 minutes (a separate
+  short write after the read). Change-password revokes *all* sessions of the user (incl. the current one) and
+  issues a new one (rotation); sign-in/up revoke the caller's current session if its cookie is valid.
+- **Rate limits**: buckets counted in their own committed transaction before any hash verification; a hit is
+  counted in every bucket even if an earlier one already refused; `Retry-After` = the longest remaining window
+  (>= 1 s). `AUTH_RATE_LIMIT_ENABLED=false` disables all of them. Sign-in counts unknown emails too.
+- **Unknown email / disabled / usr_local / no password**: one argon2 verification against a constant dummy hash
+  of the configured profile, then 401 `INVALID_CREDENTIALS`.
+- **WEAK_PASSWORD** order: reasons in the order too_short, too_long, common, same_as_email. Change-password checks
+  the current password (422 `WRONG_PASSWORD`) before the policy of the new one.
+- **manage**: runs `migrate.ensure_schema` like the API (SQLite auto-upgrade; Postgres behind head -> exit 3);
+  exit codes 0/1 (command error)/2 (config)/3 (schema). `create-user`/`set-password` enforce the password policy.
+  `reassign-owner` updates every table with an `owner_id` column (problems, solver_runs, schedules, finance_plans,
+  finance_runs, finance_results, jobs) with Core UPDATEs in one transaction; `--dry-run` counts only. `prune`
+  prunes the auth tables; the jobs part is Q5's (plan 0.1) - `superplanner.jobs.pg.maintenance` already exists.
+- **Change request (LEAD)**: `backend/pyproject.toml` `[tool.setuptools.package-data]` should add
+  `"superplanner.api.auth" = ["common_passwords.txt"]` so non-editable installs ship the list (source checkouts,
+  the dev mode and the Docker image built from the source tree are unaffected). Not edited (Q1-owned file).
+
+Acceptance -> tests (`backend/tests/auth/`):
+
+| Criterion | Tests |
+|---|---|
+| Q3-1 | full G1/G2 runs; `test_auth_endpoints.py::test_single_user_session_body_and_disabled_mutations` |
+| Q3-2 | `test_auth_endpoints.py` (flow, cookie attributes, `__Host-`/Secure, every error code of B 4.5) |
+| Q3-3 | `test_auth_passwords.py` (argon2id prefix, profile parameters, `fast` refused in production, policy, rehash) |
+| Q3-4 | `test_auth_csrf.py` (every unsafe protected operation: missing/wrong token, foreign/`null` Origin; GET/SSE without token; sign-in/up Origin) |
+| Q3-5 | `test_route_coverage.py::test_enumerated_operations_equal_the_access_table`, `::test_every_protected_operation_requires_a_session` (OpenAPI-driven; `route_table.py` is B 4.8 as data) |
+| Q3-6 | `test_route_coverage.py::test_user_b_gets_404_for_every_owned_endpoint` (every OpenAPI operation with an owned path parameter, for baseline and what-if run/result; body byte-equal to an unknown-id call; compare with one foreign id; `base_result_id`; lists; A's objects unchanged). Mutation check: disabling the ORM filter makes it fail (B's DELETE of A's problem returned 204). |
+| Q3-7 | `test_auth_sessions.py` (expired/idle/revoked/disabled -> 401, touch throttle, fixation, hashed token, lazy start, async `require_user`); change-password rotation in `test_auth_endpoints.py::test_change_password` |
+| Q3-8 | `test_auth_ratelimit.py` (11th sign-in 429 + `Retry-After` + details, before verification, two app instances, per-IP, sign-up, change-password, window roll-over, 40 concurrent hits counted exactly, concurrent same-email sign-ups -> one 201) |
+| Q3-9 | `test_auth_passwords.py::test_unknown_email_verifies_the_dummy_hash` |
+| Q3-10 | `test_manage.py` (all commands, `reassign-owner` makes legacy plans/runs visible to the account, subprocess entry point, exit 2) |
+| Q3-11 | `test_auth_logs.py` (caplog at DEBUG over sign-up/in/out, change-password, rate limit, validation errors) |
+
+Results (2026-10-20, working tree incl. the parallel Q2 files): SQLite `cd backend && .venv/bin/pytest -rs` ->
+`1934 passed, 23 skipped` (skips: Postgres-only tests, each with the reason); PostgreSQL 16 (queue mode, embedded
+workers) `SP_TEST_DB=postgres ... .venv/bin/pytest -rs` -> `1956 passed, 1 skipped` (SQLite-only WAL backup test).
+`tests/auth` alone: 61 passed on each dialect.
 
 ### 10.WP-4 Operations
 (to be filled)

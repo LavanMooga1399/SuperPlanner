@@ -12,3 +12,5 @@ playwright-report/
 # Phase 2b: local PostgreSQL dev cluster and automatic pre-migration SQLite backups
 backend/.pgdata/
 *.db.bak-*
+# Phase 2b ops: local compose configuration (copy of .env.example with real values)
+.env

@@ -15,12 +15,15 @@ log = logging.getLogger(__name__)
 
 _HTTP_CODES = {
     400: "BAD_REQUEST",
+    401: "AUTH_REQUIRED",
+    403: "FORBIDDEN",
     404: "NOT_FOUND",
     409: "CONFLICT",
     412: "VERSION_MISMATCH",
     413: "PAYLOAD_TOO_LARGE",
     422: "VALIDATION_ERROR",
     428: "PRECONDITION_REQUIRED",
+    429: "RATE_LIMITED",
 }
 
 

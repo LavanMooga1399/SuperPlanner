@@ -178,6 +178,7 @@ def test_uvicorn_import_exits_2_on_config_error(tmp_path):
 
 # ---------------------------------------------------------------- Q1-12 SQLite mode never imports psycopg
 
+@pytest.mark.inline_jobs   # SQLite subprocess: must not inherit the Postgres run's JOB_BACKEND=queue
 def test_sqlite_mode_works_without_psycopg(tmp_path):
     code = f"""
 import sys

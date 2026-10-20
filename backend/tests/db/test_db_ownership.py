@@ -157,6 +157,7 @@ def test_lazy_start_without_with_serves_the_first_request(db_url):
     client.app.state.ctx.stop()
 
 
+@pytest.mark.inline_jobs   # restart recovery is the inline contract (queue mode: tests/jobs)
 def test_lazy_start_recovers_runs_inside_a_request(db_url):
     """Startup recovery touches owned tables; inside a lazy first request it must run in system scope."""
     with TestClient(make_app(db_url)) as c:
