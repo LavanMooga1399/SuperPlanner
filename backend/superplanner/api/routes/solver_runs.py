@@ -17,14 +17,18 @@ from ..db.ownership import owner_scope
 from ..errors import ApiError
 from ..schemas import SolverRunRequest
 from ..services import run_service
+from superplanner.jobs import idempotency
 
 router = APIRouter(tags=["solver-runs"])
 
 
 @router.post("/problems/{problem_id}/solver-runs", status_code=202)
 def create_run(problem_id: str, req: SolverRunRequest = Body(default_factory=SolverRunRequest),
+               idempotency_key: str | None = Header(default=None),
                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    return JSONResponse(run_service.create_run(ctx, problem_id, req), status_code=202)
+    idem = idempotency.from_header(idempotency_key, "solver_run", {"problem_id": problem_id},
+                                   req.model_dump(mode="json"))
+    return idempotency.accepted(lambda: run_service.create_run(ctx, problem_id, req, idem))
 
 
 @router.get("/problems/{problem_id}/solver-runs")

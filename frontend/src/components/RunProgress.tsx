@@ -6,6 +6,7 @@ import {
   ACTIVE_RUN_STATUSES,
   type ObjectiveValues,
   type RunEvent,
+  type RunRequeuedEvent,
   type SolverRun,
   type TerminationReason,
 } from "../api/types";
@@ -53,11 +54,27 @@ interface PhaseView {
   feasibleFound: boolean;
 }
 
+/** PHASE2B 2.11: shown when a run was handed to another worker (`run_requeued`). */
+export function requeueNote(ev: { attempt: number; max_attempts: number }): string {
+  return `Restarting on another worker (attempt ${ev.attempt} of ${ev.max_attempts})`;
+}
+
+export function lastRequeue(events: RunEvent[]): RunRequeuedEvent | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.type === "run_requeued") return ev;
+  }
+  return null;
+}
+
 function derivePhases(events: RunEvent[]): PhaseView[] {
-  const phases: PhaseView[] = [];
+  let phases: PhaseView[] = [];
   const current = () => phases[phases.length - 1];
   for (const ev of events) {
-    if (ev.type === "phase_started") {
+    if (ev.type === "run_requeued") {
+      // The run starts again from scratch on another worker: earlier phases no longer count.
+      phases = [];
+    } else if (ev.type === "phase_started") {
       phases.push({
         solver: ev.solver,
         reason: ev.reason,
@@ -164,6 +181,7 @@ export function useRunStream(runId: string) {
             setEvents((list) => [...list, ev]);
             setLastAt({ elapsed: ev.elapsed_seconds, at: performance.now() });
             if (ev.type === "run_started") setRun((cur) => (cur ? { ...cur, status: "running" } : cur));
+            else if (ev.type === "run_requeued") setRun((cur) => (cur ? { ...cur, status: "queued" } : cur));
           },
           (final) => {
             if (!alive) return;
@@ -222,10 +240,16 @@ export function RunProgress({
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const phases = useMemo(() => derivePhases(events), [events]);
+  const requeue = useMemo(() => lastRequeue(events), [events]);
   const scorePoints = useMemo(() => {
     const pts: Array<[number, number]> = [];
     let best = Infinity;
     for (const ev of events) {
+      if (ev.type === "run_requeued") {
+        pts.length = 0;
+        best = Infinity;
+        continue;
+      }
       const s = ev.type === "progress" ? ev.best_score : ev.type === "phase_completed" ? ev.objectives?.score ?? null : null;
       if (s !== null && s !== undefined && s < best) {
         best = s;
@@ -285,6 +309,11 @@ export function RunProgress({
       </div>
       <div className="card-body col gap-lg">
         <ErrorBanner error={cancelError} />
+        {requeue ? (
+          <div className="small muted row" role="status" data-testid="run-requeued">
+            <Icon name="refresh" /> {active ? requeueNote(requeue) : `Finished after a restart on another worker (attempt ${requeue.attempt} of ${requeue.max_attempts}).`}
+          </div>
+        ) : null}
         <div className="col" style={{ gap: 4 }}>
           <div className="row between small">
             <span className="muted">

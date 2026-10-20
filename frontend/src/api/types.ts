@@ -664,6 +664,17 @@ export interface RunFailedEvent extends RunEventBase {
   error: string;
 }
 
+/** PHASE2B 2.6: the worker running this run was lost or stopped; the run starts again from scratch. */
+export type RequeueReason = "lease_expired" | "transient_error" | "worker_shutdown";
+
+export interface RunRequeuedEvent extends RunEventBase {
+  type: "run_requeued";
+  attempt: number;
+  max_attempts: number;
+  reason: RequeueReason | string;
+  retry_at: string;
+}
+
 export type RunEvent =
   | RunQueuedEvent
   | RunStartedEvent
@@ -672,7 +683,8 @@ export type RunEvent =
   | PhaseCompletedEvent
   | RunCompletedEvent
   | RunCancelledEvent
-  | RunFailedEvent;
+  | RunFailedEvent
+  | RunRequeuedEvent;
 
 export type RunEventType = RunEvent["type"];
 
@@ -685,6 +697,7 @@ export const RUN_EVENT_TYPES: RunEventType[] = [
   "run_completed",
   "run_cancelled",
   "run_failed",
+  "run_requeued",
 ];
 
 export const TERMINAL_EVENT_TYPES: RunEventType[] = ["run_completed", "run_cancelled", "run_failed"];

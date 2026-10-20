@@ -10,6 +10,8 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
 from superplanner.engine import Problem
+from superplanner.jobs import idempotency
+from superplanner.jobs.idempotency import Idempotency
 
 from ..context import AppContext
 from ..db import ProblemRow, utcnow
@@ -93,10 +95,13 @@ def _derive(problem: Problem, source_placements: list[dict[str, Any]], source_ho
     return doc
 
 
-def replan(ctx: AppContext, schedule_id: str, req: ReplanRequest) -> dict[str, Any]:
+def replan(ctx: AppContext, schedule_id: str, req: ReplanRequest, idem: Idempotency | None = None) -> dict[str, Any]:
+    """Raises `idempotency.Replay` for a replayed Idempotency-Key (the route answers 202 + header)."""
     try:
-        return _replan(ctx, schedule_id, req)
+        return _replan(ctx, schedule_id, req, idem)
     except IntegrityError as exc:   # `uq_solver_runs_one_active` backstop (PHASE2B 2.12)
+        if idem is not None and idempotency.is_key_conflict(exc):
+            idempotency.replay_after_conflict(ctx, idem, run_service.created_from_job)
         if is_unique_violation(exc, "uq_solver_runs_one_active", "solver_runs.problem_id"):
             with ctx.db.read() as s:
                 problem_id = get_schedule_row(s, schedule_id).problem_id
@@ -104,11 +109,12 @@ def replan(ctx: AppContext, schedule_id: str, req: ReplanRequest) -> dict[str, A
         raise
 
 
-def _replan(ctx: AppContext, schedule_id: str, req: ReplanRequest) -> dict[str, Any]:
+def _replan(ctx: AppContext, schedule_id: str, req: ReplanRequest, idem: Idempotency | None) -> dict[str, Any]:
     with ctx.write_guard():
         with ctx.db.write() as s:  # one transaction: any error rolls back everything, including step 1
             src = get_schedule_row(s, schedule_id)
             row: ProblemRow = get_problem_row(s, src.problem_id, lock=True)
+            idempotency.lookup(s, idem, ctx.settings.idempotency_ttl_hours, run_service.created_from_job)
             if req.expected_problem_version is not None and req.expected_problem_version != row.version:
                 raise ApiError(412, "VERSION_MISMATCH",
                                f"The plan was changed elsewhere (now version {row.version}).",
@@ -142,7 +148,7 @@ def _replan(ctx: AppContext, schedule_id: str, req: ReplanRequest) -> dict[str, 
             run_service.preflight_or_422(derived_problem)
             pv = snapshot(s, row, derived, kind="replan")
             run = run_service.insert_run(s, row, pv, req.run, source_schedule_id=src.id)
-            job = run_service.enqueue(ctx, s, run)
+            job = run_service.enqueue(ctx, s, run, idem)
             out = run_service.created_dict(run)
             out["source_schedule_id"] = src.id
             out["problem_version"] = row.version

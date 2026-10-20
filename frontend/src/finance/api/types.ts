@@ -815,6 +815,14 @@ export interface FinRunFailedEvent extends FinEventBase {
   type: "run_failed";
   error: string;
 }
+/** PHASE2B 2.6: the worker was lost or stopped; the run starts again from scratch. */
+export interface FinRunRequeuedEvent extends FinEventBase {
+  type: "run_requeued";
+  attempt: number;
+  max_attempts: number;
+  reason: string;
+  retry_at: string;
+}
 
 export type FinRunEvent =
   | FinRunQueuedEvent
@@ -824,7 +832,8 @@ export type FinRunEvent =
   | FinStageCompletedEvent
   | FinRunCompletedEvent
   | FinRunCancelledEvent
-  | FinRunFailedEvent;
+  | FinRunFailedEvent
+  | FinRunRequeuedEvent;
 
 export type FinRunEventType = FinRunEvent["type"];
 
@@ -837,6 +846,7 @@ export const FIN_EVENT_TYPES: FinRunEventType[] = [
   "run_completed",
   "run_cancelled",
   "run_failed",
+  "run_requeued",
 ];
 
 export const FIN_TERMINAL_EVENTS: FinRunEventType[] = ["run_completed", "run_cancelled", "run_failed"];

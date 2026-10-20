@@ -4,7 +4,7 @@ import { Banner } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
 import { cancelFinanceRun } from "../api/client";
 import { subscribeFinanceRunEvents, type FinStreamMode } from "../api/sse";
-import { FIN_STAGES, type FinanceRun, type FinRunEvent, type FinStage } from "../api/types";
+import { FIN_STAGES, type FinanceRun, type FinRunEvent, type FinRunRequeuedEvent, type FinStage } from "../api/types";
 import { StatusPill } from "./StatusPill";
 
 export const STAGE_LABEL: Record<FinStage, string> = {
@@ -51,8 +51,16 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
   let message = "Waiting for a free worker…";
   let status: "queued" | "running" | "completed" | "failed" | "cancelled" = "queued";
   let error: string | null = null;
+  let requeue: FinRunRequeuedEvent | null = null;
   for (const ev of events) {
-    if (ev.type === "run_started") {
+    if (ev.type === "run_requeued") {
+      // PHASE2B 2.11: another worker starts the run again from scratch.
+      requeue = ev;
+      stages.clear();
+      fraction = 0;
+      status = "queued";
+      message = `Restarting on another worker (attempt ${ev.attempt} of ${ev.max_attempts})`;
+    } else if (ev.type === "run_started") {
       status = "running";
       message = "Started";
     } else if (ev.type === "stage_started") {
@@ -138,6 +146,14 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
               );
             })}
           </ol>
+        ) : null}
+        {requeue ? (
+          <span className="small muted row" data-testid="fin-run-requeued">
+            <Icon name="refresh" />{" "}
+            {active
+              ? `Restarting on another worker (attempt ${requeue.attempt} of ${requeue.max_attempts})`
+              : `Finished after a restart on another worker (attempt ${requeue.attempt} of ${requeue.max_attempts}).`}
+          </span>
         ) : null}
         {mode === "polling" ? <span className="small muted">Live updates unavailable; checking every few seconds.</span> : null}
         {error ? <Banner tone="danger" role="alert" title="The run failed">{error}</Banner> : null}

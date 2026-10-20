@@ -1,4 +1,10 @@
-"""Solver runs: creation, background worker, progress events, cancel, recovery (A.14.5, A.15, A.16)."""
+"""Solver runs: creation, background worker, progress events, cancel, recovery (A.14.5, A.15, A.16, PHASE2B 2.10).
+
+`run_job(ctx, run_id, lease)` runs the same way under both job backends: its start, progress, final and failure
+transactions are fenced by the lease (`Lease.fence`, lock order problem -> run -> job) and the terminal one also
+finishes the job (`Lease.finish`). A lost lease never writes a terminal state (R6); transient DB errors become
+`RetryableJobError` in queue mode (the worker requeues), engine errors fail the run as before.
+"""
 
 from __future__ import annotations
 
@@ -8,12 +14,17 @@ import time
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from superplanner import engine
 from superplanner.engine import OptimizeRequest, Placement, Problem, ProgressEvent
+from superplanner.jobs import common as job_common
+from superplanner.jobs import idempotency
+from superplanner.jobs.idempotency import Idempotency
+from superplanner.jobs.types import (RESTART_ERROR, RUN_TO_JOB_STATUS, Lease, LeaseLost, RetryableJobError,
+                                     RuntimeContext, is_transient_db_error)
 
 from ..context import WRITE_LOCK, AppContext  # noqa: F401  (WRITE_LOCK re-exported for old imports)
 from ..db import JobRow, ProblemRow, ProblemVersionRow, ScheduleRow, SolverRunEventRow, SolverRunRow, new_id, utcnow
@@ -26,7 +37,6 @@ log = logging.getLogger(__name__)
 
 TERMINAL_EVENT_TYPES = ("run_completed", "run_cancelled", "run_failed")
 TERMINAL_STATUSES = ("completed", "failed", "cancelled")
-RESTART_ERROR = "Server restarted before the run finished."
 API_PREFIX = "/api/v1"
 
 
@@ -36,10 +46,15 @@ def _next_seq(s: Session, run_id: str) -> int:
     return int(s.scalar(select(func.max(SolverRunEventRow.seq)).where(SolverRunEventRow.run_id == run_id)) or 0) + 1
 
 
-def add_event(s: Session, run_id: str, type_: str, fields: dict[str, Any], elapsed: float) -> dict[str, Any]:
+def add_event(s: Session, run_id: str, type_: str, fields: dict[str, Any], elapsed: float, *,
+              lease: Lease | None = None) -> dict[str, Any]:
     """Append an event. Locks the run row first (FOR NO KEY UPDATE; no-op on SQLite) so `seq` allocation is safe
-    with several writers and events of one run commit in seq order (SSE never skips one, PHASE2B 2.12)."""
-    lock_row(s, SolverRunRow, run_id)
+    with several writers and events of one run commit in seq order (SSE never skips one, PHASE2B 2.12); then
+    fences the lease when given (worker writes; LeaseLost aborts the transaction)."""
+    if not lock_row(s, SolverRunRow, run_id) and lease is not None:
+        raise LeaseLost(f"run {run_id} is gone")
+    if lease is not None:
+        lease.fence(s)
     seq = _next_seq(s, run_id)
     now = utcnow()
     payload = {"run_id": run_id, "seq": seq, "type": type_, "ts": iso_utc(now),
@@ -151,23 +166,42 @@ def active_run_conflict(ctx: AppContext, problem_id: str) -> ApiError:
                     {"run_id": active_id})
 
 
-def enqueue(ctx: AppContext, s: Session, run: SolverRunRow) -> JobRow:
-    return ctx.jobs.enqueue(s, "solver_run", run.id, run.owner_id)
+def enqueue(ctx: AppContext, s: Session, run: SolverRunRow, idem: Idempotency | None = None) -> JobRow:
+    return ctx.jobs.enqueue(s, "solver_run", run.id, run.owner_id, idempotency_key=idem.key if idem else None,
+                            request_hash=idem.request_hash if idem else None)
 
 
-def create_run(ctx: AppContext, problem_id: str, req: SolverRunRequest) -> dict[str, Any]:
+def created_from_job(s: Session, job: JobRow) -> dict[str, Any]:
+    """Idempotent replay body: the creation body of the job's run with its current status (PHASE2B 2.8)."""
+    run = s.get(SolverRunRow, job.solver_run_id) if job.solver_run_id else None
+    if run is None:
+        raise idempotency._mismatch()   # the key belongs to another kind of request
+    out = created_dict(run)
+    if run.source_schedule_id is not None:   # a replan run: same extra fields as replan_service
+        out["source_schedule_id"] = run.source_schedule_id
+        problem = s.get(ProblemRow, run.problem_id)
+        out["problem_version"] = problem.version if problem is not None else None
+    return out
+
+
+def create_run(ctx: AppContext, problem_id: str, req: SolverRunRequest,
+               idem: Idempotency | None = None) -> dict[str, Any]:
+    """Raises `idempotency.Replay` for a replayed Idempotency-Key (the route answers 202 + header)."""
     try:
         with ctx.write_guard():
             with ctx.db.write() as s:
                 row = get_problem_row(s, problem_id, lock=True)
+                idempotency.lookup(s, idem, ctx.settings.idempotency_ttl_hours, created_from_job)   # after the lock
                 ensure_no_active_run(s, problem_id)
                 preflight_or_422(load_problem(row.document))
                 pv = snapshot(s, row)
                 run = insert_run(s, row, pv, req)
-                job = enqueue(ctx, s, run)
+                job = enqueue(ctx, s, run, idem)
                 out = created_dict(run)
             ctx.jobs.dispatch(job)
     except IntegrityError as exc:
+        if idem is not None and idempotency.is_key_conflict(exc):
+            idempotency.replay_after_conflict(ctx, idem, created_from_job)
         if is_unique_violation(exc, "uq_solver_runs_one_active", "solver_runs.problem_id"):
             raise active_run_conflict(ctx, problem_id) from None
         raise
@@ -209,12 +243,7 @@ def recover_interrupted_runs(ctx: AppContext) -> int:
             run.error = RESTART_ERROR
             run.finished_at = now
             add_event(s, run.id, "run_failed", {"error": RESTART_ERROR}, 0.0)
-        if runs:
-            s.execute(update(JobRow).where(JobRow.solver_run_id.in_([r.id for r in runs]),
-                                           JobRow.status.in_(("queued", "running")))
-                      .values(status="failed", last_error=RESTART_ERROR, finished_at=now, updated_at=now,
-                              lease_token=None, lease_expires_at=None)
-                      .execution_options(synchronize_session=False))
+        job_common.mark_jobs_failed(s, "solver_run", [r.id for r in runs], RESTART_ERROR)
         return len(runs)
 
 
@@ -223,10 +252,11 @@ def recover_interrupted_runs(ctx: AppContext) -> int:
 class _ProgressWriter:
     """Maps engine ProgressEvents to persisted SSE rows; throttles `progress` to 2/s (A.15)."""
 
-    def __init__(self, ctx: AppContext, run_id: str, t0: float):
+    def __init__(self, ctx: RuntimeContext, run_id: str, t0: float, lease: Lease | None = None):
         self.ctx = ctx
         self.run_id = run_id
         self.t0 = t0
+        self.lease = lease
         self.min_interval = ctx.settings.progress_min_interval_seconds
         self.last_progress = float("-inf")
         self.pending: ProgressEvent | None = None
@@ -247,9 +277,15 @@ class _ProgressWriter:
                       "best_objectives": ev.best_objectives.model_dump(mode="json") if ev.best_objectives else None,
                       "feasible_found": ev.feasible_found, "extra": ev.extra}
             type_ = "progress"
+        lease = self.lease
+        if lease is not None and lease.lost.is_set():
+            return   # this worker no longer owns the job: write nothing more
         try:
             with self.ctx.db.write() as s:
-                add_event(s, self.run_id, type_, fields, time.monotonic() - self.t0)
+                add_event(s, self.run_id, type_, fields, time.monotonic() - self.t0, lease=lease)
+        except LeaseLost:
+            if lease is not None:
+                lease.mark_lost()   # stop the engine; the output is discarded (not an error)
         except Exception:  # progress must never kill a run
             log.exception("could not persist %s event for run %s", type_, self.run_id)
 
@@ -308,18 +344,37 @@ def _schedule_row(run: SolverRunRow, rank: int, label: str, solver: str, feasibi
         created_at=utcnow())
 
 
-def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None:
+def _retryable(ctx: RuntimeContext, exc: BaseException) -> bool:
+    return ctx.settings.job_backend == "queue" and is_transient_db_error(exc)
+
+
+def run_job(ctx: RuntimeContext, run_id: str, lease: Lease) -> None:
+    """Execute one claim of a solver run's job (both backends). Raises LeaseLost / RetryableJobError to the
+    worker; records engine failures itself."""
+    cancel_event = lease.cancel_event
     t0 = time.monotonic()
-    with ctx.write_guard(), ctx.db.write() as s:
-        run = s.get(SolverRunRow, run_id, with_for_update={"key_share": True})
-        if run is None or run.status != "queued":
-            return  # cancelled while queued (or recovered): never run the engine
-        run.status = "running"
-        run.started_at = utcnow()
-        request = dict(run.request)
-        source_id = run.source_schedule_id
-        doc = s.get(ProblemVersionRow, run.problem_version_id).document
-        add_event(s, run.id, "run_started", {"strategy_requested": request.get("strategy", "auto")}, 0.0)
+    try:
+        with ctx.write_guard(), ctx.db.write() as s:
+            run = s.get(SolverRunRow, run_id, with_for_update={"key_share": True})
+            if run is None:
+                raise LeaseLost(f"run {run_id} is gone")   # problem deleted: the job went with it
+            lease.fence(s)
+            if run.status != "queued":   # cancelled while queued (or in the claim window): never run the engine
+                lease.finish(s, RUN_TO_JOB_STATUS.get(run.status, "cancelled"))
+                return
+            run.status = "running"
+            if run.started_at is None:   # a retried attempt keeps the first start time
+                run.started_at = utcnow()
+            request = dict(run.request)
+            source_id = run.source_schedule_id
+            doc = s.get(ProblemVersionRow, run.problem_version_id).document
+            add_event(s, run.id, "run_started", {"strategy_requested": request.get("strategy", "auto")}, 0.0)
+    except LeaseLost:
+        raise
+    except Exception as exc:
+        if _retryable(ctx, exc):
+            raise RetryableJobError(str(exc)) from exc
+        raise
     try:
         problem = load_problem(doc)
         initial = None
@@ -327,14 +382,15 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
             with ctx.db.read() as s:
                 initial = _replan_hint(s, problem, source_id)
         opt_req = OptimizeRequest.model_validate({**request, "initial_solution": initial})
-        writer = _ProgressWriter(ctx, run_id, t0)
+        writer = _ProgressWriter(ctx, run_id, t0, lease)
         outcome = engine.optimize(problem, opt_req, writer, cancel_event)
         res = outcome.result
 
         rows: list[ScheduleRow] = []
         with ctx.db.read() as s:
             run_snapshot = s.get(SolverRunRow, run_id)
-            assert run_snapshot is not None
+            if run_snapshot is None:
+                raise LeaseLost(f"run {run_id} is gone")
             s.expunge(run_snapshot)
         if res.placements:
             rows.append(_schedule_row(run_snapshot, 0, "Replan" if source_id else "Recommended", res.solver,
@@ -348,14 +404,16 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
                 rows.append(_schedule_row(run_snapshot, len(rows), alt.label, alt.solver, "feasible",
                                           alt.objectives, report.metrics, report.violations, alt.placements,
                                           explanation))
+        # Read BEFORE the fence: if the event was set by a lost lease, `lost` was set first and the fence raises.
         cancelled = cancel_event.is_set() or res.status == "cancelled"
         with ctx.write_guard(), ctx.db.write() as s:
-            # lock order plan -> run (R4): KEY SHARE on the problem first, as inserting schedules takes it anyway
+            # lock order plan -> run -> job (R4): KEY SHARE on the problem first, as inserting schedules takes it
             if not lock_parent_key_share(s, ProblemRow, run_snapshot.problem_id):
-                return  # problem deleted meanwhile
+                raise LeaseLost(f"problem of run {run_id} is gone")
             run = s.get(SolverRunRow, run_id, with_for_update={"key_share": True})
             if run is None:  # problem deleted meanwhile
-                return
+                raise LeaseLost(f"run {run_id} is gone")
+            lease.fence(s)
             cancelled = cancelled or run.cancel_requested
             for r in rows:
                 s.add(r)
@@ -380,17 +438,26 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
                     "feasibility": res.feasibility, "termination_reason": res.termination_reason,
                     "optimality_proven": res.optimality_proven, "objectives": run.objectives,
                     "primary_schedule_id": primary, "schedule_ids": ids}, elapsed)
+            lease.finish(s, "cancelled" if cancelled else "succeeded")
+    except LeaseLost:
+        raise
     except Exception as exc:
+        if _retryable(ctx, exc):
+            raise RetryableJobError(str(exc)) from exc
         log.exception("run %s failed", run_id)
         message = str(exc) or exc.__class__.__name__
         try:
             with ctx.write_guard(), ctx.db.write() as s:
                 run = s.get(SolverRunRow, run_id, with_for_update={"key_share": True})
                 if run is None:
-                    return
+                    raise LeaseLost(f"run {run_id} is gone")
+                lease.fence(s)
                 run.status = "failed"
                 run.error = message
                 run.finished_at = utcnow()
                 add_event(s, run_id, "run_failed", {"error": message}, time.monotonic() - t0)
+                lease.finish(s, "failed", message)
+        except LeaseLost:
+            raise
         except Exception:
             log.exception("could not mark run %s failed", run_id)

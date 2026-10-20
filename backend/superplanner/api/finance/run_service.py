@@ -10,11 +10,17 @@ import threading
 import time
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from superplanner import finance
 from superplanner.finance.whatif import default_label  # not re-exported by finance/__init__ (see F.24.3)
+from superplanner.jobs import common as job_common
+from superplanner.jobs import idempotency
+from superplanner.jobs.idempotency import Idempotency
+from superplanner.jobs.types import (RESTART_ERROR, RUN_TO_JOB_STATUS, Lease, LeaseLost, RetryableJobError,
+                                     RuntimeContext, is_transient_db_error)
 
 from ..context import WRITE_LOCK, AppContext  # noqa: F401  (WRITE_LOCK re-exported for old imports)
 from ..db import JobRow, new_id, utcnow
@@ -31,7 +37,6 @@ log = logging.getLogger(__name__)
 API_PREFIX = "/api/v1"
 TERMINAL_EVENT_TYPES = ("run_completed", "run_cancelled", "run_failed")
 TERMINAL_STATUSES = ("completed", "failed", "cancelled")
-RESTART_ERROR = "Server restarted before the run finished."
 MAX_LIST_ITEMS = 500
 # Summary keys stored in `finance_results.summary` (FinanceResultSummary minus ids and created_at).
 _SUMMARY_KEYS = ("base_plan_version", "kind", "label", "feasibility", "goals_total", "goals_on_track",
@@ -45,11 +50,15 @@ def _next_seq(s: Session, run_id: str) -> int:
                or 0) + 1
 
 
-def add_event(s: Session, run_id: str, type_: str, fields: dict[str, Any], elapsed: float) -> dict[str, Any] | None:
+def add_event(s: Session, run_id: str, type_: str, fields: dict[str, Any], elapsed: float, *,
+              lease: Lease | None = None) -> dict[str, Any] | None:
     """Append an event; returns None (and writes nothing) if the run row is gone (plan deleted). Locks the run row
-    first (FOR NO KEY UPDATE; no-op on SQLite): safe `seq` allocation with several writers (PHASE2B 2.10)."""
+    first (FOR NO KEY UPDATE; no-op on SQLite): safe `seq` allocation with several writers (PHASE2B 2.10); then
+    fences the lease when given (worker writes)."""
     if not lock_row(s, FinanceRunRow, run_id):
         return None
+    if lease is not None:
+        lease.fence(s)
     seq = _next_seq(s, run_id)
     now = utcnow()
     payload = {"run_id": run_id, "seq": seq, "type": type_, "ts": iso_utc(now),
@@ -159,21 +168,47 @@ def _insert_run(s: Session, row: FinancePlanRow, pv: FinancePlanVersionRow, kind
     return run
 
 
-def enqueue(ctx: AppContext, s: Session, run: FinanceRunRow) -> JobRow:
-    return ctx.jobs.enqueue(s, "finance_run", run.id, run.owner_id)
+def enqueue(ctx: AppContext, s: Session, run: FinanceRunRow, idem: Idempotency | None = None) -> JobRow:
+    return ctx.jobs.enqueue(s, "finance_run", run.id, run.owner_id, idempotency_key=idem.key if idem else None,
+                            request_hash=idem.request_hash if idem else None)
 
 
-def create_run(ctx: AppContext, plan_id: str, req: finance.FinanceRunRequest) -> dict[str, Any]:
+def created_from_job(s: Session, job: JobRow) -> dict[str, Any]:
+    """Idempotent replay body: the creation body of the job's run with its current status (PHASE2B 2.8)."""
+    run = s.get(FinanceRunRow, job.finance_run_id) if job.finance_run_id else None
+    if run is None:
+        raise idempotency._mismatch()   # the key belongs to another kind of request
+    return created_dict(run)
+
+
+def _with_idempotency(ctx: AppContext, idem: Idempotency | None, fn: Any) -> dict[str, Any]:
+    try:
+        return fn()
+    except IntegrityError as exc:
+        if idem is not None and idempotency.is_key_conflict(exc):
+            idempotency.replay_after_conflict(ctx, idem, created_from_job)
+        raise
+
+
+def create_run(ctx: AppContext, plan_id: str, req: finance.FinanceRunRequest,
+               idem: Idempotency | None = None) -> dict[str, Any]:
+    """Raises `idempotency.Replay` for a replayed Idempotency-Key (the route answers 202 + header)."""
+    return _with_idempotency(ctx, idem, lambda: _create_run(ctx, plan_id, req, idem))
+
+
+def _create_run(ctx: AppContext, plan_id: str, req: finance.FinanceRunRequest,
+                idem: Idempotency | None) -> dict[str, Any]:
     with ctx.write_guard():
         with ctx.db.write() as s:
             row = get_plan_row(s, plan_id, lock=True)   # the plan lock enforces one active run (R5)
+            idempotency.lookup(s, idem, ctx.settings.idempotency_ttl_hours, created_from_job)   # after the lock
             active = active_run(s, plan_id)
             if active is not None:
                 raise _run_already_active(active)
             preflight_or_422(load_plan(row.document))
             pv = snapshot(s, row)
             run = _insert_run(s, row, pv, "baseline", req, req.label, None)
-            job = enqueue(ctx, s, run)
+            job = enqueue(ctx, s, run, idem)
             out = created_dict(run)
         ctx.jobs.dispatch(job)
     return out
@@ -192,12 +227,19 @@ def _cancel_in_session(ctx: AppContext, s: Session, run: FinanceRunRow) -> str:
     return run.status
 
 
-def create_what_if(ctx: AppContext, plan_id: str, body: WhatIfRequest) -> dict[str, Any]:
+def create_what_if(ctx: AppContext, plan_id: str, body: WhatIfRequest,
+                   idem: Idempotency | None = None) -> dict[str, Any]:
+    """Raises `idempotency.Replay` for a replayed Idempotency-Key (the route answers 202 + header)."""
+    return _with_idempotency(ctx, idem, lambda: _create_what_if(ctx, plan_id, body, idem))
+
+
+def _create_what_if(ctx: AppContext, plan_id: str, body: WhatIfRequest, idem: Idempotency | None) -> dict[str, Any]:
     req = what_if_run_request(body.run)
     replaced: str | None = None
     with ctx.write_guard():
         with ctx.db.write() as s:
             row = get_plan_row(s, plan_id, lock=True)
+            idempotency.lookup(s, idem, ctx.settings.idempotency_ttl_hours, created_from_job)   # after the lock
             if body.expected_plan_version is not None and body.expected_plan_version != row.version:
                 raise ApiError(412, "VERSION_MISMATCH",
                                f"The plan was changed elsewhere (now version {row.version}, "
@@ -235,7 +277,7 @@ def create_what_if(ctx: AppContext, plan_id: str, body: WhatIfRequest) -> dict[s
             pv = snapshot(s, row, derived.model_dump(mode="json"), kind="what_if", base_version=base_version)
             label = body.changes.label or req.label or default_label(base_plan, body.changes)
             run = _insert_run(s, row, pv, "what_if", req, label, body.changes.model_dump(mode="json"))
-            job = enqueue(ctx, s, run)
+            job = enqueue(ctx, s, run, idem)
             out = created_dict(run)
         if replaced is not None:
             ctx.jobs.notify_cancel(replaced)   # after the commit (A.16)
@@ -270,12 +312,7 @@ def recover_interrupted_runs(ctx: AppContext) -> int:
             run.error = RESTART_ERROR
             run.finished_at = now
             add_event(s, run.id, "run_failed", {"error": RESTART_ERROR}, 0.0)
-        if runs:
-            s.execute(update(JobRow).where(JobRow.finance_run_id.in_([r.id for r in runs]),
-                                           JobRow.status.in_(("queued", "running")))
-                      .values(status="failed", last_error=RESTART_ERROR, finished_at=now, updated_at=now,
-                              lease_token=None, lease_expires_at=None)
-                      .execution_options(synchronize_session=False))
+        job_common.mark_jobs_failed(s, "finance_run", [r.id for r in runs], RESTART_ERROR)
         if runs:
             log.info("marked %d interrupted finance run(s) failed", len(runs))
         return len(runs)
@@ -288,10 +325,11 @@ class ProgressWriter:
     `progress` throttled to the configured rate (2/s), the latest pending progress flushed before
     `stage_completed`."""
 
-    def __init__(self, ctx: AppContext, run_id: str, t0: float):
+    def __init__(self, ctx: RuntimeContext, run_id: str, t0: float, lease: Lease | None = None):
         self.ctx = ctx
         self.run_id = run_id
         self.t0 = t0
+        self.lease = lease
         self.min_interval = ctx.settings.progress_min_interval_seconds
         self.last_progress = float("-inf")
         self.pending: finance.FinanceProgress | None = None
@@ -300,9 +338,15 @@ class ProgressWriter:
         self._lock = threading.Lock()
 
     def _write(self, type_: str, fields: dict[str, Any]) -> None:
+        lease = self.lease
+        if lease is not None and lease.lost.is_set():
+            return   # this worker no longer owns the job: write nothing more
         try:
             with self.ctx.db.write() as s:
-                add_event(s, self.run_id, type_, fields, time.monotonic() - self.t0)
+                add_event(s, self.run_id, type_, fields, time.monotonic() - self.t0, lease=lease)
+        except LeaseLost:
+            if lease is not None:
+                lease.mark_lost()   # stop the engine; the output is discarded (not an error)
         except Exception:  # progress must never kill a run
             log.exception("could not persist %s event for finance run %s", type_, self.run_id)
 
@@ -369,11 +413,15 @@ def independent_check(plan: finance.FinancePlan, result: finance.FinanceResult,
     return result.model_copy(update={"feasibility": "unknown", "violations": violations})
 
 
-def _finish(ctx: AppContext, run_id: str, status: str, t0: float, error: str | None = None) -> None:
+def _finish(ctx: RuntimeContext, run_id: str, status: str, t0: float, error: str | None = None,
+            lease: Lease | None = None) -> None:
+    """Terminal `failed`/`cancelled` write (fenced). A cancel request always wins over `failed` ([R11])."""
     with ctx.write_guard(), ctx.db.write() as s:
         run = s.get(FinanceRunRow, run_id, with_for_update={"key_share": True})
         if run is None:
-            return
+            raise LeaseLost(f"finance run {run_id} is gone")   # plan deleted: the job went with it
+        if lease is not None:
+            lease.fence(s)   # raises if the lease is lost: never write `cancelled` for a lost lease (R6)
         if run.cancel_requested:
             status = "cancelled"
         run.status = status
@@ -384,22 +432,48 @@ def _finish(ctx: AppContext, run_id: str, status: str, t0: float, error: str | N
             add_event(s, run_id, "run_failed", {"error": error}, elapsed)
         else:
             add_event(s, run_id, "run_cancelled", {}, elapsed)
+        if lease is not None:
+            lease.finish(s, "failed" if status == "failed" else "cancelled", error if status == "failed" else None)
 
 
-def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None:
+def _retryable(ctx: RuntimeContext, exc: BaseException) -> bool:
+    return ctx.settings.job_backend == "queue" and is_transient_db_error(exc)
+
+
+def run_job(ctx: RuntimeContext, run_id: str, lease: Lease) -> None:
+    """Execute one claim of a finance run's job (both backends). Raises LeaseLost / RetryableJobError to the
+    worker; records engine failures itself."""
+    cancel_event = lease.cancel_event
     t0 = time.monotonic()
-    with ctx.write_guard(), ctx.db.write() as s:
-        run = s.get(FinanceRunRow, run_id, with_for_update={"key_share": True})
-        if run is None or run.status != "queued" or run.cancel_requested:
-            return  # cancelled while queued, recovered, or the plan was deleted: never run the engine
-        run.status = "running"
-        run.started_at = utcnow()
-        request = dict(run.request)
-        kind, label, what_if, owner_id = run.kind, run.label, run.what_if, run.owner_id
-        pv = s.get(FinancePlanVersionRow, run.plan_version_id)
-        doc, base_version, pv_id, plan_id = pv.document, pv.base_version, pv.id, run.plan_id
-        add_event(s, run.id, "run_started", {}, 0.0)
-    writer = ProgressWriter(ctx, run_id, t0)
+    try:
+        with ctx.write_guard(), ctx.db.write() as s:
+            run = s.get(FinanceRunRow, run_id, with_for_update={"key_share": True})
+            if run is None:
+                raise LeaseLost(f"finance run {run_id} is gone")   # plan deleted: the job went with it
+            lease.fence(s)
+            if run.status != "queued" or run.cancel_requested:
+                # cancelled while queued / in the claim window, or recovered: never run the engine
+                if run.status in ("queued", "running"):
+                    run.status = "cancelled"
+                    run.finished_at = utcnow()
+                    add_event(s, run.id, "run_cancelled", {}, 0.0)
+                lease.finish(s, RUN_TO_JOB_STATUS.get(run.status, "cancelled"))
+                return
+            run.status = "running"
+            if run.started_at is None:   # a retried attempt keeps the first start time
+                run.started_at = utcnow()
+            request = dict(run.request)
+            kind, label, what_if, owner_id = run.kind, run.label, run.what_if, run.owner_id
+            pv = s.get(FinancePlanVersionRow, run.plan_version_id)
+            doc, base_version, pv_id, plan_id = pv.document, pv.base_version, pv.id, run.plan_id
+            add_event(s, run.id, "run_started", {}, 0.0)
+    except LeaseLost:
+        raise
+    except Exception as exc:
+        if _retryable(ctx, exc):
+            raise RetryableJobError(str(exc)) from exc
+        raise
+    writer = ProgressWriter(ctx, run_id, t0, lease)
     try:
         plan = load_plan(doc)
         req = finance.FinanceRunRequest.model_validate(request)
@@ -408,20 +482,22 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
         result = independent_check(plan, result, run_id)
         _before_final_write(run_id)
         with ctx.write_guard(), ctx.db.write() as s:
-            # lock order plan -> run (R4): KEY SHARE on the plan first (inserting the result takes it anyway)
+            # lock order plan -> run -> job (R4): KEY SHARE on the plan first (inserting the result takes it anyway)
             if not lock_parent_key_share(s, FinancePlanRow, plan_id):
-                return  # plan deleted meanwhile: discard the output
+                raise LeaseLost(f"plan of finance run {run_id} is gone")   # discard the output
             run = s.get(FinanceRunRow, run_id, with_for_update={"key_share": True})
             if run is None:
-                return  # plan deleted meanwhile: discard the output
+                raise LeaseLost(f"finance run {run_id} is gone")
+            lease.fence(s)
             elapsed = time.monotonic() - t0
             run.finished_at = utcnow()
             if run.cancel_requested:  # [R11]: a cancelled run never exposes a result
                 run.status = "cancelled"
                 add_event(s, run_id, "run_cancelled", {}, elapsed)
+                lease.finish(s, "cancelled")
                 return
-            res = FinanceResultRow(id=new_id("fres_"), owner_id=owner_id, plan_id=plan_id, plan_version_id=pv_id, run_id=run_id,
-                                   kind=kind, label=label, feasibility=result.feasibility,
+            res = FinanceResultRow(id=new_id("fres_"), owner_id=owner_id, plan_id=plan_id, plan_version_id=pv_id,
+                                   run_id=run_id, kind=kind, label=label, feasibility=result.feasibility,
                                    summary=_summary_dict(result, kind, label, base_version, what_if),
                                    result=result.model_dump(mode="json"), created_at=utcnow())
             s.add(res)
@@ -431,15 +507,22 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
             add_event(s, run_id, "run_completed", {"result_id": res.id, "feasibility": result.feasibility,
                                                    "goals_on_track": result.summary.goals_on_track,
                                                    "goals_total": result.summary.goals_total}, elapsed)
+            lease.finish(s, "succeeded")
+    except LeaseLost:
+        raise
     except finance.FinanceCancelled:
         writer.finish()
-        _finish(ctx, run_id, "cancelled", t0)
+        _finish(ctx, run_id, "cancelled", t0, lease=lease)
     except Exception as exc:
+        if _retryable(ctx, exc):
+            raise RetryableJobError(str(exc)) from exc
         log.exception("finance run %s failed", run_id)
         message = str(exc) or exc.__class__.__name__
         try:
             writer.finish()
-            _finish(ctx, run_id, "failed", t0, message)
+            _finish(ctx, run_id, "failed", t0, message, lease=lease)
+        except LeaseLost:
+            raise
         except Exception:
             log.exception("could not mark finance run %s failed", run_id)
 

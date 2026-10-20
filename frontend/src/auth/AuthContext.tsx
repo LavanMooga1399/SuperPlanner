@@ -27,6 +27,8 @@ export interface AuthState {
   expiresAt: string | null;
   /** True when the session endpoint could not be read and single_user was assumed. */
   assumed: boolean;
+  /** Set by `signOut` so the guard goes to plain `/sign-in` (no `next` back to the page just left). */
+  signedOut: boolean;
 }
 
 export interface AuthApi extends AuthState {
@@ -47,6 +49,7 @@ const INITIAL: AuthState = {
   signupEnabled: false,
   expiresAt: null,
   assumed: false,
+  signedOut: false,
 };
 
 const ASSUMED_SINGLE_USER: AuthState = { ...INITIAL, status: "authenticated", assumed: true };
@@ -65,6 +68,7 @@ function fromSession(info: SessionInfo): AuthState {
     signupEnabled: info.signup_enabled,
     expiresAt: signedIn ? info.expires_at : null,
     assumed: false,
+    signedOut: false,
   };
 }
 
@@ -74,6 +78,9 @@ function meansSingleUser(err: unknown): boolean {
 }
 
 const Ctx = createContext<AuthApi | null>(null);
+
+/** The boot read of `GET /auth/session`, shared by every mount in this page load. */
+let bootSession: Promise<SessionInfo> | null = null;
 
 export function useAuth(): AuthApi {
   const v = useContext(Ctx);
@@ -105,19 +112,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [apply]);
 
-  // Boot: one GET /auth/session.
+  // Boot: one GET /auth/session per page load (shared, so StrictMode's double effect does not send two).
   useEffect(() => {
-    const ac = new AbortController();
-    fetchSession(ac.signal)
-      .then((info) => apply(fromSession(info)))
-      .catch((err) => {
-        if (ac.signal.aborted) return;
-        // 404 / network: an older or unreachable backend. Any other error: still render; protected requests
-        // answering 401 later re-read the session (markExpired).
-        void err;
-        apply(ASSUMED_SINGLE_USER);
+    let alive = true;
+    bootSession ??= fetchSession();
+    bootSession
+      .then((info) => alive && apply(fromSession(info)))
+      .catch(() => {
+        // 404 / network: an older or unreachable backend -> single_user. Any other error: still render;
+        // a protected request answering 401 later re-reads the session (markExpired with `assumed`).
+        if (alive) apply(ASSUMED_SINGLE_USER);
       });
-    return () => ac.abort();
+    return () => {
+      alive = false;
+    };
   }, [apply]);
 
   const markExpired = useCallback(() => {
@@ -183,11 +191,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* already signed out / unreachable: sign out locally anyway */
     }
-    // Leave the protected pages first, so nothing re-saves a draft or re-requests data, then forget everything.
-    await navigate("/sign-in", { replace: true });
+    // Drafts first (the intake provider stops persisting on the event), then the state, then the page. The guard
+    // also sends a signed-out user to plain /sign-in, so whichever navigation lands first, the result is the same.
     forgetSignedInUser();
     const cur = stateRef.current;
-    apply({ ...cur, user: null, csrfToken: null, status: "anonymous", expired: false, expiresAt: null });
+    apply({ ...cur, user: null, csrfToken: null, status: "anonymous", expired: false, expiresAt: null, signedOut: true });
+    await navigate("/sign-in", { replace: true });
   }, [apply, navigate]);
 
   const changePassword = useCallback(

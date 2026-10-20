@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, Header, Query
 from fastapi.responses import JSONResponse, Response
 
 from ..context import AppContext, get_ctx
 from ..schemas import ApproveRequest, ReplanRequest
 from ..services import replan_service, schedule_service
+from superplanner.jobs import idempotency
 
 router = APIRouter(tags=["schedules"])
 
@@ -44,5 +45,8 @@ def export_csv(schedule_id: str, ctx: AppContext = Depends(get_ctx)) -> Response
 
 
 @router.post("/schedules/{schedule_id}/replan", status_code=202)
-def replan(schedule_id: str, req: ReplanRequest, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    return JSONResponse(replan_service.replan(ctx, schedule_id, req), status_code=202)
+def replan(schedule_id: str, req: ReplanRequest, idempotency_key: str | None = Header(default=None),
+           ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    idem = idempotency.from_header(idempotency_key, "replan", {"schedule_id": schedule_id},
+                                   req.model_dump(mode="json"))
+    return idempotency.accepted(lambda: replan_service.replan(ctx, schedule_id, req, idem))

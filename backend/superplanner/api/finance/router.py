@@ -17,6 +17,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from superplanner import finance
+from superplanner.jobs import idempotency
 
 from ..auth.deps import principal_user_id
 from ..context import AppContext, get_ctx
@@ -108,13 +109,17 @@ def validate_plan(plan_id: str, ctx: AppContext = Depends(get_ctx)) -> dict:
 
 @router.post("/plans/{plan_id}/runs", status_code=202)
 def create_run(plan_id: str, req: finance.FinanceRunRequest = Body(default_factory=finance.FinanceRunRequest),
+               idempotency_key: str | None = Header(default=None),
                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    return JSONResponse(run_service.create_run(ctx, plan_id, req), status_code=202)
+    idem = idempotency.from_header(idempotency_key, "finance_run", {"plan_id": plan_id}, req.model_dump(mode="json"))
+    return idempotency.accepted(lambda: run_service.create_run(ctx, plan_id, req, idem))
 
 
 @router.post("/plans/{plan_id}/what-if", status_code=202)
-def create_what_if(plan_id: str, body: WhatIfRequest, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    return JSONResponse(run_service.create_what_if(ctx, plan_id, body), status_code=202)
+def create_what_if(plan_id: str, body: WhatIfRequest, idempotency_key: str | None = Header(default=None),
+                   ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    idem = idempotency.from_header(idempotency_key, "what_if", {"plan_id": plan_id}, body.model_dump(mode="json"))
+    return idempotency.accepted(lambda: run_service.create_what_if(ctx, plan_id, body, idem))
 
 
 @router.get("/plans/{plan_id}/runs")

@@ -19,6 +19,8 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ??= "/opt/pw-browsers";
 export default defineConfig({
   testDir: ".",
   testMatch: /.*\.spec\.ts$/,
+  // PHASE2B 4.10: the accounts specs have their own config (playwright.accounts.config.ts).
+  testIgnore: ["accounts/**"],
   timeout: 120_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,
@@ -37,7 +39,7 @@ export default defineConfig({
     {
       command: `${path.join(backendDir, "run_api.sh")}`,
       cwd: backendDir,
-      env: { DATABASE_URL: dbUrl, PORT: "8000", RUN_WORKERS: "2" },
+      env: { DATABASE_URL: dbUrl, PORT: "8000", RUN_WORKERS: "2", AUTH_MODE: "single_user", JOB_BACKEND: "inline" },
       url: "http://127.0.0.1:8000/api/v1/health",
       reuseExistingServer: false,
       timeout: 60_000,

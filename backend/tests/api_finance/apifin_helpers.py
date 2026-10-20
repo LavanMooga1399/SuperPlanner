@@ -118,10 +118,8 @@ class FinApi:
         return r.json()
 
     def worker_done(self, run_id: str, timeout: float = 30.0) -> None:
-        """Wait until the executor no longer holds the run's job."""
-        fut = self.ctx.executor.future(run_id)
-        if fut is not None:
-            fut.result(timeout=timeout)
+        """Wait until no worker holds the run's job (inline executor or queue worker, PHASE2B 2.2)."""
+        self.ctx.jobs.wait_idle(run_id, timeout)
 
 
 def assert_error(resp, status: int, code: str | None = None) -> dict[str, Any]:

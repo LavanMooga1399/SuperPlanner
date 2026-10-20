@@ -5,6 +5,9 @@ import type { Health } from "./api/types";
 import { Banner } from "./components/Banner";
 import { Icon } from "./components/Icon";
 import { useStoredState } from "./lib/useAsync";
+import { AccountMenu } from "./auth/AccountMenu";
+import { useAuth } from "./auth/AuthContext";
+import { SessionExpiredBanner } from "./auth/SessionExpiredBanner";
 
 type ThemePref = "light" | "dark";
 
@@ -101,6 +104,9 @@ function MainNav() {
 
 export function App() {
   const server = useServerHealth();
+  const auth = useAuth();
+  // Accounts mode, nobody signed in (sign-in / sign-up pages): no section links to pages that need a session.
+  const showNav = !(auth.mode === "accounts" && auth.status !== "authenticated");
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -113,10 +119,11 @@ export function App() {
           </svg>
           SuperPlanner <span className="muted hide-sm" style={{ fontWeight: 500 }}>Studio</span>
         </Link>
-        <MainNav />
+        {showNav ? <MainNav /> : null}
         <div className="topbar-spacer" />
         <ServerStatus health={server.health} down={server.down} />
         <ThemeToggle />
+        <AccountMenu />
       </header>
       <main className="main">
         {server.down ? (
@@ -136,6 +143,7 @@ export function App() {
             </Banner>
           </div>
         ) : null}
+        <SessionExpiredBanner />
         <Outlet />
       </main>
     </div>

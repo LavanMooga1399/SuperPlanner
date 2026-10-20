@@ -140,6 +140,24 @@ def pg_template(pg_admin: PgAdmin) -> Iterator[str]:
     pg_admin.drop(name)
 
 
+def _stop_live_contexts(dbnames: list[str]) -> None:
+    """Stop app contexts still running on these databases (TestClient used without `with`, abandoned apps), so
+    their embedded worker threads end before the database is dropped."""
+    if not dbnames:
+        return
+    from sqlalchemy.engine import make_url
+
+    from superplanner.api.context import live_contexts
+
+    names = set(dbnames)
+    for ctx in live_contexts():
+        try:
+            if make_url(ctx.db.url).database in names:
+                ctx.stop()
+        except Exception:  # pragma: no cover - best effort
+            pass
+
+
 def _factory(request: pytest.FixtureRequest, base_dir: Callable[[], Path]) -> Callable[[str], str]:
     db = selected_db(request.config)
     created: list[str] = []
@@ -153,6 +171,7 @@ def _factory(request: pytest.FixtureRequest, base_dir: Callable[[], Path]) -> Ca
             return admin.url_for(dbname)
 
         def _cleanup() -> None:
+            _stop_live_contexts(created)
             for n in created:
                 try:
                     admin.drop(n)
@@ -190,11 +209,15 @@ def db_url_factory_module(request: pytest.FixtureRequest,
 
 @pytest.fixture(autouse=True)
 def _phase2b_env(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Per-test environment (PHASE2B 3.6). Q1: inline jobs on both dialects (Q2 switches Postgres to the queue)."""
+    """Per-test environment (PHASE2B 3.6): SQLite -> inline jobs; PostgreSQL -> the durable queue with embedded
+    worker threads in the test process (so monkeypatched run-service internals still apply). A short shutdown grace
+    keeps app teardown fast (running jobs are requeued, B 2.9)."""
     monkeypatch.setenv("PASSWORD_HASH_PROFILE", "fast")
     if selected_db(request.config) == "postgres":
-        monkeypatch.setenv("JOB_BACKEND", "inline")
+        monkeypatch.setenv("JOB_BACKEND", "queue")
+        monkeypatch.setenv("WORKER_EMBEDDED", "auto")
         monkeypatch.setenv("JOB_CANCEL_POLL_SECONDS", "0.2")
         monkeypatch.setenv("WORKER_POLL_SECONDS", "0.2")
+        monkeypatch.setenv("WORKER_SHUTDOWN_GRACE_SECONDS", "1")
     if request.node.get_closest_marker("inline_jobs"):
         monkeypatch.setenv("JOB_BACKEND", "inline")

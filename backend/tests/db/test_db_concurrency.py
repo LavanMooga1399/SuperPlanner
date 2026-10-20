@@ -149,6 +149,7 @@ def test_approve_retries_once_on_the_approved_index(db_url, monkeypatch):
 
 # ---------------------------------------------------------------- job rows in inline mode
 
+@pytest.mark.inline_jobs
 def test_inline_mode_writes_one_job_per_run_with_the_terminal_status(db_url):
     with TestClient(make_app(db_url)) as c:
         ctx = c.app.state.ctx
