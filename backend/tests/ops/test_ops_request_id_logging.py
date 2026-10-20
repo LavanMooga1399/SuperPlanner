@@ -199,10 +199,18 @@ def test_configure_logging_leaves_existing_configuration_alone():
         log_format, log_level = "json", "INFO"
 
     root = logging.getLogger()
-    assert root.handlers   # pytest's capture handlers
-    before = list(root.handlers)
-    assert configure_logging(S(), "api") is False
-    assert root.handlers == before
+    saved = list(root.handlers)
+    foreign = logging.StreamHandler()
+    try:
+        for h in saved:
+            root.removeHandler(h)
+        root.addHandler(foreign)   # e.g. pytest's capture or an embedding application's handler
+        assert configure_logging(S(), "api") is False
+        assert root.handlers == [foreign]
+    finally:
+        root.removeHandler(foreign)
+        for h in saved:
+            root.addHandler(h)
 
 
 def test_configure_logging_json_routes_uvicorn(monkeypatch):
@@ -248,3 +256,34 @@ def test_route_template_reconstruction():
         path_format = "/metrics"
 
     assert rc.route_template({"route": Root(), "path": "/metrics"}) == "/metrics"
+
+
+def test_configure_logging_keeps_disabled_uvicorn_access_log():
+    """`--no-access-log`: uvicorn leaves `uvicorn.access` without handlers and propagate=False; JSON setup must
+    not re-enable it (the API writes its own http.request line)."""
+    import io
+
+    class S:
+        log_format, log_level = "json", "INFO"
+
+    root = logging.getLogger()
+    saved, saved_level = list(root.handlers), root.level
+    acc = logging.getLogger("uvicorn.access")
+    acc_saved = (list(acc.handlers), acc.propagate)
+    try:
+        for h in saved:
+            root.removeHandler(h)
+        for h in list(acc.handlers):
+            acc.removeHandler(h)
+        acc.propagate = False
+        assert configure_logging(S(), "api", stream=io.StringIO()) is True
+        assert acc.propagate is False and not acc.hasHandlers()
+    finally:
+        for h in list(root.handlers):
+            root.removeHandler(h)
+        for h in saved:
+            root.addHandler(h)
+        root.setLevel(saved_level)
+        for h in acc_saved[0]:
+            acc.addHandler(h)
+        acc.propagate = acc_saved[1]

@@ -1745,7 +1745,149 @@ workers) `SP_TEST_DB=postgres ... .venv/bin/pytest -rs` -> `1956 passed, 1 skipp
 `tests/auth` alone: 61 passed on each dialect.
 
 ### 10.WP-4 Operations
-(to be filled)
+
+Implemented by Q5 (plan section 6). Nothing committed. The runbook is `docs/DEPLOY.md` (all 10 sections of B 5.6).
+
+**Files.** New:
+- `superplanner/obs/logging.py`, `obs/request_context.py`, `obs/http_metrics.py`, `api/routes/metrics.py`
+- `scripts/load_queue.py`
+- `backend/Dockerfile`, `backend/.dockerignore`, `backend/run_api.ps1`
+- `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/.dockerignore`, `frontend/docker/40-sp-real-ip.sh`
+- `docker-compose.yml`, `.env.example`, `.gitattributes`, `docs/DEPLOY.md`
+- `tests/ops/**`, `tests/jobs/test_load_small.py`
+
+Edited:
+- `api/routes/health.py`: live/ready added; `/health` unchanged.
+- `api/main.py`: `RequestContextMiddleware` outermost, `/metrics` mount, `configure_logging` instead of
+  `basicConfig`.
+- `jobs/worker.py`: log binding, `job.started` line, `queue_wait_ms` in `job.finished`, `configure_logging`.
+- `manage.py`: the jobs part of `prune`.
+- `run_api.sh`: `--no-access-log` only with `LOG_FORMAT=json`, `--proxy-headers`.
+- `.gitignore`: adds `.env`.
+
+`api/config.py` needed no change: Q1 had already declared every setting.
+
+**Interpretations and deviations (for LEAD review)**
+1. *Auth event metrics are derived in the middleware*, from route template + status: sign-in 200/401,
+   sign-up 201, any 429, and any 403 whose body carries `CSRF_FAILED` (only 403 bodies are peeked, at most 512
+   bytes). So the Q3 auth files needed no edit. The auth log event names stay as Q3 wrote them
+   (`auth.signed_in`, `auth.sign_in_failed`, ...), not the `auth.sign_in outcome=` form of B 5.3.
+2. *500 responses carry `X-Request-ID`*. Starlette's `ServerErrorMiddleware` sits outside every user
+   middleware, so on an unhandled exception `RequestContextMiddleware` sends the same `INTERNAL_ERROR` envelope
+   itself (with the header) and re-raises. The 500 handler still runs and logs; it does not send twice. The
+   request id is not reset on that path, so the "unhandled error" line keeps it.
+3. *Route templates*: FastAPI 0.143 puts the included router's prefix-less route in `scope["route"]`. The template
+   is rebuilt as request-path prefix segments + the route's `path_format` (path parameters are single segments
+   in this API). No match gives `unmatched`.
+4. *The queue collector is refreshed at scrape time*. `/metrics` sets the queue gauges from its own app's
+   database (5 s cache, `system_scope`) instead of a global `Collector`, because many apps (tests) share the
+   default registry in one process. Inline mode reports `sp_workers_alive = RUN_WORKERS`.
+5. *Readiness*: `/health/ready` does not use `get_ctx`. It tries `ctx.start()` itself, so a failing lazy start
+   gives 503 instead of 500: `SchemaError` gives `"schema":"outdated"`, anything else
+   `"database":"error"`. `schema` is `ok` only for state `current`; behind, empty, legacy and ahead all count as
+   `outdated`. On a ping failure `schema` is `"unknown"`.
+6. *`/metrics` is not in the OpenAPI schema* (`include_in_schema=False`), so the Q3 route-coverage table needs
+   no root entry. 401 uses the standard envelope (`AUTH_REQUIRED`) plus `WWW-Authenticate: Bearer`.
+   `METRICS_ENABLED=false` does not mount it (404).
+7. *Logging setup* only installs a handler when the root logger has none (pytest capture and embedding apps are
+   left alone). JSON mode routes uvicorn's own loggers through our handler, except a logger uvicorn disabled with
+   `--no-access-log`. In text mode uvicorn keeps its own format, so dev shows uvicorn's access line plus our
+   `http.request ... rid=` line. Context fields are captured by a handler filter in the emitting thread; extra
+   fields are passed as `extra={"sp": {...}}`. `user_id` comes from `request.state.principal` (access line) or
+   the bound owner (other lines).
+8. *`migrate.py` keeps its `basicConfig`* (Q1 file, not in the Q5 list). The compose `migrate` one-shot
+   therefore prints text lines. Change request: call `configure_logging(settings, "migrate")` in `migrate.main`.
+9. *nginx real_ip*: nginx cannot read env vars in `conf.d`, so the image's entrypoint hook
+   `frontend/docker/40-sp-real-ip.sh` writes `/etc/nginx/sp-real-ip.conf` from `TRUSTED_PROXY_CIDRS`. It accepts
+   only address characters and is included with a glob, so a missing file is fine. `X-Forwarded-For` is always
+   overwritten with `$remote_addr`, which after real_ip is the client.
+10. *Compose*: `env_file: .env` is `required: false`, so `docker compose --env-file .env.example config -q`
+    validates without a `.env`. The api service forces `HOST=0.0.0.0`/`PORT=8000`; otherwise the `.env.example`
+    `HOST=127.0.0.1` (meant for `run_api.sh`) would make the container unreachable. The internal subnet is
+    `SP_INTERNAL_SUBNET` (default `172.28.0.0/24`) and doubles as `FORWARDED_ALLOW_IPS`. The frontend image has
+    its own `/healthz`.
+11. *`manage prune` jobs part* uses ORM deletes, so it works on both dialects: terminal jobs with
+    `finished_at` older than `JOB_RETENTION_DAYS`, and `job_workers` rows without a heartbeat for 1 day. The
+    worker's own maintenance (`jobs.pg.maintenance`) is unchanged.
+12. *Load script*:
+    - Replay POSTs go out concurrently with their originals (exercises R8). Exactly one of the pair must carry
+      `Idempotent-Replayed: true`.
+    - Chaos mode kills a worker that holds a running job at the moment of the kill, so a requeue is
+      guaranteed. It shortens the lease timings (6/2/2 s) unless they are set in the environment.
+    - Wall time runs from the first job's `created_at` to the last `finished_at`. Queue wait is job
+      `started_at - created_at`; duration is `finished_at - started_at` per kind.
+    - `--database-url` and `--log-dir` are extra options; `--api-url` adds the external API's registered
+      workers to the known set.
+13. `tests/jobs/test_load_small.py` lives in the Q2 test directory, as B 6 names it.
+14. Change request carried over from Q3: add `"superplanner.api.auth" = ["common_passwords.txt"]` to
+    `pyproject.toml` package-data (Q1 file). The images copy the source tree, so Docker is unaffected.
+
+**Acceptance criteria -> tests** (`tests/ops/` unless noted)
+
+| Criterion | Tests / checks |
+|---|---|
+| Q5-1 | full suites (results below); `test_ops_health::test_ready_body` also asserts `/health` keys; existing `test_api_health` unchanged |
+| Q5-2 | `test_ops_health`: live without DB (`start`/`ping` patched to raise), ready body, queued counts (PG), 503 ping down, 503 unreachable DB, 503 schema at 0001 with `DB_AUTO_MIGRATE=false`, accounts mode without cookie, lazy start inside the request |
+| Q5-3 | `test_ops_request_id_logging`: 200/404/404/422/413/500/preflight all carry ids; 413 keeps CORS; echo/replace rules; `jobs.request_id` stored (both DBs); worker `job.started` + `job.finished` lines carry the enqueuing id (PG, embedded worker, real handler) |
+| Q5-4 | `test_json_log_lines_and_no_secrets_during_a_full_flow` (accounts: sign-up, failed + ok sign-in, plan, solve, finance instantiate, change-password, sign-out; every line JSON with the 5 keys; no password/CSRF/cookie/plan name/email); formatter unit tests; `test_worker_metrics_server_and_json_logs` (worker stderr all JSON); manual uvicorn check (JSON lines incl. uvicorn's, no access duplicate with `--no-access-log`) |
+| Q5-5 | `test_ops_metrics`: every B 5.4 metric present, route templates, no raw ids/paths, `unmatched`; token 401/200; disabled 404; not in OpenAPI; accounts mode without OwnershipViolation; auth events; SSE counted but no histogram, gauge back to 0; worker `:port/metrics` job metrics (PG subprocess) |
+| Q5-6 | `tests/jobs/test_load_small.py` (10 runs, 2 workers, `pg_load`); G8 runs below |
+| Q5-7 | `test_ops_deploy`: `.env.example` lists every `config.py` variable, no secret, `.env` git-ignored; nginx text checks (XFF overwrite, no `$proxy_add_x_forwarded_for`, `/metrics` 404, SSE settings); real-ip script; non-root Dockerfiles; compose structure; `docker compose --env-file .env.example config -q` exits 0 (CLI v5.6.0, no daemon needed) |
+| Q5-8 | `test_production_defaults`, `test_production_cors_star_with_credentials_refused`, `test_production_cors_star_exits_2` |
+| Q5-9 | DEPLOY.md sections 1 and 2; `test_run_api_sh_starts_zero_setup` (no config, SQLite, inline, `/problems` without login); section 2 commands used for the load runs |
+
+**Load runs (G8)**: local PostgreSQL 16 (127.0.0.1:54329), a fresh database `sp_load` each time, 3 worker
+processes at concurrency 1, API subprocess without embedded workers, 25 solver + 25 finance runs.
+```
+$ DATABASE_URL=postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/sp_load .venv/bin/python scripts/load_queue.py --runs 50 --workers 3
+runs              50 (solver 25, finance 25)
+workers           3 x concurrency 1
+wall seconds      25.7
+throughput        116.9 runs/min
+queue wait        p50 1.62s  p95 19.60s
+duration finance_run p50 2.62s  p95 2.77s  (n=25)
+duration solver_run  p50 0.10s  p95 0.99s  (n=25)
+jobs per worker   load-w0-c4f8=18, load-w1-904c=15, load-w2-9fff=17
+replays           5/5 returned the same run id
+requeues          0
+duplicates        0
+lost              0
+result            OK                                                     (exit 0)
+
+$ ... scripts/load_queue.py --runs 50 --workers 3 --chaos-kill-after 5
+runs              50 (solver 25, finance 25)
+workers           3 x concurrency 1  (chaos: killed load-w0-ee77)
+wall seconds      36.2
+throughput        82.8 runs/min
+queue wait        p50 1.85s  p95 29.11s
+duration finance_run p50 2.62s  p95 2.87s  (n=25)
+duration solver_run  p50 0.09s  p95 1.04s  (n=25)
+jobs per worker   load-w0-ee77=3, load-w1-3ce0=23, load-w2-3515=24
+replays           5/5 returned the same run id
+requeues          1
+duplicates        0
+lost              0
+result            OK                                                     (exit 0)
+```
+Exactly once means:
+- every run is `completed` with exactly one job, which `succeeded`;
+- each run has exactly one terminal event, and it is the last; `seq` runs contiguously from 1;
+- solver schedule ranks run 0..k; each finance run has exactly one result;
+- `attempts` is 1, except the one requeued job, which has 2 and a `run_requeued` event;
+- every final `lease_owner` is one of the three workers.
+
+The p95 queue wait is long because all 50 runs are enqueued at once onto 3 slots. It is backlog, not claim
+latency.
+
+**Suite results** (2026-10-20, working tree incl. Q2/Q3):
+- G1, SQLite: `cd backend && .venv/bin/pytest -rs` gives `1974 passed, 27 skipped`. The skips are PostgreSQL-only
+  tests plus one that needs the queue backend, each with a reason.
+- G2, PostgreSQL 16 (queue + embedded workers): `SP_TEST_DB=postgres ... .venv/bin/pytest -rs` gives
+  `2000 passed, 1 skipped` (the SQLite-only WAL backup test).
+- `tests/ops` alone: 41 tests (3 PostgreSQL-only skips on SQLite).
+- G9: `docker compose --env-file .env.example config -q` exits 0. There is no Docker daemon here, so images were
+  not built.
+
 
 ### 10.WP-5 Frontend
 (to be filled)

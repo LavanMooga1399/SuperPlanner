@@ -57,6 +57,12 @@ _SIGN_UP = "/api/v1/auth/sign-up"
 
 # ---------------------------------------------------------------- HTTP / SSE / auth (middleware)
 
+def is_sse_route(route: str) -> bool:
+    """The progress-stream routes (`.../solver-runs/{run_id}/events`, `.../finance/runs/{run_id}/events`) are
+    excluded from the duration histogram whatever they answered (also their 404/401 answers)."""
+    return route.endswith("/events")
+
+
 def sse_kind(route: str) -> str:
     return "finance" if "/finance/" in route else "solver"
 
@@ -72,7 +78,7 @@ def sse_finished(kind: str) -> None:
 def observe_request(method: str, route: str | None, status: int, duration_seconds: float, *, sse: bool) -> None:
     r = route or "unmatched"
     HTTP_REQUESTS.labels(method=method, route=r, status=str(status)).inc()
-    if not sse:
+    if not sse and not is_sse_route(r):
         HTTP_DURATION.labels(method=method, route=r).observe(max(0.0, duration_seconds))
 
 

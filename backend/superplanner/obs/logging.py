@@ -135,9 +135,12 @@ def configure_logging(settings: Any, service: str, *, force: bool = False, strea
     root.addHandler(make_handler(fmt, service, stream))
     root.setLevel(level)
     if fmt == "json":
-        # uvicorn installs its own text handlers (propagate=False); route its lines through ours.
+        # uvicorn installs its own text handlers (propagate=False); route its lines through ours. A logger that
+        # uvicorn disabled (`--no-access-log`: no handlers, propagate=False) stays disabled.
         for name in _UVICORN_LOGGERS:
             lg = logging.getLogger(name)
+            if not lg.handlers:
+                continue
             for h in list(lg.handlers):
                 lg.removeHandler(h)
             lg.propagate = True
