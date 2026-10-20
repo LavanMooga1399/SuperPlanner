@@ -16,8 +16,10 @@ from superplanner import engine
 from superplanner.engine import Problem
 from superplanner.templates import TEMPLATES, get_template
 
-from ..context import WRITE_LOCK, AppContext
+from ..context import AppContext
 from ..db import AuditEventRow, ProblemRow, ProblemVersionRow, ScheduleRow, SolverRunRow, new_id, utcnow
+from ..db.locks import get_locked
+from ..db.ownership import current_owner
 from ..errors import ApiError, not_found, validation_error
 from ..schemas import ExportFile, InstantiateRequest, iso_utc
 
@@ -28,7 +30,9 @@ MAX_LIST_ITEMS = 500
 # ---------------------------------------------------------------- helpers
 
 def audit(s: Session, entity_type: str, entity_id: str, action: str, details: dict[str, Any] | None = None) -> None:
-    s.add(AuditEventRow(entity_type=entity_type, entity_id=entity_id, action=action, details=details or {}))
+    owner = current_owner()
+    s.add(AuditEventRow(entity_type=entity_type, entity_id=entity_id, action=action, details=details or {},
+                        actor_id=owner if isinstance(owner, str) else None))
 
 
 def canonical_hash(doc: dict[str, Any]) -> str:
@@ -63,8 +67,10 @@ def parse_if_match(value: str | None) -> int:
         raise ApiError(428, "PRECONDITION_REQUIRED", f"If-Match header {value!r} is not a version number.")
 
 
-def get_problem_row(s: Session, problem_id: str) -> ProblemRow:
-    row = s.get(ProblemRow, problem_id)
+def get_problem_row(s: Session, problem_id: str, lock: bool = False, for_delete: bool = False) -> ProblemRow:
+    """`lock=True`: FOR NO KEY UPDATE (PHASE2B 2.12, R4); `for_delete=True`: plain FOR UPDATE."""
+    row = get_locked(s, ProblemRow, problem_id, for_delete=for_delete) if (lock or for_delete) \
+        else s.get(ProblemRow, problem_id)
     if row is None:
         raise not_found("Problem", problem_id)
     return row
@@ -126,8 +132,8 @@ def get_problem(ctx: AppContext, problem_id: str) -> dict[str, Any]:
 
 
 def update_problem(ctx: AppContext, problem_id: str, problem: Problem, if_match: str | None) -> dict[str, Any]:
-    with WRITE_LOCK, ctx.db.write() as s:
-        row = get_problem_row(s, problem_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        row = get_problem_row(s, problem_id, lock=True)
         expected = parse_if_match(if_match)
         if expected != row.version:
             raise ApiError(412, "VERSION_MISMATCH",
@@ -144,8 +150,8 @@ def update_problem(ctx: AppContext, problem_id: str, problem: Problem, if_match:
 
 
 def delete_problem(ctx: AppContext, problem_id: str) -> None:
-    with WRITE_LOCK, ctx.db.write() as s:
-        get_problem_row(s, problem_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        get_problem_row(s, problem_id, for_delete=True)
         active = has_active_run(s, problem_id)
         if active is not None:
             raise ApiError(409, "RUN_ALREADY_ACTIVE",

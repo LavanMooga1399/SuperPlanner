@@ -1,4 +1,7 @@
-"""Finance tables on the shared `Base` (FINANCE.md 17). Same column conventions as A.13; FKs cascade."""
+"""Finance tables on the shared `Base` (FINANCE.md 17, PHASE2B 3.3). Same column conventions as A.13; FKs cascade.
+
+Owned roots: finance_plans, finance_runs, finance_results (`OwnedMixin`). No one-active-run index (review R5): the
+plan row lock taken by every run-creating path enforces the rule."""
 
 from __future__ import annotations
 
@@ -8,11 +11,13 @@ from typing import Any
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ..db.models import Base, JsonType, utcnow
+from ..db.models import Base, BigIntId, JsonType, utcnow
+from ..db.ownership import OwnedMixin
 
 
-class FinancePlanRow(Base):
+class FinancePlanRow(OwnedMixin, Base):
     __tablename__ = "finance_plans"
+    __table_args__ = (Index("ix_finance_plans_owner_updated", "owner_id", "updated_at", "id"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
@@ -36,10 +41,11 @@ class FinancePlanVersionRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-class FinanceRunRow(Base):
+class FinanceRunRow(OwnedMixin, Base):
     __tablename__ = "finance_runs"
     __table_args__ = (Index("ix_finance_runs_plan_created", "plan_id", "created_at"),
-                      Index("ix_finance_runs_status", "status"))
+                      Index("ix_finance_runs_status", "status"),
+                      Index("ix_finance_runs_plan_version", "plan_version_id"))
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     plan_id: Mapped[str] = mapped_column(ForeignKey("finance_plans.id", ondelete="CASCADE"))
@@ -63,7 +69,7 @@ class FinanceRunEventRow(Base):
     __tablename__ = "finance_run_events"
     __table_args__ = (UniqueConstraint("run_id", "seq", name="uq_finance_run_event_seq"),)
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigIntId, primary_key=True, autoincrement=True)
     run_id: Mapped[str] = mapped_column(ForeignKey("finance_runs.id", ondelete="CASCADE"))
     seq: Mapped[int] = mapped_column(Integer)
     type: Mapped[str] = mapped_column(String(32))
@@ -71,9 +77,11 @@ class FinanceRunEventRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-class FinanceResultRow(Base):
+class FinanceResultRow(OwnedMixin, Base):
     __tablename__ = "finance_results"
-    __table_args__ = (Index("ix_finance_results_plan_created", "plan_id", "created_at"),)
+    __table_args__ = (Index("ix_finance_results_plan_created", "plan_id", "created_at"),
+                      Index("ix_finance_results_plan_version", "plan_version_id"),
+                      Index("uq_finance_results_run", "run_id", unique=True))
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     plan_id: Mapped[str] = mapped_column(ForeignKey("finance_plans.id", ondelete="CASCADE"))

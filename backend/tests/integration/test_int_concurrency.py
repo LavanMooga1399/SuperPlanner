@@ -125,8 +125,8 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-def _start_server(db: Path, port: int) -> subprocess.Popen:
-    env = {**os.environ, "DATABASE_URL": f"sqlite:///{db}", "PORT": str(port)}
+def _start_server(db_url: str, port: int) -> subprocess.Popen:
+    env = {**os.environ, "DATABASE_URL": db_url, "PORT": str(port), "JOB_BACKEND": "inline"}
     proc = subprocess.Popen([str(BACKEND / "run_api.sh")], cwd=BACKEND, env=env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     deadline = time.monotonic() + 20
@@ -149,8 +149,9 @@ def _kill(proc: subprocess.Popen) -> None:
     proc.wait(10)
 
 
-def test_int_killed_server_recovery(tmp_path):
-    db = tmp_path / "crash.db"
+@pytest.mark.inline_jobs
+def test_int_killed_server_recovery(db_url_factory):
+    db = db_url_factory("crash")
     port = _free_port()
     base = f"http://127.0.0.1:{port}{API}"
     proc = _start_server(db, port)

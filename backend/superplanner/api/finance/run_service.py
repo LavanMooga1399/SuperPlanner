@@ -10,14 +10,15 @@ import threading
 import time
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from superplanner import finance
 from superplanner.finance.whatif import default_label  # not re-exported by finance/__init__ (see F.24.3)
 
-from ..context import WRITE_LOCK, AppContext
-from ..db import new_id, utcnow
+from ..context import WRITE_LOCK, AppContext  # noqa: F401  (WRITE_LOCK re-exported for old imports)
+from ..db import JobRow, new_id, utcnow
+from ..db.locks import lock_parent_key_share, lock_row
 from ..errors import ApiError, not_found
 from ..schemas import as_utc, iso_utc
 from ..services.problem_service import audit, slugify
@@ -45,8 +46,9 @@ def _next_seq(s: Session, run_id: str) -> int:
 
 
 def add_event(s: Session, run_id: str, type_: str, fields: dict[str, Any], elapsed: float) -> dict[str, Any] | None:
-    """Append an event; returns None (and writes nothing) if the run row is gone (plan deleted)."""
-    if s.get(FinanceRunRow, run_id) is None:
+    """Append an event; returns None (and writes nothing) if the run row is gone (plan deleted). Locks the run row
+    first (FOR NO KEY UPDATE; no-op on SQLite): safe `seq` allocation with several writers (PHASE2B 2.10)."""
+    if not lock_row(s, FinanceRunRow, run_id):
         return None
     seq = _next_seq(s, run_id)
     now = utcnow()
@@ -157,22 +159,27 @@ def _insert_run(s: Session, row: FinancePlanRow, pv: FinancePlanVersionRow, kind
     return run
 
 
+def enqueue(ctx: AppContext, s: Session, run: FinanceRunRow) -> JobRow:
+    return ctx.jobs.enqueue(s, "finance_run", run.id, run.owner_id)
+
+
 def create_run(ctx: AppContext, plan_id: str, req: finance.FinanceRunRequest) -> dict[str, Any]:
-    with WRITE_LOCK:
+    with ctx.write_guard():
         with ctx.db.write() as s:
-            row = get_plan_row(s, plan_id)
+            row = get_plan_row(s, plan_id, lock=True)   # the plan lock enforces one active run (R5)
             active = active_run(s, plan_id)
             if active is not None:
                 raise _run_already_active(active)
             preflight_or_422(load_plan(row.document))
             pv = snapshot(s, row)
             run = _insert_run(s, row, pv, "baseline", req, req.label, None)
+            job = enqueue(ctx, s, run)
             out = created_dict(run)
-        submit(ctx, out["run_id"])
+        ctx.jobs.dispatch(job)
     return out
 
 
-def _cancel_in_session(s: Session, run: FinanceRunRow) -> str:
+def _cancel_in_session(ctx: AppContext, s: Session, run: FinanceRunRow) -> str:
     """Mark a queued/running run cancel-requested (queued -> cancelled immediately). Returns the new status."""
     run.cancel_requested = True
     at_cancel = run.status
@@ -180,6 +187,7 @@ def _cancel_in_session(s: Session, run: FinanceRunRow) -> str:
         run.status = "cancelled"
         run.finished_at = utcnow()
         add_event(s, run.id, "run_cancelled", {}, 0.0)
+    ctx.jobs.request_cancel(s, "finance_run", run.id)
     audit(s, "finance_run", run.id, "finance_run.cancelled", {"status_at_cancel": at_cancel})
     return run.status
 
@@ -187,9 +195,9 @@ def _cancel_in_session(s: Session, run: FinanceRunRow) -> str:
 def create_what_if(ctx: AppContext, plan_id: str, body: WhatIfRequest) -> dict[str, Any]:
     req = what_if_run_request(body.run)
     replaced: str | None = None
-    with WRITE_LOCK:
+    with ctx.write_guard():
         with ctx.db.write() as s:
-            row = get_plan_row(s, plan_id)
+            row = get_plan_row(s, plan_id, lock=True)
             if body.expected_plan_version is not None and body.expected_plan_version != row.version:
                 raise ApiError(412, "VERSION_MISMATCH",
                                f"The plan was changed elsewhere (now version {row.version}, "
@@ -214,51 +222,60 @@ def create_what_if(ctx: AppContext, plan_id: str, body: WhatIfRequest) -> dict[s
                 raise ApiError(422, "VALIDATION_ERROR", f"The what-if changes are not valid: {exc}",
                                {"errors": [{"loc": ["body", "changes"], "msg": str(exc), "type": "value_error"}]})
             active = active_run(s, plan_id)
+            if active is not None:   # re-read under the run lock (lock order: plan -> run); it may have finished
+                s.refresh(active, with_for_update={"key_share": True})
+                if active.status not in ("queued", "running") or active.cancel_requested:
+                    active = None
             if active is not None:
                 if not (body.replace_active and active.kind == "what_if"):
                     raise _run_already_active(active)
-                _cancel_in_session(s, active)
+                _cancel_in_session(ctx, s, active)
                 replaced = active.id
             preflight_or_422(derived)
             pv = snapshot(s, row, derived.model_dump(mode="json"), kind="what_if", base_version=base_version)
             label = body.changes.label or req.label or default_label(base_plan, body.changes)
             run = _insert_run(s, row, pv, "what_if", req, label, body.changes.model_dump(mode="json"))
+            job = enqueue(ctx, s, run)
             out = created_dict(run)
         if replaced is not None:
-            ctx.executor.cancel(replaced)   # after the commit (A.16)
-        submit(ctx, out["run_id"])
+            ctx.jobs.notify_cancel(replaced)   # after the commit (A.16)
+        ctx.jobs.dispatch(job)
     return out
-
-
-def submit(ctx: AppContext, run_id: str) -> None:
-    ctx.executor.submit(run_id, lambda rid, ev: run_job(ctx, rid, ev))
 
 
 # ---------------------------------------------------------------- cancel
 
 def cancel_run(ctx: AppContext, run_id: str) -> dict[str, Any]:
-    with WRITE_LOCK, ctx.db.write() as s:
-        run = s.get(FinanceRunRow, run_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        run = s.get(FinanceRunRow, run_id, with_for_update={"key_share": True})
         if run is None:
             raise not_found("Finance run", run_id)
         if run.status not in ("queued", "running"):
             raise ApiError(409, "RUN_NOT_ACTIVE", f"The run has already finished (status {run.status}).",
                            {"status": run.status})
-        status = _cancel_in_session(s, run)
-    ctx.executor.cancel(run_id)
+        status = _cancel_in_session(ctx, s, run)
+    ctx.jobs.notify_cancel(run_id)
     return {"run_id": run_id, "status": status, "cancel_requested": True}
 
 
 # ---------------------------------------------------------------- recovery
 
 def recover_interrupted_runs(ctx: AppContext) -> int:
-    with WRITE_LOCK, ctx.db.write() as s:
+    """Inline mode: every queued/running run -> failed (+ its job), as before Phase 2b."""
+    with ctx.write_guard(), ctx.db.write() as s:
         runs = s.scalars(select(FinanceRunRow).where(FinanceRunRow.status.in_(("queued", "running")))).all()
+        now = utcnow()
         for run in runs:
             run.status = "failed"
             run.error = RESTART_ERROR
-            run.finished_at = utcnow()
+            run.finished_at = now
             add_event(s, run.id, "run_failed", {"error": RESTART_ERROR}, 0.0)
+        if runs:
+            s.execute(update(JobRow).where(JobRow.finance_run_id.in_([r.id for r in runs]),
+                                           JobRow.status.in_(("queued", "running")))
+                      .values(status="failed", last_error=RESTART_ERROR, finished_at=now, updated_at=now,
+                              lease_token=None, lease_expires_at=None)
+                      .execution_options(synchronize_session=False))
         if runs:
             log.info("marked %d interrupted finance run(s) failed", len(runs))
         return len(runs)
@@ -353,8 +370,8 @@ def independent_check(plan: finance.FinancePlan, result: finance.FinanceResult,
 
 
 def _finish(ctx: AppContext, run_id: str, status: str, t0: float, error: str | None = None) -> None:
-    with WRITE_LOCK, ctx.db.write() as s:
-        run = s.get(FinanceRunRow, run_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        run = s.get(FinanceRunRow, run_id, with_for_update={"key_share": True})
         if run is None:
             return
         if run.cancel_requested:
@@ -371,14 +388,14 @@ def _finish(ctx: AppContext, run_id: str, status: str, t0: float, error: str | N
 
 def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None:
     t0 = time.monotonic()
-    with WRITE_LOCK, ctx.db.write() as s:
-        run = s.get(FinanceRunRow, run_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        run = s.get(FinanceRunRow, run_id, with_for_update={"key_share": True})
         if run is None or run.status != "queued" or run.cancel_requested:
             return  # cancelled while queued, recovered, or the plan was deleted: never run the engine
         run.status = "running"
         run.started_at = utcnow()
         request = dict(run.request)
-        kind, label, what_if = run.kind, run.label, run.what_if
+        kind, label, what_if, owner_id = run.kind, run.label, run.what_if, run.owner_id
         pv = s.get(FinancePlanVersionRow, run.plan_version_id)
         doc, base_version, pv_id, plan_id = pv.document, pv.base_version, pv.id, run.plan_id
         add_event(s, run.id, "run_started", {}, 0.0)
@@ -390,8 +407,11 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
         writer.finish()
         result = independent_check(plan, result, run_id)
         _before_final_write(run_id)
-        with WRITE_LOCK, ctx.db.write() as s:
-            run = s.get(FinanceRunRow, run_id)
+        with ctx.write_guard(), ctx.db.write() as s:
+            # lock order plan -> run (R4): KEY SHARE on the plan first (inserting the result takes it anyway)
+            if not lock_parent_key_share(s, FinancePlanRow, plan_id):
+                return  # plan deleted meanwhile: discard the output
+            run = s.get(FinanceRunRow, run_id, with_for_update={"key_share": True})
             if run is None:
                 return  # plan deleted meanwhile: discard the output
             elapsed = time.monotonic() - t0
@@ -400,7 +420,7 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
                 run.status = "cancelled"
                 add_event(s, run_id, "run_cancelled", {}, elapsed)
                 return
-            res = FinanceResultRow(id=new_id("fres_"), plan_id=plan_id, plan_version_id=pv_id, run_id=run_id,
+            res = FinanceResultRow(id=new_id("fres_"), owner_id=owner_id, plan_id=plan_id, plan_version_id=pv_id, run_id=run_id,
                                    kind=kind, label=label, feasibility=result.feasibility,
                                    summary=_summary_dict(result, kind, label, base_version, what_if),
                                    result=result.model_dump(mode="json"), created_at=utcnow())

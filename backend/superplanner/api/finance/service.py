@@ -15,8 +15,9 @@ from sqlalchemy.orm import Session
 
 from superplanner import finance
 
-from ..context import WRITE_LOCK, AppContext
+from ..context import AppContext
 from ..db import new_id, utcnow
+from ..db.locks import get_locked
 from ..errors import ApiError, not_found, validation_error
 from ..schemas import iso_utc
 from ..services.problem_service import audit, canonical_hash, parse_if_match, slugify
@@ -68,8 +69,10 @@ def load_plan(doc: dict[str, Any]) -> finance.FinancePlan:
     return finance.FinancePlan.model_validate(doc)
 
 
-def get_plan_row(s: Session, plan_id: str) -> FinancePlanRow:
-    row = s.get(FinancePlanRow, plan_id)
+def get_plan_row(s: Session, plan_id: str, lock: bool = False, for_delete: bool = False) -> FinancePlanRow:
+    """`lock=True`: FOR NO KEY UPDATE (PHASE2B 2.12, R4); `for_delete=True`: plain FOR UPDATE."""
+    row = get_locked(s, FinancePlanRow, plan_id, for_delete=for_delete) if (lock or for_delete) \
+        else s.get(FinancePlanRow, plan_id)
     if row is None:
         raise not_found("Finance plan", plan_id)
     return row
@@ -159,8 +162,8 @@ def get_plan(ctx: AppContext, plan_id: str) -> dict[str, Any]:
 
 
 def update_plan(ctx: AppContext, plan_id: str, plan: finance.FinancePlan, if_match: str | None) -> dict[str, Any]:
-    with WRITE_LOCK, ctx.db.write() as s:
-        row = get_plan_row(s, plan_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        row = get_plan_row(s, plan_id, lock=True)
         expected = parse_if_match(if_match)
         if expected != row.version:
             raise ApiError(412, "VERSION_MISMATCH",
@@ -177,8 +180,8 @@ def update_plan(ctx: AppContext, plan_id: str, plan: finance.FinancePlan, if_mat
 
 
 def delete_plan(ctx: AppContext, plan_id: str) -> None:
-    with WRITE_LOCK, ctx.db.write() as s:
-        get_plan_row(s, plan_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        get_plan_row(s, plan_id, for_delete=True)
         active = active_run(s, plan_id)
         if active is not None:
             raise ApiError(409, "RUN_ACTIVE", "This plan has a run in progress; cancel it before deleting the plan.",

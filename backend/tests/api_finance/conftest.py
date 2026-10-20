@@ -22,8 +22,8 @@ from apifin_helpers import FinApi, make_app  # noqa: E402
 
 
 @pytest.fixture
-def db_url(tmp_path: Path) -> str:
-    return f"sqlite:///{tmp_path / 'apifin.db'}"
+def db_url(db_url_factory) -> str:
+    return db_url_factory("apifin")
 
 
 @pytest.fixture

@@ -7,6 +7,8 @@ import logging
 import threading
 from datetime import datetime
 
+import pytest
+
 from apifin_helpers import FAST, FIN, SLOW, FinApi, assert_error, make_app, minimal_plan, sse_frames
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -139,8 +141,9 @@ def test_second_run_409_then_cancel_running_stores_no_result(fin):
     fin.solve(plan["id"])
 
 
-def test_cancel_queued_run_is_immediate(tmp_path):
-    with TestClient(make_app(f"sqlite:///{tmp_path / 'q.db'}", run_workers=1)) as c:
+@pytest.mark.inline_jobs
+def test_cancel_queued_run_is_immediate(db_url_factory):
+    with TestClient(make_app(db_url_factory("q"), run_workers=1)) as c:
         fin = FinApi(c)
         gate = threading.Event()
         fin.ctx.executor.submit("block_the_pool", lambda _rid, _ev: gate.wait(20))
@@ -271,6 +274,7 @@ def test_progress_is_throttled(fin):
     assert flushes <= len([e for e in events if e["type"] == "stage_completed"])
 
 
+@pytest.mark.inline_jobs
 def test_startup_recovery_marks_runs_failed(db_url):
     with TestClient(make_app(db_url)) as c:
         fin = FinApi(c)

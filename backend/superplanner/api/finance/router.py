@@ -18,7 +18,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from superplanner import finance
 
+from ..auth.deps import principal_user_id
 from ..context import AppContext, get_ctx
+from ..db.ownership import owner_scope
 from ..errors import ApiError
 from . import planner_link, run_service, service
 from .schemas import FinanceExportFile, FinanceInstantiateRequest, SendToPlannerRequest, WhatIfRequest
@@ -130,6 +132,14 @@ def cancel_run(run_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return JSONResponse(run_service.cancel_run(ctx, run_id), status_code=202)
 
 
+def _poll_events(ctx: AppContext, run_id: str, cursor: int, owner: str | None) -> tuple[list[dict], str]:
+    """One SSE poll in the stream owner's scope (the generator may outlive the dependency's context)."""
+    if owner is None:
+        return run_service.list_events(ctx, run_id, cursor)
+    with owner_scope(owner):
+        return run_service.list_events(ctx, run_id, cursor)
+
+
 def _cursor(last_event_id: str | None, after: int | None) -> int:
     raw = last_event_id if last_event_id not in (None, "") else after
     if raw in (None, ""):
@@ -152,7 +162,8 @@ async def run_events(run_id: str, request: Request, stream: bool = Query(default
                      last_event_id: str | None = Header(default=None),
                      ctx: AppContext = Depends(get_ctx)) -> Response:
     cursor = _cursor(last_event_id, after)
-    events, status = await run_in_threadpool(run_service.list_events, ctx, run_id, cursor)  # 404 if unknown
+    owner = principal_user_id(request)   # every poll runs in owner_scope (PHASE2B 4.7)
+    events, status = await run_in_threadpool(_poll_events, ctx, run_id, cursor, owner)  # 404 if unknown
     if not stream:
         return JSONResponse({"items": events})
     if status in run_service.TERMINAL_STATUSES and not events:
@@ -179,7 +190,7 @@ async def run_events(run_id: str, request: Request, stream: bool = Query(default
                 yield ": keepalive\n\n"
                 last_sent = time.monotonic()
             try:
-                events, status = await run_in_threadpool(run_service.list_events, ctx, run_id, cursor)
+                events, status = await run_in_threadpool(_poll_events, ctx, run_id, cursor, owner)
             except ApiError:
                 return  # run deleted with its plan while streaming
 

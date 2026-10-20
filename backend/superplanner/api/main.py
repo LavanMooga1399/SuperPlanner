@@ -1,23 +1,32 @@
-"""FastAPI app factory (A.14): `create_app(settings)` plus module-level `app` for uvicorn.
+"""FastAPI app factory (A.14, PHASE2B 4.4/4.7): `create_app(settings)` plus module-level `app` for uvicorn.
 
-Creating an app has no side effects; tables, startup recovery and the run executor start in the
-lifespan (or lazily on the first request, e.g. for a `TestClient` used without `with`).
+Creating an app has no side effects; the schema (create/upgrade), startup recovery and the run executor start in
+the lifespan (or lazily on the first request, e.g. for a `TestClient` used without `with`).
+
+Wiring (complete since Q1, frozen until Q5): every data router is included with `Depends(require_user)`, which
+binds the request's owner for the ORM ownership filter; `health` and `auth` routers without it. The
+`OwnershipScopeMiddleware` marks HTTP requests so unbound owned-table queries fail closed. CORS allows
+credentials only in accounts mode and exposes the 2b headers.
 """
 
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from superplanner import engine
 
-from .config import Settings
+from .auth import router as auth_router
+from .auth.deps import require_user
+from .config import ConfigError, Settings
 from .context import AppContext
+from .db.ownership import OwnershipScopeMiddleware
 from .errors import install_handlers
 from .finance import router as finance_router
 from .intake import router as intake_router
@@ -26,6 +35,7 @@ from .limits import BodySizeLimitMiddleware
 from .routes import health, problems, schedules, solver_runs, templates
 
 API_PREFIX = "/api/v1"
+EXPOSE_HEADERS = ["ETag", "Location", "Content-Disposition", "X-Request-ID", "Idempotent-Replayed", "Retry-After"]
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -42,18 +52,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="SuperPlanner API", version=engine.__version__, lifespan=lifespan)
     app.state.ctx = ctx
-    # Added before CORS so CORS stays the outer layer and a 413 still carries the CORS headers.
+    app.state.settings = settings
+    # Inner to outer: ownership marker, body limits, CORS (outermost, so a 413 still carries the CORS headers).
+    app.add_middleware(OwnershipScopeMiddleware)
     app.add_middleware(BodySizeLimitMiddleware, max_body_bytes=settings.max_body_bytes)
-    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=False,
-                       allow_methods=["*"], allow_headers=["*"], expose_headers=["ETag", "Location",
-                                                                                 "Content-Disposition"])
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins or []),
+                       allow_credentials=settings.cors_allow_credentials, allow_methods=["*"], allow_headers=["*"],
+                       expose_headers=EXPOSE_HEADERS)
     install_handlers(app)
-    for r in (health.router, templates.router, problems.router, solver_runs.router, schedules.router,
-              finance_router.router, intake_router.router):
-        app.include_router(r, prefix=API_PREFIX)
+    app.include_router(health.router, prefix=API_PREFIX)
+    app.include_router(auth_router.router, prefix=API_PREFIX)   # auth routes resolve the session themselves
+    for r in (templates.router, problems.router, solver_runs.router, schedules.router, finance_router.router,
+              intake_router.router):
+        app.include_router(r, prefix=API_PREFIX, dependencies=[Depends(require_user)])
     intake_service.install(app, settings)   # per-app AI concurrency slots (PHASE2 2.10)
     return app
 
 
+def _module_app() -> FastAPI:
+    try:
+        return create_app()
+    except ConfigError as exc:   # uvicorn imports this module: exit 2 with one clear line (PHASE2B 5.1)
+        print(f"configuration error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from None
+
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-app = create_app()
+app = _module_app()

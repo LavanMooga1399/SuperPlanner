@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import copy
 
+import pytest
+
 from apifin_helpers import FAST, FIN, SLOW, assert_error
 from sqlalchemy import func, select
 
@@ -122,6 +124,7 @@ def test_replace_active_cancels_running_what_if(fin):
     assert [i["run_id"] for i in items] == [second]
 
 
+@pytest.mark.inline_jobs
 def test_replace_active_cancels_queued_what_if(fin):
     plan = fin.instantiate()
     pid = plan["id"]

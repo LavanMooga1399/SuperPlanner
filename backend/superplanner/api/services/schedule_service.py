@@ -14,8 +14,11 @@ from sqlalchemy.orm import Session
 from superplanner import engine
 from superplanner.engine import CompileError, Placement
 
-from ..context import WRITE_LOCK, AppContext
+from sqlalchemy.exc import IntegrityError
+
+from ..context import AppContext
 from ..db import ProblemVersionRow, ScheduleRow, utcnow
+from ..db.locks import is_unique_violation
 from ..errors import ApiError, not_found
 from ..schemas import iso_utc
 from .problem_service import audit, get_problem_row, load_problem, slugify
@@ -98,8 +101,25 @@ def get_schedule(ctx: AppContext, schedule_id: str) -> dict[str, Any]:
 # ---------------------------------------------------------------- approve
 
 def approve(ctx: AppContext, schedule_id: str, note: str | None) -> dict[str, Any]:
-    with WRITE_LOCK, ctx.db.write() as s:
+    """Approve; an IntegrityError of the `uq_schedules_one_approved` backstop is retried once (PHASE2B 2.12)."""
+    for attempt in (1, 2):
+        try:
+            return _approve(ctx, schedule_id, note)
+        except IntegrityError as exc:
+            if not is_unique_violation(exc, "uq_schedules_one_approved", "schedules.problem_id"):
+                raise
+            if attempt == 2:
+                raise ApiError(409, "CONFLICT", "Another approval for this plan happened at the same time; "
+                                                "reload and try again.") from None
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _approve(ctx: AppContext, schedule_id: str, note: str | None) -> dict[str, Any]:
+    with ctx.write_guard(), ctx.db.write() as s:
         row = get_schedule_row(s, schedule_id)
+        # lock the problem before reading approved schedules, then re-read this row under the lock
+        problem_row = get_problem_row(s, row.problem_id, lock=True)
+        s.refresh(row)
         if row.status == "superseded":
             raise ApiError(409, "SUPERSEDED", "This schedule was superseded by a later approval and cannot be "
                                               "approved again.", {"superseded_at": iso_utc(row.superseded_at)})
@@ -109,7 +129,6 @@ def approve(ctx: AppContext, schedule_id: str, note: str | None) -> dict[str, An
             raise ApiError(422, "NOT_FEASIBLE", "Only feasible schedules can be approved; this one has "
                                                 f"feasibility '{row.feasibility}'.",
                            {"feasibility": row.feasibility})
-        problem_row = get_problem_row(s, row.problem_id)
         pv = _pv(s, row)
         if problem_row.version != pv.base_version:
             _check_stale(problem_row.document, pv.document, row.placements or [])

@@ -291,6 +291,7 @@ def test_api_sse_live_stream_and_throttle(api, client):
 
 # ---------------------------------------------------------------- recovery (2.17)
 
+@pytest.mark.inline_jobs
 def test_api_startup_recovery(db_url):
     with TestClient(make_app(db_url)) as client:
         api = Api(client)

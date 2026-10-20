@@ -26,8 +26,8 @@ def pytest_configure(config):
 
 
 @pytest.fixture
-def db_url(tmp_path: Path) -> str:
-    return f"sqlite:///{tmp_path / 'int.db'}"
+def db_url(db_url_factory) -> str:
+    return db_url_factory("int")
 
 
 @pytest.fixture

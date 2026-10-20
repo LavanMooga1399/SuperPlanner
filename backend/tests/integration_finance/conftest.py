@@ -25,8 +25,8 @@ from finint_helpers import Fin, make_app  # noqa: E402
 
 
 @pytest.fixture
-def db_url(tmp_path: Path) -> str:
-    return f"sqlite:///{tmp_path / 'finint.db'}"
+def db_url(db_url_factory) -> str:
+    return db_url_factory("finint")
 
 
 @pytest.fixture
@@ -41,8 +41,7 @@ def fin(client: TestClient) -> Fin:
 
 
 @pytest.fixture(scope="module")
-def shared_fin(tmp_path_factory) -> Iterator[Fin]:
+def shared_fin(db_url_factory_module) -> Iterator[Fin]:
     """One app per module for the expensive sweeps (templates, random plans)."""
-    db = tmp_path_factory.mktemp("finint") / "shared.db"
-    with TestClient(make_app(f"sqlite:///{db}")) as c:
+    with TestClient(make_app(db_url_factory_module("shared"))) as c:
         yield Fin(c)

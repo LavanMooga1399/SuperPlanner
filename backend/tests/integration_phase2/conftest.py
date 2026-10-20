@@ -25,8 +25,8 @@ from p2_helpers import make_app  # noqa: E402
 
 
 @pytest.fixture
-def db_url(tmp_path: Path) -> str:
-    return f"sqlite:///{tmp_path / 'p2int.db'}"
+def db_url(db_url_factory) -> str:
+    return db_url_factory("p2int")
 
 
 @pytest.fixture

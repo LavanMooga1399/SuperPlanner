@@ -14,9 +14,8 @@ LEVEL_RE = r"risk level \d of 5"
 
 
 @pytest.fixture(scope="module")
-def fin(tmp_path_factory):
-    db = tmp_path_factory.mktemp("p2tpl") / "t.db"
-    with TestClient(make_app(f"sqlite:///{db}")) as c:
+def fin(db_url_factory_module):
+    with TestClient(make_app(db_url_factory_module("t"))) as c:
         yield {"c": c, "cache": {}}
 
 

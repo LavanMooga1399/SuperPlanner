@@ -4,6 +4,7 @@
  * with the same A.14 error-envelope parsing, importing only exported names [R21].
  */
 import { API_BASE, ApiError, looksLikeProxyFailure, networkError } from "../../api/client";
+import { authFetch } from "../../auth/authFetch";
 import type {
   FinanceCancelResponse,
   FinanceComparison,
@@ -59,7 +60,7 @@ export async function finRaw<T>(path: string, opts: FinRequestOptions = {}): Pro
   }
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, { method: opts.method ?? "GET", headers, body, signal: opts.signal });
+    res = await authFetch(API_BASE + path, { method: opts.method ?? "GET", headers, body, signal: opts.signal });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw networkError();

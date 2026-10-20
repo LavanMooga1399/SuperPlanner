@@ -7,11 +7,13 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from superplanner.engine import Problem
 
-from ..context import WRITE_LOCK, AppContext
+from ..context import AppContext
 from ..db import ProblemRow, utcnow
+from ..db.locks import is_unique_violation
 from ..errors import ApiError, validation_error
 from ..schemas import ReplanChanges, ReplanRequest
 from . import run_service
@@ -92,10 +94,21 @@ def _derive(problem: Problem, source_placements: list[dict[str, Any]], source_ho
 
 
 def replan(ctx: AppContext, schedule_id: str, req: ReplanRequest) -> dict[str, Any]:
-    with WRITE_LOCK:
+    try:
+        return _replan(ctx, schedule_id, req)
+    except IntegrityError as exc:   # `uq_solver_runs_one_active` backstop (PHASE2B 2.12)
+        if is_unique_violation(exc, "uq_solver_runs_one_active", "solver_runs.problem_id"):
+            with ctx.db.read() as s:
+                problem_id = get_schedule_row(s, schedule_id).problem_id
+            raise run_service.active_run_conflict(ctx, problem_id) from None
+        raise
+
+
+def _replan(ctx: AppContext, schedule_id: str, req: ReplanRequest) -> dict[str, Any]:
+    with ctx.write_guard():
         with ctx.db.write() as s:  # one transaction: any error rolls back everything, including step 1
             src = get_schedule_row(s, schedule_id)
-            row: ProblemRow = get_problem_row(s, src.problem_id)
+            row: ProblemRow = get_problem_row(s, src.problem_id, lock=True)
             if req.expected_problem_version is not None and req.expected_problem_version != row.version:
                 raise ApiError(412, "VERSION_MISMATCH",
                                f"The plan was changed elsewhere (now version {row.version}).",
@@ -129,8 +142,9 @@ def replan(ctx: AppContext, schedule_id: str, req: ReplanRequest) -> dict[str, A
             run_service.preflight_or_422(derived_problem)
             pv = snapshot(s, row, derived, kind="replan")
             run = run_service.insert_run(s, row, pv, req.run, source_schedule_id=src.id)
+            job = run_service.enqueue(ctx, s, run)
             out = run_service.created_dict(run)
             out["source_schedule_id"] = src.id
             out["problem_version"] = row.version
-        run_service.submit(ctx, out["run_id"])
+        ctx.jobs.dispatch(job)
     return out

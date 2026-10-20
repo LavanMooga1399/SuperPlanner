@@ -12,6 +12,10 @@ dependencies = [
     "ortools==9.15.6755",
     "numpy==2.5.4",
     "anthropic==1.15.0",
+    "alembic==1.20.0",
+    "psycopg[binary]==3.3.6",
+    "argon2-cffi==25.1.0",
+    "prometheus-client==0.26.0",
 ]
 
 [project.optional-dependencies]
@@ -20,8 +24,17 @@ test = ["httpx==0.28.1", "pytest==9.1.1"]
 [tool.setuptools.packages.find]
 include = ["superplanner*"]
 
+[tool.setuptools.package-data]
+"superplanner.migrations" = ["script.py.mako"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
-markers = ["slow: long benchmarks"]
+markers = [
+    "slow: long benchmarks",
+    "postgres_only: needs PostgreSQL (skipped on SQLite)",
+    "sqlite_only: SQLite-specific behaviour (skipped on PostgreSQL)",
+    "inline_jobs: runs with JOB_BACKEND=inline (uses ctx.executor / inline restart recovery)",
+    "pg_load: queue load test (PostgreSQL only)",
+]

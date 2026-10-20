@@ -1,6 +1,7 @@
 /**
  * Intake flow state (PHASE2.md 3.3): text or table, draft, questions, notes, extractor and step, kept in
- * `sessionStorage["sp.intake.<kind>"]` so a reload does not lose work, and cleared on create and on cancel.
+ * `sessionStorage["sp.intake.<kind>"]` so a reload does not lose work, and cleared on create and on cancel
+ * (and on sign-out or a change of signed-in user, PHASE2B 4.10, via `auth/drafts.ts`).
  * The AI assist toggle is never stored (it defaults to off on every visit).
  *
  * The server is stateless: every request carries the whole draft. Editing the draft schedules one quiet
@@ -16,6 +17,7 @@ import type { PlanKind } from "../../landing/kinds";
 import { useAsync } from "../../lib/useAsync";
 import { browserUtcOffset, todayDate } from "../../lib/time";
 import * as api from "../api/client";
+import { DRAFTS_CLEARED_EVENT } from "../../auth/drafts";
 import type {
   Answer,
   AnyDraft,
@@ -225,6 +227,18 @@ export function IntakeProvider({ kind, flow, children }: { kind: PlanKind; flow:
       setState(s);
     }
   }, [kind, flow]);
+
+  // Sign-out or a different signed-in user cleared every draft (PHASE2B 4.10): stop persisting this one and
+  // drop any pending background check.
+  useEffect(() => {
+    const onCleared = () => {
+      clearedRef.current = true;
+      bgAbortRef.current?.abort();
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+    window.addEventListener(DRAFTS_CLEARED_EVENT, onCleared);
+    return () => window.removeEventListener(DRAFTS_CLEARED_EVENT, onCleared);
+  }, []);
 
   useEffect(() => {
     if (clearedRef.current) return;

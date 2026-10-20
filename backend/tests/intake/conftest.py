@@ -30,8 +30,8 @@ def ctx():
 
 
 @pytest.fixture
-def db_url(tmp_path: Path) -> str:
-    return f"sqlite:///{tmp_path / 'intake.db'}"
+def db_url(db_url_factory) -> str:
+    return db_url_factory("intake")
 
 
 @pytest.fixture

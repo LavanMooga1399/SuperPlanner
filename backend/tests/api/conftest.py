@@ -22,8 +22,8 @@ from api_helpers import Api, make_app  # noqa: E402
 
 
 @pytest.fixture
-def db_url(tmp_path: Path) -> str:
-    return f"sqlite:///{tmp_path / 'api.db'}"
+def db_url(db_url_factory) -> str:
+    return db_url_factory("api")
 
 
 @pytest.fixture

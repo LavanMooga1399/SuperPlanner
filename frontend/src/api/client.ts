@@ -1,6 +1,7 @@
 /**
  * Typed fetch wrappers for every endpoint of docs/ARCHITECTURE.md section 14.
  * All calls go through the relative base `/api/v1` (Vite proxies it to :8000).
+ * Requests go through `authFetch` (PHASE2B 4.10: cookies, `X-CSRF-Token` on writes, 401/403 handling).
  */
 import type {
   ApproveRequest,
@@ -27,6 +28,7 @@ import type {
   TemplateInfo,
   ValidateResponse,
 } from "./types";
+import { authFetch } from "../auth/authFetch";
 
 export const API_BASE: string =
   (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") || "/api/v1";
@@ -74,7 +76,7 @@ async function raw<T>(path: string, opts: RequestOptions = {}): Promise<RawRespo
   }
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, { method: opts.method ?? "GET", headers, body, signal: opts.signal });
+    res = await authFetch(API_BASE + path, { method: opts.method ?? "GET", headers, body, signal: opts.signal });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw networkError();

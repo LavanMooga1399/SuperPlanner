@@ -198,9 +198,9 @@ def test_ai_success_through_settings_factory(db_url):
     assert len(fake.calls) == 1
 
 
-def test_ai_slots_are_per_app(db_url, tmp_path):
+def test_ai_slots_are_per_app(db_url, db_url_factory):
     a1 = make_app(db_url, intake_ai_enabled=True)
-    a2 = make_app(f"sqlite:///{tmp_path / 'b.db'}", intake_ai_enabled=True)
+    a2 = make_app(db_url_factory("b"), intake_ai_enabled=True)
     assert a1.state.intake_ai_slots is not a2.state.intake_ai_slots
 
 

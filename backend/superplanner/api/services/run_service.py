@@ -8,14 +8,16 @@ import time
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from superplanner import engine
 from superplanner.engine import OptimizeRequest, Placement, Problem, ProgressEvent
 
-from ..context import WRITE_LOCK, AppContext
-from ..db import ProblemRow, ProblemVersionRow, ScheduleRow, SolverRunEventRow, SolverRunRow, new_id, utcnow
+from ..context import WRITE_LOCK, AppContext  # noqa: F401  (WRITE_LOCK re-exported for old imports)
+from ..db import JobRow, ProblemRow, ProblemVersionRow, ScheduleRow, SolverRunEventRow, SolverRunRow, new_id, utcnow
+from ..db.locks import is_unique_violation, lock_parent_key_share, lock_row
 from ..errors import ApiError, not_found
 from ..schemas import SolverRunRequest, as_utc, iso_utc
 from .problem_service import audit, get_problem_row, has_active_run, load_problem, snapshot
@@ -35,6 +37,9 @@ def _next_seq(s: Session, run_id: str) -> int:
 
 
 def add_event(s: Session, run_id: str, type_: str, fields: dict[str, Any], elapsed: float) -> dict[str, Any]:
+    """Append an event. Locks the run row first (FOR NO KEY UPDATE; no-op on SQLite) so `seq` allocation is safe
+    with several writers and events of one run commit in seq order (SSE never skips one, PHASE2B 2.12)."""
+    lock_row(s, SolverRunRow, run_id)
     seq = _next_seq(s, run_id)
     now = utcnow()
     payload = {"run_id": run_id, "seq": seq, "type": type_, "ts": iso_utc(now),
@@ -136,28 +141,44 @@ def insert_run(s: Session, row: ProblemRow, pv: ProblemVersionRow, req: SolverRu
     return run
 
 
+def active_run_conflict(ctx: AppContext, problem_id: str) -> ApiError:
+    """409 for an IntegrityError of `uq_solver_runs_one_active` (the cross-process backstop, PHASE2B 2.12)."""
+    with ctx.db.read() as s:
+        active = has_active_run(s, problem_id)
+        active_id = active.id if active is not None else None
+    return ApiError(409, "RUN_ALREADY_ACTIVE",
+                    "An optimization is already running for this plan; wait for it or cancel it.",
+                    {"run_id": active_id})
+
+
+def enqueue(ctx: AppContext, s: Session, run: SolverRunRow) -> JobRow:
+    return ctx.jobs.enqueue(s, "solver_run", run.id, run.owner_id)
+
+
 def create_run(ctx: AppContext, problem_id: str, req: SolverRunRequest) -> dict[str, Any]:
-    with WRITE_LOCK:
-        with ctx.db.write() as s:
-            row = get_problem_row(s, problem_id)
-            ensure_no_active_run(s, problem_id)
-            preflight_or_422(load_problem(row.document))
-            pv = snapshot(s, row)
-            run = insert_run(s, row, pv, req)
-            out = created_dict(run)
-        submit(ctx, out["run_id"])
+    try:
+        with ctx.write_guard():
+            with ctx.db.write() as s:
+                row = get_problem_row(s, problem_id, lock=True)
+                ensure_no_active_run(s, problem_id)
+                preflight_or_422(load_problem(row.document))
+                pv = snapshot(s, row)
+                run = insert_run(s, row, pv, req)
+                job = enqueue(ctx, s, run)
+                out = created_dict(run)
+            ctx.jobs.dispatch(job)
+    except IntegrityError as exc:
+        if is_unique_violation(exc, "uq_solver_runs_one_active", "solver_runs.problem_id"):
+            raise active_run_conflict(ctx, problem_id) from None
+        raise
     return out
-
-
-def submit(ctx: AppContext, run_id: str) -> None:
-    ctx.executor.submit(run_id, lambda rid, ev: run_job(ctx, rid, ev))
 
 
 # ---------------------------------------------------------------- cancel
 
 def cancel_run(ctx: AppContext, run_id: str) -> dict[str, Any]:
-    with WRITE_LOCK, ctx.db.write() as s:
-        run = s.get(SolverRunRow, run_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        run = s.get(SolverRunRow, run_id, with_for_update={"key_share": True})
         if run is None:
             raise not_found("Solver run", run_id)
         if run.status not in ("queued", "running"):
@@ -168,23 +189,32 @@ def cancel_run(ctx: AppContext, run_id: str) -> dict[str, Any]:
             run.status = "cancelled"
             run.finished_at = utcnow()
             add_event(s, run.id, "run_cancelled", {"primary_schedule_id": None, "schedule_ids": []}, 0.0)
+        ctx.jobs.request_cancel(s, "solver_run", run.id)
         audit(s, "run", run.id, "run.cancelled", {"status_at_cancel": "queued" if run.status == "cancelled"
                                                   else "running"})
         status = run.status
-    ctx.executor.cancel(run_id)
+    ctx.jobs.notify_cancel(run_id)
     return {"run_id": run_id, "status": status, "cancel_requested": True}
 
 
 # ---------------------------------------------------------------- recovery
 
 def recover_interrupted_runs(ctx: AppContext) -> int:
-    with WRITE_LOCK, ctx.db.write() as s:
+    """Inline mode: every queued/running run -> failed (+ its job), as before Phase 2b."""
+    with ctx.write_guard(), ctx.db.write() as s:
         runs = s.scalars(select(SolverRunRow).where(SolverRunRow.status.in_(("queued", "running")))).all()
+        now = utcnow()
         for run in runs:
             run.status = "failed"
             run.error = RESTART_ERROR
-            run.finished_at = utcnow()
+            run.finished_at = now
             add_event(s, run.id, "run_failed", {"error": RESTART_ERROR}, 0.0)
+        if runs:
+            s.execute(update(JobRow).where(JobRow.solver_run_id.in_([r.id for r in runs]),
+                                           JobRow.status.in_(("queued", "running")))
+                      .values(status="failed", last_error=RESTART_ERROR, finished_at=now, updated_at=now,
+                              lease_token=None, lease_expires_at=None)
+                      .execution_options(synchronize_session=False))
         return len(runs)
 
 
@@ -266,7 +296,8 @@ def _replan_hint(s: Session, problem: Problem, source_schedule_id: str) -> list[
 def _schedule_row(run: SolverRunRow, rank: int, label: str, solver: str, feasibility: str, objectives: Any,
                   metrics: Any, violations: list, placements: list[Placement], explanation: Any) -> ScheduleRow:
     return ScheduleRow(
-        id=new_id("sch_"), problem_id=run.problem_id, problem_version_id=run.problem_version_id,
+        id=new_id("sch_"), owner_id=run.owner_id, problem_id=run.problem_id,
+        problem_version_id=run.problem_version_id,
         solver_run_id=run.id, source_schedule_id=run.source_schedule_id, status="candidate", rank=rank,
         label=label, solver=solver, feasibility=feasibility,
         objectives=objectives.model_dump(mode="json") if objectives is not None else None,
@@ -279,8 +310,8 @@ def _schedule_row(run: SolverRunRow, rank: int, label: str, solver: str, feasibi
 
 def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None:
     t0 = time.monotonic()
-    with WRITE_LOCK, ctx.db.write() as s:
-        run = s.get(SolverRunRow, run_id)
+    with ctx.write_guard(), ctx.db.write() as s:
+        run = s.get(SolverRunRow, run_id, with_for_update={"key_share": True})
         if run is None or run.status != "queued":
             return  # cancelled while queued (or recovered): never run the engine
         run.status = "running"
@@ -318,8 +349,11 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
                                           alt.objectives, report.metrics, report.violations, alt.placements,
                                           explanation))
         cancelled = cancel_event.is_set() or res.status == "cancelled"
-        with ctx.db.write() as s:
-            run = s.get(SolverRunRow, run_id)
+        with ctx.write_guard(), ctx.db.write() as s:
+            # lock order plan -> run (R4): KEY SHARE on the problem first, as inserting schedules takes it anyway
+            if not lock_parent_key_share(s, ProblemRow, run_snapshot.problem_id):
+                return  # problem deleted meanwhile
+            run = s.get(SolverRunRow, run_id, with_for_update={"key_share": True})
             if run is None:  # problem deleted meanwhile
                 return
             cancelled = cancelled or run.cancel_requested
@@ -350,8 +384,8 @@ def run_job(ctx: AppContext, run_id: str, cancel_event: threading.Event) -> None
         log.exception("run %s failed", run_id)
         message = str(exc) or exc.__class__.__name__
         try:
-            with ctx.db.write() as s:
-                run = s.get(SolverRunRow, run_id)
+            with ctx.write_guard(), ctx.db.write() as s:
+                run = s.get(SolverRunRow, run_id, with_for_update={"key_share": True})
                 if run is None:
                     return
                 run.status = "failed"
