@@ -15,23 +15,45 @@ and SuperPlanner builds a validated, explainable schedule.
 
 ## Quick start
 
-Requirements: Python 3.13, Node 22.
+Requirements: Python 3.12 or 3.13, Node 22. Nothing else (no PostgreSQL, Docker or `.env` needed): the
+backend uses a local SQLite file, runs jobs in-process and has no sign-in. Use two terminals — the backend
+keeps running in the first one.
 
-```bash
-# Backend (http://127.0.0.1:8000, API under /api/v1)
+**Windows (PowerShell)**
+
+Terminal 1 — backend (http://127.0.0.1:8000):
+```powershell
 cd backend
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-./run_api.sh
+py -3.12 -m venv .venv          # first time only (or py -3.13)
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn superplanner.api.main:app --host 127.0.0.1 --port 8000
+```
 
-# Frontend (http://localhost:5173, proxies /api to the backend)
+Terminal 2 — frontend (http://localhost:5173):
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Open the UI, pick a template (Manufacturing, Exam preparation, Project, or Blank), then
+If PowerShell says "running scripts is disabled", use `npm.cmd install` / `npm.cmd run dev`. In `cmd.exe`, do
+not add `# comments` after commands — `cmd` passes them on as arguments.
+
+**Linux / macOS**
+```bash
+cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && ./run_api.sh
+cd frontend && npm install && npm run dev        # in a second terminal
+```
+
+Open http://localhost:5173 and choose what you want to plan, or pick a template, then
 Validate → Optimize → review the Gantt → Approve.
+
+After `git pull`, re-run the `pip install` and `npm install` lines (new dependencies may have been added).
+Your existing `backend/superplanner.db` is upgraded automatically on start, after writing a backup copy.
+
+**Optional — user accounts:** start the backend with `$env:AUTH_MODE="accounts"` (PowerShell) or
+`AUTH_MODE=accounts` (Linux/macOS) to get sign-up / sign-in, with each user seeing only their own plans.
+PostgreSQL, separate workers and Docker Compose are described in `docs/DEPLOY.md`.
 
 ## Tests
 

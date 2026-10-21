@@ -20,7 +20,7 @@ Contents:
 
 ## 1. Local development, zero setup (Linux, macOS, Windows)
 
-Needs only Python 3.13 and Node 22. You do not need PostgreSQL, Docker, Redis, bash or WSL, and you do not need
+Needs only Python 3.12 or 3.13 and Node 22. You do not need PostgreSQL, Docker, Redis, bash or WSL, and you do not need
 an `.env` file.
 
 Linux / macOS:
@@ -35,15 +35,17 @@ npm install
 npm run dev                       # http://localhost:5173 (proxies /api to :8000)
 ```
 
-Windows (PowerShell):
+Windows (PowerShell) — use two windows, the backend keeps running in the first:
 ```powershell
+# Window 1
 cd backend
-py -3.13 -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-.\run_api.ps1
+py -3.12 -m venv .venv            # Python 3.12 or 3.13
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\run_api.ps1                     # if scripts are blocked: .\.venv\Scripts\python.exe -m uvicorn superplanner.api.main:app --host 127.0.0.1 --port 8000
 
-cd ..\frontend
-npm install
+# Window 2
+cd frontend
+npm install                       # npm.cmd install if PowerShell blocks npm.ps1
 npm run dev
 ```
 
