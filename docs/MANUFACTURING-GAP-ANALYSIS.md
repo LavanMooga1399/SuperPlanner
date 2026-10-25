@@ -247,3 +247,45 @@ fix → verify), with acceptance tests built from a realistic anonymised Kavach-
 5. **Demand**: units required by date (loco programme milestones), plus spares.
 6. The current planning process and pain points (how plans are made today, what goes wrong).
 7. ERP in use and how data can be exported (CSV/Excel/API).
+
+## 9. Reconciliation with an external review (October 2026)
+
+An external "deep research" review of this gap analysis was received. Its overall verdict and direction match
+this document: not ready yet; build master data → MRP with planned orders and pegging → operation-level
+finite-capacity scheduling; use CP-SAT and heuristics in a portfolio rather than a GA alone; validate every
+plan; benchmark on small/medium/large datasets.
+
+**Evidence mismatch.** Much of that review's evidence does not describe SuperPlanner. It cites March 2026 run
+logs, a one-level BOM explosion with 637 components, "three manufactured items missing routing", open POs at
+zero, a GA with population 80 / 250 generations, and "makespan 645 days, tardiness 487,727.6 days". SuperPlanner
+has no BOM, routing or MRP code at all; its GA uses an automatic population and up to 300 generations; all
+engine time is integer minutes; objectives are normalised against a baseline heuristic run; and the decoder
+enforces precedence, capacity and calendars as hard constraints with an independent validator deciding
+feasibility. Those findings most likely come from the earlier HBL production-planning prototype. They are
+useful as **lessons** (time-unit consistency, blocking runs on missing routings, never treating hard
+constraints as penalties) and are already reflected below, but they are not defects in this codebase.
+
+**Additions adopted from the review:**
+
+| Addition | Where it goes |
+|---|---|
+| Formal **acceptance gates**: (1) master data valid, (2) MRP matches an independent calculation, (3) every plan passes the validator, (4) optimiser beats a baseline on agreed KPIs without violations, (5) planners complete an end-to-end pilot | Exit criteria for M1–M4 |
+| **Block runs** on missing routings for make items, BOM cycles, unit mismatches and items with no eligible line — no silent skipping | M1 data-health check (§4.1a step 5) |
+| **Versioned BOMs and routings with effectivity** (by date and serial) from the start, not only via later ECO handling | Moved into M1 |
+| **Purchase requisition lifecycle**: planned → submitted → approved → PO → received, with approvals | M2 |
+| **Yield inflating upstream quantities** and **alternate components** auto-selected when the primary is short | M2 (yield, alternates in netting), M3 (alternate routings) |
+| **Roles and audit log**: planner / approver / viewer / admin; record every master-data change, plan run, approval and release | M2–M4 (today SuperPlanner has per-user ownership only, no roles or organisations) |
+| **Organisations / plants** as tenants with row-level separation | M5 |
+| **Benchmark datasets**: small (one PCB, ~10 parts), medium (~200 parts, 3–4 levels), large (Kavach-scale, 1,000–5,000 parts) with KPIs compared against a naive infinite-capacity MRP plan and the current tool | Built in M1, used as acceptance tests from M2 on |
+| **Supply-delay and breakdown simulation** for what-if | M4 |
+
+**Not adopted, or adjusted:**
+- Kubernetes: unnecessary to start; the existing Docker Compose setup with scalable workers is enough for a
+  plant-level deployment. Revisit only for multi-plant SaaS.
+- Redis caching: not needed; PostgreSQL already holds the queue and results.
+- DHTMLX Gantt: commercial licence for advanced features. Keep the in-house SVG Gantt and add virtualisation
+  (canvas rendering, windowed rows) for thousands of operations; reconsider if it falls short.
+- "PyMargin" for MRP: not a library we can verify; MRP will be implemented directly (it is deterministic
+  netting and offsetting) with exhaustive tests against hand-calculated cases.
+- OAuth/OIDC single sign-on and 2FA: planned for production deployments (M5); current username/password
+  accounts with argon2id, CSRF protection and rate limits remain the default.
