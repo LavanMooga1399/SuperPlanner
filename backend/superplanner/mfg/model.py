@@ -765,3 +765,14 @@ def input_data(record: BaseModel) -> dict[str, Any]:
 
 def to_input(record: BaseModel) -> BaseModel:
     return INPUT_OF[type(record)].model_validate(input_data(record))
+
+
+def construct_fast(cls: type[BaseModel], values: dict[str, Any]) -> Any:
+    """`model_construct` without defaults/alias processing for hot paths (explosion rows): `values` must contain
+    every field of `cls`. No validation (as `model_construct`)."""
+    m = cls.__new__(cls)
+    object.__setattr__(m, "__dict__", values)
+    object.__setattr__(m, "__pydantic_fields_set__", set(values))
+    object.__setattr__(m, "__pydantic_extra__", None)
+    object.__setattr__(m, "__pydantic_private__", None)
+    return m

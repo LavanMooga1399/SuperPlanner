@@ -44,7 +44,7 @@ log = logging.getLogger("superplanner.migrate")
 if logging.getLogger("alembic").level == logging.NOTSET:
     logging.getLogger("alembic").setLevel(logging.WARNING)
 
-HEAD = "0002_phase2b"
+HEAD = "0003_mfg"
 BASE_REVISION = "0001_initial"
 ADVISORY_LOCK_KEY = 727001
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"

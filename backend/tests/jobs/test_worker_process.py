@@ -149,7 +149,7 @@ def test_worker_with_schema_behind_head_exits_3(request):
         migrate.run_alembic_upgrade(url, "0001_initial")
         r = _worker_exit(worker_env(url, DB_AUTO_MIGRATE="false"))
         assert r.returncode == 3, r.stderr
-        assert "0002_phase2b" in r.stderr and "python -m superplanner.migrate upgrade" in r.stderr
+        assert migrate.HEAD in r.stderr and "python -m superplanner.migrate upgrade" in r.stderr
         r = _worker_exit(worker_env(url, DB_AUTO_MIGRATE="false", JOB_BACKEND="inline"))
         assert r.returncode == 2 and "JOB_BACKEND=queue" in r.stderr
     finally:

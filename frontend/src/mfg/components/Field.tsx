@@ -97,8 +97,8 @@ export function SelectField<V extends string>({
 }: {
   label: ReactNode;
   value: V;
-  onChange(v: V): void;
-  options: { value: V; label: string }[];
+  onChange(v: NoInfer<V>): void;
+  options: { value: NoInfer<V>; label: string }[];
   hint?: ReactNode;
   required?: boolean;
   testId?: string;

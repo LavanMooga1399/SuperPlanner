@@ -7,9 +7,11 @@ from .session import Database
 
 
 def load_all_models():
-    """Import every module that registers tables on `Base` and return the complete metadata (17 tables)."""
+    """Import every module that registers tables on `Base` and return the complete metadata (34 tables: the 16
+    scheduling/finance/auth tables + the 18 `mfg_*` tables)."""
     from ..auth import models as _auth_models  # noqa: F401
     from ..finance import db_models as _finance_db_models  # noqa: F401
+    from ..mfg import db_models as _mfg_db_models  # noqa: F401
 
     return Base.metadata
 

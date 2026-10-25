@@ -2,7 +2,7 @@
  * Item combobox over `GET /items?q=` (limit 20, M 11.2). ARIA 1.2 combobox pattern: the input owns a listbox,
  * Up/Down move the highlighted option, Enter picks it, Escape closes.
  */
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { listItems } from "../api/client";
 import type { ItemRef, MakeBuy } from "../api/types";
 import { isAbortError, useDebounced } from "../lib/useMfg";
@@ -41,6 +41,24 @@ export function ItemPicker({
   const dq = useDebounced(text, 200);
   const id = useId().replace(/:/g, "");
   const wrap = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  // The list is position: fixed so grids with overflow do not clip it; it follows scroll/resize.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = inputRef.current?.getBoundingClientRect();
+      if (r) setRect({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 320) });
+    };
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open]);
 
   useEffect(() => setText(value?.part_number ?? ""), [value?.id, value?.part_number]);
 
@@ -98,6 +116,7 @@ export function ItemPicker({
         </label>
       )}
       <input
+        ref={inputRef}
         id={inputId}
         className="input sm"
         role="combobox"
@@ -143,7 +162,13 @@ export function ItemPicker({
         }}
       />
       {open ? (
-        <ul className="mfg-picker-list" role="listbox" id={listId} aria-label={`${label} options`}>
+        <ul
+          className="mfg-picker-list"
+          role="listbox"
+          id={listId}
+          aria-label={`${label} options`}
+          style={rect ? { top: rect.top, left: rect.left, width: rect.width } : undefined}
+        >
           {loading && options.length === 0 ? <li className="mfg-picker-empty">Searching…</li> : null}
           {!loading && options.length === 0 ? <li className="mfg-picker-empty">No matching items</li> : null}
           {options.map((it, i) => (

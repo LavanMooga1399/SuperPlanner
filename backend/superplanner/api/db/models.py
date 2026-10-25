@@ -211,3 +211,4 @@ class JobWorkerRow(Base):
 # jobs.finance_run_id), so that create_all, flush ordering and Alembic always see the complete schema.
 from ..auth import models as _auth_models  # noqa: E402,F401
 from ..finance import db_models as _finance_db_models  # noqa: E402,F401
+from ..mfg import db_models as _mfg_db_models  # noqa: E402,F401

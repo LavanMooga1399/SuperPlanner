@@ -518,7 +518,7 @@ export interface Window {
   start: IsoDateTime;
   end: IsoDateTime;
   kind: AssignmentKind;
-  assignment_id: EntityId;
+  assignment_id: EntityId | null;
   shift_label: string;
   cost_per_hour: number | null;
 }
@@ -658,13 +658,13 @@ export interface ExplosionTotals {
 export interface ExplosionWarning {
   code: string;
   message: string;
-  item_id: EntityId;
+  item_id: EntityId | null;
 }
 
 interface ExplosionBase {
   item_id: EntityId;
   part_number: string;
-  on: IsoDate;
+  on: IsoDate | null;
   serial: number | null;
   qty: number;
   totals: ExplosionTotals;

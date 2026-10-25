@@ -243,9 +243,9 @@ def test_check_exits_3_on_a_database_behind_head(empty_db_factory, capsys):
     assert migrate.schema_state(url) == "behind"
     assert migrate.main(["check", "--url", url]) == 3
     err = capsys.readouterr().err
-    assert "Database schema is at 0001_initial, code needs 0002_phase2b" in err
+    assert f"Database schema is at 0001_initial, code needs {migrate.HEAD}" in err
     assert "python -m superplanner.migrate upgrade" in err
-    with pytest.raises(migrate.SchemaError, match="code needs 0002_phase2b"):
+    with pytest.raises(migrate.SchemaError, match=f"code needs {migrate.HEAD}"):
         migrate.ensure_schema(url, Settings(database_url=url, db_auto_migrate=False))
     with pytest.raises(migrate.SchemaError):
         with TestClient(make_app(url, db_auto_migrate=False)):

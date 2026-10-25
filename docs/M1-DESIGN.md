@@ -1980,8 +1980,109 @@ Developers write only to their own subsection (interpretations, measured numbers
 
 ### 17.WP-A Backend domain + DB
 
+**A1 contract frozen (2026-10-25).** WP-B and WP-C can build against these files: `sp/mfg/model.py` (every
+Input/Record, refs, `HealthIssue`/`HealthReport`, `Explosion`/`ExplosionRow`/`SummarizedRow`, `WhereUsed`, `OpTime`,
+`Window`, `WeekWindow`, `TimePreview`), `sp/mfg/limits.py`, `sp/mfg/units.py`, `sp/mfg/bundle.py` (`SHEETS`,
+`MfgBundle`, `BundleError`), `sp/api/mfg/db_models.py` (18 tables, `MFG_MODELS`/`MFG_TABLES` in FK order),
+migration `0003_mfg` (`migrate.HEAD = "0003_mfg"`), and the signatures in `sp/api/mfg/repo.py`. The pins are
+`openpyxl==3.1.5`, `et-xmlfile==2.0.0` and `defusedxml==0.7.1`. Record field sets follow M 3 / 9.6 with the
+additions listed below. Every computation and loader of A2-A4 is implemented, not stubbed.
+
+Deviations and interpretations (WP-A):
+- **Schema.** `mfg_bom_lines` also has `ix_mfg_bom_lines_owner (owner_id)`. R7 moved `ix_mfg_bom_lines_child` to
+  `(child_item_id)`, which left the table without an owner-led index, against the R7 rule that A1-2 asserts.
+  `mfg_bom_lines`, `mfg_operations` and `mfg_operation_tools` carry `row_version`/`created_at`/`updated_at` like
+  every non-link table (6.2 header). `mfg_operation_tools` has its own `id` PK; only the two link tables have
+  composite PKs.
+- **Text fields.** `Text500`, `note`, `description` and `ref_designators` allow tab, LF and CR. CR is added to
+  the M 3.1 list so pasted Windows text and CSV cells round-trip; all other C0 characters are rejected.
+- **Model optionals.** `BomInput.revision`/`version`, `RoutingInput.revision`/`version` and `BomLineInput.uom`
+  are optional in Input and filled by the service (M 3.5/3.6 defaults). The Record overrides make them required.
+  `PlantRecord.created_at`/`updated_at` are null for the unsaved default plant.
+- **`TimePreviewOperation.group`** is the standard `{id, code, name}` ref (the 9.4 example shows `{id, code}`).
+  `TimePreviewLine.reason` is null for eligible lines. Pure `routing.time_preview(ds, routing_id, qty)` builds the
+  whole response.
+- **`BomIndex(...)` / `ParentIndex(...)`** take extra keyword-only arguments (`routing_ids`, `on`, `serial` /
+  `on`, `include`), which the explosion and where-used responses echo.
+- **`find_cycles(edges, key=None)`** returns one closed cycle path `[a, ..., a]` per SCC (self-loop `[a, a]`).
+  The path starts at the smallest node by `key` (health passes the part number). `would_create_cycle` returns
+  the closed path `parent -> child -> ... -> parent`.
+- **Where-used `include=effective`** keeps released BOMs whose date window contains `on`. `on` omitted means
+  every released BOM; serial ranges are not filtered. `include=all` keeps draft + released BOMs.
+- **Release.** `effective_from=None` in the release body keeps the document's own `effective_from`.
+  `release.ReleaseError` (map to 422 `VALIDATION_ERROR`) is raised for `supersede_previous` without a date, or a
+  date not before `effective_to`. Release-only issue codes `MFG_BOM_EMPTY` and `MFG_SERIAL_NOT_ALLOWED` use the
+  health issue shape. `validate_*_document` error dicts carry a `type` that the service maps: `mfg_unknown_reference`
+  goes to `MFG_UNKNOWN_REFERENCE`, `mfg_bom_cycle` to `MFG_BOM_CYCLE`, anything else to `VALIDATION_ERROR`.
+- **Bundle value types.** Dates are `date`, datetimes are aware `datetime` in the plant offset, list columns are
+  `list[str]` (`[]` when empty), breaks are `"name=HH:MM-HH:MM"` and tools are `"CODE:QTY"`. Item attributes are
+  `attr:<name>` columns. The plant sheet does not carry plant `attributes`, so they are not exported and are not
+  part of the fingerprint. The canonical order puts shifts in template order (not alphabetical), BOM lines in 3.5
+  line order and operations by seq. Set-like lists (eligible families/part numbers, operator skills, shift names,
+  tools) are sorted, so `dataset_to_bundle(bundle_to_dataset(b)) == b` for canonical bundles.
+- **Health scope** (7.1 left these open):
+  - *Relevant routings* are released routings of active, in-use make items whose window intersects the horizon.
+    Their operations are the subjects of #5, #6, #7, #9, #10, #20, #21 and #24.
+  - BOM-line errors #12, #13, #16 and #17 apply to released BOMs not ended before `as_of`. #18 applies to BOMs
+    effective inside the horizon. #23, #33, #34 and #38 apply to those plus drafts.
+  - #3, #19 and #28 are checked at `as_of` and at the item's own boundaries in the horizon. Their link goes to
+    the routing/BOM tab, with `?routing=`/`?bom=` of the draft when one exists.
+  - Overlaps (#14, #15) count only when the common window intersects the horizon.
+  - #27 compares the assignment's raw optional minutes with the minutes left after base time, per affected line.
+  - #22, #26 and #27 skip assignments that ended before `as_of`.
+  - The #24 entity label is `"<skill> / <line>"`. One issue is raised per (skill, line).
+- **Samples.** `small`'s BOM has 9 lines, one per component (M 10.2 says 8 lines but lists 9 components, and an
+  unused component would be `MFG_ORPHAN_ITEM`). The Kavach group table lists 20 groups plus FINAL-TEST, which
+  makes 21. To keep the 20 stages of A3-3, SUBTEST is folded into FINAL-TEST ("Test bay": FT-1, FT-2, ST-1, ST-2),
+  so sub-assembly tests run there. With the routing structure described in 10.4, Kavach has 287 operations
+  (target 450-650). The described PCB, harness, mechanical, programming and sub-assembly routings for 58 make
+  items cannot reach 450 without inventing extra steps.
 ### 17.WP-B Backend API + import/export
 
 ### 17.WP-C Frontend
+
+Status (2026-10-25): C0-C4 built against 9.3-9.6 (no backend router existed yet); cross-checked against WP-A's
+`sp/mfg/model.py`. Files: `frontend/src/mfg/**`, `frontend/e2e/mfg-helpers.ts`, additive lines in `App.tsx` /
+`main.tsx`. No new npm packages; `npm run build`, `npm audit` (0 vulnerabilities) and the existing Playwright suites
+are the gate.
+
+Interpretations (to confirm when B lands; none changes a documented field):
+- Routing release (#25 "as BOMs") is typed as `{routing: RoutingRecord, superseded: [...]}`. The UI never reads
+  the body of release/obsolete/copy beyond the new copy's `id`; it reloads the version list afterwards.
+- Nullable per `model.py`: `Explosion.on`, `ExplosionWarning.item_id`, `Window.assignment_id`,
+  `HealthIssue.link`, `HealthIssue.entity.id` (plant). `PlantRecord.data_version` is read when present.
+- `TimePreviewOperation.group` is a full ref in `model.py`; the TS type keeps `name` optional because 9.4 shows
+  `{id, code}`.
+- `ImportRecord.created_at`/`committed_at` are optional in TS because the 9.4 example omits them;
+  `ImportResult.counts[sheet]` is partial because the example shows `{}`.
+- CSV upload: the `sheet` query value is a template sheet name from `meta.import_spec.sheets[].name`.
+- "Fix the file and upload again": the wizard re-applies the previous mapping client-side by sheet name (else
+  best header overlap) and exact header text, PUTs it right away, and opens the preview step.
+- `/mfg/plant` -> `/mfg/plant/groups`, `/mfg/resources` -> `/mfg/resources/skills` (index redirects).
+- BOM tree default "expanded to level 2" = levels 0-2 visible (rows at level >= 2 with children collapsed).
+- Health "Fix" links render only `issue.link`; own navigation uses the builders in `src/mfg/lib/paths.ts`.
+- The time preview shows the API numbers rounded to 6 decimals without thousands separators; the totals element
+  also carries `data-fastest` / `data-slowest` with the raw values.
+
+`data-testid`s: all of PLAN-M1 4.3 exist as named. Additional ones that D may use: `mfg-home-health` (`data-ok`),
+`items-table`, `items-count`, `item-tab-{details|bom|where-used|routing}`, `conflict-reload`, `bom-search`,
+`bom-mode-{indented|summarized}`, `bom-line-row`, `bom-line-add`, `bom-save`, `bom-release`, `bom-readonly`,
+`bom-copy-banner`, `release-confirm`, `release-from`, `release-supersede`, `release-blocked`, `whereused-table`,
+`whereused-mode-{single|indented}`, `whereused-include-{effective|all}`, `op-add`, `op-name`, `op-drag-handle`,
+`routing-renumber-warning`, `routing-readonly`, `time-preview-op`/`time-preview-line`, `group-row`/`line-row`
+(`data-group-id`/`data-line-id`, `.mfg-selected`), `line-form`, `line-active`, `template-new`, `template-pattern`,
+`template-code`, `template-name`, `template-save`, `week-segment` (`data-day`, `data-shift`,
+`data-split` = `start` (runs past midnight) / `end` (continued) / `both` / `none`), `assignment-new`,
+`assignment-row`, `assignment-kind`, `calendar-line`, `calendar-month`, `calendar-day` (`data-date`,
+`data-base-minutes`, `data-optional-minutes`), `exception-new`, `exception-from`/`exception-to`, `exception-label`,
+`skill-holder`, `operator-row`, `tool-row`, `health-run`, `health-code-chip`, `health-filter-{error|warning|info}`,
+`import-csv-sheet`, `import-upload-submit`, `import-preview-submit`, `import-reupload`, `import-errors-csv`,
+`import-expired`, `mfg-reset`, `mfg-not-found`. `frontend/e2e/mfg-helpers.ts` wraps reset, sample load, lookups and
+the common UI waits (single_user and accounts mode).
+
+Measured against a contract-shaped mock API (Chromium, dev build): BOM tree with 2,409 rows - "Expand all" to all
+rows rendered ~85 ms including Playwright round trips, at most 39 DOM rows while scrolled; items list with 10,001
+items - first page and 200-row paging, at most 39 DOM rows. To be re-measured on the real backend by D (P12/P13).
+The production bundle is 891 kB (673 kB before M1); the > 500 kB chunk warning predates M1.
 
 ### 17.WP-D QA and acceptance
