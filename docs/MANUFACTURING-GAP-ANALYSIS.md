@@ -96,6 +96,23 @@ Demand: sales orders / project milestones (e.g. N loco units by date), forecasts
 WorkOrder: item, qty, due, status lifecycle, parent/child links (pegging), operations with actuals
 ```
 
+### 4.1a Define first, then run
+
+All of the above is set up once as **master data** in dedicated screens (and by Excel/CSV import or ERP sync),
+validated, and versioned. Planning runs always read from that data; nothing is re-typed per run.
+
+1. **Plant setup**: stages / work-center groups → lines and machines (speed, eligible items, setup families) →
+   shift templates (regular 09:00–18:00, extended to 22:00, 24 h) → which shifts each stage or line runs, base vs
+   optional (overtime) with cost and limits → holidays and maintenance → operators, skills, tooling.
+2. **Product setup**: items → multi-level BOMs → routings (operations per part type, repeated stages such as SMT
+   top/bottom, setup + run time per unit, waits, yields, tooling/skill needs).
+3. **Stock and supply**: inventory snapshot, open purchase orders, open work orders.
+4. **Demand**: orders / programme milestones with quantities, due dates and priorities.
+5. **Check**: a data-health check before any run (items without routings, BOM cycles, operations with no
+   eligible line, stages with no shift, missing lead times) with plain-language fixes.
+6. **Run**: MRP → capacity check → detailed schedule, with chosen options (horizon, allow overtime, allow lot
+   splitting, frozen period). Results are saved as a plan version that can be compared, approved and released.
+
 ### 4.2 Planning pipeline
 
 1. **Demand & MRP** (fast, deterministic, explainable):
