@@ -22,7 +22,7 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from .dataset import MfgDataset, line_sort_key, link
-from .model import (WEEKDAYS, BomInput, BomLineInput, BomLineRecord, BomRecord, CalendarExceptionInput,
+from .model import (WEEKDAYS, BomInput, BomLineRecord, BomRecord, CalendarExceptionInput,
                     CalendarExceptionRecord, GroupInput, GroupRecord, ItemInput, ItemRecord, LineInput, LineRecord,
                     OperationInput, OperationRecord, OperationToolRecord, OperatorInput, OperatorRecord, PlantInput,
                     PlantRecord, RoutingInput, RoutingRecord, ShiftAssignmentInput, ShiftAssignmentRecord,
@@ -258,7 +258,6 @@ def _f(v: Any) -> float | None:
 def dataset_to_bundle(ds: MfgDataset) -> MfgBundle:
     items = ds.items
     pn = {i: it.part_number for i, it in items.items()}
-    tz = None
     from .calendar import offset_tz
 
     tz = offset_tz(ds.plant.utc_offset)

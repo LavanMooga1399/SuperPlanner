@@ -8,7 +8,7 @@ import importlib
 from dataclasses import dataclass
 from functools import lru_cache
 
-from ..bundle import MfgBundle, bundle_counts, canonical_json  # noqa: F401  (canonical_json re-exported for tests)
+from ..bundle import MfgBundle, bundle_counts
 from .common import canonical
 
 

@@ -2037,6 +2037,37 @@ Deviations and interpretations (WP-A):
   so sub-assembly tests run there. With the routing structure described in 10.4, Kavach has 287 operations
   (target 450-650). The described PCB, harness, mechanical, programming and sub-assembly routings for 58 make
   items cannot reach 450 without inventing extra steps.
+
+**A2-A4 delivered (2026-10-25).** Pinned sample values (`tests/mfg/test_mfg_samples.py`; identical under
+`PYTHONHASHSEED=0` and `12345`; as_of 2026-11-02, horizon 90):
+
+| Sample | Items | BOM lines | Other counts | Health (`by_code`) |
+|---|---|---|---|---|
+| `small` | 10 | 9 | - | none |
+| `medium` | 171 (target ~200) | 260 (incl. the 70-line draft v2) | levels 0..3 | `MFG_LONG_LEAD_TIME` 1 |
+| `kavach` | 1,199 | 2,469 | 63 BOMs, 61 routings (3 alternates), 287 operations, 20 groups, 50 lines, 35 assignments, 8 exceptions, 48 operators, 86 tool pools; explosion of KV-TPU-1000: 2,468 rows, levels 0..4, no warnings | `MFG_SKILL_NOT_ON_SHIFT` 1 (COATING / COAT-1), `MFG_DUPLICATE_COMPONENT` 1, `MFG_LONG_LEAD_TIME` 7 |
+| `kavach x2` | - | 4,938 | - | - |
+
+Measured on the development machine (pure, best of three):
+- `explode` Kavach ~0.03 s; both TPU roots of `kavach x2` together ~0.05 s.
+- `run_health_check` Kavach ~0.26 s.
+- `build("kavach")` ~0.4 s (cached per process; `build` returns a deep copy).
+
+Statement counts on both dialects (`tests/mfg_db/test_mfg_repo.py`):
+
+| Loader | Statements | Bound |
+|---|---|---|
+| `load_dataset` | 17 | 19 |
+| `load_bom_index_down` (Kavach, L = 4) | 15 | 18 |
+| `load_parent_index` (KV-CAP-0402-100N, 3 levels up) | <= 8 | 11 |
+| `bom_edge_list` | 1 | 1 |
+
+Explosion rows from the loaders equal `BomIndex.from_dataset` at three dates.
+
+Implementation details:
+- Explosion rows are built with `model.construct_fast` (`model_construct` without default processing).
+- WP-B: `repo.to_record(row, **extra)` needs the refs (`item`, `child`, `group`, ...) passed by the caller;
+  counts default to 0. `load_dataset` fills everything through `dataset.link`.
 ### 17.WP-B Backend API + import/export
 
 ### 17.WP-C Frontend
