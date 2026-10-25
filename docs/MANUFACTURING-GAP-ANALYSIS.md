@@ -120,6 +120,29 @@ validated, and versioned. Planning runs always read from that data; nothing is r
    safety stock → lot sizing (lot-for-lot, fixed, min/max, MOQ) → lead-time offsetting → **planned work
    orders** for make items and **purchase requests** for buy items, each **pegged** to the demand it serves.
    Exceptions: shortages, expedite/defer/cancel messages, long-lead items (chips can be 20–52 weeks).
+
+   Plant-level material planning, in detail:
+   - **All demand together.** Every open demand order (customer/programme orders, internal orders, spares,
+     forecasts) for every finished item is planned in one run, not product by product. Components shared
+     across products (the same IC, connector, PCB or harness used in several assemblies) are netted once for
+     the whole plant.
+   - **Staggered deliveries.** Purchase orders and already-raised purchase requests carry **multiple delivery
+     schedule lines** (e.g. 10,000 pcs as 2,000/month from Jan to May), each with its own date and quantity,
+     confirmed vs. requested, partial receipts, and goods-in inspection time before stock is usable. Work orders
+     can also deliver in partial lots. Supply is a **dated timeline per item**, not a single number.
+   - **Projected stock per item over time** (on-hand + scheduled receipts − requirements), showing exactly
+     when an item goes short, for which demand, and by how much.
+   - **Allocation of scarce material.** When supply cannot cover every order on time, components are allocated
+     by demand priority and due date (configurable rules: priority first, earliest due first, or protect
+     specific programmes), and the shortfall is reported per demand order with the parts that cause it.
+   - **Existing purchase requests and POs are respected**: no duplicate requests; suggestions are expedite /
+     postpone / increase / cancel messages on the existing ones, plus new PRs only for the uncovered remainder.
+   - **Material feeds the schedule.** Each work-order operation that consumes a component can only start after
+     the quantity it needs is available on that date (from stock, a delivery line, or a child work order).
+     Capacity and material are planned together, so the plant plan is feasible on both.
+   - **Plant plan outputs**: master production schedule (what finished items, how many, when), planned and
+     firmed work orders for every level, purchase requests and PO change suggestions, the detailed operation
+     schedule per stage and line, shortage and late-order lists with causes, and capacity load per stage.
 2. **Rough-cut and capacity requirements planning**: load per work center per week vs. capacity; bottleneck
    (typically SMT, test, or skilled harness labour) highlighted before detailed scheduling.
 3. **Detailed finite scheduling (APS)** of the *operations* of firmed/planned work orders:
@@ -205,7 +228,7 @@ dependency views, what-if/compare, and the deployment setup.
 | Phase | Scope | Outcome |
 |---|---|---|
 | **M1 — Manufacturing master data** | Items, multi-level BOMs, routings with setup + per-unit run times and repeated operations, work-center groups with parallel lines (speed, eligibility), shift templates (regular / extended / 24 h, stage-specific), tooling and skills; bulk import (CSV/Excel) and a BOM tree + routing editor | A Kavach-like product and plant can be described faithfully |
-| **M2 — Inventory, demand and MRP** | On-hand/lots, open POs and WOs, sales orders/milestones; BOM explosion, netting, lot sizing, lead-time offset, pegging; planned WOs and purchase requests; shortage and exception dashboard | "What to make, what to buy, by when" for thousands of BOM lines |
+| **M2 — Inventory, demand and MRP** | On-hand/lots, open POs and PRs with staggered delivery schedule lines, open WOs, multiple demand orders across all products (plant level), shared-component netting, projected stock timeline, scarce-material allocation by priority; BOM explosion, netting, lot sizing, lead-time offset, pegging; planned WOs and purchase requests; shortage and exception dashboard | "What to make, what to buy, by when" for thousands of BOM lines |
 | **M3 — Manufacturing APS** | Operation-level scheduling from WOs: quantities, transfer batches, line selection and lot splitting across parallel lines, optional overtime/extra shifts with cost, resumable operations across shift breaks, setup matrices, tooling/skills, material availability; decomposition, bottleneck-first, rolling horizon, LNS; capacity load charts per work center; validator + explanations extended | Feasible, explainable schedules for thousands of operations in minutes |
 | **M4 — Execution and replanning** | WO release, shop-floor actuals (barcode-friendly), scrap/rework/yield, event-driven replanning with frozen horizon, KPIs (OTD, utilisation, WIP, setup time) | Closed loop with the shop floor |
 | **M5 — Integration and traceability** | ERP connectors (items, BOMs, stock, POs in; WOs, PRs out), serial/lot genealogy, ECO handling, multi-plant/organisation accounts | Production use alongside HBL's ERP |
