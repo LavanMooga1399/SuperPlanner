@@ -261,7 +261,7 @@ zero, a GA with population 80 / 250 generations, and "makespan 645 days, tardine
 has no BOM, routing or MRP code at all; its GA uses an automatic population and up to 300 generations; all
 engine time is integer minutes; objectives are normalised against a baseline heuristic run; and the decoder
 enforces precedence, capacity and calendars as hard constraints with an independent validator deciding
-feasibility. Those findings most likely come from the earlier HBL production-planning prototype. They are
+feasibility. Those findings come from the earlier HBL production-planning prototype (confirmed by the product owner). They are
 useful as **lessons** (time-unit consistency, blocking runs on missing routings, never treating hard
 constraints as penalties) and are already reflected below, but they are not defects in this codebase.
 
