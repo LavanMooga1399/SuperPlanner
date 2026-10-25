@@ -42,7 +42,9 @@ are reusable. The work is mostly *new domain modelling and a new planning layer 
 | Sequence-dependent setup / changeover (SMT stencil and feeder changes by product family) | Not modelled | Setup matrix in solvers |
 | Batching / lot splitting / transfer batches (overlap consecutive operations) | Not modelled | Lot sizing + overlap |
 | Secondary resources (operators with skills, stencils, fixtures, test jigs) | Partially: multiple requirements with alternatives | Skills, tooling pools, calendars per person |
-| Shifts, holidays, maintenance | Yes (weekly calendars + blocked intervals) | Shift patterns, overtime as a cost option |
+| Shifts, holidays, maintenance | Fixed weekly windows per resource + blocked intervals | Named shift patterns, overtime/extra shifts as optional paid capacity, stage-specific shifts |
+| Several parallel lines/machines per stage, choose by urgency and load | Partly: a task can pick one of several alternative resources | Work-center groups, line activation, lot splitting across lines, line-specific speeds |
+| Operations longer than one shift (pause at shift end, resume next shift) | No: a task must fit inside one open window | Resumable operations across shift breaks (non-resumable for e.g. reflow/cure) |
 | Rework loops, yield, scrap, test failures | None | Yield per operation, rework routings |
 | Serial numbers and traceability (railway/RDSO style) | None | Lot/serial genealogy |
 | Capacity load view per work center (RCCP/CRP) | None (Gantt by resource only) | Load charts, bottleneck detection |
@@ -115,7 +117,40 @@ WorkOrder: item, qty, due, status lifecycle, parent/child links (pegging), opera
    scrap, rework), and replan from events (late PO, machine down, test failure, rush order) without
    disturbing the frozen horizon.
 
-### 4.3 Algorithms at this scale
+### 4.3 Parallel lines, shifts and overtime
+
+Requirements from HBL: each stage has several lines or machines; more lines are loaded when orders are urgent;
+shifts are a regular 09:00–18:00, extended hours to 22:00, or 24-hour working; some stages run only in certain
+shifts.
+
+- **Work-center groups.** A stage (e.g. "SMT", "Harness assembly", "Functional test") is a group of lines or
+  machines. Each line has its own speed factor (an older SMT line may be 30% slower), setup families, eligible
+  items and calendar. Routings point at the *group*; the scheduler picks the line.
+- **Load more lines when urgent.** The scheduler may (a) assign a work order's operation to any eligible line,
+  and (b) **split a lot across several lines** (e.g. 400 boards → 250 on line 1, 150 on line 2), with a minimum
+  split size and an extra setup per split. Urgency (due date, priority, demand being late) decides when extra
+  lines and splits are worth their setup cost.
+- **Shift patterns as named templates**, assigned per line or per stage, with effective dates:
+  - *Regular*: 09:00–18:00 (with breaks, e.g. lunch 13:00–13:45), Mon–Sat.
+  - *Extended*: regular + 18:00–22:00 **overtime**.
+  - *24 hours*: three shifts (e.g. 06–14, 14–22, 22–06, the night shift crossing midnight).
+  - Holidays, plant shutdowns and maintenance windows on top.
+- **Stage-specific shifts.** e.g. SMT and reflow run 24 h, manual harness assembly and final test only in the
+  regular shift, coating cure continues unattended overnight. Each stage/line has its own allowed shifts.
+- **Overtime and extra shifts as a decision, not just a fixed calendar.** Each line has *base* shifts (always
+  available) and *optional* shifts (overtime to 22:00, a weekend shift, a night shift) with a cost per hour and
+  limits (max overtime hours per week). The planner opens optional capacity only when it is needed to meet due
+  dates, and the plan explains why ("overtime on SMT-2 Tue–Thu to make the 30 Nov loco milestone"). Planners
+  can also force a pattern for a period ("run 24 h on SMT from 1–15 Dec").
+- **People follow shifts.** Operators and skills belong to shifts; a line is only usable when a qualified crew
+  is on shift. Unattended operations (cure, burn-in, ovens) need the machine but not the crew.
+- **Operations across shift boundaries.** Long operations may pause at the end of a shift and resume next shift
+  (resumable), except ones that must not be interrupted (reflow profile, cure, burn-in), which must fit inside
+  one continuous window or run on a 24 h line.
+- **What-if on capacity.** Compare "regular only", "regular + overtime" and "24 h on bottlenecks": completion
+  dates, late orders, overtime hours and cost side by side.
+
+### 4.4 Algorithms at this scale
 
 - **Decompose** instead of one giant solve: MRP first (lot-level), then schedule operations; schedule the
   **bottleneck work centers** first, then subordinate stations; **rolling horizon** (e.g. detailed 2–4 weeks,
@@ -152,9 +187,9 @@ dependency views, what-if/compare, and the deployment setup.
 
 | Phase | Scope | Outcome |
 |---|---|---|
-| **M1 — Manufacturing master data** | Items, multi-level BOMs, routings with setup + per-unit run times and repeated operations, work centers, tooling and skills; bulk import (CSV/Excel) and a BOM tree + routing editor | A Kavach-like product can be described faithfully |
+| **M1 — Manufacturing master data** | Items, multi-level BOMs, routings with setup + per-unit run times and repeated operations, work-center groups with parallel lines (speed, eligibility), shift templates (regular / extended / 24 h, stage-specific), tooling and skills; bulk import (CSV/Excel) and a BOM tree + routing editor | A Kavach-like product and plant can be described faithfully |
 | **M2 — Inventory, demand and MRP** | On-hand/lots, open POs and WOs, sales orders/milestones; BOM explosion, netting, lot sizing, lead-time offset, pegging; planned WOs and purchase requests; shortage and exception dashboard | "What to make, what to buy, by when" for thousands of BOM lines |
-| **M3 — Manufacturing APS** | Operation-level scheduling from WOs: quantities, transfer batches, setup matrices, tooling/skills, material availability; decomposition, bottleneck-first, rolling horizon, LNS; capacity load charts per work center; validator + explanations extended | Feasible, explainable schedules for thousands of operations in minutes |
+| **M3 — Manufacturing APS** | Operation-level scheduling from WOs: quantities, transfer batches, line selection and lot splitting across parallel lines, optional overtime/extra shifts with cost, resumable operations across shift breaks, setup matrices, tooling/skills, material availability; decomposition, bottleneck-first, rolling horizon, LNS; capacity load charts per work center; validator + explanations extended | Feasible, explainable schedules for thousands of operations in minutes |
 | **M4 — Execution and replanning** | WO release, shop-floor actuals (barcode-friendly), scrap/rework/yield, event-driven replanning with frozen horizon, KPIs (OTD, utilisation, WIP, setup time) | Closed loop with the shop floor |
 | **M5 — Integration and traceability** | ERP connectors (items, BOMs, stock, POs in; WOs, PRs out), serial/lot genealogy, ECO handling, multi-plant/organisation accounts | Production use alongside HBL's ERP |
 
@@ -166,7 +201,7 @@ fix → verify), with acceptance tests built from a realistic anonymised Kavach-
 1. One product's **indented BOM** (all levels, qty per, make/buy, alternates).
 2. **Routings** for its make items: operations, work centers, setup and run times per unit/panel, waits
    (cure, burn-in), yields.
-3. **Work centers and shifts**: SMT lines, AOI, THT, wave/selective solder, wash, coating, ICT/FCT, harness
+3. **Work centers, lines and shifts**: how many parallel lines/machines per stage and their speeds, which shifts each stage runs (regular, overtime to 22:00, 24 h), overtime rules and cost; SMT lines, AOI, THT, wave/selective solder, wash, coating, ICT/FCT, harness
    benches, assembly and test stations; operator skills; key tooling counts.
 4. **Inventory snapshot** and **open purchase orders** with supplier lead times.
 5. **Demand**: units required by date (loco programme milestones), plus spares.
