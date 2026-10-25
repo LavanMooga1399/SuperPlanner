@@ -26,6 +26,7 @@ envelope (A 14), If-Match/ETag (A 14.3), central ownership (B 4.7), Alembic rule
 14. Changes to existing code and existing tests
 15. Test strategy and acceptance (Gate 1 exit criteria)
 16. Deferred items and plug-in points for M2/M3
+Review notes (team lead)
 17. Implementation notes (one subsection per work package)
 
 ---
@@ -113,10 +114,13 @@ backend/superplanner/mfg/                 pure; may import pydantic, stdlib, ope
   routing.py         effective_routings, primary_routing, operation_minutes, lot_inputs, cumulative_yield
   calendar.py        expand_template_week, line_windows, group_capacity, validate_template
   health.py          run_health_check (Gate 1), CODES table
+  release.py         bom_release_issues / routing_release_issues / validate_bom_document / validate_routing_document
+                     (pure; used by the API services AND by io.plan for `release: true`) (review R3)
   bundle.py          MfgBundle type, SHEETS spec (names, columns, key columns, order of 8.2), dataset_to_bundle,
                      bundle_to_dataset (strict, for canonical bundles: samples, tests), canonical_json
-  messages.py        message + fix templates for health codes and import row errors
+  messages.py        message + fix templates for health codes (WP-A)
   io/
+    messages.py      import row-error messages (WP-B; split from messages.py so the two owners never share a file)
     spec.py          header synonyms, cell parsers per column type (uses bundle.SHEETS)
     read.py          xlsx/csv/zip -> RawSheets (with limits)
     mapping.py       suggest_mapping(raw, spec)
@@ -149,20 +153,30 @@ Rules: `superplanner.mfg` never imports `superplanner.api` or `superplanner.engi
 | Constant | Value | Meaning |
 |---|---|---|
 | `MAX_ITEMS` | 50,000 | items per owner (create beyond -> 422 `MFG_LIMIT`) |
+| `MAX_BOMS` / `MAX_ROUTINGS` | 20,000 / 20,000 | documents per owner (all statuses) |
+| `MAX_BOM_LINES_TOTAL` / `MAX_OPERATIONS_TOTAL` | 500,000 / 200,000 | per owner |
+| `MAX_GROUPS` / `MAX_LINES` | 500 / 2,000 | per owner |
+| `MAX_SHIFT_TEMPLATES` / `MAX_SHIFT_ASSIGNMENTS` / `MAX_CALENDAR_EXCEPTIONS` | 200 / 5,000 / 10,000 | per owner |
+| `MAX_SKILLS` / `MAX_OPERATORS` / `MAX_TOOL_POOLS` | 500 / 5,000 / 10,000 | per owner |
 | `MAX_BOM_LINES_PER_BOM` | 2,000 | lines in one BOM document |
 | `MAX_OPERATIONS_PER_ROUTING` | 200 | |
 | `MAX_BOM_DEPTH` | 20 | explosion/where-used levels (deeper -> `MFG_BOM_TOO_DEEP`) |
-| `MAX_EXPLOSION_ROWS` | 50,000 | indented rows in one explosion response |
+| `MAX_EXPLOSION_ROWS` | 20,000 | indented rows in one explosion or indented where-used response (generation stops at the first row over the limit) |
+| `REFDES_MAX_RANGE` | 10,000 | a designator range wider than this is an invalid token (never expanded) |
+| `SQL_IN_CHUNK` | 2,000 | ids per `IN (...)` list in level-wise loaders |
+| `SKILL_COVERAGE_TOLERANCE_MINUTES` | 15 | uncovered pieces shorter than this are ignored by `MFG_SKILL_NOT_ON_SHIFT` |
 | `MAX_WINDOW_RANGE_DAYS` | 62 | `/lines/{id}/windows` range |
 | `MAX_HEALTH_ISSUES` | 1,000 | issues returned (counts stay complete) |
 | `PAGE_DEFAULT` / `PAGE_MAX` | 50 / 200 | list pagination |
-| `IMPORT_MAX_ROWS_PER_SHEET` | 50,000 | |
+| `IMPORT_MAX_ROWS_PER_SHEET` | 50,000 | non-empty data rows |
+| `IMPORT_MAX_SCANNED_ROWS` | 60,000 | rows iterated per sheet incl. empty filler rows (openpyxl pads row gaps); `iter_rows(max_row=..., max_col=IMPORT_MAX_COLUMNS + 1)` |
 | `IMPORT_MAX_ROWS_TOTAL` | 100,000 | |
 | `IMPORT_MAX_COLUMNS` | 100 | |
 | `IMPORT_MAX_CELL_CHARS` | 4,000 | |
-| `IMPORT_MAX_UNCOMPRESSED_BYTES` | 100 MiB | sum of zip member sizes (xlsx and zip) |
+| `IMPORT_MAX_UNCOMPRESSED_BYTES` | 64 MiB | sum of declared zip member sizes (xlsx and zip); `zipfile` never returns more than the declared size of a member, so the declared sum bounds decompression |
 | `IMPORT_MAX_ZIP_MEMBERS` | 200 | |
 | `IMPORT_MAX_COMPRESSION_RATIO` | 200 | per member |
+| `IMPORT_MAX_STAGED_BYTES` | 32 MiB | `len(json.dumps(sheets))` stored in `mfg_imports.sheets` |
 | `IMPORT_TTL_HOURS` | 24 | staged import lifetime |
 | `IMPORT_MAX_OPEN_PER_OWNER` | 5 | oldest uncommitted session deleted beyond this |
 | `MAX_ROW_ERRORS_RETURNED` | 500 | preview row errors returned (count complete) |
@@ -231,7 +245,14 @@ def is_count(code: str) -> bool
 
 ### 3.3 Plant settings
 
-One row per owner, created lazily with defaults on first access (`repo.get_or_create_plant`).
+One row per owner, created lazily by the first mfg **write** (`repo.lock_plant`, 6.1). Reads never insert
+(review R6): `GET /plant`, `load_dataset` and health use `repo.plant_or_default(s)`, which returns the stored row or
+an unsaved default record with `id = null` and `row_version = 0` (ETag `"0"`); `PUT /plant` with `If-Match: "0"`
+creates it. So a user who only looked at the Manufacturing area owns no mfg rows (needed by `reassign-owner`, 14.1).
+
+Non-input column `data_version` (int, starts 0): incremented once by every committed mfg write transaction (any
+table), under the plant lock. It is a cheap "has anything changed" token: import commit uses it to skip re-planning
+inside the lock (8.1), and `GET /summary` and `GET /health` return it.
 
 | Field | Type | Default | Rules |
 |---|---|---|---|
@@ -600,7 +621,12 @@ def bom_edges(ds: MfgDataset) -> list[tuple[str, str]]     # (parent_item, child
 def find_cycles(edges: Iterable[tuple[str, str]]) -> list[list[str]]      # iterative Tarjan; each SCC rotated to
                                                                           # start at its smallest part number
 def would_create_cycle(edges, new_edges) -> list[str] | None             # path parent -> ... -> parent
-def parse_refdes(text: str) -> list[str]                                 # "R1, R2, R5-R9" -> 7 designators
+def refdes_count(text: str) -> tuple[int, list[str]]                     # "R1, R2, R5-R9" -> (7, []); ranges are
+                                                                          # counted arithmetically, never expanded;
+                                                                          # a range wider than REFDES_MAX_RANGE or a
+                                                                          # bad token goes to the invalid list
+def validate_bom_document(ds, item_id: str, lines: list[BomLineInput]) -> list[dict]   # (release.py) the 3.5
+                                                                          # document rules, A 14 error dicts with loc
 
 # routing.py
 def effective_routings(ds, item_id, on, serial=None) -> list[RoutingRecord]
@@ -615,11 +641,29 @@ def to_engine_minutes(x: float) -> int
 def validate_template(t: ShiftTemplateInput) -> list[dict]      # pydantic-style error dicts (empty = ok)
 def expand_template_week(t: ShiftTemplateInput) -> list[WeekWindow]   # minutes from Mon 00:00, may exceed 10080
 def line_windows(ds, line_id, d0: date, d1: date, *, kinds=("base","optional")) -> list[Window]
+def operator_windows(ds, operator_id, d0: date, d1: date) -> list[Window]   # shift SPANS of the operator's template
+                                                                # / shift names (breaks NOT removed: crews stagger
+                                                                # breaks), clipped to [d0, d1); no exceptions applied
 def group_capacity(ds, group_id, d0, d1) -> dict
+
+# release.py (review R3)
+def bom_release_issues(ds, bom_id: str, effective_from: date | None, supersede_previous: bool
+                       ) -> tuple[list[HealthIssue], list[dict]]      # (blocking issues, superseded [{id, version,
+                                                                      # effective_to}]); 4.2 rules
+def routing_release_issues(ds, routing_id: str, effective_from: date | None, supersede_previous: bool
+                           ) -> tuple[list[HealthIssue], list[dict]]
 
 # health.py
 def run_health_check(ds: MfgDataset, as_of: date, horizon_days: int) -> HealthReport
 ```
+
+Complexity rules (review R8, binding for WP-A): `explode(mode="indented")` raises `ExplosionTooLarge` as soon as
+row `MAX_EXPLOSION_ROWS + 1` would be produced (never builds the full path list first; a 20-level "diamond" BOM has
+2^20 paths). `explode(mode="summarized")` never enumerates paths: it propagates quantities over the effective
+BOM DAG in topological order (O(items + edges)), and computes `min_level`/`max_level` (shortest/longest path) and
+`occurrences` (path count, Python int) by the same DP, so `mode=summarized` is always a working fallback.
+`where_used(mode="indented")` has the same row limit. Health reachability and depth checks use DAG traversal /
+DP, never path enumeration.
 
 `Explosion` (also the API response body, section 9.4): `item_id, part_number, on, serial, qty, mode, rows, totals,
 warnings`. Indented `rows` are depth-first in BOM line order (3.5 sort), each row:
@@ -643,9 +687,11 @@ item_id}]` with `MFG_NO_EFFECTIVE_BOM` (make/phantom item without an effective B
 (defensive: branch cut), `MFG_BOM_TOO_DEEP`. More than `MAX_EXPLOSION_ROWS` rows -> `ExplosionTooLarge` (API 422
 `MFG_EXPLOSION_TOO_LARGE`, suggest `mode=summarized` or `max_depth`).
 
-`WhereUsed`: `rows: [{level (1 = direct parent), parent_row, item_id, part_number, revision, description, make_buy,
-bom_id, bom_revision, bom_version, bom_status, line_id, find_number, qty_per, line_uom, is_top}]`, depth-first,
-parents sorted by part number; `is_top` = the parent is used nowhere. `totals = {rows, top_items}`.
+`WhereUsed`: `rows: [{row, level (1 = direct parent), parent_row, item_id, part_number, revision, description,
+make_buy, bom_id, bom_revision, bom_version, bom_status, line_id, find_number, qty_per, line_uom, is_top}]`,
+depth-first, parents sorted by part number; `is_top` = the parent is used nowhere. `totals = {rows, top_items}`.
+`mode=single` returns only level-1 rows (`parent_row` null). Over `MAX_EXPLOSION_ROWS` indented rows -> 422
+`MFG_EXPLOSION_TOO_LARGE` (suggest `mode=single`).
 
 ---
 
@@ -669,37 +715,67 @@ parents sorted by part number; `is_top` = the parent is used nowhere. `totals = 
   reverse order in `downgrade()`. `superplanner/migrate.py` `HEAD = "0003_mfg"`. The existing test
   `compare_metadata(upgrade head) == Base.metadata` must stay empty on both dialects.
 - Writes use ORM `s.add`/attribute updates only (B 3.5.6: no Core `insert()`, which would bypass the owner stamp).
-  Bulk import uses `s.add_all` (SQLAlchemy 2.1 batches these as `insertmanyvalues`).
-- Every mfg write transaction first locks the owner's plant row (`repo.lock_plant(s)`: get-or-create, then
-  `SELECT ... FOR NO KEY UPDATE`; on SQLite the write guard serialises). This is the per-owner mutex that keeps cycle
-  checks, natural-key checks and imports consistent across processes. Lock order: plant -> document header ->
-  children. Runs inside `ctx.write_guard()` like existing services.
+  Bulk import uses `s.add_all` (SQLAlchemy 2.1.4 batches these as `insertmanyvalues`). The writer adds rows **per
+  sheet in dependency order with an explicit `s.flush()` after each sheet** (relationships are `lazy="raise"` and
+  the unit of work must not be relied on to order FK-dependent inserts without relationship cascades).
+- Deletes: single rows via `s.delete(row)`; many rows (replace_children, reset, sample `replace`) via ORM-enabled
+  `s.execute(delete(Model).where(...).execution_options(synchronize_session=False))`, children before parents.
+  ORM `delete()` statements pass `do_orm_execute` and get the owner criteria (proven by the 2b ownership probes,
+  PLAN-PHASE2B Q1-9; re-proven for mfg by `test_mfg_isolation.py`). All mfg relationships declare
+  `passive_deletes=True` so ON DELETE CASCADE / SET NULL is done by the database, never by lazy loads.
+- **Ids are always `new_id(prefix)`** when rows are written. The deterministic ids of `bundle_to_dataset` (prefix +
+  first 32 hex of sha256 of the natural key) exist only in pure in-memory datasets and are never written: ids are
+  global primary keys, so two users loading the same sample would otherwise collide (review R5).
+- Every mfg write transaction first locks the owner's plant row (`repo.lock_plant(s)`), then bumps
+  `mfg_plant.data_version`. `lock_plant`: `SELECT ... FOR NO KEY UPDATE` on the owner's plant row; if absent,
+  insert the default row inside a savepoint (`s.begin_nested()`); on a unique violation of `uq_mfg_plant_owner`
+  (a concurrent first write, Postgres) roll back the savepoint and select again with the lock. On SQLite the write
+  guard serialises. This is the per-owner mutex that keeps cycle checks, natural-key checks and imports consistent
+  across processes. Lock order: plant -> document header -> children. Runs inside `ctx.write_guard()` like
+  existing services.
+- Lock waits: Postgres sessions run with `lock_timeout=10000` (B 3.1). A write that waits longer for the plant lock
+  (e.g. behind a large import commit) fails with `LockNotAvailable` (SQLSTATE 55P03); the mfg services map it to
+  409 `MFG_BUSY` "Another change to your manufacturing data is still being saved. Try again in a moment." with
+  `Retry-After: 5`, never 500. Long pure work (file parsing, `plan_import`) is done **outside** the write
+  transaction wherever possible (8.1), so the lock is held only for the writes. On SQLite the process-wide write
+  guard and `busy_timeout=30000` make other writers wait instead.
 
 ### 6.2 Tables
 
 | Table | Columns (besides id, owner_id, row_version, created_at, updated_at) | Constraints / indexes |
 |---|---|---|
-| `mfg_plant` | name S200, utc_offset S6, planning_horizon_days Int, currency S8, attributes JSON | `uq_mfg_plant_owner (owner_id)` |
+| `mfg_plant` | name S200, utc_offset S6, planning_horizon_days Int, currency S8, attributes JSON, data_version Int | `uq_mfg_plant_owner (owner_id)` |
 | `mfg_items` | part_number S64, revision S16, description S500, uom S8, make_buy S8, family S32 N, setup_family S32 N, lead_time_days Int N, receiving_days Int, lot_rule S16, fixed_lot_qty Dbl N, min_order_qty Dbl, order_multiple Dbl, safety_stock Dbl, serialized Bool, shelf_life_days Int N, handling_class S32 N, handling_note S500, attributes JSON, active Bool | `uq_mfg_items_owner_pn (owner_id, part_number)`; `ix_mfg_items_owner_family (owner_id, family)`; `ix_mfg_items_owner_updated (owner_id, updated_at, id)` |
 | `mfg_boms` | item_id FK mfg_items RESTRICT, revision S16, version Int, status S16, effective_from Date N, effective_to Date N, serial_from BigInt N, serial_to BigInt N, note S500, released_at DT N, obsoleted_at DT N | `uq_mfg_boms_key (owner_id, item_id, revision, version)`; `ix_mfg_boms_item_status (item_id, status)` |
-| `mfg_bom_lines` | bom_id FK mfg_boms CASCADE, find_number S16, child_item_id FK mfg_items RESTRICT, qty_per Dbl, uom S8, scrap_pct Dbl, ref_designators S4000, alt_group S16 N, alt_priority Int, operation_seq Int N, note S500 | `uq_mfg_bom_lines_key (bom_id, find_number, child_item_id)`; `ix_mfg_bom_lines_child (owner_id, child_item_id)` (where-used) |
+| `mfg_bom_lines` | bom_id FK mfg_boms CASCADE, find_number S16, child_item_id FK mfg_items RESTRICT, qty_per Dbl, uom S8, scrap_pct Dbl, ref_designators S4000, alt_group S16 N, alt_priority Int, operation_seq Int N, note S500 | `uq_mfg_bom_lines_key (bom_id, find_number, child_item_id)`; `ix_mfg_bom_lines_child (child_item_id)` (where-used and the FK RESTRICT check on item delete, which Postgres runs without `owner_id`) |
 | `mfg_routings` | item_id FK mfg_items RESTRICT, revision S16, code S32, version Int, priority Int, status S16, effective_from/to Date N, serial_from/to BigInt N, note S500, released_at, obsoleted_at | `uq_mfg_routings_key (owner_id, item_id, revision, code, version)`; `ix_mfg_routings_item_status (item_id, status)` |
-| `mfg_operations` | routing_id FK mfg_routings CASCADE, seq Int, name S100, description S500, group_id FK mfg_groups RESTRICT, setup_minutes Dbl, run_minutes Dbl, run_per S8, units_per_panel Int N, units_per_batch Int N, queue_minutes Dbl, move_minutes Dbl, wait_minutes Dbl, labor S16, crew_size Int, skill_id FK mfg_skills RESTRICT N, transfer_batch Int N, yield_pct Dbl, inspection_gate Bool, interruptible Bool | `uq_mfg_operations_seq (routing_id, seq)`; `ix_mfg_operations_group (group_id)`; `ix_mfg_operations_skill (skill_id)` |
-| `mfg_operation_tools` | operation_id FK mfg_operations CASCADE, tool_pool_id FK mfg_tool_pools RESTRICT, qty Int | `uq_mfg_operation_tools (operation_id, tool_pool_id)`; `ix_mfg_operation_tools_pool (tool_pool_id)` |
+| `mfg_operations` | routing_id FK mfg_routings CASCADE, seq Int, name S100, description S500, group_id FK mfg_groups RESTRICT, setup_minutes Dbl, run_minutes Dbl, run_per S8, units_per_panel Int N, units_per_batch Int N, queue_minutes Dbl, move_minutes Dbl, wait_minutes Dbl, labor S16, crew_size Int, skill_id FK mfg_skills RESTRICT N, transfer_batch Int N, yield_pct Dbl, inspection_gate Bool, interruptible Bool | `uq_mfg_operations_seq (routing_id, seq)`; `ix_mfg_operations_group (group_id)`; `ix_mfg_operations_skill (skill_id)`; `ix_mfg_operations_owner (owner_id)` |
+| `mfg_operation_tools` | operation_id FK mfg_operations CASCADE, tool_pool_id FK mfg_tool_pools RESTRICT, qty Int | `uq_mfg_operation_tools (operation_id, tool_pool_id)`; `ix_mfg_operation_tools_pool (tool_pool_id)`; `ix_mfg_operation_tools_owner (owner_id)` |
 | `mfg_groups` | code S32, name S200, description S500, kind S32 N, active Bool | `uq_mfg_groups_code (owner_id, code)` |
 | `mfg_lines` | group_id FK mfg_groups RESTRICT, code S32, name S200, speed_factor Dbl, parallel_capacity Int, setup_family S32 N, eligible_families JSON, cost_per_hour Dbl, active Bool | `uq_mfg_lines_code (owner_id, code)`; `ix_mfg_lines_group (group_id)` |
-| `mfg_line_items` | PK (line_id FK mfg_lines CASCADE, item_id FK mfg_items CASCADE), owner_id | `ix_mfg_line_items_item (item_id)` |
+| `mfg_line_items` | PK (line_id FK mfg_lines CASCADE, item_id FK mfg_items CASCADE), owner_id | `ix_mfg_line_items_item (item_id)`; `ix_mfg_line_items_owner (owner_id)` |
 | `mfg_shift_templates` | code S32, name S200, description S500, shifts JSON | `uq_mfg_shift_templates_code (owner_id, code)` |
-| `mfg_shift_assignments` | shift_template_id FK RESTRICT, target_type S8, group_id FK mfg_groups CASCADE N, line_id FK mfg_lines CASCADE N, kind S16, shift_names JSON, effective_from Date, effective_to Date N, cost_per_hour Dbl N, max_hours_per_week Dbl N, note S500 | CHECK `ck_mfg_shift_assignments_target ((group_id IS NULL) <> (line_id IS NULL))`; `ix_mfg_shift_assignments_group (group_id)`, `_line (line_id)`, `_template (shift_template_id)` |
+| `mfg_shift_assignments` | shift_template_id FK RESTRICT, target_type S8, group_id FK mfg_groups CASCADE N, line_id FK mfg_lines CASCADE N, kind S16, shift_names JSON, effective_from Date, effective_to Date N, cost_per_hour Dbl N, max_hours_per_week Dbl N, note S500 | CHECK `ck_mfg_shift_assignments_target ((group_id IS NULL) <> (line_id IS NULL))`; `ix_mfg_shift_assignments_group (group_id)`, `_line (line_id)`, `_template (shift_template_id)`, `_owner (owner_id)` |
 | `mfg_calendar_exceptions` | scope S8, group_id FK CASCADE N, line_id FK CASCADE N, kind S16, start_at DT, end_at DT, label S100 | `ix_mfg_calendar_exceptions_owner_start (owner_id, start_at)`; `_group`, `_line` |
 | `mfg_skills` | code S32, name S200, description S500 | `uq_mfg_skills_code (owner_id, code)` |
-| `mfg_operators` | code S32, name S200, shift_template_id FK RESTRICT N, shift_names JSON, home_group_id FK mfg_groups SET NULL N, active Bool | `uq_mfg_operators_code (owner_id, code)`; `ix_mfg_operators_template (shift_template_id)` |
-| `mfg_operator_skills` | PK (operator_id FK mfg_operators CASCADE, skill_id FK mfg_skills CASCADE), owner_id | `ix_mfg_operator_skills_skill (skill_id)` |
+| `mfg_operators` | code S32, name S200, shift_template_id FK RESTRICT N, shift_names JSON, home_group_id FK mfg_groups SET NULL N, active Bool | `uq_mfg_operators_code (owner_id, code)`; `ix_mfg_operators_template (shift_template_id)`; `ix_mfg_operators_home_group (home_group_id)` |
+| `mfg_operator_skills` | PK (operator_id FK mfg_operators CASCADE, skill_id FK mfg_skills CASCADE), owner_id | `ix_mfg_operator_skills_skill (skill_id)`; `ix_mfg_operator_skills_owner (owner_id)` |
 | `mfg_tool_pools` | code S32, name S200, kind S32 N, quantity Int, note S500 | `uq_mfg_tool_pools_code (owner_id, code)` |
 | `mfg_imports` | filename S200, format S8 (`xlsx`/`csv`/`zip`), status S16 (`uploaded`/`mapped`/`committed`), sheets JSON, mapping JSON N, preview JSON N, result JSON N, expires_at DT, committed_at DT N | `ix_mfg_imports_owner_created (owner_id, created_at)`; `ix_mfg_imports_expires (expires_at)` |
 
 (S = String(n), N = nullable, Dbl = Double, DT = DateTime(timezone=True), JSON = `JsonType`; link tables have no
 `row_version`/timestamps.)
+
+Index rules (review R7): every mfg table has an index whose **leading** column is `owner_id` (unique key or
+`ix_<table>_owner`), because `load_dataset`, reset and `manage.py reassign-owner` filter by owner only; every FK
+column has an index whose leading column is that FK (Postgres runs the RESTRICT / CASCADE / SET NULL checks without
+the owner). Every constraint and index name is <= 63 characters (Postgres truncates silently; the longest generated
+FK name, `fk_mfg_shift_assignments_shift_template_id_mfg_shift_templates`, is 62) - asserted by a WP-A test.
+Tables are created in FK order: plant, items, groups, skills, tool_pools, shift_templates, lines, line_items, boms,
+bom_lines, routings, operations, operation_tools, shift_assignments, calendar_exceptions, operators,
+operator_skills, imports; `downgrade()` drops them in reverse. `0003_mfg` only creates tables (no batch rebuild of
+existing tables), so it is safe on SQLite with `foreign_keys=OFF` and on Postgres needs only a brief lock on
+`users` for the owner FKs.
 
 `effective_to`/`serial_*` invariants are enforced in services and models, not by CHECK constraints (except the
 assignment target check above), so error messages stay in the API envelope.
@@ -721,17 +797,21 @@ assignment target check above), so error messages stay in the API envelope.
 ### 6.4 Repository (`api/mfg/repo.py`, WP-A) - the only DB reads used by services
 
 ```python
-def get_or_create_plant(s: Session) -> MfgPlantRow
-def lock_plant(s: Session) -> MfgPlantRow                     # get-or-create + FOR NO KEY UPDATE
+def plant_or_default(s: Session) -> PlantRecord               # read path: stored row or unsaved default (3.3)
+def lock_plant(s: Session) -> MfgPlantRow                     # write path: lock, create in a savepoint if absent,
+                                                              # bump data_version (6.1)
 def get_row(s, model, row_id: str, *, what: str, lock=False) -> Any        # not_found(what, id) -> 404
 def load_dataset(s: Session) -> MfgDataset                     # <= 18 SELECTs, one per table, no lazy loads
 def load_bom_index_down(s, root_item_id: str, on: date, serial: int | None) -> BomIndex
-    # level-wise BFS: per level 3 SELECTs (items IN (...); released BOM headers of those items; their lines),
-    # plus one SELECT for primary routings + operations of the make items seen (yield/operation_seq).
-    # IN lists chunked by 500. Statement count <= 3 x levels + 3.
+    # level-wise BFS over levels 0..L: per level <= 3 SELECTs (items IN (...) incl. alternate children, which are
+    # loaded but not descended into; released BOM headers of the make/phantom items of the level; lines of the
+    # effective BOMs only), plus 2 SELECTs (released routings of all make items seen; operations of their primary
+    # routings) and 1 for the plant. Items already loaded are never re-selected. IN lists chunked by SQL_IN_CHUNK.
+    # Statement count <= 3 x (L + 1) + 3 + (extra chunks).
 def load_parent_index(s, item_id: str, on: date | None, include: str) -> ParentIndex   # level-wise up, <= 3 x levels + 1
 def bom_edge_list(s) -> list[tuple[str, str]]                  # one SELECT (join headers status != obsolete)
-def to_record(row) -> <Entity>Record                            # model_construct (rows were validated on write)
+def to_record(row) -> <Entity>Record                            # model_construct (rows were validated on write);
+                                                                # datetimes through `as_utc` (SQLite returns naive)
 ```
 Relationships are declared with `lazy="raise"` on all mfg ORM rows so an accidental N+1 fails tests instead of
 silently issuing queries.
@@ -765,9 +845,14 @@ silently issuing queries.
   are always complete; `truncated` tells whether issues were cut.
 - `link` is computed by the server from `entity` (table 11.3), so the UI never derives routes itself.
 - Inactive items and inactive groups/lines are skipped as subjects (except the explicit inactive-use codes).
-- "In use" means: reachable from a released effective document on any date in `[as_of, as_of + horizon_days)`;
-  checks of effective documents evaluate the effective set at `as_of` and at every effectivity boundary inside the
-  horizon (so a routing ending in 3 weeks is caught).
+- "In use" means: reachable from an end item over the **union graph** of the released BOMs whose effectivity
+  window intersects `[as_of, as_of + horizon_days)` (one DAG traversal, review R8). This over-approximates exact
+  per-date reachability only when two documents that are never effective at the same time chain together; the
+  error then asks for data that is not strictly needed, which is the safe direction (a missing routing is never
+  missed). Checks of an item's own documents (overlap, gap, "has an effective routing") evaluate that item's
+  effective set at `as_of` and at each of its own effectivity boundaries inside the horizon (so a routing ending in
+  3 weeks is caught); cost O(documents), not O(dates x graph).
+- The report also carries `data_version` (3.3) so the UI can tell whether a shown report is stale.
 - Gate 1 for M2/M3: `run_health_check(...).ok` must be true before a run is created (M2 enforces it with 422
   `MFG_DATA_HEALTH_FAILED` and the report in `details`).
 
@@ -783,7 +868,7 @@ silently issuing queries.
 | 6 | `MFG_NO_ELIGIBLE_LINE` | error | operation | no active line of the group is eligible for the routing's item (family/item lists) | Add the item or its family to a line's eligibility, or clear the lists. |
 | 7 | `MFG_GROUP_NO_SHIFT` | error | group | group used by an effective operation has zero base and zero optional minutes in the horizon over its eligible lines | Assign a shift template to the stage or its lines. |
 | 8 | `MFG_GROUP_OPTIONAL_ONLY` | warning | group | used group has optional but no base capacity | Add a base shift; optional shifts are only opened when needed. |
-| 9 | `MFG_UNINTERRUPTIBLE_TOO_LONG` | error | operation | `interruptible == false` and setup + run for one load (qty = 1) on the fastest eligible line exceeds the longest continuous window (base+optional merged) of every eligible line in the horizon | Run it on a line with a longer shift (e.g. 24 h), shorten it, or allow interruption. |
+| 9 | `MFG_UNINTERRUPTIBLE_TOO_LONG` | error | operation | `interruptible == false` and, for **every** active eligible line L of the group, setup + run for one load (qty = 1) at L's speed exceeds L's longest continuous window in the horizon (base and optional windows merged when touching, regardless of kind/assignment) | Run it on a line with a longer shift (e.g. 24 h), shorten it, or allow interruption. |
 | 10 | `MFG_UNINTERRUPTIBLE_LOT_TOO_LONG` | warning | operation | same, for qty = the item's `min_order_qty` or `fixed_lot_qty` (when > 1) | Lots this size will need splitting or a longer window. |
 | 11 | `MFG_BUY_NO_LEAD_TIME` | error | item | any active buy item with `lead_time_days is None` | Enter the supplier lead time (0 if stocked locally). |
 | 12 | `MFG_UOM_MISMATCH` | error | bom_line | line uom dimension differs from the child item's uom dimension (e.g. M vs EA) | Use a unit of the same kind as the item's unit (EA, or M/CM/MM ...). |
@@ -798,7 +883,7 @@ silently issuing queries.
 | 21 | `MFG_TOOL_SHORT` | error | operation | tool pool `quantity` < required `qty` (incl. 0) | Increase the tool quantity or reduce the need. |
 | 22 | `MFG_ASSIGNMENT_INACTIVE_TARGET` | warning | shift_assignment | assignment targets an inactive line or group (no effect) | Delete the assignment or activate the target. |
 | 23 | `MFG_OPERATION_SEQ_REF` | warning | bom_line | `operation_seq` not found in the parent's primary routing (first operation used) | Pick an existing operation number. |
-| 24 | `MFG_SKILL_NOT_ON_SHIFT` | warning | operation | attended operation with a skill: on the reference week, some shift instance (base or optional) of an eligible line of the group is not overlapped by any window of any active operator holding the skill (operator windows = expansion of the operator's template/shift names); message names the uncovered shift | Put a qualified operator on that shift (or on a template covering it). |
+| 24 | `MFG_SKILL_NOT_ON_SHIFT` | warning | skill (related: line, group) | coverage by **time subtraction over the real horizon dates** (decision in Review notes R1): for each (skill, line) where the skill is required by an in-use operation with `crew_size > 0` on the line's group and the line is active and eligible for at least one of those operations' items: `uncovered = line_windows(base + optional) - union(operator_windows of active operators holding the skill)` over `[as_of, as_of + horizon_days)`; pieces shorter than `SKILL_COVERAGE_TOLERANCE_MINUTES` are dropped; one issue per (skill, line) if anything remains. Message groups the uncovered pieces by (shift label, kind, local start-end) with their weekdays, at most 3 patterns + "and n more", e.g. "No operator with skill COATING is on shift for line COAT-1 during EVE/Evening (optional) Mon-Sat 18:00-22:00." | Put a qualified operator on that shift (or on a template covering it, e.g. an extended-hours template for overtime crews). |
 | 25 | `MFG_LINE_NO_SHIFT` | warning | line | active line of a used group has no windows in the horizon (others have) | Assign a shift to the line or its stage. |
 | 26 | `MFG_OPTIONAL_NO_COST` | warning | shift_assignment | optional assignment without `cost_per_hour` | Enter the overtime cost so the planner can weigh it. |
 | 27 | `MFG_OPTIONAL_OVERLAPS_BASE` | warning | shift_assignment | optional windows fully covered by base windows | Remove it or change its shifts. |
@@ -836,9 +921,20 @@ POST /mfg/imports (raw file) -> read.py -> RawSheets {name, headers, rows (cells
      -> stored in mfg_imports.sheets, mapping.suggest_mapping -> response (status uploaded)
 PUT  /mfg/imports/{id}/mapping {sheets: {...}, options} -> apply mapping -> MfgBundle (+ source row numbers)
      -> plan_import(bundle, load_dataset(s)) -> preview (counts, row errors, sample changes) (status mapped)
-POST /mfg/imports/{id}/commit (If-Match) -> lock_plant; reload dataset; plan again; zero errors required;
-     writer.apply(plan) in ONE transaction; audit; status committed; result = counts
+POST /mfg/imports/{id}/commit (If-Match) -> (read tx) load_dataset + plan_import, remember data_version;
+     (write tx) lock_plant; if data_version changed: reload dataset and plan again inside the lock;
+     zero errors required; writer.apply(plan) in ONE transaction; audit; status committed; result = counts;
+     `sheets` rows are cleared (headers and row counts kept) so committed sessions hold no bulk data
 ```
+
+Upload rules (review R4): every staged cell is a JSON-safe scalar: strings with C0 control characters other than
+tab/CR/LF are stored with those characters removed and produce `IMP_CONTROL_CHAR` at mapping time; non-finite
+numbers (openpyxl returns `inf` for `1E999`) are stored as `null` and produce `IMP_BAD_NUMBER` (Postgres JSONB and
+the engine's `allow_nan=False` serializer would otherwise fail with 500). Any exception raised while reading the
+file (openpyxl raises e.g. `ValueError` for a numeric cell `NaN`, `zipfile.BadZipFile`, `KeyError` for missing
+parts) is answered with 422 `MFG_IMPORT_FILE_INVALID` (`details.reason` generic, the exception is logged at INFO),
+never 500. Staged JSON over `IMPORT_MAX_STAGED_BYTES` -> 422 `MFG_IMPORT_TOO_LARGE`. On upload the owner's expired
+sessions (any status) are deleted and at most `IMPORT_MAX_OPEN_PER_OWNER` uncommitted sessions are kept.
 
 `plan_import(bundle, ds, options) -> ImportPlan` (pure): resolves natural keys against the dataset and against rows
 earlier in the bundle, builds `creates`, `updates` (with field diffs), `unchanged`, `deletes` (children replaced,
@@ -857,7 +953,15 @@ current values); creating requires all required fields. A row identical to the s
 Re-importing the same file is a no-op (all `unchanged`, `row_version`s unchanged). Released BOM/routing headers
 whose lines/operations or fields would change -> row error `IMP_RELEASED_READONLY` ("copy to a new version");
 unchanged released documents are fine. Imports never delete master entities (only children under
-`replace_children`).
+`replace_children`). List-valued and nested fields of an entity present in the file are replaced as a whole
+when their column is mapped: a template's `shifts` (all rows of that template in `shifts`), `operators.skills`,
+`operators.shift_names`, `lines.eligible_families`, `lines.eligible_part_numbers`, `operations.tools`.
+
+`status` column of `boms`/`routings` (only applied on create; an existing document's status is never changed by an
+import): `draft` (default), `released` (must pass `release.py` rules, else `IMP_RELEASE_BLOCKED`), `obsolete`
+(created directly obsolete, no release rules; needed so export -> import round-trips). Option `release: true`
+turns a blank status into `released`. Documents released by one import are checked for overlap against each other
+and the stored ones, in file order.
 
 ### 8.2 Templates and column specs (`io/spec.py`)
 
@@ -918,21 +1022,33 @@ file), `IMP_RELEASED_READONLY`, `IMP_BOM_CYCLE`, `IMP_FORMULA_NO_VALUE`, `IMP_TO
 - Format detection by magic bytes, not by name: `PK\x03\x04` -> zip; zip containing `[Content_Types].xml` and
   `xl/workbook.xml` -> xlsx; else text -> csv. `.xls` (OLE `D0 CF 11 E0`) -> 422 `MFG_IMPORT_FILE_INVALID`
   ("save as .xlsx").
-- Zip/xlsx: before opening, `zipfile.ZipFile.infolist()` checks member count <= 200, total `file_size` <= 100 MiB,
+- Zip/xlsx: before opening, `zipfile.ZipFile.infolist()` checks member count <= 200, total `file_size` <= `IMPORT_MAX_UNCOMPRESSED_BYTES` (64 MiB),
   per-member ratio `file_size / max(compress_size, 1)` <= 200, no absolute paths or `..` (members are never
   extracted to disk). openpyxl with `read_only=True, data_only=True, keep_links=False`; `defusedxml` installed
-  (openpyxl uses it automatically; a startup assertion in a test checks `openpyxl.DEFUSEDXML is True`). Macros
-  (`.xlsm`) are read as data only.
+  (openpyxl uses it automatically; a startup assertion in a test checks `openpyxl.DEFUSEDXML is True`; verified
+  with 3.1.5: the read-only worksheet parser's `iterparse` comes from `defusedxml`). Macros (`.xlsm`) are read as
+  data only. Rows are read with `ws.iter_rows(values_only=True, max_row=IMPORT_MAX_SCANNED_ROWS,
+  max_col=IMPORT_MAX_COLUMNS + 1)`: openpyxl yields an empty row for every gap (a single cell in row 1,000,000
+  yields a million rows), so filler rows count toward the scan limit, and a non-empty cell in column 101 or a
+  non-empty row after the scan limit -> 422 `MFG_IMPORT_TOO_LARGE`.
 - CSV: decode UTF-8 (BOM stripped); on failure cp1252 with warning `IMP_ENCODING_FALLBACK`; delimiter sniffed from
   the header line among `,` `;` `\t`; NUL or other control characters (except tab) -> `IMP_CONTROL_CHAR`.
 - Row/column/cell limits from 2. Exceeding any -> 422 `MFG_IMPORT_TOO_LARGE` with `details.limit`.
-- Cell values written to export are prefixed with `'` when they start with `=`, `+`, `-`, `@` (CSV/formula
-  injection), and xlsx text cells are written as strings (never formulas).
+- Formula injection (review R4): **xlsx** text cells are written as `WriteOnlyCell` with `data_type = "s"` and no
+  prefix (openpyxl otherwise turns any string starting with `=` into a formula - verified with 3.1.5); string cells
+  can never be evaluated, and the value round-trips unchanged. **CSV**: text values starting with `=`, `+`, `-`,
+  `@`, tab or CR are written with a leading `'`; the CSV reader strips exactly one leading `'` when the next
+  character is one of those, so CSV export -> import also round-trips.
+- Upload `Content-Type` must not be JSON: the body-limit middleware scans JSON bodies for NUL and would reject
+  binary files with 422. The UI sends `application/octet-stream`; the server ignores the type (magic bytes decide).
+- `Content-Disposition` file names are built from a slug of the plant name (`[A-Za-z0-9_-]`, max 40 chars, empty ->
+  `plant`), never the raw name (quotes, CR/LF or non-Latin-1 characters would break the header or raise in
+  Starlette's latin-1 header encoding).
 
 ### 8.4 Export
 
 `GET /mfg/export?format=xlsx|zip` -> the complete dataset as a bundle in template format (every sheet, all
-columns, sorted by natural key), `Content-Disposition: attachment; filename="superplanner-mfg-<plant>-<YYYYMMDD>.xlsx"`.
+columns, sorted by natural key), `Content-Disposition: attachment; filename="superplanner-mfg-<plant-slug>-<YYYYMMDD>.xlsx"` (8.3).
 Round-trip property (tested): export -> import into an empty owner -> export again gives identical bundles (byte-equal
 CSV zip). `GET /mfg/templates/import?format=xlsx|zip` -> blank templates with header rows, one example row per
 sheet (from the small sample) and the README sheet. xlsx export uses openpyxl `write_only=True`; part numbers and
@@ -983,6 +1099,7 @@ contains openpyxl's own timestamps; compare the parsed bundle).
 | 409 | `MFG_IMPORT_HAS_ERRORS` | commit with row errors (`details: {"row_errors": [...], "error_count": n}`) |
 | 409 | `MFG_IMPORT_ALREADY_COMMITTED` | second commit (`details.result` = first result) |
 | 409 | `MFG_IMPORT_NOT_MAPPED` | commit before a mapping/preview exists |
+| 409 | `MFG_BUSY` | plant lock not obtained within the Postgres `lock_timeout` (6.1); `Retry-After: 5` |
 | 412 | `VERSION_MISMATCH` | If-Match stale |
 | 413 | `PAYLOAD_TOO_LARGE` | body over `MAX_BODY_BYTES` (existing middleware) |
 | 422 | `VALIDATION_ERROR` | model errors (A 14 shape) |
@@ -1009,15 +1126,15 @@ Fixed paths are registered before parameterised siblings (`/shift-templates/prev
 |---|---|---|---|---|
 | 1 | GET `/meta` | - | units, enums, limits, import spec (sheets/columns/synonyms), sample list | - |
 | 2 | GET `/summary` | - | `{"counts": {"items": n, "make": n, "buy": n, "phantom": n, "boms": n, "bom_lines": n, "routings": n, "operations": n, "groups": n, "lines": n, "shift_templates": n, "operators": n, "tool_pools": n}, "end_items": [ItemRef] (max 50)}` (health is computed on demand, never stored) | - |
-| 3 | GET `/plant` | - | `PlantRecord` + ETag | - |
-| 4 | PUT `/plant` | `PlantInput`, If-Match | `PlantRecord` | 412 428 422 |
+| 3 | GET `/plant` | - | `PlantRecord` + ETag (unsaved default: `id: null`, `row_version: 0`, ETag `"0"`; nothing inserted) | - |
+| 4 | PUT `/plant` | `PlantInput`, If-Match (`"0"` creates the row) | `PlantRecord` | 412 428 422 |
 | 5 | GET `/items` | `q, make_buy, family, active, has_bom, has_routing, sort (part_number\|-updated_at\|description), limit, offset` | page of `ItemRecord` | 422 |
 | 6 | POST `/items` | `ItemInput` | 201 `ItemRecord` | 409 dup, 422 |
 | 7 | GET `/items/{item_id}` | - | `ItemRecord` | 404 |
 | 8 | PUT `/items/{item_id}` | `ItemInput`, If-Match | `ItemRecord` | 404 412 428 409 422 |
 | 9 | DELETE `/items/{item_id}` | If-Match | 204 | 404 412 428 409 in use |
 | 10 | GET `/items/{item_id}/explosion` | `on, serial, qty (default 1), mode (indented\|summarized), include_scrap, include_yield, max_depth` | `Explosion` | 404 422 |
-| 11 | GET `/items/{item_id}/where-used` | `on` (omit = any date), `include (effective\|all, default effective)`, `mode (single\|indented)` | `WhereUsed` | 404 |
+| 11 | GET `/items/{item_id}/where-used` | `on` (omit = any date), `include (effective\|all, default effective)`, `mode (single\|indented)` | `WhereUsed` | 404 422 too large |
 | 12 | GET `/items/{item_id}/boms` | - | `{"items": [BomSummary]}` (header fields, no lines, `line_count`) by revision, version | 404 |
 | 13 | GET `/items/{item_id}/routings` | - | `{"items": [RoutingSummary]}` (`operation_count`) | 404 |
 | 14 | POST `/boms` | `BomInput` | 201 `BomRecord` (draft) | 409 422 |
@@ -1067,7 +1184,10 @@ Fixed paths are registered before parameterised siblings (`/shift-templates/prev
 | 77 | POST `/reset` | `{"confirm": "DELETE ALL MANUFACTURING DATA"}` | `{"deleted": {"items": n, ...}}` | 422 |
 
 77 operations. Raw-body upload (#68) reads `await request.body()` inside the handler (after `require_user`), so no
-`python-multipart` dependency and auth still answers first. `Content-Type` is ignored (magic bytes decide).
+`python-multipart` dependency and auth still answers first. `Content-Type` is ignored (magic bytes decide), but a
+JSON content type makes the body-limit middleware reject binary bodies (8.3), so clients send
+`application/octet-stream`. The handler does the parsing in the threadpool (`run_in_threadpool`), never on the
+event loop.
 
 ### 9.4 JSON examples
 
@@ -1233,6 +1353,34 @@ All 77 rows: Auth `U`; CSRF on POST/PUT/DELETE; owned lookup -> 404 for every pa
 through filtered queries -> 422 `MFG_UNKNOWN_REFERENCE` for foreign ids (never a cross-owner link); `sample_id` is
 not owned. Stamps owner on all `mfg_*` inserts.
 
+### 9.6 Response shapes not fully shown above (contract for the parallel frontend, review R10)
+
+Every record has `id`, `row_version`, `created_at`, `updated_at` (UTC `Z`) plus its Input fields; refs are
+`{id, code, name}` unless stated. Field sets below are frozen at WP-A milestone A1; any change goes through LEAD as
+an edit of this section before code changes (WP-B and WP-C both build against it).
+
+| Shape | Fields |
+|---|---|
+| `Meta` (#1) | `uoms: [{code, dimension, factor, aliases}]`; `enums: {make_buy, lot_rule, status, run_per, labor, assignment_kind, target_type, exception_scope, exception_kind, weekday}` (lists of strings); `limits: {<every limits.py constant>: number, max_body_bytes: number}` (the latter from Settings); `import_spec: {sheets: [{name, columns: [{field, type ("str"\|"int"\|"float"\|"bool"\|"date"\|"datetime"\|"list"\|"enum"), required_on_create, key, enum_values \| null, synonyms}]}]}`; `samples: [{id, name, description, counts}]`; `health_codes: [{code, severity}]` |
+| `Summary` (#2) | `counts` as in 9.3, `end_items: [ItemRef]`, `data_version` |
+| `BomSummary` (#12) | header fields of `BomRecord` (no `lines`) + `line_count` |
+| `RoutingSummary` (#13) | header fields of `RoutingRecord` (no `operations`) + `operation_count` |
+| `GroupRecord` (#29-32) | + `line_count`; `GET /groups/{id}` adds `lines: [LineRecord]` and `assignments: [ShiftAssignmentRecord]` (targeting the group or any of its lines) |
+| `ShiftTemplateRecord` | + `assignment_count`, `operator_count` |
+| `ShiftAssignmentRecord` | + `template: ref`, `target: {type, id, code, name}` |
+| `CalendarExceptionRecord` | `start`/`end` in the plant offset; + `target: {type, id, code, name} \| null` (plant scope) |
+| `SkillRecord` | + `operator_count`, `operation_count` (the skills page lists holders via `GET /operators?skill_id=`) |
+| `OperatorRecord` | + `skills: [ref]`, `shift_template: ref \| null`, `home_group: ref \| null` |
+| `ToolPoolRecord` | + `operation_count` |
+| `WeekWindow` (#42) | `{shift, day, start_minute, end_minute}` (minutes from Monday 00:00, may exceed 10,080) |
+| `Window` (#39) | as in the example; merged windows of several shifts of one assignment get `shift_label` `"<template>/<name>+<name>..."` in first-appearance order |
+| `ImportRecord` (#68-71) | `id, row_version, status, filename, format, created_at, expires_at, committed_at, sheets: [{name, row_count, headers, sample_rows (first 5), suggested: {target, columns} \| null}], mapping: ImportMappingRequest \| null, preview: ImportPreview \| null, result: ImportResult \| null` |
+| `ImportPreview` | `{ok, counts: {<sheet>: {create, update, unchanged, delete, error}}, error_count, row_errors (<= 500), warnings: [{code, message, sheet \| null}], changes_sample (<= 50)}` |
+| `ImportResult` | `{counts: {<sheet>: {create, update, unchanged, delete}}, duration_ms, data_version}` |
+| `SampleLoadResponse` (#76) | `{sample_id, result: ImportResult, health: {ok, counts}}` |
+| `ResetResponse` (#77) | `{deleted: {<table without mfg_ prefix>: n}}` |
+| `HealthReport` (#67) | 7.1 (+ `data_version`) |
+
 ---
 
 ## 10. Sample datasets (`superplanner/mfg/samples`)
@@ -1259,8 +1407,10 @@ capacitors, 1 MCU (lead 84 d, handling `MSL3`), 1 connector), `SM-COAT-01` confo
 `ML`), `SM-LBL-01` label = 10 items. One BOM (8 lines), one routing: 10 SMT top (SMT, panel of 4), 20 AOI, 30 THT
 (connector), 40 FCT (jig `SM-JIG-FCT`, inspection gate, yield 98%). Plant: groups SMT (line SMT-1), AOI (AOI-1), THT
 (THT-1), FCT (FCT-1); templates REG (Mon-Sat 09:00-18:00, lunch 13:00-13:45) and EVE (Mon-Sat 18:00-22:00,
-optional, cost 300/h, max 12 h/week on THT and FCT); skills SMT-OP, TEST; 3 operators; tools stencil `SM-STN-T`
-(1), `SM-JIG-FCT` (1). `small` has **zero issues** (the clean baseline for tests).
+optional, cost 300/h, max 12 h/week on THT and FCT); skills SMT-OP, TEST; 3 operators (`SM-OP-1` SMT-OP on REG,
+`SM-OP-2` TEST on EXT 09:00-22:00 so the FCT overtime is covered, `SM-OP-3` SMT-OP + TEST on REG; the template set
+is REG, EVE, EXT); tools stencil `SM-STN-T` (1), `SM-JIG-FCT` (1). `small` has **zero issues** (the clean baseline
+for tests).
 
 ### 10.3 `medium` (~200 parts, 4 levels) - "MD-200 Industrial I/O controller"
 
@@ -1366,15 +1516,18 @@ L3/L4: each PCB -> bare PCB (buy, 21-35 d) + components (buy) + KV-COAT-UR confo
   holidays on 2026-11-09 and 2026-12-25 ("Plant holiday"), shutdown 2026-12-28..2026-12-31 ("Annual shutdown"),
   maintenance SMT-2 2026-11-14 06:00-18:00, OVEN-1 2026-11-21 08:00-16:00.
 - Skills (14): SMT-OP, AOI-OP, THT-SOLDER, SEL-SOLDER, WASH-OP, COATING, ICT-TECH, FCT-TECH, PROG-OP, HARNESS-CRIMP,
-  HARNESS-ASSY, HARNESS-TEST, ELEC-ASSY, TEST-ENG. Operators `OP-001`..`OP-048` ("Operator 001"), on REG, EXT (covers the
-  EVE overtime) or 3SHIFT A/B/C, 1-3 skills each, so every skill is covered on every shift its groups run, except
-  one intended gap: COATING operators are all on REG (EVE on COAT-1 uncovered -> `MFG_SKILL_NOT_ON_SHIFT`).
+  HARNESS-ASSY, HARNESS-TEST, ELEC-ASSY, TEST-ENG. Operators `OP-001`..`OP-046` ("Operator 001"), on REG, EXT (covers the
+  EVE overtime) or 3SHIFT A/B/C, plus a weekend crew `OP-047`, `OP-048` on `SUN` with SMT-OP (covers the optional
+  SMT Sunday shift), 1-3 skills each, so every skill is covered (rule 7.2 #24) on every base and optional window of
+  every eligible line its groups run, except one intended gap: COATING operators are all on REG (EVE on COAT-1
+  uncovered -> exactly one `MFG_SKILL_NOT_ON_SHIFT` issue, skill COATING, line COAT-1). Unattended crew-0
+  operations (CURE, BURNIN) need no operator.
 - Tooling (~85): stencils top/bottom per SMT board (qty 1; CPU qty 2), ICT fixtures per board (1), FCT jigs per board
   (1-2), crimp applicators per terminal family (1-2), harness test adapters (1), programming adapters (2), burn-in
   harness `KV-BIH` (8).
-- Intended non-error issues (asserted by the sample test): `MFG_LONG_LEAD_TIME` (info, the FPGAs/processors and
-  the radio module), `MFG_SKILL_NOT_ON_SHIFT` (warning: COATING has no operator on EVE), `MFG_DUPLICATE_COMPONENT`
-  (info: the backplane uses the same connector at two find numbers). Alternate groups on `KV-PCB-DCC` (two
+- Intended non-error issues (asserted by the sample test as the **exact** `by_code` key set): `MFG_LONG_LEAD_TIME`
+  (info, the FPGAs/processors and the radio module), `MFG_SKILL_NOT_ON_SHIFT` (warning, count 1: COATING has no
+  operator on EVE), `MFG_DUPLICATE_COMPONENT` (info: the backplane uses the same connector at two find numbers). Alternate groups on `KV-PCB-DCC` (two
   capacitor alternates) are complete; reference designators are generated to match quantities, so
   `MFG_REFDES_COUNT` does not occur.
 
@@ -1399,7 +1552,7 @@ with distinct part-number prefixes `KV2-` sharing the component library), used b
 | `/mfg` | `MfgHome` | counts (`/summary`), health status card (runs `/health` on open), sample loader (3 cards, "Load" / "Replace my data"), quick links, export button |
 | `/mfg/items` | `ItemsPage` | virtual table, search (debounced 250 ms, `q`), filters make/buy/phantom, family, active, has BOM/routing; infinite paging by 200; "New item" dialog |
 | `/mfg/items/:itemId` | `ItemShell` (tabs) -> index = `ItemDetailsTab` | edit form (If-Match), attributes editor, delete/deactivate |
-| `/mfg/items/:itemId/bom` (`?bom=&on=&serial=&qty=`) | `BomTab` | BOM version list (status chips, effectivity, release/obsolete/copy actions), indented tree `BomTree` of the explosion at `on` |
+| `/mfg/items/:itemId/bom` (`?bom=&line=&on=&serial=&qty=`) | `BomTab` | BOM version list (status chips, effectivity, release/obsolete/copy actions), indented tree `BomTree` of the explosion at `on` |
 | `/mfg/items/:itemId/bom/:bomId/edit` (`?line=`) | `BomEditPage` | single-level line grid (`BomLinesGrid`) of a draft BOM, item picker, alternates, save (PUT) |
 | `/mfg/items/:itemId/where-used` | `WhereUsedTab` | single / indented toggle, effective / all |
 | `/mfg/items/:itemId/routing` (`?routing=&op=`) | `RoutingTab` | routing list (priority, status), `RoutingEditor`, `OperationTimePreview` |
@@ -1407,7 +1560,7 @@ with distinct part-number prefixes `KV2-` sharing the component library), used b
 | `/mfg/plant/shifts` (`?template=`, `?assignment=`) | `ShiftsPage` | templates list + `ShiftTemplateEditor` with live `ShiftWeekPreview`; assignments table per group/line |
 | `/mfg/plant/calendar` (`?line=`, `?exception=`) | `CalendarPage` | exceptions list/form; `LineCalendar` month view of a line's windows (base solid, optional hatched, exceptions red) |
 | `/mfg/plant/settings` | `PlantSettingsPage` | name, utc offset, horizon, currency |
-| `/mfg/resources/skills` (`?skill=`) | `SkillsPage` | |
+| `/mfg/resources/skills` (`?skill=`) | `SkillsPage` | skills; the selected skill lists its operators and their shift templates (target of `MFG_SKILL_NOT_ON_SHIFT` links) |
 | `/mfg/resources/operators` (`?operator=`) | `OperatorsPage` | skills multi-select, shift template + shift names |
 | `/mfg/resources/tooling` (`?tool=`) | `ToolingPage` | |
 | `/mfg/health` | `HealthPage` | as-of date + horizon, counts by severity/code, filter chips, `HealthIssueList` with "Fix" links (`issue.link`) |
@@ -1451,7 +1604,8 @@ components/
 |---|---|
 | item | `/mfg/items/{id}` |
 | bom | `/mfg/items/{item_id}/bom?bom={id}` |
-| bom_line | `/mfg/items/{item_id}/bom/{bom_id}/edit?line={id}` |
+| bom_line (BOM is `draft`) | `/mfg/items/{item_id}/bom/{bom_id}/edit?line={id}` |
+| bom_line (BOM `released`/`obsolete`) | `/mfg/items/{item_id}/bom?bom={bom_id}&line={id}` |
 | routing | `/mfg/items/{item_id}/routing?routing={id}` |
 | operation | `/mfg/items/{item_id}/routing?routing={routing_id}&op={seq}` |
 | group | `/mfg/plant/groups?group={id}` |
@@ -1460,10 +1614,12 @@ components/
 | shift_assignment | `/mfg/plant/shifts?assignment={id}` |
 | calendar_exception | `/mfg/plant/calendar?exception={id}` |
 | skill / operator / tool_pool | `/mfg/resources/skills?skill={id}` / `/mfg/resources/operators?operator={id}` / `/mfg/resources/tooling?tool={id}` |
+| (operation in a released routing) | same as operation; the routing tab shows the read-only banner with Copy |
 | plant | `/mfg/plant/settings` |
 
-Released BOM lines link to the BOM view (not edit): the edit page shows a "Released - copy to a new version to
-edit" banner with a Copy button.
+Released BOM lines link to the BOM view (not edit), which selects and scrolls to `?line=`; if a user opens the
+edit route of a released BOM anyway, the edit page shows a "Released - copy to a new version to edit" banner with a
+Copy button.
 
 ### 11.4 Large data handling
 
@@ -1504,12 +1660,12 @@ must meet the same targets x 1.5). Performance tests are marked `slow` where the
 | # | Operation | Data | Target | SQL statements |
 |---|---|---|---|---|
 | P1 | pure `explode` (indented) | Kavach (~2,600 rows) / `kavach x2` (~5,200 rows) | < 0.15 s / < 0.3 s | - |
-| P2 | `GET /items/{id}/explosion` end-to-end | Kavach / `kavach x2` with 4,000+ lines | < 1.0 s / < 1.5 s | <= 3 x levels + 4 |
-| P3 | `GET /items/{id}/where-used?mode=indented` | most shared capacitor | < 0.3 s | <= 3 x levels + 2 |
-| P4 | `GET /items` page of 50 with `q` | 10,000 items | < 0.15 s | <= 3 (page, count, flags) |
+| P2 | `GET /items/{id}/explosion` end-to-end | Kavach / `kavach x2` with 4,000+ lines | < 1.0 s / < 1.5 s | <= 3 x (L + 1) + 3 (6.4; L = deepest level) |
+| P3 | `GET /items/{id}/where-used?mode=indented` | most shared capacitor | < 0.3 s | <= 3 x L + 2 |
+| P4 | `GET /items` page of 50 with `q` | 10,000 items | < 0.15 s | <= 5 (page, count, 3 flag aggregates over the page ids) |
 | P5 | `GET /health` | Kavach | < 2.0 s | <= 20 |
 | P6 | import preview (PUT mapping) | 5,000 BOM-line rows | < 4 s | <= 25 |
-| P7 | import commit | 5,000 rows (items + BOM lines) into an empty owner | < 10 s (SQLite), < 10 s (Postgres) | bounded (batched inserts) |
+| P7 | import commit | 5,000 rows (items + BOM lines) into an empty owner | < 10 s end-to-end; plant lock / write transaction held < 6 s (below the 10 s Postgres `lock_timeout`) | bounded (batched inserts, one flush per sheet) |
 | P8 | re-import same 5,000 rows (all unchanged) | | < 5 s, zero writes except the import row | |
 | P9 | `POST /samples/kavach/load` | empty owner | < 10 s | |
 | P10 | `GET /export?format=xlsx` | Kavach | < 5 s | <= 20 |
@@ -1518,31 +1674,25 @@ must meet the same targets x 1.5). Performance tests are marked `slow` where the
 | P13 | UI: items list first page | 10,000 items | < 1 s | - |
 
 Statement counts are asserted with a SQLAlchemy `before_cursor_execute` counter fixture (`tests/api_mfg`), which is
-the "no N+1" proof.
+the "no N+1" proof. The counter wraps the service call only (auth/session statements of `require_user` and the
+SQLite `BEGIN` are excluded), so the bounds are the same in single_user and accounts mode.
 
 ---
 
 ## 13. Work packages and file ownership
 
-Paths relative to the repo root; `sp/` = `backend/superplanner/`. No file has two owners at the same time.
-Order: **WP-A day 0** (publishes `sp/mfg/model.py`, `units.py`, `dataset.py` signatures and `db_models.py` first,
-ideally within its first milestone); **WP-B** starts when `model.py` + `db_models.py` + `repo.py` signatures are
-merged; **WP-C** starts day 0 against this contract (typed mocks) and integrates when WP-B endpoints exist;
-**WP-D** writes tests from day 0, final runs last. Each package leaves the SQLite and PostgreSQL suites green.
+**Superseded by `docs/PLAN-M1.md`** (authoritative for ownership, order, milestones and acceptance; this section
+keeps only the package scopes). Changes from the draft (review R3, R11): io tests move from `backend/tests/mfg/` to
+`backend/tests/mfg_io/` (WP-B), import messages move to `sp/mfg/io/messages.py` (WP-B), release/document rules are
+pure functions in `sp/mfg/release.py` (WP-A), `sp/manage.py` gets one guard in `cmd_reassign_owner` (WP-B, 14.1),
+and WP-D also owns `frontend/e2e/accounts/mfg-*.spec.ts`.
 
-| WP | Scope | Owns (create/edit only these) | Explicit edits outside owned paths |
-|---|---|---|---|
-| **WP-A Backend domain + DB** (backend-developer A) | 3, 4, 5, 6, 7, 10 | `sp/mfg/**` except `sp/mfg/io/**`; `sp/api/mfg/__init__.py`, `sp/api/mfg/db_models.py`, `sp/api/mfg/repo.py`; `sp/migrations/versions/0003_mfg.py`; `backend/tests/mfg/**` (pure tests incl. samples golden + health code tests + pure perf P1) | `sp/migrate.py` (`HEAD = "0003_mfg"` only); `sp/api/db/models.py` (one import line at the bottom registering `api.mfg.db_models`, as for finance); `sp/api/db/__init__.py` (`load_all_models` imports it; docstring table count); `backend/requirements.txt`, `backend/requirements-runtime.txt`, `backend/pyproject.toml` (pins `openpyxl==3.1.5`, `et-xmlfile==2.0.0`, `defusedxml==0.7.1` - added by WP-A so WP-B can import openpyxl); the existing-test edits marked A in 14.2 |
-| **WP-B Backend API + import/export** (backend-developer B) | 8, 9 | `sp/mfg/io/**`; `sp/api/mfg/schemas.py`, `sp/api/mfg/services/**`, `sp/api/mfg/writer.py`, `sp/api/mfg/router.py`; `backend/tests/api_mfg/**` (API tests incl. statement-count and perf P2-P11) | `sp/api/main.py` (import router, add to `protected`); `docs/DEPLOY.md` (one line: "M1 adds revision 0003_mfg; run `python -m superplanner.migrate upgrade`"); the existing-test edits marked B in 14.2 |
-| **WP-C Frontend** (ui-developer) | 11 | `frontend/src/mfg/**`; `frontend/e2e/mfg-helpers.ts` | `frontend/src/main.tsx` (spread `mfgRoutes`), `frontend/src/App.tsx` (`MainNav` link + `isMfgPath`) |
-| **WP-D QA and acceptance** (tester) | 12, 15 | `backend/tests/acceptance_m1/**` (own conftest), `frontend/e2e/mfg-*.spec.ts`, section 17.WP-D | none (bugs go to the owning WP) |
-
-Shared-file rule: `api/main.py`, `api/db/models.py`, `api/db/__init__.py`, `migrate.py`, `App.tsx`, `main.tsx` get
-only the additive lines listed; nothing else in them changes.
-
-Contract artefacts WP-A must deliver first (so B/C can start): `model.py` (all Input/Record models), `units.py`,
-`dataset.py` (dataclasses), `bundle.py` (SHEETS spec + `MfgBundle`), `db_models.py`, `repo.py` signatures with
-`NotImplementedError` bodies, and `samples.build("small")`.
+| WP | Scope | Role |
+|---|---|---|
+| **WP-A** Backend domain + DB + samples | 3, 4, 5, 6, 7, 10 | backend-developer A, first |
+| **WP-B** Backend API + import/export | 8, 9 | backend-developer B, after WP-A milestone A1 |
+| **WP-C** Frontend Manufacturing area | 11 | ui-developer, parallel to A + B against 9.3-9.6 |
+| **WP-D** QA and acceptance | 12, 15 | tester, writes from day 0, final runs last |
 
 ---
 
@@ -1556,11 +1706,14 @@ Contract artefacts WP-A must deliver first (so B/C can start): `model.py` (all I
 | `sp/api/db/models.py` | bottom: `from ..mfg import db_models as _mfg_db_models  # noqa` |
 | `sp/api/db/__init__.py` | `load_all_models` imports `..mfg.db_models` |
 | `sp/migrate.py` | `HEAD = "0003_mfg"` |
+| `sp/manage.py` | `cmd_reassign_owner`: before moving anything, if the target user owns any row in an `mfg_*` table -> `CommandError` "the target user already has manufacturing data (<table>: n, ...); reset it in the app first" (exit 1, nothing moved, also in `--dry-run`). Without it the per-owner unique keys (`uq_mfg_plant_owner`, part numbers, codes) raise an `IntegrityError` traceback mid-command. Reads never create the plant row (3.3), so a target that only looked at the Manufacturing area is not blocked. |
 | `backend/requirements*.txt`, `pyproject.toml` | three pins |
 | `frontend/src/main.tsx`, `frontend/src/App.tsx` | route spread; nav link |
 
 No change to engine, finance, intake, jobs, auth, config (no new settings: limits are constants), context, or
-existing routes. Existing SQLite dev databases upgrade automatically (`behind` -> `upgrade head`, backup first, B
+existing routes. The one behaviour change of existing code is the `reassign-owner` guard above (it can only trigger
+when the target already owns mfg data, which cannot exist before M1); `test_manage.py` is unaffected (its target
+has no mfg data) and the guard is tested in `backend/tests/api_mfg/test_mfg_manage.py`. Existing SQLite dev databases upgrade automatically (`behind` -> `upgrade head`, backup first, B
 3.4); Postgres deployments run `python -m superplanner.migrate upgrade` (DEPLOY.md note: "M1 adds revision
 0003_mfg"; WP-B adds one line to `docs/DEPLOY.md`).
 
@@ -1592,17 +1745,33 @@ Frontend e2e: existing 65 + 7 specs unchanged; the finance spec's "exactly one n
   tie-break), explosion order/indent/`subtree_end`/`is_shared`, roll-up vectors T-Q1 and scrap/yield on/off,
   operation_seq consumption, uom conversion (wire MM -> M), alternates attached not counted, phantom indented vs
   summarized, cycle detection (self-loop, 2-cycle, long cycle, multiple SCCs, 5,000-node chain without recursion
-  error), `would_create_cycle`, refdes parsing (`R1-R5`, `R1-5`, `C1, C2 C3`, invalid tokens ignored and counted).
+  error), `would_create_cycle`, `refdes_count` (`R1-R5`, `R1-5`, `C1, C2 C3`, invalid tokens reported, `R1-R999999999`
+  is one invalid token and returns in < 10 ms), explosion row limit hit on a 20-level diamond BOM in < 1 s without
+  building the path list, summarized mode of the same BOM succeeds (path count 2^20 in `occurrences`).
 - `test_mfg_routing.py`: `operation_minutes` (unit/panel/batch, speed), T-T1, `lot_inputs` rounding, eligibility.
 - `test_mfg_calendar.py`: T-C1..T-C8, template validation (overlap with Sunday-night wrap, break outside shift,
-  24 h shift), `expand_template_week`, `group_capacity` with parallel capacity.
+  24 h shift), `expand_template_week`, `group_capacity` with parallel capacity, `operator_windows` (spans without
+  breaks, night tail of the previous day).
+- Skill-coverage vectors for `MFG_SKILL_NOT_ON_SHIFT` (T-S1..T-S6): S1 REG operators, REG line -> no issue (the
+  operator's lunch differs from the line's: still covered, breaks ignored); S2 REG operators, line REG + optional EVE
+  -> issue naming EVE Mon-Sat 18:00-22:00; S3 S2 plus one operator on EXT 09:00-22:00 -> no issue (overtime crew
+  counts); S4 REG operators on a line with three break-free shifts 06-14, 14-22, 22-06 -> issue whose uncovered pieces
+  are Mon 06:00-09:00, 18:00-09:00 (next day) starting Mon-Fri, and Sat 18:00-Sun 06:00 (a partial overlap no
+  longer counts as covered); S5 handover gap of 10 min -> no issue (tolerance 15); S6 an
+  assignment effective only from day 30 of the horizon -> issue found (real dates, not one reference week).
+- `test_mfg_db_names.py`: every constraint/index name in `Base.metadata` for `mfg_*` tables <= 63 characters; every
+  mfg table has an index led by `owner_id`; every FK column leads an index.
 - `test_mfg_health.py`: each of the 40 codes: one fixture that raises it and one minimal change that clears it;
   ordering/truncation/counts; `small` = 0 issues; `medium`/`kavach` = 0 errors and the intended warnings.
-- `test_mfg_io.py`: xlsx/csv/zip reading, magic detection, `.xls` refusal, zip limits (synthetic zip bomb: 1 KB
+- `backend/tests/mfg_io/test_mfg_io.py` (**WP-B**, pure): xlsx/csv/zip reading, magic detection, `.xls` refusal, zip limits (synthetic zip bomb: 1 KB
   compressed -> 1 GB declared is refused before decompression), `openpyxl.DEFUSEDXML is True`, Excel numeric part
   numbers, dates, booleans, lists, aliases, formula without cached value, mapping suggestions for typical ERP
   headers, `plan_import` create/update/unchanged/delete diff, idempotency (plan of an applied plan is all
-  unchanged), released protection, cycle via file, duplicate keys, auto find numbers, export formula escaping.
+  unchanged), released protection, cycle via file, duplicate keys, auto find numbers, export formula escaping
+  (xlsx cell `=HYPERLINK(...)` stored as a string cell and read back unchanged; CSV `'` prefix stripped on read),
+  xlsx with a cell at row 1,000,000 or column 200 refused, `1E999` -> `IMP_BAD_NUMBER`, `<v>NaN</v>` -> 422
+  `MFG_IMPORT_FILE_INVALID` (not 500), `_x0000_`/control characters never reach staging, billion-laughs XML in a
+  sheet refused, staged size limit.
 - `test_mfg_samples.py`: golden hashes and counts; determinism under two different `PYTHONHASHSEED` values
   (subprocess); bundle -> dataset -> bundle round trip.
 - `test_mfg_perf.py` (P1).
@@ -1618,7 +1787,15 @@ errors, expiry -> 404, second commit 409, If-Match on commit, transaction atomic
 user -> export equality; sample load (both modes, idempotent second load); reset; statement-count tests (12);
 isolation (`test_mfg_isolation.py`: user B gets 404 for each of A's ids on every endpoint, lists exclude A's rows,
 B's BOM referencing A's item id -> 422 `MFG_UNKNOWN_REFERENCE`, where-used of B's item never shows A's parents, A's
-import session invisible to B); accounts mode CSRF on mfg unsafe routes; perf P2-P11.
+import session invisible to B, B's `reset` and B's sample `replace` leave A's row counts unchanged, A and B load the
+same sample without key or id collisions); accounts mode CSRF on mfg unsafe routes; perf P2-P11. Also: GET
+`/plant`, `/summary`, `/health`, `/items` on a fresh owner insert nothing (row counts of all `mfg_*` tables stay 0);
+two concurrent first writes of one owner on Postgres both succeed (plant savepoint race, 6.1); a write waiting
+behind a held plant lock with `lock_timeout` lowered to 200 ms answers 409 `MFG_BUSY` with `Retry-After`; export
+`Content-Disposition` for a plant named `Werk "Süd"\r\nX` is a valid Latin-1 header with a slug name; upload with
+`Content-Type: application/json` and a binary body is 422 from the middleware while `application/octet-stream`
+works; `test_mfg_manage.py`: `reassign-owner` refuses a target with mfg data (exit 1, nothing moved) and moves
+all `mfg_*` rows to an empty target.
 
 ### 15.3 Acceptance (`backend/tests/acceptance_m1`, WP-D) - Gate 1 exit criteria
 
@@ -1650,6 +1827,12 @@ import session invisible to B); accounts mode CSRF on mfg unsafe routes; perf P2
   commit; re-upload -> all unchanged.
 - `mfg-scale.spec.ts`: load `kavach`; open `KV-TPU-1000` BOM tree; expand all; scroll to the end; assert DOM rows
   <= 80 and interaction timings (P12).
+- `mfg-contract.spec.ts`: with `kavach` loaded, visit every page of 11.1 and every health `link`, fail on any
+  unexpected 4xx/5xx (as the existing `contract.spec.ts`).
+- `accounts/mfg-isolation.spec.ts` (accounts config): user A loads `small`; user B sees an empty Manufacturing
+  overview, A's item URL shows "not found", B's import wizard upload works with the CSRF header.
+- The e2e database is shared by all specs of a run: every mfg spec starts with `POST /mfg/reset` through the API
+  helper, and no existing spec is affected by mfg data.
 
 ---
 
@@ -1680,6 +1863,114 @@ Plug-in points (designed now so M2/M3 add, not change):
 | Crews follow shifts | operators' template + shift names expanded with the same calendar code |
 | Tooling constraints | `mfg_operation_tools` + `mfg_tool_pools.quantity` |
 | Engine adapter | new module `sp/mfg/to_engine.py` (M3) maps a dataset + work orders to `engine.Problem`; `mfg` keeps no engine import until then |
+
+---
+
+## Review notes (team lead, 2026-10-25)
+
+Reviewed against `docs/MANUFACTURING-GAP-ANALYSIS.md` (M1 scope, 4.1, 4.1a, 4.3, section 9 additions), `docs/PHASE2B.md`
+(3.2-3.6, 4.7, 4.8) and the code (`api/db/ownership.py`, `api/db/models.py`, `api/db/session.py`, `api/limits.py`,
+`api/context.py`, `api/main.py`, `api/auth/body_gate.py`, `manage.py`, `migrate.py`, `tests/auth/*`,
+`tests/acceptance_phase2b/test_acc_authz_sweep.py`, `tests/db/test_db_migrations.py`). openpyxl 3.1.5 /
+et-xmlfile 2.0.0 / defusedxml 0.7.1 were installed in a scratch directory (not the project venv) to check the
+import-safety claims. The direction (relational master data, pure `mfg` core, versioned documents with effectivity,
+Gate 1 health check, one bundle format for import/export/samples, no new npm packages) is right and is kept. The
+changes below are applied in place in the sections named.
+
+**R1 - Decision on the open item `MFG_SKILL_NOT_ON_SHIFT` (7.2 #24): intent accepted, mechanism replaced.** The
+intent is right and needed: operators are matched to line shifts by time, so overtime crews (operators on an
+extended template) count and no "crew belongs to shift X" link has to be maintained. The draft's mechanism
+(a reference week; covered if *any* operator window overlaps a shift instance) is replaced, because:
+(a) "the reference week" is undefined when assignments are effective-dated, lines override groups (the Kavach
+SMT-3 override) and exceptions remove time; a single week also misses an optional shift that starts later in the
+horizon. Now: the real dates `[as_of, as_of + horizon_days)`, the same `line_windows` the scheduler will use.
+(b) "Any overlap" reports a REG 09:00-18:00 crew as covering a 06:00-14:00 and a 14:00-22:00 shift. Now:
+uncovered time = line windows minus the union of qualified operators' windows.
+(c) Operator windows are shift spans without breaks (crews stagger breaks); otherwise every lunch break that
+differs from the line's break would be a false warning.
+(d) A 15-minute tolerance absorbs handover gaps. (e) One issue per (skill, line), entity `skill`, instead of per
+operation: in the Kavach sample one gap (COATING on EVE) would otherwise be reported for ~40 operations.
+(f) Applies to operations with `crew_size > 0` (setup is always attended), so crew-0 unattended work is excluded.
+It stays a **warning** (P2): presence is checked, crew counts and simultaneous use are M3 capacity constraints.
+Checking the samples against the rule showed two gaps in the draft: the Kavach optional SMT Sunday shift had no
+SMT operator (weekend crew added) and the `small` sample's FCT overtime had none (an EXT operator added, so
+`small` stays issue-free). Test vectors T-S1..T-S6 in 15.1.
+
+**R2 - Owned child tables (deviation from B 3.3): accepted.** The central `with_loader_criteria` filter then also
+protects direct queries on child tables (where-used, import diffs) with no per-query code. Cost: index rules (R7).
+
+**R3 - File ownership conflicts in the draft.** `tests/mfg/test_mfg_io.py` sat in WP-A's folder but tested
+WP-B's `io` code; `messages.py` held messages of both packages; release rules were needed by the WP-B services, by
+WP-B's `plan_import(release=true)` and by WP-A's sample golden tests. Fixed: `backend/tests/mfg_io/**` and
+`sp/mfg/io/messages.py` belong to WP-B, the rules are pure functions in `sp/mfg/release.py` (WP-A). Section 13 now
+defers to `docs/PLAN-M1.md`.
+
+**R4 - Import/export security (verified, not assumed).** With openpyxl 3.1.5: `DEFUSEDXML` is true and the read-only
+sheet parser's `iterparse` comes from defusedxml (XML bombs covered). But: (a) openpyxl writes any string starting
+with `=` as a formula, so the draft's "prefix `'`" rule would either corrupt xlsx values or not protect; now explicit
+string cells in xlsx and a stripped `'` prefix in CSV (8.3); (b) gaps in row numbers are yielded as empty rows (one
+cell at row 200,000 gave 200,000 rows), so the row limit must count scanned rows and `iter_rows` is bounded;
+(c) `<v>1E999</v>` comes back as `inf` (Postgres JSONB staging would fail with 500) and `<v>NaN</v>` raises
+`ValueError` inside openpyxl (500 without a catch-all); both now map to row errors / 422; (d) uncompressed limit
+lowered from 100 MiB to 64 MiB and a 32 MiB staged-JSON cap added; committed sessions drop their rows;
+(e) `Content-Disposition` used the raw plant name (quotes/CRLF/non-Latin-1 break the header or raise); now a slug;
+(f) an upload sent with a JSON content type is rejected by the existing NUL scanner in `api/limits.py` for any
+binary file; the contract now says `application/octet-stream`.
+
+**R5 - Primary-key collision.** `bundle_to_dataset` derives ids from natural keys; if those ids reached the DB, a
+second user loading the same sample would hit a duplicate primary key (ids are global). The writer always uses
+`new_id`.
+
+**R6 - Plant row creation and `reassign-owner`.** "Created lazily on first access" meant GETs insert rows, two
+concurrent first writes race on `uq_mfg_plant_owner` (Postgres), and `manage.py reassign-owner` (which moves
+every owned table, `manage.owned_tables()`) would crash with an `IntegrityError` once the target owns a plant row
+or a clashing part number. Now: reads never insert (default record with `row_version 0`), `lock_plant` creates the
+row in a savepoint with retry, and `reassign-owner` refuses a target with mfg data (14.1, WP-B, tested).
+
+**R7 - Indexes.** Five tables (`operations`, `operation_tools`, `line_items`, `shift_assignments`,
+`operator_skills`) had no index led by `owner_id`, so `load_dataset`, reset and reassign would scan the whole table
+across all users in accounts mode. `ix_mfg_bom_lines_child (owner_id, child_item_id)` cannot serve Postgres' FK
+RESTRICT check on item delete (it has no owner predicate): changed to `(child_item_id)`, which also serves
+where-used. `home_group_id` (SET NULL) got an index. Constraint names checked against the 63-character limit (the
+longest generated FK name is 62).
+
+**R8 - Performance at 5,000+ lines.** Path enumeration is exponential on shared sub-assemblies (a 20-level diamond
+has 2^20 paths): indented explosion now stops at the row limit while generating, and `summarized` mode, the
+documented fallback, is a DAG DP that never enumerates paths. `ref_designators` ranges like `R1-R999999999` would
+have been expanded in `parse_refdes` (memory/CPU DoS through a 20-character field): counting is now arithmetic. The
+health "in use" check evaluated reachability per effectivity date (dates x graph); it is now one union-graph
+traversal plus per-item document checks. `MAX_EXPLOSION_ROWS` lowered from 50,000 (~30 MB JSON) to 20,000 (4x the
+`kavach x2` size), also applied to indented where-used. Statement-count bounds corrected (routings and operations
+are 2 SELECTs; IN chunks of 2,000; auth statements excluded from the counter).
+
+**R9 - Locking and long writes.** Postgres sessions use `lock_timeout=10000`, but the draft's P7 import commit was
+allowed 10 s while holding the plant lock: a concurrent write of the same user would have failed with an unmapped
+`LockNotAvailable` (500). Now: parsing and planning run before the write transaction (re-planned under the lock only
+if `data_version` changed), the lock is held < 6 s for 5,000 rows, and a lock timeout is 409 `MFG_BUSY` with
+`Retry-After`. The writer flushes per sheet instead of relying on unit-of-work ordering without relationships, and
+bulk deletes are ORM `delete()` statements (owner-filtered) with `passive_deletes`.
+
+**R10 - Contract for parallel backend/frontend work.** `/meta`, `/summary`, import records/previews/results,
+summaries, group detail, assignment/exception targets and window labels were only sketched; WP-C could not have
+typed them. Section 9.6 fixes every shape and freezes them at milestone A1. The link table sent released BOM lines
+to the edit route; they now go to the BOM view (`?line=`), which got that parameter. The skills page lists holders
+(target of the R1 issue).
+
+**R11 - Semantics fixes.** Health #9 compared "the fastest line" against "every line's window" (inconsistent); now
+per line. The `status` column and the `release` option overlapped and obsolete documents could not be imported, so
+the export -> import round trip (15.3 #2) was impossible for data with an obsolete version; defined in 8.1. List
+fields replace as a whole on import. "Other lists are unpaginated (bounded by entity limits)" referred to limits
+that did not exist: per-owner limits added for every entity.
+
+**R12 - Tests.** Added: io safety cases (R4), skill-coverage vectors (R1), name/index rules (R7), reads-insert-nothing,
+plant race, `MFG_BUSY`, reassign guard, two users loading one sample, reset isolation, an mfg contract e2e spec, an
+accounts-mode mfg isolation spec, and a reset at the start of every mfg e2e spec (the e2e database is shared).
+
+Checked and unchanged: the 77-operation count of 9.3; the existing-test edits of 14.2 match the code
+(`tests/db/test_db_migrations.py:246,248`, `tests/jobs/test_worker_process.py:152`, `len(PROTECTED) == 55` stays,
+the sweep's `fill()` would raise `KeyError` on mfg path parameters); other migration tests already use
+`migrate.HEAD`; `test_manage.py` passes unchanged with the R6 guard; the new pins are pure-Python wheels
+(Windows-compatible); `frontend/nginx.conf` allows 8 MB bodies (above the 5 MiB API limit).
 
 ---
 
