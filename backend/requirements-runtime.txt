@@ -12,3 +12,6 @@ alembic==1.20.0
 psycopg[binary]==3.3.6
 argon2-cffi==25.1.0
 prometheus-client==0.26.0
+openpyxl==3.1.5
+et-xmlfile==2.0.0
+defusedxml==0.7.1

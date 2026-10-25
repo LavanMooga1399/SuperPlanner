@@ -15,6 +15,7 @@ import { ScheduleTab } from "./pages/tabs/ScheduleTab";
 import { CompareTab } from "./pages/tabs/CompareTab";
 import { financeRoutes } from "./finance/routes";
 import { intakeRoutes } from "./intake/routes";
+import { mfgRoutes } from "./mfg/routes";
 import { ExamplePage } from "./landing/ExamplePage";
 import { StartPage } from "./landing/StartPage";
 import { AuthRoot } from "./auth/AuthContext";
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
                 ],
               },
               ...financeRoutes,
+              ...mfgRoutes,
               { path: "new/:kind", element: <StartPage /> },
               { path: "new/:kind/example", element: <ExamplePage /> },
               ...intakeRoutes,

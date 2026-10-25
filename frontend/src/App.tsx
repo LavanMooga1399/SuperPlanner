@@ -8,6 +8,7 @@ import { useStoredState } from "./lib/useAsync";
 import { AccountMenu } from "./auth/AccountMenu";
 import { useAuth } from "./auth/AuthContext";
 import { SessionExpiredBanner } from "./auth/SessionExpiredBanner";
+import { isMfgPath } from "./mfg/lib/paths";
 
 type ThemePref = "light" | "dark";
 
@@ -86,17 +87,22 @@ export function isFinancePath(pathname: string): boolean {
   return /^\/finance(\/|$)/.test(pathname) || /^\/new\/money(\/|$)/.test(pathname);
 }
 
-/** Top-level sections. Finance is active for finance paths; Scheduling otherwise. */
+/** Top-level sections. Finance / Manufacturing are active for their paths; Scheduling otherwise (M1 11.1). */
 function MainNav() {
   const { pathname } = useLocation();
   const finance = isFinancePath(pathname);
+  const mfg = isMfgPath(pathname);
+  const scheduling = !finance && !mfg;
   return (
     <nav aria-label="Main" className="main-nav">
-      <Link to="/" className={`main-nav-link${finance ? "" : " active"}`} aria-current={finance ? undefined : "page"} data-testid="nav-scheduling">
+      <Link to="/" className={`main-nav-link${scheduling ? " active" : ""}`} aria-current={scheduling ? "page" : undefined} data-testid="nav-scheduling">
         Scheduling
       </Link>
       <Link to="/finance" className={`main-nav-link${finance ? " active" : ""}`} aria-current={finance ? "page" : undefined} data-testid="nav-finance">
         Finance
+      </Link>
+      <Link to="/mfg" className={`main-nav-link${mfg ? " active" : ""}`} aria-current={mfg ? "page" : undefined} data-testid="nav-mfg">
+        Manufacturing
       </Link>
     </nav>
   );
