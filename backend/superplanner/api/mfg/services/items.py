@@ -11,6 +11,7 @@ from ....mfg import limits as L
 from ....mfg.model import ItemInput, ItemRecord
 from ...context import AppContext
 from ...db import new_id, utcnow
+from ...errors import ApiError
 from .. import repo
 from ..db_models import MfgBomLineRow, MfgBomRow, MfgItemRow, MfgRoutingRow
 from .common import (audit, check_limit, check_version, count, ensure_unique, ilike, in_use, read_tx, touch,
@@ -99,11 +100,34 @@ def update_item(ctx: AppContext, item_id: str, inp: ItemInput, if_match: str | N
         row = repo.get_row(s, MfgItemRow, item_id, what="Item", lock=True)
         check_version(row, if_match)
         ensure_unique(s, MfgItemRow, "An item", {"part_number": inp.part_number}, exclude_id=row.id)
+        if row.serialized and not inp.serialized:
+            _check_no_serial_documents(s, row)
         _apply(row, inp)
         touch(row)
         s.flush()
         audit(s, "item", row.id, "update", {"version": row.row_version})
         return record(s, row)
+
+
+def _check_no_serial_documents(s: Session, row: MfgItemRow) -> None:
+    """409 `MFG_IN_USE` when the item would stop being serialized while draft/released BOMs or routings of it keep
+    a serial range (review F5); `details.used_by` lists them."""
+    used: list[dict[str, Any]] = []
+    for b in s.execute(select(MfgBomRow).where(MfgBomRow.item_id == row.id, MfgBomRow.status != "obsolete",
+                                               MfgBomRow.serial_from.is_not(None))
+                       .order_by(MfgBomRow.revision, MfgBomRow.version)).scalars():
+        used.append({"type": "bom", "id": b.id, "label": f"BOM {b.revision} v{b.version} ({b.status})"})
+    for r in s.execute(select(MfgRoutingRow).where(MfgRoutingRow.item_id == row.id,
+                                                   MfgRoutingRow.status != "obsolete",
+                                                   MfgRoutingRow.serial_from.is_not(None))
+                       .order_by(MfgRoutingRow.code, MfgRoutingRow.version)).scalars():
+        used.append({"type": "routing", "id": r.id, "label": f"routing {r.code} v{r.version} ({r.status})"})
+    if used:
+        refs = {"boms": sum(u["type"] == "bom" for u in used), "routings": sum(u["type"] == "routing" for u in used)}
+        raise ApiError(409, "MFG_IN_USE", f"Item {row.part_number} cannot stop being serialized: "
+                       f"{', '.join(u['label'] for u in used[:5])}{' ...' if len(used) > 5 else ''} "
+                       "still use a serial range. Remove the serial ranges first (or make those documents obsolete).",
+                       {"references": {k: v for k, v in refs.items() if v}, "used_by": used})
 
 
 def delete_item(ctx: AppContext, item_id: str, if_match: str | None) -> None:

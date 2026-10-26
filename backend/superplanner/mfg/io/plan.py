@@ -34,6 +34,7 @@ from ..model import (BomInput, BomLineInput, BomLineRecord, BomRecord, CalendarE
                      OperationToolRecord, OperatorInput, PlantInput, RoutingInput, RoutingRecord,
                      ShiftAssignmentInput, ShiftTemplateInput, SkillInput, SkillRecord, ToolPoolInput,
                      ToolPoolRecord, input_data)
+from ..health import doc_label
 from ..release import bom_release_issues, routing_release_issues
 from . import messages as msg
 from .mapping import SKIP, Source, bundle_sources
@@ -201,6 +202,7 @@ class _Planner:
         self.bump: dict[str, set[str]] = {"boms": set(), "routings": set()}
         self.tz = offset_tz(ds.plant.utc_offset)
         self.shrunk_templates: dict[str, tuple[str, Source, set[str]]] = {}   # id -> (code, source, final names)
+        self.unserialized: dict[str, tuple[str, Source]] = {}     # item id -> (part number, source): serialized off
         self.rebase: tuple[Any, Any] | None = None       # (old tz, new tz) when the file changes the plant offset
         # final-state lookups by natural key
         self.items: dict[str, _Ent] = {it.part_number: _Ent(it.id, _data(it), False) for it in ds.items.values()}
@@ -342,6 +344,7 @@ class _Planner:
         self.shift_names_in_use()
         self.documents("boms")
         self.documents("routings")
+        self.serial_documents_in_use()
         self.cycles()
         self.releases()
         for name in SHEET_NAMES:
@@ -418,6 +421,8 @@ class _Planner:
                 self.note("items", "create", {"part_number": pn})
                 continue
             ch = self.diff(ex.data, new, ItemInput.model_fields)
+            if ex.data.get("serialized") and not new["serialized"]:
+                self.unserialized[ex.id] = (pn, src)
             if ch:
                 self.add("items", "update", ex.id, {k: new[k] for k in ch})
                 self.items[pn] = _Ent(ex.id, new, False)
@@ -663,6 +668,20 @@ class _Planner:
             self.err("shift_templates", src, "code", "IMP_IN_USE",
                      f"Shift template {code} drops or renames a shift still used by {shown}. Change those in the "
                      "same file (shift_assignments / operators sheets) or keep the shift name.")
+
+    def serial_documents_in_use(self) -> None:
+        """An item switched to not serialized while it keeps BOMs/routings (draft or released, not in the file)
+        with a serial range -> `IMP_IN_USE` on the item row (review F5; documents of the file are checked by
+        `documents`)."""
+        for iid, (pn, src) in self.unserialized.items():
+            docs = [("BOM", b) for b in self.ds.boms_by_item.get(iid, ()) if b.id not in self.planned_boms] + \
+                [("routing", r) for r in self.ds.routings_by_item.get(iid, ()) if r.id not in self.planned_routings]
+            used = [f"{what} {doc_label(d)}" for what, d in docs if d.status != "obsolete" and d.serial_from is not None]
+            if used:
+                self.err("items", src, "serialized", "IMP_IN_USE",
+                         f"{pn} cannot stop being serialized: {', '.join(used[:5])}"
+                         f"{f' and {len(used) - 5} more' if len(used) > 5 else ''} still "
+                         f"{'has' if len(used) == 1 else 'have'} a serial range.")
 
     # ------------------------------------------------------------ assignments
 

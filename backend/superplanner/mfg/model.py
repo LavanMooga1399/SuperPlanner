@@ -13,7 +13,7 @@ import re
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import (AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints,
+from pydantic import (AfterValidator, AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints,
                       model_validator)
 
 from .limits import MAX_ATTR_INT, MAX_BOM_LINES_PER_BOM, MAX_DATE, MAX_OPERATIONS_PER_ROUTING, MIN_DATE
@@ -56,10 +56,20 @@ Pct = Annotated[float, Field(ge=0, lt=100)]
 YieldPct = Annotated[float, Field(gt=0, le=100)]
 Status = Literal["draft", "released", "obsolete"]
 MakeBuy = Literal["make", "buy", "phantom"]
-AttrValue = (Annotated[str, StringConstraints(max_length=500), AfterValidator(_no_ctrl_text)]
-             | Annotated[int, Field(ge=-MAX_ATTR_INT, le=MAX_ATTR_INT)]
+AttrValue = (Annotated[str, StringConstraints(max_length=500), AfterValidator(_no_ctrl_text)] | int
              | Annotated[float, Field(allow_inf_nan=False)] | bool)       # finite numbers only (NaN/inf -> 422)
-Attributes = Annotated[dict[Code, AttrValue], Field(max_length=50)]
+
+
+def _attr_ints(v: Any) -> Any:
+    # integers beyond 2**53 - 1 would silently become (rounded) floats in JSON / JavaScript
+    if isinstance(v, dict):
+        for k, x in v.items():
+            if isinstance(x, int) and not isinstance(x, bool) and abs(x) > MAX_ATTR_INT:
+                raise ValueError(f"attribute {k!r}: integers must be between -{MAX_ATTR_INT} and {MAX_ATTR_INT}")
+    return v
+
+
+Attributes = Annotated[dict[Code, AttrValue], Field(max_length=50), BeforeValidator(_attr_ints)]
 Severity = Literal["error", "warning", "info"]
 
 

@@ -6,7 +6,7 @@ body after `require_user` and parses it in the threadpool.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, Depends, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -277,7 +277,7 @@ def delete_line(line_id: str, if_match: str | None = IfMatch, ctx: AppContext = 
 
 
 @router.get("/lines/{line_id}/windows")
-def line_windows(line_id: str, d0: PlanDate = Query(alias="from"), d1: PlanDate = Query(alias="to"),
+def line_windows(line_id: str, d0: Annotated[PlanDate, Query(alias="from")], d1: Annotated[PlanDate, Query(alias="to")],
                  kinds: str = Query(default="base,optional", max_length=40),
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     ks = [k.strip() for k in kinds.split(",") if k.strip()]
@@ -350,7 +350,8 @@ def delete_assignment(assignment_id: str, if_match: str | None = IfMatch,
 
 
 @router.get("/calendar-exceptions")
-def list_exceptions(d0: PlanDate | None = Query(default=None, alias="from"), d1: PlanDate | None = Query(default=None, alias="to"),
+def list_exceptions(d0: Annotated[PlanDate | None, Query(alias="from")] = None,
+                    d1: Annotated[PlanDate | None, Query(alias="to")] = None,
                     scope: Literal["plant", "group", "line"] | None = None,
                     group_id: str | None = Query(None, max_length=64), line_id: str | None = Query(None, max_length=64),
                     ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
