@@ -2070,6 +2070,70 @@ Implementation details:
   counts default to 0. `load_dataset` fills everything through `dataset.link`.
 ### 17.WP-B Backend API + import/export
 
+Status (2026-10-26): B1-B4 implemented. All 77 operations of 9.3 under `/api/v1/mfg` (`sp/api/mfg/router.py`,
+registered in `main.py` with `require_user` and `body_gate`); services in `sp/api/mfg/services/` (common, items,
+boms, routings, plant, resources, health, imports, samples), `writer.py`, `schemas.py`; pure import/export in
+`sp/mfg/io/` (read, spec, mapping, plan, export, messages). `MFG_PROTECTED` (77 rows) and the extended authz sweep
+are in the same change. Tests: `backend/tests/api_mfg/**`, `backend/tests/mfg_io/**`.
+
+Interpretations and deviations (no path or field name of 9.3-9.6 changed):
+- **Routing release response** is `{"routing": RoutingRecord, "superseded": [...]}` (as WP-C assumed); release
+  responses carry the ETag of the released document.
+- **Obsolete** is allowed only from `released` (draft -> 409 `MFG_INVALID_STATE`; drafts are deleted instead).
+  Release of a non-draft -> 409 `MFG_INVALID_STATE`. DELETE of an obsolete document is allowed.
+- **Copy** keeps the serial range and note, clears the dates, version = max for the (item, revision[, code]) + 1.
+- **Document PUT**: a line/operation `id` that is not a child of this document (or listed twice) is 422
+  `VALIDATION_ERROR` with `loc` `["body","lines",i,"id"]`. Kept children whose unique key changes (find-number or
+  seq swaps from a drag reorder) are moved to placeholders first, so swaps never violate the unique keys.
+  `MFG_BOM_CYCLE` details are `{"cycle": [part numbers, closed]}`; the self-loop is `["A","A"]`.
+- **Plant PUT** with `If-Match: "0"` creates the row (`row_version` 1); a plant created implicitly by another
+  write starts at `row_version` 1.
+- **Import staging writes** (upload, mapping, delete of a session) do not lock the plant and do not bump
+  `data_version` (not master data). Commit and sample load compare `(plant id, data_version)` with the read
+  transaction and re-plan inside the lock only if it changed. A commit or sample load that changes nothing
+  leaves `data_version` unchanged (re-import is a no-op apart from the import row and its audit event).
+- **Commit re-plans from the staged rows** (the preview is informational); errors at commit time -> 409
+  `MFG_IMPORT_HAS_ERRORS`. A row with a cell error (bad number/date/enum, control character, formula without
+  value) is reported once and left out of the plan, so it does not also produce `IMP_REQUIRED`.
+- **Blank version on import** (8.2): highest existing draft, else 1 if none, else - only when the file's content
+  differs from the highest released/obsolete version - max + 1. This keeps a re-import of a version-less file
+  with `release: true` idempotent instead of creating a new draft each time.
+- **Blank cells** in mapped columns: a nullable field becomes null, a non-nullable one keeps its value (on create:
+  the model default). Item `attr:<name>` columns: blank removes that attribute. Set-like lists (operator skills,
+  line eligible part numbers) compare as sets.
+- **replace_children** applies only when the child sheet (`bom_lines` / `operations`) is part of the import.
+- **Release rules on import** (`status: released` or `release: true` on create) run on the planned dataset in
+  file order with `supersede_previous = false`; failures are `IMP_RELEASE_BLOCKED` naming the health codes.
+- **Cycle check on import** uses the final edge set (documents replaced by the file use their file lines). A BOM
+  whose own rows have errors is left out of that edge set.
+- **xlsx reading** uses openpyxl's worksheet parser directly (`ReadOnlyWorksheet._get_source` +
+  `WorkSheetParser`, openpyxl 3.1.5 pinned): it yields only rows present in the XML, so a cell in row 1,000,000
+  or column 200 is refused without iterating filler rows, and formulas without a cached value are detected.
+  Excel date cells at midnight are staged as `YYYY-MM-DD`, others as `YYYY-MM-DD HH:MM:SS`; for exception
+  start/end a date-only value is local midnight and a date-only end is inclusive. Cells over
+  `IMPORT_MAX_CELL_CHARS` -> 422 `MFG_IMPORT_TOO_LARGE`; `IMP_TOO_LONG` is a field longer than its model allows.
+- **CSV export escape**: a leading `'` is also added to values that start with `'` (and stripped once on read),
+  so `'=x` round-trips. Lists are written `;`-separated. Exception datetimes are ISO text with offset in both
+  formats; dates are date cells in xlsx. The zip has no README member; xlsx exports and templates have a README
+  sheet (ignored on import with an `IMP_SHEET_IGNORED` warning). Single-CSV uploads use `?sheet=` (else the file
+  stem) as the source sheet name.
+- **Header suggestion by overlap** needs at least `min(2, number of key columns)` key columns and 2 mapped columns
+  (the `items` sheet has a single key column).
+- **Reset** deletes all 18 tables of the owner including `mfg_plant` and `mfg_imports` (so `reassign-owner` is
+  not blocked afterwards). Sample `replace` resets in the same transaction and keeps `data_version` monotonic.
+- **Lists** without a code (`/shift-assignments`) are sorted by target code, kind, effective_from;
+  `/calendar-exceptions` by start. `/skills` and `/tool-pools` accept `q` as well.
+- **MFG_BUSY** maps SQLSTATE 55P03 raised anywhere in a write transaction (also on reads that wait).
+- **Repository**: the services only add small owned ORM queries next to `repo` (record refs, counts, the
+  windows/time-preview mini snapshots); no change to WP-A files was needed.
+
+Measured (developer machine, SQLite / PostgreSQL local): P2 Kavach explosion 0.36 / 0.26 s, 15 statements
+(bound 18); `kavach x2` 0.35 / 0.25 s, 15-16 statements; P3 where-used indented 0.02 s, 8 statements; P4 items page
+with `q` over 10,000 items 0.03 s, 5 statements; P5 health 0.44 / 0.46 s, 17-18 statements; P6 preview of 5,000
+rows 0.20 / 0.21 s, 20-21 statements; P7 commit of 5,000 rows 0.83 / 1.26 s (write transaction 0.68 / 1.05 s);
+P8 re-import 0.37 / 0.59 s with no master-data writes; P9 Kavach sample load 2.0 / 2.4 s; P10 xlsx export
+1.2 / 1.1 s, 17-18 statements; P11 62-day windows 0.02 s, 6 statements.
+
 ### 17.WP-C Frontend
 
 Status (2026-10-25): C0-C4 built against 9.3-9.6 (no backend router existed yet); cross-checked against WP-A's

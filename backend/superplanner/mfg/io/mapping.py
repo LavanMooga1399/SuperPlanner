@@ -12,7 +12,7 @@ from typing import Any
 
 from ..bundle import ATTR_PREFIX, SHEETS, SHEETS_BY_NAME, MfgBundle, SheetSpec
 from . import messages as msg
-from .spec import (SHEET_SYNONYMS, SYNONYMS, CellError, is_attr_field, normalize_header, parse_cell, valid_field)
+from .spec import SHEET_SYNONYMS, SYNONYMS, CellError, normalize_header, parse_cell, valid_field
 
 
 SKIP = "__skip__"

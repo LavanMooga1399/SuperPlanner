@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ....mfg import limits as L
 from ....mfg.calendar import (expand_template_week, line_windows, offset_tz, validate_template, week_minutes_per_day,
                               window_minutes)
-from ....mfg.dataset import MfgDataset, item_ref, link, ref
+from ....mfg.dataset import MfgDataset, item_ref, ref
 from ....mfg.model import (CalendarExceptionInput, CalendarExceptionRecord, GroupInput, GroupRecord, LineInput,
                            LineRecord, PlantInput, PlantRecord, ShiftAssignmentInput, ShiftAssignmentRecord,
                            ShiftTemplateInput, ShiftTemplateRecord, TargetRef)

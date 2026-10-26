@@ -38,6 +38,7 @@ from . import messages as msg
 from .mapping import SKIP, Source, bundle_sources
 
 IdFactory = Callable[[str], str]
+SET_FIELDS = frozenset({"skill_ids", "eligible_item_ids"})   # order carries no meaning (link tables)
 DOC_HEADER_FIELDS = ("effective_from", "effective_to", "serial_from", "serial_to", "note")
 
 
@@ -244,7 +245,10 @@ class _Planner:
 
     @staticmethod
     def diff(old: dict[str, Any], new: dict[str, Any], names: typing.Iterable[str]) -> dict[str, tuple[Any, Any]]:
-        return {k: (old.get(k), new.get(k)) for k in names if old.get(k) != new.get(k)}
+        def norm(k: str, v: Any) -> Any:
+            return sorted(v) if k in SET_FIELDS and isinstance(v, list) else v
+
+        return {k: (old.get(k), new.get(k)) for k in names if norm(k, old.get(k)) != norm(k, new.get(k))}
 
     def merge(self, base: dict[str, Any], row: dict[str, Any], model: type[BaseModel], creating: bool,
               fields: typing.Iterable[str], rename: dict[str, str] | None = None) -> dict[str, Any]:

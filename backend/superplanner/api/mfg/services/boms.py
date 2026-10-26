@@ -18,7 +18,6 @@ from ....mfg.bom import ExplosionTooLarge, explode, where_used, would_create_cyc
 from ....mfg.dataset import MfgDataset, item_ref
 from ....mfg.model import BomInput, BomLineInput, BomRecord, PlantRecord
 from ....mfg.release import ReleaseError, bom_release_issues, validate_bom_document
-from ....mfg.units import same_dimension  # noqa: F401  (documented: release checks the dimension)
 from ...context import AppContext
 from ...db import new_id, utcnow
 from ...errors import ApiError
