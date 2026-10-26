@@ -133,7 +133,7 @@ def test_upgrade_check_and_downgrade_remove_exactly_the_mfg_tables(empty_url):
         with eng.begin() as c:                       # some mfg data must not block the downgrade
             c.execute(sa.text("INSERT INTO mfg_skills (id, owner_id, code, name, description, row_version, "
                               "created_at, updated_at) VALUES ('skl_x', 'usr_local', 'S', 'S', '', 1, :t, :t)"),
-                      {"t": NOW})
+                      {"t": NOW.isoformat()})
     finally:
         eng.dispose()
     migrate.run_alembic_downgrade(url, "0002_phase2b")

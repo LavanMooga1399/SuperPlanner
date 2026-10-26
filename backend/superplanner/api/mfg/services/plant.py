@@ -193,6 +193,7 @@ def _set_line(s: Session, row: MfgLineRow, inp: LineInput, old_items: list[str])
               "active"):
         setattr(row, f, getattr(inp, f))
     row.eligible_families = list(inp.eligible_families)
+    s.flush()
     new, old = set(inp.eligible_item_ids), set(old_items)
     for iid in sorted(old - new):
         link_row = s.get(MfgLineItemRow, (row.id, iid))
@@ -209,8 +210,8 @@ def create_line(ctx: AppContext, inp: LineInput) -> LineRecord:
         check_limit(s, MfgLineRow, L.MAX_LINES, "lines")
         now = utcnow()
         row = MfgLineRow(id=new_id("lin_"), row_version=1, created_at=now, updated_at=now)
-        _set_line(s, row, inp, [])
         s.add(row)
+        _set_line(s, row, inp, [])
         s.flush()
         audit(s, "line", row.id, "create", {"version": 1})
         return line_records(s, [row])[0]
