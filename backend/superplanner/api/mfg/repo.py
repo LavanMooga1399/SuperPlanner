@@ -294,13 +294,15 @@ def load_bom_index_down(s: Session, root_item_id: str, on: date, serial: int | N
     """Level-wise BFS from the root (6.4): per level <= 3 SELECTs (items, released BOM headers of the level's
     make/phantom items, lines of the effective BOMs), then 2 (released routings of every make item seen,
     operations of the primary routings). Items already loaded are never re-selected; alternates are loaded but not
-    descended into. Unknown root -> `not_found`."""
+    descended into (an item first seen as an alternate is expanded when it is later reached as a primary).
+    Unknown root -> `not_found`."""
     from ...mfg.limits import MAX_BOM_DEPTH
 
     items: dict[str, ItemRecord] = {}
     effective: dict[str, BomRecord | None] = {}
     frontier = [root_item_id]          # items of this level (primaries and alternates)
     descend = {root_item_id}           # the ones whose structure is followed (primaries)
+    expanded: set[str] = set()        # items whose effective BOM was already selected (and its lines loaded)
     level = 0
     while frontier:
         fresh = [i for i in dict.fromkeys(frontier) if i not in items]
@@ -308,7 +310,10 @@ def load_bom_index_down(s: Session, root_item_id: str, on: date, serial: int | N
             items[row.id] = to_record(row)
         if root_item_id not in items:
             raise not_found("Item", root_item_id)
-        parents = [i for i in fresh if i in descend and i in items and items[i].make_buy in ("make", "phantom")]
+        # every primary of this level not expanded yet - also one first loaded earlier as an alternate (F1)
+        parents = [i for i in dict.fromkeys(frontier) if i in descend and i not in expanded and i in items
+                   and items[i].make_buy in ("make", "phantom")]
+        expanded.update(parents)
         if not parents:
             break
         headers: dict[str, list[BomRecord]] = {}

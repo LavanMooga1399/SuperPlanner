@@ -47,8 +47,14 @@ export function BomTab() {
   const [pending, setPending] = useState<Pending>(null);
   const [actionError, setActionError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  /** Bumped after a release / obsolete / delete changed the BOMs: the explosion and the open version reload once. */
+  const [changed, setChanged] = useState(0);
 
   const versions = useLoad((signal) => listItemBoms(item.id, signal), [item.id]);
+  const refreshAfterChange = () => {
+    versions.reload();
+    setChanged((n) => n + 1);
+  };
   const explosion = useLoad(
     (signal) =>
       item.make_buy === "buy"
@@ -63,9 +69,9 @@ export function BomTab() {
             },
             signal,
           ),
-    [item.id, on, serial, qty, mode, versions.data],
+    [item.id, on, serial, qty, mode, changed],
   );
-  const selected = useLoad((signal) => (bomParam ? getBom(bomParam, signal) : null), [bomParam, versions.data]);
+  const selected = useLoad((signal) => (bomParam ? getBom(bomParam, signal) : null), [bomParam, changed]);
 
   const setParam = (k: string, v: string) =>
     setParams(
@@ -87,7 +93,7 @@ export function BomTab() {
     setActionError(null);
     try {
       await fn();
-      versions.reload();
+      refreshAfterChange();
     } catch (e) {
       setActionError(e);
     } finally {
@@ -271,7 +277,7 @@ export function BomTab() {
           onRelease={async (body) => {
             await releaseBom(pending.bom.id, body, pending.bom.row_version);
             setPending(null);
-            versions.reload();
+            refreshAfterChange();
           }}
         />
       ) : null}

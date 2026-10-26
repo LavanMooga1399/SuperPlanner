@@ -283,6 +283,12 @@ function AssignmentsCard({
   const [del, setDel] = useState<ShiftAssignmentRecord | null>(null);
   const [delError, setDelError] = useState<unknown>(null);
   const tableRef = useRef<HTMLTableElement>(null);
+  /** The `?assignment=` id already handled; ids selected from inside this page are marked here so they only highlight. */
+  const opened = useRef<string | null>(null);
+  const selectInPage = (id: string) => {
+    opened.current = id;
+    onSelect(id);
+  };
 
   useEffect(() => {
     if (!selectedId) return;
@@ -358,7 +364,7 @@ function AssignmentsCard({
                       type="button"
                       className="btn sm"
                       onClick={() => {
-                        onSelect(a.id);
+                        selectInPage(a.id);
                         setEditing(a);
                       }}
                       data-testid="assignment-edit"
@@ -384,12 +390,13 @@ function AssignmentsCard({
           onClose={() => setEditing(null)}
           onSaved={(a) => {
             setEditing(null);
-            onSelect(a.id);
+            // highlight the new / edited row; do not reopen it for editing
+            selectInPage(a.id);
             reload();
           }}
         />
       ) : null}
-      <OpenSelected selectedId={selectedId} assignments={assignments} editing={editing} onOpen={setEditing} />
+      <OpenSelected selectedId={selectedId} assignments={assignments} editing={editing} opened={opened} onOpen={setEditing} />
       {del ? (
         <ConfirmDialog
           title="Remove this shift assignment?"
@@ -415,19 +422,23 @@ function AssignmentsCard({
   );
 }
 
-/** `?assignment=` from a health link opens that assignment's form once. */
+/**
+ * `?assignment=` from a health link (deep link) opens that assignment's form once. Selections made inside the page
+ * (after Assign / Save / Edit) are recorded in `opened` beforehand, so they only highlight the row.
+ */
 function OpenSelected({
   selectedId,
   assignments,
   editing,
+  opened,
   onOpen,
 }: {
   selectedId: string | null;
   assignments: ShiftAssignmentRecord[];
   editing: unknown;
+  opened: { current: string | null };
   onOpen(a: ShiftAssignmentRecord): void;
 }) {
-  const opened = useRef<string | null>(null);
   useEffect(() => {
     if (!selectedId || editing || opened.current === selectedId) return;
     const a = assignments.find((x) => x.id === selectedId);
@@ -435,7 +446,7 @@ function OpenSelected({
       opened.current = selectedId;
       onOpen(a);
     }
-  }, [selectedId, assignments, editing, onOpen]);
+  }, [selectedId, assignments, editing, opened, onOpen]);
   return null;
 }
 

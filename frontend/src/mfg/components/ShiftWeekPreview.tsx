@@ -52,8 +52,16 @@ const HEAD_H = 22;
 const HOUR_H = 14;
 const PALETTE = ["var(--accent)", "var(--fin-c2, #0d9488)", "var(--fin-c4, #7c3aed)", "var(--fin-c3, #d97706)", "var(--fin-c5, #db2777)"];
 
-export function ShiftWeekPreview({ template }: { template: ShiftTemplateInput }) {
-  const body = useMemo(() => JSON.stringify(template), [template]);
+/**
+ * The preview only depends on the shift pattern. Code, name and description are sent as fixed placeholders so a
+ * new template previews before they are filled in (and their own validation never shows up as a pattern error).
+ */
+export function previewBody(template: Pick<ShiftTemplateInput, "shifts">): ShiftTemplateInput {
+  return { code: "PREVIEW", name: "Preview", description: "", shifts: template.shifts };
+}
+
+export function ShiftWeekPreview({ template }: { template: Pick<ShiftTemplateInput, "shifts"> }) {
+  const body = useMemo(() => JSON.stringify(previewBody(template)), [template]);
   const debounced = useDebounced(body, 300);
   const valid = template.shifts.length > 0 && template.shifts.every((s) => s.days.length > 0 && /^\d{2}:\d{2}$/.test(s.start) && /^\d{2}:\d{2}$/.test(s.end));
   const preview = useLoad(
