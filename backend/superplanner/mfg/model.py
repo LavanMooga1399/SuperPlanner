@@ -10,13 +10,13 @@ check. Records built from stored rows use `model_construct` (validated on write)
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import (AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints,
                       model_validator)
 
-from .limits import MAX_BOM_LINES_PER_BOM, MAX_OPERATIONS_PER_ROUTING
+from .limits import MAX_ATTR_INT, MAX_BOM_LINES_PER_BOM, MAX_DATE, MAX_OPERATIONS_PER_ROUTING, MIN_DATE
 from .units import UOM_CODES
 
 # ---------------------------------------------------------------- common types (3.1)
@@ -56,9 +56,28 @@ Pct = Annotated[float, Field(ge=0, lt=100)]
 YieldPct = Annotated[float, Field(gt=0, le=100)]
 Status = Literal["draft", "released", "obsolete"]
 MakeBuy = Literal["make", "buy", "phantom"]
-AttrValue = Annotated[str, StringConstraints(max_length=500), AfterValidator(_no_ctrl_text)] | int | float | bool
+AttrValue = (Annotated[str, StringConstraints(max_length=500), AfterValidator(_no_ctrl_text)]
+             | Annotated[int, Field(ge=-MAX_ATTR_INT, le=MAX_ATTR_INT)]
+             | Annotated[float, Field(allow_inf_nan=False)] | bool)       # finite numbers only (NaN/inf -> 422)
 Attributes = Annotated[dict[Code, AttrValue], Field(max_length=50)]
 Severity = Literal["error", "warning", "info"]
+
+
+def _date_in_range(v: date) -> date:
+    if not MIN_DATE <= v <= MAX_DATE:
+        raise ValueError(f"must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}")
+    return v
+
+
+def _datetime_in_range(v: datetime) -> datetime:
+    # the local date first: converting an out-of-range value to UTC could itself overflow
+    _date_in_range(v.date())
+    _date_in_range(v.astimezone(UTC).date())
+    return v
+
+
+PlanDate = Annotated[date, AfterValidator(_date_in_range)]             # 1900-01-01 .. 2199-12-31
+PlanDateTime = Annotated[AwareDatetime, AfterValidator(_datetime_in_range)]
 
 
 def _short(max_len: int, min_len: int = 0) -> Any:
@@ -222,8 +241,8 @@ class BomInput(MfgModel):
     item_id: EntityId
     revision: Revision | None = None        # None: the item's revision at create
     version: Annotated[int, Field(ge=1, le=9999)] | None = None   # None: max for (item, revision) + 1
-    effective_from: date | None = None
-    effective_to: date | None = None
+    effective_from: PlanDate | None = None
+    effective_to: PlanDate | None = None
     serial_from: Annotated[int, Field(ge=1, le=1_000_000_000)] | None = None
     serial_to: Annotated[int, Field(ge=1, le=1_000_000_000)] | None = None
     note: Text500 = ""
@@ -299,8 +318,8 @@ class RoutingInput(MfgModel):
     code: Code = "STD"
     version: Annotated[int, Field(ge=1, le=9999)] | None = None
     priority: Annotated[int, Field(ge=1, le=9)] = 1
-    effective_from: date | None = None
-    effective_to: date | None = None
+    effective_from: PlanDate | None = None
+    effective_to: PlanDate | None = None
     serial_from: Annotated[int, Field(ge=1, le=1_000_000_000)] | None = None
     serial_to: Annotated[int, Field(ge=1, le=1_000_000_000)] | None = None
     note: Text500 = ""
@@ -419,8 +438,8 @@ class ShiftAssignmentInput(MfgModel):
     line_id: EntityId | None = None
     kind: Literal["base", "optional"] = "base"
     shift_names: list[_short(32, 1)] = Field(default_factory=list)
-    effective_from: date
-    effective_to: date | None = None
+    effective_from: PlanDate
+    effective_to: PlanDate | None = None
     cost_per_hour: Annotated[float, Field(ge=0, le=1_000_000)] | None = None
     max_hours_per_week: Annotated[float, Field(ge=0, le=168)] | None = None
     note: Text500 = ""
@@ -449,8 +468,8 @@ class CalendarExceptionInput(MfgModel):
     group_id: EntityId | None = None
     line_id: EntityId | None = None
     kind: Literal["holiday", "shutdown", "maintenance"]
-    start: AwareDatetime
-    end: AwareDatetime
+    start: PlanDateTime
+    end: PlanDateTime
     label: _short(100) = ""
 
     @model_validator(mode="after")

@@ -199,8 +199,6 @@ NON_FINITE = ["NaN", "Infinity", "-Infinity", "1e999"]
 
 
 @pytest.mark.parametrize("value", NON_FINITE)
-@pytest.mark.xfail(strict=True, reason="DEFECT: non-finite float in `attributes` -> 500 and (SQLite) a poisoned "
-                                       "row that makes GET /items, /items/{id}, /health, /plant answer 500")
 def test_non_finite_attribute_values_are_rejected_and_never_stored(api: Api, value: str):
     body = '{"part_number":"J1","make_buy":"buy","lead_time_days":1,"attributes":{"x":%s}}' % value
     r = api.raw("POST", "/items", content=body, headers={"content-type": "application/json"})
@@ -209,8 +207,6 @@ def test_non_finite_attribute_values_are_rejected_and_never_stored(api: Api, val
         assert api.raw("GET", path).status_code == 200, path
 
 
-@pytest.mark.xfail(strict=True, reason="DEFECT: non-finite float in plant `attributes` -> 500 and (SQLite) "
-                                       "GET /plant answers 500 afterwards")
 def test_non_finite_plant_attribute_is_rejected(api: Api):
     plant = api.get("/plant")
     body = json.dumps({"name": "P", "utc_offset": "+05:30", "planning_horizon_days": 90, "currency": "",

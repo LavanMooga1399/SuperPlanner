@@ -6,7 +6,6 @@ body after `require_user` and parses it in the threadpool.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Body, Depends, Header, Query, Request, Response
@@ -14,7 +13,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from ...mfg import limits as L
-from ...mfg.model import (BomInput, CalendarExceptionInput, GroupInput, ItemInput, LineInput, OperatorInput,
+from ...mfg.model import (BomInput, CalendarExceptionInput, GroupInput, ItemInput, LineInput, OperatorInput, PlanDate,
                           PlantInput, RoutingInput, ShiftAssignmentInput, ShiftTemplateInput, SkillInput,
                           ToolPoolInput)
 from ..context import AppContext, get_ctx
@@ -96,7 +95,7 @@ def delete_item(item_id: str, if_match: str | None = IfMatch, ctx: AppContext = 
 
 
 @router.get("/items/{item_id}/explosion")
-def get_explosion(item_id: str, on: date | None = None, serial: int | None = Query(default=None, ge=1, le=10**9),
+def get_explosion(item_id: str, on: PlanDate | None = None, serial: int | None = Query(default=None, ge=1, le=10**9),
                   qty: float = Query(default=1.0, gt=0, le=1_000_000_000),
                   mode: Literal["indented", "summarized"] = "indented", include_scrap: bool = True,
                   include_yield: bool = True, max_depth: int | None = Query(default=None, ge=0, le=L.MAX_BOM_DEPTH),
@@ -106,7 +105,7 @@ def get_explosion(item_id: str, on: date | None = None, serial: int | None = Que
 
 
 @router.get("/items/{item_id}/where-used")
-def get_where_used(item_id: str, on: date | None = None, include: Literal["effective", "all"] = "effective",
+def get_where_used(item_id: str, on: PlanDate | None = None, include: Literal["effective", "all"] = "effective",
                    mode: Literal["single", "indented"] = "single", ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(boms.where_used_view(ctx, item_id, on=on, include=include, mode=mode))
 
@@ -278,7 +277,7 @@ def delete_line(line_id: str, if_match: str | None = IfMatch, ctx: AppContext = 
 
 
 @router.get("/lines/{line_id}/windows")
-def line_windows(line_id: str, d0: date = Query(alias="from"), d1: date = Query(alias="to"),
+def line_windows(line_id: str, d0: PlanDate = Query(alias="from"), d1: PlanDate = Query(alias="to"),
                  kinds: str = Query(default="base,optional", max_length=40),
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     ks = [k.strip() for k in kinds.split(",") if k.strip()]
@@ -351,7 +350,7 @@ def delete_assignment(assignment_id: str, if_match: str | None = IfMatch,
 
 
 @router.get("/calendar-exceptions")
-def list_exceptions(d0: date | None = Query(default=None, alias="from"), d1: date | None = Query(default=None, alias="to"),
+def list_exceptions(d0: PlanDate | None = Query(default=None, alias="from"), d1: PlanDate | None = Query(default=None, alias="to"),
                     scope: Literal["plant", "group", "line"] | None = None,
                     group_id: str | None = Query(None, max_length=64), line_id: str | None = Query(None, max_length=64),
                     ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
@@ -456,7 +455,7 @@ def delete_tool_pool(tool_pool_id: str, if_match: str | None = IfMatch, ctx: App
 # ---------------------------------------------------------------- 67 health
 
 @router.get("/health")
-def get_health(as_of: date | None = None, horizon_days: int | None = Query(default=None, ge=7, le=730),
+def get_health(as_of: PlanDate | None = None, horizon_days: int | None = Query(default=None, ge=7, le=730),
                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(health.health(ctx, as_of, horizon_days))
 

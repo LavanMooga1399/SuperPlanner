@@ -35,18 +35,20 @@ export function HealthIssueList({ issues }: { issues: HealthIssue[] }) {
             </div>
             <ul className="mfg-plain-list">
               {shown.map((i, n) => (
-                <li key={`${i.entity.id ?? ""}-${n}`} className="issue" data-testid="health-issue" data-code={i.code} data-severity={i.severity} data-entity-type={i.entity.type} data-entity-id={i.entity.id ?? undefined}>
+                <li key={`${i.entity?.id ?? ""}-${n}`} className="issue" data-testid="health-issue" data-code={i.code} data-severity={i.severity} data-entity-type={i.entity?.type} data-entity-id={i.entity?.id ?? undefined}>
                   <span className="issue-icon" aria-hidden>
                     <Icon name={i.severity === "error" ? "x" : i.severity === "warning" ? "alert" : "info"} />
                   </span>
                   <div className="grow col" style={{ gap: 2 }}>
                     <div>{i.message}</div>
-                    <div className="muted small">
-                      <strong>How to fix:</strong> {i.fix}
-                    </div>
+                    {i.fix ? (
+                      <div className="muted small">
+                        <strong>How to fix:</strong> {i.fix}
+                      </div>
+                    ) : null}
                     <div className="faint small">
-                      {i.entity.type.replace(/_/g, " ")}: <span className="mono">{i.entity.label}</span>
-                      {i.related.length ? ` · related: ${i.related.map((r) => r.label).join(", ")}` : ""}
+                      {String(i.entity?.type ?? "record").replace(/_/g, " ")}: <span className="mono">{i.entity?.label ?? ""}</span>
+                      {i.related?.length ? ` · related: ${i.related.map((r) => r.label).join(", ")}` : ""}
                       {i.field ? ` · field: ${i.field}` : ""}
                     </div>
                   </div>

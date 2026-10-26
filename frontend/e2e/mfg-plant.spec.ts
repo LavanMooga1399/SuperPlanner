@@ -39,26 +39,25 @@ async function assign(page: Page, o: { template: string; target: "group" | "line
   if (o.cost) await form.getByTestId("assignment-cost").fill(o.cost);
   const created = page.waitForResponse((r) => r.url().endsWith("/mfg/shift-assignments") && r.request().method() === "POST");
   await page.getByTestId("assignment-form-submit").click();
+  const rec = (await (await created).json()) as { id: string };
   expect((await created).status()).toBe(201);
-  // DEFECT (see the test.fail below): the new assignment re-opens in an "Edit shift assignment" dialog; close it
-  const edit = page.getByRole("dialog", { name: "Edit shift assignment" });
-  await page.waitForTimeout(300);
-  if (await edit.isVisible()) await edit.getByRole("button", { name: "Cancel" }).click();
+  // D2: the dialog closes and the new row is highlighted (not reopened for editing)
   await expect(form).toHaveCount(0);
+  await expect(page.locator(`[data-testid="assignment-row"][data-assignment-id="${rec.id}"]`)).toHaveClass(/mfg-selected/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
 test("3-shift template: night shift split across midnight in the weekly preview; assignments; month view; holiday", async ({ page, request }) => {
   test.setTimeout(150_000);
   await loadSample(request, "small");
-  const problems = watch(page, [/POST \/mfg\/shift-templates\/preview -> 422 .*"body","code"/, /status of 422/]);
+  // only the deliberate overlap below may be refused; a 422 about the (still empty) code / name must not happen (D3)
+  const problems = watch(page, [/POST \/mfg\/shift-templates\/preview -> 422 (?!.*"(code|name)")/, /status of 422/]);
   await createStageAndLines(page);
 
   // --- shift template from the "three shifts" pattern
   await gotoMfg(page, "/plant/shifts");
   await page.getByTestId("template-new").click();
-  // code and name first: the live preview of a template without them is refused (see the test.fail below)
-  await page.getByTestId("template-code").fill("3S-E2E");
-  await page.getByTestId("template-name").fill("Three shifts (e2e)");
+  // the pattern first: the live preview works before Code and Name are filled in (D3)
   await page.getByTestId("template-pattern").selectOption("three");
   await expect(page.getByTestId("shift-def")).toHaveCount(3);
   const preview = page.getByTestId("shift-week-preview");
@@ -75,6 +74,9 @@ test("3-shift template: night shift split across midnight in the weekly preview;
   await expect(weekSegments(page, "A", "none")).toHaveCount(12); // A is split by its meal break: 2 pieces x 6 days
   // the totals equal the server's preview (8,100 min = 135 h)
   await expect(page.getByTestId("shift-week-totals")).toContainText("135 h");
+  await expect(page.getByText("These shifts do not fit together")).toHaveCount(0);
+  await page.getByTestId("template-code").fill("3S-E2E");
+  await page.getByTestId("template-name").fill("Three shifts (e2e)");
   // editing a shift updates the preview: C ends at 07:00 overlaps A (06:00) -> server error shown, then fix
   await page.getByTestId("shift-def").nth(2).getByTestId("shift-end").fill("07:00");
   await expect(preview.or(page.getByTestId("mfg-error"))).toBeVisible();
@@ -166,8 +168,7 @@ test("stage and line selection from ?group= / ?line= and line edits (speed, elig
   expectClean(problems);
 });
 
-test("after Assign the shift-assignment dialog closes (does not reopen the new record for editing)", async ({ page, request }) => {
-  test.fail(true, "DEFECT: ShiftsPage onSaved selects ?assignment=<new id> and OpenSelected reopens it in an edit dialog");
+test("after Assign / Save the shift-assignment dialog closes and highlights the row; a ?assignment= deep link still opens the editor", async ({ page, request }) => {
   await loadSample(request, "small");
   const reg = await findByCode(request, "/shift-templates", "REG");
   const aoi = await findByCode(request, "/groups", "AOI");
@@ -180,18 +181,54 @@ test("after Assign the shift-assignment dialog closes (does not reopen the new r
   await form.getByTestId("assignment-kind").selectOption("optional");
   await form.getByTestId("assignment-from").fill("2027-02-01");
   await form.getByTestId("assignment-cost").fill("100");
+  const created = page.waitForResponse((r) => r.url().endsWith("/mfg/shift-assignments") && r.request().method() === "POST");
   await page.getByTestId("assignment-form-submit").click();
-  await expect(page.locator('[data-testid="assignment-row"]', { hasText: "AOI" }).filter({ hasText: /optional/i })).toBeVisible();
+  const rec = (await (await created).json()) as { id: string };
+  const row = page.locator(`[data-testid="assignment-row"][data-assignment-id="${rec.id}"]`);
+  await expect(row).toContainText(/optional/i);
+  await expect(row).toHaveClass(/mfg-selected/);
+  await expect(page).toHaveURL(new RegExp(`assignment=${rec.id}`));
   await page.waitForTimeout(500);
   await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 2_000 });
+
+  // editing and saving also closes the dialog and keeps the row highlighted
+  await row.getByTestId("assignment-edit").click();
+  const edit = page.getByRole("dialog", { name: "Edit shift assignment" });
+  await expect(edit).toBeVisible();
+  await edit.getByTestId("assignment-cost").fill("150");
+  const saved = page.waitForResponse((r) => r.url().endsWith(`/mfg/shift-assignments/${rec.id}`) && r.request().method() === "PUT");
+  await page.getByTestId("assignment-form-submit").click();
+  expect((await saved).status()).toBe(200);
+  await expect(row).toContainText("150");
+  await expect(row).toHaveClass(/mfg-selected/);
+  await page.waitForTimeout(500);
+  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 2_000 });
+
+  // a deep link (as built by the health page's Fix link) opens the editor of that assignment
+  await gotoMfg(page, `/plant/shifts?assignment=${rec.id}`);
+  await expect(page.getByRole("dialog", { name: "Edit shift assignment" })).toBeVisible();
+  await expect(page.getByTestId("assignment-cost")).toHaveValue("150");
 });
 
 test("new shift template: the week preview works before Code and Name are filled in", async ({ page, request }) => {
-  test.fail(true, "DEFECT: the preview POSTs code \"\" / name \"\" and shows 'These shifts do not fit together' (422)");
   await loadSample(request, "small");
+  const problems = watch(page);
   await gotoMfg(page, "/plant/shifts");
+  const previews: { code: unknown; name: unknown }[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/mfg/shift-templates/preview") && r.method() === "POST") previews.push(r.postDataJSON() as { code: unknown; name: unknown });
+  });
   await page.getByTestId("template-new").click();
   await page.getByTestId("template-pattern").selectOption("two");
   await expect(page.getByTestId("week-segment").first()).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId("shift-week-preview")).toHaveAttribute("data-loading", "false");
   await expect(page.getByText("These shifts do not fit together")).toHaveCount(0);
+  expect(previews.length).toBeGreaterThan(0);
+  for (const b of previews) expect(b.code && b.name, "preview carries placeholder code / name").toBeTruthy();
+  // a code with a character the server refuses does not break the preview either (it is never sent)
+  await page.getByTestId("template-code").fill("bad code!");
+  await page.getByTestId("shift-def").first().getByTestId("shift-end").fill("13:30");
+  await expect(page.getByTestId("shift-week-preview")).toHaveAttribute("data-loading", "false");
+  await expect(page.getByText("These shifts do not fit together")).toHaveCount(0);
+  expectClean(problems);
 });

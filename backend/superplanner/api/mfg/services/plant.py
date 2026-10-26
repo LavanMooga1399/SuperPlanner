@@ -35,18 +35,42 @@ def get_plant(ctx: AppContext) -> PlantRecord:
 
 def put_plant(ctx: AppContext, inp: PlantInput, if_match: str | None) -> PlantRecord:
     with write_tx(ctx, lock=False) as (s, _):
-        pre = s.execute(select(MfgPlantRow.row_version)).scalar()
-        row = repo.lock_plant(s)
-        current = row.row_version if pre is not None else 0
+        # "0" (nothing stored) only when this transaction inserted the row; a row created concurrently by another
+        # first write is compared by its row_version (review F4: no lost update between two first-time PUTs)
+        row, created = repo.lock_plant_created(s)
+        current = 0 if created else row.row_version
         check_version(row, if_match, current=current)
+        rebased = rebase_exceptions(s, row.utc_offset, inp.utc_offset) if not created else 0
         row.name, row.utc_offset = inp.name, inp.utc_offset
         row.planning_horizon_days, row.currency = inp.planning_horizon_days, inp.currency
         row.attributes = dict(inp.attributes)
         row.row_version = current + 1
         row.updated_at = utcnow()
         s.flush()
-        audit(s, "plant", row.id, "create" if current == 0 else "update", {"version": row.row_version})
+        details: dict[str, Any] = {"version": row.row_version}
+        if rebased:
+            details["rebased_exceptions"] = rebased
+        audit(s, "plant", row.id, "create" if current == 0 else "update", details)
         return repo.to_record(row)
+
+
+def rebase_exceptions(s: Session, old_offset: str, new_offset: str) -> int:
+    """Calendar exceptions are stored as UTC instants but entered and shown as plant-local wall-clock times, like
+    shift windows. When the plant offset changes, move every exception by (old - new offset) so it keeps its local
+    times (review F7); bumps their row_version. Returns the number of rows moved."""
+    if old_offset == new_offset:
+        return 0
+    delta = offset_tz(old_offset).utcoffset(None) - offset_tz(new_offset).utcoffset(None)
+    now = utcnow()
+    n = 0
+    for x in s.execute(select(MfgCalendarExceptionRow).order_by(MfgCalendarExceptionRow.id)).scalars():
+        x.start_at, x.end_at = x.start_at + delta, x.end_at + delta
+        x.row_version = (x.row_version or 0) + 1
+        x.updated_at = now
+        n += 1
+    if n:
+        s.flush()
+    return n
 
 
 def plant_offset(s: Session) -> str:
@@ -355,11 +379,54 @@ def update_template(ctx: AppContext, template_id: str, inp: ShiftTemplateInput, 
         check_version(row, if_match)
         ensure_unique(s, MfgShiftTemplateRow, "A shift template", {"code": inp.code}, exclude_id=row.id)
         _template_problems(inp)
+        check_shift_names_kept(s, row.id, row.code, {sh.name for sh in inp.shifts})
         _set_template(row, inp)
         touch(row)
         s.flush()
         audit(s, "shift_template", row.id, "update", {"version": row.row_version})
         return template_record(s, row)
+
+
+def shift_name_users(s: Session, template_id: str, names: set[str]) -> tuple[list[dict[str, Any]], list[str]]:
+    """Assignments and operators of the template whose `shift_names` name a shift outside `names`:
+    (`[{type, id, label, shift_names}]`, sorted missing names)."""
+    users: list[dict[str, Any]] = []
+    missing: set[str] = set()
+    asg = list(s.execute(select(MfgShiftAssignmentRow).where(MfgShiftAssignmentRow.shift_template_id == template_id)
+                         .order_by(MfgShiftAssignmentRow.id)).scalars())
+    groups, lines = _targets(s, {a.group_id for a in asg if a.group_id}, {a.line_id for a in asg if a.line_id})
+    tcode = s.execute(select(MfgShiftTemplateRow.code).where(MfgShiftTemplateRow.id == template_id)).scalar() or "?"
+    for a in asg:
+        gone = sorted(n for n in (a.shift_names or []) if n not in names)
+        if gone:
+            tgt = _target_ref(a.target_type, a.group_id, a.line_id, groups, lines)
+            users.append({"type": "shift_assignment", "id": a.id,
+                          "label": f"{tcode} on {tgt.code if tgt else '?'} ({a.kind})", "shift_names": gone})
+            missing.update(gone)
+    for o in s.execute(select(MfgOperatorRow).where(MfgOperatorRow.shift_template_id == template_id)
+                       .order_by(MfgOperatorRow.code, MfgOperatorRow.id)).scalars():
+        gone = sorted(n for n in (o.shift_names or []) if n not in names)
+        if gone:
+            users.append({"type": "operator", "id": o.id, "label": o.code, "shift_names": gone})
+            missing.update(gone)
+    return users, sorted(missing)
+
+
+def shift_names_in_use_error(template_code: str, users: list[dict[str, Any]], missing: list[str]) -> ApiError:
+    refs = {"shift_assignments": sum(u["type"] == "shift_assignment" for u in users),
+            "operators": sum(u["type"] == "operator" for u in users)}
+    refs = {k: v for k, v in refs.items() if v}
+    shown = ", ".join(u["label"] for u in users[:5]) + (f" and {len(users) - 5} more" if len(users) > 5 else "")
+    return ApiError(409, "MFG_IN_USE", f"Shift template {template_code}: shift {', '.join(missing)} is still used by "
+                    f"{shown}. Change those first (or keep the shift name).",
+                    {"references": refs, "shift_names": missing, "used_by": users})
+
+
+def check_shift_names_kept(s: Session, template_id: str, template_code: str, names: set[str]) -> None:
+    """409 `MFG_IN_USE` when renaming/removing a shift still named by assignments or operators (review F2)."""
+    users, missing = shift_name_users(s, template_id, names)
+    if users:
+        raise shift_names_in_use_error(template_code, users, missing)
 
 
 def delete_template(ctx: AppContext, template_id: str, if_match: str | None) -> None:

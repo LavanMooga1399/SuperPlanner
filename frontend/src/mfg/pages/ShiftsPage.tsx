@@ -283,10 +283,13 @@ function AssignmentsCard({
   const [del, setDel] = useState<ShiftAssignmentRecord | null>(null);
   const [delError, setDelError] = useState<unknown>(null);
   const tableRef = useRef<HTMLTableElement>(null);
-  /** The `?assignment=` id already handled; ids selected from inside this page are marked here so they only highlight. */
-  const opened = useRef<string | null>(null);
+  /**
+   * `?assignment=` ids already handled. Ids selected from inside this page are added before the URL changes, so
+   * they only highlight their row; the URL update is asynchronous, so the previous selection must stay marked too.
+   */
+  const handled = useRef<Set<string>>(new Set());
   const selectInPage = (id: string) => {
-    opened.current = id;
+    handled.current.add(id);
     onSelect(id);
   };
 
@@ -396,7 +399,7 @@ function AssignmentsCard({
           }}
         />
       ) : null}
-      <OpenSelected selectedId={selectedId} assignments={assignments} editing={editing} opened={opened} onOpen={setEditing} />
+      <OpenSelected selectedId={selectedId} assignments={assignments} editing={editing} handled={handled} onOpen={setEditing} />
       {del ? (
         <ConfirmDialog
           title="Remove this shift assignment?"
@@ -424,29 +427,29 @@ function AssignmentsCard({
 
 /**
  * `?assignment=` from a health link (deep link) opens that assignment's form once. Selections made inside the page
- * (after Assign / Save / Edit) are recorded in `opened` beforehand, so they only highlight the row.
+ * (after Assign / Save / Edit) are recorded in `handled` beforehand, so they only highlight the row.
  */
 function OpenSelected({
   selectedId,
   assignments,
   editing,
-  opened,
+  handled,
   onOpen,
 }: {
   selectedId: string | null;
   assignments: ShiftAssignmentRecord[];
   editing: unknown;
-  opened: { current: string | null };
+  handled: { current: Set<string> };
   onOpen(a: ShiftAssignmentRecord): void;
 }) {
   useEffect(() => {
-    if (!selectedId || editing || opened.current === selectedId) return;
+    if (!selectedId || editing || handled.current.has(selectedId)) return;
     const a = assignments.find((x) => x.id === selectedId);
     if (a) {
-      opened.current = selectedId;
+      handled.current.add(selectedId);
       onOpen(a);
     }
-  }, [selectedId, assignments, editing, opened, onOpen]);
+  }, [selectedId, assignments, editing, handled, onOpen]);
   return null;
 }
 

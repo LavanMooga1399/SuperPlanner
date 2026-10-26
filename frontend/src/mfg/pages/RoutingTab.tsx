@@ -3,7 +3,7 @@
  * `RoutingEditor` for the selected routing (draft: editable; released/obsolete: read-only banner + Copy) and
  * `OperationTimePreview`.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Banner } from "../../components/Banner";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -106,9 +106,16 @@ export function RoutingTab() {
   const [pending, setPending] = useState<Pending>(null);
   const [actionError, setActionError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  /** Id of the routing whose editor has unsaved edits (reported by `RoutingDocument`). */
+  const [dirtyId, setDirtyId] = useState<string | null>(null);
+  const [discardFor, setDiscardFor] = useState<string | null>(null);
 
   const routings = list.data?.items ?? [];
   const selectedId = routingParam ?? routings.find((r) => r.status === "released" && r.priority === 1)?.id ?? routings[0]?.id ?? null;
+  // Release / Copy / Obsolete / Delete reload the list and remount the editor, which would drop unsaved operation
+  // edits; they are disabled until the edits are saved or undone (like Release on the BOM editor).
+  const dirty = dirtyId !== null && dirtyId === selectedId;
+  const selectedCode = routings.find((r) => r.id === selectedId);
   const selected = useLoad((signal) => (selectedId ? getRouting(selectedId, signal) : null), [selectedId, list.data]);
 
   // Operation numbers that this item's BOM lines consume at (for the reorder warning).
@@ -140,6 +147,11 @@ export function RoutingTab() {
       },
       { replace: true },
     );
+  /** Picking another routing while the open one has unsaved edits asks first. */
+  const requestSelect = (id: string) => {
+    if (dirty && id !== selectedId) setDiscardFor(id);
+    else select(id);
+  };
 
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -170,7 +182,8 @@ export function RoutingTab() {
           <button
             type="button"
             className="btn sm primary"
-            disabled={busy}
+            disabled={busy || dirty}
+            title={dirty ? "Save or undo the changes of the open routing first" : undefined}
             onClick={() =>
               void act(async () => {
                 const r = await createRouting({ item_id: item.id, operations: [] });
@@ -184,11 +197,17 @@ export function RoutingTab() {
         </div>
         <MfgError error={list.error} onRetry={list.reload} />
         <MfgError error={actionError} title="The action failed" />
+        {dirty ? (
+          <p className="small mfg-problem-list" role="status" style={{ margin: 0, padding: "8px 16px" }} data-testid="routing-unsaved-hint">
+            <Icon name="alert" size={12} /> {selectedCode ? `${selectedCode.code} v${selectedCode.version}` : "The open routing"} has unsaved changes. Save or undo
+            them before releasing, copying or removing a routing.
+          </p>
+        ) : null}
         {routings.length === 0 && !list.loading ? <div className="card-body muted">No routing yet. Create one to describe how this item is made, step by step.</div> : null}
         <ul className="mfg-plain-list mfg-version-list">
           {routings.map((r) => (
             <li key={r.id} className={`mfg-version${r.id === selectedId ? " mfg-selected" : ""}`} data-testid={`routing-version-${r.id}`} data-status={r.status}>
-              <button type="button" className="mfg-version-main" onClick={() => select(r.id)} aria-pressed={r.id === selectedId}>
+              <button type="button" className="mfg-version-main" onClick={() => requestSelect(r.id)} aria-pressed={r.id === selectedId}>
                 <strong>
                   {r.code} v{r.version}
                 </strong>
@@ -201,14 +220,15 @@ export function RoutingTab() {
               </button>
               <span className="row">
                 {r.status === "draft" ? (
-                  <button type="button" className="btn sm" onClick={() => setPending({ kind: "release", r })} disabled={busy} data-testid="routing-release">
+                  <button type="button" className="btn sm" onClick={() => setPending({ kind: "release", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} data-testid="routing-release">
                     <Icon name="check" /> Release
                   </button>
                 ) : null}
                 <button
                   type="button"
                   className="btn sm"
-                  disabled={busy}
+                  disabled={busy || dirty}
+                  title={dirty ? "Save or undo your changes first" : undefined}
                   onClick={() =>
                     void act(async () => {
                       const c = await copyRouting(r.id, { revision: null, code: null }, r.row_version);
@@ -220,11 +240,11 @@ export function RoutingTab() {
                   <Icon name="copy" /> Copy
                 </button>
                 {r.status === "released" ? (
-                  <button type="button" className="btn sm ghost" onClick={() => setPending({ kind: "obsolete", r })} disabled={busy} data-testid="routing-obsolete">
+                  <button type="button" className="btn sm ghost" onClick={() => setPending({ kind: "obsolete", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} data-testid="routing-obsolete">
                     <Icon name="ban" /> Make obsolete
                   </button>
                 ) : (
-                  <button type="button" className="btn sm ghost icon" onClick={() => setPending({ kind: "delete", r })} disabled={busy} aria-label={`Delete ${r.code} v${r.version}`} data-testid="routing-delete">
+                  <button type="button" className="btn sm ghost icon" onClick={() => setPending({ kind: "delete", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} aria-label={`Delete ${r.code} v${r.version}`} data-testid="routing-delete">
                     <Icon name="trash" />
                   </button>
                 )}
@@ -246,6 +266,7 @@ export function RoutingTab() {
           selectedSeq={opParam ? Number(opParam) : null}
           referenced={referenced}
           onSaved={() => list.reload()}
+          onDirtyChange={(id, d) => setDirtyId((cur) => (d ? id : cur === id ? null : cur))}
           onCopied={(id) => {
             list.reload();
             select(id);
@@ -253,6 +274,22 @@ export function RoutingTab() {
         />
       ) : null}
 
+      {discardFor ? (
+        <ConfirmDialog
+          title="Discard unsaved changes?"
+          confirmLabel="Discard changes"
+          danger
+          onCancel={() => setDiscardFor(null)}
+          onConfirm={() => {
+            const id = discardFor;
+            setDiscardFor(null);
+            setDirtyId(null);
+            select(id);
+          }}
+        >
+          <p style={{ margin: 0 }}>The open routing has operation edits that are not saved yet.</p>
+        </ConfirmDialog>
+      ) : null}
       {pending?.kind === "release" ? (
         <ReleaseDialog
           what={`${pending.r.code} v${pending.r.version}`}
@@ -289,6 +326,7 @@ function RoutingDocument({
   referenced,
   onSaved,
   onCopied,
+  onDirtyChange,
 }: {
   routing: RoutingRecord;
   groups: GroupRecord[];
@@ -298,6 +336,7 @@ function RoutingDocument({
   referenced: Set<number>;
   onSaved(): void;
   onCopied(id: string): void;
+  onDirtyChange(routingId: string, dirty: boolean): void;
 }) {
   const [base, setBase] = useState(routing);
   const [header, setHeader] = useState(() => toHeader(routing));
@@ -320,6 +359,16 @@ function RoutingDocument({
 
   const input = toInput(base, header, ops);
   const dirty = JSON.stringify(input) !== JSON.stringify(toInput(base, toHeader(base), base.operations.map(opToDraft)));
+  const dirtyRef = useRef(onDirtyChange);
+  dirtyRef.current = onDirtyChange;
+  useEffect(() => {
+    dirtyRef.current(base.id, dirty);
+  }, [base.id, dirty]);
+  useEffect(() => {
+    const id = base.id;
+    return () => dirtyRef.current(id, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const problems = ops.map((o) => ({ seq: o.seq, p: opProblems(o) })).filter((x) => x.p.length);
   const seqs = ops.map((o) => o.seq);
   const duplicateSeq = seqs.some((s, i) => seqs.indexOf(s) !== i);

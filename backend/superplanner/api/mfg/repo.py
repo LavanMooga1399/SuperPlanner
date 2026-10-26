@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ...mfg.bom import split_alternates
 from ...mfg.calendar import offset_tz
 from ...mfg.dataset import BomIndex, MfgDataset, ParentIndex, item_ref, link, pick_effective, primary_ops_of
 from ...mfg.limits import SQL_IN_CHUNK
@@ -59,6 +60,13 @@ def lock_plant(s: Session) -> MfgPlantRow:
     """Write path (6.1): lock the owner's plant row `FOR NO KEY UPDATE` (the per-owner mutex), creating the default
     row inside a savepoint if absent (a concurrent first write that loses the `uq_mfg_plant_owner` race rolls the
     savepoint back and locks the winner's row), then bump `data_version`. Call once per write transaction, first."""
+    return lock_plant_created(s)[0]
+
+
+def lock_plant_created(s: Session) -> tuple[MfgPlantRow, bool]:
+    """`lock_plant` that also reports whether the row was inserted by this transaction (False when it existed or a
+    concurrent first write won the insert race) - `PUT /plant` with `If-Match: "0"` relies on it (review F4)."""
+    created = False
     row = _select_plant_locked(s)
     if row is None:
         d = PlantInput()
@@ -70,6 +78,7 @@ def lock_plant(s: Session) -> MfgPlantRow:
                                   data_version=0, row_version=1, created_at=now, updated_at=now)
                 s.add(row)
                 s.flush()
+            created = True
         except IntegrityError as exc:
             if not is_unique_violation(exc, "uq_mfg_plant_owner", "mfg_plant.owner_id"):
                 raise
@@ -78,7 +87,7 @@ def lock_plant(s: Session) -> MfgPlantRow:
                 raise
     row.data_version = (row.data_version or 0) + 1
     s.flush()
-    return row
+    return row, created
 
 
 def get_row(s: Session, model: Any, row_id: str, *, what: str, lock: bool = False) -> Any:
@@ -333,8 +342,8 @@ def load_bom_index_down(s: Session, root_item_id: str, on: date, serial: int | N
         if level >= MAX_BOM_DEPTH:      # explode cuts here (MFG_BOM_TOO_DEEP); deeper items are never needed
             break
         frontier = [ln.child_item_id for b in chosen.values() for ln in b.lines]
-        descend = {ln.child_item_id for b in chosen.values() for ln in b.lines
-                   if ln.alt_group is None or ln.alt_priority == 1}
+        # the row line of each alternate group exactly as `explode` picks it (defensively: the lowest priority)
+        descend = {row.child_item_id for b in chosen.values() for row, _alts in split_alternates(b.lines)}
         level += 1
     makes = [i for i, it in items.items() if it.make_buy == "make"]
     by_item: dict[str, list[RoutingRecord]] = {}

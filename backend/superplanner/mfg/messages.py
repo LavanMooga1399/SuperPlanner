@@ -1,5 +1,6 @@
 """Health-check codes (M1-DESIGN 7.2): severity, plain-language message templates and fixes. Codes are stable;
-wording may improve. Release-only codes (`MFG_BOM_EMPTY`, `MFG_SERIAL_NOT_ALLOWED`) are listed after the 40."""
+wording may improve. 43 health codes (the 40 of 7.2 plus `MFG_ASSIGNMENT_UNKNOWN_SHIFT`, `MFG_OPERATOR_UNKNOWN_SHIFT`
+and `MFG_SERIAL_NOT_ALLOWED`, added by the M1 fix round); the release-only code `MFG_BOM_EMPTY` is listed last."""
 
 from __future__ import annotations
 
@@ -66,6 +67,14 @@ CODES: tuple[CodeInfo, ...] = (
        "operator has.", "Add the skill to an operator."),
     _C("MFG_TOOL_SHORT", "error", "operation", "Operation {op} of {pn} needs {need} of tool {tool}, but only "
        "{have} exist.", "Increase the tool quantity or reduce the need."),
+    _C("MFG_ASSIGNMENT_UNKNOWN_SHIFT", "error", "shift_assignment", "Shift assignment {tpl} on {target} names "
+       "{names}, which template {tpl} does not have, so that time is never planned.",
+       "Pick shifts of the template in the assignment, or add the shifts back to the template."),
+    _C("MFG_OPERATOR_UNKNOWN_SHIFT", "error", "operator", "Operator {op} works {names}, which template {tpl} does "
+       "not have, so the operator is never on shift then.",
+       "Pick shifts of the template for the operator, or add the shifts back to the template."),
+    _C("MFG_SERIAL_NOT_ALLOWED", "error", "item", "{pn} is not serialized, so {what} {doc} cannot have a serial "
+       "range.", "Remove the serial range or mark the item as serialized."),
     _C("MFG_ASSIGNMENT_INACTIVE_TARGET", "warning", "shift_assignment", "Shift assignment {tpl} on {target} has no "
        "effect because the {ttype} is inactive.", "Delete the assignment or activate the target."),
     _C("MFG_OPERATION_SEQ_REF", "warning", "bom_line", "BOM {doc} of {pn}, find {fn}: operation {seq} does not exist "
@@ -106,10 +115,9 @@ CODES: tuple[CodeInfo, ...] = (
     _C("MFG_DRAFT_ONLY", "info", "item", "Item {pn} has only draft {what}.", "Release when ready."),
     # release-only codes (4.2)
     _C("MFG_BOM_EMPTY", "error", "bom", "BOM {doc} of {pn} has no lines.", "Add lines before releasing."),
-    _C("MFG_SERIAL_NOT_ALLOWED", "error", "item", "{pn} is not serialized, so {what} {doc} cannot have a serial "
-       "range.", "Remove the serial range or mark the item as serialized."),
 )
-HEALTH_CODES: tuple[str, ...] = tuple(c.code for c in CODES[:40])
+RELEASE_ONLY_CODES: tuple[str, ...] = ("MFG_BOM_EMPTY",)
+HEALTH_CODES: tuple[str, ...] = tuple(c.code for c in CODES if c.code not in RELEASE_ONLY_CODES)
 CODE_INFO: dict[str, CodeInfo] = {c.code: c for c in CODES}
 CODE_ORDER: dict[str, int] = {c.code: i for i, c in enumerate(CODES)}
 SEVERITY_ORDER = {"error": 0, "warning": 1, "info": 2}

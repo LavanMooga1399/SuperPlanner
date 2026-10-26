@@ -14,11 +14,11 @@ Scope rules (interpretations recorded in M 17.WP-A):
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 from .bom import find_cycles, refdes_count
-from .calendar import (DAY, _clip_merge, line_detail, longest_window, operator_intervals, subtract, union)
+from .calendar import (DAY, _clip_merge, add_days, line_detail, longest_window, operator_intervals, subtract, union)
 from .dataset import (MfgDataset, date_window_contains, fingerprint, is_effective, line_sort_key, pick_effective,
                       windows_overlap)
 from .limits import MAX_BOM_DEPTH, MAX_HEALTH_ISSUES, SKILL_COVERAGE_TOLERANCE_MINUTES
@@ -176,7 +176,7 @@ class _Check:
     def __init__(self, ds: MfgDataset, as_of: date, horizon_days: int):
         self.ds = ds
         self.as_of = as_of
-        self.h1 = as_of + timedelta(days=horizon_days)
+        self.h1 = add_days(as_of, horizon_days)
         self.issues: list[HealthIssue] = []
         self._details: dict[str, Any] = {}
         self._intervals: dict[str, list[tuple[int, int, str, str]]] = {}
@@ -240,6 +240,8 @@ def run_health_check(ds: MfgDataset, as_of: date, horizon_days: int) -> HealthRe
     _bom_lines(c, live_boms, drafts_and_live, released_boms)
     _simple_items(c, child_of_non_obs)
     _routing_warnings(c)
+    _unknown_shift_names(c)
+    _serial_ranges(c)
 
     issues = sort_issues(c.issues)
     counts = HealthCounts.model_construct(error=0, warning=0, info=0)
@@ -421,7 +423,7 @@ def _operations(c: _Check, ops: list[tuple[RoutingRecord, OperationRecord, ItemR
                         c.add("MFG_UNINTERRUPTIBLE_LOT_TOO_LONG", "operation", op.id,
                               related=[eref(ds, "group", op.group_id)], op=opname, pn=it.part_number,
                               need=f"{need:g}", qty=f"{lot:g}", group=gcode, longest=longest)
-    d0, d1 = fmt_date(c.as_of), fmt_date(c.h1 - timedelta(days=1))
+    d0, d1 = fmt_date(c.as_of), fmt_date(add_days(c.h1, -1))
     for gid in sorted(group_lines, key=lambda g: ds.groups[g].code if g in ds.groups else g):
         g = ds.groups.get(gid)
         if g is None or not group_lines[gid]:
@@ -651,6 +653,57 @@ def _routing_warnings(c: _Check) -> None:
                 c.add("MFG_ZERO_TIME_OPERATION", "operation", op.id, op=f"{op.seq} {op.name}", pn=it.part_number)
         if y < 0.5:
             c.add("MFG_LOW_YIELD", "routing", r.id, doc=doc_label(r), pn=it.part_number, pct=f"{y * 100:.1f}")
+
+
+def _names(missing: list[str]) -> str:
+    return ", ".join(missing[:-1]) + " and " + missing[-1] if len(missing) > 1 else missing[0]
+
+
+def _unknown_shift_names(c: _Check) -> None:
+    """Assignments (not expired) and active operators whose `shift_names` are not shifts of their template: that
+    time silently never exists (review F2)."""
+    ds = c.ds
+    for a in sorted(ds.shift_assignments.values(), key=lambda a: a.id):
+        if a.effective_to is not None and a.effective_to <= c.as_of:
+            continue
+        t = ds.shift_templates.get(a.shift_template_id)
+        if t is None:
+            continue
+        known = {sh.name for sh in t.shifts}
+        missing = [n for n in a.shift_names if n not in known]
+        if missing:
+            tgt = ds.groups.get(a.group_id or "") if a.target_type == "group" else ds.lines.get(a.line_id or "")
+            c.add("MFG_ASSIGNMENT_UNKNOWN_SHIFT", "shift_assignment", a.id, field="shift_names",
+                  related=[eref(ds, "shift_template", t.id)], tpl=t.code, target=tgt.code if tgt else "?",
+                  names=_names(missing))
+    for o in sorted(ds.operators.values(), key=lambda o: o.id):
+        if not o.active or o.shift_template_id is None:
+            continue
+        t = ds.shift_templates.get(o.shift_template_id)
+        if t is None:
+            continue
+        known = {sh.name for sh in t.shifts}
+        missing = [n for n in o.shift_names if n not in known]
+        if missing:
+            c.add("MFG_OPERATOR_UNKNOWN_SHIFT", "operator", o.id, field="shift_names",
+                  related=[eref(ds, "shift_template", t.id)], op=o.code, tpl=t.code, names=_names(missing))
+
+
+def _serial_ranges(c: _Check) -> None:
+    """Released, not expired BOMs/routings with a serial range on an active item that is not serialized (review
+    F5; the same rule blocks release)."""
+    ds = c.ds
+    docs = [("BOM", "bom", b) for b in ds.boms.values()] + [("routing", "routing", r) for r in ds.routings.values()]
+    for what, typ, d in sorted(docs, key=lambda x: x[2].id):
+        if d.status != "released" or d.serial_from is None:
+            continue
+        if d.effective_to is not None and d.effective_to <= c.as_of:
+            continue
+        it = ds.items.get(d.item_id)
+        if it is None or not it.active or it.serialized:
+            continue
+        c.add("MFG_SERIAL_NOT_ALLOWED", "item", it.id, field="serial_from", related=[eref(ds, typ, d.id)],
+              link=entity_link(ds, typ, d.id), pn=it.part_number, what=what, doc=doc_label(d))
 
 
 __all__ = ["doc_label", "entity_label", "entity_link", "is_effective", "date_window_contains", "make_issue",

@@ -1,11 +1,12 @@
 /**
  * Editable single-level BOM line grid (M 11.2): plain table up to 100 lines, `VirtualTable` above that.
- * Add / duplicate / delete rows; picking a component fills its unit. Rows with errors (client checks or the
+ * Add / duplicate / delete rows; picking a component fills its unit (see `uomAfterChildChange`). Rows with errors (client checks or the
  * server's `loc: ["body","lines",i,...]`) are marked and described in text.
  */
 import { useMemo, type ReactNode } from "react";
 import { Icon } from "../../components/Icon";
 import type { ItemRef } from "../api/types";
+import { useMeta } from "../lib/useMfg";
 import { ItemPicker } from "./ItemPicker";
 import { VirtualTable, type Column } from "./VirtualTable";
 
@@ -50,6 +51,19 @@ export function blankLine(lines: LineDraft[]): LineDraft {
   };
 }
 
+/**
+ * The unit of a line after its component is replaced. A unit the user chose explicitly (different from the old
+ * component's own unit) is kept only when it measures the same dimension as the new component's unit (e.g. M vs MM);
+ * otherwise the line takes the new component's unit, so an EA line switched to a cable sold in M becomes M.
+ */
+export function uomAfterChildChange(line: Pick<LineDraft, "uom" | "child">, next: Pick<ItemRef, "uom">, dimensionOf: (uom: string) => string | undefined): string {
+  const explicit = Boolean(line.uom) && Boolean(line.child) && line.uom !== line.child?.uom;
+  if (!explicit) return next.uom;
+  const a = dimensionOf(line.uom);
+  const b = dimensionOf(next.uom);
+  return a !== undefined && a === b ? line.uom : next.uom;
+}
+
 /** Client-side checks per line (empty = fine). */
 export function lineProblems(l: LineDraft): string[] {
   const p: string[] = [];
@@ -81,6 +95,8 @@ export function BomLinesGrid({
   serverErrors: Map<number, string[]>;
   scrollTo: { index: number; seq: number } | null;
 }) {
+  const meta = useMeta();
+  const dimensions = useMemo(() => new Map(meta?.uoms.map((u) => [u.code, u.dimension]) ?? []), [meta]);
   const update = (i: number, patch: Partial<LineDraft>) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const remove = (i: number) => onChange(lines.filter((_, j) => j !== i));
   const duplicate = (i: number) => {
@@ -119,7 +135,7 @@ export function BomLinesGrid({
               hideLabel
               excludeId={parentId}
               testId="bom-line-child"
-              onChange={(it) => update(i, { child: it, uom: l.uom && l.child ? l.uom : it.uom })}
+              onChange={(it) => update(i, { child: it, uom: uomAfterChildChange(l, it, (u) => dimensions.get(u)) })}
             />
           ),
       },
@@ -165,7 +181,7 @@ export function BomLinesGrid({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [lines, readOnly, parentId, uoms],
+    [lines, readOnly, parentId, uoms, dimensions],
   );
 
   const extras = (l: LineDraft, i: number) => {

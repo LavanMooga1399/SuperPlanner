@@ -9,7 +9,7 @@ import { ApiError } from "../../api/client";
 import { Banner } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
 import { commitImport, deleteImport, getImport, putImportMapping } from "../api/client";
-import type { ImportMappingRequest, ImportRecord } from "../api/types";
+import type { ImportMappingRequest, ImportPreview as PreviewData, ImportRecord, RowError } from "../api/types";
 import { ExportButtons, TemplateButtons } from "../components/ExportButtons";
 import { MfgError, Spinner } from "../components/Feedback";
 import { ImportMapping, mappingBlocked } from "../components/ImportMapping";
@@ -22,6 +22,24 @@ import { mfgPaths } from "../lib/paths";
 import { isConflict, isNotFound, useLoad, useMeta } from "../lib/useMfg";
 
 type Step = "upload" | "map" | "preview" | "done";
+
+/**
+ * A commit refused with 409 `MFG_IMPORT_HAS_ERRORS` (the data changed between preview and commit) carries
+ * `details: {row_errors, error_count}`: fold them into the shown preview so it no longer says "Ready to import".
+ */
+export function previewWithCommitErrors(preview: PreviewData | null, details: Record<string, unknown>): PreviewData {
+  const rowErrors = Array.isArray(details.row_errors) ? (details.row_errors as RowError[]) : [];
+  const count = typeof details.error_count === "number" ? details.error_count : rowErrors.length;
+  const base: PreviewData = preview ?? { ok: false, counts: {}, error_count: 0, row_errors: [], warnings: [], changes_sample: [] };
+  const counts = { ...base.counts };
+  const rowsPerSheet = new Map<string, Set<number>>();
+  for (const e of rowErrors) {
+    if (!rowsPerSheet.has(e.sheet)) rowsPerSheet.set(e.sheet, new Set());
+    rowsPerSheet.get(e.sheet)!.add(e.row);
+  }
+  for (const [sheet, rows] of rowsPerSheet) if (counts[sheet]) counts[sheet] = { ...counts[sheet], error: Math.max(counts[sheet].error, rows.size) };
+  return { ...base, ok: false, counts, row_errors: rowErrors, error_count: Math.max(count, 1) };
+}
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "upload", label: "Upload" },
@@ -127,6 +145,8 @@ function ImportSession({ importId }: { importId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Set when the commit was refused because the data changed after the preview. */
+  const [staleCommit, setStaleCommit] = useState(false);
 
   useEffect(() => {
     if (loaded.data) {
@@ -192,7 +212,23 @@ function ImportSession({ importId }: { importId: string }) {
       setRec(next);
       go("done");
     } catch (e) {
-      if (e instanceof ApiError && e.code === "MFG_IMPORT_ALREADY_COMMITTED") {
+      if (e instanceof ApiError && e.code === "MFG_IMPORT_HAS_ERRORS") {
+        // the data changed since the preview: show the server's row errors right away and keep commit disabled
+        const shown = { ...rec, preview: previewWithCommitErrors(rec.preview, e.details) };
+        setRec(shown);
+        setStaleCommit(true);
+        // then re-check the mapping against the current data for complete counts (the details may be truncated)
+        try {
+          const fresh = await putImportMapping(rec.id, mapping, rec.row_version);
+          if (fresh.preview) {
+            setRec(fresh);
+            setMapping(initialMapping(fresh));
+            setStaleCommit(fresh.preview.error_count > 0);
+          }
+        } catch {
+          /* keep the errors from the refused commit */
+        }
+      } else if (e instanceof ApiError && e.code === "MFG_IMPORT_ALREADY_COMMITTED") {
         await refresh("This import was already saved.").catch(setError);
         go("done");
       } else if (isConflict(e)) {
@@ -247,6 +283,7 @@ function ImportSession({ importId }: { importId: string }) {
         <>
           {errors > 0 ? (
             <Banner tone="danger" icon="x" title="Fix these rows before importing" testId="import-has-errors">
+              {staleCommit ? "The data changed after the preview, so these rows can no longer be imported. Nothing was saved. " : null}
               Nothing is saved while the file has errors. Correct them in your file and upload it again (your column mapping is kept), or change the mapping.
             </Banner>
           ) : (

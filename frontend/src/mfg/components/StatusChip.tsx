@@ -42,8 +42,13 @@ const SEVERITY: Record<Severity, { label: string; tone: Tone; icon: IconName }> 
   info: { label: "Info", tone: "info", icon: "info" },
 };
 
+/** Unknown severities (a newer server) render as a neutral "Note" instead of failing. */
+function severityMeta(severity: Severity): { label: string; tone: Tone; icon: IconName } {
+  return SEVERITY[severity] ?? { label: String(severity || "Note"), tone: "info", icon: "info" };
+}
+
 export function SeverityBadge({ severity, label }: { severity: Severity; label?: string }) {
-  const m = SEVERITY[severity];
+  const m = severityMeta(severity);
   return (
     <span className={`badge ${m.tone}`} data-severity={severity}>
       <Icon name={m.icon} />
@@ -53,7 +58,7 @@ export function SeverityBadge({ severity, label }: { severity: Severity; label?:
 }
 
 export function severityIcon(severity: Severity): IconName {
-  return SEVERITY[severity].icon;
+  return severityMeta(severity).icon;
 }
 
 export function ActiveBadge({ active }: { active: boolean }) {

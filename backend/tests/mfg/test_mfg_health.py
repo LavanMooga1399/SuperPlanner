@@ -1,4 +1,4 @@
-"""Data-health check (M1-DESIGN 7; PLAN-M1 A3-1): each of the 40 codes has a fixture that raises it and a minimal
+"""Data-health check (M1-DESIGN 7; PLAN-M1 A3-1): each of the 43 codes (40 of 7.2 + 3 of the M1 fix round) has a fixture that raises it and a minimal
 change that clears it; ordering, truncation, counts; links match the frontend routes of 11.1; T-S1..T-S6 (R1)."""
 
 from __future__ import annotations
@@ -256,6 +256,9 @@ CASES: list[tuple[str, Callable[[Builder], None], Callable[[Builder], None]]] = 
     ("MFG_PHANTOM_NO_BOM", _phantom, lambda b: b.bom("K", [line(10, "C", 1)])),
     ("MFG_SKILL_NO_OPERATOR", _set("operators", "active", False), _set("operators", "active", True)),
     ("MFG_TOOL_SHORT", _tool(0), _tool(1)),
+    ("MFG_SERIAL_NOT_ALLOWED", _both(_set("boms", "serial_from", 1, parent_part_number="P"),
+                                     _set("boms", "serial_to", 99, parent_part_number="P")),
+     _set("items", "serialized", True, part_number="P")),
     ("MFG_ASSIGNMENT_INACTIVE_TARGET", _inactive_line_assignment, _set("lines", "active", True, code="L2")),
     ("MFG_OPERATION_SEQ_REF", _set("bom_lines", "operation_seq", 99), _set("bom_lines", "operation_seq", 10)),
     ("MFG_SKILL_NOT_ON_SHIFT", _both(_eve(300.0), _set("operators", "shift_template_code", "REG")),
@@ -286,8 +289,33 @@ CASES: list[tuple[str, Callable[[Builder], None], Callable[[Builder], None]]] = 
 ]
 
 
-def test_cases_cover_all_40_codes():
-    assert [c for c, _, _ in CASES] == list(HEALTH_CODES) and len(HEALTH_CODES) == 40
+# codes a valid bundle cannot express (bundle_to_dataset refuses unknown shift names): tested on the dataset below
+DATASET_ONLY = ("MFG_ASSIGNMENT_UNKNOWN_SHIFT", "MFG_OPERATOR_UNKNOWN_SHIFT")
+
+
+def test_cases_cover_all_43_codes():
+    assert [c for c, _, _ in CASES] == [c for c in HEALTH_CODES if c not in DATASET_ONLY] and len(HEALTH_CODES) == 43
+
+
+@pytest.mark.parametrize("code", DATASET_ONLY)
+def test_unknown_shift_names_raised_and_cleared(code):
+    """Review F2: an assignment / operator naming a shift its template no longer has (the template was edited
+    around the service check, e.g. by older data) is an error; the time silently never exists otherwise."""
+    ds = ds_of(base_plant())
+    a = next(iter(ds.shift_assignments.values()))
+    o = next(iter(ds.operators.values()))
+    target = a if code == "MFG_ASSIGNMENT_UNKNOWN_SHIFT" else o
+    target.shift_names = ["Day", "Night"]
+    r = run_health_check(ds, AS_OF, 90)
+    hits = [i for i in r.issues if i.code == code]
+    assert len(hits) == 1 and not r.ok and "Night" in hits[0].message and "Day," not in hits[0].message
+    info = CODE_INFO[code]
+    assert hits[0].severity == "error" and hits[0].entity.type == info.entity == ("shift_assignment" if target is a
+                                                                                   else "operator")
+    assert hits[0].field == "shift_names" and [x.type for x in hits[0].related] == ["shift_template"]
+    assert_link(hits[0].link)
+    target.shift_names = ["Day"]
+    assert code not in run_health_check(ds, AS_OF, 90).by_code
 
 
 @pytest.mark.parametrize("code,brk,fix", CASES, ids=[c for c, _, _ in CASES])

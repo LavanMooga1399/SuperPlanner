@@ -20,6 +20,13 @@ def hhmm(s: str) -> int:
     return int(h) * 60 + int(m)
 
 
+def add_days(d: date, n: int) -> date:
+    """`d + n days`, saturating at `date.min` / `date.max` instead of raising OverflowError (inputs are bounded to
+    `limits.MIN_DATE..MAX_DATE`; this keeps the internal arithmetic total for any stored value)."""
+    o = d.toordinal() + n
+    return date.fromordinal(min(max(o, 1), date.max.toordinal()))
+
+
 def offset_tz(utc_offset: str) -> timezone:
     sign = -1 if utc_offset[0] == "-" else 1
     h, m = utc_offset[1:].split(":")
@@ -241,7 +248,7 @@ def line_detail(ds: MfgDataset, line_id: str, d0: date, d1: date, kinds: tuple[s
     group_asg = [a for a in ds.shift_assignments.values() if a.target_type == "group" and a.group_id == line.group_id
                  and (group is None or group.active)]
     raw: dict[str, list[tuple[int, int, str, str, ShiftAssignmentRecord]]] = {"base": [], "optional": []}
-    d = d0 - timedelta(days=1)
+    d = add_days(d0, -1)
     while d < d1:
         for kind in ("base", "optional"):
             src = [a for a in line_asg if a.kind == kind and _assignment_active(a, d)]
@@ -250,7 +257,9 @@ def line_detail(ds: MfgDataset, line_id: str, d0: date, d1: date, kinds: tuple[s
             for a in src:
                 for s, e, name, tcode in _instances(ds, a.shift_template_id, a.shift_names, d):
                     raw[kind].append((s, e, name, tcode, a))
-        d += timedelta(days=1)
+        if d == date.max:
+            break
+        d = add_days(d, 1)
     # exceptions (plant, the line's group, the line)
     exc: list[Interval] = []
     for x in ds.calendar_exceptions.values():
@@ -346,13 +355,15 @@ def operator_intervals(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> 
         return []
     lo, hi = d0.toordinal() * DAY, d1.toordinal() * DAY
     out: list[Interval] = []
-    d = d0 - timedelta(days=1)
+    d = add_days(d0, -1)
     while d < d1:
         for s, e, _n, _t in _instances(ds, op.shift_template_id, op.shift_names, d, with_breaks=False):
             s, e = max(s, lo), min(e, hi)
             if s < e:
                 out.append((s, e))
-        d += timedelta(days=1)
+        if d == date.max:
+            break
+        d = add_days(d, 1)
     return union(out)
 
 
@@ -364,11 +375,13 @@ def operator_windows(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> li
         return []
     tz = offset_tz(ds.plant.utc_offset)
     pieces: list[Piece] = []
-    d = d0 - timedelta(days=1)
+    d = add_days(d0, -1)
     while d < d1:
         for s, e, name, tcode in _instances(ds, op.shift_template_id, op.shift_names, d, with_breaks=False):
             pieces.append(Piece(s, e, "base", None, name, tcode, None))
-        d += timedelta(days=1)
+        if d == date.max:
+            break
+        d = add_days(d, 1)
     return _windows(_clip_merge(pieces, d0.toordinal() * DAY, d1.toordinal() * DAY), tz)
 
 

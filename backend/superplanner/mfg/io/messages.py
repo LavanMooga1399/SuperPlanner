@@ -5,11 +5,11 @@ from __future__ import annotations
 ROW_ERROR_CODES: tuple[str, ...] = (
     "IMP_REQUIRED", "IMP_BAD_NUMBER", "IMP_BAD_BOOLEAN", "IMP_BAD_DATE", "IMP_BAD_ENUM", "IMP_BAD_UOM",
     "IMP_BAD_VALUE", "IMP_UNKNOWN_REFERENCE", "IMP_DUPLICATE_KEY", "IMP_RELEASED_READONLY", "IMP_BOM_CYCLE",
-    "IMP_FORMULA_NO_VALUE", "IMP_TOO_LONG", "IMP_CONTROL_CHAR", "IMP_RELEASE_BLOCKED",
+    "IMP_FORMULA_NO_VALUE", "IMP_TOO_LONG", "IMP_CONTROL_CHAR", "IMP_RELEASE_BLOCKED", "IMP_IN_USE",
 )
 
 WARNING_CODES: tuple[str, ...] = ("IMP_ENCODING_FALLBACK", "IMP_SHEET_IGNORED", "IMP_COLUMN_IGNORED",
-                                  "IMP_EMPTY_SHEET")
+                                  "IMP_EMPTY_SHEET", "IMP_EXCEPTIONS_REBASED")
 
 FIELD_LABELS: dict[str, str] = {
     "part_number": "Part number", "parent_part_number": "Parent part number",

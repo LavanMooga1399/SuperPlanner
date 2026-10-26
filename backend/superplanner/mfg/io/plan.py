@@ -24,6 +24,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from .. import limits as L
 from ..bom import find_cycles
 from ..bundle import ATTR_PREFIX, SHEET_NAMES, SHEETS_BY_NAME, MfgBundle, parse_break, parse_days, parse_tool
 from ..calendar import offset_tz, validate_template
@@ -121,6 +122,21 @@ def _jsonable(v: Any) -> Any:
 
 
 def _to_aware(v: Any, tz: Any, *, end: bool = False) -> datetime:
+    """A cell -> aware datetime in `tz`; ValueError (-> IMP_BAD_DATE) also for values outside
+    `MIN_DATE..MAX_DATE` (checked before any arithmetic that could overflow)."""
+    try:
+        dt = _to_aware_raw(v, tz, end=end)
+    except OverflowError as exc:
+        raise ValueError("date out of range") from exc
+    if not (L.MIN_DATE <= dt.date() <= L.MAX_DATE):
+        raise ValueError("date out of range")
+    return dt
+
+
+def _to_aware_raw(v: Any, tz: Any, *, end: bool = False) -> datetime:
+    if isinstance(v, (date, datetime)) and not (L.MIN_DATE <= (v.date() if isinstance(v, datetime) else v)
+                                                 <= L.MAX_DATE):
+        raise ValueError("date out of range")
     if isinstance(v, datetime):
         return (v if v.tzinfo is not None else v.replace(tzinfo=tz)).astimezone(tz)
     if isinstance(v, date):
@@ -128,7 +144,7 @@ def _to_aware(v: Any, tz: Any, *, end: bool = False) -> datetime:
         return datetime(d.year, d.month, d.day, tzinfo=tz)
     s = str(v).strip()
     if len(s) == 10:
-        return _to_aware(date.fromisoformat(s), tz, end=end)
+        return _to_aware_raw(date.fromisoformat(s), tz, end=end)
     dt = datetime.fromisoformat(s)
     return (dt if dt.tzinfo is not None else dt.replace(tzinfo=tz)).astimezone(tz)
 
@@ -184,6 +200,8 @@ class _Planner:
         self.sample: list[dict[str, Any]] = []
         self.bump: dict[str, set[str]] = {"boms": set(), "routings": set()}
         self.tz = offset_tz(ds.plant.utc_offset)
+        self.shrunk_templates: dict[str, tuple[str, Source, set[str]]] = {}   # id -> (code, source, final names)
+        self.rebase: tuple[Any, Any] | None = None       # (old tz, new tz) when the file changes the plant offset
         # final-state lookups by natural key
         self.items: dict[str, _Ent] = {it.part_number: _Ent(it.id, _data(it), False) for it in ds.items.values()}
         self.groups = {g.code: _Ent(g.id, _data(g), False) for g in ds.groups.values()}
@@ -321,6 +339,7 @@ class _Planner:
         self.assignment_sheet()
         self.exception_sheet()
         self.operator_sheet()
+        self.shift_names_in_use()
         self.documents("boms")
         self.documents("routings")
         self.cycles()
@@ -353,6 +372,8 @@ class _Planner:
             self.add("plant", "update", p.id, {k: new[k] for k in ch})
             self.note("plant", "create" if p.id is None else "update", {}, ch)
             self.tz = offset_tz(new["utc_offset"])
+            if "utc_offset" in ch and p.id is not None:
+                self.rebase = (offset_tz(p.utc_offset), self.tz)
         else:
             self.note("plant", "unchanged", {})
 
@@ -590,6 +611,9 @@ class _Planner:
                     self.note("shift_templates", "create", {"code": code})
                 continue
             ch = self.diff(ex.data, new, ShiftTemplateInput.model_fields)
+            kept = {sh["name"] for sh in new["shifts"]}
+            if {sh["name"] for sh in ex.data.get("shifts") or []} - kept:
+                self.shrunk_templates[ex.id] = (code, src, kept)
             self.templates[code] = _Ent(ex.id, new, False)
             if ch:
                 self.add("shift_templates", "update", ex.id, {k: new[k] for k in ch})
@@ -607,6 +631,38 @@ class _Planner:
                      f"Shift template has no shift named {', '.join(repr(b) for b in bad)}.")
             return False
         return True
+
+    def shift_names_in_use(self) -> None:
+        """A template of the file that drops or renames a shift still named by an assignment or operator (final
+        state: existing rows with the file's updates applied) -> `IMP_IN_USE` on the template row (review F2)."""
+        if not self.shrunk_templates:
+            return
+        upd: dict[tuple[str, str], dict[str, Any]] = {}
+        for c in self.changes:
+            if c.action == "update" and c.table in ("shift_assignments", "operators"):
+                upd.setdefault((c.table, c.id), {}).update(c.values)
+        users: dict[str, list[str]] = {}
+        for a in sorted(self.ds.shift_assignments.values(), key=lambda a: a.id):
+            v = {"shift_template_id": a.shift_template_id, "shift_names": a.shift_names,
+                 **upd.get(("shift_assignments", a.id), {})}
+            t = self.shrunk_templates.get(v["shift_template_id"])
+            if t is not None and any(n not in t[2] for n in v["shift_names"] or []):
+                tgt = self.ds.groups.get(a.group_id or "") if a.target_type == "group" else \
+                    self.ds.lines.get(a.line_id or "")
+                users.setdefault(v["shift_template_id"], []).append(
+                    f"assignment on {tgt.code if tgt else '?'} ({a.kind})")
+        for o in sorted(self.ds.operators.values(), key=lambda o: o.code):
+            v = {"shift_template_id": o.shift_template_id, "shift_names": o.shift_names,
+                 **upd.get(("operators", o.id), {})}
+            t = self.shrunk_templates.get(v["shift_template_id"] or "")
+            if t is not None and any(n not in t[2] for n in v["shift_names"] or []):
+                users.setdefault(v["shift_template_id"], []).append(f"operator {o.code}")
+        for tid, who in users.items():
+            code, src, _kept = self.shrunk_templates[tid]
+            shown = ", ".join(who[:5]) + (f" and {len(who) - 5} more" if len(who) > 5 else "")
+            self.err("shift_templates", src, "code", "IMP_IN_USE",
+                     f"Shift template {code} drops or renames a shift still used by {shown}. Change those in the "
+                     "same file (shift_assignments / operators sheets) or keep the shift name.")
 
     # ------------------------------------------------------------ assignments
 
@@ -666,10 +722,34 @@ class _Planner:
         gcode = {e.id: c for c, e in self.groups.items()}
         lcode = {e.id: c for c, e in self.lines.items()}
         existing: dict[tuple[Any, ...], Any] = {}
-        for x in self.ds.calendar_exceptions.values():
+        current = list(self.ds.calendar_exceptions.values())
+        if self.rebase is not None:
+            # the file changes the plant offset: existing exceptions keep their local wall-clock times (review F7),
+            # so they are matched (and diffed) at their re-based instants
+            old_tz, new_tz = self.rebase
+            current = [x.model_copy(update={"start": x.start.astimezone(old_tz).replace(tzinfo=new_tz),
+                                            "end": x.end.astimezone(old_tz).replace(tzinfo=new_tz)})
+                       for x in current]
+        for x in current:
             tgt = gcode.get(x.group_id) if x.scope == "group" else lcode.get(x.line_id) if x.scope == "line" else None
             existing[(x.scope, tgt, x.kind, x.start.astimezone(UTC))] = x
         seen: dict[Any, int] = {}
+        self._exception_rows(existing, seen, gcode, lcode)
+        if self.rebase is not None and current:
+            ups = {c.id: c for c in self.changes if c.table == "calendar_exceptions" and c.action == "update"}
+            for x in sorted(current, key=lambda x: x.id):
+                c = ups.get(x.id)
+                if c is None:
+                    self.add("calendar_exceptions", "update", x.id, {})
+                    c = self.changes[-1]
+                c.values.setdefault("start_at", x.start.astimezone(UTC))
+                c.values.setdefault("end_at", x.end.astimezone(UTC))
+            self.warnings.append({"code": "IMP_EXCEPTIONS_REBASED", "sheet": "plant",
+                                  "message": f"The plant UTC offset changes: {len(current)} existing calendar "
+                                             "exception(s) keep their local times."})
+
+    def _exception_rows(self, existing: dict[tuple[Any, ...], Any], seen: dict[Any, int], gcode: dict[str, str],
+                        lcode: dict[str, str]) -> None:
         for row, src in self.rows("calendar_exceptions"):
             if not self.required("calendar_exceptions", row, src, False):
                 continue

@@ -3,6 +3,8 @@ the API (`/meta`) and the import reader."""
 
 from __future__ import annotations
 
+from datetime import date
+
 MAX_ITEMS = 50_000
 MAX_BOMS = 20_000
 MAX_ROUTINGS = 20_000
@@ -39,6 +41,11 @@ IMPORT_MAX_STAGED_BYTES = 32 * 1024 * 1024
 IMPORT_TTL_HOURS = 24
 IMPORT_MAX_OPEN_PER_OWNER = 5
 MAX_ROW_ERRORS_RETURNED = 500
+MAX_ATTR_INT = 2**53 - 1                 # integer attribute values (exact in JSON/JavaScript numbers)
+
+# every date / datetime input (bodies, query parameters, import cells) must lie in this range (422 otherwise)
+MIN_DATE = date(1900, 1, 1)
+MAX_DATE = date(2199, 12, 31)
 
 
 def all_limits() -> dict[str, int]:

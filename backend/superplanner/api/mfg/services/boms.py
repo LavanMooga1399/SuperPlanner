@@ -164,15 +164,21 @@ def _validate_lines(s: Session, item: MfgItemRow, lines: list[BomLineInput]) -> 
         if e.get("type") == "mfg_bom_cycle":
             e["cycle"] = [item.part_number, item.part_number]
     document_errors(errors, s)
-    if lines:
-        path = would_create_cycle(repo.bom_edge_list(s), [(item.id, ln.child_item_id) for ln in lines])
-        if path is not None:
-            pns = dict(s.execute(select(MfgItemRow.id, MfgItemRow.part_number)
-                                 .where(MfgItemRow.id.in_(sorted(set(path))))).all())
-            cycle = [pns.get(i, i) for i in path]
-            raise ApiError(422, "MFG_BOM_CYCLE",
-                           f"This change would make an item contain itself: {' -> '.join(cycle)}.", {"cycle": cycle})
+    _check_cycle(s, item.id, [ln.child_item_id for ln in lines])
     return children
+
+
+def _check_cycle(s: Session, item_id: str, child_ids: list[str]) -> None:
+    """422 `MFG_BOM_CYCLE` when adding the edges item -> child to the draft + released structure closes a loop."""
+    if not child_ids:
+        return
+    path = would_create_cycle(repo.bom_edge_list(s), [(item_id, c) for c in child_ids])
+    if path is not None:
+        pns = dict(s.execute(select(MfgItemRow.id, MfgItemRow.part_number)
+                             .where(MfgItemRow.id.in_(sorted(set(path))))).all())
+        cycle = [pns.get(i, i) for i in path]
+        raise ApiError(422, "MFG_BOM_CYCLE",
+                       f"This change would make an item contain itself: {' -> '.join(cycle)}.", {"cycle": cycle})
 
 
 def _line_values(ln: BomLineInput, children: dict[str, MfgItemRow]) -> dict[str, Any]:
@@ -351,6 +357,8 @@ def copy_bom(ctx: AppContext, bom_id: str, revision: str | None, if_match: str |
         rev = revision or src.revision
         lines = list(s.execute(select(MfgBomLineRow).where(MfgBomLineRow.bom_id == src.id)).scalars())
         _limits(s, len(lines), True)
+        # an obsolete source is not part of the edge list: copying it can close a loop (review F3)
+        _check_cycle(s, src.item_id, [ln.child_item_id for ln in lines])
         now = utcnow()
         row = MfgBomRow(id=new_id("bom_"), item_id=src.item_id, revision=rev, version=_next_version(s, src.item_id, rev),
                         status="draft", effective_from=None, effective_to=None, serial_from=src.serial_from,
