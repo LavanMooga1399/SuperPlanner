@@ -1,5 +1,6 @@
-"""Data-health check (M1-DESIGN 7; PLAN-M1 A3-1): each of the 43 codes (40 of 7.2 + 3 of the M1 fix round) has a fixture that raises it and a minimal
-change that clears it; ordering, truncation, counts; links match the frontend routes of 11.1; T-S1..T-S6 (R1)."""
+"""Data-health check (M1-DESIGN 7; PLAN-M1 A3-1): each of the 43 codes (40 of 7.2 + 3 of the M1 fix round) has a
+fixture that raises it and a minimal change that clears it; ordering, truncation, counts; links match the frontend
+routes of 11.1; T-S1..T-S6 (R1)."""
 
 from __future__ import annotations
 

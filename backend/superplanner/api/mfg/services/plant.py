@@ -416,10 +416,12 @@ def shift_names_in_use_error(template_code: str, users: list[dict[str, Any]], mi
     refs = {"shift_assignments": sum(u["type"] == "shift_assignment" for u in users),
             "operators": sum(u["type"] == "operator" for u in users)}
     refs = {k: v for k, v in refs.items() if v}
-    shown = ", ".join(u["label"] for u in users[:5]) + (f" and {len(users) - 5} more" if len(users) > 5 else "")
-    return ApiError(409, "MFG_IN_USE", f"Shift template {template_code}: shift {', '.join(missing)} is still used by "
-                    f"{shown}. Change those first (or keep the shift name).",
-                    {"references": refs, "shift_names": missing, "used_by": users})
+    kind = {"shift_assignment": "assignment", "operator": "operator"}
+    shown = ", ".join(f"{kind[u['type']]} {u['label']}" for u in users[:5]) + \
+        (f" and {len(users) - 5} more" if len(users) > 5 else "")
+    what = f"shift {missing[0]} is" if len(missing) == 1 else f"shifts {', '.join(missing)} are"
+    return ApiError(409, "MFG_IN_USE", f"Shift template {template_code}: {what} still used by {shown}. Change those "
+                    "first (or keep the shift name).", {"references": refs, "shift_names": missing, "used_by": users})
 
 
 def check_shift_names_kept(s: Session, template_id: str, template_code: str, names: set[str]) -> None:

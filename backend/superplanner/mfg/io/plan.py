@@ -676,7 +676,8 @@ class _Planner:
         for iid, (pn, src) in self.unserialized.items():
             docs = [("BOM", b) for b in self.ds.boms_by_item.get(iid, ()) if b.id not in self.planned_boms] + \
                 [("routing", r) for r in self.ds.routings_by_item.get(iid, ()) if r.id not in self.planned_routings]
-            used = [f"{what} {doc_label(d)}" for what, d in docs if d.status != "obsolete" and d.serial_from is not None]
+            used = [f"{what} {doc_label(d)}" for what, d in docs
+                    if d.status != "obsolete" and d.serial_from is not None]
             if used:
                 self.err("items", src, "serialized", "IMP_IN_USE",
                          f"{pn} cannot stop being serialized: {', '.join(used[:5])}"

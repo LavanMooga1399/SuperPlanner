@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ...mfg.model import Code, Revision
+from ...mfg.model import Code, PlanDate, Revision
 
 
 class _Strict(BaseModel):
@@ -15,7 +14,7 @@ class _Strict(BaseModel):
 
 
 class ReleaseRequest(_Strict):
-    effective_from: date | None = None
+    effective_from: PlanDate | None = None
     supersede_previous: bool = False
 
 
@@ -40,7 +39,7 @@ class SheetMapping(_Strict):
 class ImportOptionsModel(_Strict):
     replace_children: bool = True
     release: bool = False
-    default_effective_from: date | None = None
+    default_effective_from: PlanDate | None = None
 
 
 class ImportMappingRequest(_Strict):

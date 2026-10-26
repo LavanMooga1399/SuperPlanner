@@ -230,7 +230,7 @@ def test_f4_concurrent_first_plant_puts_do_not_both_succeed(db_url: str):
             for t in ts:
                 t.join()
             codes = sorted(code for _n, code in out)
-            assert codes in ([200, 412], [200, 503], [200, 409]), out
+            assert codes == [200, 412], out
             winner = next(n for n, code in out if code == 200)
             plant = m.get("/plant")
             assert plant["name"] == winner and plant["row_version"] == 1
@@ -312,6 +312,9 @@ def test_f6_query_and_body_dates_are_bounded(mfg: Mfg):
                                       "end": "2199-12-31T23:59:00+00:00"})
     b = mfg.post("/boms", {"item_id": a["id"], "effective_from": "2199-12-30", "effective_to": "2199-12-31",
                            "lines": [{"find_number": "1", "child_item_id": c["id"], "qty_per": 1}]})
+    for d in bad:
+        err(mfg.req("POST", f"/boms/{b['id']}/release", json={"effective_from": d}, headers=etag(1)), 422,
+            "VALIDATION_ERROR")
     mfg.post(f"/boms/{b['id']}/release", {}, status=200, headers=etag(1))
     assert mfg.get("/health", params={"as_of": "2199-12-31", "horizon_days": 730})["as_of"] == "2199-12-31"
     assert mfg.get("/health", params={"as_of": "1900-01-01"})["as_of"] == "1900-01-01"
@@ -329,6 +332,10 @@ def test_f6_import_dates_out_of_range_are_row_errors(mfg: Mfg):
     _, pv = _preview(mfg, data, "calendar_exceptions.csv", "calendar_exceptions")
     assert sorted((e["row"], e["code"]) for e in pv["row_errors"]) == \
         [(2, "IMP_BAD_DATE"), (3, "IMP_BAD_DATE"), (5, "IMP_BAD_DATE")], pv["row_errors"]
+    rec = mfg.req("POST", "/imports", 201, params={"filename": "i.csv", "sheet": "items"},
+                  content=b"part_number,make_buy\nA,make\n", headers=OCTET).json()
+    err(mfg.req("PUT", f"/imports/{rec['id']}/mapping", headers=etag(rec["row_version"]),
+                json={"sheets": {}, "options": {"default_effective_from": "2200-01-01"}}), 422, "VALIDATION_ERROR")
     mfg.item("A", "make")
     _, pv = _preview(mfg, b"parent_part_number,version,effective_from\nA,1,9999-01-01\n", "boms.csv", "boms")
     assert [e["row"] for e in pv["row_errors"]] == [2] and pv["row_errors"][0]["column"] == "effective_from"

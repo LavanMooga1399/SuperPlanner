@@ -180,6 +180,8 @@ Rules: `superplanner.mfg` never imports `superplanner.api` or `superplanner.engi
 | `IMPORT_TTL_HOURS` | 24 | staged import lifetime |
 | `IMPORT_MAX_OPEN_PER_OWNER` | 5 | oldest uncommitted session deleted beyond this |
 | `MAX_ROW_ERRORS_RETURNED` | 500 | preview row errors returned (count complete) |
+| `MAX_ATTR_INT` | 2^53 - 1 | integer `attributes` values (fix round, D1) |
+| `MIN_DATE` / `MAX_DATE` | 1900-01-01 / 2199-12-31 | every date/datetime input (bodies, query parameters, import cells); dates, so not in `/meta` `limits` (fix round, F6) |
 
 ---
 
@@ -211,8 +213,10 @@ Pct         = Annotated[float, Field(ge=0, lt=100)]                        # scr
 YieldPct    = Annotated[float, Field(gt=0, le=100)]
 Status      = Literal["draft","released","obsolete"]
 MakeBuy     = Literal["make","buy","phantom"]
-AttrValue   = str | int | float | bool                                     # str max 500
+AttrValue   = str | int | float | bool                                     # str max 500; float finite (no NaN/inf),
+                                                                           # |int| <= MAX_ATTR_INT (fix round D1)
 Attributes  = dict[Code, AttrValue]                                        # max 50 keys
+PlanDate    = date in MIN_DATE..MAX_DATE; PlanDateTime = aware datetime, local and UTC date in range (fix round F6)
 ```
 Id prefixes: `itm_` item, `bom_` BOM, `bml_` BOM line, `rtg_` routing, `opr_` operation, `wcg_` group, `lin_` line,
 `sht_` shift template, `sha_` shift assignment, `cex_` calendar exception, `skl_` skill, `emp_` operator,
@@ -900,6 +904,13 @@ silently issuing queries.
 | 38 | `MFG_DUPLICATE_COMPONENT` | info | bom_line | same child on several lines (different find numbers) of one BOM, not alternates | Fine if intended (different positions). |
 | 39 | `MFG_LONG_LEAD_TIME` | info | item | buy item `lead_time_days > 180` | Long-lead part: order early (M2 will flag it). |
 | 40 | `MFG_DRAFT_ONLY` | info | item | item has draft documents but nothing released | Release when ready. |
+| 41 | `MFG_ASSIGNMENT_UNKNOWN_SHIFT` | error | shift_assignment (related: template) | not expired assignment whose `shift_names` name a shift its template does not have (fix round F2) | Pick shifts of the template, or add the shifts back to the template. |
+| 42 | `MFG_OPERATOR_UNKNOWN_SHIFT` | error | operator (related: template) | active operator whose `shift_names` name a shift its template does not have (fix round F2) | As above. |
+| 43 | `MFG_SERIAL_NOT_ALLOWED` | error | item (related + link: the document) | released, not expired BOM/routing with a serial range on an active, non-serialized item (fix round F5; was release-only) | Remove the serial range or mark the item as serialized. |
+
+Codes 41-43 are listed in `messages.CODES` after `MFG_TOOL_SHORT` (errors before warnings); `HEALTH_CODES` = every
+code except the release-only `MFG_BOM_EMPTY`. Their entity types already have server links (11.3), no UI mapping
+change is needed.
 
 `end item` = active make item with a released BOM or routing that is not a child in any non-obsolete BOM. Every
 code has one positive and one negative unit test (section 15).
@@ -1014,7 +1025,8 @@ Row error format (preview and 409 details):
 `IMP_BAD_NUMBER`, `IMP_BAD_BOOLEAN`, `IMP_BAD_DATE`, `IMP_BAD_ENUM`, `IMP_BAD_UOM`, `IMP_BAD_VALUE` (Pydantic
 message), `IMP_UNKNOWN_REFERENCE` (part number/code not in data or file), `IMP_DUPLICATE_KEY` (same key twice in the
 file), `IMP_RELEASED_READONLY`, `IMP_BOM_CYCLE`, `IMP_FORMULA_NO_VALUE`, `IMP_TOO_LONG`, `IMP_CONTROL_CHAR`,
-`IMP_RELEASE_BLOCKED` (with the health code in the message).
+`IMP_RELEASE_BLOCKED` (with the health code in the message), `IMP_IN_USE` (fix round: a template drops/renames a
+shift still named by an assignment or operator, or an item stops being serialized while documents keep serial ranges).
 
 ### 8.3 Limits and file safety
 
@@ -1093,7 +1105,7 @@ contains openpyxl's own timestamps; compare the parsed bundle).
 |---|---|---|
 | 404 | `NOT_FOUND` | unknown or foreign id (also expired import sessions) |
 | 409 | `MFG_DUPLICATE_KEY` | natural key exists (`details: {"key": {...}, "existing_id": "..."}`) |
-| 409 | `MFG_IN_USE` | delete blocked (`details.references`) |
+| 409 | `MFG_IN_USE` | delete blocked (`details.references`); fix round: also a shift-template PUT that drops/renames a shift still named by assignments/operators, and an item PUT `serialized: false` while draft/released documents keep a serial range (`details.references` + `details.used_by` `[{type, id, label, ...}]`, templates also `details.shift_names`) |
 | 409 | `MFG_RELEASED_READONLY` | edit/delete of a released (or obsolete for PUT) document |
 | 409 | `MFG_INVALID_STATE` | action not allowed in the current status (e.g. release an obsolete BOM) |
 | 409 | `MFG_IMPORT_HAS_ERRORS` | commit with row errors (`details: {"row_errors": [...], "error_count": n}`) |
@@ -2133,6 +2145,55 @@ with `q` over 10,000 items 0.03 s, 5 statements; P5 health 0.44 / 0.46 s, 17-18 
 rows 0.20 / 0.21 s, 20-21 statements; P7 commit of 5,000 rows 0.83 / 1.26 s (write transaction 0.68 / 1.05 s);
 P8 re-import 0.37 / 0.59 s with no master-data writes; P9 Kavach sample load 2.0 / 2.4 s; P10 xlsx export
 1.2 / 1.1 s, 17-18 statements; P11 62-day windows 0.02 s, 6 statements.
+
+**Fix round (2026-10-26; tester D1, team-lead review F1-F7).** Each fix has a regression test that failed on the
+code before it (`backend/tests/api_mfg/test_mfg_review_fixes.py`, `backend/tests/mfg_db/test_mfg_repo_bfs.py`, the
+D1 xfails of `acceptance_m1/test_acc_m1_adversarial_io.py` are now normal tests, new health cases in
+`tests/mfg/test_mfg_health.py`). Interpretations:
+- **D1 non-finite numbers.** `AttrValue` floats are `allow_inf_nan=False` (JSON `NaN`, `Infinity`, `-Infinity`,
+  `1e999` -> 422 `VALIDATION_ERROR`, nothing stored) and integer attributes are bounded to +-`MAX_ATTR_INT`
+  (2^53 - 1: larger integers would silently become rounded floats in JSON/JavaScript; previously `10**400` was
+  accepted). Every other float of the Inputs and the float query parameters already has finite bounds (NaN fails
+  every bound); import cells already turn non-finite numbers into `IMP_BAD_NUMBER`.
+- **F1 explosion loader.** `load_bom_index_down` keeps an `expanded` set and expands every primary of a level not
+  expanded yet (also one first loaded as an alternate); "primary" is now the row line of `split_alternates` (the
+  same rule as `explode`: priority 1, defensively the lowest priority), so the loader and `BomIndex.from_dataset`
+  agree also for groups without a priority-1 line. Statement bound unchanged (one level per BFS step).
+- **F2 shift names.** A template PUT that removes or renames a shift still named by an assignment or an operator ->
+  409 `MFG_IN_USE` (`details.references` counts, `details.shift_names` the missing names, `details.used_by`
+  `[{type, id, label, shift_names}]`); assignments/operators with empty `shift_names` (= all shifts) never block.
+  Import: the same final-state check (existing rows with the file's updates applied, so renaming the template and
+  the assignment in one file works) gives row error `IMP_IN_USE` on the `shift_templates` row (or the first
+  `shifts` row when the file has no template row); a commit with it is 409 `MFG_IMPORT_HAS_ERRORS` like every row
+  error. New health errors `MFG_ASSIGNMENT_UNKNOWN_SHIFT` / `MFG_OPERATOR_UNKNOWN_SHIFT` (7.2 #41-42) catch data
+  that predates the check; their entities (`shift_assignment`, `operator`) already have server links, so the UI
+  needs no new link mapping.
+- **F3 copy.** `copy_bom` runs `would_create_cycle` against the draft+released edge list for every source (an
+  obsolete source is not in that list) -> 422 `MFG_BOM_CYCLE` with `details.cycle`, nothing inserted.
+- **F4 first PUT /plant.** `repo.lock_plant_created(s) -> (row, created)` (`lock_plant` wraps it); `put_plant`
+  compares `If-Match` with 0 only when this transaction inserted the row, else with the locked row's
+  `row_version`. Two concurrent first-time `If-Match: "0"` PUTs on PostgreSQL: one 200, one 412 (tested with
+  threads).
+- **F5 serialized.** Item PUT `serialized: false` while draft or released BOMs/routings of it have a serial range ->
+  409 `MFG_IN_USE` (`details.references` `{boms, routings}`, `details.used_by`); obsolete documents never block.
+  Import: row error `IMP_IN_USE` on the item row for documents not in the file (documents in the file keep the
+  existing `IMP_BAD_VALUE` check). `MFG_SERIAL_NOT_ALLOWED` is now also a health error (7.2 #43; released, not
+  expired documents; entity item, link to the document) besides blocking release.
+- **F6 date bounds.** `PlanDate` / `PlanDateTime` (`mfg/model.py`, bounds `MIN_DATE`..`MAX_DATE` in `limits.py`) on
+  every date/datetime of the Inputs (`effective_from/to`, exception `start/end`), the release body
+  `effective_from`, import option `default_effective_from` and the query parameters `on`, `as_of`, `from`, `to`
+  -> 422 `VALIDATION_ERROR`. A datetime is checked on its own local date first and then its UTC date (so the check
+  itself cannot overflow). Import datetime cells outside the range (or overflowing) -> `IMP_BAD_DATE`; date cells
+  of document/assignment fields -> the Pydantic row error of the field. Internal day arithmetic in
+  `calendar.py`/`health.py` uses `calendar.add_days`, which saturates at `date.min`/`date.max` instead of raising.
+- **F7 plant offset.** Chosen: keep storing exceptions as UTC instants (no schema or API change; `start`/`end` are
+  still returned in the plant offset) and **re-base** them when the offset changes: `PUT /plant` with a new
+  `utc_offset` moves every exception by (old - new offset) in the same transaction, bumping their `row_version`
+  (the audit event of the plant carries `rebased_exceptions`). Storing local wall-clock instead would have changed
+  the column semantics, the repository, the import keys and every consumer for no gain at the API. Import: when
+  the plant sheet changes the offset, existing exceptions are matched and diffed at their re-based instants (so a
+  file that also lists them in local time creates no duplicates) and written with the re-based `start_at`/`end_at`;
+  the preview carries warning `IMP_EXCEPTIONS_REBASED`.
 
 ### 17.WP-C Frontend
 
