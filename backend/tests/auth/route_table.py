@@ -47,6 +47,39 @@ PROTECTED = frozenset({
       for step in ("describe", "answer", "build", "table/parse", "table/apply")},
 })
 
+# M1-DESIGN 9.3 / 9.5: the 77 manufacturing operations (all require_user; CSRF on unsafe methods).
+_M = "/mfg"
+MFG_PROTECTED = frozenset({
+    ("GET", f"{_M}/meta"), ("GET", f"{_M}/summary"), ("GET", f"{_M}/plant"), ("PUT", f"{_M}/plant"),
+    ("GET", f"{_M}/items"), ("POST", f"{_M}/items"), ("GET", f"{_M}/items/{{item_id}}"),
+    ("PUT", f"{_M}/items/{{item_id}}"), ("DELETE", f"{_M}/items/{{item_id}}"),
+    ("GET", f"{_M}/items/{{item_id}}/explosion"), ("GET", f"{_M}/items/{{item_id}}/where-used"),
+    ("GET", f"{_M}/items/{{item_id}}/boms"), ("GET", f"{_M}/items/{{item_id}}/routings"),
+    *{op for doc, pid in (("boms", "bom_id"), ("routings", "routing_id")) for op in (
+        ("POST", f"{_M}/{doc}"), ("GET", f"{_M}/{doc}/{{{pid}}}"), ("PUT", f"{_M}/{doc}/{{{pid}}}"),
+        ("DELETE", f"{_M}/{doc}/{{{pid}}}"), ("POST", f"{_M}/{doc}/{{{pid}}}/release"),
+        ("POST", f"{_M}/{doc}/{{{pid}}}/obsolete"), ("POST", f"{_M}/{doc}/{{{pid}}}/copy"))},
+    ("GET", f"{_M}/routings/{{routing_id}}/time-preview"),
+    *{op for coll, pid in (("groups", "group_id"), ("lines", "line_id")) for op in (
+        ("GET", f"{_M}/{coll}"), ("POST", f"{_M}/{coll}"), ("GET", f"{_M}/{coll}/{{{pid}}}"),
+        ("PUT", f"{_M}/{coll}/{{{pid}}}"), ("DELETE", f"{_M}/{coll}/{{{pid}}}"))},
+    ("GET", f"{_M}/lines/{{line_id}}/windows"),
+    ("GET", f"{_M}/shift-templates"), ("POST", f"{_M}/shift-templates"), ("POST", f"{_M}/shift-templates/preview"),
+    ("GET", f"{_M}/shift-templates/{{shift_template_id}}"), ("PUT", f"{_M}/shift-templates/{{shift_template_id}}"),
+    ("DELETE", f"{_M}/shift-templates/{{shift_template_id}}"),
+    *{op for coll, pid in (("shift-assignments", "assignment_id"), ("calendar-exceptions", "exception_id"),
+                           ("skills", "skill_id"), ("tool-pools", "tool_pool_id"), ("operators", "operator_id"))
+      for op in (("GET", f"{_M}/{coll}"), ("POST", f"{_M}/{coll}"), ("PUT", f"{_M}/{coll}/{{{pid}}}"),
+                 ("DELETE", f"{_M}/{coll}/{{{pid}}}"))},
+    ("GET", f"{_M}/operators/{{operator_id}}"),
+    ("GET", f"{_M}/health"),
+    ("POST", f"{_M}/imports"), ("GET", f"{_M}/imports/{{import_id}}"), ("PUT", f"{_M}/imports/{{import_id}}/mapping"),
+    ("POST", f"{_M}/imports/{{import_id}}/commit"), ("DELETE", f"{_M}/imports/{{import_id}}"),
+    ("GET", f"{_M}/export"), ("GET", f"{_M}/import-templates"),
+    ("GET", f"{_M}/samples"), ("POST", f"{_M}/samples/{{sample_id}}/load"), ("POST", f"{_M}/reset"),
+})
+assert len(MFG_PROTECTED) == 77, len(MFG_PROTECTED)
+
 PARAM = re.compile(r"\{([a-z_]+)\}")
 
 

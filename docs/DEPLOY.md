@@ -80,6 +80,10 @@ WORKER_EMBEDDED=0 ./run_api.sh
 ./run_api.sh
 ```
 
+M1 (manufacturing master data) adds Alembic revision `0003_mfg`; run `python -m superplanner.migrate upgrade` once on PostgreSQL deployments (SQLite upgrades automatically on start, with a backup).
+Large manufacturing JSON responses (BOM explosions) compress well: enable `gzip on; gzip_types application/json;` at the reverse proxy.
+
+
 With PostgreSQL, `JOB_BACKEND` defaults to `queue`. Runs are rows in the `jobs` table: workers claim them with
 `FOR UPDATE SKIP LOCKED`, hold a lease, and send heartbeats. A killed worker's job is requeued once its lease
 expires (`JOB_LEASE_SECONDS=30`), and its run shows "Restarting on another worker". `python -m superplanner.worker

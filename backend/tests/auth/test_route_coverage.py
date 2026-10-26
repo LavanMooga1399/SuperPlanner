@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from auth_helpers import API, acc_app, error, second_client, sign_up
-from route_table import (PROTECTED, PUBLIC_ALLOWLIST, PUBLIC_REQUIRED, UNSAFE, fill_path, openapi_operations,
+from route_table import (MFG_PROTECTED, PROTECTED, PUBLIC_ALLOWLIST, PUBLIC_REQUIRED, UNSAFE, fill_path, openapi_operations,
                          path_params)
 
 FIN = f"{API}/finance"
@@ -36,8 +36,9 @@ def test_enumerated_operations_equal_the_access_table(db_url):
     public = ops & PUBLIC_ALLOWLIST
     protected = ops - PUBLIC_ALLOWLIST
     assert PUBLIC_REQUIRED <= public
-    assert protected == PROTECTED, {"new (add to route_table.py)": sorted(protected - PROTECTED),
-                                    "missing": sorted(PROTECTED - protected)}
+    assert protected == PROTECTED | MFG_PROTECTED, {
+        "new (add to route_table.py)": sorted(protected - PROTECTED - MFG_PROTECTED),
+        "missing": sorted((PROTECTED | MFG_PROTECTED) - protected)}
     assert len(PROTECTED) == 55   # B 4.8 rows 9-63 (56 pre-2b endpoints = these + GET /health)
 
 

@@ -35,7 +35,7 @@ from ..model import (BomInput, BomLineInput, BomLineRecord, BomRecord, CalendarE
                      ToolPoolRecord, input_data)
 from ..release import bom_release_issues, routing_release_issues
 from . import messages as msg
-from .mapping import Source, bundle_sources
+from .mapping import SKIP, Source, bundle_sources
 
 IdFactory = Callable[[str], str]
 DOC_HEADER_FIELDS = ("effective_from", "effective_to", "serial_from", "serial_to", "note")
@@ -206,7 +206,7 @@ class _Planner:
     def rows(self, sheet: str) -> list[tuple[dict[str, Any], Source]]:
         rows = self.b.get(sheet) or []
         srcs = self.src.get(sheet) or bundle_sources({sheet: rows})[sheet]
-        return list(zip(rows, srcs))
+        return [(r, s) for r, s in zip(rows, srcs) if not r.get(SKIP)]
 
     def count(self, sheet: str, action: str, n: int = 1) -> None:
         c = self.counts.setdefault(sheet, {"create": 0, "update": 0, "unchanged": 0, "delete": 0, "error": 0})
@@ -479,7 +479,7 @@ class _Planner:
                         ok = False
                     else:
                         ids.append(e.id)
-                d["eligible_item_ids"] = sorted(set(ids), key=ids.index)
+                d["eligible_item_ids"] = sorted(set(ids))
             return ok
 
         def columns(new: dict[str, Any]) -> dict[str, Any]:
@@ -748,7 +748,7 @@ class _Planner:
                         ok = False
                     else:
                         ids.append(e.id)
-                d["skill_ids"] = sorted(set(ids), key=ids.index)
+                d["skill_ids"] = sorted(set(ids))
             for f, table, target, what in (("shift_template_code", self.templates, "shift_template_id",
                                             "Shift template"),
                                            ("home_group_code", self.groups, "home_group_id", "Stage")):

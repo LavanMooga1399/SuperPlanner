@@ -95,7 +95,82 @@ def make_world(c: TestClient) -> dict[str, Any]:
     assert st["status"] == "completed", st
     w["whatif_run_id"] = wi.json()["run_id"]
     w["whatif_result_id"] = st["result_id"]
+    make_mfg_world(c, w)
     return w
+
+
+MFG = f"{API}/mfg"
+
+
+def _input(cls: Any, rec: dict[str, Any]) -> dict[str, Any]:
+    """The Input-model fields of a record (nested BOM lines / operations / tools reduced too)."""
+    from superplanner.mfg import model as mm
+
+    nested = {"lines": mm.BomLineInput, "operations": mm.OperationInput, "tools": mm.OperationToolInput}
+    out: dict[str, Any] = {}
+    for f in cls.model_fields:
+        v = rec.get(f)
+        if f in nested and isinstance(v, list):
+            v = [_input(nested[f], x) for x in v]
+        out[f] = v
+    return out
+
+
+def make_mfg_world(c: TestClient, w: dict[str, Any]) -> None:
+    """Manufacturing objects (M1-DESIGN 14.2): sample `small`, one import session, one draft BOM/routing."""
+    from superplanner.mfg import model as mm
+
+    r = c.post(f"{MFG}/samples/small/load", json={"replace": False})
+    assert r.status_code == 200, r.text
+    item = c.get(f"{MFG}/items", params={"q": "SM-100", "make_buy": "make"}).json()["items"][0]
+    bom = c.get(f"{MFG}/items/{item['id']}/boms").json()["items"][0]
+    rtg = c.get(f"{MFG}/items/{item['id']}/routings").json()["items"][0]
+    bom, rtg = c.get(f"{MFG}/boms/{bom['id']}").json(), c.get(f"{MFG}/routings/{rtg['id']}").json()
+    grp = c.get(f"{MFG}/groups").json()["items"][0]
+    line = c.get(f"{MFG}/lines").json()["items"][0]
+    tpl = c.get(f"{MFG}/shift-templates").json()["items"][0]
+    asg = c.get(f"{MFG}/shift-assignments").json()["items"][0]
+    exc = c.get(f"{MFG}/calendar-exceptions").json()["items"][0]
+    skill = c.get(f"{MFG}/skills").json()["items"][0]
+    op = c.get(f"{MFG}/operators").json()["items"][0]
+    pool = c.get(f"{MFG}/tool-pools").json()["items"][0]
+    r = c.post(f"{MFG}/imports", params={"filename": "items.csv", "sheet": "items"},
+               content=b"part_number,make_buy\nSW-1,buy\n", headers={"content-type": "application/octet-stream"})
+    assert r.status_code == 201, r.text
+    w["mfg_ids"] = {"item_id": item["id"], "bom_id": bom["id"], "routing_id": rtg["id"], "group_id": grp["id"],
+                    "line_id": line["id"], "shift_template_id": tpl["id"], "assignment_id": asg["id"],
+                    "exception_id": exc["id"], "skill_id": skill["id"], "operator_id": op["id"],
+                    "tool_pool_id": pool["id"], "import_id": r.json()["id"]}
+    w["mfg_bodies"] = {
+        "/items/{item_id}": _input(mm.ItemInput, item), "/boms/{bom_id}": _input(mm.BomInput, bom),
+        "/routings/{routing_id}": _input(mm.RoutingInput, rtg), "/groups/{group_id}": _input(mm.GroupInput, grp),
+        "/lines/{line_id}": _input(mm.LineInput, line),
+        "/shift-templates/{shift_template_id}": _input(mm.ShiftTemplateInput, tpl),
+        "/shift-assignments/{assignment_id}": _input(mm.ShiftAssignmentInput, asg),
+        "/calendar-exceptions/{exception_id}": _input(mm.CalendarExceptionInput, exc),
+        "/skills/{skill_id}": _input(mm.SkillInput, skill), "/operators/{operator_id}": _input(mm.OperatorInput, op),
+        "/tool-pools/{tool_pool_id}": _input(mm.ToolPoolInput, pool),
+        "/imports/{import_id}/mapping": {"sheets": {"items": {"target": "items", "columns": {
+            "part_number": "part_number", "make_buy": "make_buy"}}}, "options": {}},
+        "/samples/{sample_id}/load": {"replace": False},
+    }
+
+
+def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
+    rel = path[len(MFG):]
+    if rel == "/lines/{line_id}/windows":
+        return {"params": {"from": "2026-11-02", "to": "2026-11-04"}}
+    if method == "PUT" and rel in w["mfg_bodies"]:
+        return {"json": copy.deepcopy(w["mfg_bodies"][rel]), "headers": {"If-Match": "1"}}
+    if method == "POST" and rel.endswith(("/release", "/obsolete", "/copy", "/commit")):
+        return {"json": {}, "headers": {"If-Match": "1"}}
+    if method == "POST" and rel in w["mfg_bodies"]:
+        return {"json": copy.deepcopy(w["mfg_bodies"][rel])}
+    if method == "POST" and rel == "/reset":
+        return {"json": {"confirm": "DELETE ALL MANUFACTURING DATA"}}
+    if method == "DELETE" and not rel.startswith("/imports/"):
+        return {"headers": {"If-Match": "1"}}
+    return {}
 
 
 def snapshot(c: TestClient, w: dict[str, Any]) -> dict[str, Any]:
@@ -111,12 +186,15 @@ def snapshot(c: TestClient, w: dict[str, Any]) -> dict[str, Any]:
         "fin_runs": sorted((r["id"], r["status"]) for r in
                            c.get(f"{FIN}/plans/{w['plan_id']}/runs").json()["items"]),
         "results": sorted(r["id"] for r in c.get(f"{FIN}/plans/{w['plan_id']}/results").json()["items"]),
+        "mfg_summary": c.get(f"{API}/mfg/summary").json(),
     }
 
 
 def body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
     """A request that would succeed for the owner (so a non-404 answer for a stranger means a leak)."""
     kw: dict[str, Any] = {}
+    if path.startswith(f"{API}/mfg/"):
+        return mfg_body_for(method, path, w)
     if path.endswith("/problems/{problem_id}") and method == "PUT":
         kw = {"json": copy.deepcopy(w["problem_doc"]), "headers": {"If-Match": "1"}}
     elif path.endswith("/finance/plans/{plan_id}") and method == "PUT":
@@ -137,7 +215,7 @@ def body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
 def id_map(w: dict[str, Any], which: str = "baseline") -> dict[str, str]:
     return {"problem_id": w["problem_id"], "schedule_id": w["schedule_id"], "plan_id": w["plan_id"],
             "run_id": w["run_id"], "fin_run_id": w["fin_run_id"] if which == "baseline" else w["whatif_run_id"],
-            "result_id": w["result_id"] if which == "baseline" else w["whatif_result_id"]}
+            "result_id": w["result_id"] if which == "baseline" else w["whatif_result_id"], **w["mfg_ids"]}
 
 
 def fill(path: str, ids: dict[str, str]) -> str:
@@ -198,8 +276,8 @@ def test_other_user_gets_404_for_every_owned_id_and_changes_nothing(db_url, whic
         assert len(routes) >= 25
         leaks = []
         for method, path in routes:
-            if "/templates/" in path:
-                continue                                    # template ids are not owned
+            if "/templates/" in path or "/mfg/samples/" in path:
+                continue                                    # template and sample ids are not owned
             kw = body_for(method, path, wa)
             r_foreign = b.request(method, fill(path, ids_a), **copy.deepcopy(kw))
             unknown = {k: f"x{uuid.uuid4().hex[:12]}" for k in ids_a}
@@ -244,7 +322,7 @@ def test_csrf_and_origin_enforced_on_every_unsafe_route(db_url):
         assert len(unsafe) >= 25
         bad = []
         for method, path in unsafe:
-            url = fill(path, {**ids, "template_id": "manufacturing"})
+            url = fill(path, {**ids, "template_id": "manufacturing", "sample_id": "small"})
             if "/finance/templates/" in path:
                 url = url.replace("manufacturing", "young_professional")
             kw = body_for(method, path, wa)

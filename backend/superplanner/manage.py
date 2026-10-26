@@ -123,6 +123,14 @@ def cmd_reassign_owner(db: Database, args: argparse.Namespace, out: TextIO) -> N
         if dst.id == src.id:
             raise CommandError("source and target are the same user")
         src_id, dst_id, dst_email = src.id, dst.id, dst.email
+        # M1-DESIGN 14.1: per-owner unique keys of the mfg tables would clash mid-command; refuse up front.
+        mfg_rows = {t.name: n for t in owned_tables() if t.name.startswith("mfg_")
+                    for n in [int(s.scalar(select(func.count()).select_from(t).where(t.c.owner_id == dst.id)) or 0)]
+                    if n}
+        if mfg_rows:
+            listed = ", ".join(f"{k}: {v}" for k, v in mfg_rows.items())
+            raise CommandError(f"the target user already has manufacturing data ({listed}); reset it in the app "
+                               "first")
         counts: dict[str, int] = {}
         for t in owned_tables():
             if args.dry_run:

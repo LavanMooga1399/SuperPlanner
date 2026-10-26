@@ -15,6 +15,9 @@ from . import messages as msg
 from .spec import (SHEET_SYNONYMS, SYNONYMS, CellError, is_attr_field, normalize_header, parse_cell, valid_field)
 
 
+SKIP = "__skip__"
+
+
 @dataclass
 class Source:
     sheet: str                                  # source sheet name
@@ -79,7 +82,7 @@ def suggest_mapping(staged: dict[str, Any]) -> dict[str, Any] | None:
             cols = suggest_columns(headers, s)
             mapped = {f for f in cols.values() if f}
             keys = len(mapped & set(s.key))
-            if keys >= 2:
+            if keys >= min(2, len(s.key)) and len(mapped) >= 2:
                 cand = (keys, len(mapped), s.name)
                 if best is None or cand[:2] > best[:2]:
                     best = cand
@@ -149,12 +152,14 @@ def apply_mapping(staged: list[dict[str, Any]], mapping: dict[str, Any]
         for rownum, cells in sh["rows"]:
             row: dict[str, Any] = {}
             colmap: dict[str, str] = {}
+            bad = False
             for i, h, f in cols:
                 colmap[f] = h
                 code = issues.get((rownum, i))
                 if code is not None:
                     errors.append({"sheet": src, "row": rownum, "column": h, "code": code,
                                    "message": _issue_message(code)})
+                    bad = True
                     if code != "IMP_CONTROL_CHAR":
                         continue
                 v = cells[i] if i < len(cells) else None
@@ -164,6 +169,9 @@ def apply_mapping(staged: list[dict[str, Any]], mapping: dict[str, Any]
                 except CellError as exc:
                     errors.append({"sheet": src, "row": rownum, "column": h, "code": exc.code,
                                    "message": exc.message})
+                    bad = True
+            if bad:
+                row[SKIP] = True            # reported already; the planner leaves the row out
             rows.append(row)
             srcs.append(Source(src, rownum, colmap))
     return bundle, sources, errors
