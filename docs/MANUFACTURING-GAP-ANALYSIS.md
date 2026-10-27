@@ -233,6 +233,14 @@ dependency views, what-if/compare, and the deployment setup.
 | **M4 — Execution and replanning** | WO release, shop-floor actuals (barcode-friendly), scrap/rework/yield, event-driven replanning with frozen horizon, KPIs (OTD, utilisation, WIP, setup time) | Closed loop with the shop floor |
 | **M5 — Integration and traceability** | ERP connectors (items, BOMs, stock, POs in; WOs, PRs out), serial/lot genealogy, ECO handling, multi-plant/organisation accounts | Production use alongside HBL's ERP |
 
+**Status (27 October 2026):**
+
+| Phase | Status |
+|---|---|
+| M1 | **Built** (`docs/M1-DESIGN.md`, section 17; commit "M1 manufacturing master data complete"). Platform since then: PostgreSQL only, owner/app database roles, accounts mode and audit on every write by default (`docs/ARCHITECTURE.md` 25, `docs/DEPLOY.md`). |
+| M2 | **Designed, ready to build**: `docs/M2-DESIGN.md` (design, delivery plan, test strategy, Gate 2 acceptance). Inventory ledger with lots and reservations; suppliers and item-supplier terms; purchase requests and orders with staggered delivery schedule lines and partial receipts; demand orders with unit serial ranges; plant-level MRP (low-level-code netting, priority allocation of scarce stock, lot sizing with MOQ/multiples/packs, routing-derived manufacturing lead times, safety stock, expiry, alternates when short, two-way pegging, projected dates with the limiting path, exception messages, what-if and compare); firm/release into real WOs and PRs; work orders with kitting and a shortage list; shared plant workspaces with roles (planner, purchaser, store keeper, approver, viewer). |
+| M3-M5 | Not started. Moved by the M2 design: IANA time zones to M3; `plant_id` / multi-plant to M5; serial capture and genealogy to M4/M5. |
+
 Each phase follows the same agent-team process used so far (design → plan → build → test → security review →
 fix → verify), with acceptance tests built from a realistic anonymised Kavach-like dataset.
 
@@ -272,9 +280,9 @@ constraints as penalties) and are already reflected below, but they are not defe
 | Formal **acceptance gates**: (1) master data valid, (2) MRP matches an independent calculation, (3) every plan passes the validator, (4) optimiser beats a baseline on agreed KPIs without violations, (5) planners complete an end-to-end pilot | Exit criteria for M1–M4 |
 | **Block runs** on missing routings for make items, BOM cycles, unit mismatches and items with no eligible line — no silent skipping | M1 data-health check (§4.1a step 5) |
 | **Versioned BOMs and routings with effectivity** (by date and serial) from the start, not only via later ECO handling | Moved into M1 |
-| **Purchase requisition lifecycle**: planned → submitted → approved → PO → received, with approvals | M2 |
+| **Purchase requisition lifecycle**: planned → submitted → approved → PO → received, with approvals | M2 (`docs/M2-DESIGN.md` 5) |
 | **Yield inflating upstream quantities** and **alternate components** auto-selected when the primary is short | M2 (yield, alternates in netting), M3 (alternate routings) |
-| **Roles and audit log**: planner / approver / viewer / admin; record every master-data change, plan run, approval and release | M2–M4 (today SuperPlanner has per-user ownership only, no roles or organisations) |
+| **Roles and audit log**: planner / approver / viewer / admin; record every master-data change, plan run, approval and release | Audit on every write: done (PostgreSQL-only release). Roles: M2 as plant workspaces with roles (`docs/M2-DESIGN.md` 10); organisations M5 |
 | **Organisations / plants** as tenants with row-level separation | M5 |
 | **Benchmark datasets**: small (one PCB, ~10 parts), medium (~200 parts, 3–4 levels), large (Kavach-scale, 1,000–5,000 parts) with KPIs compared against a naive infinite-capacity MRP plan and the current tool | Built in M1, used as acceptance tests from M2 on |
 | **Supply-delay and breakdown simulation** for what-if | M4 |
