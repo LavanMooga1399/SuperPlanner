@@ -75,7 +75,8 @@ def lock_plant_created(s: Session) -> tuple[MfgPlantRow, bool]:
             with s.begin_nested():
                 row = MfgPlantRow(id=new_id("plt_"), name=d.name, utc_offset=d.utc_offset,
                                   planning_horizon_days=d.planning_horizon_days, currency=d.currency, attributes={},
-                                  data_version=0, row_version=1, created_at=now, updated_at=now)
+                                  data_version=0, row_version=1, created_at=now, updated_at=now,
+                                  **plant_mrp_columns(d))
                 s.add(row)
                 s.flush()
             created = True
@@ -88,6 +89,13 @@ def lock_plant_created(s: Session) -> tuple[MfgPlantRow, bool]:
     row.data_version = (row.data_version or 0) + 1
     s.flush()
     return row, created
+
+
+def plant_mrp_columns(p: Any) -> dict[str, Any]:
+    """The M2 MRP columns of a plant input/record (M2-DESIGN 3.1)."""
+    return {"mrp_workdays": list(p.mrp_workdays), "mrp_day_minutes": float(p.mrp_day_minutes),
+            "mrp_defer_tolerance_days": int(p.mrp_defer_tolerance_days),
+            "mrp_release_window_days": int(p.mrp_release_window_days), "over_receipt_pct": float(p.over_receipt_pct)}
 
 
 def get_row(s: Session, model: Any, row_id: str, *, what: str, lock: bool = False) -> Any:
@@ -128,6 +136,9 @@ def to_record(row: Any, **extra: Any) -> Any:
         return PlantRecord.model_construct(
             name=row.name, utc_offset=row.utc_offset, planning_horizon_days=row.planning_horizon_days,
             currency=row.currency, attributes=dict(row.attributes or {}), data_version=row.data_version,
+            mrp_workdays=list(row.mrp_workdays or []), mrp_day_minutes=row.mrp_day_minutes,
+            mrp_defer_tolerance_days=row.mrp_defer_tolerance_days,
+            mrp_release_window_days=row.mrp_release_window_days, over_receipt_pct=row.over_receipt_pct,
             **_stamp(row), **extra)
     if isinstance(row, MfgItemRow):
         data = dict(part_number=row.part_number, revision=row.revision, description=row.description, uom=row.uom,
@@ -137,6 +148,8 @@ def to_record(row: Any, **extra: Any) -> Any:
                     order_multiple=row.order_multiple, safety_stock=row.safety_stock, serialized=row.serialized,
                     shelf_life_days=row.shelf_life_days, handling_class=row.handling_class,
                     handling_note=row.handling_note, attributes=dict(row.attributes or {}), active=row.active,
+                    external_ref=row.external_ref, standard_cost=row.standard_cost,
+                    lot_controlled=row.lot_controlled, lot_period_days=row.lot_period_days,
                     has_bom=False, has_routing=False, used_in_count=0)
         data.update(extra)
         return ItemRecord.model_construct(**_stamp(row), **data)
@@ -230,8 +243,8 @@ def to_record(row: Any, **extra: Any) -> Any:
 
 
 def load_dataset(s: Session) -> MfgDataset:
-    """The owner's complete snapshot: one SELECT per table (17, the plant included), no lazy loads; refs and
-    counts are filled by `dataset.link`."""
+    """The owner's complete snapshot: one SELECT per table (20, the plant and the 3 M2 master tables included), no
+    lazy loads; refs and counts are filled by `dataset.link`."""
     def rows(model: Any) -> list[Any]:
         return list(s.execute(select(model)).scalars())
 
@@ -280,6 +293,9 @@ def load_dataset(s: Session) -> MfgDataset:
         ds.operators[r.id] = to_record(r, skill_ids=skills_by_op.get(r.id, []))
     for r in rows(MfgToolPoolRow):
         ds.tool_pools[r.id] = to_record(r)
+    from . import repo_m2
+
+    repo_m2.load_master_m2(s, ds)          # M2-DESIGN 9.5: locations, suppliers, item-suppliers (3 statements)
     return link(ds)
 
 

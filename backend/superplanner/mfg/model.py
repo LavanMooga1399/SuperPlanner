@@ -49,6 +49,9 @@ Text500 = Annotated[str, StringConstraints(max_length=500), AfterValidator(_no_c
 HHMM = Annotated[str, StringConstraints(pattern=r"^(([01]\d|2[0-3]):[0-5]\d|24:00)$")]
 Weekday = Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 UtcOffset = Annotated[str, StringConstraints(pattern=r"^[+-](0\d|1[0-4]):[0-5]\d$")]
+ExtRef = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64,
+                                          pattern=r"^[^\x00-\x1f\x7f]+$")]          # M2-DESIGN 3
+Money = Annotated[float, Field(ge=0, le=1_000_000_000)]
 Qty = Annotated[float, Field(gt=0, le=1_000_000)]
 NonNegQty = Annotated[float, Field(ge=0, le=1_000_000_000)]
 Minutes = Annotated[float, Field(ge=0, le=100_000)]
@@ -100,9 +103,15 @@ ID_PREFIXES: dict[str, str] = {
     "item": "itm_", "bom": "bom_", "bom_line": "bml_", "routing": "rtg_", "operation": "opr_", "group": "wcg_",
     "line": "lin_", "shift_template": "sht_", "shift_assignment": "sha_", "calendar_exception": "cex_",
     "skill": "skl_", "operator": "emp_", "tool_pool": "tlp_", "import": "imp_", "plant": "plt_",
+    # M2-DESIGN 3
+    "location": "loc_", "supplier": "sup_", "item_supplier": "isu_", "lot": "lot_", "balance": "bal_",
+    "posting": "pst_", "transaction": "txn_", "reservation": "rsv_", "purchase_doc": "pdc_", "purchase_line": "pln_",
+    "purchase_schedule": "psc_", "demand_order": "dmo_", "demand_line": "dml_", "work_order": "wko_",
+    "wo_component": "woc_", "number_series": "nsr_", "mrp_run": "mrr_", "planned_order": "mpo_",
+    "mrp_exception": "mex_", "mrp_item_result": "mir_", "mrp_demand_result": "mdr_", "member": "mbr_",
 }
 ENUMS: dict[str, tuple[str, ...]] = {
-    "make_buy": ("make", "buy", "phantom"), "lot_rule": ("lot_for_lot", "fixed"),
+    "make_buy": ("make", "buy", "phantom"), "lot_rule": ("lot_for_lot", "fixed", "period"),
     "status": ("draft", "released", "obsolete"), "run_per": ("unit", "panel", "batch"),
     "labor": ("attended", "unattended"), "assignment_kind": ("base", "optional"),
     "target_type": ("group", "line"), "exception_scope": ("plant", "group", "line"),
@@ -178,12 +187,27 @@ class _Stamped(MfgModel):
 
 # ---------------------------------------------------------------- plant (3.3)
 
+MRP_DEFAULT_WORKDAYS: tuple[str, ...] = ("mon", "tue", "wed", "thu", "fri", "sat")
+
+
 class PlantInput(MfgModel):
     name: Name = "Plant"
     utc_offset: UtcOffset = "+00:00"
     planning_horizon_days: Annotated[int, Field(ge=7, le=730)] = 90
     currency: _short(8) = ""
     attributes: Attributes = Field(default_factory=dict)
+    # M2-DESIGN 3.1 (MRP)
+    mrp_workdays: Annotated[list[Weekday], Field(min_length=1, max_length=7)] = \
+        Field(default_factory=lambda: list(MRP_DEFAULT_WORKDAYS))
+    mrp_day_minutes: Annotated[float, Field(ge=60, le=1440)] = 480
+    mrp_defer_tolerance_days: Annotated[int, Field(ge=0, le=90)] = 7
+    mrp_release_window_days: Annotated[int, Field(ge=0, le=90)] = 7
+    over_receipt_pct: Annotated[float, Field(ge=0, le=100)] = 0
+
+    @model_validator(mode="after")
+    def _workdays(self) -> "PlantInput":
+        _unique(self.mrp_workdays, "mrp_workdays")
+        return self
 
 
 class PlantRecord(PlantInput):
@@ -206,7 +230,7 @@ class ItemInput(MfgModel):
     setup_family: Code | None = None
     lead_time_days: Annotated[int, Field(ge=0, le=730)] | None = None
     receiving_days: Annotated[int, Field(ge=0, le=60)] = 0
-    lot_rule: Literal["lot_for_lot", "fixed"] = "lot_for_lot"
+    lot_rule: Literal["lot_for_lot", "fixed", "period"] = "lot_for_lot"
     fixed_lot_qty: Qty | None = None
     min_order_qty: NonNegQty = 0
     order_multiple: NonNegQty = 0
@@ -217,11 +241,18 @@ class ItemInput(MfgModel):
     handling_note: Text500 = ""
     attributes: Attributes = Field(default_factory=dict)
     active: bool = True
+    # M2-DESIGN 3.1
+    external_ref: ExtRef | None = None
+    standard_cost: Money | None = None
+    lot_controlled: bool = False
+    lot_period_days: Annotated[int, Field(ge=1, le=365)] | None = None
 
     @model_validator(mode="after")
     def _lot(self) -> "ItemInput":
         if (self.lot_rule == "fixed") != (self.fixed_lot_qty is not None):
             raise ValueError("fixed_lot_qty is required when lot_rule is 'fixed' and not allowed otherwise")
+        if (self.lot_rule == "period") != (self.lot_period_days is not None):
+            raise ValueError("lot_period_days is required when lot_rule is 'period' and not allowed otherwise")
         return self
 
 

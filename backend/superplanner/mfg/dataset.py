@@ -16,6 +16,7 @@ from typing import Any, Literal
 from .model import (BomLineRecord, BomRecord, CalendarExceptionRecord, GroupRecord, ItemRecord, ItemRef,
                     LineRecord, OperationRecord, OperatorRecord, PlantRecord, Ref, RoutingRecord,
                     ShiftAssignmentRecord, ShiftTemplateRecord, SkillRecord, TargetRef, ToolPoolRecord)
+from .model_m2 import ItemSupplierRecord, LocationRecord, SupplierRecord
 
 # ---------------------------------------------------------------- ordering and effectivity helpers
 
@@ -87,10 +88,16 @@ class MfgDataset:
     skills: dict[str, SkillRecord] = field(default_factory=dict)
     operators: dict[str, OperatorRecord] = field(default_factory=dict)
     tool_pools: dict[str, ToolPoolRecord] = field(default_factory=dict)
+    # M2 master data (M2-DESIGN 0.1, 3.2, 3.3): part of the fingerprint and the health check
+    locations: dict[str, LocationRecord] = field(default_factory=dict)
+    suppliers: dict[str, SupplierRecord] = field(default_factory=dict)
+    item_suppliers: dict[str, ItemSupplierRecord] = field(default_factory=dict)
+    # M2 transactional state (stock, documents); never part of the fingerprint. None = not loaded.
+    txn: "TxnData | None" = None
 
     # derived (lazy). Call `invalidate()` after mutating the dataset.
     _DERIVED = ("boms_by_item", "routings_by_item", "lines_by_group", "parents_of", "operation_routing",
-                "items_by_pn")
+                "items_by_pn", "item_suppliers_by_item", "locations_by_code", "suppliers_by_code")
 
     def invalidate(self) -> None:
         for name in self._DERIVED:
@@ -135,6 +142,24 @@ class MfgDataset:
     @cached_property
     def items_by_pn(self) -> dict[str, ItemRecord]:
         return {i.part_number: i for i in self.items.values()}
+
+    @cached_property
+    def item_suppliers_by_item(self) -> dict[str, list[ItemSupplierRecord]]:
+        """item id -> its item-supplier rows sorted by (not preferred, supplier code, id)."""
+        code = {x.id: x.code for x in self.suppliers.values()}
+        out: dict[str, list[ItemSupplierRecord]] = {}
+        for r in sorted(self.item_suppliers.values(),
+                        key=lambda r: (not r.preferred, code.get(r.supplier_id, ""), r.id)):
+            out.setdefault(r.item_id, []).append(r)
+        return out
+
+    @cached_property
+    def locations_by_code(self) -> dict[str, LocationRecord]:
+        return {x.code: x for x in self.locations.values()}
+
+    @cached_property
+    def suppliers_by_code(self) -> dict[str, SupplierRecord]:
+        return {x.code: x for x in self.suppliers.values()}
 
 
 def item_ref(i: ItemRecord) -> ItemRef:
@@ -252,6 +277,14 @@ def link(ds: MfgDataset) -> MfgDataset:
         s.operation_count = skill_ops.get(s.id, 0)
     for tp in ds.tool_pools.values():
         tp.operation_count = tool_ops.get(tp.id, 0)
+    sup_items: dict[str, int] = {}
+    for r in ds.item_suppliers.values():
+        r.item = iref(r.item_id)
+        sup = ds.suppliers.get(r.supplier_id)
+        r.supplier = ref(sup) if sup is not None else _missing_ref(r.supplier_id)
+        sup_items[r.supplier_id] = sup_items.get(r.supplier_id, 0) + 1
+    for sp in ds.suppliers.values():
+        sp.item_count = sup_items.get(sp.id, 0)
     return ds
 
 
@@ -327,9 +360,164 @@ class ParentIndex:
 
 
 def fingerprint(ds: MfgDataset) -> str:
-    """sha256 of the canonical bundle (natural keys only: no ids, timestamps or row versions)."""
+    """sha256 of the canonical master-data bundle (natural keys only: no ids, timestamps or row versions; the M2
+    master sheets included, transactional sheets never)."""
     import hashlib
 
     from .bundle import canonical_json, dataset_to_bundle
 
-    return hashlib.sha256(canonical_json(dataset_to_bundle(ds))).hexdigest()
+    return hashlib.sha256(canonical_json(dataset_to_bundle(ds, scope="master"))).hexdigest()
+
+
+# ---------------------------------------------------------------- M2 transactional state (M2-DESIGN 4-7, 11)
+
+
+@dataclass
+class TxnLot:
+    id: str
+    item_id: str
+    lot_code: str
+    expires_on: date | None = None
+    received_on: date | None = None
+    supplier_lot: str = ""
+    hold: bool = False
+    note: str = ""
+
+
+@dataclass
+class TxnBalance:
+    id: str
+    item_id: str
+    location_id: str
+    lot_id: str | None
+    lot_key: str                       # lot code or "" (non-lot items)
+    qty_on_hand: float
+    qty_reserved: float = 0.0
+    last_receipt_on: date | None = None
+
+
+@dataclass
+class TxnReservation:
+    id: str
+    wo_component_id: str
+    balance_id: str
+    qty: float
+
+
+@dataclass
+class TxnSchedule:
+    id: str
+    seq: int
+    requested_date: date
+    confirmed_date: date | None
+    qty: float
+    received_qty: float = 0.0
+    closed: bool = False
+
+
+@dataclass
+class TxnPurchaseLine:
+    id: str
+    line_no: int
+    item_id: str
+    unit_price: float | None = None
+    status: str = "open"
+    note: str = ""
+    source_pr_line_id: str | None = None
+    schedules: list[TxnSchedule] = field(default_factory=list)
+
+
+@dataclass
+class TxnPurchaseDoc:
+    id: str
+    doc_type: str
+    number: str
+    status: str
+    supplier_id: str | None = None
+    currency: str = ""
+    order_date: date | None = None
+    note: str = ""
+    source: str = "import"
+    source_run_no: int | None = None
+    external_ref: str | None = None
+    lines: list[TxnPurchaseLine] = field(default_factory=list)
+
+
+@dataclass
+class TxnDemandLine:
+    id: str
+    line_no: int
+    item_id: str
+    qty: float
+    due_date: date
+    shipped_qty: float = 0.0
+    serial_from: int | None = None
+    serial_to: int | None = None
+    priority: int | None = None
+    note: str = ""
+
+
+@dataclass
+class TxnDemandOrder:
+    id: str
+    number: str
+    demand_type: str
+    status: str = "draft"
+    customer: str = ""
+    program: str | None = None
+    priority: int = 5
+    note: str = ""
+    external_ref: str | None = None
+    lines: list[TxnDemandLine] = field(default_factory=list)
+
+
+@dataclass
+class TxnWoComponent:
+    id: str
+    item_id: str
+    required_qty: float
+    issued_qty: float = 0.0
+    operation_seq: int | None = None
+    find_number: str | None = None
+    alt_group: str | None = None
+    bom_line_id: str | None = None
+    note: str = ""
+
+
+@dataclass
+class TxnWorkOrder:
+    id: str
+    number: str
+    item_id: str
+    qty: float
+    start_date: date
+    due_date: date
+    status: str = "planned"
+    qty_completed: float = 0.0
+    qty_scrapped: float = 0.0
+    priority: int = 5
+    serial_from: int | None = None
+    serial_to: int | None = None
+    bom_id: str | None = None
+    routing_id: str | None = None
+    demand_line_id: str | None = None
+    source: str = "import"
+    note: str = ""
+    external_ref: str | None = None
+    components: list[TxnWoComponent] = field(default_factory=list)
+
+
+@dataclass
+class TxnData:
+    """Stock and documents of one owner (or of a bundle): what the transactional import sheets, the
+    `scope=transactions` export and the MRP snapshot are built from. Dicts are keyed by id."""
+    lots: dict[str, TxnLot] = field(default_factory=dict)
+    balances: dict[str, TxnBalance] = field(default_factory=dict)
+    reservations: dict[str, TxnReservation] = field(default_factory=dict)
+    purchase_docs: dict[str, TxnPurchaseDoc] = field(default_factory=dict)
+    demand_orders: dict[str, TxnDemandOrder] = field(default_factory=dict)
+    work_orders: dict[str, TxnWorkOrder] = field(default_factory=dict)
+
+    def is_empty(self) -> bool:
+        return not (self.lots or self.balances or self.reservations or self.purchase_docs or self.demand_orders
+                    or self.work_orders)

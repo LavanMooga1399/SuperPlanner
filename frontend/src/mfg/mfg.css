@@ -132,3 +132,38 @@ details.card > summary { cursor: pointer; }
 .mfg-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 16px; border: 2px dashed var(--border-strong); border-radius: var(--radius); text-align: center; cursor: pointer; color: var(--text); background: var(--surface-2); }
 .mfg-drop:hover, .mfg-drop.over { border-color: var(--accent); background: var(--accent-soft); }
 .mfg-drop:focus-within { box-shadow: var(--focus); }
+
+/* ---------------------------------------------------------------- M2 navigation */
+.mfg-nav { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mfg-nav-groups { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end; }
+.mfg-nav-group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mfg-nav-group-label { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); padding-left: 2px; }
+.mfg-nav-side { gap: 8px; margin-bottom: 6px; }
+.mfg-workspace select { min-width: 180px; }
+
+/* ---------------------------------------------------------------- menus, tiles, M2 tables */
+.mfg-menu { position: relative; }
+.mfg-menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; min-width: 260px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); padding: 4px; display: flex; flex-direction: column; }
+.mfg-menu-item { display: block; padding: 7px 10px; border-radius: 4px; color: var(--text); }
+.mfg-menu-item:hover, .mfg-menu-item:focus-visible { background: var(--accent-soft); text-decoration: none; outline: none; }
+.mfg-totals { display: flex; gap: 16px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.mfg-totals > div { display: flex; flex-direction: column; }
+.mfg-totals .mfg-total-label { font-size: 12px; color: var(--text-muted); }
+.mfg-totals .mfg-total-value { font-size: 18px; font-weight: 650; }
+.mfg-neg { color: var(--danger); font-weight: 600; }
+.mfg-pos { color: var(--ok); }
+.mfg-num { font-variant-numeric: tabular-nums; }
+.mfg-grid-table td, .mfg-grid-table th { vertical-align: middle; }
+.mfg-grid-table td .input, .mfg-grid-table td .select { min-width: 0; }
+.mfg-line-error td { background: color-mix(in srgb, var(--danger-soft) 60%, transparent); }
+.mfg-schedule-row td:first-child { padding-left: 28px; }
+.mfg-schedule-row.mfg-overdue td { background: color-mix(in srgb, var(--danger-soft) 45%, transparent); }
+.mfg-highlight td { background: var(--mfg-selected) !important; box-shadow: inset 0 0 0 1px var(--accent); }
+.mfg-dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.mfg-dl dt { color: var(--text-muted); font-size: 13px; }
+.mfg-dl dd { margin: 0; }
+.mfg-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.mfg-fefo { font-size: 12px; color: var(--text-muted); }
+.mfg-chip-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.mfg-step-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); font-size: 12px; }
+.mfg-step-chip.mfg-step-last { border-color: var(--danger); }

@@ -34,6 +34,45 @@ export const mfgPaths = {
   importStart: (reuse?: string) => `${MFG}/import${queryString({ reuse })}`,
   importStep: (importId: string, step?: "map" | "preview" | "done") =>
     `${MFG}/import/${enc(importId)}${queryString({ step })}`,
+
+  // ---------------------------------------------------------------- M2 (14.2)
+  itemStock: (itemId: string) => `${MFG}/items/${enc(itemId)}/stock`,
+  itemSuppliers: (itemId: string) => `${MFG}/items/${enc(itemId)}/suppliers`,
+  inventory: (q?: { item?: string; location?: string }) => `${MFG}/inventory${queryString(q)}`,
+  transactions: (q?: { item?: string; posting?: string }) => `${MFG}/inventory/transactions${queryString(q)}`,
+  posting: (postingId: string) => `${MFG}/inventory/postings/${enc(postingId)}`,
+  post: (q?: { type?: string; item?: string; location?: string }) => `${MFG}/inventory/post${queryString(q)}`,
+  lots: (lot?: string) => `${MFG}/inventory/lots${queryString({ lot })}`,
+  locations: (location?: string) => `${MFG}/inventory/locations${queryString({ location })}`,
+  purchasing: () => `${MFG}/purchasing`,
+  purchaseDocs: (t: "po" | "pr") => `${MFG}/purchasing/${t === "po" ? "orders" : "requests"}`,
+  purchaseDoc: (t: "po" | "pr", docId: string, q?: { line?: string; schedule?: string }) =>
+    `${MFG}/purchasing/${t === "po" ? "orders" : "requests"}/${enc(docId)}${queryString(q)}`,
+  purchaseDocNew: (t: "po" | "pr") => `${MFG}/purchasing/${t === "po" ? "orders" : "requests"}/new`,
+  deliveryBoard: (q?: { overdue?: string; supplier?: string }) => `${MFG}/purchasing/schedule${queryString(q)}`,
+  suppliers: () => `${MFG}/purchasing/suppliers`,
+  supplier: (supplierId: string, itemSupplier?: string) =>
+    `${MFG}/purchasing/suppliers/${enc(supplierId)}${queryString({ item_supplier: itemSupplier })}`,
+  demand: () => `${MFG}/demand`,
+  demandOrder: (orderId: string, line?: string) => `${MFG}/demand/${enc(orderId)}${queryString({ line })}`,
+  demandNew: () => `${MFG}/demand/new`,
+  workOrders: () => `${MFG}/work-orders`,
+  workOrder: (woId: string, component?: string) => `${MFG}/work-orders/${enc(woId)}${queryString({ component })}`,
+  workOrderNew: () => `${MFG}/work-orders/new`,
+  kitting: () => `${MFG}/work-orders/kitting`,
+  mrp: () => `${MFG}/mrp`,
+  run: (runId: string) => `${MFG}/mrp/runs/${enc(runId)}`,
+  runItems: (runId: string) => `${MFG}/mrp/runs/${enc(runId)}/items`,
+  runItem: (runId: string, itemId: string) => `${MFG}/mrp/runs/${enc(runId)}/items/${enc(itemId)}`,
+  runPlanned: (runId: string, order?: string) => `${MFG}/mrp/runs/${enc(runId)}/planned${queryString({ order })}`,
+  runExceptions: (runId: string, q?: { code?: string; severity?: string }) =>
+    `${MFG}/mrp/runs/${enc(runId)}/exceptions${queryString(q)}`,
+  runDemand: (runId: string, line?: string) => `${MFG}/mrp/runs/${enc(runId)}/demand${queryString({ line })}`,
+  runPegging: (runId: string, q: { item: string; node: number; kind: "requirement" | "supply"; direction: "up" | "down" }) =>
+    `${MFG}/mrp/runs/${enc(runId)}/pegging${queryString(q)}`,
+  runCompare: (runId: string, withId?: string) => `${MFG}/mrp/runs/${enc(runId)}/compare${queryString({ with: withId })}`,
+  shortages: () => `${MFG}/shortages`,
+  members: () => `${MFG}/settings/members`,
 };
 
 /** M 11.1 `isMfgPath`. */

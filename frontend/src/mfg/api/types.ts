@@ -17,7 +17,8 @@ export const WEEKDAYS: readonly Weekday[] = ["mon", "tue", "wed", "thu", "fri", 
 
 export type Status = "draft" | "released" | "obsolete";
 export type MakeBuy = "make" | "buy" | "phantom";
-export type LotRule = "lot_for_lot" | "fixed";
+/** M2 3.1 adds `period` (with `lot_period_days`). */
+export type LotRule = "lot_for_lot" | "fixed" | "period";
 export type RunPer = "unit" | "panel" | "batch";
 export type Labor = "attended" | "unattended";
 export type AssignmentKind = "base" | "optional";

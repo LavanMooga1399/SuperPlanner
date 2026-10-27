@@ -1,9 +1,19 @@
 import { useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
+import { RoleBadge, WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { mfgPaths } from "../lib/paths";
+import { AccessProvider, useAccess } from "../lib/permissions";
 
-const SECTIONS: { key: string; label: string; to: string; icon: IconName; end?: boolean }[] = [
+interface Section {
+  key: string;
+  label: string;
+  to: string;
+  icon: IconName;
+  end?: boolean;
+}
+
+const SETUP: Section[] = [
   { key: "overview", label: "Overview", to: mfgPaths.home(), icon: "factory", end: true },
   { key: "items", label: "Items", to: mfgPaths.items(), icon: "list" },
   { key: "plant", label: "Plant", to: mfgPaths.plant(), icon: "settings" },
@@ -12,18 +22,23 @@ const SECTIONS: { key: string; label: string; to: string; icon: IconName; end?: 
   { key: "import", label: "Import / export", to: mfgPaths.importStart(), icon: "upload" },
 ];
 
-/** Wraps every /mfg/** route: area title and the section sub-navigation (M 11.2). */
-export function MfgLayout() {
-  useEffect(() => {
-    document.title = "Manufacturing - SuperPlanner";
-    return () => {
-      document.title = "SuperPlanner Studio";
-    };
-  }, []);
+const PLANNING: Section[] = [
+  { key: "demand", label: "Demand", to: mfgPaths.demand(), icon: "flag" },
+  { key: "mrp", label: "MRP", to: mfgPaths.mrp(), icon: "graph" },
+  { key: "shortages", label: "Shortages", to: mfgPaths.shortages(), icon: "alert" },
+  { key: "work-orders", label: "Work orders", to: mfgPaths.workOrders(), icon: "play" },
+  { key: "purchasing", label: "Purchasing", to: mfgPaths.purchasing(), icon: "briefcase" },
+  { key: "inventory", label: "Inventory", to: mfgPaths.inventory(), icon: "layers" },
+];
+
+function NavGroup({ label, sections, testId }: { label: string; sections: Section[]; testId: string }) {
   return (
-    <div className="mfg-page">
-      <nav className="tabs mfg-subnav" aria-label="Manufacturing sections">
-        {SECTIONS.map((s) => (
+    <div className="mfg-nav-group" role="group" aria-label={label} data-testid={testId}>
+      <span className="mfg-nav-group-label" aria-hidden>
+        {label}
+      </span>
+      <div className="tabs mfg-subnav">
+        {sections.map((s) => (
           <NavLink
             key={s.key}
             to={s.to}
@@ -35,9 +50,43 @@ export function MfgLayout() {
             {s.label}
           </NavLink>
         ))}
-      </nav>
-      <Outlet />
+      </div>
     </div>
+  );
+}
+
+function MfgNav() {
+  const { isOwner, assumed } = useAccess();
+  const setup = isOwner && !assumed ? [...SETUP, { key: "members", label: "Members", to: mfgPaths.members(), icon: "lock" as IconName }] : SETUP;
+  return (
+    <div className="mfg-nav">
+      <nav className="mfg-nav-groups" aria-label="Manufacturing sections">
+        <NavGroup label="Setup" sections={setup} testId="nav-group-setup" />
+        <NavGroup label="Planning & stores" sections={PLANNING} testId="nav-group-planning" />
+      </nav>
+      <div className="row mfg-nav-side">
+        <WorkspaceSwitcher />
+        <RoleBadge />
+      </div>
+    </div>
+  );
+}
+
+/** Wraps every /mfg/** route: area title, workspace/role context and the two-group sub-navigation (M2 14.1). */
+export function MfgLayout() {
+  useEffect(() => {
+    document.title = "Manufacturing - SuperPlanner";
+    return () => {
+      document.title = "SuperPlanner Studio";
+    };
+  }, []);
+  return (
+    <AccessProvider>
+      <div className="mfg-page">
+        <MfgNav />
+        <Outlet />
+      </div>
+    </AccessProvider>
   );
 }
 
@@ -55,11 +104,11 @@ export function MfgNotFound() {
 }
 
 /** Secondary tab strip used by the Plant and People & tooling sections. */
-export function SectionTabs({ label, tabs }: { label: string; tabs: { to: string; label: string; testId: string }[] }) {
+export function SectionTabs({ label, tabs }: { label: string; tabs: { to: string; label: string; testId: string; end?: boolean }[] }) {
   return (
     <nav className="tabs mfg-section-tabs" aria-label={label}>
       {tabs.map((t) => (
-        <NavLink key={t.to} to={t.to} className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={t.testId}>
+        <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={t.testId}>
           {t.label}
         </NavLink>
       ))}

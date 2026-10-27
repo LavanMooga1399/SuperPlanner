@@ -7,7 +7,8 @@ import { useNavigate } from "react-router";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Icon } from "../../components/Icon";
 import { deleteItem, getItem, updateItem } from "../api/client";
-import type { AttrValue, Attributes, ItemInput, ItemRecord, LotRule, MakeBuy } from "../api/types";
+import type { AttrValue, Attributes, ItemInput, ItemRecord, MakeBuy } from "../api/types";
+import type { ItemM2Fields, LotRuleM2 } from "../api/typesM2";
 import { ConflictBanner, MfgError, SaveState } from "../components/Feedback";
 import { CheckField, numOr, numOrNull, numText, SelectField, strOrNull, TextField } from "../components/Field";
 import { MAKE_BUY_OPTIONS, useUomOptions } from "../components/NewItemDialog";
@@ -32,8 +33,14 @@ interface ItemForm {
   setup_family: string;
   lead_time_days: string;
   receiving_days: string;
-  lot_rule: LotRule;
+  lot_rule: LotRuleM2;
   fixed_lot_qty: string;
+  lot_period_days: string;
+  lot_controlled: boolean;
+  standard_cost: string;
+  external_ref: string;
+  /** The server returned the M2 item fields (3.1): send them back on PUT (full replacement). */
+  m2: boolean;
   min_order_qty: string;
   order_multiple: string;
   safety_stock: string;
@@ -54,7 +61,14 @@ function attrRows(a: Attributes): AttrRow[] {
 }
 
 function toForm(it: ItemRecord): ItemForm {
+  const x = it as ItemRecord & ItemM2Fields;
+  const m2 = "lot_controlled" in it;
   return {
+    m2,
+    lot_period_days: numText(x.lot_period_days),
+    lot_controlled: Boolean(x.lot_controlled),
+    standard_cost: numText(x.standard_cost),
+    external_ref: x.external_ref ?? "",
     part_number: it.part_number,
     revision: it.revision,
     description: it.description,
@@ -78,7 +92,7 @@ function toForm(it: ItemRecord): ItemForm {
   };
 }
 
-function toInput(f: ItemForm): ItemInput {
+function toInput(f: ItemForm): ItemInput & ItemM2Fields {
   const attributes: Attributes = {};
   for (const r of f.attributes) {
     const k = r.key.trim();
@@ -88,7 +102,16 @@ function toInput(f: ItemForm): ItemInput {
     else if (r.type === "yes/no") v = /^(true|yes|y|1)$/i.test(r.value.trim());
     attributes[k] = v;
   }
+  const m2: ItemM2Fields = f.m2
+    ? {
+        external_ref: strOrNull(f.external_ref),
+        standard_cost: numOrNull(f.standard_cost),
+        lot_controlled: f.lot_controlled,
+        lot_period_days: f.lot_rule === "period" ? numOrNull(f.lot_period_days) : null,
+      }
+    : {};
   return {
+    ...m2,
     part_number: f.part_number.trim(),
     revision: f.revision.trim() || "A",
     description: f.description,
@@ -98,7 +121,7 @@ function toInput(f: ItemForm): ItemInput {
     setup_family: strOrNull(f.setup_family),
     lead_time_days: numOrNull(f.lead_time_days),
     receiving_days: numOr(f.receiving_days, 0),
-    lot_rule: f.lot_rule,
+    lot_rule: f.m2 || f.lot_rule !== "period" ? f.lot_rule : "lot_for_lot",
     fixed_lot_qty: f.lot_rule === "fixed" ? numOrNull(f.fixed_lot_qty) : null,
     min_order_qty: numOr(f.min_order_qty, 0),
     order_multiple: numOr(f.order_multiple, 0),
@@ -184,6 +207,7 @@ export function ItemDetailsTab() {
   };
 
   const fixedMissing = form.lot_rule === "fixed" && numOrNull(form.fixed_lot_qty) === null;
+  const periodMissing = form.lot_rule === "period" && numOrNull(form.lot_period_days) === null;
   const buyNoLead = form.make_buy === "buy" && numOrNull(form.lead_time_days) === null;
 
   return (
@@ -251,8 +275,21 @@ export function ItemDetailsTab() {
             options={[
               { value: "lot_for_lot", label: "Order exactly what is needed" },
               { value: "fixed", label: "Always order a fixed quantity" },
+              ...(form.m2 ? [{ value: "period" as const, label: "Combine needs of a period into one order" }] : []),
             ]}
+            testId="item-lot-rule"
           />
+          {form.lot_rule === "period" ? (
+            <TextField
+              label="Period (days)"
+              type="number"
+              value={form.lot_period_days}
+              onChange={(v) => set("lot_period_days", v)}
+              required
+              hint={periodMissing ? "Required: 1 to 365 days." : "Needs within this many days become one order."}
+              testId="item-lot-period"
+            />
+          ) : null}
           {form.lot_rule === "fixed" ? (
             <TextField
               label="Fixed lot quantity"
@@ -267,6 +304,25 @@ export function ItemDetailsTab() {
           <TextField label="Order multiple" type="number" value={form.order_multiple} onChange={(v) => set("order_multiple", v)} hint="e.g. reel of 5000; 0 = none" />
           <TextField label="Safety stock" type="number" value={form.safety_stock} onChange={(v) => set("safety_stock", v)} />
           <TextField label="Goods-in inspection (days)" type="number" value={form.receiving_days} onChange={(v) => set("receiving_days", v)} />
+          {form.m2 ? (
+            <>
+              <TextField
+                label="Standard cost"
+                type="number"
+                value={form.standard_cost}
+                onChange={(v) => set("standard_cost", v)}
+                hint="Per unit, in the plant currency; values stock."
+                testId="item-standard-cost"
+              />
+              <CheckField
+                label="Track lots"
+                checked={form.lot_controlled}
+                onChange={(v) => set("lot_controlled", v)}
+                hint="Receipts need a lot code; issues pick the earliest expiry first."
+                testId="item-lot-controlled"
+              />
+            </>
+          ) : null}
         </div>
       </section>
 
@@ -290,6 +346,16 @@ export function ItemDetailsTab() {
               <TextField label="Shelf life (days)" type="number" value={form.shelf_life_days} onChange={(v) => set("shelf_life_days", v)} />
               <TextField label="Handling class" value={form.handling_class} onChange={(v) => set("handling_class", v)} maxLength={32} hint="e.g. MSL3, ESD, HAZ" />
             </div>
+            {form.m2 ? (
+              <TextField
+                label="External reference"
+                value={form.external_ref}
+                onChange={(v) => set("external_ref", v)}
+                maxLength={64}
+                hint="Code of this item in your ERP; must be unique."
+                testId="item-external-ref"
+              />
+            ) : null}
             <TextField label="Handling note" value={form.handling_note} onChange={(v) => set("handling_note", v)} maxLength={500} />
             <AttributesEditor rows={form.attributes} onChange={(rows) => set("attributes", rows)} />
           </div>
@@ -297,7 +363,7 @@ export function ItemDetailsTab() {
       ) : null}
 
       <div className="row mfg-sticky-actions">
-        <button type="submit" className="btn primary" disabled={busy || !dirty || !form.part_number.trim()} data-testid="item-save">
+        <button type="submit" className="btn primary" disabled={busy || !dirty || !form.part_number.trim() || periodMissing} data-testid="item-save">
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save changes
         </button>
         <button type="button" className="btn" disabled={!dirty || busy} onClick={() => setForm(toForm(base))}>

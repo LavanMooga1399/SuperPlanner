@@ -12,7 +12,7 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (BigInteger, Boolean, CheckConstraint, Date, DateTime, Double, ForeignKey, Index, Integer,
-                        String, UniqueConstraint)
+                        String, UniqueConstraint, text)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..db.models import Base, JsonType, utcnow
@@ -43,13 +43,21 @@ class MfgPlantRow(OwnedMixin, _Editable, Base):
     currency: Mapped[str] = mapped_column(String(8))
     attributes: Mapped[dict[str, Any]] = mapped_column(JsonType)
     data_version: Mapped[int] = mapped_column(Integer, default=0)
+    # M2-DESIGN 9.2
+    mrp_workdays: Mapped[list[Any]] = mapped_column(JsonType)
+    mrp_day_minutes: Mapped[float] = mapped_column(Double)
+    mrp_defer_tolerance_days: Mapped[int] = mapped_column(Integer)
+    mrp_release_window_days: Mapped[int] = mapped_column(Integer)
+    over_receipt_pct: Mapped[float] = mapped_column(Double)
 
 
 class MfgItemRow(OwnedMixin, _Editable, Base):
     __tablename__ = "mfg_items"
     __table_args__ = (UniqueConstraint("owner_id", "part_number", name="uq_mfg_items_owner_pn"),
                       Index("ix_mfg_items_owner_family", "owner_id", "family"),
-                      Index("ix_mfg_items_owner_updated", "owner_id", "updated_at", "id"))
+                      Index("ix_mfg_items_owner_updated", "owner_id", "updated_at", "id"),
+                      Index("uq_mfg_items_owner_extref", "owner_id", "external_ref", unique=True,
+                            postgresql_where=text("external_ref IS NOT NULL")))
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     part_number: Mapped[str] = mapped_column(String(64))
@@ -72,6 +80,11 @@ class MfgItemRow(OwnedMixin, _Editable, Base):
     handling_note: Mapped[str] = mapped_column(String(500))
     attributes: Mapped[dict[str, Any]] = mapped_column(JsonType)
     active: Mapped[bool] = mapped_column(Boolean)
+    # M2-DESIGN 9.2
+    external_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    standard_cost: Mapped[float | None] = mapped_column(Double, nullable=True)
+    lot_controlled: Mapped[bool] = mapped_column(Boolean)
+    lot_period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class MfgGroupRow(OwnedMixin, _Editable, Base):

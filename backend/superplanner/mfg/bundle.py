@@ -83,10 +83,13 @@ SHEETS: tuple[SheetSpec, ...] = (
     SheetSpec("items", (
         _c("part_number", req=True, key=True), _c("revision"), _c("description"), _c("uom", enum=UOM_CODES),
         _c("make_buy", req=True, enum=("make", "buy", "phantom")), _c("family"), _c("setup_family"),
-        _c("lead_time_days", "int"), _c("receiving_days", "int"), _c("lot_rule", enum=("lot_for_lot", "fixed")),
+        _c("lead_time_days", "int"), _c("receiving_days", "int"),
+        _c("lot_rule", enum=("lot_for_lot", "fixed", "period")),
         _c("fixed_lot_qty", "float"), _c("min_order_qty", "float"), _c("order_multiple", "float"),
         _c("safety_stock", "float"), _c("serialized", "bool"), _c("shelf_life_days", "int"),
-        _c("handling_class"), _c("handling_note"), _c("active", "bool")), attr_columns=True),
+        _c("handling_class"), _c("handling_note"), _c("active", "bool"), _c("external_ref"),
+        _c("standard_cost", "float"), _c("lot_controlled", "bool"), _c("lot_period_days", "int")),
+              attr_columns=True),
     SheetSpec("skills", (_c("code", req=True, key=True), _c("name", req=True), _c("description"))),
     SheetSpec("tool_pools", (_c("code", req=True, key=True), _c("name", req=True), _c("kind"),
                              _c("quantity", "int", req=True), _c("note"))),
@@ -130,9 +133,61 @@ SHEETS: tuple[SheetSpec, ...] = (
         _c("labor", enum=("attended", "unattended")), _c("crew_size", "int"), _c("skill_code"),
         _c("tools", "list"), _c("transfer_batch", "int"), _c("yield_pct", "float"), _c("inspection_gate", "bool"),
         _c("interruptible", "bool"))),
+    # ------------------------------------------------------------ M2-DESIGN 11 (after the M1 sheets)
+    SheetSpec("locations", (_c("code", req=True, key=True), _c("name", req=True),
+                            _c("kind", req=True, enum=("stores", "line_side", "inspection", "quarantine")),
+                            _c("receipt_default", "bool"), _c("active", "bool"), _c("external_ref"), _c("note"))),
+    SheetSpec("suppliers", (_c("code", req=True, key=True), _c("name", req=True), _c("lead_time_days", "int"),
+                            _c("currency"), _c("contact_name"), _c("email"), _c("phone"), _c("address"),
+                            _c("active", "bool"), _c("external_ref"), _c("note"))),
+    SheetSpec("item_suppliers", (
+        _c("part_number", req=True, key=True), _c("supplier_code", req=True, key=True), _c("supplier_part_number"),
+        _c("lead_time_days", "int"), _c("min_order_qty", "float"), _c("order_multiple", "float"),
+        _c("purchase_unit"), _c("units_per_purchase_unit", "float"), _c("unit_price", "float"), _c("currency"),
+        _c("preferred", "bool"), _c("active", "bool"), _c("note"))),
+    SheetSpec("stock", (_c("part_number", req=True, key=True), _c("location_code", req=True, key=True),
+                        _c("lot_code", key=True), _c("qty", "float", req=True), _c("expires_on", "date"),
+                        _c("supplier_lot"))),
+    SheetSpec("purchase_docs", (
+        _c("doc_type", req=True, key=True, enum=("pr", "po")), _c("number", req=True, key=True),
+        _c("status", enum=("draft", "submitted", "approved", "rejected", "ordered", "open", "partially_received",
+                           "received", "closed", "cancelled")),
+        _c("supplier_code"), _c("currency"), _c("order_date", "date"), _c("note"), _c("external_ref"))),
+    SheetSpec("purchase_lines", (
+        _c("doc_type", req=True, key=True, enum=("pr", "po")), _c("number", req=True, key=True),
+        _c("line_no", "int", req=True, key=True), _c("part_number", req=True), _c("unit_price", "float"),
+        _c("note"))),
+    SheetSpec("purchase_schedules", (
+        _c("doc_type", req=True, key=True, enum=("pr", "po")), _c("number", req=True, key=True),
+        _c("line_no", "int", req=True, key=True), _c("seq", "int", req=True, key=True),
+        _c("requested_date", "date", req=True), _c("confirmed_date", "date"), _c("qty", "float", req=True),
+        _c("received_qty", "float"))),
+    SheetSpec("demand_orders", (
+        _c("number", req=True, key=True), _c("demand_type", req=True, enum=("customer", "internal", "spares",
+                                                                              "project")),
+        _c("customer"), _c("program"), _c("priority", "int"),
+        _c("status", enum=("draft", "open", "closed", "cancelled")), _c("note"), _c("external_ref"))),
+    SheetSpec("demand_lines", (
+        _c("number", req=True, key=True), _c("line_no", "int", req=True, key=True), _c("part_number", req=True),
+        _c("qty", "float", req=True), _c("due_date", "date", req=True), _c("serial_from", "int"),
+        _c("serial_to", "int"), _c("priority", "int"), _c("shipped_qty", "float"), _c("note"))),
+    SheetSpec("work_orders", (
+        _c("number", req=True, key=True), _c("part_number", req=True), _c("qty", "float", req=True),
+        _c("start_date", "date"), _c("due_date", "date", req=True),
+        _c("status", enum=("planned", "released", "in_progress", "completed", "closed", "cancelled")),
+        _c("priority", "int"), _c("serial_from", "int"), _c("serial_to", "int"), _c("qty_completed", "float"),
+        _c("note"), _c("external_ref"))),
+    SheetSpec("wo_components", (
+        _c("wo_number", req=True, key=True), _c("part_number", req=True, key=True), _c("find_number", key=True),
+        _c("required_qty", "float", req=True), _c("issued_qty", "float"), _c("operation_seq", "int"), _c("note"))),
 )
 SHEET_NAMES: tuple[str, ...] = tuple(s.name for s in SHEETS)
 SHEETS_BY_NAME: dict[str, SheetSpec] = {s.name: s for s in SHEETS}
+#: M2-DESIGN 11: sheet kind -> permission(s) checked on import commit
+M2_MASTER_SHEETS: tuple[str, ...] = ("locations", "suppliers", "item_suppliers")
+TXN_SHEETS: tuple[str, ...] = ("stock", "purchase_docs", "purchase_lines", "purchase_schedules", "demand_orders",
+                               "demand_lines", "work_orders", "wo_components")
+MASTER_SHEETS: tuple[str, ...] = tuple(n for n in SHEET_NAMES if n not in TXN_SHEETS)
 
 
 class BundleError(ValueError):
@@ -255,14 +310,19 @@ def _f(v: Any) -> float | None:
 # ---------------------------------------------------------------- dataset -> bundle
 
 
-def dataset_to_bundle(ds: MfgDataset) -> MfgBundle:
+def dataset_to_bundle(ds: MfgDataset, scope: Literal["all", "master", "transactions"] = "all") -> MfgBundle:
+    """Canonical bundle of a dataset. `scope="master"`: the master sheets only (M1 + locations, suppliers,
+    item-suppliers; the fingerprint); `"transactions"`: the transactional sheets only (from `ds.txn`); `"all"`
+    (default): every sheet (transactional sheets empty when `ds.txn` is None)."""
+    if scope == "transactions":
+        return transactions_to_bundle(ds)
     items = ds.items
     pn = {i: it.part_number for i, it in items.items()}
     from .calendar import offset_tz
 
     tz = offset_tz(ds.plant.utc_offset)
     p = ds.plant
-    out: MfgBundle = {name: [] for name in SHEET_NAMES}
+    out: MfgBundle = {name: [] for name in MASTER_SHEETS}
     out["plant"] = [{"name": p.name, "utc_offset": p.utc_offset, "planning_horizon_days": p.planning_horizon_days,
                      "currency": p.currency}]
     for it in sorted(items.values(), key=lambda x: x.part_number):
@@ -272,7 +332,9 @@ def dataset_to_bundle(ds: MfgDataset) -> MfgBundle:
                "fixed_lot_qty": _f(it.fixed_lot_qty), "min_order_qty": float(it.min_order_qty),
                "order_multiple": float(it.order_multiple), "safety_stock": float(it.safety_stock),
                "serialized": it.serialized, "shelf_life_days": it.shelf_life_days,
-               "handling_class": it.handling_class, "handling_note": it.handling_note, "active": it.active}
+               "handling_class": it.handling_class, "handling_note": it.handling_note, "active": it.active,
+               "external_ref": it.external_ref, "standard_cost": _f(it.standard_cost),
+               "lot_controlled": it.lot_controlled, "lot_period_days": it.lot_period_days}
         for k in sorted(it.attributes):
             row[ATTR_PREFIX + k] = it.attributes[k]
         out["items"].append(row)
@@ -359,6 +421,94 @@ def dataset_to_bundle(ds: MfgDataset) -> MfgBundle:
                 "tools": sorted(format_tool(tools.get(t.tool_pool_id, "?"), t.qty) for t in op.tools),
                 "transfer_batch": op.transfer_batch, "yield_pct": float(op.yield_pct),
                 "inspection_gate": op.inspection_gate, "interruptible": op.interruptible})
+    for loc in sorted(ds.locations.values(), key=lambda x: x.code):
+        out["locations"].append({"code": loc.code, "name": loc.name, "kind": loc.kind,
+                                 "receipt_default": loc.receipt_default, "active": loc.active,
+                                 "external_ref": loc.external_ref, "note": loc.note})
+    supcode = {x.id: x.code for x in ds.suppliers.values()}
+    for sp in sorted(ds.suppliers.values(), key=lambda x: x.code):
+        out["suppliers"].append({"code": sp.code, "name": sp.name, "lead_time_days": sp.lead_time_days,
+                                 "currency": sp.currency, "contact_name": sp.contact_name, "email": sp.email,
+                                 "phone": sp.phone, "address": sp.address, "active": sp.active,
+                                 "external_ref": sp.external_ref, "note": sp.note})
+    isu = []
+    for r in ds.item_suppliers.values():
+        isu.append({"part_number": pn.get(r.item_id), "supplier_code": supcode.get(r.supplier_id),
+                    "supplier_part_number": r.supplier_part_number, "lead_time_days": r.lead_time_days,
+                    "min_order_qty": float(r.min_order_qty), "order_multiple": float(r.order_multiple),
+                    "purchase_unit": r.purchase_unit, "units_per_purchase_unit": float(r.units_per_purchase_unit),
+                    "unit_price": _f(r.unit_price), "currency": r.currency, "preferred": r.preferred,
+                    "active": r.active, "note": r.note})
+    isu.sort(key=lambda r: (r["part_number"] or "", r["supplier_code"] or ""))
+    out["item_suppliers"] = isu
+    if scope == "all":
+        out.update(transactions_to_bundle(ds))
+        out = {name: out[name] for name in SHEET_NAMES}
+    return out
+
+
+def _natural_fn(fn: str | None) -> tuple[int, int, str]:
+    from .dataset import natural
+
+    return natural(fn) if fn else (2, 0, "")
+
+
+def transactions_to_bundle(ds: MfgDataset) -> MfgBundle:
+    """The transactional sheets (M2-DESIGN 11) of `ds.txn`: stock = balances with on hand > 0 (with their lot),
+    documents with their current received/shipped/completed/issued quantities. Canonical row order."""
+    from .model_m2 import EPS
+
+    out: MfgBundle = {name: [] for name in TXN_SHEETS}
+    t = ds.txn
+    if t is None:
+        return out
+    pn = {i: it.part_number for i, it in ds.items.items()}
+    loc = {x.id: x.code for x in ds.locations.values()}
+    sup = {x.id: x.code for x in ds.suppliers.values()}
+    stock = []
+    for b in t.balances.values():
+        if b.qty_on_hand <= EPS:
+            continue
+        lot = t.lots.get(b.lot_id or "")
+        stock.append({"part_number": pn.get(b.item_id), "location_code": loc.get(b.location_id),
+                      "lot_code": lot.lot_code if lot else None, "qty": float(b.qty_on_hand),
+                      "expires_on": lot.expires_on if lot else None, "supplier_lot": lot.supplier_lot if lot else ""})
+    stock.sort(key=lambda r: (r["part_number"] or "", r["location_code"] or "", r["lot_code"] or ""))
+    out["stock"] = stock
+    for d in sorted(t.purchase_docs.values(), key=lambda d: (d.doc_type, d.number)):
+        out["purchase_docs"].append({"doc_type": d.doc_type, "number": d.number, "status": d.status,
+                                     "supplier_code": sup.get(d.supplier_id or ""), "currency": d.currency,
+                                     "order_date": d.order_date, "note": d.note, "external_ref": d.external_ref})
+        for ln in sorted(d.lines, key=lambda x: x.line_no):
+            out["purchase_lines"].append({"doc_type": d.doc_type, "number": d.number, "line_no": ln.line_no,
+                                          "part_number": pn.get(ln.item_id), "unit_price": _f(ln.unit_price),
+                                          "note": ln.note})
+            for sc in sorted(ln.schedules, key=lambda x: x.seq):
+                out["purchase_schedules"].append({
+                    "doc_type": d.doc_type, "number": d.number, "line_no": ln.line_no, "seq": sc.seq,
+                    "requested_date": sc.requested_date, "confirmed_date": sc.confirmed_date, "qty": float(sc.qty),
+                    "received_qty": float(sc.received_qty)})
+    for o in sorted(t.demand_orders.values(), key=lambda o: o.number):
+        out["demand_orders"].append({"number": o.number, "demand_type": o.demand_type, "customer": o.customer,
+                                     "program": o.program, "priority": o.priority, "status": o.status,
+                                     "note": o.note, "external_ref": o.external_ref})
+        for ln in sorted(o.lines, key=lambda x: x.line_no):
+            out["demand_lines"].append({"number": o.number, "line_no": ln.line_no, "part_number": pn.get(ln.item_id),
+                                        "qty": float(ln.qty), "due_date": ln.due_date, "serial_from": ln.serial_from,
+                                        "serial_to": ln.serial_to, "priority": ln.priority,
+                                        "shipped_qty": float(ln.shipped_qty), "note": ln.note})
+    for w in sorted(t.work_orders.values(), key=lambda w: w.number):
+        out["work_orders"].append({"number": w.number, "part_number": pn.get(w.item_id), "qty": float(w.qty),
+                                   "start_date": w.start_date, "due_date": w.due_date, "status": w.status,
+                                   "priority": w.priority, "serial_from": w.serial_from, "serial_to": w.serial_to,
+                                   "qty_completed": float(w.qty_completed), "note": w.note,
+                                   "external_ref": w.external_ref})
+        comps = sorted(w.components, key=lambda c: (_natural_fn(c.find_number), pn.get(c.item_id) or "", c.id))
+        for c in comps:
+            out["wo_components"].append({"wo_number": w.number, "part_number": pn.get(c.item_id),
+                                         "find_number": c.find_number, "required_qty": float(c.required_qty),
+                                         "issued_qty": float(c.issued_qty), "operation_seq": c.operation_seq,
+                                         "note": c.note})
     return out
 
 
@@ -625,6 +775,10 @@ def bundle_to_dataset(bundle: MfgBundle) -> MfgDataset:
         ds.operators[rec.id] = rec
 
     _documents(rows, ds, by_pn, groups, skills, pools, cx, stamp)
+    _m2_master(rows, ds, by_pn, cx, stamp)
+    if not cx.errors:
+        link(ds)
+        _m2_transactions(rows, ds, by_pn, cx)
     if cx.errors:
         raise BundleError(cx.errors)
     return link(ds)
@@ -787,3 +941,390 @@ def _documents(rows: dict[str, list[dict[str, Any]]], ds: MfgDataset, by_pn: dic
 
 def bundle_counts(bundle: MfgBundle) -> dict[str, int]:
     return {name: len(bundle.get(name) or []) for name in SHEET_NAMES}
+
+
+# ---------------------------------------------------------------- M2 sheets (strict)
+
+
+def _m2_master(rows: dict[str, list[dict[str, Any]]], ds: MfgDataset, by_pn: dict[str, ItemRecord], cx: _Ctx,
+               stamp: dict[str, Any]) -> None:
+    from .model_m2 import (ItemSupplierInput, ItemSupplierRecord, LocationInput, LocationRecord, SupplierInput,
+                           SupplierRecord)
+
+    for sheet, in_cls, rec_cls, prefix, target, extra in (
+            ("locations", LocationInput, LocationRecord, "loc_", ds.locations, {}),
+            ("suppliers", SupplierInput, SupplierRecord, "sup_", ds.suppliers, {"item_count": 0})):
+        seen: dict[Any, int] = {}
+        for n, r in enumerate(rows[sheet], 1):
+            try:
+                inp = in_cls.model_validate(_clean(r, SHEETS_BY_NAME[sheet]))
+            except ValidationError as exc:
+                cx.err(sheet, n, _pyd_msg(exc))
+                continue
+            if inp.code in seen:
+                cx.err(sheet, n, f"duplicate key {inp.code!r} (also row {seen[inp.code]})")
+                continue
+            seen[inp.code] = n
+            rec = rec_cls.model_construct(**inp.__dict__, id=deterministic_id(prefix, inp.code), **stamp, **extra)
+            target[rec.id] = rec
+    defaults = [x.code for x in ds.locations.values() if x.receipt_default and x.active]
+    if len(defaults) > 1:
+        cx.errors.append(f"locations: more than one active receipt-default location ({', '.join(sorted(defaults))})")
+    sup_by_code = {x.code: x for x in ds.suppliers.values()}
+    seen2: dict[Any, int] = {}
+    preferred: dict[str, int] = {}
+    for n, r in enumerate(rows["item_suppliers"], 1):
+        d = _clean(r, SHEETS_BY_NAME["item_suppliers"])
+        it = by_pn.get(str(d.pop("part_number", "")).strip())
+        sp = sup_by_code.get(str(d.pop("supplier_code", "")).strip())
+        if it is None or sp is None:
+            cx.err("item_suppliers", n, f"unknown {'part number' if it is None else 'supplier'} "
+                   f"{r.get('part_number') if it is None else r.get('supplier_code')!r}")
+            continue
+        if it.make_buy != "buy":
+            cx.err("item_suppliers", n, f"{it.part_number} is not a buy item")
+            continue
+        d.update(item_id=it.id, supplier_id=sp.id)
+        try:
+            inp = ItemSupplierInput.model_validate(d)
+        except ValidationError as exc:
+            cx.err("item_suppliers", n, _pyd_msg(exc))
+            continue
+        key = (it.part_number, sp.code)
+        if key in seen2:
+            cx.err("item_suppliers", n, f"duplicate key {key!r} (also row {seen2[key]})")
+            continue
+        seen2[key] = n
+        if inp.preferred:
+            preferred[it.id] = preferred.get(it.id, 0) + 1
+            if preferred[it.id] > 1:
+                cx.err("item_suppliers", n, f"{it.part_number} has more than one preferred supplier")
+        from .units import is_count
+
+        if is_count(it.uom) and float(inp.units_per_purchase_unit) != int(inp.units_per_purchase_unit):
+            cx.err("item_suppliers", n, "units_per_purchase_unit must be a whole number for count items")
+        rec = ItemSupplierRecord.model_construct(**inp.__dict__, id=deterministic_id("isu_", *key), **stamp,
+                                                 item=None, supplier=None)
+        ds.item_suppliers[rec.id] = rec
+
+
+def _m2_transactions(rows: dict[str, list[dict[str, Any]]], ds: MfgDataset, by_pn: dict[str, ItemRecord],
+                     cx: _Ctx) -> None:
+    """Strict conversion of the transactional sheets into `ds.txn` (deterministic ids). Missing WO start dates
+    and components are derived with `workorders` (7.2 / 8.5)."""
+    from .dataset import (TxnBalance, TxnData, TxnDemandLine, TxnDemandOrder, TxnLot, TxnPurchaseDoc,
+                          TxnPurchaseLine, TxnSchedule, TxnWoComponent, TxnWorkOrder)
+    from .model_m2 import EPS
+    from .units import is_count
+
+    t = TxnData()
+    ds.txn = t
+    locs = {x.code: x for x in ds.locations.values()}
+    sups = {x.code: x for x in ds.suppliers.values()}
+
+    def item(sheet: str, n: int, v: Any) -> ItemRecord | None:
+        it = by_pn.get(str(v or "").strip())
+        if it is None:
+            cx.err(sheet, n, f"unknown part number {v!r}")
+        return it
+
+    def num(sheet: str, n: int, v: Any, what: str, *, integer: bool = False, default: Any = None) -> Any:
+        if _blank(v):
+            return default
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            cx.err(sheet, n, f"{what}: not a number ({v!r})")
+            return default
+        if integer:
+            if x != int(x):
+                cx.err(sheet, n, f"{what}: must be a whole number")
+            return int(x)
+        return x
+
+    def whole(sheet: str, n: int, it: ItemRecord, q: float | None, what: str) -> None:
+        if q is not None and is_count(it.uom) and abs(q - round(q)) > EPS:
+            cx.err(sheet, n, f"{what}: {it.part_number} is counted in {it.uom}; use whole numbers")
+
+    def day(sheet: str, n: int, v: Any, what: str, required: bool = False) -> date | None:
+        try:
+            d = _as_date(v)
+        except ValueError:
+            cx.err(sheet, n, f"{what}: not a date ({v!r})")
+            return None
+        if d is None and required:
+            cx.err(sheet, n, f"{what} is required")
+        return d
+
+    # stock
+    seen: dict[Any, int] = {}
+    for n, r in enumerate(rows["stock"], 1):
+        it = item("stock", n, r.get("part_number"))
+        loc = locs.get(str(r.get("location_code") or "").strip())
+        if loc is None:
+            cx.err("stock", n, f"unknown location {r.get('location_code')!r}")
+        if it is None or loc is None:
+            continue
+        lot_code = None if _blank(r.get("lot_code")) else str(r["lot_code"]).strip()
+        key = (it.part_number, loc.code, lot_code or "")
+        if key in seen:
+            cx.err("stock", n, f"duplicate key {key!r} (also row {seen[key]})")
+            continue
+        seen[key] = n
+        qty = num("stock", n, r.get("qty"), "qty")
+        if qty is None or qty < 0:
+            cx.err("stock", n, "qty must be 0 or more")
+            continue
+        whole("stock", n, it, qty, "qty")
+        if it.lot_controlled and lot_code is None:
+            cx.err("stock", n, f"{it.part_number} is lot-controlled: lot_code is required")
+            continue
+        if not it.lot_controlled and lot_code is not None:
+            cx.err("stock", n, f"{it.part_number} is not lot-controlled: no lot_code allowed")
+            continue
+        lot_id = None
+        if lot_code is not None:
+            lot_id = deterministic_id("lot_", it.part_number, lot_code)
+            exp = day("stock", n, r.get("expires_on"), "expires_on")
+            lot = t.lots.get(lot_id)
+            if lot is None:
+                t.lots[lot_id] = TxnLot(lot_id, it.id, lot_code, exp, None, str(r.get("supplier_lot") or ""))
+            elif lot.expires_on != exp:
+                cx.err("stock", n, f"lot {lot_code} of {it.part_number} has two different expiry dates")
+        bid = deterministic_id("bal_", *key)
+        t.balances[bid] = TxnBalance(bid, it.id, loc.id, lot_id, lot_code or "", qty)
+
+    # purchase documents
+    heads: dict[tuple[str, str], TxnPurchaseDoc] = {}
+    allowed = {"pr": ("draft", "submitted", "approved", "rejected", "ordered", "cancelled"),
+               "po": ("draft", "open", "partially_received", "received", "closed", "cancelled")}
+    for n, r in enumerate(rows["purchase_docs"], 1):
+        dt, no = str(r.get("doc_type") or "").strip(), str(r.get("number") or "").strip()
+        if dt not in allowed or not no:
+            cx.err("purchase_docs", n, "doc_type (pr/po) and number are required")
+            continue
+        if (dt, no) in heads:
+            cx.err("purchase_docs", n, f"duplicate key {(dt, no)!r}")
+            continue
+        status = str(r.get("status") or "draft")
+        if status not in allowed[dt]:
+            cx.err("purchase_docs", n, f"status {status!r} is not a {dt.upper()} status")
+            continue
+        sp = None
+        if not _blank(r.get("supplier_code")):
+            sp = sups.get(str(r["supplier_code"]).strip())
+            if sp is None:
+                cx.err("purchase_docs", n, f"unknown supplier {r.get('supplier_code')!r}")
+                continue
+        if dt == "po" and sp is None:
+            cx.err("purchase_docs", n, "a purchase order needs a supplier (PUR_SUPPLIER_REQUIRED)")
+            continue
+        heads[(dt, no)] = TxnPurchaseDoc(
+            deterministic_id("pdc_", dt, no), dt, no, status, sp.id if sp else None,
+            str(r.get("currency") if not _blank(r.get("currency")) else (sp.currency if sp else "")),
+            day("purchase_docs", n, r.get("order_date"), "order_date"), str(r.get("note") or ""), "import", None,
+            None if _blank(r.get("external_ref")) else str(r["external_ref"]).strip())
+    plines: dict[tuple[str, str, int], TxnPurchaseLine] = {}
+    for n, r in enumerate(rows["purchase_lines"], 1):
+        dt, no = str(r.get("doc_type") or "").strip(), str(r.get("number") or "").strip()
+        d = heads.get((dt, no))
+        if d is None:
+            cx.err("purchase_lines", n, f"unknown document {dt} {no!r}")
+            continue
+        it = item("purchase_lines", n, r.get("part_number"))
+        ln_no = num("purchase_lines", n, r.get("line_no"), "line_no", integer=True)
+        if it is None or ln_no is None:
+            continue
+        if it.make_buy != "buy":
+            cx.err("purchase_lines", n, f"{it.part_number} is not a buy item (MFG_ITEM_NOT_BUY)")
+            continue
+        if (dt, no, ln_no) in plines:
+            cx.err("purchase_lines", n, f"duplicate line {ln_no}")
+            continue
+        status = {"cancelled": "cancelled", "ordered": "converted", "closed": "closed"}.get(d.status, "open")
+        ln = TxnPurchaseLine(deterministic_id("pln_", dt, no, ln_no), ln_no, it.id,
+                             num("purchase_lines", n, r.get("unit_price"), "unit_price"), status,
+                             str(r.get("note") or ""))
+        d.lines.append(ln)
+        plines[(dt, no, ln_no)] = ln
+    for n, r in enumerate(rows["purchase_schedules"], 1):
+        dt, no = str(r.get("doc_type") or "").strip(), str(r.get("number") or "").strip()
+        ln_no = num("purchase_schedules", n, r.get("line_no"), "line_no", integer=True)
+        seq = num("purchase_schedules", n, r.get("seq"), "seq", integer=True)
+        ln = plines.get((dt, no, ln_no))
+        if ln is None or seq is None:
+            cx.err("purchase_schedules", n, f"unknown line {dt} {no!r} / {ln_no}")
+            continue
+        if any(x.seq == seq for x in ln.schedules):
+            cx.err("purchase_schedules", n, f"duplicate schedule {seq}")
+            continue
+        qty = num("purchase_schedules", n, r.get("qty"), "qty")
+        rec = num("purchase_schedules", n, r.get("received_qty"), "received_qty", default=0.0)
+        req = day("purchase_schedules", n, r.get("requested_date"), "requested_date", required=True)
+        if qty is None or qty <= 0 or rec < 0 or req is None:
+            cx.err("purchase_schedules", n, "qty must be > 0, received_qty >= 0 and requested_date set")
+            continue
+        it = ds.items[ln.item_id]
+        whole("purchase_schedules", n, it, qty, "qty")
+        whole("purchase_schedules", n, it, rec, "received_qty")
+        d = heads[(dt, no)]
+        ln.schedules.append(TxnSchedule(deterministic_id("psc_", dt, no, ln_no, seq), seq, req,
+                                        day("purchase_schedules", n, r.get("confirmed_date"), "confirmed_date"),
+                                        qty, rec, d.status in ("closed", "cancelled")))
+    for d in heads.values():
+        for ln in d.lines:
+            if not ln.schedules:
+                cx.errors.append(f"purchase_lines: {d.number} line {ln.line_no} has no schedules")
+        t.purchase_docs[d.id] = d
+
+    # demand orders
+    orders: dict[str, TxnDemandOrder] = {}
+    for n, r in enumerate(rows["demand_orders"], 1):
+        no = str(r.get("number") or "").strip()
+        if not no or no in orders:
+            cx.err("demand_orders", n, f"number missing or duplicate ({no!r})")
+            continue
+        dtyp = str(r.get("demand_type") or "")
+        status = str(r.get("status") or "draft")
+        prio = num("demand_orders", n, r.get("priority"), "priority", integer=True, default=5)
+        if dtyp not in ("customer", "internal", "spares", "project") or \
+                status not in ("draft", "open", "closed", "cancelled") or not 1 <= prio <= 9:
+            cx.err("demand_orders", n, "invalid demand_type, status or priority")
+            continue
+        orders[no] = TxnDemandOrder(deterministic_id("dmo_", no), no, dtyp, status, str(r.get("customer") or ""),
+                                    None if _blank(r.get("program")) else str(r["program"]).strip(), prio,
+                                    str(r.get("note") or ""),
+                                    None if _blank(r.get("external_ref")) else str(r["external_ref"]).strip())
+    for n, r in enumerate(rows["demand_lines"], 1):
+        o = orders.get(str(r.get("number") or "").strip())
+        if o is None:
+            cx.err("demand_lines", n, f"unknown demand order {r.get('number')!r}")
+            continue
+        it = item("demand_lines", n, r.get("part_number"))
+        ln_no = num("demand_lines", n, r.get("line_no"), "line_no", integer=True)
+        if it is None or ln_no is None:
+            continue
+        if not it.active or it.make_buy == "phantom":
+            cx.err("demand_lines", n, f"{it.part_number} cannot be planned (DEM_ITEM_NOT_PLANNABLE)")
+            continue
+        if any(x.line_no == ln_no for x in o.lines):
+            cx.err("demand_lines", n, f"duplicate line {ln_no}")
+            continue
+        qty = num("demand_lines", n, r.get("qty"), "qty")
+        due = day("demand_lines", n, r.get("due_date"), "due_date", required=True)
+        shipped = num("demand_lines", n, r.get("shipped_qty"), "shipped_qty", default=0.0)
+        sf = num("demand_lines", n, r.get("serial_from"), "serial_from", integer=True)
+        st = num("demand_lines", n, r.get("serial_to"), "serial_to", integer=True)
+        prio = num("demand_lines", n, r.get("priority"), "priority", integer=True)
+        if qty is None or qty <= 0 or due is None or shipped < 0 or shipped > qty + EPS:
+            cx.err("demand_lines", n, "qty must be > 0, due_date set and 0 <= shipped_qty <= qty")
+            continue
+        whole("demand_lines", n, it, qty, "qty")
+        err = _serial_error(it, qty, sf, st)
+        if err:
+            cx.err("demand_lines", n, err)
+            continue
+        o.lines.append(TxnDemandLine(deterministic_id("dml_", o.number, ln_no), ln_no, it.id, qty, due, shipped, sf,
+                                     st, prio, str(r.get("note") or "")))
+    for o in orders.values():
+        if not o.lines:
+            cx.errors.append(f"demand_orders: {o.number} has no lines")
+        t.demand_orders[o.id] = o
+
+    # work orders
+    from .workdays import WorkCalendar
+    from . import workorders as W
+
+    cal = WorkCalendar(ds.plant.mrp_workdays, W.plant_holidays(ds))
+    wos: dict[str, TxnWorkOrder] = {}
+    for n, r in enumerate(rows["work_orders"], 1):
+        no = str(r.get("number") or "").strip()
+        if not no or no in wos:
+            cx.err("work_orders", n, f"number missing or duplicate ({no!r})")
+            continue
+        it = item("work_orders", n, r.get("part_number"))
+        if it is None:
+            continue
+        if it.make_buy != "make":
+            cx.err("work_orders", n, f"{it.part_number} is not a make item (MFG_ITEM_NOT_MAKE)")
+            continue
+        qty = num("work_orders", n, r.get("qty"), "qty")
+        due = day("work_orders", n, r.get("due_date"), "due_date", required=True)
+        status = str(r.get("status") or "planned")
+        done = num("work_orders", n, r.get("qty_completed"), "qty_completed", default=0.0)
+        prio = num("work_orders", n, r.get("priority"), "priority", integer=True, default=5)
+        sf = num("work_orders", n, r.get("serial_from"), "serial_from", integer=True)
+        st = num("work_orders", n, r.get("serial_to"), "serial_to", integer=True)
+        if qty is None or qty <= 0 or due is None or status not in W.WO_STATUSES or done < 0 or not 1 <= prio <= 9:
+            cx.err("work_orders", n, "invalid qty, due_date, status, priority or qty_completed")
+            continue
+        whole("work_orders", n, it, qty, "qty")
+        err = _serial_error(it, qty, sf, st)
+        if err:
+            cx.err("work_orders", n, err)
+            continue
+        start = day("work_orders", n, r.get("start_date"), "start_date")
+        if start is None:
+            start = W.default_start_date(ds, it.id, qty, due, cal, on=due, serial=sf)
+        if start > due:
+            cx.err("work_orders", n, "start_date must not be after due_date")
+            continue
+        wid = deterministic_id("wko_", no)
+        wos[no] = TxnWorkOrder(wid, no, it.id, qty, start, due, status, done, 0.0, prio, sf, st,
+                               note=str(r.get("note") or ""),
+                               external_ref=None if _blank(r.get("external_ref")) else str(r["external_ref"]).strip())
+    comp_rows: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+    for n, r in enumerate(rows["wo_components"], 1):
+        no = str(r.get("wo_number") or "").strip()
+        if no not in wos:
+            cx.err("wo_components", n, f"unknown work order {no!r}")
+            continue
+        comp_rows.setdefault(no, []).append((n, r))
+    for no, w in wos.items():
+        expl = W.generate_components(ds, w.item_id, w.qty, on=w.start_date, serial=w.serial_from)
+        w.bom_id, w.routing_id = expl.bom_id, expl.routing_id
+        if no not in comp_rows:
+            for i, c in enumerate(expl.components, 1):
+                w.components.append(TxnWoComponent(deterministic_id("woc_", no, i, c.item_id), c.item_id, c.qty, 0.0,
+                                                   c.operation_seq, c.find_number, c.alt_group, c.bom_line_id))
+        else:
+            seen_c: dict[Any, int] = {}
+            for i, (n, r) in enumerate(comp_rows[no], 1):
+                it = item("wo_components", n, r.get("part_number"))
+                if it is None:
+                    continue
+                if it.make_buy == "phantom":
+                    cx.err("wo_components", n, f"{it.part_number} is a phantom; list its components instead")
+                    continue
+                fn = None if _blank(r.get("find_number")) else str(r["find_number"]).strip()
+                k = (it.part_number, fn)
+                if k in seen_c:
+                    cx.err("wo_components", n, f"duplicate component {k!r} (also row {seen_c[k]})")
+                    continue
+                seen_c[k] = n
+                req = num("wo_components", n, r.get("required_qty"), "required_qty")
+                iss = num("wo_components", n, r.get("issued_qty"), "issued_qty", default=0.0)
+                if req is None or req < 0 or iss < 0:
+                    cx.err("wo_components", n, "required_qty and issued_qty must be 0 or more")
+                    continue
+                whole("wo_components", n, it, req, "required_qty")
+                whole("wo_components", n, it, iss, "issued_qty")
+                match = next((c for c in expl.components if c.item_id == it.id and c.find_number == fn), None)
+                w.components.append(TxnWoComponent(
+                    deterministic_id("woc_", no, it.part_number, fn or ""), it.id, req, iss,
+                    num("wo_components", n, r.get("operation_seq"), "operation_seq", integer=True),
+                    fn, match.alt_group if match else None, match.bom_line_id if match else None,
+                    str(r.get("note") or "")))
+        t.work_orders[w.id] = w
+
+
+def _serial_error(it: ItemRecord, qty: float, sf: int | None, st: int | None) -> str | None:
+    if (sf is None) != (st is None):
+        return "serial_from and serial_to must both be set or both be empty"
+    if sf is None:
+        return None
+    if not it.serialized:
+        return f"{it.part_number} is not serialized, so it cannot have a serial range (MFG_SERIAL_NOT_ALLOWED)"
+    if st < sf or st - sf + 1 != round(qty):
+        return f"the serial range {sf}-{st} must hold exactly {qty:g} units (DEM_SERIAL_QTY_MISMATCH)"
+    return None

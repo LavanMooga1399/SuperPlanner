@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import { Banner } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
-import { errorText, isNotFound } from "../lib/useMfg";
+import { errorText, isForbidden, isNotFound } from "../lib/useMfg";
 import { networkError } from "../../api/client";
 
 const NETWORK_MESSAGE = networkError().message;
@@ -30,6 +30,12 @@ export function ConflictBanner({ onReload, what = "this record" }: { onReload():
 export function MfgError({ error, onRetry, title }: { error: unknown; onRetry?(): void; title?: string }) {
   if (!error) return null;
   const text = errorText(error);
+  if (isForbidden(error))
+    return (
+      <Banner tone="warn" role="alert" icon="lock" title="Not allowed for your role" testId="forbidden-banner">
+        {text}
+      </Banner>
+    );
   const network = text === NETWORK_MESSAGE;
   return (
     <Banner

@@ -90,6 +90,34 @@ const FIELD_WORDS: Record<string, string> = {
   shift_template_id: "Shift template",
   effective_from: "Effective from",
   effective_to: "Effective until",
+  item_id: "Item",
+  location_id: "Location",
+  from_location_id: "From location",
+  to_location_id: "To location",
+  lot_code: "Lot",
+  expires_on: "Expires on",
+  counted_qty: "Counted quantity",
+  qty: "Quantity",
+  supplier_id: "Supplier",
+  requested_date: "Requested dock date",
+  confirmed_date: "Confirmed dock date",
+  due_date: "Due date",
+  start_date: "Start date",
+  serial_from: "Serial from",
+  serial_to: "Serial to",
+  unit_price: "Unit price",
+  required_qty: "Required quantity",
+  reason_code: "Reason",
+  txn_date: "Posting date",
+  schedule_id: "Delivery",
+  wo_component_id: "Component",
+  demand_line_id: "Demand line",
+  units_per_purchase_unit: "Units per pack",
+  min_order_qty: "Minimum order quantity",
+  order_multiple: "Order multiple",
+  lot_period_days: "Lot period (days)",
+  standard_cost: "Standard cost",
+  external_ref: "External reference",
 };
 
 const LIST_WORDS: Record<string, string> = {
@@ -98,6 +126,12 @@ const LIST_WORDS: Record<string, string> = {
   shifts: "Shift",
   breaks: "Break",
   tools: "Tool",
+  schedules: "Delivery",
+  components: "Component",
+  orders: "Order",
+  extra_demand: "Extra demand",
+  supply_date_overrides: "Supply date change",
+  lead_time_overrides: "Lead time change",
 };
 
 function words(name: string): string {
@@ -175,6 +209,11 @@ export function errorText(err: unknown): string {
 
 export function isConflict(err: unknown): boolean {
   return err instanceof ApiError && err.status === 412;
+}
+
+/** 403 `MFG_FORBIDDEN` (M2 10.2): the role in this workspace lacks the permission. */
+export function isForbidden(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 403;
 }
 
 export function isNotFound(err: unknown): boolean {

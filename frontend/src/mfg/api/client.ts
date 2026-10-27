@@ -5,6 +5,7 @@
  */
 import { API_BASE, ApiError, looksLikeProxyFailure, networkError } from "../../api/client";
 import { authFetch } from "../../auth/authFetch";
+import { workspaceHeaders } from "../lib/workspace";
 import type {
   AssignmentQuery,
   BomCopyRequest,
@@ -102,7 +103,7 @@ export function queryString(q: QueryParams | undefined): string {
   return parts.length ? `?${parts.join("&")}` : "";
 }
 
-const ifMatch = (version: number) => ({ "If-Match": `"${version}"` });
+export const ifMatch = (version: number) => ({ "If-Match": `"${version}"` });
 
 async function failure(res: Response): Promise<ApiError> {
   const text = await res.text();
@@ -134,7 +135,7 @@ async function send(path: string, init: RequestInit): Promise<Response> {
 }
 
 export async function mfgRaw<T>(path: string, opts: MfgRequestOptions = {}): Promise<MfgRawResponse<T>> {
-  const headers: Record<string, string> = { Accept: "application/json", ...(opts.headers ?? {}) };
+  const headers: Record<string, string> = { Accept: "application/json", ...workspaceHeaders(), ...(opts.headers ?? {}) };
   let body: BodyInit | undefined;
   if (opts.body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -171,7 +172,7 @@ export async function mfgRequest<T>(path: string, opts: MfgRequestOptions = {}):
 export async function mfgUpload<T>(path: string, file: Blob, query?: QueryParams, signal?: AbortSignal): Promise<T> {
   const res = await send(M + path + queryString(query), {
     method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
+    headers: { Accept: "application/json", "Content-Type": "application/octet-stream", ...workspaceHeaders() },
     body: file,
     signal,
   });
@@ -201,7 +202,7 @@ export interface DownloadedFile {
 
 /** GET a file (export, templates) as a blob with the server's file name. */
 export async function mfgDownload(path: string, query?: QueryParams, fallbackName = "download"): Promise<DownloadedFile> {
-  const res = await send(M + path + queryString(query), { method: "GET", headers: { Accept: "*/*" } });
+  const res = await send(M + path + queryString(query), { method: "GET", headers: { Accept: "*/*", ...workspaceHeaders() } });
   if (!res.ok) throw await failure(res);
   const blob = await res.blob();
   return { blob, filename: filenameFromDisposition(res.headers.get("Content-Disposition"), fallbackName) };
@@ -389,10 +390,12 @@ export const putImportMapping = (id: string, body: ImportMappingRequest, version
 export const commitImport = (id: string, version: number) =>
   mfgRequest<ImportRecord>(`/imports/${enc(id)}/commit`, { method: "POST", body: {}, headers: ifMatch(version) });
 export const deleteImport = (id: string) => mfgRequest<void>(`/imports/${enc(id)}`, { method: "DELETE" });
-export const downloadExport = (format: FileFormat) =>
-  mfgDownload("/export", { format }, `superplanner-mfg.${format}`);
-export const downloadImportTemplate = (format: FileFormat) =>
-  mfgDownload("/import-templates", { format }, `superplanner-mfg-template.${format}`);
+/** `scope` (M2 11): `master` (default, M1 behaviour + M2 master sheets) | `transactions` | `all`. */
+export type ExportScope = "master" | "transactions" | "all";
+export const downloadExport = (format: FileFormat, scope?: ExportScope) =>
+  mfgDownload("/export", { format, scope }, `superplanner-mfg.${format}`);
+export const downloadImportTemplate = (format: FileFormat, scope?: ExportScope) =>
+  mfgDownload("/import-templates", { format, scope }, `superplanner-mfg-template.${format}`);
 
 // ---------------------------------------------------------------- #75-77 samples and reset
 export const listSamples = (signal?: AbortSignal) => mfgRequest<List<SampleInfo>>("/samples", { signal });

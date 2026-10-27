@@ -211,3 +211,4 @@ class JobWorkerRow(Base):
 from ..auth import models as _auth_models  # noqa: E402,F401
 from ..finance import db_models as _finance_db_models  # noqa: E402,F401
 from ..mfg import db_models as _mfg_db_models  # noqa: E402,F401
+from ..mfg import db_models_m2 as _mfg_db_models_m2  # noqa: E402,F401
