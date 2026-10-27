@@ -139,7 +139,8 @@ def test_approve_retries_once_on_the_approved_index(db_url, monkeypatch):
 
         def always(ctx, schedule_id, note):
             calls.append(1)
-            raise IntegrityError("INSERT", {}, Exception("UNIQUE constraint failed: schedules.problem_id"))
+            raise IntegrityError("INSERT", {}, Exception('duplicate key value violates unique constraint '
+                                                         '"uq_schedules_one_approved"'))
 
         monkeypatch.setattr(schedule_service, "_approve", always)
         r = c.post(f"{API}/schedules/{run['primary_schedule_id']}/approve", json={})
