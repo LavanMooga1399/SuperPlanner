@@ -1,8 +1,12 @@
 # SuperPlanner Phase 2b - Scalable deployment: durable workers, PostgreSQL, accounts, operations (design)
 
+> **Historical note (PostgreSQL-only release):** "file-DB" below refers to the embedded file database of earlier
+> releases. It was removed; SuperPlanner now runs on PostgreSQL only (see `docs/DEPLOY.md`, Changelog, and
+> `docs/ARCHITECTURE.md` section 25). Statements about file-DB behaviour describe the past.
+
 Status: design for implementation. Builds on `docs/ARCHITECTURE.md` (A.x), `docs/FINANCE.md` (F.x) and
 `docs/PHASE2.md` (P2.x). Product owner request: "make it scalable". Everything in this document is additive:
-**SQLite + one process + no login stays the zero-setup default** (Windows: Python and Node only).
+**file-DB + one process + no login stays the zero-setup default** (Windows: Python and Node only).
 
 ## Table of contents
 
@@ -25,7 +29,7 @@ Status: design for implementation. Builds on `docs/ARCHITECTURE.md` (A.x), `docs
   - 3.1 Engine, driver, pooling
   - 3.2 Alembic layout and migrations
   - 3.3 Schema changes in `0002_phase2b` (complete list)
-  - 3.4 Startup schema handling and the legacy SQLite upgrade path
+  - 3.4 Startup schema handling and the legacy file-DB upgrade path
   - 3.5 Dialect differences the code must respect
   - 3.6 Dual-database test strategy
 - 4. Part C - User accounts and access control
@@ -60,21 +64,21 @@ Status: design for implementation. Builds on `docs/ARCHITECTURE.md` (A.x), `docs
    by a heartbeat every 10 s, lease-token **fencing** on every worker write, retries with exponential backoff for
    infrastructure failures only (lease expiry, DB disconnects), idempotency keys, cancellation through a DB flag
    polled every second. Separate process `python -m superplanner.worker`. No Celery, no Redis (2.1).
-2. Two job backends behind one interface: `inline` (today's thread pool, default with SQLite) and `queue`
+2. Two job backends behind one interface: `inline` (today's thread pool, default with file-DB) and `queue`
    (default with PostgreSQL). Job rows are written in **both** modes so run code is identical.
 3. Progress events stay in `solver_run_events` / `finance_run_events`; SSE keeps polling the DB, so any API
    instance can stream any run. Event `seq` allocation becomes safe across processes (row lock on the run).
-4. The process-wide `WRITE_LOCK` is replaced by `ctx.write_guard()` (the old RLock on SQLite, no-op on Postgres)
+4. The process-wide `WRITE_LOCK` is replaced by `ctx.write_guard()` (the old RLock on file-DB, no-op on Postgres)
    plus **row locks** (`SELECT ... FOR NO KEY UPDATE` on the parent plan; `FOR UPDATE` only for deletes) and
    **partial unique indexes** (one active solver run per problem, one approved schedule per problem) as the
    cross-process backstop. Finance relies on the plan row lock only (review note R5).
 5. **Alembic**: `0001_initial` = today's schema exactly; `0002_phase2b` = everything new. Fresh empty databases use
    `create_all` + `stamp head` (fast; a test proves model metadata == migrations); existing databases are upgraded.
-   Legacy SQLite files (created by `create_all`, no `alembic_version`) are stamped `0001` then upgraded,
+   Legacy file-DB databases (created by `create_all`, no `alembic_version`) are stamped `0001` then upgraded,
    with an automatic file backup.
 6. psycopg 3 (`postgresql+psycopg://`), SQLAlchemy `QueuePool` with pre-ping, JSONB documents (already declared
    via `with_variant`), new indexes for list/derive queries and FK columns.
-7. The whole backend suite runs on SQLite (default) and on PostgreSQL (`--db=postgres` or `SP_TEST_DB=postgres`),
+7. The whole backend suite runs on file-DB (default) and on PostgreSQL (`--db=postgres` or `SP_TEST_DB=postgres`),
    per-test databases cloned from a migrated template (`CREATE DATABASE ... TEMPLATE`).
 8. **Auth**: `AUTH_MODE=single_user` (dev default, no login, identical to today, all data owned by the fixed
    user `usr_local`) or `accounts` (production default). argon2id (`argon2-cffi`). Opaque random session token in
@@ -116,14 +120,14 @@ Facts the design depends on (read from the code, 2026-10-19):
   `executor.cancel(run_id)` sets the in-process event. Finance "active" excludes cancel-requested runs.
 - SSE (`/solver-runs/{id}/events`, `/finance/runs/{id}/events`) polls the event table every 0.5 s through
   `run_in_threadpool`, keepalive 15 s, `Last-Event-ID` / `?after=` resume, 204 for finished runs without new events.
-- SQLite: WAL, `foreign_keys=ON`, `BEGIN IMMEDIATE` for write sessions. JSON columns are `JSON` with a JSONB
+- file-DB: WAL, `foreign_keys=ON`, `BEGIN IMMEDIATE` for write sessions. JSON columns are `JSON` with a JSONB
   variant on Postgres already.
 - Tables (11): `problems`, `problem_versions`, `solver_runs`, `solver_run_events`, `schedules`, `audit_events`
   (`api/db/models.py`); `finance_plans`, `finance_plan_versions`, `finance_runs`, `finance_run_events`,
   `finance_results` (`api/finance/db_models.py`). **Intake has no tables**: the intake API is stateless and drafts
   live in the browser's `sessionStorage` (`frontend/src/intake/state/IntakeContext.tsx`).
 - Endpoints: 56 under `/api/v1` (listed in 4.8). No auth, CORS `allow_credentials=False`, body limit middleware.
-- Tests: 7 conftests with a `db_url` fixture returning a temp SQLite file; a few tests hard-code `sqlite:///` URLs
+- Tests: 7 conftests with a `db_url` fixture returning a temp file-DB database; a few tests hard-code `<file-DB URL>` URLs
   or use `ctx.executor` directly (listed in 8.2). `test_api_health` asserts the exact `/health` body.
 - Frontend: same-origin `/api/v1` through the Vite proxy (target hard-coded `127.0.0.1:8000`); two `raw()` fetch
   helpers (`src/api/client.ts`, `src/finance/api/client.ts`; intake reuses the finance one); `EventSource` for SSE.
@@ -156,7 +160,7 @@ Celery/Redis would only win for very high fan-out or many heterogeneous task typ
 ### 2.2 Backends and the `JobQueue` interface
 
 Setting `JOB_BACKEND` (`Settings.job_backend`): `"inline"` | `"queue"`. Default: `"queue"` when the database is
-PostgreSQL, else `"inline"`. `queue` on SQLite is rejected at startup (`ConfigError`, process exits 2) because SQLite
+PostgreSQL, else `"inline"`. `queue` on file-DB is rejected at startup (`ConfigError`, process exits 2) because file-DB
 cannot serve several processes safely. `inline` on PostgreSQL is allowed only when `SP_ENV != production` (tests,
 single-process dev) and logs a warning: inline startup recovery fails *every* queued/running run, so two API
 processes in inline mode on one database would fail each other's runs (review note R7).
@@ -272,7 +276,7 @@ Indexes / constraints:
   likewise: **one job per run** (enqueue is idempotent per run by construction).
 - `uq_jobs_idempotency` unique `(owner_id, idempotency_key)` partial `WHERE idempotency_key IS NOT NULL`.
 - `ix_jobs_status_finished` on `(status, finished_at)` (retention cleanup, metrics).
-Partial indexes are declared with both `postgresql_where=` and `sqlite_where=` (SQLite supports them).
+Partial indexes are declared with `postgresql_where=` (file-DB supported them too).
 
 `job_workers` (model `JobWorkerRow`): `id String(128)` PK (worker id), `hostname String(255)`, `pid Integer`,
 `kinds JSON` (list), `concurrency Integer`, `busy Integer`, `started_at`, `heartbeat_at` (DB clock),
@@ -475,7 +479,7 @@ grace wait. Compose sets `stop_grace_period: 45s`. SIGKILL: leases expire and th
 - `recover_interrupted_runs(ctx)`: only called in inline mode; also sets `jobs.status='failed'` for those runs.
   New `fail_orphan_runs(ctx)` for queue mode (2.5).
 - `add_event(s, run_id, type_, fields, elapsed, *, lease: Lease | None = None)`: first
-  `SELECT id FROM <runs> WHERE id = :run_id FOR UPDATE` (no-op on SQLite), then `lease.fence(s)` when given, then
+  `SELECT id FROM <runs> WHERE id = :run_id FOR UPDATE` (no-op on file-DB), then `lease.fence(s)` when given, then
   `max(seq)+1` and insert. This makes `seq` allocation safe with several writers (worker, reaper, API cancel).
 - Progress writers: a `LeaseLost` raised inside `_write` sets `lease.lost` and `lease.cancel_event` and is not
   logged as an exception; once `lost` is set all further writes are skipped (no per-event stack traces).
@@ -497,13 +501,13 @@ grace wait. Compose sets `stop_grace_period: 45s`. SIGKILL: leases expire and th
 
 ### 2.12 Multi-process consistency (replacing `WRITE_LOCK`)
 
-- `context.WRITE_LOCK` is replaced by `ctx.write_guard()` (context manager): SQLite -> the existing process-wide
+- `context.WRITE_LOCK` is replaced by `ctx.write_guard()` (context manager): file-DB -> the existing process-wide
   RLock (behaviour unchanged); Postgres -> `contextlib.nullcontext()`. Every `with WRITE_LOCK` site changes to
   `with ctx.write_guard()` (sites: `problem_service.update/delete`, `run_service.create_run/cancel_run/
   recover/run_job`, `replan_service.replan`, `schedule_service.approve`, `finance/service.update/delete`,
   `finance/run_service.create_run/create_what_if/cancel_run/recover/_finish/run_job`). `WRITE_LOCK` stays exported
   as an alias for one release for any test that imports it.
-- Row locks (Postgres `SELECT ... FOR UPDATE`; ignored on SQLite where `BEGIN IMMEDIATE` already serialises):
+- Row locks (Postgres `SELECT ... FOR UPDATE`; ignored on file-DB where `BEGIN IMMEDIATE` already serialises):
   `get_problem_row(s, id, lock: bool = False)`, `get_plan_row(s, id, lock=False)`, and
   `lock_run(s, Model, id)`. `lock=True` at: problem update/delete, solver create_run, replan, schedule approve
   (lock the problem before reading approved schedules), finance update/delete/create_run/create_what_if; run
@@ -546,7 +550,7 @@ grace wait. Compose sets `stop_grace_period: 45s`. SIGKILL: leases expire and th
   connect_args={"options": f"-c statement_timeout={DB_STATEMENT_TIMEOUT_MS} -c lock_timeout=10000",
   "application_name": f"superplanner-{service}"})`, `DB_STATEMENT_TIMEOUT_MS` default 30000. Size the pool to
   `uvicorn threadpool (40) / 2 + SSE`: defaults are fine for one API instance; documented in DEPLOY.md.
-- SQLite engine unchanged (WAL, FKs, `BEGIN IMMEDIATE`, `check_same_thread=False`).
+- file-DB engine unchanged (WAL, FKs, `BEGIN IMMEDIATE`, `check_same_thread=False`).
 - JSON documents: `JsonType` already maps to `JSONB` on Postgres; no GIN indexes in 2b (no JSON queries).
 
 ### 3.2 Alembic layout and migrations
@@ -555,7 +559,7 @@ grace wait. Compose sets `stop_grace_period: 45s`. SIGKILL: leases expire and th
 backend/alembic.ini                         script_location = superplanner/migrations
 backend/superplanner/migrations/env.py      target_metadata = Base.metadata (imports db.models and finance.db_models);
                                             URL from -x url=..., else DATABASE_URL, else Settings default;
-                                            render_as_batch=True on SQLite; compare_type=True
+                                            render_as_batch=True on file-DB; compare_type=True
 backend/superplanner/migrations/script.py.mako
 backend/superplanner/migrations/versions/0001_initial.py    revision "0001_initial": the 11 tables exactly as
                                             create_all builds them today (columns, FKs ON DELETE CASCADE, indexes
@@ -568,12 +572,12 @@ backend/superplanner/migrations/versions/0002_phase2b.py    revision "0002_phase
 backend/superplanner/migrate.py             CLI + ensure_schema() (3.4)
 ```
 Pins: `alembic==1.20.0`, `psycopg[binary]==3.3.6`, `argon2-cffi==25.1.0`, `prometheus-client==0.26.0` (all have
-Windows wheels; `psycopg` is imported lazily so SQLite dev never loads it). Migration files are **frozen**: they use
+Windows wheels; `psycopg` is imported lazily so file-DB dev never loads it). Migration files are **frozen**: they use
 literal `op.create_table`/`op.add_column` definitions and never import the ORM models (models will keep changing).
 After Q1 the schema is frozen for 2b; a later change needs a new revision `0003_*`, serialized by the lead (two
 parallel revisions would create two Alembic heads).
 Migrations live inside the package so the Docker image and `pip install` carry them. Every migration has a working
-`downgrade()` (SQLite via `batch_alter_table`); the supported production rollback is still "restore the backup".
+`downgrade()` (file-DB via `batch_alter_table`); the supported production rollback is still "restore the backup".
 
 ### 3.3 Schema changes in `0002_phase2b` (complete list)
 
@@ -592,8 +596,8 @@ changes (sharing, when added, is resolved at the root: 9).
 
 Other column changes:
 - `audit_events.actor_id String(64) NULL` (user id; no FK, audit survives user deletion).
-- `solver_run_events.id`, `finance_run_events.id`, `audit_events.id`: `BigInteger().with_variant(Integer, "sqlite")`
-  (int8 on Postgres; SQLite keeps `INTEGER PRIMARY KEY` autoincrement).
+- `solver_run_events.id`, `finance_run_events.id`, `audit_events.id`: `BigInteger().with_variant(Integer, "file-DB")`
+  (int8 on Postgres; file-DB keeps `INTEGER PRIMARY KEY` autoincrement).
 
 New indexes (hot queries named):
 | Index | Query |
@@ -614,7 +618,7 @@ New indexes (hot queries named):
 The ORM models are updated to declare exactly the same (including `OwnedMixin` in 4.7) so that
 `compare_metadata(upgrade head) == Base.metadata` (test 3.6).
 
-### 3.4 Startup schema handling and the legacy SQLite upgrade path
+### 3.4 Startup schema handling and the legacy file-DB upgrade path
 
 `superplanner/migrate.py`:
 ```python
@@ -627,67 +631,67 @@ def main(argv) -> int     # python -m superplanner.migrate {upgrade,current,chec
 - `legacy` (has `problems`, no `alembic_version`): the table set must be a subset of the 0001 set that contains
   `problems` (a file last opened before the finance phase lacks the 5 finance tables: create the missing ones from
   the frozen 0001 definitions); unknown tables or missing columns of existing tables -> exit 3 with a message naming
-  them. SQLite: back up first to `<db>.bak-0001-<UTC yyyymmddHHMMSS>` using the SQLite online backup API
-  (`sqlite3.Connection.backup`) or `VACUUM INTO` - **never a plain file copy**: in WAL mode committed pages may still
+  them. file-DB: back up first to `<db>.bak-0001-<UTC yyyymmddHHMMSS>` using the file-DB online backup API
+  (its online backup API) or `VACUUM INTO` - **never a plain file copy**: in WAL mode committed pages may still
   be in `<db>-wal`, so a copy of the main file alone can be stale or corrupt (and on Windows the file may be
   locked). Then `stamp 0001_initial`; `upgrade head`.
-- **SQLite migrations run with `PRAGMA foreign_keys=OFF`** (review note R1, reproduced): Alembic batch mode
+- **file-DB migrations run with `PRAGMA foreign_keys=OFF`** (review note R1, reproduced): Alembic batch mode
   recreates a table (`CREATE _alembic_tmp_x`, copy, `DROP TABLE x`, rename). With foreign keys ON, `DROP TABLE
   problems` performs an implicit `DELETE` that fires `ON DELETE CASCADE` and **erases every problem version, run,
-  event and schedule**. `migrate.py` therefore uses its own SQLite engine without the `Database` connect listener,
+  event and schedule**. `migrate.py` therefore uses its own file-DB engine without the `Database` connect listener,
   executes `PRAGMA foreign_keys=OFF` outside any transaction, runs the upgrade in one transaction, runs `PRAGMA
   foreign_key_check` (any row -> roll back, exit 3, keep the backup), then re-enables FKs. The legacy-upgrade test
   asserts the row count of all 11 tables is unchanged.
 - Postgres migrations run with `SET statement_timeout = 0` and `lock_timeout = '60s'` (the API's 30 s statement
   timeout would abort index builds on large tables).
-- `behind`: `upgrade head` if `DB_AUTO_MIGRATE` (SQLite file backup first, as above), else exit 3:
+- `behind`: `upgrade head` if `DB_AUTO_MIGRATE` (file-DB database backup first, as above), else exit 3:
   `"Database schema is at <rev>, code needs 0002_phase2b. Run: python -m superplanner.migrate upgrade"`.
 - `ahead` (unknown newer revision): exit 3.
 - Postgres: the whole function runs under `pg_advisory_lock(727001)` so concurrently starting instances migrate once.
-- `DB_AUTO_MIGRATE` default: true for SQLite, false for Postgres. Compose runs a one-shot `migrate` service.
+- `DB_AUTO_MIGRATE` default: true for file-DB, false for Postgres. Compose runs a one-shot `migrate` service.
 - `ensure_local_user()` (idempotent insert of `usr_local`) also runs on every start.
 - `AppContext.start()` calls `ensure_schema` instead of `create_all`; `Database.create_all()` stays for tests.
 
-Existing SQLite dev databases therefore upgrade automatically on the first start of the 2b code, keeping all data
-(owned by `usr_local`). SQLite -> Postgres data copy is not automated in 2b: use the existing export/import
+Existing file-DB dev databases therefore upgrade automatically on the first start of the 2b code, keeping all data
+(owned by `usr_local`). file-DB -> Postgres data copy is not automated in 2b: use the existing export/import
 endpoints per plan (documented in DEPLOY.md, tool deferred).
 
 ### 3.5 Dialect differences the code must respect
 
-1. `String(n)` is enforced on Postgres (ignored by SQLite). Every write of a free-text value into a bounded column
+1. `String(n)` is enforced on Postgres (ignored by file-DB). Every write of a free-text value into a bounded column
    must be bounded by the Pydantic model or truncated at write (`label[:100]` pattern). Known: `schedules.label`
    (64), `schedules.solver` (64), `solver_runs.termination_reason` (32), `audit_events.action` (64). The Postgres
    test run is the check.
 2. JSONB does not preserve object key order or duplicate keys. Key order of stored documents is **not** part of
    the API contract; tests compare parsed dicts. (`result_summary` already orders keys explicitly.)
-3. Timestamps come back timezone-aware on Postgres, naive on SQLite; always go through `as_utc` (existing).
+3. Timestamps come back timezone-aware on Postgres, naive on file-DB; always go through `as_utc` (existing).
 4. Booleans: query with `.is_(False)` / `== False` both fine; partial-index predicates use `= false`.
-5. Row locks: `with_for_update()` is a no-op on SQLite (serialised by `BEGIN IMMEDIATE`).
+5. Row locks: `with_for_update()` is a no-op on file-DB (serialised by `BEGIN IMMEDIATE`).
 6. Never use raw SQL in services except `jobs/pg.py` (claim/heartbeat/reaper) and migrations; those are
    Postgres-only, inline mode uses ORM statements. Never insert owned rows with Core `insert()` (it bypasses the
    `before_flush` owner stamp); use `s.add`.
-7. Postgres `TEXT`/`JSONB` cannot store U+0000; SQLite can. A JSON body containing `\u0000` anywhere is rejected
+7. Postgres `TEXT`/`JSONB` cannot store U+0000; file-DB can. A JSON body containing `\u0000` anywhere is rejected
    with 422 `VALIDATION_ERROR` on **both** dialects (one check in the body-limit middleware path or a shared
    validator), so behaviour does not depend on the database. JSONB also rejects `NaN`/`Infinity`: the Postgres
    engine uses `json_serializer=partial(json.dumps, allow_nan=False)`; the Postgres test run is the check.
-8. Text ordering: Postgres collations differ from SQLite's binary order. Test clusters are created with
+8. Text ordering: Postgres collations differ from file-DB's binary order. Test clusters are created with
    `initdb --locale=C --encoding=UTF8`; the compose database uses `POSTGRES_INITDB_ARGS=--locale=C.UTF-8`.
 
 ### 3.6 Dual-database test strategy
 
 - New root `backend/tests/conftest.py`:
-  - `pytest_addoption("--db", choices=["sqlite","postgres"], default=os.environ.get("SP_TEST_DB","sqlite"))`.
+  - `pytest_addoption("--db", choices=["file-DB","postgres"], default=os.environ.get("SP_TEST_DB","file-DB"))`.
   - `SP_TEST_PG_URL` (admin URL to an existing server, e.g.
     `postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres`; the role needs CREATEDB).
   - Session fixture `pg_template`: creates `sp_tpl_<pid>`, runs `alembic upgrade head` into it, disposes engines.
-  - Fixture `db_url_factory`: callable `new(name: str) -> str`. SQLite: `sqlite:///{tmp_path}/{name}.db` (fresh
+  - Fixture `db_url_factory`: callable `new(name: str) -> str`. file-DB: `<file-DB URL>` (fresh
     file; app start does create_all + stamp). Postgres: `CREATE DATABASE sp_t_<uuid8> TEMPLATE sp_tpl_<pid>
     STRATEGY FILE_COPY`; finalizer `DROP DATABASE ... WITH (FORCE)`. Module-scoped variant
     `db_url_factory_module` for `shared_fin`.
   - Autouse fixture setting env per test (via `monkeypatch.setenv`): `PASSWORD_HASH_PROFILE=fast`; on Postgres
     `JOB_BACKEND=queue`, `WORKER_EMBEDDED=auto`, `JOB_CANCEL_POLL_SECONDS=0.2`, `WORKER_POLL_SECONDS=0.2`; tests
     marked `inline_jobs` get `JOB_BACKEND=inline`.
-  - Markers: `postgres_only`, `sqlite_only`, `inline_jobs`, `pg_load` (registered in `pyproject.toml`).
+  - Markers: `postgres_only`, `file_db_only`, `inline_jobs`, `pg_load` (registered in `pyproject.toml`).
   - Embedded workers run in the test process (threads), never subprocesses, so existing tests that monkeypatch
     `run_service._before_final_write`, `run_service.finance.run_plan` or `validate_result` keep working on Postgres.
 - Every folder conftest's `db_url` fixture becomes `return db_url_factory("<name>")` (names unchanged:
@@ -699,14 +703,14 @@ endpoints per plan (documented in DEPLOY.md, tool deferred).
   `backend/.pgdata` (git-ignored); CI/agents pass their scratch dir.
 - Commands:
   ```
-  cd backend && .venv/bin/pytest                                     # SQLite, inline (as today)
+  cd backend && .venv/bin/pytest                                     # file-DB, inline (as today)
   SP_TEST_DB=postgres SP_TEST_PG_URL=postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres \
       .venv/bin/pytest                                               # PostgreSQL, queue + embedded workers
   ```
-  Both must pass fully (engine/finance pure tests simply run twice). Pure-Postgres tests skip on SQLite and vice
+  Both must pass fully (engine/finance pure tests simply run twice). Pure-Postgres tests skip on file-DB and vice
   versa with a visible reason.
 - New test folders: `backend/tests/db/` (migrations: empty->head equals metadata on both dialects via
-  `alembic.autogenerate.compare_metadata`; legacy SQLite file created from frozen 0001 metadata with data upgrades
+  `alembic.autogenerate.compare_metadata`; legacy file-DB database created from frozen 0001 metadata with data upgrades
   and backfills `usr_local`; downgrade/upgrade round trip; partial unique indexes reject a second active run and a
   second approval under two threads/connections; `add_event` seq under concurrent writers on Postgres),
   `backend/tests/jobs/` (2.4-2.9: SKIP LOCKED with 3 concurrent claimers never double-claims; lease expiry ->
@@ -834,7 +838,7 @@ DB-backed fixed windows (shared by all API instances), `api/auth/ratelimit.py::h
 (allowed, retry_after)`: one upsert
 `INSERT ... ON CONFLICT (bucket) DO UPDATE SET window_start = CASE WHEN window_start < :now - :window THEN :now
 ELSE window_start END, count = CASE WHEN window_start < :now - :window THEN 1 ELSE count + 1 END RETURNING ...`
-(dialect `insert` of `sqlalchemy.dialects.postgresql` / `sqlite`). Counted **before** password verification.
+(dialect `insert` of `sqlalchemy.dialects.postgresql` / `file-DB`). Counted **before** password verification.
 
 | Endpoint | Buckets (all must allow) | Default |
 |---|---|---|
@@ -1059,7 +1063,7 @@ E2E: existing config `frontend/e2e/playwright.config.ts` gets backend env `AUTH_
 `frontend/e2e/playwright.accounts.config.ts` (API on 8001 with `AUTH_MODE=accounts`, `COOKIE_SECURE=false`,
 `AUTH_SIGNIN_LIMIT_PER_IP=1000`, `AUTH_SIGNUP_LIMIT_PER_IP=1000`, `PUBLIC_BASE_URL=http://127.0.0.1:5174` and
 `CORS_ORIGINS=http://127.0.0.1:5174` (the browser's `Origin` is the Vite origin - `changeOrigin` rewrites only
-`Host` - so without this every sign-in fails the Origin check with 403), own temp SQLite DB; Vite started with
+`Host` - so without this every sign-in fails the Origin check with 403), own temp file-DB DB; Vite started with
 `npm run dev -- --host 127.0.0.1 --port 5174` (`vite.config.ts` has `strictPort: true, port: 5173`) and
 `SP_API_TARGET=http://127.0.0.1:8001`), npm script `e2e:accounts`, specs in `frontend/e2e/accounts/`:
 1. anonymous visit -> redirected to sign-in; sign-up -> lands on `/`, account menu shows the name.
@@ -1083,11 +1087,11 @@ still win). Defaults "dev" apply unless `SP_ENV=production`.
 | Variable | Default dev / production | Meaning |
 |---|---|---|
 | `SP_ENV` | `development` | `development` \| `production` (changes defaults below) |
-| `DATABASE_URL` | `sqlite:///backend/superplanner.db` / required | SQLite or `postgresql+psycopg://...` |
+| `DATABASE_URL` | `<file-DB URL>` / required | file-DB or `postgresql+psycopg://...` |
 | `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT_SECONDS` | 10, 10, 30 | Postgres pool |
 | `DB_STATEMENT_TIMEOUT_MS` | 30000 | Postgres statement timeout |
-| `DB_AUTO_MIGRATE` | true for SQLite, false for Postgres | 3.4 |
-| `JOB_BACKEND` | `inline` (SQLite) / `queue` (Postgres); `inline`+Postgres refused in production | 2.2 |
+| `DB_AUTO_MIGRATE` | true for file-DB, false for Postgres | 3.4 |
+| `JOB_BACKEND` | `inline` (file-DB) / `queue` (Postgres); `inline`+Postgres refused in production | 2.2 |
 | `RUN_WORKERS` | 2 | inline thread pool size (existing) |
 | `WORKER_EMBEDDED` | `auto` / 0 | queue mode: worker threads inside the API (`auto` = RUN_WORKERS) |
 | `WORKER_CONCURRENCY`, `WORKER_KINDS`, `WORKER_ID`, `WORKER_METRICS_PORT` | 2, both kinds, generated, 9101 | 2.9 |
@@ -1112,7 +1116,7 @@ still win). Defaults "dev" apply unless `SP_ENV=production`.
 | `INTAKE_AI_ENABLED`, `INTAKE_AI_TIMEOUT_SECONDS`, `ANTHROPIC_API_KEY` | existing | P2.2.12 |
 | `HOST`, `PORT` | 127.0.0.1, 8000 | `run_api.sh` |
 
-Validation at startup (`ConfigError`, exit 2, one clear line per problem): `queue` with SQLite; production with
+Validation at startup (`ConfigError`, exit 2, one clear line per problem): `queue` with file-DB; production with
 `fast` hash profile; production accounts without `COOKIE_SECURE` (warning only, since TLS may terminate upstream
 on plain-http internal networks - the warning says so); unknown enum values. No secret is required for sessions.
 `.env.example` (repo root) documents every variable with dev-safe values and placeholders
@@ -1227,7 +1231,7 @@ Scaling: `docker compose up -d --scale worker=4 --scale api=2`.
 ### 5.6 `docs/DEPLOY.md` runbook outline
 
 1. Local dev, zero setup (Linux/macOS/Windows): venv, `pip install -r requirements.txt`, `run_api.sh` /
-   `run_api.ps1`, `npm run dev`; SQLite + inline + single_user; nothing else needed.
+   `run_api.ps1`, `npm run dev`; file-DB + inline + single_user; nothing else needed.
 2. Local dev with Postgres and a separate worker (`pg_dev_cluster.sh`, `JOB_BACKEND=queue`, `run_worker.sh`).
 3. Compose: `.env` from `.env.example`, `docker compose up -d --build`, first user (sign-up or
    `manage create-user`), moving legacy `usr_local` data (`manage reassign-owner`).
@@ -1236,7 +1240,7 @@ Scaling: `docker compose up -d --scale worker=4 --scale api=2`.
 5. Scaling workers: replicas vs `WORKER_CONCURRENCY` (GIL note), `WORKER_KINDS` pools, DB pool sizing
    (`replicas * (pool_size + max_overflow) < max_connections`), what queue depth / oldest-queued-age alerts mean.
 6. Backups and restore: `pg_dump -Fc` via `docker compose exec postgres`, schedule, restore with `pg_restore
-   --clean --if-exists`; SQLite: stop the API or use `sqlite3 superplanner.db ".backup x.db"`; automatic `.bak`
+   --clean --if-exists`; file-DB: stop the API or use the file-DB CLI online backup; automatic `.bak`
    files from migrations.
 7. Upgrades: backup -> pull/build -> `docker compose run --rm migrate` -> `docker compose up -d` (workers drain
    gracefully, interrupted jobs requeue) -> verify `/health/ready`; rollback = restore backup + previous images.
@@ -1244,7 +1248,7 @@ Scaling: `docker compose up -d --scale worker=4 --scale api=2`.
    metrics endpoints, stuck jobs (SQL snippets to inspect `jobs`), cancelling, pruning.
 9. Windows notes: PowerShell scripts, `py -3.13`, no Docker needed for dev, Postgres optional (EDB installer),
    Ctrl+C stops the worker gracefully, line endings (`.gitattributes`), paths in `DATABASE_URL`
-   (`sqlite:///C:/path/superplanner.db`).
+   (`<file-DB URL>`).
 10. Troubleshooting: exit code 2 (config), 3 (schema), readiness 503 reasons, `AUTH_REQUIRED` loops (cookie
     Secure over http), SSE behind proxies (buffering).
 
@@ -1288,7 +1292,7 @@ existing-test edits), the plan wins: Q1 pre-creates all settings and app wiring 
 never edit the same file.
 
 Order: **WP-1** first (alone). Then **WP-2** and **WP-3** in parallel. Then **WP-4** and **WP-5** in parallel
-(WP-4 may start on Docker/compose files earlier). **WP-6** last. Each WP leaves both test runs (SQLite, and from
+(WP-4 may start on Docker/compose files earlier). **WP-6** last. Each WP leaves both test runs (file-DB, and from
 WP-1 on Postgres) green.
 
 | WP | Scope | Owns (create/edit) | Explicit edits outside owned paths |
@@ -1303,7 +1307,7 @@ WP-1 on Postgres) green.
 Shared-file rule: `api/main.py`, `api/config.py`, `api/context.py` are edited by several WPs; each WP adds only
 its own block (settings fields grouped under a comment per WP) and rebases on the previous WP.
 
-Definition of done: SQLite suite (existing 1794 + new) green; Postgres suite green; existing 65 Playwright tests
+Definition of done: file-DB suite (existing 1794 + new) green; Postgres suite green; existing 65 Playwright tests
 green unchanged (single_user); accounts e2e green; `load_queue.py --runs 50 --workers 3` green on a local Postgres
 (report pasted into section 10); `docker compose config` validates (running Docker is not required); `npm audit`
 no high/moderate.
@@ -1314,12 +1318,12 @@ no high/moderate.
 
 ### 8.1 Behaviour (all intended)
 
-1. Schema is managed by Alembic; the first start upgrades an existing SQLite file in place (backup copy made);
+1. Schema is managed by Alembic; the first start upgrades an existing file-DB database in place (backup copy made);
    data becomes owned by `usr_local`.
 2. Run creation enqueues a job row (both modes); in queue mode runs survive API restarts and execute in workers;
    in inline mode startup recovery is unchanged.
 3. New SSE event `run_requeued` (queue mode only). New 202 replay behaviour only with `Idempotency-Key`.
-4. Cross-process safety: `WRITE_LOCK` -> `write_guard` + row locks + partial unique indexes (SQLite behaviour
+4. Cross-process safety: `WRITE_LOCK` -> `write_guard` + row locks + partial unique indexes (file-DB behaviour
    identical). A legacy DB that somehow holds two approved schedules or two active runs for one plan fails the
    migration's index creation: `0002` first demotes extra approved schedules (older ones -> `superseded`) and
    fails extra active runs (`RESTART_ERROR`), keeping the newest.
@@ -1366,7 +1370,7 @@ before changing the test.
 - SSO/OAuth providers, email verification, password reset by email, account deletion/export, MFA,
   "sign out everywhere" button (change-password already revokes other sessions).
 - Server-side intake drafts.
-- Automated SQLite -> PostgreSQL data copy tool (manual path: export/import endpoints).
+- Automated file-DB -> PostgreSQL data copy tool (manual path: export/import endpoints).
 - Kubernetes manifests, TLS inside the stack, uvicorn multi-process with Prometheus multiprocess mode,
   OpenTelemetry tracing (an `opentelemetry-api` package is present in the venv but unused).
 - Relational `schedule_placements` (A.20 deferral stands); GIN indexes on JSONB.
@@ -1379,10 +1383,10 @@ Reviewed against the product-owner goals A-E, the code (`api/context.py`, `api/e
 `services/*`, `finance/*`, routes, tests, frontend clients and Playwright config) and probe scripts run in the
 backend venv. Changes made in place in this document:
 
-- **R1 (critical, migration data loss)** - 3.4: SQLite batch migrations with `foreign_keys=ON` delete all child
-  rows through `ON DELETE CASCADE` when the parent table is recreated (reproduced with sqlite3: 1 child row -> 0).
+- **R1 (critical, migration data loss)** - 3.4: file-DB batch migrations with `foreign_keys=ON` delete all child
+  rows through `ON DELETE CASCADE` when the parent table is recreated (reproduced with the file-DB CLI: 1 child row -> 0).
   The migration now runs with FKs off, then `foreign_key_check`; the legacy test asserts unchanged row counts.
-- **R2 (data safety, Windows)** - 3.4: the pre-migration backup uses the SQLite backup API / `VACUUM INTO`, not a
+- **R2 (data safety, Windows)** - 3.4: the pre-migration backup uses the file-DB backup API / `VACUUM INTO`, not a
   file copy (WAL contents would be missing; the file may be locked on Windows).
 - **R3 (migration gap)** - 3.4: legacy files from before the finance phase (subset of the 11 tables) are upgraded
   instead of exiting 3; migrations are frozen (no ORM imports) and run without the 30 s statement timeout;
@@ -1431,7 +1435,7 @@ Implemented by Q1 (database layer, Alembic, ownership plumbing, dual-DB harness)
 **How to run the backend suites**
 
 ```
-# 1. SQLite (default; zero setup, also on Windows: .venv\Scripts\pytest)
+# 1. file-DB (default; zero setup, also on Windows: .venv\Scripts\pytest)
 cd backend && .venv/bin/pytest
 
 # 2. PostgreSQL: a local dev/test cluster (never runs postgres as root; creates OS user `spdb` when run as root)
@@ -1445,19 +1449,19 @@ backend/scripts/pg_dev_cluster.sh stop  [DIR]            # also: start, status
 Postgres run: once per session the template `sp_tpl_<pid>` is built with the **real** Alembic chain
 (`0001_initial` -> `0002_phase2b`); each `db_url_factory(name)` clones it (`CREATE DATABASE ... TEMPLATE ... STRATEGY
 FILE_COPY`) and drops it `WITH (FORCE)` afterwards. Until Q2 the Postgres run uses `JOB_BACKEND=inline` (set by the
-root conftest). Markers (registered in `pyproject.toml`): `postgres_only`, `sqlite_only` (skipped with a visible
+root conftest). Markers (registered in `pyproject.toml`): `postgres_only`, `file_db_only` (skipped with a visible
 reason on the other dialect, `-rs` shows them), `inline_jobs`, `pg_load`. If PostgreSQL is unreachable the run stops
 at once with exit code 4 and the hint to run `pg_dev_cluster.sh init`.
 
 Migrations by hand: `python -m superplanner.migrate {upgrade,current,check,stamp-legacy} [--url URL]` (exit 3 =
 schema problem, 2 = configuration problem). Plain Alembic also works:
-`.venv/bin/alembic -c backend/alembic.ini -x url=<URL> upgrade head` (its env.py forces `foreign_keys=OFF` on SQLite).
+`.venv/bin/alembic -c backend/alembic.ini -x url=<URL> upgrade head` (its env.py forces `foreign_keys=OFF` on file-DB).
 
 **Results (2026-10-19, this machine; 1794 existing + 69 new tests in `tests/db/`)**
-- SQLite (G1): `cd backend && .venv/bin/pytest -rs` -> `1858 passed, 5 skipped in 544.62s` (the 5 skips are the
+- file-DB (G1): `cd backend && .venv/bin/pytest -rs` -> `1858 passed, 5 skipped in 544.62s` (the 5 skips are the
   Postgres-only tests, each with the reason "PostgreSQL-only test (run with SP_TEST_DB=postgres)").
 - PostgreSQL 16 (G2, inline jobs): `SP_TEST_DB=postgres SP_TEST_PG_URL=postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres
-  .venv/bin/pytest -rs` -> `1862 passed, 1 skipped in 625.43s` (skip: the SQLite-only WAL backup test).
+  .venv/bin/pytest -rs` -> `1862 passed, 1 skipped in 625.43s` (skip: the file-DB-only WAL backup test).
 
 **Files** (all inside the Q1 ownership list): `backend/alembic.ini`, `superplanner/migrations/{env.py,
 script.py.mako, versions/0001_initial.py, versions/0002_phase2b.py}`, `superplanner/migrate.py`,
@@ -1469,7 +1473,7 @@ script.py.mako, versions/0001_initial.py, versions/0002_phase2b.py}`, `superplan
 **Interpretations and deviations (for LEAD review)**
 
 1. *Queue backend before Q2.* `Settings` resolves `JOB_BACKEND` exactly as 2.2/5.1 (default `queue` on Postgres,
-   `queue`+SQLite and `inline`+Postgres+production refused with `ConfigError`). Until Q2 lands, `AppContext` runs
+   `queue`+file-DB and `inline`+Postgres+production refused with `ConfigError`). Until Q2 lands, `AppContext` runs
    the inline shim (`context.InlineJobs`) for both values and logs a warning for `queue`. The shim implements
    `enqueue/dispatch/request_cancel/notify_cancel/wait_idle/start/stop`; `dispatch` claims conditionally
    (`queued` -> `running`, `lease_owner="inline:<pid>"`, new token) and the submitted callable enters
@@ -1484,10 +1488,10 @@ script.py.mako, versions/0001_initial.py, versions/0002_phase2b.py}`, `superplan
 3. *Legacy checks run before the backup*: unknown tables or missing 0001 columns -> `SchemaError` naming them, no
    backup written, nothing changed. Backups are named `<db>.bak-<rev prefix>-<UTC yyyymmddHHMMSS>` (`bak-0001-` for
    legacy and 0001 files), with a `-n` suffix on a same-second collision. `.gitignore` gets `*.db.bak-*`.
-4. *SQLite migration engine*: own `NullPool` engine, driver autocommit (`isolation_level=None`), `PRAGMA
+4. *file-DB migration engine*: own `NullPool` engine, driver autocommit (`isolation_level=None`), `PRAGMA
    foreign_keys=OFF` in the connect hook (i.e. outside any transaction), `BEGIN IMMEDIATE` per transaction, the whole
    upgrade (incl. stamping and `usr_local`) in one transaction, then `PRAGMA foreign_key_check` (rows -> rollback,
-   `SchemaError`, backup kept). Alembic's `transactional_ddl=False` on SQLite does not matter because migrate owns
+   `SchemaError`, backup kept). Alembic's `transactional_ddl=False` on file-DB does not matter because migrate owns
    the outer transaction (env.py's `begin_transaction()` is a no-op inside it).
 5. *0002 data step* demotes extra approved schedules (newest `approved_at` wins) and fails extra active **solver**
    runs (newest `created_at` wins) with `RESTART_ERROR` + a `run_failed` event (`seq = max+1`, payload in the API
@@ -1514,11 +1518,11 @@ script.py.mako, versions/0001_initial.py, versions/0002_phase2b.py}`, `superplan
    `lock_parent_key_share` (`FOR KEY SHARE`, used by both worker final transactions before the run row),
    `get_locked(..., for_delete)`; `get_problem_row/get_plan_row(s, id, lock=False, for_delete=False)`. `approve` now
    locks the problem first and re-reads the schedule under it; what-if re-reads the active run under its lock and
-   ignores it if it finished meanwhile. On SQLite the worker's final/failure transactions now also take the write
-   guard (same order everywhere: write guard -> SQLite write lock), which changes no behaviour.
+   ignores it if it finished meanwhile. On file-DB the worker's final/failure transactions now also take the write
+   guard (same order everywhere: write guard -> file-DB write lock), which changes no behaviour.
 10. *IntegrityError mapping*: `uq_solver_runs_one_active` -> 409 `RUN_ALREADY_ACTIVE` with the active run id (create
     and replan); `uq_schedules_one_approved` -> approval retried once, then 409 `CONFLICT`. Detection matches the
-    index name (Postgres) or `UNIQUE constraint failed: <table>.<col>` (SQLite, which does not name partial
+    index name (Postgres) or `UNIQUE constraint failed: <table>.<col>` (file-DB, which does not name partial
     indexes).
 11. *NUL (U+0000)*: checked in `BodySizeLimitMiddleware` for `*json*` content types while the body streams; the
     scanner is escape-aware across chunk boundaries (`\\u0000` text is accepted and stored verbatim) and also rejects a
@@ -1535,8 +1539,8 @@ script.py.mako, versions/0001_initial.py, versions/0002_phase2b.py}`, `superplan
 13. *Database* (`Database(url, *, pool_size, max_overflow, pool_timeout, statement_timeout_ms, service)` and
     `Database.from_settings(settings, service)`): URL normalised; Postgres pool/pre-ping/recycle 1800, `options=-c
     statement_timeout=... -c lock_timeout=10000`, `application_name=superplanner-<service>`,
-    `json_serializer=partial(json.dumps, allow_nan=False)`; SQLite unchanged. `psycopg` is only imported by
-    SQLAlchemy when a Postgres URL is used (test runs the SQLite app with `sys.modules["psycopg"] = None`).
+    `json_serializer=partial(json.dumps, allow_nan=False)`; file-DB unchanged. `psycopg` is only imported by
+    SQLAlchemy when a Postgres URL is used (test runs the file-DB app with `sys.modules["psycopg"] = None`).
 14. *Alembic logging*: `migrate` sets the `alembic` logger to WARNING unless configured (it logs several INFO lines
     per connection); our own `schema.migrated` INFO line remains.
 15. *pg_dev_cluster.sh*: also has `status`; runs the server with `fsync=off` and `max_connections=300` (dev/test
@@ -1562,7 +1566,7 @@ script.py.mako, versions/0001_initial.py, versions/0002_phase2b.py}`, `superplan
 |---|---|
 | Q1-1 | full runs below |
 | Q1-2 | `test_db_migrations.py::test_upgrade_head_and_create_all_produce_the_model_schema`, `::test_both_paths_give_identical_indexes`, `::test_postgres_partial_indexes_keep_their_predicates` (also checks BIGINT ids and `priority DESC`) |
-| Q1-3 | `::test_legacy_database_upgrades_on_first_start_and_keeps_all_rows[all-11-tables / pre-finance-6-tables]` (both dialects; backup + `foreign_key_check` on SQLite), `::test_legacy_backup_contains_uncheckpointed_wal_data`, `::test_legacy_with_unknown_table_is_refused_untouched`, `::test_legacy_with_missing_column_is_refused` |
+| Q1-3 | `::test_legacy_database_upgrades_on_first_start_and_keeps_all_rows[all-11-tables / pre-finance-6-tables]` (both dialects; backup + `foreign_key_check` on file-DB), `::test_legacy_backup_contains_uncheckpointed_wal_data`, `::test_legacy_with_unknown_table_is_refused_untouched`, `::test_legacy_with_missing_column_is_refused` |
 | Q1-4 | `::test_legacy_duplicates_keep_the_newest` |
 | Q1-5 | `::test_downgrade_base_then_upgrade_head` |
 | Q1-6 | `::test_check_exits_3_on_a_database_behind_head`, `::test_concurrent_ensure_schema_on_one_empty_postgres_db`, `::test_unknown_newer_revision_is_refused`, `::test_stamp_legacy_cli` |
@@ -1571,7 +1575,7 @@ script.py.mako, versions/0001_initial.py, versions/0002_phase2b.py}`, `superplan
 | Q1-9 | `test_db_ownership.py` (11 tests: probes per query form, stamping, fail-closed 500 + `OwnershipViolation` log, `iscoroutinefunction(require_user)`, lazy start without `with`, lazy start running recovery inside a request, accounts-mode 401, CORS credentials) |
 | Q1-10 | `test_db_concurrency.py::test_plan_lock_is_no_key_update` (Postgres; verified to fail when the plan lock is plain `FOR UPDATE`) |
 | Q1-11 | `test_db_nul_and_config.py::test_nul_in_any_json_body_is_422_on_both_dialects`, `::test_nul_scanner_*` |
-| Q1-12 | `::test_sqlite_mode_works_without_psycopg` |
+| Q1-12 | `::test_file-DB_mode_works_without_psycopg` |
 | Q1-13 | `test_db_pg_cluster.py::test_cluster_lifecycle` (Postgres run; skipped without the server binaries) |
 | extra | config resolution/validation (`test_db_nul_and_config.py`), uvicorn import exit 2, `prune_auth_tables`, inline job rows + recovery of jobs (`test_db_concurrency.py`) |
 
@@ -1588,7 +1592,7 @@ WORKER_EMBEDDED=0 DATABASE_URL=... backend/run_api.sh
 DATABASE_URL=... backend/run_worker.sh --concurrency 1          # Windows: .\run_worker.ps1 --concurrency 1
 python -m superplanner.worker --once                            # drain the queue, exit 0
 ```
-SQLite stays inline (thread pool in the API, no worker process); `python -m superplanner.worker` with SQLite exits 2.
+file-DB stays inline (thread pool in the API, no worker process); `python -m superplanner.worker` with file-DB exits 2.
 
 **Files**: `superplanner/jobs/{__init__,types,common,inline,pg,idempotency,worker}.py`, `superplanner/worker/{__init__,__main__}.py`,
 `superplanner/obs/{__init__,job_metrics}.py`, `api/context.py`, `api/services/{run_service,replan_service}.py`,
@@ -1634,7 +1638,7 @@ SQLite stays inline (thread pool in the API, no worker process); `python -m supe
    run kind is a mismatch. The `uq_jobs_idempotency` race path re-runs the lookup in a new transaction.
 9. *Orphans*: `AppContext.start()` in queue mode and the worker at start fail queued/running runs without a job row
    (`RESTART_ERROR`). Inline start keeps `recover_interrupted_runs` and also fails their jobs.
-10. *Worker exits*: 2 = configuration (SQLite URL, `JOB_BACKEND=inline`, bad `--kinds`/`--concurrency`); 3 = schema not at
+10. *Worker exits*: 2 = configuration (file-DB URL, `JOB_BACKEND=inline`, bad `--kinds`/`--concurrency`); 3 = schema not at
     head with `DB_AUTO_MIGRATE=false` (message names the revision and `python -m superplanner.migrate upgrade`) or the
     database is unreachable. Empty databases are created as in Q1 (interpretation 2 of 10.WP-1).
 11. *Maintenance* runs from the claim loop: retention of terminal jobs (batches of 1000, at most 20 batches per pass),
@@ -1649,15 +1653,15 @@ SQLite stays inline (thread pool in the API, no worker process); `python -m supe
     dropped; `apifin_helpers.worker_done` -> `ctx.jobs.wait_idle` (B 8.2). Three Q1 tests in `tests/db/` that test the
     inline contract got the `inline_jobs` marker (no assertion changed): `test_inline_mode_writes_one_job_per_run_with_the_terminal_status`,
     `test_lazy_start_recovers_runs_inside_a_request` (queue-mode equivalent: `tests/jobs/test_queue_api.py::test_queue_start_fails_orphan_runs_without_a_job`,
-    also a lazy start), and `test_sqlite_mode_works_without_psycopg` (its SQLite subprocess inherited `JOB_BACKEND=queue`).
+    also a lazy start), and `test_file-DB_mode_works_without_psycopg` (its file-DB subprocess inherited `JOB_BACKEND=queue`).
 14. *Load script*: `backend/scripts/load_queue.py` belongs to Q5 (PLAN 0.1); its report goes into 10.WP-4.
     `Lease.finish` keeps `lease_owner`, which that script's per-worker check needs.
 
 **Results (2026-10-20, this machine; the trees also contained Q3's in-progress `tests/auth/`)**
-- SQLite (G1): `cd backend && .venv/bin/pytest -rs` -> `1934 passed, 23 skipped in 550.04s` (skips: Postgres-only tests).
+- file-DB (G1): `cd backend && .venv/bin/pytest -rs` -> `1934 passed, 23 skipped in 550.04s` (skips: Postgres-only tests).
 - PostgreSQL 16 (G2, queue + embedded workers): `SP_TEST_DB=postgres SP_TEST_PG_URL=postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres
-  .venv/bin/pytest -rs` -> `1956 passed, 1 skipped in 771.89s` (skip: the SQLite-only WAL backup test).
-- `tests/jobs` alone on PostgreSQL, three consecutive runs: `33 passed` each (~85 s); on SQLite `15 passed, 18 skipped`.
+  .venv/bin/pytest -rs` -> `1956 passed, 1 skipped in 771.89s` (skip: the file-DB-only WAL backup test).
+- `tests/jobs` alone on PostgreSQL, three consecutive runs: `33 passed` each (~85 s); on file-DB `15 passed, 18 skipped`.
 
 **Acceptance criteria -> tests** (`backend/tests/jobs/`)
 
@@ -1675,8 +1679,8 @@ SQLite stays inline (thread pool in the API, no worker process); `python -m supe
 | Q2-10 | `test_idempotency.py` (all four endpoints, mismatch, invalid formats, 10 concurrent identical requests, per-owner keys, TTL release; both dialects) |
 | Q2-11 | `test_queue_api.py::test_two_api_instances_share_runs_sse_and_cancel` |
 | Q2-12 | `::test_idle_worker_wakes_on_notify` (`WORKER_POLL_SECONDS=5`, claim < 1 s, twice) |
-| Q2-13 | `::test_api_restart_in_queue_mode_keeps_the_run`, `::test_api_restart_with_a_running_job_of_a_dead_worker`; inline: existing `test_api_startup_recovery` / `test_startup_recovery_marks_runs_failed` (SQLite) |
-| Q2-14 | `test_worker_process.py::test_queue_backend_with_sqlite_is_refused`, `::test_inline_with_postgres_in_production_is_refused`, `::test_worker_with_sqlite_url_exits_2`, `::test_uvicorn_import_with_queue_on_sqlite_exits_2`, `::test_worker_with_schema_behind_head_exits_3` |
+| Q2-13 | `::test_api_restart_in_queue_mode_keeps_the_run`, `::test_api_restart_with_a_running_job_of_a_dead_worker`; inline: existing `test_api_startup_recovery` / `test_startup_recovery_marks_runs_failed` (file-DB) |
+| Q2-14 | `test_worker_process.py::test_queue_backend_with_file-DB_is_refused`, `::test_inline_with_postgres_in_production_is_refused`, `::test_worker_with_file-DB_url_exits_2`, `::test_uvicorn_import_with_queue_on_file-DB_exits_2`, `::test_worker_with_schema_behind_head_exits_3` |
 | Q2-15 | `test_inline_jobs.py` (succeeded / failed / cancelled-running / cancelled-queued, both kinds) |
 | extra | `test_queue_core.py::test_transient_db_error_requeues_and_retries`, `::test_engine_error_is_not_retried`, `test_queue_api.py::test_queue_start_fails_orphan_runs_without_a_job` |
 
@@ -1684,7 +1688,7 @@ SQLite stays inline (thread pool in the API, no worker process); `python -m supe
 
 Files: `sp/api/auth/{deps,router,passwords,sessions,csrf,ratelimit,schemas}.py`, `common_passwords.txt`,
 `sp/api/errors.py` (`_HTTP_CODES` 401/403/429), `sp/manage.py`, `backend/tests/auth/**` (61 tests, both dialects).
-Run: `cd backend && .venv/bin/pytest tests/auth` (SQLite) or with `SP_TEST_DB=postgres` (Postgres).
+Run: `cd backend && .venv/bin/pytest tests/auth` (file-DB) or with `SP_TEST_DB=postgres` (Postgres).
 
 Interpretations (contract gaps, most reasonable reading):
 - **Common-password list**: the "1000 most common passwords" would be almost useless under a 10-character
@@ -1714,7 +1718,7 @@ Interpretations (contract gaps, most reasonable reading):
   of the configured profile, then 401 `INVALID_CREDENTIALS`.
 - **WEAK_PASSWORD** order: reasons in the order too_short, too_long, common, same_as_email. Change-password checks
   the current password (422 `WRONG_PASSWORD`) before the policy of the new one.
-- **manage**: runs `migrate.ensure_schema` like the API (SQLite auto-upgrade; Postgres behind head -> exit 3);
+- **manage**: runs `migrate.ensure_schema` like the API (file-DB auto-upgrade; Postgres behind head -> exit 3);
   exit codes 0/1 (command error)/2 (config)/3 (schema). `create-user`/`set-password` enforce the password policy.
   `reassign-owner` updates every table with an `owner_id` column (problems, solver_runs, schedules, finance_plans,
   finance_runs, finance_results, jobs) with Core UPDATEs in one transaction; `--dry-run` counts only. `prune`
@@ -1739,9 +1743,9 @@ Acceptance -> tests (`backend/tests/auth/`):
 | Q3-10 | `test_manage.py` (all commands, `reassign-owner` makes legacy plans/runs visible to the account, subprocess entry point, exit 2) |
 | Q3-11 | `test_auth_logs.py` (caplog at DEBUG over sign-up/in/out, change-password, rate limit, validation errors) |
 
-Results (2026-10-20, working tree incl. the parallel Q2 files): SQLite `cd backend && .venv/bin/pytest -rs` ->
+Results (2026-10-20, working tree incl. the parallel Q2 files): file-DB `cd backend && .venv/bin/pytest -rs` ->
 `1934 passed, 23 skipped` (skips: Postgres-only tests, each with the reason); PostgreSQL 16 (queue mode, embedded
-workers) `SP_TEST_DB=postgres ... .venv/bin/pytest -rs` -> `1956 passed, 1 skipped` (SQLite-only WAL backup test).
+workers) `SP_TEST_DB=postgres ... .venv/bin/pytest -rs` -> `1956 passed, 1 skipped` (file-DB-only WAL backup test).
 `tests/auth` alone: 61 passed on each dialect.
 
 ### 10.WP-4 Operations
@@ -1834,7 +1838,7 @@ Edited:
 | Q5-6 | `tests/jobs/test_load_small.py` (10 runs, 2 workers, `pg_load`); G8 runs below |
 | Q5-7 | `test_ops_deploy`: `.env.example` lists every `config.py` variable, no secret, `.env` git-ignored; nginx text checks (XFF overwrite, no `$proxy_add_x_forwarded_for`, `/metrics` 404, SSE settings); real-ip script; non-root Dockerfiles; compose structure; `docker compose --env-file .env.example config -q` exits 0 (CLI v5.6.0, no daemon needed) |
 | Q5-8 | `test_production_defaults`, `test_production_cors_star_with_credentials_refused`, `test_production_cors_star_exits_2` |
-| Q5-9 | DEPLOY.md sections 1 and 2; `test_run_api_sh_starts_zero_setup` (no config, SQLite, inline, `/problems` without login); section 2 commands used for the load runs |
+| Q5-9 | DEPLOY.md sections 1 and 2; `test_run_api_sh_starts_zero_setup` (no config, file-DB, inline, `/problems` without login); section 2 commands used for the load runs |
 
 **Load runs (G8)**: local PostgreSQL 16 (127.0.0.1:54329), a fresh database `sp_load` each time, 3 worker
 processes at concurrency 1, API subprocess without embedded workers, 25 solver + 25 finance runs.
@@ -1880,11 +1884,11 @@ The p95 queue wait is long because all 50 runs are enqueued at once onto 3 slots
 latency.
 
 **Suite results** (2026-10-20, working tree incl. Q2/Q3):
-- G1, SQLite: `cd backend && .venv/bin/pytest -rs` gives `1974 passed, 27 skipped`. The skips are PostgreSQL-only
+- G1, file-DB: `cd backend && .venv/bin/pytest -rs` gives `1974 passed, 27 skipped`. The skips are PostgreSQL-only
   tests plus one that needs the queue backend, each with a reason.
 - G2, PostgreSQL 16 (queue + embedded workers): `SP_TEST_DB=postgres ... .venv/bin/pytest -rs` gives
-  `2000 passed, 1 skipped` (the SQLite-only WAL backup test).
-- `tests/ops` alone: 41 tests (3 PostgreSQL-only skips on SQLite).
+  `2000 passed, 1 skipped` (the file-DB-only WAL backup test).
+- `tests/ops` alone: 41 tests (3 PostgreSQL-only skips on file-DB).
 - G9: `docker compose --env-file .env.example config -q` exits 0. There is no Docker daemon here, so images were
   not built.
 

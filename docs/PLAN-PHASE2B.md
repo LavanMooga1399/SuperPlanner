@@ -1,5 +1,9 @@
 # SuperPlanner Phase 2b - Delivery Plan ("make it scalable")
 
+> **Historical note (PostgreSQL-only release):** "file-DB" below refers to the embedded file database of earlier
+> releases. It was removed; SuperPlanner now runs on PostgreSQL only (see `docs/DEPLOY.md`, Changelog, and
+> `docs/ARCHITECTURE.md` section 25). Statements about file-DB behaviour describe the past.
+
 Owner: team lead (LEAD). Contract: `docs/PHASE2B.md` (cited "B n", including its "Review notes" R1-R14), then
 `docs/PHASE2.md`, `docs/FINANCE.md`, `docs/ARCHITECTURE.md` for everything B does not change. If this plan and B
 disagree on behaviour, B wins; on file ownership, order and acceptance, this plan wins (it supersedes B 7).
@@ -8,7 +12,7 @@ Q4 -> "10.WP-5", Q5 -> "10.WP-4", Q6 -> "10.WP-6"). LEAD owns B 0-9, the review 
 
 Hard rules for everyone:
 - No `git commit`, no `git push`.
-- **SQLite + one process + `AUTH_MODE=single_user` stays the zero-setup default** and must work on Windows with only
+- **file-DB + one process + `AUTH_MODE=single_user` stays the zero-setup default** and must work on Windows with only
   Python and Node (no Postgres, Docker, Redis, bash or WSL needed to run or test the product in this mode).
 - Existing features keep working. An existing test may change only as listed in B 8.2; any other change is
   recorded in B 8.2 by LEAD *before* the test is edited. No existing assertion changes.
@@ -78,29 +82,29 @@ in 14 spec files, all green.
 
 | # | Gate | Command / check |
 |---|------|-----------------|
-| G1 | Existing backend suite on SQLite, inline, single_user: 1794 existing tests pass, total = 1794 + new, 0 failures, skips only with a stated reason | `cd backend && .venv/bin/pytest` |
+| G1 | Existing backend suite on file-DB, inline, single_user: 1794 existing tests pass, total = 1794 + new, 0 failures, skips only with a stated reason | `cd backend && .venv/bin/pytest` |
 | G2 | Full backend suite on PostgreSQL (queue + embedded workers from Q2 on; inline before): 0 failures | `SP_TEST_DB=postgres SP_TEST_PG_URL=postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres .venv/bin/pytest` |
 | G3 | No existing assertion changed: `git diff -U0 backend/tests frontend/e2e` touches only files/lines listed in B 8.2 | LEAD reads the diff |
-| G4 | 65 existing Playwright tests pass unchanged (single_user, SQLite, inline) | `cd frontend && npm run e2e` |
+| G4 | 65 existing Playwright tests pass unchanged (single_user, file-DB, inline) | `cd frontend && npm run e2e` |
 | G5 | Accounts e2e pass | `cd frontend && npm run e2e:accounts` |
 | G6 | `npm run build` (incl. `tsc --noEmit`) clean; `npm audit` no high/moderate | |
-| G7 | Zero-setup check: fresh clone flow of DEPLOY.md section 1 with no `DATABASE_URL`, no Postgres, no env file: API starts, creates `backend/superplanner.db`, UI works without login | Q6 scripted check |
+| G7 | Zero-setup check: fresh clone flow of DEPLOY.md section 1 with no `DATABASE_URL`, no Postgres, no env file: API starts, creates its local file database, UI works without login | Q6 scripted check |
 | G8 | Load: `load_queue.py --runs 50 --workers 3` exit 0 on local Postgres; `--chaos-kill-after 5` exit 0 | report pasted in B 10.WP-4 |
 | G9 | `docker compose config -q` exits 0 (only if the docker CLI works; else a YAML schema lint is recorded) | |
 
 ## 2. Q1 - Database layer, Alembic, ownership plumbing, dual-DB harness (backend-developer A, first, alone)
 
 Steps:
-1. Install and pin the four packages (0.1); register markers `postgres_only`, `sqlite_only`, `inline_jobs`, `pg_load`.
+1. Install and pin the four packages (0.1); register markers `postgres_only`, `file_db_only`, `inline_jobs`, `pg_load`.
 2. `pg_dev_cluster.sh {init|start|stop|url} [DIR] [PORT]` (B 3.6): creates `spdb` with `useradd -r -m` when run as
    root, `runuser -u spdb --`, `initdb --locale=C --encoding=UTF8 -A trust` bound to 127.0.0.1, role `sp_test`
    CREATEDB. Idempotent.
 3. `Database`: URL normalisation, `is_postgres`, Postgres pool/pre-ping/timeouts/`application_name`,
-   `json_serializer(allow_nan=False)` on Postgres (B 3.1, 3.5); lazy psycopg import; SQLite path unchanged.
+   `json_serializer(allow_nan=False)` on Postgres (B 3.1, 3.5); lazy psycopg import; file-DB path unchanged.
 4. Models: `OwnedMixin` + `owner_id` on the 7 owned tables, `UserRow`/`UserSessionRow`/`AuthRateLimitRow`, `JobRow`,
    `JobWorkerRow`, BigInteger variants, all indexes of B 3.3 (no finance one-active index, R5).
 5. Alembic: frozen `0001_initial` (11 tables exactly as today), `0002_phase2b` (B 3.3 incl. data step and the
-   legacy de-duplication of B 8.1.4). `migrate.py` with `schema_state`/`ensure_schema`/CLI, SQLite FK-off upgrade +
+   legacy de-duplication of B 8.1.4). `migrate.py` with `schema_state`/`ensure_schema`/CLI, file-DB FK-off upgrade +
    `foreign_key_check` (R1), backup API (R2), legacy subset handling (R3), Postgres advisory lock and
    `statement_timeout=0`.
 6. `ownership.py` (B 4.7): `owner_scope`, `system_scope`, fail-closed `do_orm_execute`, `before_flush` stamping,
@@ -122,7 +126,7 @@ Acceptance criteria (each is a test in `tests/db/` unless stated):
 - Q1-2 `alembic upgrade head` on an empty DB and `create_all + stamp head` produce the same schema: autogenerate
   `compare_metadata` reports no diffs on both dialects, and on Postgres every partial index's `pg_indexes.indexdef`
   contains its predicate.
-- Q1-3 Legacy SQLite file built from the frozen 0001 definitions with data in all 11 tables (including
+- Q1-3 Legacy file-DB database built from the frozen 0001 definitions with data in all 11 tables (including
   `problem_versions`, `solver_run_events`, `schedules`, `finance_results`): first app start upgrades it, row counts of
   all 11 tables are unchanged, all owned rows have `owner_id='usr_local'`, a `.bak-0001-*` file exists and opens
   with the same row counts, `PRAGMA foreign_key_check` is empty. Same for a pre-finance file with only the 6
@@ -142,8 +146,8 @@ Acceptance criteria (each is a test in `tests/db/` unless stated):
 - Q1-10 Lock-strength test (Postgres): while one connection holds the plan lock taken by `create_what_if`, another
   connection can insert a `finance_results` row for that plan (no wait) - proves `FOR NO KEY UPDATE`.
 - Q1-11 A JSON body containing `\u0000` returns 422 `VALIDATION_ERROR` on both dialects.
-- Q1-12 Windows: no new code path in SQLite mode imports psycopg (test: import `superplanner.api.main` with
-  `sys.modules["psycopg"] = None` and create a SQLite app).
+- Q1-12 Windows: no new code path in file-DB mode imports psycopg (test: import `superplanner.api.main` with
+  `sys.modules["psycopg"] = None` and create a file-DB app).
 - Q1-13 `pg_dev_cluster.sh init/start/url/stop` works as root in a scratch dir; `postgres` never runs as uid 0.
 
 ## 3. Q2 - Job queue, worker, cross-process SSE and cancel (backend-developer A, after Q1)
@@ -181,10 +185,10 @@ Acceptance criteria (tests in `tests/jobs/`, Postgres-only unless stated):
 - Q2-12 NOTIFY wake-up: idle worker claims a new job in < 1 s with `WORKER_POLL_SECONDS=5`.
 - Q2-13 API restart in queue mode: stopping app A (embedded workers) with a running job and starting app B on the
   same DB -> the run completes (not `failed`); in inline mode the existing recovery behaviour is unchanged (existing
-  tests, SQLite).
-- Q2-14 Config: `JOB_BACKEND=queue` with SQLite exits 2; `inline` + Postgres + `SP_ENV=production` exits 2;
-  `python -m superplanner.worker` with a SQLite URL exits 2; with schema behind head exits 3.
-- Q2-15 Inline mode on SQLite writes one job row per run, ending `succeeded`/`failed`/`cancelled` consistent with the
+  tests, file-DB).
+- Q2-14 Config: `JOB_BACKEND=queue` with file-DB exits 2; `inline` + Postgres + `SP_ENV=production` exits 2;
+  `python -m superplanner.worker` with a file-DB URL exits 2; with schema behind head exits 3.
+- Q2-15 Inline mode on file-DB writes one job row per run, ending `succeeded`/`failed`/`cancelled` consistent with the
   run (sample of existing flows).
 
 ## 4. Q3 - Accounts backend and ownership enforcement (backend-developer B, after Q1, parallel to Q2)
@@ -277,7 +281,7 @@ Acceptance criteria (tests in `tests/ops/`):
 ## 7. Q6 - Testing (tester)
 
 Writes from day 0 against B, runs final verification after Q1-Q5.
-- `backend/tests/acceptance_phase2b/`: end-to-end API scenarios per mode - (a) SQLite/inline/single_user: full
+- `backend/tests/acceptance_phase2b/`: end-to-end API scenarios per mode - (a) file-DB/inline/single_user: full
   solver + finance + what-if + replan + approve flow, existing DB upgraded from a legacy file; (b) Postgres/queue/
   accounts with two users and two worker subprocesses: both users run solver and finance runs concurrently, each sees
   only own objects, all runs complete exactly once (job/run/event invariants I1-I4 of B 2.4 checked from the DB);
@@ -290,11 +294,11 @@ Writes from day 0 against B, runs final verification after Q1-Q5.
 Acceptance criteria:
 - Q6-1 Every Q1-Q5 criterion has at least one automated test or a recorded manual check (traceability table in
   B 10.WP-6).
-- Q6-2 G1-G9 recorded green with test counts (backend SQLite total, backend Postgres total, 65 + accounts e2e).
+- Q6-2 G1-G9 recorded green with test counts (backend file-DB total, backend Postgres total, 65 + accounts e2e).
 - Q6-3 Each defect found is filed to the owning package (by the file ownership table) with a failing test name.
 
 ## 8. Review checklist for LEAD (code-review mode)
 
 Run first: lost-vs-cancel (R6) and shutdown ordering; fencing on every worker write; lock order and lock strength
-(R4); SQLite migration FK-off (R1) and backup API (R2); fail-closed ownership and every `system_scope` site (R9);
+(R4); file-DB migration FK-off (R1) and backup API (R2); fail-closed ownership and every `system_scope` site (R9);
 CSRF on all unsafe methods; XFF handling (R10); idempotency ordering (R8); SSE seq ordering; Windows zero-setup (G7).

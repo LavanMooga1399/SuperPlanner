@@ -1,4 +1,4 @@
-"""Authorization sweep (accounts mode, both dialects): every route of the app (enumerated from `app.routes`, not from
+"""Authorization sweep (accounts mode): every route of the app (enumerated from `app.routes`, not from
 OpenAPI, so hidden routes are included) is called as an anonymous visitor, as another signed-in user with the first
 user's ids, and as a signed-in user without / with a wrong CSRF token or a foreign Origin."""
 

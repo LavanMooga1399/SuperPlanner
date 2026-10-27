@@ -26,7 +26,7 @@ PLAIN_COOKIE_NAME = "sp_session"
 
 
 def aware(dt: datetime | None) -> datetime | None:
-    """SQLite returns naive datetimes (stored as UTC); PostgreSQL returns aware ones."""
+    """Aware UTC datetime (timestamptz columns return aware values; naive input is treated as UTC)."""
     if dt is None:
         return None
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)

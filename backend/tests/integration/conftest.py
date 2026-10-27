@@ -1,4 +1,4 @@
-"""WP4 integration test setup: a live in-process app (create_app) on a temp-file SQLite DB."""
+"""WP4 integration test setup: a live in-process app (create_app) on a fresh PostgreSQL database."""
 
 from __future__ import annotations
 

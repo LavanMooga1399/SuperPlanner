@@ -15,21 +15,47 @@ and SuperPlanner builds a validated, explainable schedule.
 
 ## Quick start
 
-Requirements: Python 3.12 or 3.13, Node 22. Nothing else (no PostgreSQL, Docker or `.env` needed): the
-backend uses a local SQLite file, runs jobs in-process and has no sign-in. Use two terminals — the backend
-keeps running in the first one.
+Requirements: Python 3.12 or 3.13, Node 22 and **PostgreSQL 16** (Docker Desktop or a native install).
+SuperPlanner stores everything in PostgreSQL; there is no file-database mode. Steps: start PostgreSQL with two
+roles (an *owner* that runs migrations and a restricted *app* role the API uses), migrate, run the backend with
+`APP_ENV=development`, run the frontend. Use two terminals — the backend keeps running in the first one.
 
-**Windows (PowerShell)**
+### Windows (PowerShell)
 
-Terminal 1 — backend (http://127.0.0.1:8000):
+**1. PostgreSQL — option (a): Docker Desktop** (from the repository root)
+```powershell
+Copy-Item .env.example .env      # placeholder passwords are fine for local development
+docker compose up -d db          # PostgreSQL 16 on 127.0.0.1:5432, data in the volume "pgdata"
+docker compose ps db             # wait until it shows "healthy"
+```
+On the first start the container creates the database `superplanner` with the roles `superplanner_owner`
+(password `change-me-owner`) and `superplanner_app` (password `change-me-app`), as set in `.env`.
+
+**1. PostgreSQL — option (b): native installer.** Install PostgreSQL 16 from https://www.postgresql.org/download/windows/
+(remember the `postgres` password you choose), then create the roles and the database with `psql`
+(from the repository root):
+```powershell
+$psql = "C:\Program Files\PostgreSQL\16\bin\psql.exe"
+& $psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 `
+  -v db=superplanner -v owner=superplanner_owner -v owner_password=change-me-owner `
+  -v app=superplanner_app -v app_password=change-me-app -f backend\scripts\pg_setup_roles.sql
+```
+(`pg_setup_roles.sql` runs `CREATE ROLE ... LOGIN`, `CREATE DATABASE superplanner OWNER superplanner_owner` and the
+DML-only grants for `superplanner_app`; it is safe to re-run.)
+
+**2. Backend** — Terminal 1 (http://127.0.0.1:8000):
 ```powershell
 cd backend
-py -3.12 -m venv .venv          # first time only (or py -3.13)
+py -3.13 -m venv .venv          # first time only (or py -3.12)
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+$env:APP_ENV = "development"
+$env:MIGRATION_DATABASE_URL = "postgresql+psycopg://superplanner_owner:change-me-owner@127.0.0.1:5432/superplanner"
+$env:DATABASE_URL = "postgresql+psycopg://superplanner_app:change-me-app@127.0.0.1:5432/superplanner"
+.\.venv\Scripts\python.exe -m superplanner.migrate upgrade
 .\.venv\Scripts\python.exe -m uvicorn superplanner.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Terminal 2 — frontend (http://localhost:5173):
+**3. Frontend** — Terminal 2 (http://localhost:5173), unchanged:
 ```powershell
 cd frontend
 npm install
@@ -39,29 +65,63 @@ npm run dev
 If PowerShell says "running scripts is disabled", use `npm.cmd install` / `npm.cmd run dev`. In `cmd.exe`, do
 not add `# comments` after commands — `cmd` passes them on as arguments.
 
-**Linux / macOS**
+### Linux / macOS
+
 ```bash
-cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && ./run_api.sh
-cd frontend && npm install && npm run dev        # in a second terminal
+# 1. PostgreSQL: either Docker ...
+cp .env.example .env && docker compose up -d db
+# ... or a native PostgreSQL 16 (as a superuser; add -h/-U as needed):
+psql -d postgres -v ON_ERROR_STOP=1 -v db=superplanner -v owner=superplanner_owner -v owner_password=change-me-owner \
+     -v app=superplanner_app -v app_password=change-me-app -f backend/scripts/pg_setup_roles.sql
+
+# 2. backend (terminal 1)
+cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+export APP_ENV=development
+export MIGRATION_DATABASE_URL=postgresql+psycopg://superplanner_owner:change-me-owner@127.0.0.1:5432/superplanner
+export DATABASE_URL=postgresql+psycopg://superplanner_app:change-me-app@127.0.0.1:5432/superplanner
+.venv/bin/python -m superplanner.migrate upgrade
+./run_api.sh
+
+# 3. frontend (terminal 2)
+cd frontend && npm install && npm run dev
 ```
 
-Open http://localhost:5173 and choose what you want to plan, or pick a template, then
-Validate → Optimize → review the Gantt → Approve.
+Open http://localhost:5173, **sign up** (user accounts are the default; each user sees only their own data), then
+choose what you want to plan or pick a template: Validate → Optimize → review the Gantt → Approve.
+For a single-person local setup without sign-in, also set `APP_ENV=development` **and** `AUTH_MODE=single_user`
+(refused in any other environment).
 
-After `git pull`, re-run the `pip install` and `npm install` lines (new dependencies may have been added).
-Your existing `backend/superplanner.db` is upgraded automatically on start, after writing a backup copy.
+**Kavach sample data** (manufacturing master data: items, BOMs, routings, plant, shifts), one line in the backend
+terminal with the same `DATABASE_URL`:
+```bash
+python -m superplanner.manage load-sample --email you@example.com      # the account you signed up with
+python -m superplanner.manage load-sample                               # AUTH_MODE=single_user: the local user
+```
+(Windows: `.\.venv\Scripts\python.exe -m superplanner.manage load-sample --email you@example.com`. Add
+`--replace` to replace that user's manufacturing data, `--sample small|medium` for the other samples. The
+Manufacturing area of the UI has the same "Load sample" action.)
 
-**Optional — user accounts:** start the backend with `$env:AUTH_MODE="accounts"` (PowerShell) or
-`AUTH_MODE=accounts` (Linux/macOS) to get sign-up / sign-in, with each user seeing only their own plans.
-PostgreSQL, separate workers and Docker Compose are described in `docs/DEPLOY.md`.
+The backend refuses to start with a one-line message when `DATABASE_URL` is missing or not PostgreSQL, or when the
+database is not at the current schema revision ("Run: python -m superplanner.migrate upgrade"). After `git pull`,
+re-run the `pip install`, `migrate upgrade` and `npm install` lines. For local development only, `AUTO_MIGRATE=true`
+upgrades the schema at start (using `MIGRATION_DATABASE_URL`). In development the API runs the job workers
+in-process; production setups (separate workers, TLS, backups, roles) are in `docs/DEPLOY.md`.
 
 ## Tests
 
+The backend tests run against PostgreSQL only; the local test cluster (127.0.0.1:54329, data in
+`backend/.pgdata`, git-ignored) is created once with a script:
+
 ```bash
-cd backend && .venv/bin/pytest -q          # engine, API and integration tests
-cd frontend && npm run build               # type-check + production build
-cd frontend && npm run e2e                 # Playwright end-to-end (starts both servers itself)
+cd backend && scripts/pg_dev_cluster.sh init   # once (Linux; PostgreSQL 16 server binaries)
+cd backend && .venv/bin/pytest -q              # engine, API, database and integration tests
+cd frontend && npm run build                   # type-check + production build
+cd frontend && npm run e2e                     # Playwright end-to-end: fresh PostgreSQL database per run
+cd frontend && npm run e2e:accounts            # Playwright, accounts mode
 ```
+
+Other servers: `SP_TEST_PG_URL` (a role with CREATEDB) for pytest and `SP_E2E_PG_URL` for the e2e runs;
+`SP_TEST_PG_SUPERUSER_URL` enables the least-privilege role tests (default: user `postgres` on the test cluster).
 
 ## Finance (goal-based financial planning)
 
@@ -106,8 +166,11 @@ cd frontend && PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright test -c 
 | `docs/source/` | Original product blueprint text |
 | `.claude/agents/` | Agent team roles used to build this (architect, team lead, backend, UI, tester) |
 
-Configuration: `DATABASE_URL` (SQLite by default; PostgreSQL supported), `PORT`, `HOST`,
-`CORS_ORIGINS`, `MAX_BODY_BYTES`.
+Configuration (all settings: `.env.example`, `docs/DEPLOY.md`): `DATABASE_URL` (required, PostgreSQL),
+`MIGRATION_DATABASE_URL`, `APP_ENV`, `AUTH_MODE`, `PUBLIC_BASE_URL`, `CORS_ORIGINS`, `PORT`, `HOST`, `DB_POOL_SIZE`, ...
+
+Changelog: since the PostgreSQL-only release, SQLite is no longer supported (no file database, no automatic
+schema creation); see the changelog at the end of `docs/DEPLOY.md`.
 
 Not yet built (see `docs/ARCHITECTURE.md` §20): authentication/multi-tenancy, Celery/Redis workers,
 Monte Carlo simulation, the financial-planning module, an LLM planning copilot, drag-to-reschedule.

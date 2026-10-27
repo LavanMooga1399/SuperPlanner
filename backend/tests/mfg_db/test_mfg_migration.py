@@ -1,10 +1,8 @@
-"""A1-3 / G8 (M1-DESIGN 6.1): 0002 -> 0003 keeps all data (SQLite: backup first), `check` passes after upgrade,
-and `downgrade 0002_phase2b` removes exactly the 18 mfg tables, on both dialects."""
+"""A1-3 / G8 (M1-DESIGN 6.1): 0002 -> 0003 keeps all data, `check` passes after upgrade, and
+`downgrade 0002_phase2b` removes exactly the 18 mfg tables."""
 
 from __future__ import annotations
 
-import sqlite3
-import uuid
 from datetime import UTC, datetime
 
 import pytest
@@ -19,23 +17,8 @@ DATA_TABLES = ("users", "problems", "problem_versions", "finance_plans", "financ
 
 
 @pytest.fixture
-def empty_url(request, db_kind, tmp_path):
-    created = []
-
-    def new() -> str:
-        if db_kind == "sqlite":
-            return f"sqlite:///{tmp_path / f'm_{uuid.uuid4().hex[:6]}.db'}"
-        admin = request.getfixturevalue("pg_admin")
-        name = f"sp_m_{uuid.uuid4().hex[:8]}"
-        admin.execute(f'CREATE DATABASE "{name}"')
-        created.append(name)
-        return admin.url_for(name)
-
-    yield new
-    if created:
-        admin = request.getfixturevalue("pg_admin")
-        for n in created:
-            admin.drop(n)
+def empty_url(empty_pg_db):
+    return empty_pg_db
 
 
 def _seed_2b(url: str) -> dict[str, int]:
@@ -97,27 +80,6 @@ def _diffs(url: str) -> list:
                                          load_all_models()))
     finally:
         eng.dispose()
-
-
-@pytest.mark.sqlite_only
-def test_sqlite_upgrade_on_start_backs_up_and_keeps_rows(empty_url):
-    url = empty_url()
-    before = _seed_2b(url)
-    assert migrate.schema_state(url) == "behind"
-    assert migrate.ensure_schema(url) == "behind"            # SQLite auto-migrates on start
-    assert migrate.current_revision(url) == migrate.HEAD == "0003_mfg"
-    assert _counts(url) == before
-    assert set(MFG_TABLES) <= _tables(url) and _diffs(url) == []
-    path = migrate.sqlite_path(url)
-    backups = sorted(path.parent.glob(f"{path.name}.bak-0002-*"))
-    assert len(backups) == 1
-    con = sqlite3.connect(str(backups[0]))
-    try:
-        assert con.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0002_phase2b"
-        assert con.execute("SELECT COUNT(*) FROM problems").fetchone()[0] == before["problems"]
-        assert con.execute("SELECT name FROM sqlite_master WHERE name = 'mfg_items'").fetchone() is None
-    finally:
-        con.close()
 
 
 def test_upgrade_check_and_downgrade_remove_exactly_the_mfg_tables(empty_url):

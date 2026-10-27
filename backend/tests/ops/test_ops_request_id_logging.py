@@ -87,7 +87,6 @@ def test_enqueuing_request_id_is_stored_on_the_job(db_url):
         assert rid == "rid-enqueue-1"
 
 
-@pytest.mark.postgres_only
 def test_worker_job_started_line_has_the_enqueuing_request_id(db_url):
     """Embedded queue worker: the job.started line carries request_id + job context fields."""
     app = app_for(db_url)

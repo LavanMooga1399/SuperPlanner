@@ -17,7 +17,6 @@ from superplanner import finance as finance_module
 from superplanner.api.finance import run_service as finance_run_service
 from superplanner.jobs.worker import WorkerLoop
 
-pytestmark = pytest.mark.postgres_only
 
 
 # ---------------------------------------------------------------- Q2-7

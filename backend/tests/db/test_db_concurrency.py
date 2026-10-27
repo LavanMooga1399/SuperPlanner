@@ -193,7 +193,6 @@ def test_recovery_fails_jobs_of_interrupted_runs(db_url):
 
 # ---------------------------------------------------------------- Q1-8 seq allocation under concurrency
 
-@pytest.mark.postgres_only
 def test_concurrent_add_event_allocates_contiguous_seq(db_url):
     ctx = AppContext(Settings(database_url=db_url))
     ctx.start()
@@ -234,7 +233,6 @@ def test_concurrent_add_event_allocates_contiguous_seq(db_url):
 
 # ---------------------------------------------------------------- Q1-10 lock strength
 
-@pytest.mark.postgres_only
 def test_plan_lock_is_no_key_update(db_url, monkeypatch):
     """While create_what_if holds the plan lock, another connection can still insert a plan child (FK KEY SHARE)."""
     entered, release = threading.Event(), threading.Event()

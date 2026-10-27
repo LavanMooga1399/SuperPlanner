@@ -1,5 +1,5 @@
 """WP-D acceptance suite for M1 Gate 1 (M1-DESIGN 15.3 #1-#7, PLAN-M1 5): real app + real API on the selected
-database (SQLite default, PostgreSQL with SP_TEST_DB=postgres). Every test gets fresh databases from
+database (PostgreSQL). Every test gets fresh databases from
 `db_url_factory("accm1")`; nothing is imported from other packages' test folders."""
 
 from __future__ import annotations

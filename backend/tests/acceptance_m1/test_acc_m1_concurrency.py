@@ -1,5 +1,5 @@
 """WP-D adversarial: concurrent edits against two real API processes (uvicorn subprocesses) on one database
-(SQLite file or PostgreSQL). Optimistic locking must give exactly one winner, natural keys and cycle checks must
+(PostgreSQL). Optimistic locking must give exactly one winner, natural keys and cycle checks must
 hold across processes (plant lock, M 6.1), and nothing may answer 500."""
 
 from __future__ import annotations

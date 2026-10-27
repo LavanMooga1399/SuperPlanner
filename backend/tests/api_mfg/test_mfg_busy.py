@@ -12,7 +12,6 @@ from superplanner.api.db.ownership import system_scope
 from superplanner.api.mfg.db_models import MfgPlantRow
 
 
-@pytest.mark.postgres_only
 def test_lock_timeout_is_mfg_busy(db_url):
     app = make_app(db_url)
     with TestClient(app) as c:

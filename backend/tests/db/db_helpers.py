@@ -1,10 +1,9 @@
-"""Helpers for tests/db: legacy (pre-2b) databases built from the frozen 0001 definitions."""
+"""Helpers for tests/db: databases at revision 0001_initial filled with data (frozen 0001 table definitions)."""
 
 from __future__ import annotations
 
-import sqlite3
+import importlib.util
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 import sqlalchemy as sa
@@ -77,15 +76,23 @@ def legacy_rows(tables: tuple[str, ...] = ALL_11, *, extra: bool = False) -> dic
     return {t: v for t, v in rows.items() if t in tables}
 
 
-def build_legacy_db(url: str, tables: tuple[str, ...] = ALL_11, *, extra: bool = False) -> dict[str, int]:
-    """A database exactly like a pre-2b `create_all` file (no alembic_version), with data. Returns row counts."""
-    md = migrate.initial_module().build_metadata()
+def initial_module() -> Any:
+    """The frozen 0001 revision module (its `build_metadata()` defines the 0001 tables)."""
+    path = migrate.MIGRATIONS_DIR / "versions" / "0001_initial.py"
+    spec = importlib.util.spec_from_file_location("superplanner_migration_0001_test", path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def build_0001_db(url: str, tables: tuple[str, ...] = ALL_11, *, extra: bool = False) -> dict[str, int]:
+    """An (empty) database migrated to 0001_initial, filled with rows in `tables`. Returns row counts."""
+    migrate.run_alembic_upgrade(url, migrate.BASE_REVISION)
+    md = initial_module().build_metadata()
     eng = sa.create_engine(url)
     try:
         with eng.begin() as c:
-            if c.dialect.name == "sqlite":
-                c.exec_driver_sql("PRAGMA journal_mode=WAL")
-            md.create_all(c, tables=[md.tables[t] for t in tables])
             for t, items in legacy_rows(tables, extra=extra).items():
                 c.execute(md.tables[t].insert(), items)
     finally:
@@ -100,14 +107,6 @@ def counts(url: str, tables: tuple[str, ...] = ALL_11) -> dict[str, int]:
             return {t: int(c.execute(sa.text(f'SELECT COUNT(*) FROM "{t}"')).scalar_one()) for t in tables}
     finally:
         eng.dispose()
-
-
-def sqlite_counts(path: Path, tables: tuple[str, ...]) -> dict[str, int]:
-    con = sqlite3.connect(str(path))
-    try:
-        return {t: con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in tables}
-    finally:
-        con.close()
 
 
 def schema_diffs(url: str) -> list[Any]:

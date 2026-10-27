@@ -58,7 +58,6 @@ def test_get_row_is_owned(mfg_db):
         assert exc.value.status == 404 and exc.value.code == "NOT_FOUND"
 
 
-@pytest.mark.postgres_only
 def test_concurrent_first_writes_both_commit(mfg_db):
     barrier = threading.Barrier(2)
     errors: list[BaseException] = []

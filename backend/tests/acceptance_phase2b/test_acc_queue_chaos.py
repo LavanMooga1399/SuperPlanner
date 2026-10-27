@@ -15,7 +15,6 @@ import pytest
 from acc_helpers import (API, FAST_FIN, FAST_SOLVER, FIN, SLOW_FIN, SseReader, User, check_invariants,
                          load_int_helpers, start_api, start_worker, wait_for)
 
-pytestmark = pytest.mark.postgres_only
 
 GA = {"strategy": "ga", "time_limit_seconds": 8, "ga": {"max_generations": 10000, "stagnation_generations": 1000}}
 

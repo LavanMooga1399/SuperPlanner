@@ -1,5 +1,5 @@
 """Fix round regressions (accounts): malformed JSON vs auth order, bounded argon2 concurrency, no SQL parameters in
-error logs, rate-limit rows of blocked clients, inline-mode pruning of auth tables. Both dialects."""
+error logs, rate-limit rows of blocked clients, inline-mode pruning of auth tables."""
 
 from __future__ import annotations
 
@@ -134,7 +134,7 @@ def test_default_slot_count():
     import os
 
     assert passwords.default_hash_concurrency() == max(1, (os.cpu_count() or 2) // 2)
-    base = {"database_url": "sqlite:///unused.db", "job_backend": "inline"}
+    base = {"database_url": "postgresql+psycopg://u:p@127.0.0.1:1/unused", "job_backend": "inline"}
     assert Settings(**base, auth_hash_concurrency=0).hash_concurrency == passwords.default_hash_concurrency()
     assert Settings(**base, auth_hash_concurrency=3).hash_concurrency == 3
 
@@ -186,7 +186,7 @@ def test_sign_up_and_change_password_use_the_slots(db_url, monkeypatch):
 # ---------------------------------------------------------------- no SQL parameters in error logs
 
 def _break_insert(app, table: str):
-    """Rewrite `INSERT INTO <table>` into a statement on a missing table: a real driver error (both dialects)."""
+    """Rewrite `INSERT INTO <table>` into a statement on a missing table: a real driver error."""
     engine = app.state.ctx.db.engine
 
     def before(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001

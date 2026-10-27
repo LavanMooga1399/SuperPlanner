@@ -108,9 +108,9 @@ def test_prune(db_url):
     assert code == 0 and "user_sessions:" in out and "auth_rate_limits:" in out
 
 
-def test_cli_entry_point_and_config_error(tmp_path):
+def test_cli_entry_point_and_config_error(db_url):
     base = {k: v for k, v in os.environ.items() if not k.startswith(("JOB_", "WORKER_", "AUTH_", "SP_"))}
-    env = {**base, "DATABASE_URL": f"sqlite:///{tmp_path / 'cli.db'}", "PASSWORD_HASH_PROFILE": "fast"}
+    env = {**base, "DATABASE_URL": db_url, "PASSWORD_HASH_PROFILE": "fast", "APP_ENV": "development"}
     p = subprocess.run([sys.executable, "-m", "superplanner.manage", "create-user", "--email", "c@example.com",
                         "--password-stdin"], input=PASSWORD + "\n", capture_output=True, text=True, cwd=BACKEND,
                        env=env, timeout=120)
@@ -119,3 +119,29 @@ def test_cli_entry_point_and_config_error(tmp_path):
     p = subprocess.run([sys.executable, "-m", "superplanner.manage", "list-users"], capture_output=True, text=True,
                        cwd=BACKEND, env={**env, "AUTH_MODE": "bogus"}, timeout=120)
     assert p.returncode == 2 and "AUTH_MODE" in p.stderr
+
+
+def test_load_sample_cli(db_url):
+    """`manage load-sample` (README one-liner): kavach for the local user, replace, then for an account."""
+    code, out, err = run(db_url, "load-sample")
+    assert code == 0, err
+    assert out.startswith("loaded sample kavach for usr_local:") and "health" in out
+    assert run(db_url, "load-sample", "--sample", "small")[0] == 0            # additive (different part numbers)
+    assert run(db_url, "load-sample", "--sample", "small", "--replace")[0] == 0
+    assert run(db_url, "load-sample", "--sample", "nope")[0] == 1
+    run(db_url, "create-user", "--email", "plant@example.com", "--password-stdin", stdin=PASSWORD + "\n")
+    code, out, err = run(db_url, "load-sample", "--email", "plant@example.com")
+    assert code == 0, err
+    with TestClient(create_app(Settings(database_url=db_url))) as c:   # single_user: the local user's data
+        items = c.get(f"{API}/mfg/items", params={"limit": 200}).json()["items"]
+        assert items and all(i["part_number"].startswith("SM-") for i in items)
+    import sqlalchemy as sa
+
+    eng = sa.create_engine(db_url)
+    try:
+        with eng.connect() as conn:
+            owners = dict(conn.execute(sa.text("SELECT owner_id, COUNT(*) FROM mfg_items GROUP BY owner_id")).all())
+            audit = conn.execute(sa.text("SELECT COUNT(*) FROM audit_events WHERE action = 'sample_load'")).scalar()
+    finally:
+        eng.dispose()
+    assert len(owners) == 2 and audit == 4

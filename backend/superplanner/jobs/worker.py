@@ -517,9 +517,6 @@ def main(argv: list[str] | None = None) -> int:
             bad = [k for k in settings.worker_kinds if k not in ("solver_run", "finance_run")]
             if bad or not settings.worker_kinds:
                 raise ConfigError(f"--kinds must be a comma list of solver_run,finance_run (got {args.kinds!r}).")
-        if not settings.is_postgres:
-            raise ConfigError("the worker needs PostgreSQL: set DATABASE_URL=postgresql+psycopg://... "
-                              "(with SQLite, runs execute inside the API process).")
         if settings.job_backend != "queue":
             raise ConfigError("the worker needs JOB_BACKEND=queue (JOB_BACKEND=inline runs jobs inside the API).")
         if args.concurrency is not None and args.concurrency < 1:

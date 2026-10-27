@@ -13,14 +13,13 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from .ownership import OwnedMixin
 
-JsonType = JSON().with_variant(JSONB(), "postgresql")
-# int8 on PostgreSQL; SQLite keeps INTEGER PRIMARY KEY (rowid alias, autoincrement) (PHASE2B 3.3).
-BigIntId = BigInteger().with_variant(Integer, "sqlite")
+JsonType = JSON().with_variant(JSONB(), "postgresql")   # JSONB (PostgreSQL only; the generic JSON is never used)
+BigIntId = BigInteger()   # int8 event/audit ids (PHASE2B 3.3)
 
 
 def _partial(predicate: str) -> dict[str, object]:
-    """Partial-index predicate for both dialects (SQLite supports partial indexes)."""
-    return {"postgresql_where": text(predicate), "sqlite_where": text(predicate)}
+    """Partial-index predicate."""
+    return {"postgresql_where": text(predicate)}
 
 
 def utcnow() -> datetime:

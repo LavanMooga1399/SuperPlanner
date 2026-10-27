@@ -5,7 +5,7 @@ read; a body without one (chunked) is counted while it streams and the request f
 passes the limit. Either way the response uses the standard error envelope.
 
 JSON bodies containing the escape `\u0000` (U+0000) anywhere are rejected with 422 `VALIDATION_ERROR` on every
-database: PostgreSQL `TEXT`/`JSONB` cannot store NUL, SQLite can, and behaviour must not depend on the dialect.
+database: PostgreSQL `TEXT`/`JSONB` cannot store NUL, so the request fails early with a clear error.
 The scan is streaming and escape-aware (`\\u0000`, an escaped backslash followed by "u0000", is ordinary text).
 """
 

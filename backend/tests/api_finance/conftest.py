@@ -1,4 +1,4 @@
-"""F2 finance API test setup: every test gets its own app on a temp-file SQLite DB."""
+"""F2 finance API test setup: every test gets its own app on a fresh PostgreSQL database."""
 
 from __future__ import annotations
 

@@ -1,5 +1,9 @@
 # SuperPlanner Finance - Delivery Plan
 
+> **Historical note (PostgreSQL-only release):** "file-DB" below refers to the embedded file database of earlier
+> releases. It was removed; SuperPlanner now runs on PostgreSQL only (see `docs/DEPLOY.md`, Changelog, and
+> `docs/ARCHITECTURE.md` section 25). Statements about file-DB behaviour describe the past.
+
 Owner: team-lead. Contract: `docs/FINANCE.md` (cited as "F.n"; shared conventions "A.n" from
 `docs/ARCHITECTURE.md`). If this plan and F disagree on behaviour, F wins; on file ownership and
 order, this plan wins. Interpretations go to F.24.3 (date + owner). Review fixes are tagged `[Rn]` in F
@@ -133,7 +137,7 @@ Run from `backend/`. "Clean" = `validate_result(plan, result)` returns no `hard`
   (import `.finance.db_models` before `create_all()`, call `finance_run_service.recover_interrupted_runs`
   after the existing recovery).
 - Tests in `backend/tests/api_finance/` (`conftest.py`, `apifin_helpers.py` with its own `make_app`,
-  files `test_apifin_*.py`), temp-file SQLite DB per test.
+  files `test_apifin_*.py`), temp-file file-DB DB per test.
 
 ### Steps (in order)
 1. `db_models.py` (five `finance_*` tables on the shared `Base`, FKs `CASCADE`, indexes of F.17) and the

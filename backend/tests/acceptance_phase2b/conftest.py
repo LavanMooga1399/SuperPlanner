@@ -1,7 +1,6 @@
 """Q6 acceptance suite (PLAN-PHASE2B 7): end-to-end scenarios with real API/worker processes.
 
-SQLite run: the single_user/inline scenarios (and the in-process authorization sweep).
-PostgreSQL run (SP_TEST_DB=postgres): queue/accounts scenarios with worker subprocesses, chaos and restarts.
+Queue/accounts scenarios with worker subprocesses, chaos and restarts, and the in-process authorization sweep.
 """
 
 from __future__ import annotations

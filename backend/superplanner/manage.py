@@ -8,9 +8,13 @@
     list-users
     prune                                                 expired sessions, stale rate-limit buckets, terminal
                                                           jobs older than JOB_RETENTION_DAYS, stale worker rows
+    load-sample [--sample kavach] [--email E] [--replace]
+                                                          load a manufacturing sample dataset (default kavach) for
+                                                          the user E (default: the local user); same path and audit
+                                                          event as POST /api/v1/mfg/samples/{id}/load
 
-Uses `DATABASE_URL` (or `--url`) and runs in system scope. The schema is brought to head the same way the API
-does at startup (`migrate.ensure_schema`). Exit codes: 0 ok, 1 command error (unknown user, weak password, email
+Uses `DATABASE_URL` (or `--url`) and runs in system scope. Like the API it refuses to run unless the schema is at
+head (`migrate.ensure_schema`; AUTO_MIGRATE=true upgrades first). Exit codes: 0 ok, 1 command error (unknown user, weak password, email
 taken), 2 configuration error, 3 schema error.
 """
 
@@ -160,7 +164,7 @@ def cmd_list_users(db: Database, out: TextIO) -> None:
 
 
 def prune_jobs(s: Any, now: datetime, retention_days: int) -> dict[str, int]:
-    """Jobs part of `prune` (Q5, B 2.9 retention; both dialects, ORM statements in system scope): terminal jobs
+    """Jobs part of `prune` (Q5, B 2.9 retention; ORM statements in system scope): terminal jobs
     finished more than `retention_days` ago, and `job_workers` rows without a heartbeat for a day."""
     from datetime import timedelta
 
@@ -186,9 +190,52 @@ def cmd_prune(db: Database, out: TextIO, settings: Settings | None = None) -> No
         print(f"{name}: {n} deleted", file=out)
 
 
+class _CliContext:
+    """The subset of `AppContext` the mfg services use (`settings`, `db`, `write_guard`)."""
+
+    def __init__(self, settings: Settings, db: Database):
+        self.settings, self.db = settings, db
+
+    def write_guard(self) -> Any:
+        import contextlib
+
+        return contextlib.nullcontext()
+
+
+def cmd_load_sample(db: Database, settings: Settings, args: argparse.Namespace, out: TextIO) -> None:
+    from .api.db.ownership import install as install_ownership
+    from .api.db.ownership import owner_scope
+    from .api.errors import ApiError
+    from .api.mfg.services import samples
+    from .mfg.samples import SAMPLES
+
+    if args.sample not in SAMPLES:
+        raise CommandError(f"unknown sample {args.sample!r} (choose from {', '.join(sorted(SAMPLES))})")
+    with db.read() as s:
+        if args.email:
+            uid = _user_by_email(s, args.email).id
+        else:
+            u = s.get(UserRow, "usr_local")
+            if u is None:   # pragma: no cover - ensure_schema creates it
+                raise CommandError("the local user does not exist")
+            uid = u.id
+    install_ownership(db, single_user=uid == "usr_local")
+    try:
+        with owner_scope(uid):
+            res = samples.load(_CliContext(settings, db), args.sample, bool(args.replace))
+    except ApiError as exc:
+        raise CommandError(f"{exc.message} (use --replace to replace the existing manufacturing data)"
+                           if exc.code == "MFG_IMPORT_HAS_ERRORS" else exc.message) from None
+    counts = res["result"]["counts"]
+    total = sum(sum(v for k, v in c.items() if k in ("create", "update")) for c in counts.values()
+                if isinstance(c, dict))
+    print(f"loaded sample {args.sample} for {uid}: {total} row(s) created/updated; "
+          f"health {'ok' if res['health']['ok'] else 'has findings'}", file=out)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m superplanner.manage", description="SuperPlanner admin commands")
-    p.add_argument("--url", help="database URL (default: DATABASE_URL / Settings default)")
+    p.add_argument("--url", help="database URL (default: DATABASE_URL)")
     sub = p.add_subparsers(dest="command", required=True)
     c = sub.add_parser("create-user")
     c.add_argument("--email", required=True)
@@ -205,6 +252,10 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--dry-run", action="store_true")
     sub.add_parser("list-users")
     sub.add_parser("prune")
+    c = sub.add_parser("load-sample")
+    c.add_argument("--sample", default="kavach")
+    c.add_argument("--email", help="owner of the data (default: the local user, AUTH_MODE=single_user)")
+    c.add_argument("--replace", action="store_true", help="delete this user's manufacturing data first")
     return p
 
 
@@ -232,6 +283,8 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
                 cmd_reassign_owner(db, args, out)
             elif cmd == "list-users":
                 cmd_list_users(db, out)
+            elif cmd == "load-sample":
+                cmd_load_sample(db, settings, args, out)
             else:
                 cmd_prune(db, out, settings)
         return 0

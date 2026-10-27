@@ -5,7 +5,7 @@
 - Loaders issue a fixed or depth-bounded number of SELECTs (asserted by statement-count tests); relationships are
   `lazy="raise"`, so the loaders never touch them.
 - `to_record` builds records with `model_construct` (rows were validated on write); datetimes go through `as_utc`
-  (SQLite returns naive datetimes).
+  (defensive: naive values are treated as UTC).
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ def lock_plant_created(s: Session) -> tuple[MfgPlantRow, bool]:
 
 def get_row(s: Session, model: Any, row_id: str, *, what: str, lock: bool = False) -> Any:
     """Owned lookup by id (`not_found(what, id)` -> 404 for unknown and foreign ids alike). `lock=True` takes
-    `FOR NO KEY UPDATE` (no-op on SQLite)."""
+    `FOR NO KEY UPDATE`."""
     stmt = select(model).where(model.id == row_id)
     if lock:
         stmt = stmt.with_for_update(key_share=True)

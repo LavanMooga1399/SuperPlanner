@@ -1,18 +1,16 @@
-"""Alembic environment (PHASE2B 3.2).
+"""Alembic environment (PHASE2B 3.2). PostgreSQL only.
 
-Connection: `config.attributes["connection"]` when called from `superplanner.migrate` (which owns the transaction,
-SQLite foreign keys and the Postgres advisory lock), else a URL from `-x url=...`, `DATABASE_URL`, or the Settings
-default. `target_metadata` is the complete model metadata (autogenerate / compare only; revisions never use it).
+Connection: `config.attributes["connection"]` when called from `superplanner.migrate` (which owns the transaction
+and the advisory lock), else a URL from `-x url=...`, MIGRATION_DATABASE_URL or DATABASE_URL (owner role).
+`target_metadata` is the complete model metadata (autogenerate / compare only; revisions never use it).
 """
 
 from __future__ import annotations
 
-import os
-
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-from superplanner.api.config import DEFAULT_DATABASE_URL, normalize_database_url
+from superplanner.api.config import resolve_migration_url
 from superplanner.api.db import load_all_models
 
 config = context.config
@@ -21,18 +19,16 @@ target_metadata = load_all_models()
 
 def _url() -> str:
     x = context.get_x_argument(as_dictionary=True)
-    return normalize_database_url(x.get("url") or os.environ.get("DATABASE_URL") or DEFAULT_DATABASE_URL)
+    return resolve_migration_url(x.get("url"))
 
 
 def _configure(connection) -> None:  # noqa: ANN001
-    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True,
-                      render_as_batch=connection.dialect.name == "sqlite")
+    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
 
 
 def run_migrations_offline() -> None:
-    url = _url()
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True,
-                      render_as_batch=url.startswith("sqlite"), dialect_opts={"paramstyle": "named"})
+    context.configure(url=_url(), target_metadata=target_metadata, literal_binds=True, compare_type=True,
+                      dialect_opts={"paramstyle": "named"})
     with context.begin_transaction():
         context.run_migrations()
 
@@ -44,15 +40,7 @@ def run_migrations_online() -> None:
         with context.begin_transaction():   # no-op when the caller already opened a transaction
             context.run_migrations()
         return
-    url = _url()
-    engine = create_engine(url, poolclass=pool.NullPool, hide_parameters=True)
-    if url.startswith("sqlite"):
-        # Plain `alembic` CLI on SQLite: never run batch table rebuilds with foreign keys ON (review R1).
-        from sqlalchemy import event
-
-        @event.listens_for(engine, "connect")
-        def _fk_off(dbapi_conn, _rec):  # noqa: ANN001
-            dbapi_conn.execute("PRAGMA foreign_keys=OFF")
+    engine = create_engine(_url(), poolclass=pool.NullPool, hide_parameters=True)
     with engine.connect() as connection:
         _configure(connection)
         with context.begin_transaction():

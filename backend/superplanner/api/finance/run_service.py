@@ -53,7 +53,7 @@ def _next_seq(s: Session, run_id: str) -> int:
 def add_event(s: Session, run_id: str, type_: str, fields: dict[str, Any], elapsed: float, *,
               lease: Lease | None = None) -> dict[str, Any] | None:
     """Append an event; returns None (and writes nothing) if the run row is gone (plan deleted). Locks the run row
-    first (FOR NO KEY UPDATE; no-op on SQLite): safe `seq` allocation with several writers (PHASE2B 2.10); then
+    first (FOR NO KEY UPDATE): safe `seq` allocation with several writers (PHASE2B 2.10); then
     fences the lease when given (worker writes)."""
     if not lock_row(s, FinanceRunRow, run_id):
         return None

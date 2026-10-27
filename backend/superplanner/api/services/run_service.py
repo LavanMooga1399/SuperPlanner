@@ -48,7 +48,7 @@ def _next_seq(s: Session, run_id: str) -> int:
 
 def add_event(s: Session, run_id: str, type_: str, fields: dict[str, Any], elapsed: float, *,
               lease: Lease | None = None) -> dict[str, Any]:
-    """Append an event. Locks the run row first (FOR NO KEY UPDATE; no-op on SQLite) so `seq` allocation is safe
+    """Append an event. Locks the run row first (FOR NO KEY UPDATE) so `seq` allocation is safe
     with several writers and events of one run commit in seq order (SSE never skips one, PHASE2B 2.12); then
     fences the lease when given (worker writes; LeaseLost aborts the transaction)."""
     if not lock_row(s, SolverRunRow, run_id) and lease is not None:

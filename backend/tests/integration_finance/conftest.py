@@ -1,4 +1,4 @@
-"""F4 finance integration setup: a live in-process app (create_app) on a temp-file SQLite DB.
+"""F4 finance integration setup: a live in-process app (create_app) on a fresh PostgreSQL database.
 
 Puts `backend/`, this folder and `tests/integration` (for the scheduling `independent_check`, reused
 read-only) on sys.path."""

@@ -1,6 +1,6 @@
 """Job-row operations shared by both backends (PHASE2B 2.3-2.7): enqueue, cancel, requeue-or-fail, mirror, orphans.
 
-All of these are ORM statements on `jobs` (both dialects); only the claim/heartbeat/reaper scan in `jobs/pg.py` is
+All of these are ORM statements on `jobs`; only the claim/heartbeat/reaper scan in `jobs/pg.py` is
 raw SQL. Lock order everywhere: plan/problem -> run -> job.
 """
 
@@ -61,7 +61,7 @@ def cancelled_fields(kind: str) -> dict[str, Any]:
 
 
 def lock_run(s: Session, kind: str, run_id: str) -> Any:
-    """The run row FOR NO KEY UPDATE (no-op on SQLite), or None if it is gone."""
+    """The run row FOR NO KEY UPDATE, or None if it is gone."""
     return s.get(run_model(kind), run_id, with_for_update={"key_share": True})
 
 

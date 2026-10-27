@@ -41,11 +41,11 @@ def test_load_small(db_url_factory, tmp_path):
     assert data["ok"] is True and data["lost"] == 0 and data["duplicates"] == 0
 
 
-def test_load_script_refuses_sqlite(tmp_path):
+def test_load_script_refuses_a_non_postgres_url():
     lq = _load_script()
     with pytest.raises(lq.LoadError):
-        lq.run(["--runs", "2", "--database-url", f"sqlite:///{tmp_path / 'x.db'}"])
-    assert lq.main(["--runs", "2", "--database-url", f"sqlite:///{tmp_path / 'x.db'}"]) == 2
+        lq.run(["--runs", "2", "--database-url", "mysql://u@127.0.0.1/x"])
+    assert lq.main(["--runs", "2", "--database-url", "mysql://u@127.0.0.1/x"]) == 2
 
 
 def test_percentile():

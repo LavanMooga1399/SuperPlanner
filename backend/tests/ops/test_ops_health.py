@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from ops_helpers import API, AUTH, PASSWORD, app_for
@@ -23,28 +22,23 @@ def test_live_needs_no_database(db_url, monkeypatch):
     assert r.status_code == 200 and r.json() == {"status": "ok"}
 
 
-def test_ready_body(db_url, db_kind):
+def test_ready_body(db_url):
     app = app_for(db_url)
     with TestClient(app) as c:
         r = c.get(f"{API}/health/ready")
         assert r.status_code == 200, r.text
         body = r.json()
         assert body == {"status": "ready", "database": "ok", "schema": "ok", "schema_revision": migrate.HEAD,
-                        "job_backend": app.state.settings.job_backend, "workers_alive": body["workers_alive"],
-                        "queue": {"queued": 0, "running": 0}}
-        if db_kind == "sqlite":
-            assert body["job_backend"] == "inline" and body["workers_alive"] == app.state.settings.run_workers
-        else:
-            assert body["job_backend"] == "queue" and body["workers_alive"] >= 1   # embedded test workers
+                        "schema_head": migrate.HEAD, "job_backend": app.state.settings.job_backend,
+                        "workers_alive": body["workers_alive"], "queue": {"queued": 0, "running": 0}}
+        assert body["job_backend"] == "queue" and body["workers_alive"] >= 1   # embedded test workers
         # the existing endpoint is unchanged
         h = c.get(f"{API}/health").json()
         assert set(h) == {"status", "version", "ortools_version", "database"} and h["status"] == "ok"
 
 
-def test_ready_counts_queued_jobs(db_url, db_kind):
+def test_ready_counts_queued_jobs(db_url):
     """Queue counts come from the jobs table (no workers: the job stays queued)."""
-    if db_kind != "postgres":
-        pytest.skip("needs the queue backend (PostgreSQL) to keep a job queued")
     from ops_helpers import problem
 
     app = app_for(db_url, worker_embedded=0)
@@ -69,28 +63,24 @@ def test_ready_503_when_database_down(db_url, monkeypatch):
         assert r.json()["status"] == "not_ready" and r.json()["database"] == "error"
 
 
-@pytest.mark.inline_jobs   # SQLite URL also in the Postgres run
-def test_ready_503_when_database_unreachable(tmp_path):
-    """A database that cannot be opened at all (lazy start fails): 503, not 500."""
-    url = f"sqlite:///{tmp_path / 'missing-dir' / 'x.db'}"
-    c = TestClient(app_for(url))
+def test_ready_503_when_database_unreachable():
+    """A database server that cannot be reached at all (lazy start fails): 503, not 500."""
+    url = "postgresql+psycopg://nobody:x@127.0.0.1:1/missing"
+    c = TestClient(app_for(url, db_connect_timeout_seconds=2))
     r = c.get(f"{API}/health/ready")
     assert r.status_code == 503 and r.json()["database"] == "error" and r.json()["status"] == "not_ready"
     assert c.get(f"{API}/health/live").status_code == 200
 
 
-def test_ready_503_when_schema_behind_head(db_url, db_kind):
-    if db_kind == "sqlite":
-        migrate.run_alembic_upgrade(db_url, migrate.BASE_REVISION)
-    else:
-        migrate.run_alembic_downgrade(db_url, migrate.BASE_REVISION)
+def test_ready_503_when_schema_behind_head(db_url):
+    migrate.run_alembic_downgrade(db_url, migrate.BASE_REVISION)
     assert migrate.current_revision(db_url) == migrate.BASE_REVISION
     c = TestClient(app_for(db_url, db_auto_migrate=False))
     r = c.get(f"{API}/health/ready")
     assert r.status_code == 503, r.text
     body = r.json()
     assert body["status"] == "not_ready" and body["schema"] == "outdated" and body["database"] == "ok"
-    assert body["schema_revision"] == migrate.BASE_REVISION
+    assert body["schema_revision"] == migrate.BASE_REVISION and body["schema_head"] == migrate.HEAD
 
 
 def test_health_endpoints_public_in_accounts_mode(db_url):

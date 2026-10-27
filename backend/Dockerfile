@@ -2,7 +2,9 @@
 # SuperPlanner backend images (PHASE2B 5.5). Build from the repo root via docker-compose.yml, or:
 #   docker build -f backend/Dockerfile --target api    -t superplanner-api    backend
 #   docker build -f backend/Dockerfile --target worker -t superplanner-worker backend
-# Both targets run as the non-root user "sp" (uid 10001). SP_ENV=production and LOG_FORMAT=json are image defaults.
+# Both targets run as the non-root user "sp" (uid 10001). APP_ENV=production and LOG_FORMAT=json are image defaults;
+# DATABASE_URL (PostgreSQL, the restricted app role) is required at run time, MIGRATION_DATABASE_URL (owner role)
+# only for `python -m superplanner.migrate upgrade`.
 # /app stays owned by root (read-only for uid 10001): nothing at runtime writes under /app, so a file-write bug in
 # the API cannot change the application code. Only runtime dependencies are installed (no pytest/httpx extras).
 
@@ -11,7 +13,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    SP_ENV=production \
+    APP_ENV=production \
     LOG_FORMAT=json
 WORKDIR /app
 COPY requirements-runtime.txt ./

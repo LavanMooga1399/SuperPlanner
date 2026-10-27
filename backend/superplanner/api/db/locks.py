@@ -1,4 +1,4 @@
-"""Row-lock helpers (PHASE2B 2.12). All are no-ops on SQLite, where `BEGIN IMMEDIATE` + the write guard serialise.
+"""Row-lock helpers (PHASE2B 2.12).
 
 Lock strength (review R4): plan/problem and run rows are locked `FOR NO KEY UPDATE` (`key_share=True`), which does
 not conflict with the implicit `FOR KEY SHARE` that inserting a child row (event, schedule, result) takes on its
@@ -31,7 +31,11 @@ def get_locked(s: Session, model: Any, row_id: str, *, for_delete: bool = False)
     return s.get(model, row_id, with_for_update=lock)
 
 
-def is_unique_violation(exc: IntegrityError, index_name: str, sqlite_columns: str) -> bool:
-    """True if `exc` comes from the given unique index (Postgres names it; SQLite names the columns)."""
-    msg = str(getattr(exc, "orig", exc))
-    return index_name in msg or f"UNIQUE constraint failed: {sqlite_columns}" in msg
+def is_unique_violation(exc: IntegrityError, index_name: str, _columns: str = "") -> bool:
+    """True if `exc` comes from the given unique index/constraint (PostgreSQL names it in the error).
+    `_columns` is ignored (kept for existing call sites)."""
+    orig = getattr(exc, "orig", None)
+    diag = getattr(orig, "diag", None)
+    if diag is not None and getattr(diag, "constraint_name", None) == index_name:
+        return True
+    return index_name in str(orig if orig is not None else exc)

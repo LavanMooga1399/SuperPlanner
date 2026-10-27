@@ -1,5 +1,9 @@
 # SuperPlanner M1 - Manufacturing plant and product setup (design)
 
+> **Historical note (PostgreSQL-only release):** "file-DB" below refers to the embedded file database of earlier
+> releases. It was removed; SuperPlanner now runs on PostgreSQL only (see `docs/DEPLOY.md`, Changelog, and
+> `docs/ARCHITECTURE.md` section 25). Statements about file-DB behaviour describe the past.
+
 Status: design for build. Phase M1 of `docs/MANUFACTURING-GAP-ANALYSIS.md` (cited "GA n"): the "define first, then
 run" master data (GA 4.1, 4.1a steps 1, 2 and 5, 4.3) that MRP (M2) and manufacturing scheduling (M3) will read.
 Conventions not restated here come from `docs/ARCHITECTURE.md` ("A n") and `docs/PHASE2B.md` ("B n"): error
@@ -733,7 +737,7 @@ depth-first, parents sorted by part number; `is_top` = the parent is used nowher
 - Every mfg write transaction first locks the owner's plant row (`repo.lock_plant(s)`), then bumps
   `mfg_plant.data_version`. `lock_plant`: `SELECT ... FOR NO KEY UPDATE` on the owner's plant row; if absent,
   insert the default row inside a savepoint (`s.begin_nested()`); on a unique violation of `uq_mfg_plant_owner`
-  (a concurrent first write, Postgres) roll back the savepoint and select again with the lock. On SQLite the write
+  (a concurrent first write, Postgres) roll back the savepoint and select again with the lock. On file-DB the write
   guard serialises. This is the per-owner mutex that keeps cycle checks, natural-key checks and imports consistent
   across processes. Lock order: plant -> document header -> children. Runs inside `ctx.write_guard()` like
   existing services.
@@ -741,7 +745,7 @@ depth-first, parents sorted by part number; `is_top` = the parent is used nowher
   (e.g. behind a large import commit) fails with `LockNotAvailable` (SQLSTATE 55P03); the mfg services map it to
   409 `MFG_BUSY` "Another change to your manufacturing data is still being saved. Try again in a moment." with
   `Retry-After: 5`, never 500. Long pure work (file parsing, `plan_import`) is done **outside** the write
-  transaction wherever possible (8.1), so the lock is held only for the writes. On SQLite the process-wide write
+  transaction wherever possible (8.1), so the lock is held only for the writes. On file-DB the process-wide write
   guard and `busy_timeout=30000` make other writers wait instead.
 
 ### 6.2 Tables
@@ -778,7 +782,7 @@ FK name, `fk_mfg_shift_assignments_shift_template_id_mfg_shift_templates`, is 62
 Tables are created in FK order: plant, items, groups, skills, tool_pools, shift_templates, lines, line_items, boms,
 bom_lines, routings, operations, operation_tools, shift_assignments, calendar_exceptions, operators,
 operator_skills, imports; `downgrade()` drops them in reverse. `0003_mfg` only creates tables (no batch rebuild of
-existing tables), so it is safe on SQLite with `foreign_keys=OFF` and on Postgres needs only a brief lock on
+existing tables), so it is safe on file-DB with `foreign_keys=OFF` and on Postgres needs only a brief lock on
 `users` for the owner FKs.
 
 `effective_to`/`serial_*` invariants are enforced in services and models, not by CHECK constraints (except the
@@ -815,7 +819,7 @@ def load_bom_index_down(s, root_item_id: str, on: date, serial: int | None) -> B
 def load_parent_index(s, item_id: str, on: date | None, include: str) -> ParentIndex   # level-wise up, <= 3 x levels + 1
 def bom_edge_list(s) -> list[tuple[str, str]]                  # one SELECT (join headers status != obsolete)
 def to_record(row) -> <Entity>Record                            # model_construct (rows were validated on write);
-                                                                # datetimes through `as_utc` (SQLite returns naive)
+                                                                # datetimes through `as_utc` (file-DB returns naive)
 ```
 Relationships are declared with `lazy="raise"` on all mfg ORM rows so an accidental N+1 fails tests instead of
 silently issuing queries.
@@ -1666,7 +1670,7 @@ Wizard state lives in the URL (`/mfg/import/:importId?step=map|preview|done`) an
 
 ## 12. Performance targets
 
-Measured on the developer machine class used so far (single process, SQLite file DB unless noted; PostgreSQL local
+Measured on the developer machine class used so far (single process, file-DB database DB unless noted; PostgreSQL local
 must meet the same targets x 1.5). Performance tests are marked `slow` where they take > 5 s and run in both suites.
 
 | # | Operation | Data | Target | SQL statements |
@@ -1687,7 +1691,7 @@ must meet the same targets x 1.5). Performance tests are marked `slow` where the
 
 Statement counts are asserted with a SQLAlchemy `before_cursor_execute` counter fixture (`tests/api_mfg`), which is
 the "no N+1" proof. The counter wraps the service call only (auth/session statements of `require_user` and the
-SQLite `BEGIN` are excluded), so the bounds are the same in single_user and accounts mode.
+file-DB `BEGIN` are excluded), so the bounds are the same in single_user and accounts mode.
 
 ---
 
@@ -1725,7 +1729,7 @@ and WP-D also owns `frontend/e2e/accounts/mfg-*.spec.ts`.
 No change to engine, finance, intake, jobs, auth, config (no new settings: limits are constants), context, or
 existing routes. The one behaviour change of existing code is the `reassign-owner` guard above (it can only trigger
 when the target already owns mfg data, which cannot exist before M1); `test_manage.py` is unaffected (its target
-has no mfg data) and the guard is tested in `backend/tests/api_mfg/test_mfg_manage.py`. Existing SQLite dev databases upgrade automatically (`behind` -> `upgrade head`, backup first, B
+has no mfg data) and the guard is tested in `backend/tests/api_mfg/test_mfg_manage.py`. Existing file-DB dev databases upgrade automatically (`behind` -> `upgrade head`, backup first, B
 3.4); Postgres deployments run `python -m superplanner.migrate upgrade` (DEPLOY.md note: "M1 adds revision
 0003_mfg"; WP-B adds one line to `docs/DEPLOY.md`).
 
@@ -1788,7 +1792,7 @@ Frontend e2e: existing 65 + 7 specs unchanged; the finance spec's "exactly one n
   (subprocess); bundle -> dataset -> bundle round trip.
 - `test_mfg_perf.py` (P1).
 
-### 15.2 Backend API (`backend/tests/api_mfg`, WP-B; SQLite and PostgreSQL)
+### 15.2 Backend API (`backend/tests/api_mfg`, WP-B; file-DB and PostgreSQL)
 
 CRUD + ETag/If-Match/428/412 for every entity; check order (foreign id + missing If-Match -> 404); natural-key 409;
 delete-in-use 409 matrix (6.3); BOM/routing document PUT (line id kept/new/removed; foreign line id -> 422);
@@ -1823,7 +1827,7 @@ all `mfg_*` rows to an empty target.
 5. Hand-calculated checks: 10 explosion quantities and 10 operation times of the Kavach sample computed in the test
    by hand formulas (not by the library) match within 1e-9.
 6. Performance P2, P5, P7, P9 on both databases.
-7. Restart: data survives; migrations `0002 -> 0003` upgrade an existing 2b database (SQLite file with problems and
+7. Restart: data survives; migrations `0002 -> 0003` upgrade an existing 2b database (file-DB database with problems and
    finance data) without data loss and `downgrade 0002_phase2b` removes only `mfg_*` tables.
 
 ### 15.4 Frontend e2e (`frontend/e2e/mfg-*.spec.ts`, WP-D with WP-C helpers)
@@ -2139,7 +2143,7 @@ Interpretations and deviations (no path or field name of 9.3-9.6 changed):
 - **Repository**: the services only add small owned ORM queries next to `repo` (record refs, counts, the
   windows/time-preview mini snapshots); no change to WP-A files was needed.
 
-Measured (developer machine, SQLite / PostgreSQL local): P2 Kavach explosion 0.36 / 0.26 s, 15 statements
+Measured (developer machine, file-DB / PostgreSQL local): P2 Kavach explosion 0.36 / 0.26 s, 15 statements
 (bound 18); `kavach x2` 0.35 / 0.25 s, 15-16 statements; P3 where-used indented 0.02 s, 8 statements; P4 items page
 with `q` over 10,000 items 0.03 s, 5 statements; P5 health 0.44 / 0.46 s, 17-18 statements; P6 preview of 5,000
 rows 0.20 / 0.21 s, 20-21 statements; P7 commit of 5,000 rows 0.83 / 1.26 s (write transaction 0.68 / 1.05 s);

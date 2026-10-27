@@ -1,12 +1,11 @@
-"""Initial schema: the 11 tables exactly as `create_all` built them before Phase 2b.
+"""Initial schema: the 11 tables of the pre-Phase-2b application.
 
 Revision ID: 0001_initial
 Revises:
 Create Date: 2026-10-19
 
-Frozen migration: literal table definitions only, never import the ORM models. `build_metadata()` is also used by
-`superplanner.migrate` to create the tables a legacy file is missing (a file last opened before the finance phase
-has only the 6 scheduling tables, review R3).
+Frozen migration: literal table definitions only, never import the ORM models. `build_metadata()` is the
+revision-local table definition this step creates (Alembic-managed; nothing creates tables outside the chain).
 """
 
 from __future__ import annotations

@@ -17,7 +17,6 @@ SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "pg_dev_cluster.sh"
 PG_BIN = Path(os.environ.get("PG_BIN", "/usr/lib/postgresql/16/bin"))
 
 pytestmark = [
-    pytest.mark.postgres_only,
     pytest.mark.skipif(os.name == "nt" or not (PG_BIN / "initdb").exists() or shutil.which("bash") is None,
                        reason="needs bash and the PostgreSQL server binaries"),
 ]

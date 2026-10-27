@@ -1,8 +1,15 @@
-# SuperPlanner production-shaped stack (PHASE2B 5.5, docs/DEPLOY.md section 3).
+# SuperPlanner production-shaped stack (PHASE2B 5.5, docs/DEPLOY.md section 3). PostgreSQL only.
 #
-#   cp .env.example .env            # then set POSTGRES_PASSWORD, PUBLIC_BASE_URL, METRICS_TOKEN, ...
-#   docker compose up -d --build    # postgres -> migrate (one-shot) -> api + workers -> frontend on :8080
+#   cp .env.example .env            # then set the three DB passwords, PUBLIC_BASE_URL, METRICS_TOKEN, ...
+#   docker compose up -d --build    # db -> migrate (one-shot, owner role) -> api + workers (app role) -> frontend
 #   docker compose up -d --scale worker=4 --scale api=2
+#   docker compose up -d db         # only the database (local development, README "Quick start")
+#
+# Database roles (docs/DEPLOY.md "Database roles"): POSTGRES_USER is the bootstrap superuser (never used by the
+# application). On the FIRST start of an empty volume, backend/scripts/docker-initdb-roles.sh runs
+# backend/scripts/pg_setup_roles.sql: SP_DB_OWNER_USER owns the database and runs the migrations
+# (MIGRATION_DATABASE_URL), SP_DB_APP_USER is the restricted DML-only role of the API and workers (DATABASE_URL).
+# The database port is published on 127.0.0.1 only (local tools / development); remove `ports` on shared hosts.
 #
 # TLS is terminated by an external reverse proxy / load balancer in front of the frontend port; COOKIE_SECURE=true
 # (the production default) assumes it. Only the frontend publishes a port. The API trusts X-Forwarded-For only from
@@ -11,8 +18,8 @@
 name: superplanner
 
 x-backend-env: &backend-env
-  SP_ENV: production
-  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-superplanner}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-superplanner}
+  APP_ENV: production
+  DATABASE_URL: postgresql+psycopg://${SP_DB_APP_USER:-superplanner_app}:${SP_DB_APP_PASSWORD:?set SP_DB_APP_PASSWORD in .env}@db:5432/${POSTGRES_DB:-superplanner}
   JOB_BACKEND: queue
   LOG_FORMAT: ${LOG_FORMAT:-json}
 
@@ -29,24 +36,32 @@ x-backend-build: &backend-build
   dockerfile: Dockerfile
 
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-superplanner}
-      POSTGRES_USER: ${POSTGRES_USER:-superplanner}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       # C collation (byte order) like the test clusters (review R12); UTF-8 encoding.
       POSTGRES_INITDB_ARGS: "--locale=C.UTF-8 --encoding=UTF8"
+      # read by docker-initdb-roles.sh on the first start of an empty volume
+      SP_DB_OWNER_USER: ${SP_DB_OWNER_USER:-superplanner_owner}
+      SP_DB_OWNER_PASSWORD: ${SP_DB_OWNER_PASSWORD:?set SP_DB_OWNER_PASSWORD in .env}
+      SP_DB_APP_USER: ${SP_DB_APP_USER:-superplanner_app}
+      SP_DB_APP_PASSWORD: ${SP_DB_APP_PASSWORD:?set SP_DB_APP_PASSWORD in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./backend/scripts/pg_setup_roles.sql:/sp/pg_setup_roles.sql:ro
+      - ./backend/scripts/docker-initdb-roles.sh:/docker-entrypoint-initdb.d/50-superplanner-roles.sh:ro
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 20
     networks: [backend]
-    # ports: ["5432:5432"]   # debugging only - never expose the database publicly
 
   migrate:
     <<: *backend-hardening
@@ -61,8 +76,10 @@ services:
         required: false
     environment:
       <<: *backend-env
+      # migrations run as the owner role; the API and workers never get this URL
+      MIGRATION_DATABASE_URL: postgresql+psycopg://${SP_DB_OWNER_USER:-superplanner_owner}:${SP_DB_OWNER_PASSWORD:?set SP_DB_OWNER_PASSWORD in .env}@db:5432/${POSTGRES_DB:-superplanner}
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     networks: [backend]
 

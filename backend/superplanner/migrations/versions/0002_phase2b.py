@@ -5,8 +5,8 @@ Revision ID: 0002_phase2b
 Revises: 0001_initial
 Create Date: 2026-10-19
 
-Frozen migration: literal definitions only, never import the ORM models. On SQLite `superplanner.migrate` runs this
-with `PRAGMA foreign_keys=OFF` (batch table rebuilds would otherwise cascade-delete child rows, review R1).
+Frozen migration: literal definitions only, never import the ORM models. PostgreSQL only (`batch_alter_table` emits
+plain ALTER TABLE statements there).
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def _ts(name: str, nullable: bool = False) -> sa.Column:
 
 
 def _where(predicate: str) -> dict[str, Any]:
-    return {"postgresql_where": sa.text(predicate), "sqlite_where": sa.text(predicate)}
+    return {"postgresql_where": sa.text(predicate)}
 
 
 def _iso(dt: datetime) -> str:
@@ -125,7 +125,6 @@ def _fail_extra_active_runs(bind: sa.Connection, now: datetime) -> None:
 
 def upgrade() -> None:
     bind = op.get_bind()
-    pg = bind.dialect.name == "postgresql"
     now = datetime.now(UTC)
 
     # 1. accounts tables (B 4.2)
@@ -177,11 +176,10 @@ def upgrade() -> None:
     # 4. audit actor (no FK: audit survives user deletion)
     op.add_column("audit_events", sa.Column("actor_id", sa.String(64), nullable=True))
 
-    # 5. int8 event/audit ids on PostgreSQL (SQLite keeps INTEGER PRIMARY KEY)
-    if pg:
-        for t in BIGINT_ID_TABLES:
-            op.alter_column(t, "id", type_=sa.BigInteger(), existing_type=sa.Integer(), existing_nullable=False)
-            op.execute(f"ALTER SEQUENCE IF EXISTS {t}_id_seq AS bigint")
+    # 5. int8 event/audit ids
+    for t in BIGINT_ID_TABLES:
+        op.alter_column(t, "id", type_=sa.BigInteger(), existing_type=sa.Integer(), existing_nullable=False)
+        op.execute(f"ALTER SEQUENCE IF EXISTS {t}_id_seq AS bigint")
 
     # 6. indexes (hot queries, FK columns, backstops)
     op.create_index("ix_problems_owner_updated", "problems", ["owner_id", "updated_at", "id"])
@@ -250,8 +248,6 @@ def upgrade() -> None:
 # ---------------------------------------------------------------- downgrade
 
 def downgrade() -> None:
-    bind = op.get_bind()
-    pg = bind.dialect.name == "postgresql"
 
     op.drop_table("job_workers")
     for ix in ("ix_jobs_status_finished", "uq_jobs_idempotency", "uq_jobs_finance_run", "uq_jobs_solver_run",
@@ -268,10 +264,9 @@ def downgrade() -> None:
                   ("ix_finance_plans_owner_updated", "finance_plans"), ("ix_problems_owner_updated", "problems")):
         op.drop_index(ix, table_name=t)
 
-    if pg:
-        for t in BIGINT_ID_TABLES:
-            op.execute(f"ALTER SEQUENCE IF EXISTS {t}_id_seq AS integer")
-            op.alter_column(t, "id", type_=sa.Integer(), existing_type=sa.BigInteger(), existing_nullable=False)
+    for t in BIGINT_ID_TABLES:
+        op.execute(f"ALTER SEQUENCE IF EXISTS {t}_id_seq AS integer")
+        op.alter_column(t, "id", type_=sa.Integer(), existing_type=sa.BigInteger(), existing_nullable=False)
 
     with op.batch_alter_table("audit_events") as b:
         b.drop_column("actor_id")

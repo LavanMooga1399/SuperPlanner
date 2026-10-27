@@ -1,4 +1,4 @@
-"""`Idempotency-Key` on the four run-creating endpoints (PHASE2B 2.8; plan Q2-10). Both dialects."""
+"""`Idempotency-Key` on the four run-creating endpoints (PHASE2B 2.8; plan Q2-10)."""
 
 from __future__ import annotations
 

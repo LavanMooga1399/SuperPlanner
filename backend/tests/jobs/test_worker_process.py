@@ -26,7 +26,6 @@ def _alive_workers(ctx) -> list[str]:
         return [r[0] for r in s.execute(text("SELECT id FROM job_workers WHERE stopped_at IS NULL")).all()]
 
 
-@pytest.mark.postgres_only
 def test_kill_9_mid_run_another_worker_completes_it_exactly_once(db_url, tmp_path):
     workers: list[subprocess.Popen] = []
     with TestClient(make_app(db_url, worker_embedded=0)) as c:
@@ -68,7 +67,6 @@ def test_kill_9_mid_run_another_worker_completes_it_exactly_once(db_url, tmp_pat
         assert w2.returncode == 0   # SIGTERM -> graceful exit 0
 
 
-@pytest.mark.postgres_only
 def test_sigterm_requeues_and_once_mode_finishes_the_queue(db_url, tmp_path):
     with TestClient(make_app(db_url, worker_embedded=0)) as c:
         ctx = c.app.state.ctx
@@ -99,17 +97,12 @@ def test_sigterm_requeues_and_once_mode_finishes_the_queue(db_url, tmp_path):
 
 # ---------------------------------------------------------------- Q2-14 configuration
 
-def test_queue_backend_with_sqlite_is_refused(tmp_path):
-    with pytest.raises(ConfigError, match="JOB_BACKEND"):
-        Settings(database_url=f"sqlite:///{tmp_path / 'x.db'}", job_backend="queue")
-
-
-def test_inline_with_postgres_in_production_is_refused():
-    with pytest.raises(ConfigError, match="JOB_BACKEND=inline with PostgreSQL is not allowed"):
-        Settings(database_url="postgresql+psycopg://u:p@127.0.0.1:1/x", job_backend="inline", sp_env="production",
+def test_inline_backend_outside_development_is_refused():
+    with pytest.raises(ConfigError, match="JOB_BACKEND=inline is only allowed with APP_ENV=development"):
+        Settings(database_url="postgresql+psycopg://u@127.0.0.1:1/x", job_backend="inline", sp_env="production",
                  auth_mode="accounts", public_base_url="https://example.com", password_hash_profile="default")
     s = Settings(database_url="postgresql+psycopg://u:p@127.0.0.1:1/x", job_backend="inline")
-    assert s.job_backend == "inline"   # allowed outside production (with a warning)
+    assert s.job_backend == "inline"   # allowed in development (with a warning)
 
 
 def _worker_exit(env: dict[str, str]) -> subprocess.CompletedProcess:
@@ -117,26 +110,17 @@ def _worker_exit(env: dict[str, str]) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, timeout=120)
 
 
-def test_worker_with_sqlite_url_exits_2(tmp_path):
-    env = worker_env(f"sqlite:///{tmp_path / 'w.db'}")
-    env.pop("JOB_BACKEND")
+def test_worker_with_a_non_postgres_url_exits_2():
+    env = worker_env("sqlite:///w.db")
     r = _worker_exit(env)
     assert r.returncode == 2, r.stderr
-    assert "PostgreSQL" in r.stderr
-    env["JOB_BACKEND"] = "queue"
+    assert "configuration error: DATABASE_URL must be a PostgreSQL URL" in r.stderr
+    env = worker_env("postgresql+psycopg://u:p@127.0.0.1:1/x")
+    env["JOB_BACKEND"] = "inline"
     r = _worker_exit(env)
     assert r.returncode == 2 and "JOB_BACKEND" in r.stderr
 
 
-def test_uvicorn_import_with_queue_on_sqlite_exits_2(tmp_path):
-    env = dict(os.environ, DATABASE_URL=f"sqlite:///{tmp_path / 'u.db'}", JOB_BACKEND="queue")
-    r = subprocess.run([sys.executable, "-c", "import superplanner.api.main"], cwd=str(BACKEND), env=env,
-                       capture_output=True, text=True, timeout=120)
-    assert r.returncode == 2, r.stderr
-    assert "JOB_BACKEND" in r.stderr
-
-
-@pytest.mark.postgres_only
 def test_worker_with_schema_behind_head_exits_3(request):
     from superplanner import migrate
 

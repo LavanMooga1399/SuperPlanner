@@ -1,8 +1,12 @@
 """Per-app runtime context: settings, database, executor, job queue and the write guard (A.13 rule 7, PHASE2B 2.12).
 
-`write_guard()` replaces the process-wide `WRITE_LOCK`: on SQLite it is that RLock (behaviour unchanged), on
-PostgreSQL a no-op - there, row locks (`FOR NO KEY UPDATE` on the parent plan/problem and the run) and partial
-unique indexes give the cross-process guarantees. `WRITE_LOCK` stays exported as an alias for one release.
+`write_guard()` is a no-op kept for call sites: row locks (`FOR NO KEY UPDATE` on the parent plan/problem and the
+run) and partial unique indexes give the cross-process guarantees on PostgreSQL. `WRITE_LOCK` stays exported (unused)
+for old imports.
+
+Schema: `start()` never creates tables. It verifies the database is at `migrate.HEAD` and raises `SchemaError`
+("Run: python -m superplanner.migrate upgrade") otherwise, unless AUTO_MIGRATE=true, in which case it upgrades first
+using MIGRATION_DATABASE_URL (owner role; fallback DATABASE_URL).
 
 `AppContext.start()` runs as a whole in `system_scope()` (review R9): it may run lazily inside the first request
 (TestClient without `with`), where the fail-closed ownership rule would otherwise reject its recovery queries.
@@ -26,8 +30,7 @@ from .executor import RunExecutor
 
 log = logging.getLogger(__name__)
 
-# Check-then-write sequences (one active run, one approved schedule, If-Match) run under this lock AND inside one DB
-# transaction on SQLite. Kept as an alias; new code uses `ctx.write_guard()`.
+# Unused since PostgreSQL-only (row locks + unique indexes); exported for old imports.
 WRITE_LOCK = threading.RLock()
 
 JOB_KINDS = ("solver_run", "finance_run")
@@ -47,11 +50,11 @@ class AppContext:
         self._prune_stop = threading.Event()
 
     def write_guard(self) -> ContextManager[Any]:
-        """SQLite: the process-wide RLock (unchanged behaviour). PostgreSQL: no-op (row locks + indexes)."""
-        return WRITE_LOCK if self.db.is_sqlite else contextlib.nullcontext()
+        """No-op: PostgreSQL row locks + partial unique indexes serialise check-then-write sequences."""
+        return contextlib.nullcontext()
 
     def start(self) -> None:
-        """Idempotent: schema (create/upgrade), local user, recovery, job backend (PHASE2B 2.2).
+        """Idempotent: schema check (or AUTO_MIGRATE upgrade), local user, recovery, job backend (PHASE2B 2.2).
 
         inline: interrupted runs -> failed (+ their jobs), executor + `InlineQueue`.
         queue:  the API never fails runs whose job holds a queue lease (workers own them); orphan runs without a

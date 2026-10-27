@@ -1,7 +1,7 @@
 """Password hashing and policy (PHASE2B 4.3).
 
 argon2id via `argon2-cffi`. Profile `default` = library defaults (t=3, m=64 MiB, p=4); profile `fast`
-(t=1, m=8 MiB, p=1) is for tests only and refused with `SP_ENV=production` (config validation). Hashes made with
+(t=1, m=8 MiB, p=1) is for tests only and refused outside `APP_ENV=development` (config validation). Hashes made with
 another profile are upgraded on the next successful sign-in (`needs_rehash`).
 
 Policy (NIST style, no composition rules): 10..256 characters after NFKC normalisation, not equal to the email,

@@ -19,7 +19,6 @@ from superplanner.jobs import pg
 from superplanner.jobs.types import WORKER_LOST_ERROR, LeaseLost
 from superplanner.jobs.worker import WorkerLoop
 
-pytestmark = pytest.mark.postgres_only
 
 KINDS = ["solver_run", "finance_run"]
 

@@ -1,4 +1,4 @@
-"""WP2 API test setup: every test gets its own app on a temp-file SQLite DB (A.18, A.19)."""
+"""WP2 API test setup: every test gets its own app on a fresh PostgreSQL database (A.18, A.19)."""
 
 from __future__ import annotations
 

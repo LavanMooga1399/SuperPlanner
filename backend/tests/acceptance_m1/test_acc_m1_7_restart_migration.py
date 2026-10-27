@@ -1,6 +1,6 @@
 """15.3 #7: restart - all data survives an app restart; migrations - an existing 0002 database with problems,
-schedules and finance data upgrades to 0003_mfg without data loss (SQLite: automatically on start, with a
-`.bak-0002-*` backup; PostgreSQL: `python -m superplanner.migrate upgrade`, then `check` exits 0), and
+schedules and finance data upgrades to 0003_mfg without data loss (`python -m superplanner.migrate upgrade`,
+then `check` exits 0; the app refuses to start before that), and
 `downgrade 0002_phase2b` removes only the 18 `mfg_*` tables (all other rows unchanged)."""
 
 from __future__ import annotations
@@ -8,6 +8,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import pytest
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
@@ -84,7 +85,7 @@ def test_mfg_and_existing_data_survive_restart(db_url: str):
     assert migrate.schema_state(db_url) == "current"
 
 
-def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_url: str, db_kind: str):
+def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_url: str):
     from superplanner.api.mfg.db_models import MFG_TABLES
 
     # 1. a database with problems, a schedule, finance data AND mfg data, at head
@@ -104,13 +105,12 @@ def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_u
     assert migrate.current_revision(db_url) == "0002_phase2b"
     assert migrate.schema_state(db_url) == "behind"
 
-    # 3. upgrade: SQLite on first start (with a backup); PostgreSQL through the CLI, then `check`
-    if db_kind == "sqlite":
-        path = migrate.sqlite_path(db_url)
-        assert not list(path.parent.glob(f"{path.name}.bak-0002-*"))
-    else:
-        assert migrate.main(["upgrade", "--url", db_url]) == 0
-        assert migrate.main(["check", "--url", db_url]) == 0
+    # 3. the app refuses to start on 0002; upgrade through the CLI, then `check`
+    with pytest.raises(migrate.SchemaError, match="Run: python -m superplanner.migrate upgrade"):
+        with TestClient(make_app(db_url)):
+            pass
+    assert migrate.main(["upgrade", "--url", db_url]) == 0
+    assert migrate.main(["check", "--url", db_url]) == 0
     with TestClient(make_app(db_url)) as c:
         api = Api(c)
         assert _snapshot_2b(c, ids) == before_2b
@@ -126,7 +126,3 @@ def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_u
             continue                                                # queue worker registry (PostgreSQL run)
         else:
             assert after[t] == n, t
-    if db_kind == "sqlite":
-        backups = list(path.parent.glob(f"{path.name}.bak-0002-*"))
-        assert len(backups) == 1
-        assert _table_counts(f"sqlite:///{backups[0]}") == at_0002

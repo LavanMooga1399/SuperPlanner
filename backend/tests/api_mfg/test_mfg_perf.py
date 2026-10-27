@@ -1,4 +1,4 @@
-"""B4: performance targets P2-P11 and statement counts (M1-DESIGN 12; PLAN-M1 B2-4, B4). Both dialects; the
+"""B4: performance targets P2-P11 and statement counts (M1-DESIGN 12; PLAN-M1 B2-4, B4). The
 PostgreSQL time limits are x 1.5 (except P7). Statement counts wrap the HTTP call in single_user mode, where
 `require_user` issues no SQL, so they are the service's statements (BEGIN/COMMIT excluded)."""
 

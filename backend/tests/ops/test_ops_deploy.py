@@ -16,7 +16,8 @@ import yaml
 from ops_helpers import BACKEND, REPO
 from superplanner.api.config import ConfigError, Settings
 
-PG = "postgresql+psycopg://u:p@db.internal:5432/sp"
+PG = "postgresql+psycopg://sp_app:Zq7-long-random-pw-81@db.internal:5432/sp"
+TOKEN = "x9Kq2LrT5vW8yB3nD6fH1jA4mZ"
 
 
 def _strip_comments(text: str) -> str:
@@ -29,7 +30,7 @@ def test_production_defaults(monkeypatch):
     for k in ("AUTH_MODE", "CORS_ORIGINS", "COOKIE_SECURE", "LOG_FORMAT", "JOB_BACKEND", "WORKER_EMBEDDED"):
         monkeypatch.delenv(k, raising=False)
     s = Settings(sp_env="production", database_url=PG, public_base_url="https://p.example.com",
-                 password_hash_profile="default")
+                 password_hash_profile="default", metrics_token=TOKEN)
     assert s.auth_mode == "accounts" and s.cors_origins == [] and s.cookie_secure is True
     assert s.log_format == "json" and s.job_backend == "queue" and s.embedded_workers == 0
     assert s.forwarded_allow_ips == "127.0.0.1"
@@ -38,15 +39,15 @@ def test_production_defaults(monkeypatch):
 def test_production_cors_star_with_credentials_refused():
     with pytest.raises(ConfigError, match="CORS_ORIGINS"):
         Settings(sp_env="production", database_url=PG, public_base_url="https://p.example.com",
-                 password_hash_profile="default", cors_origins=["*"])
+                 password_hash_profile="default", cors_origins=["*"], metrics_token=TOKEN, auth_mode="accounts")
 
 
 def test_production_cors_star_exits_2():
     env = {k: v for k, v in os.environ.items()
-           if not k.startswith(("JOB_", "WORKER_", "AUTH_", "SP_", "PASSWORD_", "CORS_"))}
-    env.update({"SP_ENV": "production", "DATABASE_URL": PG, "PUBLIC_BASE_URL": "https://p.example.com",
-                "CORS_ORIGINS": "*"})
-    p = subprocess.run([sys.executable, "-c", "import superplanner.api.main"], cwd=BACKEND, env=env,
+           if not k.startswith(("JOB_", "WORKER_", "AUTH_", "SP_", "APP_", "PASSWORD_", "CORS_"))}
+    env.update({"APP_ENV": "production", "DATABASE_URL": PG, "PUBLIC_BASE_URL": "https://p.example.com",
+                "CORS_ORIGINS": "*", "METRICS_TOKEN": TOKEN})
+    p = subprocess.run([sys.executable, "-c", "import superplanner.api.main as m; m.app"], cwd=BACKEND, env=env,
                        capture_output=True, text=True, timeout=120)
     assert p.returncode == 2, (p.stdout, p.stderr)
     assert "configuration error" in p.stderr and "CORS_ORIGINS" in p.stderr
@@ -68,19 +69,24 @@ def test_env_example_lists_every_setting():
     src = (BACKEND / "superplanner" / "api" / "config.py").read_text()
     names = set(re.findall(r'_(?:env|int|float|str|bool|opt_bool|lower|env_flag|env_float)\("([A-Z0-9_]+)"', src))
     names |= set(re.findall(r'os\.environ\.get\("([A-Z0-9_]+)"', src))
-    names |= {"WORKER_EMBEDDED", "WORKER_KINDS"}
+    names |= {"WORKER_EMBEDDED", "WORKER_KINDS", "AUTO_MIGRATE"}
+    names -= {"SP_ENV"}                     # legacy alias of APP_ENV (mentioned in a comment)
     assert len(names) >= 50
     listed = _env_example()
     missing = sorted(n for n in names if n not in listed)
     assert not missing, missing
     for n in ("POSTGRES_PASSWORD", "POSTGRES_USER", "POSTGRES_DB", "HTTP_PORT", "WORKER_REPLICAS",
-              "SP_INTERNAL_SUBNET", "ANTHROPIC_API_KEY"):
+              "SP_INTERNAL_SUBNET", "ANTHROPIC_API_KEY", "SP_DB_OWNER_USER", "SP_DB_OWNER_PASSWORD",
+              "SP_DB_APP_USER", "SP_DB_APP_PASSWORD", "MIGRATION_DATABASE_URL", "DATABASE_URL", "APP_ENV"):
         assert n in listed, n
 
 
 def test_env_example_has_no_real_secret_and_env_is_ignored():
     env = _env_example()
     assert env["POSTGRES_PASSWORD"] == "change-me"
+    assert env["SP_DB_OWNER_PASSWORD"].startswith("change-me") and env["SP_DB_APP_PASSWORD"].startswith("change-me")
+    assert env["APP_ENV"] == "production" and env["AUTO_MIGRATE"] == "false"
+    assert "sqlite" not in (REPO / ".env.example").read_text().lower()
     assert env["METRICS_TOKEN"] == "" and env.get("ANTHROPIC_API_KEY", "") == ""
     assert env["FORWARDED_ALLOW_IPS"] != "*" and env["CORS_ORIGINS"] == ""
     assert env["PASSWORD_HASH_PROFILE"] == "default"
@@ -143,16 +149,26 @@ def _compose() -> dict:
 def test_compose_structure():
     c = _compose()
     s = c["services"]
-    assert set(s) == {"postgres", "migrate", "api", "worker", "frontend"}
-    assert s["postgres"]["image"] == "postgres:16-alpine" and "ports" not in s["postgres"]
-    assert "--locale=C.UTF-8" in s["postgres"]["environment"]["POSTGRES_INITDB_ARGS"]
+    assert set(s) == {"db", "migrate", "api", "worker", "frontend"}
+    db = s["db"]
+    assert db["image"] == "postgres:16-alpine" and db["ports"] == ["127.0.0.1:5432:5432"]   # localhost only
+    assert "--locale=C.UTF-8" in db["environment"]["POSTGRES_INITDB_ARGS"]
+    assert "pgdata:/var/lib/postgresql/data" in db["volumes"] and "pg_isready" in " ".join(db["healthcheck"]["test"])
+    assert any(v.endswith("/docker-entrypoint-initdb.d/50-superplanner-roles.sh:ro") for v in db["volumes"])
+    assert "depends_on" not in db                                   # `docker compose up -d db` works alone
     assert s["migrate"]["restart"] == "no" and s["migrate"]["command"][-1] == "upgrade"
+    assert s["migrate"]["depends_on"]["db"]["condition"] == "service_healthy"
+    # least privilege: migrations as the owner role, API/workers as the app role (never the owner URL)
+    assert "superplanner_owner" in s["migrate"]["environment"]["MIGRATION_DATABASE_URL"]
+    for name in ("api", "worker"):
+        env = s[name]["environment"]
+        assert "superplanner_app" in env["DATABASE_URL"] and "MIGRATION_DATABASE_URL" not in env, name
     assert s["api"]["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
     assert s["worker"]["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
     assert s["frontend"]["depends_on"]["api"]["condition"] == "service_healthy"
     fwd = s["api"]["environment"]["FORWARDED_ALLOW_IPS"]
     assert fwd != "*" and fwd == c["networks"]["backend"]["ipam"]["config"][0]["subnet"]
-    assert s["api"]["environment"]["SP_ENV"] == "production" and s["api"]["environment"]["JOB_BACKEND"] == "queue"
+    assert s["api"]["environment"]["APP_ENV"] == "production" and s["api"]["environment"]["JOB_BACKEND"] == "queue"
     assert s["worker"]["stop_grace_period"] == "45s" and "ports" not in s["api"] and "ports" not in s["worker"]
     assert s["frontend"]["ports"] == ["8080:8080"]
     assert "health/ready" in " ".join(s["api"]["healthcheck"]["test"])
@@ -179,8 +195,9 @@ def test_line_endings_and_run_scripts():
     assert "--no-access-log" in ps1
 
 
-def test_run_api_sh_starts_zero_setup(tmp_path):
-    """run_api.sh with no configuration: SQLite + single_user API answers /health (G7 smoke, Linux)."""
+def test_run_api_sh_starts_on_postgres_and_refuses_without_database_url(db_url):
+    """run_api.sh: one clear config line without DATABASE_URL; with a migrated database and APP_ENV=development
+    the API answers /health/ready (G7 smoke, Linux)."""
     if os.name == "nt" or not shutil.which("bash"):
         pytest.skip("bash script")
     import socket
@@ -191,8 +208,11 @@ def test_run_api_sh_starts_zero_setup(tmp_path):
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     env = {k: v for k, v in os.environ.items()
-           if not k.startswith(("JOB_", "WORKER_", "AUTH_", "SP_", "DATABASE_", "CORS_", "LOG_"))}
-    env.update({"PORT": str(port), "DATABASE_URL": f"sqlite:///{tmp_path / 'zero.db'}"})
+           if not k.startswith(("JOB_", "WORKER_", "AUTH_", "SP_", "APP_", "DATABASE_", "CORS_", "LOG_"))}
+    env["PORT"] = str(port)
+    p = subprocess.run(["bash", str(BACKEND / "run_api.sh")], env=env, capture_output=True, text=True, timeout=120)
+    assert p.returncode == 2 and "configuration error: DATABASE_URL is required" in p.stderr, p.stderr
+    env.update({"DATABASE_URL": db_url, "APP_ENV": "development"})
     p = subprocess.Popen(["bash", str(BACKEND / "run_api.sh")], env=env, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
     try:
@@ -204,12 +224,15 @@ def test_run_api_sh_starts_zero_setup(tmp_path):
             except Exception:
                 assert p.poll() is None and time.monotonic() < deadline
                 time.sleep(0.3)
-        assert b'"job_backend":"inline"' in body
-        assert urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/problems", timeout=5).status == 200
+        assert b'"job_backend":"queue"' in body and b'"schema":"ok"' in body
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/problems", timeout=5)
+            raise AssertionError("accounts mode is the default: /problems needs a session")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 401
     finally:
         p.terminate()
         p.wait(timeout=30)
-    assert (tmp_path / "zero.db").exists()
 
 
 # ---------------------------------------------------------------- manage prune (jobs part)

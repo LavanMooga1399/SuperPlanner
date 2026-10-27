@@ -1,16 +1,16 @@
-"""Root test configuration: dual-database harness (PHASE2B 3.6).
+"""Root test configuration: PostgreSQL test harness (PHASE2B 3.6; PostgreSQL only).
 
-    cd backend && .venv/bin/pytest                                   # SQLite (default), inline jobs
-    SP_TEST_DB=postgres SP_TEST_PG_URL=postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres \\
-        .venv/bin/pytest                                             # PostgreSQL (or: pytest --db=postgres)
+    cd backend && .venv/bin/pytest          # needs the dev cluster: scripts/pg_dev_cluster.sh init
 
-PostgreSQL: once per session a template database `sp_tpl_<pid>` is built by running the real Alembic chain
-(`0001_initial` -> head); every `db_url_factory(name)` call clones it with
+`SP_TEST_PG_URL` (default: the dev cluster on 127.0.0.1:54329, role sp_test with CREATEDB) is the admin URL used
+to create/drop databases. Once per session a template database `sp_tpl_<pid>` is built by running the real
+Alembic chain (`0001_initial` -> head); every `db_url_factory(name)` call clones it with
 `CREATE DATABASE sp_t_<uuid8> TEMPLATE ... STRATEGY FILE_COPY` and drops it (`WITH (FORCE)`) after the test.
-SQLite: a fresh temp file per call (app start does create_all + stamp head).
+`SP_TEST_PG_SUPERUSER_URL` (default: user `postgres` on the same server) is only used by the least-privilege role
+tests (they skip with a visible reason if it is not reachable).
 
-Markers: `postgres_only`, `sqlite_only` (skipped on the other dialect with a visible reason), `inline_jobs`
-(forces JOB_BACKEND=inline), `pg_load` (load tests; Postgres only).
+Every test runs with APP_ENV=development and AUTH_MODE=single_user unless it sets its own values (constructor
+arguments always win over the environment). Markers: `inline_jobs` (forces JOB_BACKEND=inline), `pg_load`.
 """
 
 from __future__ import annotations
@@ -30,31 +30,22 @@ if str(_BACKEND) not in sys.path:
 DEFAULT_PG_URL = "postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres"
 
 
-def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--db", choices=["sqlite", "postgres"], default=os.environ.get("SP_TEST_DB", "sqlite"),
-                     help="database for the backend tests (default: SP_TEST_DB or sqlite)")
+# Baseline for the whole session (module/session-scoped apps are built before the per-test autouse fixture runs).
+SESSION_ENV = {"APP_ENV": "development", "AUTH_MODE": "single_user", "PASSWORD_HASH_PROFILE": "fast",
+               "JOB_BACKEND": "queue", "WORKER_EMBEDDED": "auto", "JOB_CANCEL_POLL_SECONDS": "0.2",
+               "WORKER_POLL_SECONDS": "0.2", "WORKER_SHUTDOWN_GRACE_SECONDS": "1"}
+CLEARED_ENV = ("DATABASE_URL", "MIGRATION_DATABASE_URL", "SP_ENV", "AUTO_MIGRATE", "DB_AUTO_MIGRATE", "METRICS_TOKEN",
+               "CORS_ORIGINS", "PUBLIC_BASE_URL", "COOKIE_SECURE")
 
 
-def selected_db(config: pytest.Config) -> str:
-    return str(config.getoption("--db"))
-
-
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    db = selected_db(config)
-    skip_pg = pytest.mark.skip(reason="PostgreSQL-only test (run with SP_TEST_DB=postgres)")
-    skip_sqlite = pytest.mark.skip(reason="SQLite-only test (this run uses PostgreSQL)")
-    for item in items:
-        if db == "sqlite" and (item.get_closest_marker("postgres_only") or item.get_closest_marker("pg_load")):
-            item.add_marker(skip_pg)
-        if db == "postgres" and item.get_closest_marker("sqlite_only"):
-            item.add_marker(skip_sqlite)
+def pytest_configure(config: pytest.Config) -> None:
+    for name in CLEARED_ENV:
+        os.environ.pop(name, None)
+    os.environ.update(SESSION_ENV)
 
 
 def pytest_report_header(config: pytest.Config) -> str:
-    db = selected_db(config)
-    if db == "postgres":
-        return f"superplanner test database: postgres ({_pg_admin_url_display()})"
-    return "superplanner test database: sqlite"
+    return f"superplanner test database: postgres ({_pg_admin_url_display()})"
 
 
 def _pg_admin_url() -> str:
@@ -103,14 +94,13 @@ class PgAdmin:
 
 
 @pytest.fixture(scope="session")
-def db_kind(request: pytest.FixtureRequest) -> str:
-    return selected_db(request.config)
+def db_kind() -> str:
+    """Always "postgres" (kept for tests that label their output with it)."""
+    return "postgres"
 
 
 @pytest.fixture(scope="session")
-def pg_admin(db_kind: str) -> Iterator[PgAdmin]:
-    if db_kind != "postgres":
-        pytest.skip("PostgreSQL-only fixture")
+def pg_admin() -> Iterator[PgAdmin]:
     admin = PgAdmin(_pg_admin_url())
     try:
         admin.execute("SELECT 1")
@@ -158,66 +148,69 @@ def _stop_live_contexts(dbnames: list[str]) -> None:
             pass
 
 
-def _factory(request: pytest.FixtureRequest, base_dir: Callable[[], Path]) -> Callable[[str], str]:
-    db = selected_db(request.config)
+def _factory(request: pytest.FixtureRequest) -> Callable[[str], str]:
     created: list[str] = []
-    if db == "postgres":
-        admin: PgAdmin = request.getfixturevalue("pg_admin")
-        template: str = request.getfixturevalue("pg_template")
+    admin: PgAdmin = request.getfixturevalue("pg_admin")
+    template: str = request.getfixturevalue("pg_template")
 
-        def new_pg(_name: str = "db") -> str:
-            dbname = admin.create_from_template(template)
-            created.append(dbname)
-            return admin.url_for(dbname)
+    def new_pg(_name: str = "db") -> str:
+        dbname = admin.create_from_template(template)
+        created.append(dbname)
+        return admin.url_for(dbname)
 
-        def _cleanup() -> None:
-            _stop_live_contexts(created)
-            for n in created:
-                try:
-                    admin.drop(n)
-                except Exception:  # pragma: no cover - best effort
-                    pass
+    def _cleanup() -> None:
+        _stop_live_contexts(created)
+        for n in created:
+            try:
+                admin.drop(n)
+            except Exception:  # pragma: no cover - best effort
+                pass
 
-        request.addfinalizer(_cleanup)
-        return new_pg
-
-    def new_sqlite(name: str = "db") -> str:
-        return f"sqlite:///{base_dir() / f'{name}.db'}"
-
-    return new_sqlite
+    request.addfinalizer(_cleanup)
+    return new_pg
 
 
 @pytest.fixture
-def db_url_factory(request: pytest.FixtureRequest, tmp_path: Path) -> Callable[[str], str]:
-    """`new(name) -> url`: a fresh, empty database for this test (SQLite file or cloned Postgres DB)."""
-    return _factory(request, lambda: tmp_path)
+def db_url_factory(request: pytest.FixtureRequest) -> Callable[[str], str]:
+    """`new(name) -> url`: a fresh database at migrate.HEAD for this test (a clone of the template)."""
+    return _factory(request)
 
 
 @pytest.fixture(scope="module")
-def db_url_factory_module(request: pytest.FixtureRequest,
-                          tmp_path_factory: pytest.TempPathFactory) -> Callable[[str], str]:
+def db_url_factory_module(request: pytest.FixtureRequest) -> Callable[[str], str]:
     """Module-scoped variant (`shared_fin` and other expensive per-module apps)."""
-    holder: list[Path] = []
+    return _factory(request)
 
-    def base() -> Path:
-        if not holder:
-            holder.append(tmp_path_factory.mktemp("dbmod"))
-        return holder[0]
 
-    return _factory(request, base)
+@pytest.fixture
+def empty_pg_db(pg_admin: PgAdmin) -> Iterator[Callable[[], str]]:
+    """`new() -> url` of a truly empty database (no schema at all; `CREATE DATABASE` without our template)."""
+    created: list[str] = []
+
+    def new() -> str:
+        name = f"sp_e_{uuid.uuid4().hex[:8]}"
+        pg_admin.execute(f'CREATE DATABASE "{name}"')
+        created.append(name)
+        return pg_admin.url_for(name)
+
+    yield new
+    _stop_live_contexts(created)
+    for n in created:
+        try:
+            pg_admin.drop(n)
+        except Exception:  # pragma: no cover - best effort
+            pass
 
 
 @pytest.fixture(autouse=True)
 def _phase2b_env(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Per-test environment (PHASE2B 3.6): SQLite -> inline jobs; PostgreSQL -> the durable queue with embedded
-    worker threads in the test process (so monkeypatched run-service internals still apply). A short shutdown grace
-    keeps app teardown fast (running jobs are requeued, B 2.9)."""
-    monkeypatch.setenv("PASSWORD_HASH_PROFILE", "fast")
-    if selected_db(request.config) == "postgres":
-        monkeypatch.setenv("JOB_BACKEND", "queue")
-        monkeypatch.setenv("WORKER_EMBEDDED", "auto")
-        monkeypatch.setenv("JOB_CANCEL_POLL_SECONDS", "0.2")
-        monkeypatch.setenv("WORKER_POLL_SECONDS", "0.2")
-        monkeypatch.setenv("WORKER_SHUTDOWN_GRACE_SECONDS", "1")
+    """Per-test environment (PHASE2B 3.6): development + single_user defaults (tests that need accounts or production
+    pass them explicitly), the durable queue with embedded worker threads in the test process (so monkeypatched
+    run-service internals still apply), and a short shutdown grace (running jobs are requeued, B 2.9).
+    DATABASE_URL / MIGRATION_DATABASE_URL from the caller's shell never leak into a test."""
+    for name in CLEARED_ENV:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in SESSION_ENV.items():
+        monkeypatch.setenv(name, value)
     if request.node.get_closest_marker("inline_jobs"):
         monkeypatch.setenv("JOB_BACKEND", "inline")

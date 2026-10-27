@@ -1,4 +1,4 @@
-"""Q3 accounts tests (PHASE2B 4; plan Q3-1..Q3-11). Run on both dialects (SP_TEST_DB=postgres)."""
+"""Q3 accounts tests (PHASE2B 4; plan Q3-1..Q3-11)."""
 
 from __future__ import annotations
 

@@ -1,5 +1,9 @@
 # SuperPlanner MVP - Delivery Plan
 
+> **Historical note (PostgreSQL-only release):** "file-DB" below refers to the embedded file database of earlier
+> releases. It was removed; SuperPlanner now runs on PostgreSQL only (see `docs/DEPLOY.md`, Changelog, and
+> `docs/ARCHITECTURE.md` section 25). Statements about file-DB behaviour describe the past.
+
 Owner: team-lead. Contract: `docs/ARCHITECTURE.md` (sections cited as "A.n"). If this plan and the
 architecture disagree on behaviour, the architecture wins; on file ownership and ordering, this
 plan wins. Ambiguities are resolved by the implementer and recorded in A.25 "Implementation notes".
@@ -111,7 +115,7 @@ Run from `backend/` unless noted. "Validated" means `validate()` reports zero ha
   handlers), `config.py`, `errors.py`, `schemas.py`, `db/{__init__,models,session}.py`,
   `executor.py`, `services/{problem,run,schedule,replan}_service.py`,
   `routes/{health,templates,problems,solver_runs,schedules}.py`.
-- Tests in `backend/tests/api/` using `TestClient` and a temp-file SQLite DB per test module.
+- Tests in `backend/tests/api/` using `TestClient` and a temp-file file-DB DB per test module.
 
 ### Steps (in order)
 1. Packaging: `pyproject.toml`, `requirements.txt`, `run_api.sh`; confirm `.venv/bin/pytest -q`
@@ -133,7 +137,7 @@ Run from `backend/` unless noted. "Validated" means `validate()` reports zero ha
 | # | Criterion | Check |
 |---|-----------|-------|
 | 2.1 | Full backend suite passes with the new config | `cd backend && .venv/bin/pytest -q` exits 0 (includes `tests/engine` and `tests/api`) |
-| 2.2 | Server starts and is healthy | `cd backend && DATABASE_URL=sqlite:////tmp/sp_check.db ./run_api.sh &` then `curl -s localhost:8000/api/v1/health` returns `{"status":"ok","version":"0.1.0","ortools_version":"9.15.6755","database":"ok"}` |
+| 2.2 | Server starts and is healthy | `cd backend && DATABASE_URL=<file-DB URL> ./run_api.sh &` then `curl -s localhost:8000/api/v1/health` returns `{"status":"ok","version":"0.1.0","ortools_version":"9.15.6755","database":"ok"}` |
 | 2.3 | Requirements match the venv | `.venv/bin/pip install --dry-run -r requirements.txt` reports nothing to install |
 | 2.4 | Error envelope | every non-2xx response in the tests has `{"error":{"code","message","details"}}`; a Problem with an unknown field -> 422 `VALIDATION_ERROR` with `details.errors[].loc` |
 | 2.5 | Templates | `GET /templates` lists the 4 templates with parameters; instantiate -> 201, `ETag: "1"`, `Location`, `problem.id == id`; unknown id -> 404; bad parameter -> 422 |
@@ -149,7 +153,7 @@ Run from `backend/` unless noted. "Validated" means `validate()` reports zero ha
 | 2.15 | Compare and CSV | compare two schedules of one problem returns deltas `b - a` with the A.14.6 shape; schedules of different problems -> 422 `DIFFERENT_PROBLEMS`; CSV has the exact header row of A.14.6 and one row per task |
 | 2.16 | Replan | replan with a cutoff after the first operation: problem `version` +1 only if `changes` non-empty; tasks starting before the cutoff keep start and resources in the new primary schedule; all others start >= cutoff; the editable document contains no `locked` added by replan; stale `expected_problem_version` -> 412 and no version change |
 | 2.17 | Recovery | a run row left `running` in the DB becomes `failed` with "Server restarted before the run finished." when a new app starts on that DB |
-| 2.18 | Delete | delete with an active run -> 409; otherwise 204 and its runs/schedules are gone (FK cascade works on SQLite) |
+| 2.18 | Delete | delete with an active run -> 409; otherwise 204 and its runs/schedules are gone (FK cascade works on file-DB) |
 
 ---
 

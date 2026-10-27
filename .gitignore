@@ -2,15 +2,17 @@ __pycache__/
 *.pyc
 .venv/
 *.db
-*.sqlite3
 .pytest_cache/
 node_modules/
 dist/
 .vite/
 test-results/
 playwright-report/
-# Phase 2b: local PostgreSQL dev cluster and automatic pre-migration SQLite backups
+# local PostgreSQL dev cluster (backend/scripts/pg_dev_cluster.sh) and pg_dump files
 backend/.pgdata/
-*.db.bak-*
+*.dump
 # Phase 2b ops: local compose configuration (copy of .env.example with real values)
 .env
+# local packaging artifacts (pip install / setup.py build)
+backend/build/
+*.egg-info/

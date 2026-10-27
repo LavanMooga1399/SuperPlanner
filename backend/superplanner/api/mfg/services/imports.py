@@ -112,6 +112,7 @@ def get_import(ctx: AppContext, import_id: str) -> dict[str, Any]:
 def delete_import(ctx: AppContext, import_id: str) -> None:
     with write_tx(ctx, lock=False) as (s, _):
         row = _get(s, import_id, lock=True)
+        audit(s, "import", row.id, "delete", {"status": row.status, "version": row.row_version})
         s.delete(row)
         s.flush()
 
@@ -183,6 +184,10 @@ def put_mapping(ctx: AppContext, import_id: str, mapping: dict[str, Any], if_mat
         row.status = "mapped"
         row.row_version += 1
         row.updated_at = utcnow()
+        audit(s, "import", row.id, "map", {"version": row.row_version,
+                                            "targets": sorted({str((m or {}).get("target"))
+                                                               for m in (mapping.get("sheets") or {}).values()
+                                                               if (m or {}).get("target")})})
         s.flush()
         return import_record(row)
 

@@ -149,7 +149,6 @@ def _free_port() -> int:
         return int(s.getsockname()[1])
 
 
-@pytest.mark.postgres_only
 def test_worker_metrics_server_and_json_logs(db_url):
     port = _free_port()
     env = {**os.environ, "DATABASE_URL": db_url, "JOB_BACKEND": "queue", "LOG_FORMAT": "json",

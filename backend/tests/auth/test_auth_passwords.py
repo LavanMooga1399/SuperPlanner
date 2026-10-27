@@ -29,7 +29,7 @@ def test_profiles_parameters():
 def test_fast_profile_refused_in_production():
     with pytest.raises(ConfigError, match="PASSWORD_HASH_PROFILE=fast"):
         Settings(sp_env="production", database_url="postgresql://u@h/db", public_base_url="https://x.example",
-                 password_hash_profile="fast")
+                 password_hash_profile="fast", auth_mode="accounts")
 
 
 def test_stored_hash_is_argon2id_and_never_plain(db_url):

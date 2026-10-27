@@ -163,7 +163,7 @@ class Procs:
 def child_env(db_url: str, chaos: bool) -> dict[str, str]:
     env = dict(os.environ)
     env.update({"DATABASE_URL": db_url, "JOB_BACKEND": "queue", "WORKER_EMBEDDED": "0", "AUTH_MODE": "single_user",
-                "SP_ENV": "development", "PYTHONUNBUFFERED": "1", "METRICS_ENABLED": "true"})
+                "APP_ENV": "development", "PYTHONUNBUFFERED": "1", "METRICS_ENABLED": "true"})
     if chaos:
         for k, v in CHAOS_ENV.items():
             env.setdefault(k, v)

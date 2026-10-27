@@ -15,7 +15,6 @@ from superplanner.jobs import common
 from superplanner.jobs.types import RESTART_ERROR
 from superplanner.jobs.worker import WorkerContext
 
-pytestmark = pytest.mark.postgres_only
 
 SOLVE = {"strategy": "heuristic", "time_limit_seconds": 2}
 

@@ -32,11 +32,8 @@ def email_key(email: str) -> str:
 def hit(s: Session, bucket: str, limit: int, window: timedelta, now: datetime | None = None) -> tuple[bool, int]:
     """Count one hit in `bucket`. Returns (allowed, retry_after_seconds); retry_after is 0 when allowed."""
     now = now or datetime.now(UTC)
-    dialect = s.get_bind().dialect.name
-    if dialect == "postgresql":
-        from sqlalchemy.dialects.postgresql import insert
-    else:
-        from sqlalchemy.dialects.sqlite import insert
+    from sqlalchemy.dialects.postgresql import insert
+
     t = AuthRateLimitRow.__table__
     cutoff = literal(now - window, DateTime(timezone=True))
     now_l = literal(now, DateTime(timezone=True))

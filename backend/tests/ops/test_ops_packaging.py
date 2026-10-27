@@ -61,7 +61,7 @@ def _build_wheel(out: Path) -> Path:
 
 
 @pytest.mark.slow
-def test_wheel_contains_data_and_sign_up_works_from_it(tmp_path):
+def test_wheel_contains_data_and_sign_up_works_from_it(tmp_path, db_url):
     """A non-editable install (the unpacked wheel, outside the source tree) accepts a sign-up (was 500)."""
     whl = _build_wheel(tmp_path / "out")
     names = zipfile.ZipFile(whl).namelist()
@@ -75,7 +75,7 @@ def test_wheel_contains_data_and_sign_up_works_from_it(tmp_path):
         "from fastapi.testclient import TestClient\n"
         "from superplanner.api.config import Settings\n"
         "from superplanner.api.main import create_app\n"
-        "app = create_app(Settings(database_url='sqlite:///' + sys.argv[2], auth_mode='accounts',\n"
+        "app = create_app(Settings(database_url=sys.argv[2], auth_mode='accounts', sp_env='development',\n"
         "                          password_hash_profile='fast', cookie_secure=False))\n"
         "with TestClient(app) as c:\n"
         "    r = c.post('/api/v1/auth/sign-up', json={'email': 'ana@example.com',\n"
@@ -86,7 +86,7 @@ def test_wheel_contains_data_and_sign_up_works_from_it(tmp_path):
     env = {k: v for k, v in os.environ.items()
            if not k.startswith(("JOB_", "WORKER_", "AUTH_", "SP_", "PASSWORD_", "CORS_", "DATABASE_"))}
     env["PYTHONPATH"] = str(site)
-    p = subprocess.run([sys.executable, "-c", script, str(site), str(tmp_path / "w.db")],
+    p = subprocess.run([sys.executable, "-c", script, str(site), db_url],
                        cwd=tmp_path, env=env, capture_output=True, text=True, timeout=180)
     assert p.returncode == 0, (p.stdout, p.stderr[-2000:])
 

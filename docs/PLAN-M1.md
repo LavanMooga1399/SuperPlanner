@@ -1,5 +1,9 @@
 # SuperPlanner M1 - Delivery Plan ("describe the plant and the product")
 
+> **Historical note (PostgreSQL-only release):** "file-DB" below refers to the embedded file database of earlier
+> releases. It was removed; SuperPlanner now runs on PostgreSQL only (see `docs/DEPLOY.md`, Changelog, and
+> `docs/ARCHITECTURE.md` section 25). Statements about file-DB behaviour describe the past.
+
 Owner: team lead (LEAD). Contract: `docs/M1-DESIGN.md` (cited "M n", including its "Review notes" R1-R12), then
 `docs/PHASE2B.md` ("B n") and `docs/ARCHITECTURE.md` ("A n") for everything M does not change. Product direction:
 `docs/MANUFACTURING-GAP-ANALYSIS.md` (phase M1, acceptance gate 1 "master data valid"). If this plan and M disagree on
@@ -9,7 +13,7 @@ LEAD owns M 0-16, the review notes and this file.
 
 Hard rules for everyone:
 - No `git commit`, no `git push`.
-- **SQLite + one process + `AUTH_MODE=single_user` stays the zero-setup default** and must work on Windows with only
+- **file-DB + one process + `AUTH_MODE=single_user` stays the zero-setup default** and must work on Windows with only
   Python and Node. The Manufacturing area works there with no extra setup.
 - Existing features keep working. An existing test may change only as listed in M 14.2; any other change is
   recorded in M 14.2 by LEAD *before* the test is edited. No existing assertion changes.
@@ -81,19 +85,19 @@ Paths relative to the repo root; `sp/` = `backend/superplanner/`.
 
 ## 1. Regression gate (each package runs G1-G3 before handing in a milestone; D runs all at the end; LEAD checks)
 
-Baseline (2026-10-25, given): **2005** backend tests pass on SQLite, **2044** on PostgreSQL, **65** Playwright
+Baseline (2026-10-25, given): **2005** backend tests pass on file-DB, **2044** on PostgreSQL, **65** Playwright
 tests (single_user) and **7** (accounts), all green.
 
 | # | Gate | Command / check |
 |---|------|-----------------|
-| G1 | Full backend suite on SQLite, inline, single_user: the 2005 existing tests pass, total = 2005 + new, 0 failures, skips only with a stated reason | `cd backend && .venv/bin/pytest` |
+| G1 | Full backend suite on file-DB, inline, single_user: the 2005 existing tests pass, total = 2005 + new, 0 failures, skips only with a stated reason | `cd backend && .venv/bin/pytest` |
 | G2 | Full backend suite on PostgreSQL (queue + embedded workers): the 2044 existing tests pass, 0 failures | `cd backend && SP_TEST_DB=postgres SP_TEST_PG_URL=postgresql+psycopg://sp_test:sp_test@127.0.0.1:54329/postgres .venv/bin/pytest` |
 | G3 | No existing assertion changed: `git diff -U0 backend/tests frontend/e2e` touches only the files/lines of M 14.2 (plus new files) | LEAD reads the diff |
 | G4 | Playwright single_user: the 65 existing tests pass unchanged, plus the new `mfg-*.spec.ts` | `cd frontend && npm run e2e` |
 | G5 | Playwright accounts: the 7 existing tests pass, plus `accounts/mfg-*.spec.ts` | `cd frontend && npm run e2e:accounts` |
 | G6 | `npm run build` (incl. `tsc --noEmit`, which also type-checks `src/mfg/api/contractExamples.ts`) clean; `npm audit` reports no high/moderate; `git diff frontend/package.json frontend/package-lock.json` empty | `cd frontend && npm run build && npm audit` |
 | G7 | Zero-setup: fresh checkout flow of DEPLOY.md section 1 (no `DATABASE_URL`, no Postgres): API starts, `/mfg` works without login, sample `small` loads | D scripted check |
-| G8 | Migration safety: an existing 0002 SQLite file with problems, schedules and finance data upgrades on first start to `0003_mfg` with a `.bak-0002-*` backup (sqlite3 backup API) and unchanged row counts; `python -m superplanner.migrate check --url <pg>` exits 0 after `upgrade`; `downgrade 0002_phase2b` removes exactly the 18 `mfg_*` tables on both dialects | `backend/tests/mfg_db/test_mfg_migration.py` (A) + acceptance 15.3 #7 (D) |
+| G8 | Migration safety: an existing 0002 file-DB database with problems, schedules and finance data upgrades on first start to `0003_mfg` with a `.bak-0002-*` backup (online backup API) and unchanged row counts; `python -m superplanner.migrate check --url <pg>` exits 0 after `upgrade`; `downgrade 0002_phase2b` removes exactly the 18 `mfg_*` tables on both dialects | `backend/tests/mfg_db/test_mfg_migration.py` (A) + acceptance 15.3 #7 (D) |
 | G9 | Pins: `pip install -r backend/requirements.txt` into a fresh venv succeeds, `pip check` clean, the three new packages are pure-Python wheels (`py3-none-any`) | D records the output |
 
 ## 2. WP-A - Domain, DB, repository, samples (backend-developer A, first)
@@ -122,7 +126,7 @@ Acceptance (tests in `backend/tests/mfg_db/` unless stated):
   `compare_metadata` diffs).
 - A1-2 `test_mfg_db_names.py`: all mfg constraint/index names <= 63 characters; each `mfg_*` table has an index led
   by `owner_id`; each FK column leads an index (M 6.2 index rules).
-- A1-3 `test_mfg_migration.py`: upgrade 0002 -> 0003 of a SQLite file with 2b data keeps all row counts and writes a
+- A1-3 `test_mfg_migration.py`: upgrade 0002 -> 0003 of a file-DB database with 2b data keeps all row counts and writes a
   backup; `downgrade 0002_phase2b` drops exactly the 18 mfg tables and keeps everything else; both dialects.
 - A1-4 `lock_plant`: on Postgres two threads doing the first write of one owner concurrently both commit, exactly one
   plant row exists, `data_version` = 2; `plant_or_default` on a fresh owner inserts nothing.

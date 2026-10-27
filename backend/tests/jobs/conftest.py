@@ -1,4 +1,4 @@
-"""Q2 job-queue tests (PHASE2B 2; plan Q2-1..Q2-15). Most are PostgreSQL-only (`postgres_only`)."""
+"""Q2 job-queue tests (PHASE2B 2; plan Q2-1..Q2-15)."""
 
 from __future__ import annotations
 

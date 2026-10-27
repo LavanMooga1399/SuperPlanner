@@ -3,7 +3,8 @@
 - `GET /health`: unchanged body and 503 rule (the frontend and `test_api_health` rely on it).
 - `GET /health/live`: 200 `{"status":"ok"}`, no database access (process liveness).
 - `GET /health/ready`: 200 `{"status":"ready", ...}` or 503 `{"status":"not_ready", ...}` when the database ping
-  fails (`"database":"error"`) or the schema is not at head (`"schema":"outdated"`). Missing workers do not make
+  fails (`"database":"error"`) or the schema is not at `migrate.HEAD` (`"schema":"outdated"`; the body names
+  `schema_revision` found and `schema_head` required). Missing workers do not make
   the API unready (shown in `workers_alive`). Schema state is cached 30 s per app. Public in every auth mode and
   runs in `system_scope()` (it counts rows of the owned `jobs` table inside a request without a user, review R9).
 """
@@ -71,6 +72,7 @@ def readiness(ctx: AppContext, state: Any) -> dict[str, Any]:
     from ..db.ownership import system_scope
 
     body: dict[str, Any] = {"status": "ready", "database": "ok", "schema": "ok", "schema_revision": None,
+                            "schema_head": migrate.HEAD,
                             "job_backend": ctx.settings.job_backend, "workers_alive": 0,
                             "queue": {"queued": 0, "running": 0}}
     started = True

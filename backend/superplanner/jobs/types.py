@@ -64,15 +64,13 @@ class RuntimeContext(Protocol):
 
 
 def db_now(s: Session) -> datetime:
-    """Database clock on PostgreSQL (lease times never use the worker's clock); UTC wall clock on SQLite."""
-    bind = s.get_bind()
-    if bind.dialect.name == "postgresql":
-        from sqlalchemy import func
+    """Database clock (lease times never use the worker's clock)."""
+    from sqlalchemy import func
 
-        value = s.scalar(select(func.now()))
-        if value is not None:
-            return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    return datetime.now(timezone.utc)
+    value = s.scalar(select(func.now()))
+    if value is not None:
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc)   # pragma: no cover - now() is never NULL
 
 
 def backoff_seconds(attempts: int, base: float, maximum: float, rng: Callable[[float, float], float] | None = None

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import sys
-import uuid
 import warnings
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -19,24 +18,9 @@ warnings.filterwarnings("ignore", message=".*httpx2.*")
 
 
 @pytest.fixture
-def empty_db_factory(request: pytest.FixtureRequest, db_kind: str, tmp_path: Path) -> Iterator[Callable[[], str]]:
-    """Truly empty databases (no schema at all): a new SQLite file or `CREATE DATABASE` without our template."""
-    created: list[str] = []
-
-    def new() -> str:
-        if db_kind == "sqlite":
-            return f"sqlite:///{tmp_path / f'empty_{uuid.uuid4().hex[:6]}.db'}"
-        admin = request.getfixturevalue("pg_admin")
-        name = f"sp_e_{uuid.uuid4().hex[:8]}"
-        admin.execute(f'CREATE DATABASE "{name}"')
-        created.append(name)
-        return admin.url_for(name)
-
-    yield new
-    if created:
-        admin = request.getfixturevalue("pg_admin")
-        for n in created:
-            admin.drop(n)
+def empty_db_factory(empty_pg_db: Callable[[], str]) -> Callable[[], str]:
+    """Truly empty databases (no schema at all): `CREATE DATABASE` without our template."""
+    return empty_pg_db
 
 
 @pytest.fixture
