@@ -9,6 +9,7 @@ import { listItems } from "../api/client";
 import type { ItemQuery, ItemRecord, ItemSort, MakeBuy } from "../api/types";
 import { MfgError } from "../components/Feedback";
 import { NewItemDialog } from "../components/NewItemDialog";
+import { PermissionGate } from "../components/PermissionGate";
 import { ActiveBadge, MakeBuyBadge } from "../components/StatusChip";
 import { VirtualTable, type Column } from "../components/VirtualTable";
 import { mfgPaths } from "../lib/paths";
@@ -154,9 +155,11 @@ export function ItemsPage() {
           <h1>Items</h1>
           <p>Every part you make or buy: assemblies, boards, components, materials.</p>
         </div>
-        <button type="button" className="btn primary" onClick={() => setCreating(true)} data-testid="item-new">
-          <Icon name="plus" /> New item
-        </button>
+        <PermissionGate perm="master_edit">
+          <button type="button" className="btn primary" onClick={() => setCreating(true)} data-testid="item-new">
+            <Icon name="plus" /> New item
+          </button>
+        </PermissionGate>
       </div>
 
       <div className="toolbar mfg-filters" role="search">

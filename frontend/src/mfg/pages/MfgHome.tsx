@@ -5,7 +5,9 @@ import { Banner } from "../../components/Banner";
 import { Dialog } from "../../components/Dialog";
 import { Icon } from "../../components/Icon";
 import { getHealthReport, getSummary, resetMfg } from "../api/client";
-import { RESET_PHRASE, type SampleLoadResponse, type SummaryCounts } from "../api/types";
+import { RESET_PHRASE, type SampleLoadResponse, type Summary, type SummaryCounts } from "../api/types";
+import type { SummaryLatestRun, SummaryM2Counts } from "../api/typesM2";
+import { PermissionGate } from "../components/PermissionGate";
 import { ExportButtons } from "../components/ExportButtons";
 import { MfgError } from "../components/Feedback";
 import { SampleLoader } from "../components/SampleLoader";
@@ -126,6 +128,48 @@ function ResetDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) {
   );
 }
 
+/** M2 12.3: additive `/summary` counts and the latest live run. Shown only when the server provides them. */
+function PlanningCard({ summary }: { summary: Summary }) {
+  const x = summary as Summary & { counts: SummaryM2Counts; latest_run?: SummaryLatestRun | null };
+  const c = x.counts;
+  if (c.open_demand_lines === undefined) return null;
+  const run = x.latest_run ?? null;
+  const tiles: { label: string; value: number; to: string; bad?: boolean; testId: string }[] = [
+    { label: "Open demand lines", value: c.open_demand_lines ?? 0, to: mfgPaths.demand(), testId: "mfg-count-open-demand" },
+    { label: "Open work orders", value: c.open_work_orders ?? 0, to: mfgPaths.workOrders(), testId: "mfg-count-open-wo" },
+    { label: "Open purchase orders", value: c.open_purchase_orders ?? 0, to: mfgPaths.purchaseDocs("po"), testId: "mfg-count-open-po" },
+    { label: "Open purchase requests", value: c.open_purchase_requests ?? 0, to: mfgPaths.purchaseDocs("pr"), testId: "mfg-count-open-pr" },
+    { label: "Overdue deliveries", value: c.overdue_schedules ?? 0, to: mfgPaths.deliveryBoard({ overdue: "1" }), bad: (c.overdue_schedules ?? 0) > 0, testId: "mfg-count-overdue" },
+  ];
+  return (
+    <section className="card" data-testid="mfg-planning-card">
+      <div className="card-header">
+        <h2>Planning & stores</h2>
+        {run ? (
+          <Link to={mfgPaths.run(run.id)} className="btn sm">
+            MRP run #{run.run_no}: {run.demand_late ? `${run.demand_late} late` : "all on time"}
+            {run.stale ? " (out of date)" : ""} <Icon name="arrow-right" />
+          </Link>
+        ) : (
+          <Link to={mfgPaths.mrp()} className="btn sm">
+            Run MRP <Icon name="arrow-right" />
+          </Link>
+        )}
+      </div>
+      <div className="card-body kpis">
+        {tiles.map((t) => (
+          <Link key={t.label} to={t.to} className="card kpi mfg-kpi" data-testid={t.testId}>
+            <div className="kpi-label">{t.label}</div>
+            <div className="kpi-value" style={t.bad ? { color: "var(--danger)" } : undefined}>
+              {t.value.toLocaleString()}
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function MfgHome() {
   const [tick, setTick] = useState(0);
   const summary = useLoad((signal) => getSummary(signal), [tick]);
@@ -140,7 +184,7 @@ export function MfgHome() {
       <div className="page-header mfg-header">
         <div>
           <h1>Manufacturing</h1>
-          <p>Describe your plant and your products: items, bills of materials, routings, stages, shifts and people.</p>
+          <p>Describe your plant and your products, then plan materials: demand, stock, purchasing, MRP and work orders.</p>
         </div>
         <div className="row wrap">
           <Link className="btn" to={mfgPaths.importStart()}>
@@ -196,6 +240,8 @@ export function MfgHome() {
         </div>
       ) : null}
 
+      {summary.data ? <PlanningCard summary={summary.data} /> : null}
+
       <div className="grid-2">
         <HealthCard tick={tick} />
         <div className="card">
@@ -227,14 +273,17 @@ export function MfgHome() {
         </div>
       </div>
 
-      <SampleLoader
-        onLoaded={(res) => {
-          setLoaded(res);
-          setResetDone(false);
-          setTick((t) => t + 1);
-        }}
-      />
+      <PermissionGate perm="owner">
+        <SampleLoader
+          onLoaded={(res) => {
+            setLoaded(res);
+            setResetDone(false);
+            setTick((t) => t + 1);
+          }}
+        />
+      </PermissionGate>
 
+      <PermissionGate perm="owner">
       <details className="card mfg-danger-zone">
         <summary className="card-header">
           <span className="row">
@@ -250,6 +299,7 @@ export function MfgHome() {
           </button>
         </div>
       </details>
+      </PermissionGate>
       {resetOpen ? (
         <ResetDialog
           onClose={() => setResetOpen(false)}

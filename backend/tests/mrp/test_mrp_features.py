@@ -244,3 +244,15 @@ def test_inspection_stock_available_after_receiving_days():
     assert sup.kind == "inspection" and sup.avail_date == D("11-04")
     assert peg_view(r, ds, "B") == [[("inspection", 6, 0)]]
     assert not codes(r, "MRP_SHORTAGE")
+
+
+def test_inactive_location_stock_not_nettable():
+    """C9 (22.WP-D): stock in an inactive location is not nettable (as kitting)."""
+    ds = Plant().item("B", "buy", lead_time_days=5).dataset()
+    s = Snap(ds)
+    s.stock("B", 50, loc="OLD", location_active=False)
+    s.stock("B", 4)
+    s.dem("B", 10, D("11-20"))
+    r = s.run()
+    assert peg_view(r, ds, "B") == [[("stock", 4, 0), ("planned", 6, 0)]]
+    assert [x.qty for x in plan(r, ds, "B").supplies if x.kind == "stock"] == [4]

@@ -1877,6 +1877,30 @@ helpers `mrp_helpers.py`, `mrp_kavach_helpers.py`.
   "no supplier" on both sides as the same supplier.
 - I10 Phantoms are expanded inside `order_components` (structure cached per resolved BOM/routing/phantom BOMs). A
   phantom without an effective BOM stays a component (warning `WO_NO_EFFECTIVE_BOM`) so P7 still holds.
+- After the architect's C1-C18 (22.WP-D): C9 implemented (balances with `location_active == false` are skipped);
+  C10 aligned (the LLC window adds only purchase lead times: buy items, item-suppliers, suppliers, overrides of buy
+  items, + 1 day). C1-C8, C11-C15 already matched; no other change.
+
+**E0 fixture:** `backend/superplanner/mfg/mrp/fixtures/example_result.json` (canonical JSON of a small run: make +
+buy, staggered PO, late demands with limiting paths, alternates pass, ECO split, 9 exception codes), kept current
+by `tests/mrp/test_mrp_fixture.py` (`MRP_WRITE_FIXTURE=1` regenerates).
+
+**Tests** (`cd backend && .venv/bin/pytest tests/mrp -q`, 72 passed): T-M1..T-M13 (`test_mrp_vectors.py`), all 21
+exception codes positive (+ negatives), preflight, what-if inputs, lot rules and rounding chain, phantoms,
+directives, views, JSON round trip (`test_mrp_exceptions.py`, `test_mrp_features.py`); T-M14 determinism
+(in-process and two subprocesses with `PYTHONHASHSEED` 1 / 4242) and T-M15 invariants on Kavach + 500 seeded random
+plants (`test_mrp_properties.py`); MP1-MP3 (`test_mrp_perf.py`, marked `slow`).
+
+**Performance** (pure `run_mrp`, alternates pass active, developer container, Python 3.13): MP1 kavach 0.33-0.41 s
+(< 1.5), MP2 kavach + 50 lines 3.8-4.0 s (< 5; 132k requirements, 39k planned orders), MP3 kavach x2 (4,960 BOM
+lines) + 100 lines 6.2 s standalone / 8.7 s inside the full `tests/mrp` run (< 10; 252k requirements, 58k planned
+orders). The cyclic GC is paused during a run (restored after), unit structures are cached per resolved documents.
+
+**Deferred / for WP-A, LEAD:** the Kavach scenario of the tests is synthesized in `tests/mrp/mrp_kavach_helpers.py`
+from the M1 generator following 13.3 (WP-A's `samples/*_m2.py` was not available yet); the sample pins of 13.1
+(`summary` counts, critical/warning `(code, subject)` set, late lines) are to be added against WP-A's samples once
+they land. With the synthetic stock every Kavach demand line is late (many long-lead parts without stock); the
+13.3 "intended outcomes" depend on A's pinned stock.
 
 ### 22.WP-B API, access, import/export
 

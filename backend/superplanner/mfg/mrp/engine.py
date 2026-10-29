@@ -114,15 +114,20 @@ class Ctx:
         self._cuts: dict[str, list[int]] = {}
         self.speed: dict[tuple[str, str], float] = {}
         # low-level codes
+        # C10: window end = horizon end + largest purchase lead time (buy items, item-suppliers, suppliers,
+        # overrides of buy items) + 1 day
         max_lead = 0
         for it in ds.items.values():
-            max_lead = max(max_lead, it.lead_time_days or 0)
+            if it.make_buy == "buy":
+                max_lead = max(max_lead, it.lead_time_days or 0)
         for r in (getattr(ds, "item_suppliers", None) or {}).values():
             max_lead = max(max_lead, r.lead_time_days or 0)
         for s in (getattr(ds, "suppliers", None) or {}).values():
             max_lead = max(max_lead, s.lead_time_days or 0)
         for o in params.lead_time_overrides:
-            max_lead = max(max_lead, o.lead_time_days)
+            it = ds.items.get(o.item_id)
+            if it is not None and it.make_buy == "buy":
+                max_lead = max(max_lead, o.lead_time_days)
         edges = bom_edges_in_window(ds, self.as_of, self.horizon_end + timedelta(days=max_lead + 1))
         wo_edges = [(w.id, w.item_id, c[1]) for w in sorted(snap.work_orders, key=lambda w: (w.number, w.id))
                     if w.status in WO_SUPPLY_STATUSES and w.item_id in ds.items
@@ -285,7 +290,8 @@ class Pass:
             res_by_bal.setdefault(r.balance_id, []).append(r)
         for b in sorted(snap.balances, key=lambda b: (b.item_id, b.location_id, b.lot_id or "", b.id)):
             item = items.get(b.item_id)
-            if item is None or b.qty_on_hand <= EPS or b.hold:
+            # C9: held lots and stock in inactive locations are not nettable (as kitting)
+            if item is None or b.qty_on_hand <= EPS or b.hold or not getattr(b, "location_active", True):
                 continue
             if b.kind in ("stores", "line_side"):
                 avail, kind = as_of, "stock"

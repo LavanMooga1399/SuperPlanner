@@ -85,14 +85,15 @@ class Snap:
 
     def stock(self, pn: str, qty: float, *, kind: str = "stores", loc: str = "STORES", lot: str | None = None,
               expires: date | None = None, hold: bool = False, last_receipt: date | None = None,
-              reserved: float = 0.0) -> str:
+              reserved: float = 0.0, location_active: bool = True) -> str:
         bid = eid("bal", pn, loc, lot, len(self.balances))
         lot_id = eid("lot", pn, lot) if lot else None
         if lot:
             self.lots[lot_id] = type("Lot", (), {"lot_code": lot, "expires_on": expires, "hold": hold})()
         self.balances.append(BalanceSnap(id=bid, item_id=self.iid(pn), location_id=eid("loc", loc), kind=kind,
                                          lot_id=lot_id, expires_on=expires, hold=hold, qty_on_hand=qty,
-                                         qty_reserved=reserved, last_receipt_on=last_receipt))
+                                         qty_reserved=reserved, last_receipt_on=last_receipt,
+                                         location_active=location_active))
         return bid
 
     def schedule(self, pn: str, qty: float, dock: date, *, doc_type: str = "po", number: str = "PO-1",

@@ -12,6 +12,7 @@ import type { ItemM2Fields, LotRuleM2 } from "../api/typesM2";
 import { ConflictBanner, MfgError, SaveState } from "../components/Feedback";
 import { CheckField, numOr, numOrNull, numText, SelectField, strOrNull, TextField } from "../components/Field";
 import { MAKE_BUY_OPTIONS, useUomOptions } from "../components/NewItemDialog";
+import { PermissionGate } from "../components/PermissionGate";
 import { fmtTimestamp } from "../lib/format";
 import { mfgPaths } from "../lib/paths";
 import { isConflict } from "../lib/useMfg";
@@ -363,17 +364,21 @@ export function ItemDetailsTab() {
       ) : null}
 
       <div className="row mfg-sticky-actions">
+        <PermissionGate perm="master_edit" mode="disable">
         <button type="submit" className="btn primary" disabled={busy || !dirty || !form.part_number.trim() || periodMissing} data-testid="item-save">
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save changes
         </button>
+        </PermissionGate>
         <button type="button" className="btn" disabled={!dirty || busy} onClick={() => setForm(toForm(base))}>
           Undo changes
         </button>
         <SaveState busy={false} saved={saved && !dirty} />
         <span className="grow" />
-        <button type="button" className="btn danger" onClick={() => setConfirmDelete(true)} data-testid="item-delete">
-          <Icon name="trash" /> Delete item
-        </button>
+        <PermissionGate perm="master_edit">
+          <button type="button" className="btn danger" onClick={() => setConfirmDelete(true)} data-testid="item-delete">
+            <Icon name="trash" /> Delete item
+          </button>
+        </PermissionGate>
       </div>
 
       {confirmDelete ? (
