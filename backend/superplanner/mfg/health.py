@@ -65,6 +65,18 @@ def entity_label(ds: MfgDataset, type_: str, id_: str | None) -> str:
             op = next(o for o in r.operations if o.id == id_)
             return f"{_pn(ds, r.item_id)} {doc_label(r)} op {op.seq}"
         return id_ or ""
+    if type_ == "item_supplier":
+        r = ds.item_suppliers.get(id_ or "")
+        if r is None:
+            return id_ or ""
+        sp = ds.suppliers.get(r.supplier_id)
+        return f"{_pn(ds, r.item_id)} / {sp.code if sp else '?'}"
+    if type_ == "location":
+        x = ds.locations.get(id_ or "")
+        return x.code if x else (id_ or "")
+    if type_ == "supplier":
+        x = ds.suppliers.get(id_ or "")
+        return x.code if x else (id_ or "")
     if type_ == "shift_assignment":
         a = ds.shift_assignments[id_ or ""]
         t = ds.shift_templates.get(a.shift_template_id)
@@ -103,6 +115,9 @@ def entity_link(ds: MfgDataset, type_: str, id_: str | None) -> str | None:
         return f"/mfg/items/{b.item_id}/bom?bom={b.id}&line={id_}"
     if type_ == "routing":
         return f"/mfg/items/{ds.routings[id_].item_id}/routing?routing={id_}"
+    if type_ == "item_supplier":
+        r = ds.item_suppliers.get(id_)
+        return f"/mfg/purchasing/suppliers/{r.supplier_id}?item_supplier={id_}" if r else None
     if type_ == "operation":
         r = ds.operation_routing.get(id_)
         if r is None:
@@ -242,6 +257,7 @@ def run_health_check(ds: MfgDataset, as_of: date, horizon_days: int) -> HealthRe
     _routing_warnings(c)
     _unknown_shift_names(c)
     _serial_ranges(c)
+    _m2_master(c, in_use)
 
     issues = sort_issues(c.issues)
     counts = HealthCounts.model_construct(error=0, warning=0, info=0)
@@ -704,6 +720,34 @@ def _serial_ranges(c: _Check) -> None:
             continue
         c.add("MFG_SERIAL_NOT_ALLOWED", "item", it.id, field="serial_from", related=[eref(ds, typ, d.id)],
               link=entity_link(ds, typ, d.id), pn=it.part_number, what=what, doc=doc_label(d))
+
+
+def _m2_master(c: _Check, in_use: set[str]) -> None:
+    """M2-DESIGN 3.11 #44-47. #44 and #46 apply once the plant uses M2 master data (any supplier / any location
+    exists), so M1-only datasets keep their exact issue sets (22.WP-A)."""
+    from .units import is_count
+
+    ds = c.ds
+    if ds.suppliers:
+        with_supplier = {r.item_id for r in ds.item_suppliers.values()
+                         if r.active and getattr(ds.suppliers.get(r.supplier_id), "active", False)}
+        for item_id in sorted(in_use, key=lambda i: _pn(ds, i)):
+            it = ds.items.get(item_id)
+            if it is not None and it.active and it.make_buy == "buy" and item_id not in with_supplier:
+                c.add("MFG_BUY_NO_SUPPLIER", "item", item_id, pn=it.part_number, desc=it.description)
+    for r in sorted(ds.item_suppliers.values(), key=lambda r: r.id):
+        it = ds.items.get(r.item_id)
+        sp = ds.suppliers.get(r.supplier_id)
+        if it is None or sp is None:
+            continue
+        if r.preferred and not sp.active:
+            c.add("MFG_PREFERRED_SUPPLIER_INACTIVE", "item_supplier", r.id, field="preferred", pn=it.part_number,
+                  sup=sp.code)
+        if is_count(it.uom) and abs(r.units_per_purchase_unit - round(r.units_per_purchase_unit)) > 1e-9:
+            c.add("MFG_PACK_FRACTIONAL", "item_supplier", r.id, field="units_per_purchase_unit", pn=it.part_number,
+                  uom=it.uom, sup=sp.code, pack=r.units_per_purchase_unit, unit=r.purchase_unit or "pack")
+    if ds.locations and not any(x.active and x.kind in ("stores", "line_side") for x in ds.locations.values()):
+        c.add("MFG_NO_NETTABLE_LOCATION", "plant", None, field="kind")
 
 
 __all__ = ["doc_label", "entity_label", "entity_link", "is_effective", "date_window_contains", "make_issue",

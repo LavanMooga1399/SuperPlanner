@@ -73,6 +73,7 @@ class UnitStructure:
     routing_id: str | None
     groups: tuple[_Group, ...]
     warnings: tuple[dict[str, Any], ...] = ()
+    phantoms: tuple[tuple[str, str | None], ...] = ()     # (phantom item, its effective BOM id) used in the walk
 
 
 def _conv(x: float, ln: BomLineRecord, child_uom: str) -> float:
@@ -93,6 +94,7 @@ def unit_structure(ds: MfgDataset, item_id: str, on: date, serial: int | None) -
     ops = sorted(routing.operations, key=lambda o: o.seq) if routing is not None else []
     groups: list[_Group] = []
     warnings: list[dict[str, Any]] = []
+    phantoms: list[tuple[str, str | None]] = []
 
     def pos(ln: BomLineRecord, base: float, y_ops: list[Any], op_seq: int | None) -> _Pos:
         child = ds.items[ln.child_item_id]
@@ -107,6 +109,7 @@ def unit_structure(ds: MfgDataset, item_id: str, on: date, serial: int | None) -
             child = ds.items[p.item_id]
             if child.make_buy == "phantom" and not alts and depth < MAX_BOM_DEPTH and child.id not in stack:
                 pb = effective_bom(ds, child.id, on, serial)
+                phantoms.append((child.id, pb.id if pb is not None else None))
                 if pb is not None:
                     walk(pb.lines, p.factor, [], f"{prefix}{child.id}>", p.operation_seq, depth + 1,
                          stack + (child.id,))
@@ -117,19 +120,37 @@ def unit_structure(ds: MfgDataset, item_id: str, on: date, serial: int | None) -
             groups.append(_Group(p, tuple((a.alt_priority, pos(a, base, y_ops, op_seq)) for a in alts), key))
 
     walk(bom.lines, 1.0, ops, "", None, 0, (item_id,))
-    return UnitStructure(bom.id, routing.id if routing else None, tuple(groups), tuple(warnings))
+    return UnitStructure(bom.id, routing.id if routing else None, tuple(groups), tuple(warnings), tuple(phantoms))
 
 
 class StructureCache:
+    """Unit structures keyed by the documents they were built from: `(item, effective BOM, primary routing)` and,
+    on a hit, the same effective BOM for every phantom expanded in the walk. Orders of many serial segments / dates
+    that select the same documents share one structure."""
+
     def __init__(self, ds: MfgDataset):
         self.ds = ds
         self._memo: dict[tuple[str, date, int | None], UnitStructure] = {}
+        self._by_docs: dict[tuple[str, str | None, str | None], list[UnitStructure]] = {}
 
     def get(self, item_id: str, on: date, serial: int | None) -> UnitStructure:
         k = (item_id, on, serial)
         s = self._memo.get(k)
+        if s is not None:
+            return s
+        ds = self.ds
+        bom = effective_bom(ds, item_id, on, serial)
+        routing = primary_routing(ds, item_id, on, serial) if ds.items[item_id].make_buy == "make" else None
+        dk = (item_id, bom.id if bom else None, routing.id if routing else None)
+        for cand in self._by_docs.get(dk, ()):
+            if all((lambda b: (b.id if b else None))(effective_bom(ds, ph, on, serial)) == bid
+                   for ph, bid in cand.phantoms) and not cand.warnings:
+                s = cand
+                break
         if s is None:
-            s = self._memo[k] = unit_structure(self.ds, item_id, on, serial)
+            s = unit_structure(ds, item_id, on, serial)
+            self._by_docs.setdefault(dk, []).append(s)
+        self._memo[k] = s
         return s
 
 

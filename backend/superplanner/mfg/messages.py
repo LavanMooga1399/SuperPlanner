@@ -1,5 +1,5 @@
 """Health-check codes (M1-DESIGN 7.2): severity, plain-language message templates and fixes. Codes are stable;
-wording may improve. 43 health codes (the 40 of 7.2 plus `MFG_ASSIGNMENT_UNKNOWN_SHIFT`, `MFG_OPERATOR_UNKNOWN_SHIFT`
+wording may improve. 47 health codes (M2 adds 44-47) (the 40 of 7.2 plus `MFG_ASSIGNMENT_UNKNOWN_SHIFT`, `MFG_OPERATOR_UNKNOWN_SHIFT`
 and `MFG_SERIAL_NOT_ALLOWED`, added by the M1 fix round); the release-only code `MFG_BOM_EMPTY` is listed last."""
 
 from __future__ import annotations
@@ -113,6 +113,15 @@ CODES: tuple[CodeInfo, ...] = (
     _C("MFG_LONG_LEAD_TIME", "info", "item", "Buy item {pn} \"{desc}\" has a lead time of {days} days.",
        "Long-lead part: order early (M2 will flag it)."),
     _C("MFG_DRAFT_ONLY", "info", "item", "Item {pn} has only draft {what}.", "Release when ready."),
+    # M2-DESIGN 3.11 (44-47)
+    _C("MFG_BUY_NO_SUPPLIER", "info", "item", "Buy item {pn} \"{desc}\" has no active supplier, so MRP uses the item "
+       "lead time and plans purchase requests without a supplier.", "Add a supplier for this part."),
+    _C("MFG_PREFERRED_SUPPLIER_INACTIVE", "warning", "item_supplier", "The preferred supplier {sup} of {pn} is "
+       "inactive.", "Choose another preferred supplier or activate this one."),
+    _C("MFG_NO_NETTABLE_LOCATION", "warning", "plant", "No active stores or line-side location exists, so no stock "
+       "can be planned or kitted.", "Add a stores location."),
+    _C("MFG_PACK_FRACTIONAL", "warning", "item_supplier", "{pn} is counted in {uom} but supplier {sup} packs "
+       "{pack} units per {unit}.", "Use a whole number of units per pack."),
     # release-only codes (4.2)
     _C("MFG_BOM_EMPTY", "error", "bom", "BOM {doc} of {pn} has no lines.", "Add lines before releasing."),
 )

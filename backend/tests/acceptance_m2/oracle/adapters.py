@@ -82,6 +82,9 @@ def _fields(cls: Any) -> tuple[set[str], set[str]]:
         return {f.name for f in fs}, req
     if hasattr(cls, "model_fields"):
         return set(cls.model_fields), {n for n, f in cls.model_fields.items() if f.is_required()}
+    if isinstance(cls, type) and issubclass(cls, tuple) and hasattr(cls, "_fields"):     # NamedTuple
+        defaults = getattr(cls, "_field_defaults", {})
+        return set(cls._fields), {n for n in cls._fields if n not in defaults}
     raise ContractMismatch(f"{cls} is neither a dataclass nor a pydantic model")
 
 
@@ -92,7 +95,7 @@ def build(cls: Any, *, validate: bool = False, **kw: Any) -> Any:
         raise ContractMismatch(f"{cls.__name__} requires fields {missing} that M2-DESIGN does not define "
                                f"(known: {sorted(kw)})")
     data = {k: v for k, v in kw.items() if k in names}
-    if dataclasses.is_dataclass(cls):
+    if dataclasses.is_dataclass(cls) or (isinstance(cls, type) and issubclass(cls, tuple)):
         return cls(**data)
     return cls.model_validate(data) if validate else cls.model_construct(**data)
 
@@ -246,7 +249,7 @@ def oplant_to_snapshot(p: OPlant) -> tuple[Any, Any]:
 
     wos = [build(WoSnap, id=w.id, number=w.number, status=w.status, item_id=w.item_id, open_qty=w.open_qty,
                  start_date=w.start_date, due_date=w.due_date, priority=w.priority, serial_from=w.serial_from,
-                 serial_to=w.serial_to, routing_id=w.routing_id, components=[comp(c) for c in w.components])
+                 serial_to=w.serial_to, routing_id=w.routing_id, components=tuple(comp(c) for c in w.components))
            for w in p.work_orders]
     snap = build(MrpSnapshot, as_of=p.params.as_of, dataset=ds, lots=lots, balances=balances,
                  reservations=reservations, schedules=schedules, demand=demand, work_orders=wos,
@@ -432,7 +435,7 @@ class Canon:
 
 def _planned_ids(rows: list[tuple[int, Any]]) -> dict[int, tuple[Any, ...]]:
     """planned_no -> canonical id (item, kind, segment, need, start, qty, ordinal)."""
-    base = sorted(rows, key=lambda r: (r[1], r[0]))
+    base = sorted(rows, key=lambda r: (repr(r[1]), r[0]))
     seen: Counter = Counter()
     out = {}
     for no, key in base:

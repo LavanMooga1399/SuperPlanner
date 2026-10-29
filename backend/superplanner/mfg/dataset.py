@@ -521,3 +521,78 @@ class TxnData:
     def is_empty(self) -> bool:
         return not (self.lots or self.balances or self.reservations or self.purchase_docs or self.demand_orders
                     or self.work_orders)
+
+
+def mrp_inputs(ds: MfgDataset, as_of: date) -> dict[str, Any]:
+    """The transactional parts of an `MrpSnapshot` (8.2) from `ds.txn`, sorted deterministically: `lots` (by id,
+    `LotRecord`), `balances` (qty_on_hand > EPS), `reservations`, open supply `schedules` (5.5), open `demand`
+    (lines of `open` orders, open qty > EPS), `work_orders` (`planned`/`released`/`in_progress`) and `holidays`.
+    `repo_m2.load_mrp_snapshot` builds the same values from the database."""
+    from .model_m2 import (EPS, BalanceSnap, DemandSnap, LotRecord, ReservationSnap, ScheduleSnap, WoComponentSnap,
+                           WoSnap)
+    from .purchasing import is_supply, schedule_open_qty
+    from .workorders import plant_holidays
+
+    t = ds.txn or TxnData()
+    stamp = datetime_epoch()
+    lots = {}
+    on_hand: dict[str, float] = {}
+    for b in t.balances.values():
+        if b.lot_id:
+            on_hand[b.lot_id] = on_hand.get(b.lot_id, 0.0) + b.qty_on_hand
+    for lot in sorted(t.lots.values(), key=lambda x: x.id):
+        it = ds.items.get(lot.item_id)
+        lots[lot.id] = LotRecord.model_construct(
+            id=lot.id, item=item_ref(it) if it else _missing_item(lot.item_id), item_id=lot.item_id,
+            lot_code=lot.lot_code, expires_on=lot.expires_on, received_on=lot.received_on,
+            supplier_lot=lot.supplier_lot, hold=lot.hold, note=lot.note, on_hand=round(on_hand.get(lot.id, 0.0), 6),
+            row_version=1, created_at=stamp, updated_at=stamp)
+    balances = []
+    for b in sorted(t.balances.values(), key=lambda x: (x.item_id, x.location_id, x.lot_key)):
+        if b.qty_on_hand <= EPS:
+            continue
+        loc = ds.locations.get(b.location_id)
+        lot = t.lots.get(b.lot_id or "")
+        balances.append(BalanceSnap(b.id, b.item_id, b.location_id, loc.kind if loc else "stores", b.lot_id,
+                                    lot.expires_on if lot else None, lot.hold if lot else False, b.qty_on_hand,
+                                    b.qty_reserved, b.last_receipt_on, loc.active if loc else True))
+    reservations = [ReservationSnap(r.wo_component_id, r.balance_id, r.qty)
+                    for r in sorted(t.reservations.values(), key=lambda r: (r.wo_component_id, r.balance_id))
+                    if r.qty > EPS]
+    schedules = []
+    for d in sorted(t.purchase_docs.values(), key=lambda d: (d.doc_type, d.number)):
+        for ln in sorted(d.lines, key=lambda x: x.line_no):
+            for sc in sorted(ln.schedules, key=lambda x: x.seq):
+                oq = schedule_open_qty(sc.qty, sc.received_qty, sc.closed)
+                if is_supply(d.doc_type, d.status, ln.status, oq, sc.closed):
+                    schedules.append(ScheduleSnap(d.doc_type, d.id, d.number, d.status, ln.id, ln.line_no, sc.id,
+                                                  sc.seq, ln.item_id, d.supplier_id, round(oq, 6),
+                                                  sc.requested_date, sc.confirmed_date))
+    demand = []
+    for o in sorted(t.demand_orders.values(), key=lambda o: o.number):
+        if o.status != "open":
+            continue
+        for ln in sorted(o.lines, key=lambda x: x.line_no):
+            oq = max(0.0, ln.qty - ln.shipped_qty)
+            if oq > EPS:
+                demand.append(DemandSnap(o.id, o.number, o.demand_type, o.customer, o.program, ln.id, ln.line_no,
+                                         ln.item_id, round(oq, 6), ln.due_date,
+                                         ln.priority if ln.priority is not None else o.priority, ln.serial_from,
+                                         ln.serial_to))
+    wos = []
+    for w in sorted(t.work_orders.values(), key=lambda w: w.number):
+        if w.status not in ("planned", "released", "in_progress"):
+            continue
+        comps = tuple(WoComponentSnap(c.id, c.item_id, round(max(0.0, c.required_qty - c.issued_qty), 6),
+                                      c.operation_seq) for c in sorted(w.components, key=lambda c: c.id))
+        wos.append(WoSnap(w.id, w.number, w.status, w.item_id, round(max(0.0, w.qty - w.qty_completed), 6),
+                          w.start_date, w.due_date, w.priority, w.serial_from, w.serial_to, w.routing_id, comps))
+    del as_of
+    return {"lots": lots, "balances": balances, "reservations": reservations, "schedules": schedules,
+            "demand": demand, "work_orders": wos, "holidays": plant_holidays(ds)}
+
+
+def datetime_epoch() -> Any:
+    from datetime import UTC, datetime
+
+    return datetime(2026, 1, 1, tzinfo=UTC)

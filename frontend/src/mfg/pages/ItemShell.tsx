@@ -38,10 +38,12 @@ export function ItemShell() {
   if (!it) return <Spinner label="Loading item…" />;
 
   const tabs = [
-    { to: mfgPaths.item(it.id), label: "Details", end: true, testId: "item-tab-details" },
+    { to: mfgPaths.item(it.id), label: "Details", end: true as boolean, testId: "item-tab-details" },
     { to: mfgPaths.itemBom(it.id), label: "BOM", testId: "item-tab-bom" },
     { to: mfgPaths.whereUsed(it.id), label: "Where used", testId: "item-tab-where-used" },
     { to: mfgPaths.routing(it.id), label: "Routing", testId: "item-tab-routing" },
+    { to: mfgPaths.itemStock(it.id), label: "Stock", testId: "item-tab-stock" },
+    ...(it.make_buy === "buy" ? [{ to: mfgPaths.itemSuppliers(it.id), label: "Suppliers", testId: "item-tab-suppliers" }] : []),
   ];
   const ctx: ItemContext = { item: it, setItem: (x) => item.setData(x), reloadItem: item.reload };
 

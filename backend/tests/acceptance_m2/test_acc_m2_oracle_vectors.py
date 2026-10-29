@@ -21,17 +21,16 @@ ORACLE_DIR = Path(__file__).resolve().parent / "oracle"
 def test_oracle_is_independent_of_the_product():
     """17.2/16.1: the oracle must not import `superplanner` (in particular never `superplanner.mfg.mrp`)."""
     for path in sorted(ORACLE_DIR.glob("*.py")):
-        if path.name == "adapters.py":       # the adapters translate product types; they never import mfg.mrp
-            src = path.read_text()
-            assert "superplanner.mfg.mrp" not in src.replace('"superplanner.mfg.mrp"', "").replace(
-                "'superplanner.mfg.mrp'", ""), path
-            continue
+        # the adapters translate product types (and call run_mrp by name); no other oracle file touches the product
+        banned = "superplanner.mfg.mrp" if path.name == "adapters.py" else "superplanner"
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                assert all(not a.name.startswith("superplanner") for a in node.names), (path, ast.unparse(node))
+                assert all(not a.name.startswith(banned) for a in node.names), (path, ast.unparse(node))
             if isinstance(node, ast.ImportFrom):
-                assert not (node.module or "").startswith("superplanner"), (path, ast.unparse(node))
+                assert not (node.module or "").startswith(banned), (path, ast.unparse(node))
+    core = (ORACLE_DIR / "core.py").read_text() + (ORACLE_DIR / "model.py").read_text()
+    assert "superplanner" not in core.replace("`superplanner`", "").replace("`superplanner.mfg.mrp`", "")
 
 
 def test_tm1_pegs_and_planned_pr():

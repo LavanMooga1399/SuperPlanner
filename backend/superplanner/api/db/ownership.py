@@ -66,8 +66,22 @@ def in_request() -> bool:
 
 
 def bind_owner(user_id: str) -> None:
-    """Bind a user for the rest of the current context (used by `require_user`; the var lives for the request)."""
+    """Bind a user for the rest of the current context (used by `require_user`; the var lives for the request).
+    Clears the actor binding (M2-DESIGN 10.1): the actor is re-bound by the mfg workspace dependency."""
     _owner.set(user_id)
+    _actor.set(None)
+
+
+_actor: ContextVar[str | None] = ContextVar("sp_actor", default=None)
+
+
+def bind_actor(user_id: str | None) -> None:
+    """M2-DESIGN 10.1: the real user acting in a (possibly foreign) workspace; audit `actor_id` uses it."""
+    _actor.set(user_id)
+
+
+def current_actor() -> str | None:
+    return _actor.get()
 
 
 @contextmanager

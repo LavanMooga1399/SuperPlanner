@@ -471,6 +471,10 @@ class Pass:
 
     @staticmethod
     def _use_surplus(orders: list[_Planned], r: Req, q: float, d: date) -> float:
+        """Surplus of earlier orders of the same segment, in creation order. Exhausted leading orders are dropped
+        from `orders` (surplus never grows), which keeps the scan linear."""
+        while orders and orders[0].sup.qty - orders[0].sup.pegged <= EPS:
+            orders.pop(0)
         for po in orders:
             if q <= EPS:
                 break
@@ -564,7 +568,8 @@ class Pass:
                 else:                                    # make: existing WO or planned make
                     if k == "wo":
                         w = s.wo
-                        mlt = c.mlt(iid, w.open_qty, max(w.start_date, as_of), w.serial_from, w.routing_id)
+                        mlt = s.mlt = c.mlt(iid, w.open_qty, max(w.start_date, as_of), w.serial_from,
+                                            w.routing_id)
                     else:
                         mlt = s.mlt
                     comp = None
@@ -653,8 +658,6 @@ def alternate_directives(p: Pass) -> tuple[dict[tuple[str, str], float], list[di
                 if free <= EPS or ratio <= 0:
                     continue
                 take = min(lq * ratio, free)
-                if items[a.item_id].uom and take < lq * ratio:
-                    pass
                 moved = take / ratio
                 key = g.alt_key if i == 0 else f"{g.alt_key}:{prio}"
                 out[(r.order_key, key)] = out.get((r.order_key, key), 0.0) + moved

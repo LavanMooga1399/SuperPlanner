@@ -25,7 +25,9 @@ from .model import (EPS, WEEKDAYS, OBom, OBomLine, ODemandProj, OException, OIte
 
 INTERPRETATIONS = {
     "I1": "8.4 'max lead time' in the LLC window = max item/item-supplier/supplier lead time days (calendar).",
-    "I2": "8.8 rank of a dependent requirement whose parent supply has no pegs (unpegged WO) = safety-stock rank.",
+    "I2": "8.8 rank of the components of an existing WO that no demand pegs = (1, wo.priority, wo.due_date, "
+          "wo.number, 0) (the engine's reading; 8.8 only defines the pegged case). Unpegged planned orders "
+          "cannot occur; they would get the safety-stock rank.",
     "I3": "8.6 residuals with segment None form their own group (never mixed with non-null segments).",
     "I4": "8.8 phase-2 applies the same expiry filter as phase 1 (expires_on > need_date).",
     "I5": "8.10 demand status: past_due (due < as_of) wins over late.",
@@ -36,6 +38,10 @@ INTERPRETATIONS = {
     "I9": "3.3 source resolution 'else' branch also requires an active supplier.",
     "I10": "8.3 WO component requirements carry the WO serial range as segment when the WO item is serialized.",
     "I11": "8.10 safety-stock requirements always have late_days 0 (never reported late).",
+    "I13": "8.8/8.9 a requirement dated before as_of is allocated as if needed at as_of (phase 1 avail <= "
+           "max(need, as_of); phase 2 above that; alternates' free supply likewise). Read literally, phase 1/2 "
+           "never give as_of stock to a past-dated need when protect_until == as_of (lead time 0), and 8.9 never "
+           "finds free alternate stock for an order starting in the past. late_days still count from need_date.",
     "I12": "8.6 ECO split of a count-UoM residual: cumulative proportional quantities rounded half up.",
 }
 
@@ -464,9 +470,10 @@ class Oracle:
             for a in g.alternates:
                 if late <= EPS:
                     break
+                need = max(req.need_date, self.as_of)        # I13
                 free = sum(s.remaining for s in pass1.sups[a.child_id]
-                           if s.kind != "planned" and s.remaining > EPS and s.avail_date <= req.need_date
-                           and (s.expires_on is None or s.expires_on > req.need_date)) - taken[a.child_id]
+                           if s.kind != "planned" and s.remaining > EPS and s.avail_date <= need
+                           and (s.expires_on is None or s.expires_on > need)) - taken[a.child_id]
                 if free <= EPS:
                     continue
                 take = min(self.to_alt(late, g.primary, a), free)
@@ -552,7 +559,12 @@ class _Pass:
             return SS_RANK
         parent = self._parent_supply(r)
         ranks = [self.reqs[pg.requirement_item_id][pg.requirement_node - 1].rank for pg in parent.pegs]
-        return min(ranks) if ranks else SS_RANK
+        if ranks:
+            return min(ranks)
+        if r.kind == "wo_component":       # I2: an unpegged WO ranks by its own priority / due date / number
+            w = o.wos[r.source[1]]
+            return (1, w.priority, w.due_date, w.number, 0)
+        return SS_RANK
 
     def _parent_supply(self, r: OReq) -> OSup:
         if r.kind == "wo_component":
@@ -703,9 +715,10 @@ class _Pass:
         residuals: list[tuple[OReq, float]] = []
         for r in sorted(R, key=order_key):
             rem = r.qty - r.pegged
+            need = max(r.need_date, o.as_of)          # I13: past-dated needs are served from as_of on
             if rem > EPS:
-                ph1 = sorted((s for s in S if s.remaining > EPS and s.avail_date <= r.need_date
-                              and (s.expires_on is None or s.expires_on > r.need_date)), key=sup_key)
+                ph1 = sorted((s for s in S if s.remaining > EPS and s.avail_date <= need
+                              and (s.expires_on is None or s.expires_on > need)), key=sup_key)
                 for s in ph1:
                     if rem <= EPS:
                         break
@@ -713,8 +726,8 @@ class _Pass:
                     self.peg(r, s, q)
                     rem -= q
             if rem > EPS:
-                ph2 = sorted((s for s in S if s.remaining > EPS and r.need_date < s.avail_date < pu
-                              and (s.expires_on is None or s.expires_on > r.need_date)), key=sup_key)
+                ph2 = sorted((s for s in S if s.remaining > EPS and need < s.avail_date < pu
+                              and (s.expires_on is None or s.expires_on > need)), key=sup_key)
                 for s in ph2:
                     if rem <= EPS:
                         break

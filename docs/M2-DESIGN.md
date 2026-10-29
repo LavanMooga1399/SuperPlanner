@@ -1789,6 +1789,70 @@ with LEAD).
 
 ### 22.WP-E MRP engine
 
+Package `backend/superplanner/mfg/mrp/` (model, leadtime, llc, explode, netting, lotsize, engine, forward,
+exceptions, views); imports only `superplanner.mfg` (asserted by `tests/mrp/test_mrp_properties.py::
+test_engine_layering`). Tests live in `backend/tests/mrp/` (product-owner instruction; 16.1 said `tests/mfg_mrp`),
+helpers `mrp_helpers.py`, `mrp_kavach_helpers.py`.
+
+**Contract additions (additive, minimal; B/C/D please note):**
+- E1 `MrpSnapshot` uses the snapshot rows of `mfg.model_m2` (`BalanceSnap` incl. `id`, `ReservationSnap`,
+  `ScheduleSnap`, `DemandSnap`, `WoSnap`/`WoComponentSnap`) as built by WP-A; `lots` is any mapping id -> object
+  with `lot_code` (labels only). The dataset is read with `getattr(ds, "locations"/"suppliers"/"item_suppliers",
+  {})` and plant settings with defaults, so M1-shaped datasets also run.
+- E2 `Supply.component_nodes` is `list[tuple[item_id, node]]` (8.2 said `list[int]`, which cannot address a node of
+  another item). `Supply` adds `start_date`, `due_date` (make supplies; planned buys: order date).
+- E3 `SourceRef(type, id, label, item_id, node, number, component_id)` is used for requirement sources and supply
+  refs (types listed in its docstring). Planned-order ids in results and exception subjects are `str(planned_no)`;
+  B maps them to the stored `mpo_` ids.
+- E4 `PlannedOrder` adds `part_number`, `llc`, `supply_node` and `directives: {alt_key: primary-equivalent qty}`;
+  conversion re-explodes with `order_components(ds, item, qty, on=max(start, as_of), serial=segment.serial_from,
+  directives={(order_key, k): v for k, v in po.directives.items()}, order_key=po.order_key)`, which reproduces the
+  alternate substitution of the run.
+- E5 Directive keys: `(order_key, alt_key)` moves to the group's first alternate (8.9 as written);
+  `(order_key, f"{alt_key}:{alt_priority}")` targets a later alternate (needed when the first alternate's free stock
+  is not enough). `alt_key` = `alt_group`, or `"<phantom item id>>" + alt_group` for a group inside a phantom.
+  `ComponentNeed` adds `alt_key`.
+- E6 `ItemPlan` adds `supplier_id`, `ItemStats` (all `mfg_mrp_item_results` numbers), `LeadTimeInfo.receiving_days`;
+  `MrpException` adds `part_number`; `DemandProjection` carries the order fields, `node`, `label`, `extra_index`;
+  `MrpSummary` adds `requirements` and `demand_outside_horizon`. `timings_ms` is **not** in the engine summary (it
+  would break byte-identical determinism); B adds load/compute/store timings when storing.
+- E7 `TimelineEvent.kind` adds `"expiry"` (unpegged remainder of a lot leaves the projected stock on its expiry
+  date).
+- E8 `preflight(snapshot, params) -> list[issue dict]` is public; `run_mrp` raises `MrpPreflightError(issues)` /
+  `MrpTooLarge(limit)`; Gate 1 stays with B. `item_plan_from_jsonable` rebuilds an `ItemPlan` from its JSON (for
+  `mrp_store` detail JSON and the views).
+
+**Interpretations:**
+- I1 Effective need date `max(need_date, as_of)` is used for the allocation phases (phase 1 `avail <= need'`,
+  expiry `expires_on > need'`, phase 2 `need' < avail < protect_until`), for "covered late" (MRP_SHORTAGE, item
+  `short_qty`, alternates trigger, MRP_EXPEDITE). Without it a requirement due in the past (WO started last week,
+  past-due demand) could not use stock on hand in phase 1 and, when `protect_until == as_of`, never at all.
+  `Requirement.late_days`/`Peg.late_days` stay literal (`projected - need_date`).
+- I2 Demand status: `past_due` if `due_date < as_of` (takes precedence), else `late` if `late_days > 0`, else
+  `on_time`; a past-due line raises MRP_DEMAND_PAST_DUE only (not also MRP_DEMAND_LATE).
+- I3 Rank of an existing WO's component requirement with no pegs on the WO: `(1, wo.priority, wo.due_date,
+  wo.number, 0)`. Rank of a dependent requirement = the minimum rank of the requirements pegged to its parent order
+  (ties: lowest node); planned orders formed only from safety stock pass the safety-stock rank down.
+- I4 Safety stock: residual planned at `protect_until`; its requirement and pegs never late; MRP_BELOW_SAFETY_STOCK
+  when the on-time existing coverage (`avail <= as_of`) is below the safety stock. Safety stock is a target level,
+  not a timeline event.
+- I5 Lot sizing: `lot_for_lot` is `period` with a 1-day window; each later residual first consumes surplus of
+  earlier orders of its segment group (creation order), then forms a new group. Residual grouping is by segment key
+  (None is its own group). Segment of a child requirement = parent order's segment only when the child is a
+  serialized make item. Serial boundaries for the split come from all released serial-specific BOMs/routings of the
+  item; count-UoM pieces use cumulative half-up rounding so the pieces sum to the residual.
+- I6 Make supply forward pass uses the MLT computed for the order's start (planned) or for the WO's open qty at
+  `max(start, as_of)` with the WO's `routing_id` (existing WOs).
+- I7 Limiting path ties: latest projected supply, then lowest supply node; latest component `satisfied_date`, then
+  larger late days, then part number. A planned buy whose order date is in the past stops with `start_in_past`.
+- I8 Extra demand is planned regardless of the horizon. Demand outside the horizon is counted after the
+  filters/exclusions.
+- I9 MRP_EXPEDITE / MRP_DEFER ignore safety-stock pegs for the expedite date (DEFER uses all pegs); MRP_REDUCE
+  rounds the pegged qty with the item's lot chain (MOQ -> multiple -> pack -> integer); MRP_MERGE_INTO_PR treats
+  "no supplier" on both sides as the same supplier.
+- I10 Phantoms are expanded inside `order_components` (structure cached per resolved BOM/routing/phantom BOMs). A
+  phantom without an effective BOM stays a component (warning `WO_NO_EFFECTIVE_BOM`) so P7 still holds.
+
 ### 22.WP-B API, access, import/export
 
 ### 22.WP-C UI

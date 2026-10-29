@@ -19,7 +19,7 @@ from superplanner.templates import TEMPLATES, get_template
 from ..context import AppContext
 from ..db import AuditEventRow, ProblemRow, ProblemVersionRow, ScheduleRow, SolverRunRow, new_id, utcnow
 from ..db.locks import get_locked
-from ..db.ownership import current_owner
+from ..db.ownership import current_actor, current_owner
 from ..errors import ApiError, not_found, validation_error
 from ..schemas import ExportFile, InstantiateRequest, iso_utc
 
@@ -30,7 +30,7 @@ MAX_LIST_ITEMS = 500
 # ---------------------------------------------------------------- helpers
 
 def audit(s: Session, entity_type: str, entity_id: str, action: str, details: dict[str, Any] | None = None) -> None:
-    owner = current_owner()
+    owner = current_actor() or current_owner()     # M2-DESIGN 10.3: the real user in a shared workspace
     s.add(AuditEventRow(entity_type=entity_type, entity_id=entity_id, action=action, details=details or {},
                         actor_id=owner if isinstance(owner, str) else None))
 
