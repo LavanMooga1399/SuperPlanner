@@ -447,8 +447,8 @@ def _planned_ids(rows: list[tuple[int, Any]]) -> dict[int, tuple[Any, ...]]:
 def oracle_canon(res: OResult, plant: OPlant) -> Canon:
     pn = {i: it.part_number for i, it in plant.items.items()}
     pids = _planned_ids([(p.planned_no, (pn[p.item_id], p.kind, p.segment, p.need_date, p.start_date,
-                                         round(p.qty, 6))) for p in res.planned])
-    planned = Counter((pn[p.item_id], p.kind, round(p.qty, 6), p.need_date, p.start_date, p.segment)
+                                         _q(p.qty))) for p in res.planned])
+    planned = Counter((pn[p.item_id], p.kind, _q(p.qty), p.need_date, p.start_date, p.segment)
                       for p in res.planned)
 
     def req_key(r: Any) -> tuple[Any, ...]:
@@ -502,6 +502,11 @@ def _r(d: dict) -> dict:
     return {k: round(v, 6) for k, v in d.items() if round(v, 6) != 0}
 
 
+def _q(x: float) -> float:
+    """Quantities in canonical keys: 5 decimals (both sides apply round(q, 6) to differently summed floats)."""
+    return round(x, 5)
+
+
 def engine_canon(result: Any, plant: OPlant) -> Canon:
     """Same shape from the engine's MrpResult (field names per 8.2; SourceRef per 12.4 requirement source)."""
     pn = {i: it.part_number for i, it in plant.items.items()}
@@ -511,9 +516,9 @@ def engine_canon(result: Any, plant: OPlant) -> Canon:
     pos = list(g(result, "planned_orders", default=[]))
     by_no = {g(p, "planned_no"): p for p in pos}
     pids = _planned_ids([(g(p, "planned_no"), (pn[g(p, "item_id")], g(p, "kind"), _seg(g(p, "segment")),
-                                               g(p, "need_date"), g(p, "start_date"), round(g(p, "qty"), 6)))
+                                               g(p, "need_date"), g(p, "start_date"), _q(g(p, "qty"))))
                          for p in pos])
-    planned = Counter((pn[g(p, "item_id")], g(p, "kind"), round(g(p, "qty"), 6), g(p, "need_date"),
+    planned = Counter((pn[g(p, "item_id")], g(p, "kind"), _q(g(p, "qty")), g(p, "need_date"),
                        g(p, "start_date"), _seg(g(p, "segment"))) for p in pos)
     plans = {g(ip, "item_id"): ip for ip in g(result, "items", default=[])}
     sup_index = {(iid, g(s, "node")): s for iid, ip in plans.items() for s in g(ip, "supplies", default=[])}

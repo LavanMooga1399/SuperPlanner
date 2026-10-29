@@ -142,7 +142,7 @@ def kavach_snap(*, factor: int = 1, extra_lines: int = 0, seed: int = 2611) -> S
     tpu = by["KV-TPU-1000"].id
     per = explode(BomIndex.from_dataset(ds, A), tpu, mode="summarized")
     qty_per = {r.item_id: r.total_qty for r in per.rows}
-    explicit = {"KV-IC-FPGA-V1", "KV-MOD-GSM", "KV-LCD-104", "KV-COAT-UR"}
+    explicit = {"KV-IC-FPGA-V1", "KV-MOD-GSM", "KV-LCD-104", "KV-COAT-UR", "KV-CAP-1210-22U-A", "KV-CAP-1210-22U-B"}
     reels: list[str] = []
     for it in sorted(ds.items.values(), key=lambda i: i.part_number):
         if it.make_buy != "buy" or it.part_number in explicit or it.id not in qty_per:
@@ -166,6 +166,7 @@ def kavach_snap(*, factor: int = 1, extra_lines: int = 0, seed: int = 2611) -> S
     con = next(pn for pn in sorted(by) if pn.startswith("KV-CON-DSUB"))
     s.stock(con, 50, kind="quarantine", loc="QUAR")
     s.stock("KV-HAR-L01", 6)
+    s.stock("KV-CAP-1210-22U-B", 400, loc="LS-SMT")      # DCC alternate group: primary A short, B in stock
     s.stock("KV-PCB-LED", 15)
     # purchase orders (staggered)
     s.schedule("KV-IC-FPGA-V1", 30, _a(20), number="PO-KV-0101")

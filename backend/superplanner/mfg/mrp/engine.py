@@ -8,6 +8,7 @@ pass 1 and, if any, the whole computation runs again with them (`iterations = 2`
 
 from __future__ import annotations
 
+import gc
 import math
 from collections.abc import Mapping
 from datetime import date, timedelta
@@ -103,6 +104,7 @@ class Ctx:
         self.structures = StructureCache(ds)
         self._src: dict[str, PurchaseSource] = {}
         self._lot: dict[str, LotParams] = {}
+        self._note: dict[str, str] = {}
         self._mlt: dict[tuple, tuple[int, str]] = {}
         self._protect: dict[str, date] = {}
         self._cuts: dict[str, list[int]] = {}
@@ -138,6 +140,12 @@ class Ctx:
         if lp is None:
             lp = self._lot[item.id] = lot_params(item, self.source(item) if item.make_buy == "buy" else None)
         return lp
+
+    def lot_note(self, item: ItemRecord) -> str:
+        n = self._note.get(item.id)
+        if n is None:
+            n = self._note[item.id] = lot_note(self.lot(item))
+        return n
 
     def mlt(self, item_id: str, qty: float, on: date, serial: int | None, routing_id: str | None = None) -> int:
         return self.mlt_src(item_id, qty, on, serial, routing_id)[0]
@@ -508,7 +516,7 @@ class Pass:
         sup = self.new_sup(item.id, "planned", qty, d, SourceRef("planned_order", str(no), label, number=f"P-{no}"))
         sup.planned_no, sup.start, sup.mlt = no, start, mlt
         sup.due = d if kind == "make" else None
-        po = _Planned(no, kind, item.id, qty, d, start, dock, sup, seg, order_key, supplier, lot_note(lp), mlt)
+        po = _Planned(no, kind, item.id, qty, d, start, dock, sup, seg, order_key, supplier, c.lot_note(item), mlt)
         po.directives = dict(self.dir_by_order.get(order_key, {}))
         sup.po = po
         self.planned.append(po)
@@ -737,19 +745,26 @@ def run_mrp(snapshot: MrpSnapshot, params: MrpParams | None = None) -> MrpResult
     """Pure and deterministic: same snapshot + params -> byte-identical canonical JSON of the result."""
     from .forward import build_result
 
-    params = params or MrpParams()
-    issues = preflight(snapshot, params)
-    if issues:
-        raise MrpPreflightError(issues)
-    ctx = Ctx(snapshot, params)
-    p1 = Pass(ctx).run()
-    final, iterations, records = p1, 1, []
-    if params.alternates == "when_short":
-        directives, records = alternate_directives(p1)
-        if directives:
-            final = Pass(ctx, directives).run()
-            iterations = 2
-    return build_result(ctx, final, iterations, records)
+    # the run allocates a large, acyclic-in-practice object graph: pausing the cyclic GC saves ~20 %
+    gc_was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        params = params or MrpParams()
+        issues = preflight(snapshot, params)
+        if issues:
+            raise MrpPreflightError(issues)
+        ctx = Ctx(snapshot, params)
+        p1 = Pass(ctx).run()
+        final, iterations, records = p1, 1, []
+        if params.alternates == "when_short":
+            directives, records = alternate_directives(p1)
+            if directives:
+                final = Pass(ctx, directives).run()
+                iterations = 2
+        return build_result(ctx, final, iterations, records)
+    finally:
+        if gc_was_enabled:
+            gc.enable()
 
 
 def make_snapshot(ds: MfgDataset, as_of: date, **kw: Any) -> MrpSnapshot:

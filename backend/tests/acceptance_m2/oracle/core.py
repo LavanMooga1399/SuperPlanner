@@ -42,6 +42,8 @@ INTERPRETATIONS = {
            "max(need, as_of); phase 2 above that; alternates' free supply likewise). Read literally, phase 1/2 "
            "never give as_of stock to a past-dated need when protect_until == as_of (lead time 0), and 8.9 never "
            "finds free alternate stock for an order starting in the past. late_days still count from need_date.",
+    "I14": "8.7/8.9 directives are in continuous primary-need units: the late qty is capped at the primary line's "
+           "unrounded need, alternate need = to_alt(moved) rounded per child, primary keeps ceil(need - moved).",
     "I12": "8.6 ECO split of a count-UoM residual: cumulative proportional quantities rounded half up.",
 }
 
@@ -350,7 +352,7 @@ class Oracle:
             rounded = ceil_eps(need_child) if is_count(child.uom) else need_child
             if ln.alt_group is not None and alts_by_group.get(ln.alt_group):
                 alts = sorted(alts_by_group[ln.alt_group], key=lambda a: a.alt_priority)
-                groups.append(_AltGroup(ln.alt_group, ln, alts, rounded))
+                groups.append(_AltGroup(ln.alt_group, ln, alts, need_child))    # I14: continuous need
                 moved_total = 0.0
                 for a in alts:
                     moved = directives.get((order_key, ln.alt_group, a.id), 0.0)
@@ -360,9 +362,8 @@ class Oracle:
                     a_child = self.items[a.child_id]
                     a_need = self.to_alt(moved, ln, a)
                     out.append((a.child_id, ceil_eps(a_need) if is_count(a_child.uom) else a_need))
-                rounded = max(0.0, rounded - moved_total)
-                if is_count(child.uom):
-                    rounded = ceil_eps(rounded)
+                rest = max(0.0, need_child - moved_total)
+                rounded = ceil_eps(rest) if is_count(child.uom) else rest
             out.append((ln.child_id, rounded))
         return bom, routing, out, groups
 
@@ -455,10 +456,13 @@ class Oracle:
                 child = g.primary.child_id
                 req = next((r for r in pass1.reqs[child] if r.kind == "planned_component"
                             and r.source == ("planned_component", order.planned.planned_no)), None)
-                if req is None or req.satisfied_date is None or req.satisfied_date <= req.need_date:
+                if req is None or req.satisfied_date is None:
+                    continue
+                eff = max(req.need_date, self.as_of)        # I13: nothing can come before as_of
+                if req.satisfied_date <= eff:
                     continue
                 sups = {s.node: s for s in pass1.sups[child]}
-                late = sum(pg.qty for pg in req.pegs if sups[pg.supply_node].projected_date > req.need_date)
+                late = sum(pg.qty for pg in req.pegs if sups[pg.supply_node].projected_date > eff)
                 late = min(late, g.primary_need)
                 if late > EPS:
                     cands.append(((req.rank, req.need_date, self.items[child].part_number, req.node), order, g, req,

@@ -40,7 +40,7 @@ def item_timeline(plan: ItemPlan, as_of: date) -> list[TimelineEvent]:
         if s.kind in ("stock", "inspection") and s.expires_on is not None:
             free = s.qty - s.pegged_qty
             if free > EPS and s.expires_on > as_of:
-                ev.append((s.expires_on, 3, s.node, "expiry", f"Expiry: {s.ref.label}", -free))
+                ev.append((s.expires_on, 3, s.node, "expiry", f"Expiry: {s.ref.label}", -round(free, 6)))
     for r in plan.requirements:
         if r.kind != "safety_stock":
             ev.append((max(r.need_date, as_of), 4, r.node, "requirement", r.source.label, -r.qty))
@@ -51,7 +51,7 @@ def item_timeline(plan: ItemPlan, as_of: date) -> list[TimelineEvent]:
         bp += q
         if kind != "planned":
             be += q
-        out.append(TimelineEvent(d, kind, node if kind != "on_hand" else None, label, round(q, 6) + 0.0,
+        out.append(TimelineEvent(d, kind, node if kind != "on_hand" else None, label, q,
                                  round(be, 6) + 0.0, round(bp, 6) + 0.0))
     return out
 
