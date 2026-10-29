@@ -15,11 +15,11 @@ import { MfgError, Spinner } from "../components/Feedback";
 import { ImportMapping, mappingBlocked } from "../components/ImportMapping";
 import { ImportPreview } from "../components/ImportPreview";
 import { ImportResult } from "../components/ImportResult";
-import { ImportUpload } from "../components/ImportUpload";
+import { ImportUpload, sheetKind, sheetLabel } from "../components/ImportUpload";
 import { fmtTimestamp } from "../lib/format";
 import { initialMapping, remapByHeaders } from "../lib/importMapping";
 import { mfgPaths } from "../lib/paths";
-import { isConflict, isNotFound, useLoad, useMeta } from "../lib/useMfg";
+import { isConflict, isForbidden, isNotFound, useLoad, useMeta } from "../lib/useMfg";
 
 type Step = "upload" | "map" | "preview" | "done";
 
@@ -262,6 +262,17 @@ function ImportSession({ importId }: { importId: string }) {
       </div>
       {notice ? <Banner tone="info" role="status" title={notice} /> : null}
       <MfgError error={error} title={step === "preview" ? "Could not save the import" : "Could not check the file"} />
+      {isForbidden(error) ? (
+        <ul className="mfg-problem-list" data-testid="import-sheet-permissions">
+          {Object.values(mapping.sheets)
+            .filter((m) => m.target)
+            .map((m) => (
+              <li key={m.target}>
+                {sheetLabel(m.target!)}: needs {sheetKind(m.target).perm}
+              </li>
+            ))}
+        </ul>
+      ) : null}
 
       {step === "map" ? (
         <>
