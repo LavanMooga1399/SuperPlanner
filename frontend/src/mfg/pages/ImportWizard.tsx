@@ -129,7 +129,7 @@ function Header() {
     <div className="page-header mfg-header">
       <div>
         <h1>Import / export</h1>
-        <p>Bring in items, BOMs, routings and plant data from Excel or CSV. Nothing is saved until you confirm the preview.</p>
+        <p>Bring in items, BOMs, routings, plant data, suppliers, stock, purchase orders and requests, demand and work orders from Excel or CSV. Nothing is saved until you confirm the preview.</p>
       </div>
     </div>
   );

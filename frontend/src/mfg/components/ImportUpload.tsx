@@ -27,7 +27,37 @@ const SHEET_LABEL: Record<string, string> = {
   bom_lines: "BOM lines",
   routings: "Routing headers",
   operations: "Operations",
+  locations: "Stores locations",
+  suppliers: "Suppliers",
+  item_suppliers: "Suppliers per part",
+  stock: "Stock on hand",
+  purchase_docs: "Purchase orders / requests",
+  purchase_lines: "Purchase lines",
+  purchase_schedules: "Purchase deliveries",
+  demand_orders: "Demand orders",
+  demand_lines: "Demand lines",
+  work_orders: "Work orders",
+  wo_components: "Work order components",
 };
+
+/** M2 11: what kind of data a sheet is, and which permission a commit with it needs (shown per card). */
+export const SHEET_KIND: Record<string, { label: string; perm: string }> = {
+  locations: { label: "Master data", perm: "Planner" },
+  suppliers: { label: "Master data", perm: "Planner or Purchaser" },
+  item_suppliers: { label: "Master data", perm: "Planner or Purchaser" },
+  stock: { label: "Stock (posted as a count)", perm: "Store keeper" },
+  purchase_docs: { label: "Purchasing", perm: "Purchaser (orders) or Planner (requests)" },
+  purchase_lines: { label: "Purchasing", perm: "Purchaser (orders) or Planner (requests)" },
+  purchase_schedules: { label: "Purchasing", perm: "Purchaser (orders) or Planner (requests)" },
+  demand_orders: { label: "Demand", perm: "Planner" },
+  demand_lines: { label: "Demand", perm: "Planner" },
+  work_orders: { label: "Work orders", perm: "Planner" },
+  wo_components: { label: "Work orders", perm: "Planner" },
+};
+
+export function sheetKind(name: string | null): { label: string; perm: string } {
+  return (name && SHEET_KIND[name]) || { label: "Master data", perm: "Planner" };
+}
 
 export function sheetLabel(name: string): string {
   return SHEET_LABEL[name] ?? name;

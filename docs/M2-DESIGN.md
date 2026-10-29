@@ -201,7 +201,9 @@ New id prefixes: `loc_` location, `sup_` supplier, `isu_` item-supplier, `lot_` 
 
 **Quantities:** all M2 quantities are in the **item's stock UoM**. For count-UoM items (`units.is_count`) every
 posted or document quantity must be an integer (422 `INV_FRACTIONAL_QTY`, `loc` to the field); others are rounded
-to 6 decimals on write. Internal comparisons use `EPS = 1e-6`.
+to 6 decimals on write. Internal comparisons use `EPS = 1e-6`. Quantities are binary floats (no `Decimal`, C18): every sum is taken in the
+deterministic orders of section 8, stored values are `round(q, 6)`, count-UoM values are exact integers; oracle and
+other cross-implementation comparisons use `abs(a - b) <= 1e-6 x max(1, |a|)`, count UoM exact.
 
 ### 3.1 Changes to M1 models (additive)
 
@@ -239,7 +241,8 @@ Clients must send these fields on `PUT /items/{id}` and `PUT /plant` (full repla
 
 Nettable (MRP and kitting): `stores` and `line_side` = available now; `inspection` = available at
 `max(as_of, last_receipt_on + item.receiving_days)` (8.3); `quarantine` = never. Kitting (7.4) uses only `stores`
-and `line_side`. Postings into an inactive location -> 422 `INV_LOCATION_INACTIVE`.
+and `line_side`. Postings into an inactive location -> 422 `INV_LOCATION_INACTIVE`. Stock in an **inactive** location is not
+nettable (MRP and kitting alike; C9).
 
 ### 3.3 Supplier and item-supplier
 
@@ -265,7 +268,8 @@ and `line_side`. Postings into an inactive location -> 422 `INV_LOCATION_INACTIV
 | `note` | Text500 | `""` | |
 
 Record: + `item: ItemRef`, `supplier: Ref`. **Source resolution** (MRP, PR defaults): the preferred active row whose
-supplier is active; else the active row with the smallest effective lead time, then supplier code. Effective
+supplier is active; else the active row **whose supplier is active** with the smallest effective lead time, then supplier code; no such
+row -> item lead time and no supplier (C13). Effective
 values: lead time = row -> supplier -> item; MOQ/multiple = row if > 0 else item; pack = row's
 `units_per_purchase_unit` (1 without a row).
 
@@ -497,7 +501,7 @@ accept `Idempotency-Key` (pattern of `jobs.types.IDEMPOTENCY_KEY_RE`). Postings 
 `request_hash` (sha256 of the canonical JSON body); a repeat with the same key and hash returns the original record
 with `200` and header `Idempotent-Replay: true`; same key with another body -> 409 `INV_IDEMPOTENCY_CONFLICT`. For
 the two convert actions the key is stored on the created documents' audit event and checked the same way (24 h
-window).
+window); a replay answers `200` with `Idempotent-Replay: true` and the original response body (C17).
 
 ---
 
@@ -691,7 +695,13 @@ class Supply:      node: int, kind: "stock"|"inspection"|"po"|"pr"|"wo"|"planned
 class Peg:         supply_item_id, supply_node, requirement_item_id, requirement_node, qty, late_days
 ```
 
-Node numbers are unique within `(run, item)`; a node is addressed as `(item_id, node)`. A `planned_component` or
+Node numbers are unique within `(run, item)`; a node is addressed as `(item_id, node)`. **Numbering (C6):** one
+counter per item, shared by requirements and supplies, starting at 1, in creation order: stock balances sorted by
+`(location_id, lot_id or "", balance id)` (reserved portions by `wo_component_id`, then the free remainder); PO/PR
+schedules by `(number, line_no, seq, schedule_id)`; WOs by `(number, id)` (the WO supply, then its component
+requirements on the child items' counters); demand lines by `(number, line_no, line_id)`; extra demand in list
+order; safety stock; then planned supplies and planned-component requirements in processing order. `SourceRef =
+(type, id, label, item_id, node, number, component_id)` (22.WP-E E3); `BalanceSnap` carries the balance `id` (E1). A `planned_component` or
 `wo_component` requirement's `source` points at its parent supply `(parent_item_id, supply_node)`, which is how
 pegging walks up; a make supply's `component_nodes` point down.
 
@@ -717,7 +727,8 @@ pegging walks up; a make supply's `component_nodes` point down.
 ### 8.4 Low-level codes
 
 Graph = edges `parent -> child` of every **released** BOM whose effectivity window intersects `[as_of, horizon_end +
-max lead time]` (generic and serial-specific; phantoms included, they are expanded in place) plus every existing WO
+max lead time + 1 day]` (max lead time = largest purchase lead time in days over items, item-suppliers, suppliers
+and `lead_time_overrides`; manufacturing lead times are not added, C10) (generic and serial-specific; phantoms included, they are expanded in place) plus every existing WO
 component edge `(wo.item -> component.item)`. `llc(item)` = longest path from any root (iterative DP over a
 topological order; M1 guarantees no cycles in BOMs; a cycle introduced only through WO components is broken at the
 WO edge and reported `MRP_WO_COMPONENT_CYCLE` warning, that WO's components are still requirements but processed at
@@ -750,7 +761,8 @@ finite schedule. Make items without a routing (not possible for in-use items aft
 ### 8.6 Lot sizing and rounding (the binding rounding decision)
 
 Residual net requirements of an item (8.8 step 4) are sorted by `(need_date, rank)` and grouped by **segment**
-(8.7): residuals of different non-null segments are never combined.
+(8.7): residuals of different segments are never combined, and null-segment residuals never combine with
+segmented ones (C11).
 
 1. **Grouping by rule**: `lot_for_lot` - one order per distinct need date; `period` - one order for all residuals
    with need date in `[d, d + lot_period_days)`, `d` = first need date of the group; `fixed` - per residual, the
@@ -794,15 +806,17 @@ def order_components(ds: MfgDataset, item_id: str, qty: float, *, on: date, seri
 and passes it to its component requirements; buy items and non-serialized make items drop the segment (their
 requirements combine freely). Before lot sizing, a segmented residual of item X is split at the serial boundaries of
 X's serial-specific released BOMs/routings so that each piece selects one document set (`serial = piece.from`);
-quantities split proportionally to range length (`qty x len(piece)/len(range)`, count UoM rounded so the pieces sum
-to the original). Thus an ECO "effective from unit 126" splits a 121-135 order into 121-125 and 126-135 (T-M8), and
+quantities split proportionally to range length (`qty x len(piece)/len(range)`; count UoM: cumulative half-up
+rounding of the running total, the last piece takes the remainder, so the pieces sum to the original; C11). Thus an ECO "effective from unit 126" splits a 121-135 order into 121-125 and 126-135 (T-M8), and
 orders for different loco batches of a serialized product are never merged.
 
 ### 8.8 Netting and allocation (`mrp/netting.py`)
 
 For each item, in llc order:
 
-1. **Rank** of a requirement: `rank = (protected ? 0 : 1, effective_priority, demand due_date, order number,
+1. **Rank** (C4, C14): extra demand `(1, priority, due_date, "EXTRA-nnn" (1-based list index), 0)` (never
+   protected); existing-WO components `(1, wo.priority, wo.due_date, wo.number, 0)` until requirements are pegged to
+   the WO, then the best pegged rank; demand lines and planned components: `rank = (protected ? 0 : 1, effective_priority, demand due_date, order number,
    line_no)` from the demand line it ultimately serves; a dependent requirement takes the **best** (minimum) rank
    of the demands pegged to its parent order; safety stock `(2, 9, max_date, "", 0)`. `rank_label` e.g. `"P1 DO-KV-004/10"`.
 2. **Reserved supply first**: each reservation supply is pegged to its WO-component requirement (excess over the
@@ -811,9 +825,11 @@ For each item, in llc order:
    manufacturing_lead_days(1))`). `priority`: requirements with `need_date < protect_until` first, by `(rank,
    need_date, node)`, then the rest by `(need_date, rank, node)`. `due_date`: all by `(need_date, rank, node)`.
 4. **Allocation** of each requirement `r` (quantity `q`) from existing supplies with remaining quantity:
-   - phase 1: supplies with `avail_date <= r.need_date` and (`expires_on is None or expires_on > r.need_date`),
+   - both phases use the **effective need date** `n' = max(r.need_date, as_of)` (C1); `late_days` is still counted
+     from `r.need_date`.
+   - phase 1: supplies with `avail_date <= n'` and (`expires_on is None or expires_on > n'`),
      ordered by `(avail_date, expires_on or max, kind order stock < inspection < po < pr < wo, node)`; take greedily.
-   - phase 2 (still short): supplies with `r.need_date < avail_date < protect_until` (existing supply that comes
+   - phase 2 (still short): supplies with `n' < avail_date < protect_until` (existing supply that comes
      sooner than any new order could), same order; pegged **late** (`late_days = avail_date - need_date`).
    - the remainder is a **residual** -> lot sizing (8.6) creates/extends planned orders; residuals are pegged to
      planned orders (late if the planned order starts in the past, 8.10).
@@ -829,6 +845,11 @@ existing supply** = unpegged remaining quantity of existing supplies with `avail
 minus what earlier directives took; take `min(late qty converted, free)`. Record directive `(order_key, alt_group) +=
 primary-equivalent qty`. If any directive exists, run pass 2 with the directives (8.7). Order keys are `"<item_id>:
 <segment>:<need_date>:<index>"`; levels above the alternates are identical in both passes, so keys are stable.
+Clarified (C2, C3, C5): "late" means coverage after `n' = max(need_date, as_of)`; free supply = unpegged existing
+supply with `avail_date <= n'` (stock at `as_of` counts); the moved primary-equivalent qty is capped at the primary
+line's **unrounded** need of that order (minus earlier moves). Several alternates are tried in `alt_priority` order,
+each taking `min(remaining late qty x ratio, its free qty)`; the first alternate's key is `(order_key, alt_key)`,
+later ones `(order_key, "<alt_key>:<alt_priority>")` (22.WP-E E5).
 Alternates are never ordered new (only free existing stock/receipts are used) and existing WOs' components are never
 substituted automatically (planners edit WO components). Each directive produces `MRP_ALTERNATE_USED`. `iterations
 = 2` when pass 2 ran.
@@ -843,8 +864,12 @@ Bottom-up (highest llc first), every supply gets `projected_date`:
   max(due_date, workday_add(ready, manufacturing_lead_days(open_qty)))`.
 - requirement `satisfied_date = max(projected_date of its pegged supplies)`; `late_days = max(0, satisfied_date -
   need_date)` (calendar days).
-- demand projection: `projected_date = satisfied_date`, `status = "late"` if `late_days > 0`, `"past_due"` if
-  `due_date < as_of`, else `"on_time"`.
+- demand status (C7): `"past_due"` if `due_date < as_of` (wins), else `"late"` if `late_days > 0`, else
+  `"on_time"`. Safety-stock requirements always have `late_days = 0` (C15). Existing-WO lead time (C12):
+  `manufacturing_lead_days(open_qty, on = max(start_date, as_of), serial = serial_from)` using `WoSnap.routing_id`
+  (fallback: primary effective routing at `on`; item fixed lead time still wins). Planned orders compute their MLT at
+  `on = max(need_date, as_of)` (the start is not known yet) and explode at `on = max(start_date, as_of)`.
+- demand projection: `projected_date = satisfied_date`; status as above.
 - **limiting path** of a late demand: from the demand requirement follow the peg with the latest projected supply; at
   a make supply, if `comp_ready` decided `ready`, follow its component requirement with the latest `satisfied_date`,
   else stop with reason `lead_time` (or `start_in_past`); at a buy/existing supply stop with reason `supply_date`.
@@ -872,7 +897,7 @@ Sort: severity, code (table order), date, item part number, subject label.
 | # | Code | Sev. | Subject | Condition | Message (example) / action |
 |---|---|---|---|---|---|
 | 1 | `MRP_DEMAND_LATE` | critical | demand_line | projected after due | "DO-KV-004/10: 2 x KV-TPU-1000 due 20 Nov 2026 is projected for 18 Dec 2026 (28 days late). Limiting: KV-TPU-1000 needs 16 working days; KV-IC-FPGA-V1 from PO-KV-0101/10/1 available 24 Nov." / "Expedite the parts on the limiting path, or agree a new date." |
-| 2 | `MRP_DEMAND_PAST_DUE` | critical | demand_line | due < as_of, open qty | "... was due 15 Oct 2026, 40 open." / "Ship from stock or re-date the line." |
+| 2 | `MRP_DEMAND_PAST_DUE` | critical | demand_line | due < as_of, open qty (raised **instead of** `MRP_DEMAND_LATE`, C8) | "... was due 15 Oct 2026, 40 open." / "Ship from stock or re-date the line." |
 | 3 | `MRP_SHORTAGE` | warning | item | any requirement of the item is covered late (one per item) | "KV-MOD-GSM short 12 from 1 Jan 2027 (first need), for DO-KV-002/10; earliest new supply 3 May 2027." / "Expedite open orders or use an alternate." |
 | 4 | `MRP_START_IN_PAST` | warning | planned_order | `start_date < as_of` | "Planned PR P-412 for 5,000 KV-CAP-0402-100N should have been ordered 12 days ago (needed 20 Nov)." / "Release now; expect 12 days delay." |
 | 5 | `MRP_EXPEDITE` | warning | po_schedule / pr_schedule / work_order | `projected/avail date > earliest pegged need date` | "PO-KV-0101 line 10 schedule 2 (30 x KV-IC-FPGA-V1, confirmed 5 Jan 2027) is needed by 12 Dec 2026." / suggested date = need - receiving |
@@ -1053,7 +1078,7 @@ id>`; absent or equal to the caller -> own workspace (role `owner`). Otherwise t
 `access.mfg_principal` loads the membership in `system_scope()`; active membership -> `bind_owner(owner_id)` (the
 central ownership filter then serves the owner's rows, unchanged) and `bind_actor(user_id)`; else 404 `NOT_FOUND`
 ("Workspace not found") for every mfg endpoint. Scheduling, finance and auth routes never read the header. In
-`single_user` mode membership endpoints answer 422 `MBR_UNAVAILABLE`.
+`single_user` mode membership endpoints answer 422 `MBR_UNAVAILABLE` and a foreign `X-SP-Workspace` is 404 (C16).
 
 `mfg_principal` and `require_perm` must be `async def` dependencies (like `require_user`): a sync dependency runs
 in the threadpool, and a contextvar re-bound there would not reach the handler. A test asserts that a member's
@@ -1858,3 +1883,27 @@ helpers `mrp_helpers.py`, `mrp_kavach_helpers.py`.
 ### 22.WP-C UI
 
 ### 22.WP-D QA and acceptance
+
+**Spec clarifications (WP-D oracle review, decided by LEAD 2026-10-29; the § text above is updated):**
+- C1 8.8: allocation phases use `n' = max(need_date, as_of)`; `late_days` from `need_date` (engine I1).
+- C2 8.9: "late" = coverage after `n'`; stock available at `as_of` counts as free (engine).
+- C3 8.7/8.9: moved qty capped at the primary line's unrounded need of the order (engine).
+- C4 8.8: existing-WO component with no pegged demand: rank `(1, wo.priority, wo.due_date, wo.number, 0)` (engine I3).
+- C5 8.9: alternates in `alt_priority` order, each takes what its free stock allows; keys per E5 (engine).
+- C6 8.2: node numbering = per-item creation-order counter as specified in 8.2 (engine).
+- C7 8.10: `past_due` wins over `late` (engine I2).
+- C8 8.12: a past-due line gets `MRP_DEMAND_PAST_DUE` only (engine I2).
+- C9 8.2/3.2: `SourceRef` per E3; `BalanceSnap.id` per E1; stock in an inactive location is **not nettable**
+  (matches kitting) - **engine change**: `Pass.build` must skip balances with `location_active == false`.
+- C10 8.4: max lead time = largest purchase lead time (items, item-suppliers, suppliers, overrides) + 1 day (engine).
+- C11 8.6/8.7: null-segment residuals never combine with segmented ones; count-UoM ECO pieces use cumulative
+  half-up rounding, last piece takes the remainder (engine I5).
+- C12 8.10: existing WO MLT at `max(start, as_of)`, `serial_from`, `WoSnap.routing_id`; planned MLT at
+  `max(need, as_of)`, explosion at `max(start, as_of)` (engine I6/E4).
+- C13 3.3: the fallback row must also have an active supplier (engine).
+- C14 8.8: extra demand rank `(1, priority, due_date, "EXTRA-nnn", 0)`, never protected (engine).
+- C15 8.10: safety-stock requirements are never late (`late_days = 0`) (engine I4).
+- C16 10.1: foreign `X-SP-Workspace` in single_user mode -> 404 (API as built).
+- C17 4.6: convert replays answer 200 + `Idempotent-Replay: true` (WP-B to confirm for the MRP convert).
+- C18 3: floats, deterministic summation order, `round(q, 6)` on store; compare with `1e-6 x max(1, |q|)`, count
+  UoM exact (no engine change; the oracle tightens its 5-decimal tolerance).

@@ -24,6 +24,37 @@ import { OperatorsPage } from "./pages/OperatorsPage";
 import { ToolingPage } from "./pages/ToolingPage";
 import { HealthPage } from "./pages/HealthPage";
 import { ImportWizard } from "./pages/ImportWizard";
+import { ItemStockTab } from "./pages/ItemStockTab";
+import { ItemSuppliersTab } from "./pages/ItemSuppliersTab";
+import { InventoryLayout } from "./pages/inventory/InventoryLayout";
+import { BalancesTab } from "./pages/inventory/BalancesTab";
+import { TransactionsTab } from "./pages/inventory/TransactionsTab";
+import { PostingPage } from "./pages/inventory/PostingPage";
+import { PostingForm } from "./pages/inventory/PostingForm";
+import { LotsTab } from "./pages/inventory/LotsTab";
+import { LocationsTab } from "./pages/inventory/LocationsTab";
+import { PurchasingLayout } from "./pages/purchasing/PurchasingLayout";
+import { PurchaseDocList } from "./pages/purchasing/PurchaseDocList";
+import { PurchaseDocPage } from "./pages/purchasing/PurchaseDocPage";
+import { DeliveryBoard } from "./pages/purchasing/DeliveryBoard";
+import { SupplierPage, SuppliersPage } from "./pages/purchasing/SuppliersPage";
+import { DemandList } from "./pages/demand/DemandList";
+import { DemandPage } from "./pages/demand/DemandPage";
+import { WorkOrderList } from "./pages/workorders/WorkOrderList";
+import { WorkOrderPage } from "./pages/workorders/WorkOrderPage";
+import { KittingCheckPage } from "./pages/workorders/KittingCheckPage";
+import { MrpRunsPage } from "./pages/mrp/MrpRunsPage";
+import { RunShell } from "./pages/mrp/RunShell";
+import { RunSummaryTab } from "./pages/mrp/RunSummaryTab";
+import { RunItemsTab } from "./pages/mrp/RunItemsTab";
+import { ItemPlanPage } from "./pages/mrp/ItemPlanPage";
+import { PlannedOrdersTab } from "./pages/mrp/PlannedOrdersTab";
+import { ExceptionsTab } from "./pages/mrp/ExceptionsTab";
+import { DemandProjectionTab } from "./pages/mrp/DemandProjectionTab";
+import { PeggingPage } from "./pages/mrp/PeggingPage";
+import { CompareView } from "./pages/mrp/CompareView";
+import { ShortagesPage } from "./pages/ShortagesPage";
+import { MembersPage } from "./pages/MembersPage";
 
 export const mfgRoutes: RouteObject[] = [
   {
@@ -41,6 +72,8 @@ export const mfgRoutes: RouteObject[] = [
           { path: "bom/:bomId/edit", element: <BomEditPage /> },
           { path: "where-used", element: <WhereUsedTab /> },
           { path: "routing", element: <RoutingTab /> },
+          { path: "stock", element: <ItemStockTab /> },
+          { path: "suppliers", element: <ItemSuppliersTab /> },
           { path: "*", element: <MfgNotFound /> },
         ],
       },
@@ -70,6 +103,58 @@ export const mfgRoutes: RouteObject[] = [
       { path: "health", element: <HealthPage /> },
       { path: "import", element: <ImportWizard /> },
       { path: "import/:importId", element: <ImportWizard /> },
+      // ---------------------------------------------------------------- M2 (14.2)
+      {
+        path: "inventory",
+        element: <InventoryLayout />,
+        children: [
+          { index: true, element: <BalancesTab /> },
+          { path: "transactions", element: <TransactionsTab /> },
+          { path: "postings/:postingId", element: <PostingPage /> },
+          { path: "post", element: <PostingForm /> },
+          { path: "lots", element: <LotsTab /> },
+          { path: "locations", element: <LocationsTab /> },
+          { path: "*", element: <MfgNotFound /> },
+        ],
+      },
+      {
+        path: "purchasing",
+        element: <PurchasingLayout />,
+        children: [
+          { index: true, element: <Navigate to="orders" replace /> },
+          { path: "orders", element: <PurchaseDocList docType="po" /> },
+          { path: "orders/:docId", element: <PurchaseDocPage docType="po" /> },
+          { path: "requests", element: <PurchaseDocList docType="pr" /> },
+          { path: "requests/:docId", element: <PurchaseDocPage docType="pr" /> },
+          { path: "schedule", element: <DeliveryBoard /> },
+          { path: "suppliers", element: <SuppliersPage /> },
+          { path: "suppliers/:supplierId", element: <SupplierPage /> },
+          { path: "*", element: <MfgNotFound /> },
+        ],
+      },
+      { path: "demand", element: <DemandList /> },
+      { path: "demand/:orderId", element: <DemandPage /> },
+      { path: "work-orders", element: <WorkOrderList /> },
+      { path: "work-orders/kitting", element: <KittingCheckPage /> },
+      { path: "work-orders/:woId", element: <WorkOrderPage /> },
+      { path: "mrp", element: <MrpRunsPage /> },
+      {
+        path: "mrp/runs/:runId",
+        element: <RunShell />,
+        children: [
+          { index: true, element: <RunSummaryTab /> },
+          { path: "items", element: <RunItemsTab /> },
+          { path: "items/:itemId", element: <ItemPlanPage /> },
+          { path: "planned", element: <PlannedOrdersTab /> },
+          { path: "exceptions", element: <ExceptionsTab /> },
+          { path: "demand", element: <DemandProjectionTab /> },
+          { path: "pegging", element: <PeggingPage /> },
+          { path: "compare", element: <CompareView /> },
+          { path: "*", element: <MfgNotFound /> },
+        ],
+      },
+      { path: "shortages", element: <ShortagesPage /> },
+      { path: "settings/members", element: <MembersPage /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

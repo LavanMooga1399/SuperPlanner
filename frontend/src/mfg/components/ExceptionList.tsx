@@ -10,9 +10,9 @@ import { fmtNum } from "../lib/formatM2";
 import { exceptionLabel } from "../lib/mrpText";
 import { MrpSeverityBadge, mrpSeverityIcon } from "./StatusM2";
 
-export function ExceptionDetail({ ex, compact }: { ex: MrpExceptionRow; compact?: boolean }) {
+export function ExceptionDetail({ ex, compact, testId = "exception-row" }: { ex: MrpExceptionRow; compact?: boolean; testId?: string }) {
   return (
-    <div className="issue" data-testid="exception-row" data-code={ex.code} data-severity={ex.severity} data-subject={ex.subject.label}>
+    <div className="issue" data-testid={testId} data-code={ex.code} data-severity={ex.severity} data-subject={ex.subject.label}>
       <span className="issue-icon" aria-hidden>
         <Icon name={mrpSeverityIcon(ex.severity)} />
       </span>
@@ -34,7 +34,7 @@ export function ExceptionDetail({ ex, compact }: { ex: MrpExceptionRow; compact?
         {!compact && ex.related.length ? <div className="faint small">Related: {ex.related.map((r) => r.label).join(", ")}</div> : null}
       </div>
       {ex.link ? (
-        <Link className="btn sm" to={ex.link} data-testid="exception-link">
+        <Link className="btn sm" to={ex.link} data-testid={testId === "exception-row" ? "exception-link" : `${testId}-link`}>
           Open <Icon name="arrow-right" />
         </Link>
       ) : null}

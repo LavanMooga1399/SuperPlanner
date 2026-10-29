@@ -1,0 +1,2287 @@
+{
+ "as_of": "2026-11-02",
+ "demand": [
+  {
+   "customer": "",
+   "demand_line_id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+   "demand_type": "customer",
+   "due_date": "2026-12-28",
+   "extra": false,
+   "extra_index": null,
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "label": "DO-002/10",
+   "late_days": 11,
+   "limiting": [
+    {
+     "date": "2027-01-08",
+     "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+     "label": "Planned WO P-2, 3 working days",
+     "part_number": "TPU",
+     "reason": "component"
+    },
+    {
+     "date": "2027-01-05",
+     "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+     "label": "Planned WO P-6, 2 working days",
+     "part_number": "PCB",
+     "reason": "component"
+    },
+    {
+     "date": "2027-01-03",
+     "item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+     "label": "Planned PR P-7",
+     "part_number": "FPGA",
+     "reason": "start_in_past"
+    }
+   ],
+   "line_no": 10,
+   "node": 1,
+   "order_id": "dmo_8833c70d5853d21713e39004f21427c6",
+   "order_number": "DO-002",
+   "part_number": "TPU",
+   "priority": 2,
+   "program": null,
+   "projected_date": "2027-01-08",
+   "qty": 6.0,
+   "segment": {
+    "serial_from": 121,
+    "serial_to": 126
+   },
+   "status": "late"
+  },
+  {
+   "customer": "",
+   "demand_line_id": "dml_02409a237e76bc3f7a46c25c0fac0b22",
+   "demand_type": "customer",
+   "due_date": "2026-11-20",
+   "extra": false,
+   "extra_index": null,
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "label": "DO-004/10",
+   "late_days": 18,
+   "limiting": [
+    {
+     "date": "2026-12-08",
+     "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+     "label": "Planned WO P-1, 3 working days",
+     "part_number": "TPU",
+     "reason": "component"
+    },
+    {
+     "date": "2026-12-04",
+     "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+     "label": "Planned WO P-5, 2 working days",
+     "part_number": "PCB",
+     "reason": "component"
+    },
+    {
+     "date": "2026-12-02",
+     "item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+     "label": "Planned PR P-8",
+     "part_number": "RES",
+     "reason": "start_in_past"
+    }
+   ],
+   "line_no": 10,
+   "node": 2,
+   "order_id": "dmo_ad90103bf54972415cd683c20d719fdb",
+   "order_number": "DO-004",
+   "part_number": "TPU",
+   "priority": 1,
+   "program": null,
+   "projected_date": "2026-12-08",
+   "qty": 6.0,
+   "segment": {
+    "serial_from": 97,
+    "serial_to": 102
+   },
+   "status": "late"
+  }
+ ],
+ "exceptions": [
+  {
+   "action": "Expedite the parts on the limiting path, or agree a new date.",
+   "code": "MRP_DEMAND_LATE",
+   "date": "2026-12-08",
+   "days": 18,
+   "demand_line_id": "dml_02409a237e76bc3f7a46c25c0fac0b22",
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "message": "DO-004/10: 6 x TPU due 20 Nov 2026 is projected for 8 Dec 2026 (18 days late). Limiting: TPU (Planned WO P-1, 3 working days); PCB (Planned WO P-5, 2 working days); RES (Planned PR P-8) should have started before 2 Nov 2026.",
+   "part_number": "TPU",
+   "qty": 6.0,
+   "related": [
+    {
+     "id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+     "label": "TPU",
+     "type": "item"
+    },
+    {
+     "id": "itm_18c994bcccd531de847f81513a5f4c17",
+     "label": "PCB",
+     "type": "item"
+    },
+    {
+     "id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+     "label": "RES",
+     "type": "item"
+    }
+   ],
+   "severity": "critical",
+   "subject": {
+    "id": "dml_02409a237e76bc3f7a46c25c0fac0b22",
+    "label": "DO-004/10",
+    "type": "demand_line"
+   },
+   "suggested": {
+    "date": "2026-12-08"
+   }
+  },
+  {
+   "action": "Expedite the parts on the limiting path, or agree a new date.",
+   "code": "MRP_DEMAND_LATE",
+   "date": "2027-01-08",
+   "days": 11,
+   "demand_line_id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "message": "DO-002/10: 6 x TPU due 28 Dec 2026 is projected for 8 Jan 2027 (11 days late). Limiting: TPU (Planned WO P-2, 3 working days); PCB (Planned WO P-6, 2 working days); FPGA (Planned PR P-7) should have started before 2 Nov 2026.",
+   "part_number": "TPU",
+   "qty": 6.0,
+   "related": [
+    {
+     "id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+     "label": "TPU",
+     "type": "item"
+    },
+    {
+     "id": "itm_18c994bcccd531de847f81513a5f4c17",
+     "label": "PCB",
+     "type": "item"
+    },
+    {
+     "id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+     "label": "FPGA",
+     "type": "item"
+    }
+   ],
+   "severity": "critical",
+   "subject": {
+    "id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+    "label": "DO-002/10",
+    "type": "demand_line"
+   },
+   "suggested": {
+    "date": "2027-01-08"
+   }
+  },
+  {
+   "action": "Expedite open orders or use an alternate.",
+   "code": "MRP_SHORTAGE",
+   "date": "2026-11-14",
+   "days": 12,
+   "demand_line_id": null,
+   "item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+   "message": "FPGA short 4 from 14 Nov 2026 (first need), for DO-002/10, DO-004/10; earliest new supply 3 Jan 2027.",
+   "part_number": "FPGA",
+   "qty": 4.0,
+   "related": [],
+   "severity": "warning",
+   "subject": {
+    "id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+    "label": "FPGA",
+    "type": "item"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Expedite open orders or use an alternate.",
+   "code": "MRP_SHORTAGE",
+   "date": "2026-11-14",
+   "days": 18,
+   "demand_line_id": null,
+   "item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+   "message": "RES short 12 from 14 Nov 2026 (first need), for DO-004/10; earliest new supply 2 Dec 2026.",
+   "part_number": "RES",
+   "qty": 12.0,
+   "related": [],
+   "severity": "warning",
+   "subject": {
+    "id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+    "label": "RES",
+    "type": "item"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Expedite open orders or use an alternate.",
+   "code": "MRP_SHORTAGE",
+   "date": "2026-11-17",
+   "days": 17,
+   "demand_line_id": null,
+   "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+   "message": "PCB short 12 from 17 Nov 2026 (first need), for DO-002/10, DO-004/10; earliest new supply 4 Nov 2026.",
+   "part_number": "PCB",
+   "qty": 12.0,
+   "related": [],
+   "severity": "warning",
+   "subject": {
+    "id": "itm_18c994bcccd531de847f81513a5f4c17",
+    "label": "PCB",
+    "type": "item"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Expedite open orders or use an alternate.",
+   "code": "MRP_SHORTAGE",
+   "date": "2026-11-20",
+   "days": 18,
+   "demand_line_id": null,
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "message": "TPU short 12 from 20 Nov 2026 (first need), for DO-002/10, DO-004/10; earliest new supply 5 Nov 2026.",
+   "part_number": "TPU",
+   "qty": 12.0,
+   "related": [],
+   "severity": "warning",
+   "subject": {
+    "id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+    "label": "TPU",
+    "type": "item"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Release now; expect 18 days delay.",
+   "code": "MRP_START_IN_PAST",
+   "date": "2026-10-15",
+   "days": 18,
+   "demand_line_id": null,
+   "item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+   "message": "Planned PR P-8 for 5,000 RES should have been ordered 18 days ago (needed 14 Nov 2026).",
+   "part_number": "RES",
+   "qty": 5000.0,
+   "related": [],
+   "severity": "warning",
+   "subject": {
+    "id": "8",
+    "label": "P-8",
+    "type": "planned_order"
+   },
+   "suggested": {
+    "date": "2026-11-02"
+   }
+  },
+  {
+   "action": "Release now; expect 12 days delay.",
+   "code": "MRP_START_IN_PAST",
+   "date": "2026-10-21",
+   "days": 12,
+   "demand_line_id": null,
+   "item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+   "message": "Planned PR P-7 for 2 FPGA should have been ordered 12 days ago (needed 22 Dec 2026).",
+   "part_number": "FPGA",
+   "qty": 2.0,
+   "related": [],
+   "severity": "warning",
+   "subject": {
+    "id": "7",
+    "label": "P-7",
+    "type": "planned_order"
+   },
+   "suggested": {
+    "date": "2026-11-02"
+   }
+  },
+  {
+   "action": "Ask the supplier to deliver by 12 Nov 2026.",
+   "code": "MRP_EXPEDITE",
+   "date": "2026-11-22",
+   "days": 8,
+   "demand_line_id": null,
+   "item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+   "message": "PO-0101/10/1 (6 x FPGA, requested 20 Nov 2026) is needed by 14 Nov 2026.",
+   "part_number": "FPGA",
+   "qty": 6,
+   "related": [],
+   "severity": "warning",
+   "subject": {
+    "id": "psc_dfa8444f6b1f9b1702931bb9f4cb3951",
+    "label": "PO-0101/10/1",
+    "type": "po_schedule"
+   },
+   "suggested": {
+    "date": "2026-11-12"
+   }
+  },
+  {
+   "action": "Cancel or push out.",
+   "code": "MRP_CANCEL",
+   "date": "2027-01-07",
+   "days": null,
+   "demand_line_id": null,
+   "item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+   "message": "PO-0101/10/2 (6 x FPGA, available 7 Jan 2027) is not needed in the horizon.",
+   "part_number": "FPGA",
+   "qty": 6,
+   "related": [],
+   "severity": "warning",
+   "subject": {
+    "id": "psc_56ca4d87e61c36b6100dc4f305cd5f38",
+    "label": "PO-0101/10/2",
+    "type": "po_schedule"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Reduce to 11.",
+   "code": "MRP_REDUCE",
+   "date": "2026-11-10",
+   "days": null,
+   "demand_line_id": null,
+   "item_id": "itm_56f5530bc29cd53c5fae5fa3ff5dedbf",
+   "message": "PO-0105/10/1: only 11 of 20 DOC are needed.",
+   "part_number": "DOC",
+   "qty": 20,
+   "related": [],
+   "severity": "info",
+   "subject": {
+    "id": "psc_a66f2fc58ba432f314ac5c173abcf470",
+    "label": "PO-0105/10/1",
+    "type": "po_schedule"
+   },
+   "suggested": {
+    "qty": 11.0
+   }
+  },
+  {
+   "action": "Release the planned orders that restore it.",
+   "code": "MRP_BELOW_SAFETY_STOCK",
+   "date": "2026-11-02",
+   "days": null,
+   "demand_line_id": null,
+   "item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+   "message": "RES is below its safety stock of 100: 0 available now.",
+   "part_number": "RES",
+   "qty": 100.0,
+   "related": [],
+   "severity": "info",
+   "subject": {
+    "id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+    "label": "RES",
+    "type": "item"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Check the alternate is acceptable for this order.",
+   "code": "MRP_ALTERNATE_USED",
+   "date": "2026-11-14",
+   "days": null,
+   "demand_line_id": null,
+   "item_id": "itm_ff2f4814dd6a615c07ccd48788c66496",
+   "message": "12 of CAP-B (alternate) instead of CAP-A for P-5 (PCB), primary late.",
+   "part_number": "CAP-B",
+   "qty": 12.0,
+   "related": [
+    {
+     "id": "itm_7367b59b97dfa940ee6762461eb1f4ee",
+     "label": "CAP-A",
+     "type": "item"
+    }
+   ],
+   "severity": "info",
+   "subject": {
+    "id": "5",
+    "label": "P-5",
+    "type": "planned_order"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Check the alternate is acceptable for this order.",
+   "code": "MRP_ALTERNATE_USED",
+   "date": "2026-12-22",
+   "days": null,
+   "demand_line_id": null,
+   "item_id": "itm_ff2f4814dd6a615c07ccd48788c66496",
+   "message": "12 of CAP-B (alternate) instead of CAP-A for P-6 (PCB), primary late.",
+   "part_number": "CAP-B",
+   "qty": 12.0,
+   "related": [
+    {
+     "id": "itm_7367b59b97dfa940ee6762461eb1f4ee",
+     "label": "CAP-A",
+     "type": "item"
+    }
+   ],
+   "severity": "info",
+   "subject": {
+    "id": "6",
+    "label": "P-6",
+    "type": "planned_order"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Add a supplier for this part.",
+   "code": "MRP_NO_SUPPLIER",
+   "date": null,
+   "days": null,
+   "demand_line_id": null,
+   "item_id": "itm_0f305bcf8e79a46d58bb63a2ad76c57e",
+   "message": "Planned PRs for DOC-B have no supplier.",
+   "part_number": "DOC-B",
+   "qty": null,
+   "related": [],
+   "severity": "info",
+   "subject": {
+    "id": "itm_0f305bcf8e79a46d58bb63a2ad76c57e",
+    "label": "DOC-B",
+    "type": "item"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Add a supplier for this part.",
+   "code": "MRP_NO_SUPPLIER",
+   "date": null,
+   "days": null,
+   "demand_line_id": null,
+   "item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+   "message": "Planned PRs for FPGA have no supplier.",
+   "part_number": "FPGA",
+   "qty": null,
+   "related": [],
+   "severity": "info",
+   "subject": {
+    "id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+    "label": "FPGA",
+    "type": "item"
+   },
+   "suggested": {}
+  },
+  {
+   "action": "Add a supplier for this part.",
+   "code": "MRP_NO_SUPPLIER",
+   "date": null,
+   "days": null,
+   "demand_line_id": null,
+   "item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+   "message": "Planned PRs for RES have no supplier.",
+   "part_number": "RES",
+   "qty": null,
+   "related": [],
+   "severity": "info",
+   "subject": {
+    "id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+    "label": "RES",
+    "type": "item"
+   },
+   "suggested": {}
+  }
+ ],
+ "horizon_end": "2027-03-02",
+ "items": [
+  {
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "lead_time": {
+    "days": 3,
+    "receiving_days": 0,
+    "source": "fixed",
+    "unit": "working"
+   },
+   "llc": 0,
+   "lot": {
+    "fixed_qty": null,
+    "moq": 0.0,
+    "multiple": 0.0,
+    "pack": 1.0,
+    "period_days": null,
+    "rule": "lot_for_lot"
+   },
+   "make_buy": "make",
+   "part_number": "TPU",
+   "requirements": [
+    {
+     "kind": "demand",
+     "late_days": 11,
+     "need_date": "2026-12-28",
+     "node": 1,
+     "pegs": [
+      {
+       "late_days": 11,
+       "qty": 5.0,
+       "requirement_item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+       "requirement_node": 1,
+       "supply_item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+       "supply_node": 4
+      },
+      {
+       "late_days": 11,
+       "qty": 1.0,
+       "requirement_item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+       "requirement_node": 1,
+       "supply_item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+       "supply_node": 5
+      }
+     ],
+     "qty": 6.0,
+     "rank": [
+      1,
+      2,
+      "2026-12-28",
+      "DO-002",
+      10
+     ],
+     "rank_label": "P2 DO-002/10",
+     "satisfied_date": "2027-01-08",
+     "segment": {
+      "serial_from": 121,
+      "serial_to": 126
+     },
+     "source": {
+      "component_id": null,
+      "id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+      "item_id": null,
+      "label": "DO-002/10",
+      "node": null,
+      "number": null,
+      "type": "demand_line"
+     }
+    },
+    {
+     "kind": "demand",
+     "late_days": 18,
+     "need_date": "2026-11-20",
+     "node": 2,
+     "pegs": [
+      {
+       "late_days": 18,
+       "qty": 6.0,
+       "requirement_item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+       "requirement_node": 2,
+       "supply_item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+       "supply_node": 3
+      }
+     ],
+     "qty": 6.0,
+     "rank": [
+      1,
+      1,
+      "2026-11-20",
+      "DO-004",
+      10
+     ],
+     "rank_label": "P1 DO-004/10",
+     "satisfied_date": "2026-12-08",
+     "segment": {
+      "serial_from": 97,
+      "serial_to": 102
+     },
+     "source": {
+      "component_id": null,
+      "id": "dml_02409a237e76bc3f7a46c25c0fac0b22",
+      "item_id": null,
+      "label": "DO-004/10",
+      "node": null,
+      "number": null,
+      "type": "demand_line"
+     }
+    }
+   ],
+   "stats": {
+    "exception_count": 3,
+    "existing_supply_qty": 0.0,
+    "first_short_date": "2026-11-20",
+    "gross_qty": 12.0,
+    "late_qty": 12.0,
+    "min_balance": 0.0,
+    "on_hand": 0.0,
+    "planned_count": 3,
+    "planned_qty": 12.0,
+    "short_qty": 12.0
+   },
+   "supplier_id": null,
+   "supplies": [
+    {
+     "avail_date": "2026-11-20",
+     "component_nodes": [
+      [
+       "itm_18c994bcccd531de847f81513a5f4c17",
+       1
+      ],
+      [
+       "itm_56f5530bc29cd53c5fae5fa3ff5dedbf",
+       2
+      ]
+     ],
+     "due_date": "2026-11-20",
+     "expires_on": null,
+     "kind": "planned",
+     "node": 3,
+     "pegged_qty": 6.0,
+     "planned_no": 1,
+     "projected_date": "2026-12-08",
+     "qty": 6.0,
+     "ref": {
+      "component_id": null,
+      "id": "1",
+      "item_id": null,
+      "label": "Planned WO P-1",
+      "node": null,
+      "number": "P-1",
+      "type": "planned_order"
+     },
+     "start_date": "2026-11-17"
+    },
+    {
+     "avail_date": "2026-12-28",
+     "component_nodes": [
+      [
+       "itm_18c994bcccd531de847f81513a5f4c17",
+       2
+      ],
+      [
+       "itm_56f5530bc29cd53c5fae5fa3ff5dedbf",
+       3
+      ]
+     ],
+     "due_date": "2026-12-28",
+     "expires_on": null,
+     "kind": "planned",
+     "node": 4,
+     "pegged_qty": 5.0,
+     "planned_no": 2,
+     "projected_date": "2027-01-08",
+     "qty": 5.0,
+     "ref": {
+      "component_id": null,
+      "id": "2",
+      "item_id": null,
+      "label": "Planned WO P-2",
+      "node": null,
+      "number": "P-2",
+      "type": "planned_order"
+     },
+     "start_date": "2026-12-24"
+    },
+    {
+     "avail_date": "2026-12-28",
+     "component_nodes": [
+      [
+       "itm_18c994bcccd531de847f81513a5f4c17",
+       3
+      ],
+      [
+       "itm_0f305bcf8e79a46d58bb63a2ad76c57e",
+       1
+      ]
+     ],
+     "due_date": "2026-12-28",
+     "expires_on": null,
+     "kind": "planned",
+     "node": 5,
+     "pegged_qty": 1.0,
+     "planned_no": 3,
+     "projected_date": "2027-01-08",
+     "qty": 1.0,
+     "ref": {
+      "component_id": null,
+      "id": "3",
+      "item_id": null,
+      "label": "Planned WO P-3",
+      "node": null,
+      "number": "P-3",
+      "type": "planned_order"
+     },
+     "start_date": "2026-12-24"
+    }
+   ],
+   "timeline": [
+    {
+     "balance_existing": 0.0,
+     "balance_planned": 6.0,
+     "date": "2026-11-20",
+     "kind": "planned",
+     "label": "Planned WO P-1",
+     "node": 3,
+     "qty": 6.0
+    },
+    {
+     "balance_existing": -6.0,
+     "balance_planned": 0.0,
+     "date": "2026-11-20",
+     "kind": "requirement",
+     "label": "DO-004/10",
+     "node": 2,
+     "qty": -6.0
+    },
+    {
+     "balance_existing": -6.0,
+     "balance_planned": 5.0,
+     "date": "2026-12-28",
+     "kind": "planned",
+     "label": "Planned WO P-2",
+     "node": 4,
+     "qty": 5.0
+    },
+    {
+     "balance_existing": -6.0,
+     "balance_planned": 6.0,
+     "date": "2026-12-28",
+     "kind": "planned",
+     "label": "Planned WO P-3",
+     "node": 5,
+     "qty": 1.0
+    },
+    {
+     "balance_existing": -12.0,
+     "balance_planned": 0.0,
+     "date": "2026-12-28",
+     "kind": "requirement",
+     "label": "DO-002/10",
+     "node": 1,
+     "qty": -6.0
+    }
+   ],
+   "uom": "EA"
+  },
+  {
+   "item_id": "itm_56f5530bc29cd53c5fae5fa3ff5dedbf",
+   "lead_time": {
+    "days": 14,
+    "receiving_days": 0,
+    "source": "item",
+    "unit": "calendar"
+   },
+   "llc": 1,
+   "lot": {
+    "fixed_qty": null,
+    "moq": 0.0,
+    "multiple": 0.0,
+    "pack": 1.0,
+    "period_days": null,
+    "rule": "lot_for_lot"
+   },
+   "make_buy": "buy",
+   "part_number": "DOC",
+   "requirements": [
+    {
+     "kind": "planned_component",
+     "late_days": 0,
+     "need_date": "2026-11-17",
+     "node": 2,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 6.0,
+       "requirement_item_id": "itm_56f5530bc29cd53c5fae5fa3ff5dedbf",
+       "requirement_node": 2,
+       "supply_item_id": "itm_56f5530bc29cd53c5fae5fa3ff5dedbf",
+       "supply_node": 1
+      }
+     ],
+     "qty": 6.0,
+     "rank": [
+      1,
+      1,
+      "2026-11-20",
+      "DO-004",
+      10
+     ],
+     "rank_label": "P1 DO-004/10",
+     "satisfied_date": "2026-11-10",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "1",
+      "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+      "label": "Planned WO P-1",
+      "node": 3,
+      "number": "P-1",
+      "type": "planned_order"
+     }
+    },
+    {
+     "kind": "planned_component",
+     "late_days": 0,
+     "need_date": "2026-12-24",
+     "node": 3,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 5.0,
+       "requirement_item_id": "itm_56f5530bc29cd53c5fae5fa3ff5dedbf",
+       "requirement_node": 3,
+       "supply_item_id": "itm_56f5530bc29cd53c5fae5fa3ff5dedbf",
+       "supply_node": 1
+      }
+     ],
+     "qty": 5.0,
+     "rank": [
+      1,
+      2,
+      "2026-12-28",
+      "DO-002",
+      10
+     ],
+     "rank_label": "P2 DO-002/10",
+     "satisfied_date": "2026-11-10",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "2",
+      "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+      "label": "Planned WO P-2",
+      "node": 4,
+      "number": "P-2",
+      "type": "planned_order"
+     }
+    }
+   ],
+   "stats": {
+    "exception_count": 1,
+    "existing_supply_qty": 20.0,
+    "first_short_date": null,
+    "gross_qty": 11.0,
+    "late_qty": 0.0,
+    "min_balance": 9.0,
+    "on_hand": 0.0,
+    "planned_count": 0,
+    "planned_qty": 0.0,
+    "short_qty": 0.0
+   },
+   "supplier_id": null,
+   "supplies": [
+    {
+     "avail_date": "2026-11-10",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": null,
+     "kind": "po",
+     "node": 1,
+     "pegged_qty": 11.0,
+     "planned_no": null,
+     "projected_date": "2026-11-10",
+     "qty": 20.0,
+     "ref": {
+      "component_id": null,
+      "id": "psc_a66f2fc58ba432f314ac5c173abcf470",
+      "item_id": null,
+      "label": "PO-0105/10/1",
+      "node": null,
+      "number": "PO-0105",
+      "type": "po_schedule"
+     },
+     "start_date": null
+    }
+   ],
+   "timeline": [
+    {
+     "balance_existing": 20.0,
+     "balance_planned": 20.0,
+     "date": "2026-11-10",
+     "kind": "supply",
+     "label": "PO-0105/10/1",
+     "node": 1,
+     "qty": 20.0
+    },
+    {
+     "balance_existing": 14.0,
+     "balance_planned": 14.0,
+     "date": "2026-11-17",
+     "kind": "requirement",
+     "label": "Planned WO P-1",
+     "node": 2,
+     "qty": -6.0
+    },
+    {
+     "balance_existing": 9.0,
+     "balance_planned": 9.0,
+     "date": "2026-12-24",
+     "kind": "requirement",
+     "label": "Planned WO P-2",
+     "node": 3,
+     "qty": -5.0
+    }
+   ],
+   "uom": "EA"
+  },
+  {
+   "item_id": "itm_0f305bcf8e79a46d58bb63a2ad76c57e",
+   "lead_time": {
+    "days": 14,
+    "receiving_days": 0,
+    "source": "item",
+    "unit": "calendar"
+   },
+   "llc": 1,
+   "lot": {
+    "fixed_qty": null,
+    "moq": 0.0,
+    "multiple": 0.0,
+    "pack": 1.0,
+    "period_days": null,
+    "rule": "lot_for_lot"
+   },
+   "make_buy": "buy",
+   "part_number": "DOC-B",
+   "requirements": [
+    {
+     "kind": "planned_component",
+     "late_days": 0,
+     "need_date": "2026-12-24",
+     "node": 1,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 1.0,
+       "requirement_item_id": "itm_0f305bcf8e79a46d58bb63a2ad76c57e",
+       "requirement_node": 1,
+       "supply_item_id": "itm_0f305bcf8e79a46d58bb63a2ad76c57e",
+       "supply_node": 2
+      }
+     ],
+     "qty": 1.0,
+     "rank": [
+      1,
+      2,
+      "2026-12-28",
+      "DO-002",
+      10
+     ],
+     "rank_label": "P2 DO-002/10",
+     "satisfied_date": "2026-12-24",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "3",
+      "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+      "label": "Planned WO P-3",
+      "node": 5,
+      "number": "P-3",
+      "type": "planned_order"
+     }
+    }
+   ],
+   "stats": {
+    "exception_count": 1,
+    "existing_supply_qty": 0.0,
+    "first_short_date": null,
+    "gross_qty": 1.0,
+    "late_qty": 0.0,
+    "min_balance": 0.0,
+    "on_hand": 0.0,
+    "planned_count": 1,
+    "planned_qty": 1.0,
+    "short_qty": 0.0
+   },
+   "supplier_id": null,
+   "supplies": [
+    {
+     "avail_date": "2026-12-24",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": null,
+     "kind": "planned",
+     "node": 2,
+     "pegged_qty": 1.0,
+     "planned_no": 4,
+     "projected_date": "2026-12-24",
+     "qty": 1.0,
+     "ref": {
+      "component_id": null,
+      "id": "4",
+      "item_id": null,
+      "label": "Planned PR P-4",
+      "node": null,
+      "number": "P-4",
+      "type": "planned_order"
+     },
+     "start_date": "2026-12-10"
+    }
+   ],
+   "timeline": [
+    {
+     "balance_existing": 0.0,
+     "balance_planned": 1.0,
+     "date": "2026-12-24",
+     "kind": "planned",
+     "label": "Planned PR P-4",
+     "node": 2,
+     "qty": 1.0
+    },
+    {
+     "balance_existing": -1.0,
+     "balance_planned": 0.0,
+     "date": "2026-12-24",
+     "kind": "requirement",
+     "label": "Planned WO P-3",
+     "node": 1,
+     "qty": -1.0
+    }
+   ],
+   "uom": "EA"
+  },
+  {
+   "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+   "lead_time": {
+    "days": 2,
+    "receiving_days": 0,
+    "source": "fixed",
+    "unit": "working"
+   },
+   "llc": 1,
+   "lot": {
+    "fixed_qty": null,
+    "moq": 0.0,
+    "multiple": 0.0,
+    "pack": 1.0,
+    "period_days": null,
+    "rule": "lot_for_lot"
+   },
+   "make_buy": "make",
+   "part_number": "PCB",
+   "requirements": [
+    {
+     "kind": "planned_component",
+     "late_days": 17,
+     "need_date": "2026-11-17",
+     "node": 1,
+     "pegs": [
+      {
+       "late_days": 17,
+       "qty": 6.0,
+       "requirement_item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+       "requirement_node": 1,
+       "supply_item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+       "supply_node": 4
+      }
+     ],
+     "qty": 6.0,
+     "rank": [
+      1,
+      1,
+      "2026-11-20",
+      "DO-004",
+      10
+     ],
+     "rank_label": "P1 DO-004/10",
+     "satisfied_date": "2026-12-04",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "1",
+      "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+      "label": "Planned WO P-1",
+      "node": 3,
+      "number": "P-1",
+      "type": "planned_order"
+     }
+    },
+    {
+     "kind": "planned_component",
+     "late_days": 12,
+     "need_date": "2026-12-24",
+     "node": 2,
+     "pegs": [
+      {
+       "late_days": 12,
+       "qty": 5.0,
+       "requirement_item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+       "requirement_node": 2,
+       "supply_item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+       "supply_node": 5
+      }
+     ],
+     "qty": 5.0,
+     "rank": [
+      1,
+      2,
+      "2026-12-28",
+      "DO-002",
+      10
+     ],
+     "rank_label": "P2 DO-002/10",
+     "satisfied_date": "2027-01-05",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "2",
+      "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+      "label": "Planned WO P-2",
+      "node": 4,
+      "number": "P-2",
+      "type": "planned_order"
+     }
+    },
+    {
+     "kind": "planned_component",
+     "late_days": 12,
+     "need_date": "2026-12-24",
+     "node": 3,
+     "pegs": [
+      {
+       "late_days": 12,
+       "qty": 1.0,
+       "requirement_item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+       "requirement_node": 3,
+       "supply_item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+       "supply_node": 5
+      }
+     ],
+     "qty": 1.0,
+     "rank": [
+      1,
+      2,
+      "2026-12-28",
+      "DO-002",
+      10
+     ],
+     "rank_label": "P2 DO-002/10",
+     "satisfied_date": "2027-01-05",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "3",
+      "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+      "label": "Planned WO P-3",
+      "node": 5,
+      "number": "P-3",
+      "type": "planned_order"
+     }
+    }
+   ],
+   "stats": {
+    "exception_count": 1,
+    "existing_supply_qty": 0.0,
+    "first_short_date": "2026-11-17",
+    "gross_qty": 12.0,
+    "late_qty": 12.0,
+    "min_balance": 0.0,
+    "on_hand": 0.0,
+    "planned_count": 2,
+    "planned_qty": 12.0,
+    "short_qty": 12.0
+   },
+   "supplier_id": null,
+   "supplies": [
+    {
+     "avail_date": "2026-11-17",
+     "component_nodes": [
+      [
+       "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       4
+      ],
+      [
+       "itm_ff2f4814dd6a615c07ccd48788c66496",
+       2
+      ],
+      [
+       "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       3
+      ]
+     ],
+     "due_date": "2026-11-17",
+     "expires_on": null,
+     "kind": "planned",
+     "node": 4,
+     "pegged_qty": 6.0,
+     "planned_no": 5,
+     "projected_date": "2026-12-04",
+     "qty": 6.0,
+     "ref": {
+      "component_id": null,
+      "id": "5",
+      "item_id": null,
+      "label": "Planned WO P-5",
+      "node": null,
+      "number": "P-5",
+      "type": "planned_order"
+     },
+     "start_date": "2026-11-14"
+    },
+    {
+     "avail_date": "2026-12-24",
+     "component_nodes": [
+      [
+       "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       5
+      ],
+      [
+       "itm_ff2f4814dd6a615c07ccd48788c66496",
+       3
+      ],
+      [
+       "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       4
+      ]
+     ],
+     "due_date": "2026-12-24",
+     "expires_on": null,
+     "kind": "planned",
+     "node": 5,
+     "pegged_qty": 6.0,
+     "planned_no": 6,
+     "projected_date": "2027-01-05",
+     "qty": 6.0,
+     "ref": {
+      "component_id": null,
+      "id": "6",
+      "item_id": null,
+      "label": "Planned WO P-6",
+      "node": null,
+      "number": "P-6",
+      "type": "planned_order"
+     },
+     "start_date": "2026-12-22"
+    }
+   ],
+   "timeline": [
+    {
+     "balance_existing": 0.0,
+     "balance_planned": 6.0,
+     "date": "2026-11-17",
+     "kind": "planned",
+     "label": "Planned WO P-5",
+     "node": 4,
+     "qty": 6.0
+    },
+    {
+     "balance_existing": -6.0,
+     "balance_planned": 0.0,
+     "date": "2026-11-17",
+     "kind": "requirement",
+     "label": "Planned WO P-1",
+     "node": 1,
+     "qty": -6.0
+    },
+    {
+     "balance_existing": -6.0,
+     "balance_planned": 6.0,
+     "date": "2026-12-24",
+     "kind": "planned",
+     "label": "Planned WO P-6",
+     "node": 5,
+     "qty": 6.0
+    },
+    {
+     "balance_existing": -11.0,
+     "balance_planned": 1.0,
+     "date": "2026-12-24",
+     "kind": "requirement",
+     "label": "Planned WO P-2",
+     "node": 2,
+     "qty": -5.0
+    },
+    {
+     "balance_existing": -12.0,
+     "balance_planned": 0.0,
+     "date": "2026-12-24",
+     "kind": "requirement",
+     "label": "Planned WO P-3",
+     "node": 3,
+     "qty": -1.0
+    }
+   ],
+   "uom": "EA"
+  },
+  {
+   "item_id": "itm_ff2f4814dd6a615c07ccd48788c66496",
+   "lead_time": {
+    "days": 56,
+    "receiving_days": 0,
+    "source": "item",
+    "unit": "calendar"
+   },
+   "llc": 2,
+   "lot": {
+    "fixed_qty": null,
+    "moq": 0.0,
+    "multiple": 0.0,
+    "pack": 1.0,
+    "period_days": null,
+    "rule": "lot_for_lot"
+   },
+   "make_buy": "buy",
+   "part_number": "CAP-B",
+   "requirements": [
+    {
+     "kind": "planned_component",
+     "late_days": 0,
+     "need_date": "2026-11-14",
+     "node": 2,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 12.0,
+       "requirement_item_id": "itm_ff2f4814dd6a615c07ccd48788c66496",
+       "requirement_node": 2,
+       "supply_item_id": "itm_ff2f4814dd6a615c07ccd48788c66496",
+       "supply_node": 1
+      }
+     ],
+     "qty": 12.0,
+     "rank": [
+      1,
+      1,
+      "2026-11-20",
+      "DO-004",
+      10
+     ],
+     "rank_label": "P1 DO-004/10",
+     "satisfied_date": "2026-11-02",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "5",
+      "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+      "label": "Planned WO P-5",
+      "node": 4,
+      "number": "P-5",
+      "type": "planned_order"
+     }
+    },
+    {
+     "kind": "planned_component",
+     "late_days": 0,
+     "need_date": "2026-12-22",
+     "node": 3,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 12.0,
+       "requirement_item_id": "itm_ff2f4814dd6a615c07ccd48788c66496",
+       "requirement_node": 3,
+       "supply_item_id": "itm_ff2f4814dd6a615c07ccd48788c66496",
+       "supply_node": 1
+      }
+     ],
+     "qty": 12.0,
+     "rank": [
+      1,
+      2,
+      "2026-12-28",
+      "DO-002",
+      10
+     ],
+     "rank_label": "P2 DO-002/10",
+     "satisfied_date": "2026-11-02",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "6",
+      "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+      "label": "Planned WO P-6",
+      "node": 5,
+      "number": "P-6",
+      "type": "planned_order"
+     }
+    }
+   ],
+   "stats": {
+    "exception_count": 2,
+    "existing_supply_qty": 0.0,
+    "first_short_date": null,
+    "gross_qty": 24.0,
+    "late_qty": 0.0,
+    "min_balance": 76.0,
+    "on_hand": 100.0,
+    "planned_count": 0,
+    "planned_qty": 0.0,
+    "short_qty": 0.0
+   },
+   "supplier_id": null,
+   "supplies": [
+    {
+     "avail_date": "2026-11-02",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": null,
+     "kind": "stock",
+     "node": 1,
+     "pegged_qty": 24.0,
+     "planned_no": null,
+     "projected_date": "2026-11-02",
+     "qty": 100.0,
+     "ref": {
+      "component_id": null,
+      "id": "bal_f6cde0b93cead00a4872fbc0a014f215",
+      "item_id": null,
+      "label": "Stock loc_25c719bca9c8484a7e182662404dd098",
+      "node": null,
+      "number": null,
+      "type": "balance"
+     },
+     "start_date": null
+    }
+   ],
+   "timeline": [
+    {
+     "balance_existing": 100.0,
+     "balance_planned": 100.0,
+     "date": "2026-11-02",
+     "kind": "on_hand",
+     "label": "On hand",
+     "node": null,
+     "qty": 100.0
+    },
+    {
+     "balance_existing": 88.0,
+     "balance_planned": 88.0,
+     "date": "2026-11-14",
+     "kind": "requirement",
+     "label": "Planned WO P-5",
+     "node": 2,
+     "qty": -12.0
+    },
+    {
+     "balance_existing": 76.0,
+     "balance_planned": 76.0,
+     "date": "2026-12-22",
+     "kind": "requirement",
+     "label": "Planned WO P-6",
+     "node": 3,
+     "qty": -12.0
+    }
+   ],
+   "uom": "EA"
+  },
+  {
+   "item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+   "lead_time": {
+    "days": 60,
+    "receiving_days": 2,
+    "source": "item",
+    "unit": "calendar"
+   },
+   "llc": 2,
+   "lot": {
+    "fixed_qty": null,
+    "moq": 0.0,
+    "multiple": 0.0,
+    "pack": 1.0,
+    "period_days": null,
+    "rule": "lot_for_lot"
+   },
+   "make_buy": "buy",
+   "part_number": "FPGA",
+   "requirements": [
+    {
+     "kind": "planned_component",
+     "late_days": 8,
+     "need_date": "2026-11-14",
+     "node": 4,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 4.0,
+       "requirement_item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       "requirement_node": 4,
+       "supply_item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       "supply_node": 1
+      },
+      {
+       "late_days": 8,
+       "qty": 2.0,
+       "requirement_item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       "requirement_node": 4,
+       "supply_item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       "supply_node": 2
+      }
+     ],
+     "qty": 6.0,
+     "rank": [
+      1,
+      1,
+      "2026-11-20",
+      "DO-004",
+      10
+     ],
+     "rank_label": "P1 DO-004/10",
+     "satisfied_date": "2026-11-22",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "5",
+      "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+      "label": "Planned WO P-5",
+      "node": 4,
+      "number": "P-5",
+      "type": "planned_order"
+     }
+    },
+    {
+     "kind": "planned_component",
+     "late_days": 12,
+     "need_date": "2026-12-22",
+     "node": 5,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 4.0,
+       "requirement_item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       "requirement_node": 5,
+       "supply_item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       "supply_node": 2
+      },
+      {
+       "late_days": 12,
+       "qty": 2.0,
+       "requirement_item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       "requirement_node": 5,
+       "supply_item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+       "supply_node": 6
+      }
+     ],
+     "qty": 6.0,
+     "rank": [
+      1,
+      2,
+      "2026-12-28",
+      "DO-002",
+      10
+     ],
+     "rank_label": "P2 DO-002/10",
+     "satisfied_date": "2027-01-03",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "6",
+      "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+      "label": "Planned WO P-6",
+      "node": 5,
+      "number": "P-6",
+      "type": "planned_order"
+     }
+    }
+   ],
+   "stats": {
+    "exception_count": 5,
+    "existing_supply_qty": 12.0,
+    "first_short_date": "2026-11-14",
+    "gross_qty": 12.0,
+    "late_qty": 12.0,
+    "min_balance": -2.0,
+    "on_hand": 4.0,
+    "planned_count": 1,
+    "planned_qty": 2.0,
+    "short_qty": 4.0
+   },
+   "supplier_id": null,
+   "supplies": [
+    {
+     "avail_date": "2026-11-02",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": "2027-12-31",
+     "kind": "stock",
+     "node": 1,
+     "pegged_qty": 4.0,
+     "planned_no": null,
+     "projected_date": "2026-11-02",
+     "qty": 4.0,
+     "ref": {
+      "component_id": null,
+      "id": "bal_fa5b30f2923402a46472c52b52b28a84",
+      "item_id": null,
+      "label": "Stock loc_25c719bca9c8484a7e182662404dd098 lot F-1",
+      "node": null,
+      "number": null,
+      "type": "balance"
+     },
+     "start_date": null
+    },
+    {
+     "avail_date": "2026-11-22",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": null,
+     "kind": "po",
+     "node": 2,
+     "pegged_qty": 6.0,
+     "planned_no": null,
+     "projected_date": "2026-11-22",
+     "qty": 6.0,
+     "ref": {
+      "component_id": null,
+      "id": "psc_dfa8444f6b1f9b1702931bb9f4cb3951",
+      "item_id": null,
+      "label": "PO-0101/10/1",
+      "node": null,
+      "number": "PO-0101",
+      "type": "po_schedule"
+     },
+     "start_date": null
+    },
+    {
+     "avail_date": "2027-01-07",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": null,
+     "kind": "po",
+     "node": 3,
+     "pegged_qty": 0.0,
+     "planned_no": null,
+     "projected_date": "2027-01-07",
+     "qty": 6.0,
+     "ref": {
+      "component_id": null,
+      "id": "psc_56ca4d87e61c36b6100dc4f305cd5f38",
+      "item_id": null,
+      "label": "PO-0101/10/2",
+      "node": null,
+      "number": "PO-0101",
+      "type": "po_schedule"
+     },
+     "start_date": null
+    },
+    {
+     "avail_date": "2026-12-22",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": null,
+     "kind": "planned",
+     "node": 6,
+     "pegged_qty": 2.0,
+     "planned_no": 7,
+     "projected_date": "2027-01-03",
+     "qty": 2.0,
+     "ref": {
+      "component_id": null,
+      "id": "7",
+      "item_id": null,
+      "label": "Planned PR P-7",
+      "node": null,
+      "number": "P-7",
+      "type": "planned_order"
+     },
+     "start_date": "2026-10-21"
+    }
+   ],
+   "timeline": [
+    {
+     "balance_existing": 4.0,
+     "balance_planned": 4.0,
+     "date": "2026-11-02",
+     "kind": "on_hand",
+     "label": "On hand",
+     "node": null,
+     "qty": 4.0
+    },
+    {
+     "balance_existing": -2.0,
+     "balance_planned": -2.0,
+     "date": "2026-11-14",
+     "kind": "requirement",
+     "label": "Planned WO P-5",
+     "node": 4,
+     "qty": -6.0
+    },
+    {
+     "balance_existing": 4.0,
+     "balance_planned": 4.0,
+     "date": "2026-11-22",
+     "kind": "supply",
+     "label": "PO-0101/10/1",
+     "node": 2,
+     "qty": 6.0
+    },
+    {
+     "balance_existing": 4.0,
+     "balance_planned": 6.0,
+     "date": "2026-12-22",
+     "kind": "planned",
+     "label": "Planned PR P-7",
+     "node": 6,
+     "qty": 2.0
+    },
+    {
+     "balance_existing": -2.0,
+     "balance_planned": 0.0,
+     "date": "2026-12-22",
+     "kind": "requirement",
+     "label": "Planned WO P-6",
+     "node": 5,
+     "qty": -6.0
+    },
+    {
+     "balance_existing": 4.0,
+     "balance_planned": 6.0,
+     "date": "2027-01-07",
+     "kind": "supply",
+     "label": "PO-0101/10/2",
+     "node": 3,
+     "qty": 6.0
+    }
+   ],
+   "uom": "EA"
+  },
+  {
+   "item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+   "lead_time": {
+    "days": 30,
+    "receiving_days": 0,
+    "source": "item",
+    "unit": "calendar"
+   },
+   "llc": 2,
+   "lot": {
+    "fixed_qty": null,
+    "moq": 5000.0,
+    "multiple": 5000.0,
+    "pack": 1.0,
+    "period_days": null,
+    "rule": "lot_for_lot"
+   },
+   "make_buy": "buy",
+   "part_number": "RES",
+   "requirements": [
+    {
+     "kind": "safety_stock",
+     "late_days": 0,
+     "need_date": "2026-11-02",
+     "node": 2,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 100.0,
+       "requirement_item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       "requirement_node": 2,
+       "supply_item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       "supply_node": 5
+      }
+     ],
+     "qty": 100.0,
+     "rank": [
+      2,
+      9,
+      "9999-12-31",
+      "",
+      0
+     ],
+     "rank_label": "Safety stock",
+     "satisfied_date": "2026-12-02",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+      "item_id": null,
+      "label": "Safety stock RES",
+      "node": null,
+      "number": null,
+      "type": "safety_stock"
+     }
+    },
+    {
+     "kind": "planned_component",
+     "late_days": 18,
+     "need_date": "2026-11-14",
+     "node": 3,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 60.0,
+       "requirement_item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       "requirement_node": 3,
+       "supply_item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       "supply_node": 1
+      },
+      {
+       "late_days": 18,
+       "qty": 12.0,
+       "requirement_item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       "requirement_node": 3,
+       "supply_item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       "supply_node": 5
+      }
+     ],
+     "qty": 72.0,
+     "rank": [
+      1,
+      1,
+      "2026-11-20",
+      "DO-004",
+      10
+     ],
+     "rank_label": "P1 DO-004/10",
+     "satisfied_date": "2026-12-02",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "5",
+      "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+      "label": "Planned WO P-5",
+      "node": 4,
+      "number": "P-5",
+      "type": "planned_order"
+     }
+    },
+    {
+     "kind": "planned_component",
+     "late_days": 0,
+     "need_date": "2026-12-22",
+     "node": 4,
+     "pegs": [
+      {
+       "late_days": 0,
+       "qty": 72.0,
+       "requirement_item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       "requirement_node": 4,
+       "supply_item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+       "supply_node": 5
+      }
+     ],
+     "qty": 72.0,
+     "rank": [
+      1,
+      2,
+      "2026-12-28",
+      "DO-002",
+      10
+     ],
+     "rank_label": "P2 DO-002/10",
+     "satisfied_date": "2026-12-02",
+     "segment": null,
+     "source": {
+      "component_id": null,
+      "id": "6",
+      "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+      "label": "Planned WO P-6",
+      "node": 5,
+      "number": "P-6",
+      "type": "planned_order"
+     }
+    }
+   ],
+   "stats": {
+    "exception_count": 4,
+    "existing_supply_qty": 0.0,
+    "first_short_date": "2026-11-14",
+    "gross_qty": 244.0,
+    "late_qty": 72.0,
+    "min_balance": 60.0,
+    "on_hand": 60.0,
+    "planned_count": 1,
+    "planned_qty": 5000.0,
+    "short_qty": 12.0
+   },
+   "supplier_id": null,
+   "supplies": [
+    {
+     "avail_date": "2026-11-02",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": null,
+     "kind": "stock",
+     "node": 1,
+     "pegged_qty": 60.0,
+     "planned_no": null,
+     "projected_date": "2026-11-02",
+     "qty": 60.0,
+     "ref": {
+      "component_id": null,
+      "id": "bal_545e5c0537c380a4fc6683b62f9946d0",
+      "item_id": null,
+      "label": "Stock loc_25c719bca9c8484a7e182662404dd098",
+      "node": null,
+      "number": null,
+      "type": "balance"
+     },
+     "start_date": null
+    },
+    {
+     "avail_date": "2026-11-14",
+     "component_nodes": [],
+     "due_date": null,
+     "expires_on": null,
+     "kind": "planned",
+     "node": 5,
+     "pegged_qty": 184.0,
+     "planned_no": 8,
+     "projected_date": "2026-12-02",
+     "qty": 5000.0,
+     "ref": {
+      "component_id": null,
+      "id": "8",
+      "item_id": null,
+      "label": "Planned PR P-8",
+      "node": null,
+      "number": "P-8",
+      "type": "planned_order"
+     },
+     "start_date": "2026-10-15"
+    }
+   ],
+   "timeline": [
+    {
+     "balance_existing": 60.0,
+     "balance_planned": 60.0,
+     "date": "2026-11-02",
+     "kind": "on_hand",
+     "label": "On hand",
+     "node": null,
+     "qty": 60.0
+    },
+    {
+     "balance_existing": 60.0,
+     "balance_planned": 5060.0,
+     "date": "2026-11-14",
+     "kind": "planned",
+     "label": "Planned PR P-8",
+     "node": 5,
+     "qty": 5000.0
+    },
+    {
+     "balance_existing": -12.0,
+     "balance_planned": 4988.0,
+     "date": "2026-11-14",
+     "kind": "requirement",
+     "label": "Planned WO P-5",
+     "node": 3,
+     "qty": -72.0
+    },
+    {
+     "balance_existing": -84.0,
+     "balance_planned": 4916.0,
+     "date": "2026-12-22",
+     "kind": "requirement",
+     "label": "Planned WO P-6",
+     "node": 4,
+     "qty": -72.0
+    }
+   ],
+   "uom": "EA"
+  }
+ ],
+ "iterations": 2,
+ "kind": "live",
+ "params": {
+  "allocation": "priority",
+  "alternates": "when_short",
+  "as_of": null,
+  "demand_filter": null,
+  "exclude_demand_line_ids": [],
+  "extra_demand": [],
+  "horizon_days": null,
+  "include_pr_supply": true,
+  "label": "",
+  "lead_time_overrides": [],
+  "note": "",
+  "protect_programs": [],
+  "safety_stock": true,
+  "supply_date_overrides": []
+ },
+ "planned_orders": [
+  {
+   "bom_id": "bom_49973390bd210e363cb1c403723c1b1e",
+   "directives": {},
+   "dock_date": null,
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "kind": "make",
+   "late_days": 18,
+   "llc": 0,
+   "lot_note": "lot-for-lot",
+   "need_date": "2026-11-20",
+   "order_key": "itm_42ec8a54fce4361f54d4c3c0d974b944:97-102:2026-11-20:0",
+   "part_number": "TPU",
+   "peg_summary": [
+    {
+     "demand_line_id": "dml_02409a237e76bc3f7a46c25c0fac0b22",
+     "label": "DO-004/10",
+     "qty": 6.0
+    }
+   ],
+   "planned_no": 1,
+   "projected_due": "2026-12-08",
+   "projected_start": "2026-11-17",
+   "qty": 6.0,
+   "release_status": "later",
+   "routing_id": null,
+   "segment": {
+    "serial_from": 97,
+    "serial_to": 102
+   },
+   "start_date": "2026-11-17",
+   "supplier_id": null,
+   "supply_node": 3
+  },
+  {
+   "bom_id": "bom_49973390bd210e363cb1c403723c1b1e",
+   "directives": {},
+   "dock_date": null,
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "kind": "make",
+   "late_days": 11,
+   "llc": 0,
+   "lot_note": "lot-for-lot",
+   "need_date": "2026-12-28",
+   "order_key": "itm_42ec8a54fce4361f54d4c3c0d974b944:121-125:2026-12-28:0",
+   "part_number": "TPU",
+   "peg_summary": [
+    {
+     "demand_line_id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+     "label": "DO-002/10",
+     "qty": 5.0
+    }
+   ],
+   "planned_no": 2,
+   "projected_due": "2027-01-08",
+   "projected_start": "2026-12-24",
+   "qty": 5.0,
+   "release_status": "later",
+   "routing_id": null,
+   "segment": {
+    "serial_from": 121,
+    "serial_to": 125
+   },
+   "start_date": "2026-12-24",
+   "supplier_id": null,
+   "supply_node": 4
+  },
+  {
+   "bom_id": "bom_7fa1b3127a2e15a19faaca029258d144",
+   "directives": {},
+   "dock_date": null,
+   "item_id": "itm_42ec8a54fce4361f54d4c3c0d974b944",
+   "kind": "make",
+   "late_days": 11,
+   "llc": 0,
+   "lot_note": "lot-for-lot",
+   "need_date": "2026-12-28",
+   "order_key": "itm_42ec8a54fce4361f54d4c3c0d974b944:126-126:2026-12-28:0",
+   "part_number": "TPU",
+   "peg_summary": [
+    {
+     "demand_line_id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+     "label": "DO-002/10",
+     "qty": 1.0
+    }
+   ],
+   "planned_no": 3,
+   "projected_due": "2027-01-08",
+   "projected_start": "2026-12-24",
+   "qty": 1.0,
+   "release_status": "later",
+   "routing_id": null,
+   "segment": {
+    "serial_from": 126,
+    "serial_to": 126
+   },
+   "start_date": "2026-12-24",
+   "supplier_id": null,
+   "supply_node": 5
+  },
+  {
+   "bom_id": null,
+   "directives": {},
+   "dock_date": "2026-12-24",
+   "item_id": "itm_0f305bcf8e79a46d58bb63a2ad76c57e",
+   "kind": "buy",
+   "late_days": 0,
+   "llc": 1,
+   "lot_note": "lot-for-lot",
+   "need_date": "2026-12-24",
+   "order_key": "itm_0f305bcf8e79a46d58bb63a2ad76c57e:-:2026-12-24:0",
+   "part_number": "DOC-B",
+   "peg_summary": [
+    {
+     "demand_line_id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+     "label": "DO-002/10",
+     "qty": 1.0
+    }
+   ],
+   "planned_no": 4,
+   "projected_due": "2026-12-24",
+   "projected_start": "2026-12-10",
+   "qty": 1.0,
+   "release_status": "later",
+   "routing_id": null,
+   "segment": null,
+   "start_date": "2026-12-10",
+   "supplier_id": null,
+   "supply_node": 2
+  },
+  {
+   "bom_id": "bom_111b9816463f4ea094c4070096352c2e",
+   "directives": {
+    "C1": 12.0
+   },
+   "dock_date": null,
+   "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+   "kind": "make",
+   "late_days": 17,
+   "llc": 1,
+   "lot_note": "lot-for-lot",
+   "need_date": "2026-11-17",
+   "order_key": "itm_18c994bcccd531de847f81513a5f4c17:-:2026-11-17:0",
+   "part_number": "PCB",
+   "peg_summary": [
+    {
+     "demand_line_id": "dml_02409a237e76bc3f7a46c25c0fac0b22",
+     "label": "DO-004/10",
+     "qty": 6.0
+    }
+   ],
+   "planned_no": 5,
+   "projected_due": "2026-12-04",
+   "projected_start": "2026-11-14",
+   "qty": 6.0,
+   "release_status": "later",
+   "routing_id": null,
+   "segment": null,
+   "start_date": "2026-11-14",
+   "supplier_id": null,
+   "supply_node": 4
+  },
+  {
+   "bom_id": "bom_111b9816463f4ea094c4070096352c2e",
+   "directives": {
+    "C1": 12.0
+   },
+   "dock_date": null,
+   "item_id": "itm_18c994bcccd531de847f81513a5f4c17",
+   "kind": "make",
+   "late_days": 12,
+   "llc": 1,
+   "lot_note": "lot-for-lot",
+   "need_date": "2026-12-24",
+   "order_key": "itm_18c994bcccd531de847f81513a5f4c17:-:2026-12-24:0",
+   "part_number": "PCB",
+   "peg_summary": [
+    {
+     "demand_line_id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+     "label": "DO-002/10",
+     "qty": 6.0
+    }
+   ],
+   "planned_no": 6,
+   "projected_due": "2027-01-05",
+   "projected_start": "2026-12-22",
+   "qty": 6.0,
+   "release_status": "later",
+   "routing_id": null,
+   "segment": null,
+   "start_date": "2026-12-22",
+   "supplier_id": null,
+   "supply_node": 5
+  },
+  {
+   "bom_id": null,
+   "directives": {},
+   "dock_date": "2026-12-20",
+   "item_id": "itm_0a4aa94bdb36b1f276764604bfd9f94a",
+   "kind": "buy",
+   "late_days": 12,
+   "llc": 2,
+   "lot_note": "lot-for-lot",
+   "need_date": "2026-12-22",
+   "order_key": "itm_0a4aa94bdb36b1f276764604bfd9f94a:-:2026-12-22:0",
+   "part_number": "FPGA",
+   "peg_summary": [
+    {
+     "demand_line_id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+     "label": "DO-002/10",
+     "qty": 2.0
+    }
+   ],
+   "planned_no": 7,
+   "projected_due": "2027-01-03",
+   "projected_start": "2026-11-02",
+   "qty": 2.0,
+   "release_status": "start_in_past",
+   "routing_id": null,
+   "segment": null,
+   "start_date": "2026-10-21",
+   "supplier_id": null,
+   "supply_node": 6
+  },
+  {
+   "bom_id": null,
+   "directives": {},
+   "dock_date": "2026-11-14",
+   "item_id": "itm_4d11c463224ea9ee10c1aeb3b460936e",
+   "kind": "buy",
+   "late_days": 18,
+   "llc": 2,
+   "lot_note": "lot-for-lot; MOQ 5,000; multiple 5,000",
+   "need_date": "2026-11-14",
+   "order_key": "itm_4d11c463224ea9ee10c1aeb3b460936e:-:2026-11-14:0",
+   "part_number": "RES",
+   "peg_summary": [
+    {
+     "demand_line_id": null,
+     "label": "Safety stock RES",
+     "qty": 100.0
+    },
+    {
+     "demand_line_id": "dml_a8bcfa8cd201d0b1c32ec7a7568da460",
+     "label": "DO-002/10",
+     "qty": 72.0
+    },
+    {
+     "demand_line_id": "dml_02409a237e76bc3f7a46c25c0fac0b22",
+     "label": "DO-004/10",
+     "qty": 12.0
+    }
+   ],
+   "planned_no": 8,
+   "projected_due": "2026-12-02",
+   "projected_start": "2026-11-02",
+   "qty": 5000.0,
+   "release_status": "start_in_past",
+   "routing_id": null,
+   "segment": null,
+   "start_date": "2026-10-15",
+   "supplier_id": null,
+   "supply_node": 5
+  }
+ ],
+ "summary": {
+  "alternates_used": 2,
+  "demand_late": 2,
+  "demand_lines": 2,
+  "demand_on_time": 0,
+  "demand_outside_horizon": 0,
+  "demand_past_due": 0,
+  "exceptions": {
+   "by_code": {
+    "MRP_ALTERNATE_USED": 2,
+    "MRP_BELOW_SAFETY_STOCK": 1,
+    "MRP_CANCEL": 1,
+    "MRP_DEFER": 0,
+    "MRP_DEMAND_LATE": 2,
+    "MRP_DEMAND_OUTSIDE_HORIZON": 0,
+    "MRP_DEMAND_PAST_DUE": 0,
+    "MRP_DEMAND_SERIAL_OVERLAP": 0,
+    "MRP_EXPEDITE": 1,
+    "MRP_EXPIRED_STOCK": 0,
+    "MRP_EXPIRING_STOCK": 0,
+    "MRP_MERGE_INTO_PR": 0,
+    "MRP_NO_SUPPLIER": 3,
+    "MRP_PAST_DUE_SUPPLY": 0,
+    "MRP_REDUCE": 1,
+    "MRP_RELEASE_NOW": 0,
+    "MRP_RESERVATION_EXCESS": 0,
+    "MRP_SHORTAGE": 4,
+    "MRP_START_IN_PAST": 2,
+    "MRP_WO_COMPONENT_CYCLE": 0,
+    "MRP_WO_LATE": 0
+   },
+   "by_severity": {
+    "critical": 2,
+    "info": 7,
+    "warning": 8
+   }
+  },
+  "exceptions_truncated": false,
+  "items": 7,
+  "items_short": 4,
+  "iterations": 2,
+  "max_late_days": 18,
+  "planned_buy": 3,
+  "planned_make": 5,
+  "release_now": 0,
+  "requirements": 15,
+  "start_in_past": 2
+ }
+}

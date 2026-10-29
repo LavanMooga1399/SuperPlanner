@@ -16,7 +16,8 @@ from typing import Any
 
 from ..dataset import MfgDataset
 from ..limits import MRP_MAX_REQUIREMENTS
-from ..model import HealthIssue, EntityRef, ItemRecord
+from ..model import EntityRef, HealthIssue, ItemRecord
+from ..units import is_count
 from .explode import StructureCache, apply_structure
 from .leadtime import (PurchaseSource, calendar_of, item_suppliers_by_item, mlt_info, resolve_source, settings_of)
 from .llc import bom_edges_in_window, low_level_codes
@@ -105,6 +106,9 @@ class Ctx:
         self._src: dict[str, PurchaseSource] = {}
         self._lot: dict[str, LotParams] = {}
         self._note: dict[str, str] = {}
+        self._fast: dict[int, tuple] = {}
+        self._fast_keep: list[Any] = []          # keeps the structures alive so their ids stay unique
+        self.serial_make = {i: (it.make_buy == "make" and it.serialized) for i, it in ds.items.items()}
         self._mlt: dict[tuple, tuple[int, str]] = {}
         self._protect: dict[str, date] = {}
         self._cuts: dict[str, list[int]] = {}
@@ -140,6 +144,17 @@ class Ctx:
         if lp is None:
             lp = self._lot[item.id] = lot_params(item, self.source(item) if item.make_buy == "buy" else None)
         return lp
+
+    def fast_structure(self, us: Any) -> tuple[tuple[str, float, bool, Any], ...]:
+        """Primary positions of a unit structure as `(child, factor, count_uom, alt group | None)` (cached)."""
+        f = self._fast.get(id(us))
+        if f is None:
+            items = self.ds.items
+            f = tuple((g.primary.item_id, g.primary.factor, is_count(items[g.primary.item_id].uom),
+                       g if (g.alt_key is not None and g.alternates) else None) for g in us.groups)
+            self._fast[id(us)] = f
+            self._fast_keep.append(us)
+        return f
 
     def lot_note(self, item: ItemRecord) -> str:
         n = self._note.get(item.id)
@@ -517,7 +532,9 @@ class Pass:
         sup.planned_no, sup.start, sup.mlt = no, start, mlt
         sup.due = d if kind == "make" else None
         po = _Planned(no, kind, item.id, qty, d, start, dock, sup, seg, order_key, supplier, c.lot_note(item), mlt)
-        po.directives = dict(self.dir_by_order.get(order_key, {}))
+        dmap = self.dir_by_order.get(order_key)
+        if dmap:
+            po.directives = dict(dmap)
         sup.po = po
         self.planned.append(po)
         st.planned.append(po)
@@ -525,33 +542,48 @@ class Pass:
 
     def explode(self, st: _State, po: _Planned) -> None:
         c = self.c
-        items = c.ds.items
         on = max(po.start, c.as_of)
         us = c.structures.get(po.item_id, on, po.segment.serial_from if po.segment else None)
         po.bom_id, po.routing_id = us.bom_id, us.routing_id
         if not us.groups:
             return
-        comps = apply_structure(c.ds, us, po.qty, directives=self.directives if po.directives else None,
-                                order_key=po.order_key)
-        groups = {g.alt_key: g for g in us.groups if g.alt_key is not None and g.alternates}
         agg: dict[str, list[Any]] = {}
-        for cn in comps:
-            a = agg.get(cn.item_id)
-            if a is None:
-                a = agg[cn.item_id] = [0.0, []]
-            a[0] += cn.qty
-            if cn.substitute_for is None and cn.alt_key in groups:
-                a[1].append((groups[cn.alt_key], cn.qty))
+        qty = po.qty
+        if po.directives:
+            comps = apply_structure(c.ds, us, qty, directives=self.directives, order_key=po.order_key)
+            groups = {g.alt_key: g for g in us.groups if g.alt_key is not None and g.alternates}
+            for cn in comps:
+                a = agg.get(cn.item_id)
+                if a is None:
+                    a = agg[cn.item_id] = [0.0, []]
+                a[0] += cn.qty
+                if cn.substitute_for is None and cn.alt_key in groups:
+                    a[1].append((groups[cn.alt_key], cn.qty))
+        else:                                    # fast path, same arithmetic as apply_structure without directives
+            for child, factor, count, group in c.fast_structure(us):
+                x = qty * factor
+                if x <= 1e-9:
+                    continue
+                q = float(math.ceil(x - 1e-9)) if count else round(x, 6)
+                if q <= 0:
+                    continue
+                a = agg.get(child)
+                if a is None:
+                    a = agg[child] = [0.0, []]
+                a[0] += q
+                if group is not None:
+                    a[1].append((group, q))
         rank, rank_label = self._best(po.sup, SS_RANK, "Safety stock")
-        sref_label = po.sup.ref.label
+        src = SourceRef("planned_order", str(po.no), po.sup.ref.label, item_id=po.item_id, node=po.sup.node,
+                        number=f"P-{po.no}")
+        serial_child = c.serial_make
+        start, seg, sup, okey = po.start, po.segment, po.sup, po.order_key
+        comps_out = sup.comps
         for child, (q, alt) in agg.items():
-            ci = items[child]
-            seg = po.segment if (ci.make_buy == "make" and ci.serialized) else None
-            r = self.new_req(child, "planned_component", po.start, q, rank, rank_label,
-                             SourceRef("planned_order", str(po.no), sref_label, item_id=po.item_id, node=po.sup.node,
-                                       number=f"P-{po.no}"), seg)
-            r.parent, r.order_key, r.alt = po.sup, po.order_key, alt
-            po.sup.comps.append(r)
+            r = self.new_req(child, "planned_component", start, q, rank, rank_label, src,
+                             seg if serial_child[child] else None)
+            r.parent, r.order_key, r.alt = sup, okey, alt
+            comps_out.append(r)
 
     # -------------------------------------------------- forward pass (8.10)
 

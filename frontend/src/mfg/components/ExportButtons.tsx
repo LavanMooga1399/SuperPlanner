@@ -1,12 +1,31 @@
 /** Export (M 8.4) and blank import templates as file downloads with the server's file name. */
 import { useState } from "react";
 import { Icon } from "../../components/Icon";
-import { downloadExport, downloadImportTemplate, saveBlob } from "../api/client";
+import { downloadExport, downloadImportTemplate, saveBlob, type ExportScope } from "../api/client";
 import type { FileFormat } from "../api/types";
 import { MfgError } from "./Feedback";
 
+const SCOPES: { value: ExportScope; label: string }[] = [
+  { value: "master", label: "Master data" },
+  { value: "transactions", label: "Stock, orders and work orders" },
+  { value: "all", label: "Everything" },
+];
+
+function ScopeSelect({ value, onChange, testId }: { value: ExportScope; onChange(v: ExportScope): void; testId: string }) {
+  return (
+    <select className="select sm" aria-label="What to include" value={value} onChange={(e) => onChange(e.target.value as ExportScope)} data-testid={testId}>
+      {SCOPES.map((s) => (
+        <option key={s.value} value={s.value}>
+          {s.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function ExportButtons({ compact }: { compact?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [scope, setScope] = useState<ExportScope>("master");
   const [error, setError] = useState<unknown>(null);
   const run = async (key: string, fn: () => ReturnType<typeof downloadExport>) => {
     setBusy(key);
@@ -19,10 +38,11 @@ export function ExportButtons({ compact }: { compact?: boolean }) {
       setBusy(null);
     }
   };
-  const exp = (f: FileFormat) => run(`export-${f}`, () => downloadExport(f));
+  const exp = (f: FileFormat) => run(`export-${f}`, () => downloadExport(f, scope === "master" ? undefined : scope));
   return (
     <div className="col" style={{ gap: 6 }}>
       <div className="row wrap">
+        <ScopeSelect value={scope} onChange={setScope} testId="mfg-export-scope" />
         <button
           type="button"
           className={`btn${compact ? " sm" : ""}`}
@@ -53,12 +73,13 @@ export function ExportButtons({ compact }: { compact?: boolean }) {
 
 export function TemplateButtons() {
   const [busy, setBusy] = useState<FileFormat | null>(null);
+  const [scope, setScope] = useState<ExportScope>("master");
   const [error, setError] = useState<unknown>(null);
   const run = async (f: FileFormat) => {
     setBusy(f);
     setError(null);
     try {
-      saveBlob(await downloadImportTemplate(f));
+      saveBlob(await downloadImportTemplate(f, scope === "master" ? undefined : scope));
     } catch (e) {
       setError(e);
     } finally {
@@ -68,6 +89,7 @@ export function TemplateButtons() {
   return (
     <div className="col" style={{ gap: 6 }}>
       <div className="row wrap">
+        <ScopeSelect value={scope} onChange={setScope} testId="import-template-scope" />
         <button type="button" className="btn sm" onClick={() => void run("xlsx")} disabled={busy !== null} data-testid="import-template-xlsx">
           {busy === "xlsx" ? <span className="spinner" aria-hidden /> : <Icon name="file" />}
           Blank template (Excel)

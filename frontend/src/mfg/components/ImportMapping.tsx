@@ -9,7 +9,7 @@ import type { Cell, ImportMappingRequest, ImportRecord, ImportSheetSpec } from "
 import { checkSheet } from "../lib/importMapping";
 import { useMeta } from "../lib/useMfg";
 import { CheckField, TextField } from "./Field";
-import { sheetLabel } from "./ImportUpload";
+import { sheetKind, sheetLabel } from "./ImportUpload";
 
 function cellText(c: Cell | undefined): string {
   if (c === null || c === undefined) return "";
@@ -45,6 +45,11 @@ export function ImportMapping({
             <div className="card-header">
               <h3 className="row">
                 <Icon name="file" /> {s.name} <span className="muted small">{s.row_count.toLocaleString()} rows</span>
+                {m.target ? (
+                  <span className="badge info" data-testid="import-sheet-kind" title={`Saving this sheet needs the role: ${sheetKind(m.target).perm}`}>
+                    {sheetKind(m.target).label}
+                  </span>
+                ) : null}
               </h3>
               <label className="row small">
                 <span className="muted">Import as</span>
