@@ -635,7 +635,7 @@ of the failing tests and their folders; no second full run unless a fix touches 
   regenerated (`use_schedule` in params).
 - **Performance (PostgreSQL local):** AP1 Kavach construct 0.6 s (target 5); AP2 LNS 30 s budget: 33-38 s pure,
   weighted tardiness 17.82 M -> 17.23 M, deterministic; AP3 ~9,900 operations construct 29.9 s (target 30; validator
-  7.3 s more); AP5 queue -> completed 27 s, store 0.45 s (targets 45 / 3); AP6 edit child run 2.8 s (5); AP7
+  7.3 s more); AP4 ~27,700 operations construct 102 s (target 120; validator 27 s more); AP5 queue -> completed 27 s, store 0.45 s (targets 45 / 3); AP6 edit child run 2.8 s (5); AP7
   validator 0.25-0.35 s (1); AP8 gantt one stage 2 weeks 0.06 s, load 0.03 s, dispatch 0.03 s (0.3/0.3/0.2).
 
 ### 17.WP-U UI
