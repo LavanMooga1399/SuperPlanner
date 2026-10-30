@@ -544,10 +544,10 @@ of the failing tests and their folders; no second full run unless a fix touches 
 
 ## 16. Questions for the product owner
 
-1. **Q1 Overtime default.** Built default is `suggest` (the planner decides, the system quantifies). Should HBL
-   instead let the scheduler open overtime automatically (`allow`) by default?
-2. **Q2 Due-date meaning.** Schedules treat a due date as "available at 00:00 of that day" (same as MRP). If HBL's
-   due dates mean "by end of shift that day", say so; it shifts every lateness figure by up to a day.
+1. **Q1 Overtime default — decided (2026-10-30):** default `suggest`; the planner can switch any run to `allow`
+   on demand (run form toggle and API parameter), and `off` stays available as a baseline. Both suggest and allow
+   must be fully built.
+2. **Q2 Due-date meaning — decided (2026-10-30):** "available at 00:00 of the due date", same as MRP.
 3. **Q3 Real setup data.** SMT changeover times by board family (and any other stages with real changeovers) are
    needed for a meaningful pilot; the sample uses 20/45/60 minutes.
 
