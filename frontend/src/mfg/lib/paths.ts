@@ -73,6 +73,20 @@ export const mfgPaths = {
   runCompare: (runId: string, withId?: string) => `${MFG}/mrp/runs/${enc(runId)}/compare${queryString({ with: withId })}`,
   shortages: () => `${MFG}/shortages`,
   members: () => `${MFG}/settings/members`,
+
+  // ---------------------------------------------------------------- M3 (12)
+  schedule: () => `${MFG}/schedule`,
+  apsRun: (runId: string) => `${MFG}/schedule/runs/${enc(runId)}`,
+  apsGantt: (runId: string, q?: { view?: string; group?: string; line?: string; order?: string; from?: string; to?: string; op?: string | number }) =>
+    `${MFG}/schedule/runs/${enc(runId)}/gantt${queryString(q)}`,
+  apsLoad: (runId: string) => `${MFG}/schedule/runs/${enc(runId)}/load`,
+  apsDispatch: (runId: string, q?: { line?: string; date?: string; shift?: string }) => `${MFG}/schedule/runs/${enc(runId)}/dispatch${queryString(q)}`,
+  apsOrders: (runId: string) => `${MFG}/schedule/runs/${enc(runId)}/orders`,
+  apsDemand: (runId: string) => `${MFG}/schedule/runs/${enc(runId)}/demand`,
+  apsOvertime: (runId: string) => `${MFG}/schedule/runs/${enc(runId)}/overtime`,
+  apsExceptions: (runId: string, q?: { code?: string; severity?: string }) => `${MFG}/schedule/runs/${enc(runId)}/exceptions${queryString(q)}`,
+  apsCompare: (runId: string, withId?: string) => `${MFG}/schedule/runs/${enc(runId)}/compare${queryString({ with: withId })}`,
+  setups: () => `${MFG}/plant/setups`,
 };
 
 /** M 11.1 `isMfgPath`. */

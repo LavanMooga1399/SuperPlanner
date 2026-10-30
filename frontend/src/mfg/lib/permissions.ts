@@ -23,6 +23,8 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "wo_edit",
   "mrp_run",
   "import",
+  "schedule_run",
+  "schedule_publish",
   "owner",
 ];
 
@@ -37,7 +39,7 @@ export const ROLE_LABEL: Record<Role | "owner", string> = {
 
 export const ROLE_HELP: Record<Role, string> = {
   viewer: "Sees everything, changes nothing.",
-  planner: "Master data, demand, work orders, MRP runs, purchase requests, imports.",
+  planner: "Master data, demand, work orders, MRP and schedule runs, publishing the schedule, purchase requests, imports.",
   purchaser: "Suppliers, purchase requests and purchase orders (incl. converting approved requests).",
   store_keeper: "Stock postings: receipts, issues, transfers, counts, reversals, lots.",
   approver: "Approves or rejects purchase requests.",
@@ -56,6 +58,8 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   wo_edit: ["planner"],
   mrp_run: ["planner"],
   import: ["planner"],
+  schedule_run: ["planner"],
+  schedule_publish: ["planner"],
   owner: [],
 };
 

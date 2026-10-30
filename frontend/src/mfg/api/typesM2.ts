@@ -26,6 +26,8 @@ export type Permission =
   | "wo_edit"
   | "mrp_run"
   | "import"
+  | "schedule_run"
+  | "schedule_publish"
   | "owner";
 
 export interface Actor {

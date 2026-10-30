@@ -203,10 +203,21 @@ class PlantInput(MfgModel):
     mrp_defer_tolerance_days: Annotated[int, Field(ge=0, le=90)] = 7
     mrp_release_window_days: Annotated[int, Field(ge=0, le=90)] = 7
     over_receipt_pct: Annotated[float, Field(ge=0, le=100)] = 0
+    # M3-DESIGN 3.1 (APS)
+    time_zone: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)] | None = None
+    aps_freeze_hours: Annotated[int, Field(ge=0, le=336)] = 48
+    aps_horizon_days: Annotated[int, Field(ge=7, le=120)] = 42
+    aps_overtime_policy: Literal["off", "suggest", "allow"] = "suggest"
 
     @model_validator(mode="after")
     def _workdays(self) -> "PlantInput":
         _unique(self.mrp_workdays, "mrp_workdays")
+        if self.time_zone is not None:
+            from .tz import valid_zone
+
+            if not valid_zone(self.time_zone):
+                raise PydanticCustomError("MFG_TZ_INVALID", "{tz!r} is not an IANA time zone.",
+                                          {"tz": self.time_zone})
         return self
 
 
