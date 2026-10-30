@@ -49,6 +49,8 @@ class ImportMappingRequest(_Strict):
 
 class SampleLoadRequest(_Strict):
     replace: bool = False
+    anchor: PlanDate | None = None              # M2-DESIGN 13.1: None = the Monday on or before plant today
+    include_transactions: bool = True
 
 
 class ResetRequest(_Strict):

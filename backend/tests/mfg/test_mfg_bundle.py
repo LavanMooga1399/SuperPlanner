@@ -15,7 +15,11 @@ from superplanner.mfg.bundle import SHEETS_BY_NAME, deterministic_id, parse_brea
 def test_sheet_order_and_keys():
     assert [s.name for s in SHEETS] == ["plant", "items", "skills", "tool_pools", "groups", "lines",
                                         "shift_templates", "shifts", "shift_assignments", "calendar_exceptions",
-                                        "operators", "boms", "bom_lines", "routings", "operations"]
+                                        "operators", "boms", "bom_lines", "routings", "operations",
+                                        # M2-DESIGN 11: M2 sheets after the M1 sheets
+                                        "locations", "suppliers", "item_suppliers", "stock", "purchase_docs",
+                                        "purchase_lines", "purchase_schedules", "demand_orders", "demand_lines",
+                                        "work_orders", "wo_components"]
     assert SHEETS_BY_NAME["bom_lines"].key == ("parent_part_number", "revision", "version", "find_number",
                                                "child_part_number")
     assert SHEETS_BY_NAME["operations"].key == ("part_number", "revision", "code", "version", "seq")

@@ -38,7 +38,7 @@ def test_load_dataset_equals_the_pure_dataset(kavach):
     with owner_scope("usr_a"), db.read() as s:
         with count_statements(db) as c:
             ds = repo.load_dataset(s)
-        assert c.count <= 19
+        assert c.count <= 22
     assert fingerprint(ds) == fingerprint(pure)
     assert run_health_check(ds, date(2026, 11, 2), 90).by_code == run_health_check(pure, date(2026, 11, 2), 90).by_code
     some = next(iter(ds.calendar_exceptions.values()))

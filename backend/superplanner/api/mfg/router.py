@@ -18,6 +18,7 @@ from ...mfg.model import (BomInput, CalendarExceptionInput, GroupInput, ItemInpu
                           ToolPoolInput)
 from ..context import AppContext, get_ctx
 from ..errors import ApiError
+from .access import MfgPrincipal, mfg_principal, require_perm
 from .schemas import (BomCopyRequest, EmptyRequest, ImportMappingRequest, ReleaseRequest, ResetRequest,
                       RoutingCopyRequest, SampleLoadRequest)
 from .services import boms, health, imports, items, plant, resources, routings, samples
@@ -38,29 +39,29 @@ def _no_content() -> Response:
 
 # ---------------------------------------------------------------- 1-4 meta, summary, plant
 
-@router.get("/meta")
+@router.get("/meta", dependencies=[require_perm("view")])
 def get_meta(ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(health.meta(ctx))
 
 
-@router.get("/summary")
+@router.get("/summary", dependencies=[require_perm("view")])
 def get_summary(ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(health.summary(ctx))
 
 
-@router.get("/plant")
+@router.get("/plant", dependencies=[require_perm("view")])
 def get_plant(ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.get_plant(ctx))
 
 
-@router.put("/plant")
+@router.put("/plant", dependencies=[require_perm("master_edit")])
 def put_plant(body: PlantInput, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.put_plant(ctx, body, if_match))
 
 
 # ---------------------------------------------------------------- 5-13 items
 
-@router.get("/items")
+@router.get("/items", dependencies=[require_perm("view")])
 def list_items(q: str | None = Query(default=None, max_length=200),
                make_buy: Literal["make", "buy", "phantom"] | None = None, family: str | None = Query(None, max_length=32),
                active: bool | None = None, has_bom: bool | None = None, has_routing: bool | None = None,
@@ -71,30 +72,30 @@ def list_items(q: str | None = Query(default=None, max_length=200),
                                 has_routing=has_routing, sort=sort, limit=limit, offset=offset))
 
 
-@router.post("/items", status_code=201)
+@router.post("/items", status_code=201, dependencies=[require_perm("master_edit")])
 def create_item(body: ItemInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = items.create_item(ctx, body)
     return respond(rec, 201, f"/items/{rec.id}")
 
 
-@router.get("/items/{item_id}")
+@router.get("/items/{item_id}", dependencies=[require_perm("view")])
 def get_item(item_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(items.get_item(ctx, item_id))
 
 
-@router.put("/items/{item_id}")
+@router.put("/items/{item_id}", dependencies=[require_perm("master_edit")])
 def put_item(item_id: str, body: ItemInput, if_match: str | None = IfMatch,
              ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(items.update_item(ctx, item_id, body, if_match))
 
 
-@router.delete("/items/{item_id}", status_code=204)
+@router.delete("/items/{item_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_item(item_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     items.delete_item(ctx, item_id, if_match)
     return _no_content()
 
 
-@router.get("/items/{item_id}/explosion")
+@router.get("/items/{item_id}/explosion", dependencies=[require_perm("view")])
 def get_explosion(item_id: str, on: PlanDate | None = None, serial: int | None = Query(default=None, ge=1, le=10**9),
                   qty: float = Query(default=1.0, gt=0, le=1_000_000_000),
                   mode: Literal["indented", "summarized"] = "indented", include_scrap: bool = True,
@@ -104,61 +105,61 @@ def get_explosion(item_id: str, on: PlanDate | None = None, serial: int | None =
                               include_yield=include_yield, max_depth=max_depth))
 
 
-@router.get("/items/{item_id}/where-used")
+@router.get("/items/{item_id}/where-used", dependencies=[require_perm("view")])
 def get_where_used(item_id: str, on: PlanDate | None = None, include: Literal["effective", "all"] = "effective",
                    mode: Literal["single", "indented"] = "single", ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(boms.where_used_view(ctx, item_id, on=on, include=include, mode=mode))
 
 
-@router.get("/items/{item_id}/boms")
+@router.get("/items/{item_id}/boms", dependencies=[require_perm("view")])
 def get_item_boms(item_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(boms.list_item_boms(ctx, item_id))
 
 
-@router.get("/items/{item_id}/routings")
+@router.get("/items/{item_id}/routings", dependencies=[require_perm("view")])
 def get_item_routings(item_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(routings.list_item_routings(ctx, item_id))
 
 
 # ---------------------------------------------------------------- 14-20 BOMs
 
-@router.post("/boms", status_code=201)
+@router.post("/boms", status_code=201, dependencies=[require_perm("master_edit")])
 def create_bom(body: BomInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = boms.create_bom(ctx, body)
     return respond(rec, 201, f"/boms/{rec.id}")
 
 
-@router.get("/boms/{bom_id}")
+@router.get("/boms/{bom_id}", dependencies=[require_perm("view")])
 def get_bom(bom_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(boms.get_bom(ctx, bom_id))
 
 
-@router.put("/boms/{bom_id}")
+@router.put("/boms/{bom_id}", dependencies=[require_perm("master_edit")])
 def put_bom(bom_id: str, body: BomInput, if_match: str | None = IfMatch,
             ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(boms.update_bom(ctx, bom_id, body, if_match))
 
 
-@router.delete("/boms/{bom_id}", status_code=204)
+@router.delete("/boms/{bom_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_bom(bom_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     boms.delete_bom(ctx, bom_id, if_match)
     return _no_content()
 
 
-@router.post("/boms/{bom_id}/release")
+@router.post("/boms/{bom_id}/release", dependencies=[require_perm("master_edit")])
 def release_bom(bom_id: str, body: ReleaseRequest = Body(default_factory=ReleaseRequest),
                 if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     out = boms.release_bom(ctx, bom_id, body.effective_from, body.supersede_previous, if_match)
     return _ok(out, etag=out["bom"].row_version)
 
 
-@router.post("/boms/{bom_id}/obsolete")
+@router.post("/boms/{bom_id}/obsolete", dependencies=[require_perm("master_edit")])
 def obsolete_bom(bom_id: str, body: EmptyRequest = Body(default_factory=EmptyRequest),
                  if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(boms.obsolete_bom(ctx, bom_id, if_match))
 
 
-@router.post("/boms/{bom_id}/copy", status_code=201)
+@router.post("/boms/{bom_id}/copy", status_code=201, dependencies=[require_perm("master_edit")])
 def copy_bom(bom_id: str, body: BomCopyRequest = Body(default_factory=BomCopyRequest),
              if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = boms.copy_bom(ctx, bom_id, body.revision, if_match)
@@ -167,50 +168,50 @@ def copy_bom(bom_id: str, body: BomCopyRequest = Body(default_factory=BomCopyReq
 
 # ---------------------------------------------------------------- 21-28 routings
 
-@router.post("/routings", status_code=201)
+@router.post("/routings", status_code=201, dependencies=[require_perm("master_edit")])
 def create_routing(body: RoutingInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = routings.create_routing(ctx, body)
     return respond(rec, 201, f"/routings/{rec.id}")
 
 
-@router.get("/routings/{routing_id}")
+@router.get("/routings/{routing_id}", dependencies=[require_perm("view")])
 def get_routing(routing_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(routings.get_routing(ctx, routing_id))
 
 
-@router.put("/routings/{routing_id}")
+@router.put("/routings/{routing_id}", dependencies=[require_perm("master_edit")])
 def put_routing(routing_id: str, body: RoutingInput, if_match: str | None = IfMatch,
                 ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(routings.update_routing(ctx, routing_id, body, if_match))
 
 
-@router.delete("/routings/{routing_id}", status_code=204)
+@router.delete("/routings/{routing_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_routing(routing_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     routings.delete_routing(ctx, routing_id, if_match)
     return _no_content()
 
 
-@router.post("/routings/{routing_id}/release")
+@router.post("/routings/{routing_id}/release", dependencies=[require_perm("master_edit")])
 def release_routing(routing_id: str, body: ReleaseRequest = Body(default_factory=ReleaseRequest),
                     if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     out = routings.release_routing(ctx, routing_id, body.effective_from, body.supersede_previous, if_match)
     return _ok(out, etag=out["routing"].row_version)
 
 
-@router.post("/routings/{routing_id}/obsolete")
+@router.post("/routings/{routing_id}/obsolete", dependencies=[require_perm("master_edit")])
 def obsolete_routing(routing_id: str, body: EmptyRequest = Body(default_factory=EmptyRequest),
                      if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(routings.obsolete_routing(ctx, routing_id, if_match))
 
 
-@router.post("/routings/{routing_id}/copy", status_code=201)
+@router.post("/routings/{routing_id}/copy", status_code=201, dependencies=[require_perm("master_edit")])
 def copy_routing(routing_id: str, body: RoutingCopyRequest = Body(default_factory=RoutingCopyRequest),
                  if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = routings.copy_routing(ctx, routing_id, body.revision, body.code, if_match)
     return respond(rec, 201, f"/routings/{rec.id}")
 
 
-@router.get("/routings/{routing_id}/time-preview")
+@router.get("/routings/{routing_id}/time-preview", dependencies=[require_perm("view")])
 def time_preview(routing_id: str, qty: float = Query(default=1.0, gt=0, le=1_000_000_000),
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(routings.time_preview(ctx, routing_id, qty))
@@ -218,65 +219,65 @@ def time_preview(routing_id: str, qty: float = Query(default=1.0, gt=0, le=1_000
 
 # ---------------------------------------------------------------- 29-39 groups and lines
 
-@router.get("/groups")
+@router.get("/groups", dependencies=[require_perm("view")])
 def list_groups(q: str | None = Query(None, max_length=200), active: bool | None = None,
                 ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(plant.list_groups(ctx, q, active))
 
 
-@router.post("/groups", status_code=201)
+@router.post("/groups", status_code=201, dependencies=[require_perm("master_edit")])
 def create_group(body: GroupInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = plant.create_group(ctx, body)
     return respond(rec, 201, f"/groups/{rec.id}")
 
 
-@router.get("/groups/{group_id}")
+@router.get("/groups/{group_id}", dependencies=[require_perm("view")])
 def get_group(group_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.get_group(ctx, group_id))
 
 
-@router.put("/groups/{group_id}")
+@router.put("/groups/{group_id}", dependencies=[require_perm("master_edit")])
 def put_group(group_id: str, body: GroupInput, if_match: str | None = IfMatch,
               ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.update_group(ctx, group_id, body, if_match))
 
 
-@router.delete("/groups/{group_id}", status_code=204)
+@router.delete("/groups/{group_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_group(group_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     plant.delete_group(ctx, group_id, if_match)
     return _no_content()
 
 
-@router.get("/lines")
+@router.get("/lines", dependencies=[require_perm("view")])
 def list_lines(group_id: str | None = Query(None, max_length=64), q: str | None = Query(None, max_length=200),
                active: bool | None = None, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(plant.list_lines(ctx, group_id, q, active))
 
 
-@router.post("/lines", status_code=201)
+@router.post("/lines", status_code=201, dependencies=[require_perm("master_edit")])
 def create_line(body: LineInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = plant.create_line(ctx, body)
     return respond(rec, 201, f"/lines/{rec.id}")
 
 
-@router.get("/lines/{line_id}")
+@router.get("/lines/{line_id}", dependencies=[require_perm("view")])
 def get_line(line_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.get_line(ctx, line_id))
 
 
-@router.put("/lines/{line_id}")
+@router.put("/lines/{line_id}", dependencies=[require_perm("master_edit")])
 def put_line(line_id: str, body: LineInput, if_match: str | None = IfMatch,
              ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.update_line(ctx, line_id, body, if_match))
 
 
-@router.delete("/lines/{line_id}", status_code=204)
+@router.delete("/lines/{line_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_line(line_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     plant.delete_line(ctx, line_id, if_match)
     return _no_content()
 
 
-@router.get("/lines/{line_id}/windows")
+@router.get("/lines/{line_id}/windows", dependencies=[require_perm("view")])
 def line_windows(line_id: str, d0: Annotated[PlanDate, Query(alias="from")], d1: Annotated[PlanDate, Query(alias="to")],
                  kinds: str = Query(default="base,optional", max_length=40),
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
@@ -289,67 +290,67 @@ def line_windows(line_id: str, d0: Annotated[PlanDate, Query(alias="from")], d1:
 
 # ---------------------------------------------------------------- 40-53 shifts and calendar
 
-@router.get("/shift-templates")
+@router.get("/shift-templates", dependencies=[require_perm("view")])
 def list_templates(ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(plant.list_templates(ctx))
 
 
-@router.post("/shift-templates", status_code=201)
+@router.post("/shift-templates", status_code=201, dependencies=[require_perm("master_edit")])
 def create_template(body: ShiftTemplateInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = plant.create_template(ctx, body)
     return respond(rec, 201, f"/shift-templates/{rec.id}")
 
 
-@router.post("/shift-templates/preview")
+@router.post("/shift-templates/preview", dependencies=[require_perm("view")])
 def preview_template(body: ShiftTemplateInput) -> JSONResponse:
     return _ok(plant.preview_template(body))
 
 
-@router.get("/shift-templates/{shift_template_id}")
+@router.get("/shift-templates/{shift_template_id}", dependencies=[require_perm("view")])
 def get_template(shift_template_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.get_template(ctx, shift_template_id))
 
 
-@router.put("/shift-templates/{shift_template_id}")
+@router.put("/shift-templates/{shift_template_id}", dependencies=[require_perm("master_edit")])
 def put_template(shift_template_id: str, body: ShiftTemplateInput, if_match: str | None = IfMatch,
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.update_template(ctx, shift_template_id, body, if_match))
 
 
-@router.delete("/shift-templates/{shift_template_id}", status_code=204)
+@router.delete("/shift-templates/{shift_template_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_template(shift_template_id: str, if_match: str | None = IfMatch,
                     ctx: AppContext = Depends(get_ctx)) -> Response:
     plant.delete_template(ctx, shift_template_id, if_match)
     return _no_content()
 
 
-@router.get("/shift-assignments")
+@router.get("/shift-assignments", dependencies=[require_perm("view")])
 def list_assignments(group_id: str | None = Query(None, max_length=64), line_id: str | None = Query(None, max_length=64),
                      shift_template_id: str | None = Query(None, max_length=64),
                      ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(plant.list_assignments(ctx, group_id, line_id, shift_template_id))
 
 
-@router.post("/shift-assignments", status_code=201)
+@router.post("/shift-assignments", status_code=201, dependencies=[require_perm("master_edit")])
 def create_assignment(body: ShiftAssignmentInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = plant.create_assignment(ctx, body)
     return respond(rec, 201, f"/shift-assignments/{rec.id}")
 
 
-@router.put("/shift-assignments/{assignment_id}")
+@router.put("/shift-assignments/{assignment_id}", dependencies=[require_perm("master_edit")])
 def put_assignment(assignment_id: str, body: ShiftAssignmentInput, if_match: str | None = IfMatch,
                    ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.update_assignment(ctx, assignment_id, body, if_match))
 
 
-@router.delete("/shift-assignments/{assignment_id}", status_code=204)
+@router.delete("/shift-assignments/{assignment_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_assignment(assignment_id: str, if_match: str | None = IfMatch,
                       ctx: AppContext = Depends(get_ctx)) -> Response:
     plant.delete_assignment(ctx, assignment_id, if_match)
     return _no_content()
 
 
-@router.get("/calendar-exceptions")
+@router.get("/calendar-exceptions", dependencies=[require_perm("view")])
 def list_exceptions(d0: Annotated[PlanDate | None, Query(alias="from")] = None,
                     d1: Annotated[PlanDate | None, Query(alias="to")] = None,
                     scope: Literal["plant", "group", "line"] | None = None,
@@ -358,19 +359,19 @@ def list_exceptions(d0: Annotated[PlanDate | None, Query(alias="from")] = None,
     return _ok(plant.list_exceptions(ctx, d0, d1, scope, group_id, line_id))
 
 
-@router.post("/calendar-exceptions", status_code=201)
+@router.post("/calendar-exceptions", status_code=201, dependencies=[require_perm("master_edit")])
 def create_exception(body: CalendarExceptionInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = plant.create_exception(ctx, body)
     return respond(rec, 201, f"/calendar-exceptions/{rec.id}")
 
 
-@router.put("/calendar-exceptions/{exception_id}")
+@router.put("/calendar-exceptions/{exception_id}", dependencies=[require_perm("master_edit")])
 def put_exception(exception_id: str, body: CalendarExceptionInput, if_match: str | None = IfMatch,
                   ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(plant.update_exception(ctx, exception_id, body, if_match))
 
 
-@router.delete("/calendar-exceptions/{exception_id}", status_code=204)
+@router.delete("/calendar-exceptions/{exception_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_exception(exception_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     plant.delete_exception(ctx, exception_id, if_match)
     return _no_content()
@@ -378,76 +379,76 @@ def delete_exception(exception_id: str, if_match: str | None = IfMatch, ctx: App
 
 # ---------------------------------------------------------------- 54-66 skills, operators, tool pools
 
-@router.get("/skills")
+@router.get("/skills", dependencies=[require_perm("view")])
 def list_skills(q: str | None = Query(None, max_length=200), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(resources.list_skills(ctx, q))
 
 
-@router.post("/skills", status_code=201)
+@router.post("/skills", status_code=201, dependencies=[require_perm("master_edit")])
 def create_skill(body: SkillInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = resources.create_skill(ctx, body)
     return respond(rec, 201, f"/skills/{rec.id}")
 
 
-@router.put("/skills/{skill_id}")
+@router.put("/skills/{skill_id}", dependencies=[require_perm("master_edit")])
 def put_skill(skill_id: str, body: SkillInput, if_match: str | None = IfMatch,
               ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(resources.update_skill(ctx, skill_id, body, if_match))
 
 
-@router.delete("/skills/{skill_id}", status_code=204)
+@router.delete("/skills/{skill_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_skill(skill_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     resources.delete_skill(ctx, skill_id, if_match)
     return _no_content()
 
 
-@router.get("/operators")
+@router.get("/operators", dependencies=[require_perm("view")])
 def list_operators(q: str | None = Query(None, max_length=200), active: bool | None = None,
                    skill_id: str | None = Query(None, max_length=64), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(resources.list_operators(ctx, q, active, skill_id))
 
 
-@router.post("/operators", status_code=201)
+@router.post("/operators", status_code=201, dependencies=[require_perm("master_edit")])
 def create_operator(body: OperatorInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = resources.create_operator(ctx, body)
     return respond(rec, 201, f"/operators/{rec.id}")
 
 
-@router.get("/operators/{operator_id}")
+@router.get("/operators/{operator_id}", dependencies=[require_perm("view")])
 def get_operator(operator_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(resources.get_operator(ctx, operator_id))
 
 
-@router.put("/operators/{operator_id}")
+@router.put("/operators/{operator_id}", dependencies=[require_perm("master_edit")])
 def put_operator(operator_id: str, body: OperatorInput, if_match: str | None = IfMatch,
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(resources.update_operator(ctx, operator_id, body, if_match))
 
 
-@router.delete("/operators/{operator_id}", status_code=204)
+@router.delete("/operators/{operator_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_operator(operator_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     resources.delete_operator(ctx, operator_id, if_match)
     return _no_content()
 
 
-@router.get("/tool-pools")
+@router.get("/tool-pools", dependencies=[require_perm("view")])
 def list_tool_pools(q: str | None = Query(None, max_length=200), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(resources.list_tool_pools(ctx, q))
 
 
-@router.post("/tool-pools", status_code=201)
+@router.post("/tool-pools", status_code=201, dependencies=[require_perm("master_edit")])
 def create_tool_pool(body: ToolPoolInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     rec = resources.create_tool_pool(ctx, body)
     return respond(rec, 201, f"/tool-pools/{rec.id}")
 
 
-@router.put("/tool-pools/{tool_pool_id}")
+@router.put("/tool-pools/{tool_pool_id}", dependencies=[require_perm("master_edit")])
 def put_tool_pool(tool_pool_id: str, body: ToolPoolInput, if_match: str | None = IfMatch,
                   ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(resources.update_tool_pool(ctx, tool_pool_id, body, if_match))
 
 
-@router.delete("/tool-pools/{tool_pool_id}", status_code=204)
+@router.delete("/tool-pools/{tool_pool_id}", status_code=204, dependencies=[require_perm("master_edit")])
 def delete_tool_pool(tool_pool_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
     resources.delete_tool_pool(ctx, tool_pool_id, if_match)
     return _no_content()
@@ -455,7 +456,7 @@ def delete_tool_pool(tool_pool_id: str, if_match: str | None = IfMatch, ctx: App
 
 # ---------------------------------------------------------------- 67 health
 
-@router.get("/health")
+@router.get("/health", dependencies=[require_perm("view")])
 def get_health(as_of: PlanDate | None = None, horizon_days: int | None = Query(default=None, ge=7, le=730),
                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(health.health(ctx, as_of, horizon_days))
@@ -463,7 +464,7 @@ def get_health(as_of: PlanDate | None = None, horizon_days: int | None = Query(d
 
 # ---------------------------------------------------------------- 68-74 imports, export, templates
 
-@router.post("/imports", status_code=201)
+@router.post("/imports", status_code=201, dependencies=[require_perm("import")])
 async def upload_import(request: Request, filename: str = Query(min_length=1, max_length=200),
                         sheet: str | None = Query(default=None, min_length=1, max_length=64),
                         ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
@@ -472,24 +473,25 @@ async def upload_import(request: Request, filename: str = Query(min_length=1, ma
     return respond(rec, 201, f"/imports/{rec['id']}")
 
 
-@router.get("/imports/{import_id}")
+@router.get("/imports/{import_id}", dependencies=[require_perm("view")])
 def get_import(import_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(imports.get_import(ctx, import_id))
 
 
-@router.put("/imports/{import_id}/mapping")
+@router.put("/imports/{import_id}/mapping", dependencies=[require_perm("import")])
 def put_import_mapping(import_id: str, body: ImportMappingRequest, if_match: str | None = IfMatch,
                        ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(imports.put_mapping(ctx, import_id, body.model_dump(mode="json"), if_match))
 
 
-@router.post("/imports/{import_id}/commit")
+@router.post("/imports/{import_id}/commit", dependencies=[require_perm("import")])
 def commit_import(import_id: str, body: EmptyRequest = Body(default_factory=EmptyRequest),
-                  if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    return respond(imports.commit(ctx, import_id, if_match))
+                  if_match: str | None = IfMatch, p: MfgPrincipal = Depends(mfg_principal),
+                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    return respond(imports.commit(ctx, import_id, if_match, p.permissions))
 
 
-@router.delete("/imports/{import_id}", status_code=204)
+@router.delete("/imports/{import_id}", status_code=204, dependencies=[require_perm("import")])
 def delete_import(import_id: str, ctx: AppContext = Depends(get_ctx)) -> Response:
     imports.delete_import(ctx, import_id)
     return _no_content()
@@ -499,29 +501,31 @@ def _file(data: bytes, name: str, media: str) -> Response:
     return Response(data, media_type=media, headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
-@router.get("/export")
-def export(format: Literal["xlsx", "zip"] = "xlsx", ctx: AppContext = Depends(get_ctx)) -> Response:
-    return _file(*imports.export_file(ctx, format))
+@router.get("/export", dependencies=[require_perm("view")])
+def export(format: Literal["xlsx", "zip"] = "xlsx", scope: Literal["master", "transactions", "all"] = "master",
+           ctx: AppContext = Depends(get_ctx)) -> Response:
+    return _file(*imports.export_file(ctx, format, scope))
 
 
-@router.get("/import-templates")
-def import_templates(format: Literal["xlsx", "zip"] = "xlsx") -> Response:
-    return _file(*imports.template_file(format))
+@router.get("/import-templates", dependencies=[require_perm("view")])
+def import_templates(format: Literal["xlsx", "zip"] = "xlsx",
+                     scope: Literal["master", "transactions", "all"] = "master") -> Response:
+    return _file(*imports.template_file(format, scope))
 
 
 # ---------------------------------------------------------------- 75-77 samples, reset
 
-@router.get("/samples")
+@router.get("/samples", dependencies=[require_perm("view")])
 def list_samples() -> JSONResponse:
     return _ok(samples.list_samples())
 
 
-@router.post("/samples/{sample_id}/load")
+@router.post("/samples/{sample_id}/load", dependencies=[require_perm("owner")])
 def load_sample(sample_id: str, body: SampleLoadRequest = Body(default_factory=SampleLoadRequest),
                 ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    return _ok(samples.load(ctx, sample_id, body.replace))
+    return _ok(samples.load(ctx, sample_id, body.replace, body.anchor, body.include_transactions))
 
 
-@router.post("/reset")
+@router.post("/reset", dependencies=[require_perm("owner")])
 def reset(body: ResetRequest, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(samples.reset(ctx, body.confirm))

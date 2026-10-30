@@ -2,7 +2,7 @@
  * Typed wrappers for the M2 endpoints of docs/M2-DESIGN.md 12.3 (#78-#163). All go through `mfgRaw` (same A.14
  * envelope parsing, `X-SP-Workspace` header). Actions take the record's `row_version` for `If-Match`.
  */
-import { ifMatch, mfgDownload, mfgRaw, mfgRequest } from "./client";
+import { ifMatch, mfgDownload, mfgRaw, mfgRequest, type QueryValue } from "./client";
 import type { List, Page } from "./types";
 import type {
   BalancePage,
@@ -76,6 +76,16 @@ export function newIdempotencyKey(prefix = "ui"): string {
       ? crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
   return `${prefix}-${rnd}`.slice(0, 128);
+}
+
+/** Multi-value filters (`status`, `code`, `severity`) are sent as repeated parameters; "a,b" is split. */
+function multi<Q extends object>(q: Q, keys: string[]): Record<string, QueryValue> {
+  const out: Record<string, QueryValue> = { ...(q as Record<string, QueryValue>) };
+  for (const k of keys) {
+    const v = out[k];
+    if (typeof v === "string" && v) out[k] = v.split(",").map((x) => x.trim()).filter(Boolean);
+  }
+  return out;
 }
 
 const act = <T>(path: string, version: number, body: unknown = {}, extra: Record<string, string> = {}) =>
@@ -179,7 +189,7 @@ export const reversePosting = (id: string, note = "") =>
 const docBase = (t: DocType) => (t === "pr" ? "/purchase-requests" : "/purchase-orders");
 
 export const listPurchaseDocs = (t: DocType, query: PurchaseQuery, signal?: AbortSignal) =>
-  mfgRequest<Page<PurchaseDocSummary>>(docBase(t), { query: { ...query }, signal });
+  mfgRequest<Page<PurchaseDocSummary>>(docBase(t), { query: multi(query, ["status"]), signal });
 export const createPurchaseDoc = (t: DocType, body: PurchaseDocInput) =>
   mfgRequest<PurchaseDocRecord>(docBase(t), { method: "POST", body });
 export const getPurchaseDoc = (t: DocType, id: string, signal?: AbortSignal) =>
@@ -213,7 +223,7 @@ export const demandAction = (id: string, action: "open" | "close" | "cancel", ve
 
 // ---------------------------------------------------------------- #134-147 work orders
 export const listWorkOrders = (query: WoQuery, signal?: AbortSignal) =>
-  mfgRequest<Page<WorkOrderSummary>>("/work-orders", { query: { ...query }, signal });
+  mfgRequest<Page<WorkOrderSummary>>("/work-orders", { query: multi(query, ["status"]), signal });
 export const createWorkOrder = (body: WorkOrderInput) => mfgRequest<WorkOrderRecord>("/work-orders", { method: "POST", body });
 export const getWorkOrder = (id: string, signal?: AbortSignal) => mfgRequest<WorkOrderRecord>(`/work-orders/${enc(id)}`, { signal });
 export const updateWorkOrder = (id: string, body: WorkOrderInput, version: number) =>
@@ -256,7 +266,7 @@ export const convertPlannedOrders = (id: string, body: ConvertRequest, idempoten
     headers: { "Idempotency-Key": idempotencyKey },
   });
 export const listRunExceptions = (id: string, query: ExceptionQuery, signal?: AbortSignal) =>
-  mfgRequest<ExceptionPage>(`/mrp/runs/${enc(id)}/exceptions`, { query: { ...query }, signal });
+  mfgRequest<ExceptionPage>(`/mrp/runs/${enc(id)}/exceptions`, { query: multi(query, ["code", "severity"]), signal });
 export const listRunDemand = (id: string, query: DemandProjectionQuery, signal?: AbortSignal) =>
   mfgRequest<Page<DemandProjectionRow>>(`/mrp/runs/${enc(id)}/demand`, { query: { ...query }, signal });
 export const getPegging = (id: string, query: PeggingQuery, signal?: AbortSignal) =>

@@ -80,6 +80,8 @@ def _apply(row: MfgItemRow, inp: ItemInput) -> None:
 def create_item(ctx: AppContext, inp: ItemInput) -> ItemRecord:
     with write_tx(ctx) as (s, _plant):
         ensure_unique(s, MfgItemRow, "An item", {"part_number": inp.part_number})
+        if inp.external_ref is not None:
+            ensure_unique(s, MfgItemRow, "An item", {"external_ref": inp.external_ref})
         check_limit(s, MfgItemRow, L.MAX_ITEMS, "items")
         now = utcnow()
         row = MfgItemRow(id=new_id("itm_"), row_version=1, created_at=now, updated_at=now)
@@ -102,11 +104,46 @@ def update_item(ctx: AppContext, item_id: str, inp: ItemInput, if_match: str | N
         ensure_unique(s, MfgItemRow, "An item", {"part_number": inp.part_number}, exclude_id=row.id)
         if row.serialized and not inp.serialized:
             _check_no_serial_documents(s, row)
+        if inp.external_ref is not None:
+            ensure_unique(s, MfgItemRow, "An item", {"external_ref": inp.external_ref}, exclude_id=row.id)
+        if inp.uom != row.uom:
+            refs = _m2_refs(s, row.id, uom_rule=True)
+            if any(refs.values()):
+                raise in_use(f"The unit of {row.part_number}", refs)
         _apply(row, inp)
         touch(row)
         s.flush()
         audit(s, "item", row.id, "update", {"version": row.row_version})
         return record(s, row)
+
+
+def _m2_refs(s: Session, item_id: str, uom_rule: bool = False) -> dict[str, int]:
+    """M2-DESIGN 3.1: blocking references of an item (delete; `uom_rule`: open documents only)."""
+    from ..db_models_m2 import (MfgDemandLineRow, MfgDemandOrderRow, MfgInvBalanceRow, MfgInvTransactionRow,
+                                MfgLotRow, MfgPurchaseDocRow, MfgPurchaseLineRow, MfgWoComponentRow, MfgWorkOrderRow)
+
+    refs = {"balances": count(s, MfgInvBalanceRow, MfgInvBalanceRow.item_id == item_id),
+            "transactions": count(s, MfgInvTransactionRow, MfgInvTransactionRow.item_id == item_id)}
+    if uom_rule:
+        refs["purchase_lines"] = count(s, MfgPurchaseLineRow, MfgPurchaseLineRow.item_id == item_id,
+                                       MfgPurchaseLineRow.doc_id.in_(select(MfgPurchaseDocRow.id).where(
+                                           MfgPurchaseDocRow.status.not_in(("closed", "cancelled", "ordered",
+                                                                            "received")))))
+        refs["demand_lines"] = count(s, MfgDemandLineRow, MfgDemandLineRow.item_id == item_id,
+                                     MfgDemandLineRow.order_id.in_(select(MfgDemandOrderRow.id).where(
+                                         MfgDemandOrderRow.status.in_(("draft", "open")))))
+        open_wo = select(MfgWorkOrderRow.id).where(MfgWorkOrderRow.status.in_(("planned", "released", "in_progress")))
+        refs["work_orders"] = count(s, MfgWorkOrderRow, MfgWorkOrderRow.item_id == item_id,
+                                    MfgWorkOrderRow.id.in_(open_wo))
+        refs["wo_components"] = count(s, MfgWoComponentRow, MfgWoComponentRow.item_id == item_id,
+                                      MfgWoComponentRow.wo_id.in_(open_wo))
+        return refs
+    refs.update(purchase_lines=count(s, MfgPurchaseLineRow, MfgPurchaseLineRow.item_id == item_id),
+                demand_lines=count(s, MfgDemandLineRow, MfgDemandLineRow.item_id == item_id),
+                work_orders=count(s, MfgWorkOrderRow, MfgWorkOrderRow.item_id == item_id),
+                wo_components=count(s, MfgWoComponentRow, MfgWoComponentRow.item_id == item_id),
+                lots=count(s, MfgLotRow, MfgLotRow.item_id == item_id))
+    return refs
 
 
 def _check_no_serial_documents(s: Session, row: MfgItemRow) -> None:
@@ -136,7 +173,7 @@ def delete_item(ctx: AppContext, item_id: str, if_match: str | None) -> None:
         check_version(row, if_match)
         refs = {"bom_lines": count(s, MfgBomLineRow, MfgBomLineRow.child_item_id == row.id),
                 "boms": count(s, MfgBomRow, MfgBomRow.item_id == row.id),
-                "routings": count(s, MfgRoutingRow, MfgRoutingRow.item_id == row.id)}
+                "routings": count(s, MfgRoutingRow, MfgRoutingRow.item_id == row.id), **_m2_refs(s, row.id)}
         if any(refs.values()):
             raise in_use(f"Item {row.part_number}", refs)
         s.delete(row)

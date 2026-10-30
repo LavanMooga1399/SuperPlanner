@@ -15,6 +15,9 @@ from superplanner.api.db import Database
 from superplanner.api.db import ownership
 from superplanner.api.db.models import new_id
 from superplanner.api.mfg import db_models as m
+from superplanner.api.mfg import db_models_m2 as m2
+from superplanner.api.mfg.repo import plant_mrp_columns
+from superplanner.mfg.model_m2 import ItemSupplierInput, SupplierInput
 from superplanner.mfg.dataset import MfgDataset
 
 USERS = ("usr_a", "usr_b")
@@ -51,7 +54,7 @@ def write_dataset(s: Any, ds: MfgDataset) -> dict[str, str]:
     p = ds.plant
     s.add(m.MfgPlantRow(id=new_id("plt_"), name=p.name, utc_offset=p.utc_offset,
                         planning_horizon_days=p.planning_horizon_days, currency=p.currency,
-                        attributes=dict(p.attributes), data_version=0, **st))
+                        attributes=dict(p.attributes), data_version=0, **plant_mrp_columns(p), **st))
     s.flush()
     for it in ds.items.values():
         s.add(m.MfgItemRow(id=nid(it.id), part_number=it.part_number, revision=it.revision,
@@ -61,7 +64,9 @@ def write_dataset(s: Any, ds: MfgDataset) -> dict[str, str]:
                            min_order_qty=it.min_order_qty, order_multiple=it.order_multiple,
                            safety_stock=it.safety_stock, serialized=it.serialized, shelf_life_days=it.shelf_life_days,
                            handling_class=it.handling_class, handling_note=it.handling_note,
-                           attributes=dict(it.attributes), active=it.active, **st))
+                           attributes=dict(it.attributes), active=it.active, external_ref=it.external_ref,
+                           standard_cost=it.standard_cost, lot_controlled=it.lot_controlled,
+                           lot_period_days=it.lot_period_days, **st))
     s.flush()
     for g in ds.groups.values():
         s.add(m.MfgGroupRow(id=nid(g.id), code=g.code, name=g.name, description=g.description, kind=g.kind,
@@ -136,6 +141,18 @@ def write_dataset(s: Any, ds: MfgDataset) -> dict[str, str]:
     for o in ds.operators.values():
         for sk in o.skill_ids:
             s.add(m.MfgOperatorSkillRow(operator_id=nid(o.id), skill_id=nid(sk)))
+    s.flush()
+    # M2 master data (M2-DESIGN 3.2, 3.3)
+    for x in ds.locations.values():
+        s.add(m2.MfgLocationRow(id=nid(x.id), code=x.code, name=x.name, kind=x.kind, receipt_default=x.receipt_default,
+                                active=x.active, external_ref=x.external_ref, note=x.note, **st))
+    for x in ds.suppliers.values():
+        s.add(m2.MfgSupplierRow(id=nid(x.id), **{f: getattr(x, f) for f in SupplierInput.model_fields}, **st))
+    s.flush()
+    for x in ds.item_suppliers.values():
+        vals = {f: getattr(x, f) for f in ItemSupplierInput.model_fields}
+        vals.update(item_id=nid(x.item_id), supplier_id=nid(x.supplier_id))
+        s.add(m2.MfgItemSupplierRow(id=nid(x.id), **vals, **st))
     s.flush()
     return ids
 

@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from auth_helpers import API, acc_app, error, second_client, sign_up
-from route_table import (MFG_PROTECTED, PROTECTED, PUBLIC_ALLOWLIST, PUBLIC_REQUIRED, UNSAFE, fill_path, openapi_operations,
+from route_table import (MFG_PERMISSIONS, MFG_PROTECTED, PROTECTED, PUBLIC_ALLOWLIST, PUBLIC_REQUIRED, UNSAFE, fill_path, openapi_operations,
                          path_params)
 
 FIN = f"{API}/finance"
@@ -40,6 +40,22 @@ def test_enumerated_operations_equal_the_access_table(db_url):
         "new (add to route_table.py)": sorted(protected - PROTECTED - MFG_PROTECTED),
         "missing": sorted((PROTECTED | MFG_PROTECTED) - protected)}
     assert len(PROTECTED) == 55   # B 4.8 rows 9-63 (56 pre-2b endpoints = these + GET /health)
+
+
+def test_every_mfg_operation_declares_exactly_the_permission_of_the_access_table():
+    """M2-DESIGN 10.2: each mfg route has exactly one `require_perm` dependency; route set == table set."""
+    from superplanner.api.mfg import router as m1, router_m2 as m2
+
+    found: dict[tuple[str, str], str] = {}
+    for mod in (m1, m2):
+        for rt in mod.router.routes:
+            perms = [d.dependency.mfg_permission for d in rt.dependencies
+                     if hasattr(d.dependency, "mfg_permission")]
+            assert len(perms) == 1, (rt.path, perms)
+            for method in rt.methods:
+                found[(method, rt.path)] = perms[0]
+    assert found == MFG_PERMISSIONS
+    assert set(found) == MFG_PROTECTED
 
 
 def test_every_protected_operation_requires_a_session(db_url):

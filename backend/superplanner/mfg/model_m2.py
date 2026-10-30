@@ -849,4 +849,13 @@ class WoSnap:
     components: tuple[WoComponentSnap, ...] = field(default_factory=tuple)
 
 
+def _register_inputs() -> None:
+    from .model import INPUT_OF
+
+    INPUT_OF.update({LocationRecord: LocationInput, SupplierRecord: SupplierInput,
+                     ItemSupplierRecord: ItemSupplierInput})
+
+
+_register_inputs()
+
 __all__ = [n for n in dir() if not n.startswith("_") and n[0].isupper()] + ["EPS"]

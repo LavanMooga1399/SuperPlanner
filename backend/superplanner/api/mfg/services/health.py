@@ -53,8 +53,43 @@ def summary(ctx: AppContext) -> dict[str, Any]:
                               .order_by(MfgItemRow.part_number).limit(50)).scalars())
         from ....mfg.dataset import item_ref
 
+        counts.update(_m2_counts(s))
+        from .mrp import summary_latest
+
         return {"counts": counts, "end_items": [item_ref(repo.to_record(r)) for r in ends],
-                "data_version": plant.data_version}
+                "data_version": plant.data_version, "latest_run": summary_latest(s)}
+
+
+def _m2_counts(s: Any) -> dict[str, int]:
+    """M2-DESIGN 12.3: additive `/summary` counts."""
+    from ..db_models_m2 import (MfgDemandLineRow, MfgDemandOrderRow, MfgLocationRow, MfgPurchaseDocRow,
+                                MfgPurchaseLineRow, MfgPurchaseScheduleRow, MfgSupplierRow, MfgWorkOrderRow)
+    from .common import plant_today
+
+    def n(q: Any) -> int:
+        return int(s.execute(q).scalar() or 0)
+
+    today = plant_today(repo.plant_or_default(s).utc_offset)
+    dock = func.coalesce(MfgPurchaseScheduleRow.confirmed_date, MfgPurchaseScheduleRow.requested_date)
+    return {
+        "locations": n(select(func.count()).select_from(MfgLocationRow)),
+        "suppliers": n(select(func.count()).select_from(MfgSupplierRow)),
+        "open_purchase_orders": n(select(func.count()).select_from(MfgPurchaseDocRow).where(
+            MfgPurchaseDocRow.doc_type == "po", MfgPurchaseDocRow.status.in_(("draft", "open", "partially_received")))),
+        "open_purchase_requests": n(select(func.count()).select_from(MfgPurchaseDocRow).where(
+            MfgPurchaseDocRow.doc_type == "pr", MfgPurchaseDocRow.status.in_(("draft", "submitted", "approved")))),
+        "overdue_schedules": n(select(func.count()).select_from(MfgPurchaseScheduleRow).join(
+            MfgPurchaseLineRow, MfgPurchaseLineRow.id == MfgPurchaseScheduleRow.line_id).join(
+            MfgPurchaseDocRow, MfgPurchaseDocRow.id == MfgPurchaseLineRow.doc_id).where(
+            MfgPurchaseScheduleRow.closed.is_(False), MfgPurchaseLineRow.status == "open",
+            MfgPurchaseScheduleRow.qty - MfgPurchaseScheduleRow.received_qty > 1e-6, dock < today,
+            MfgPurchaseDocRow.status.in_(("open", "partially_received", "draft", "submitted", "approved")))),
+        "open_demand_lines": n(select(func.count()).select_from(MfgDemandLineRow).join(
+            MfgDemandOrderRow, MfgDemandOrderRow.id == MfgDemandLineRow.order_id).where(
+            MfgDemandOrderRow.status == "open", MfgDemandLineRow.qty - MfgDemandLineRow.shipped_qty > 1e-6)),
+        "open_work_orders": n(select(func.count()).select_from(MfgWorkOrderRow).where(
+            MfgWorkOrderRow.status.in_(("planned", "released", "in_progress")))),
+    }
 
 
 def health(ctx: AppContext, as_of: date | None, horizon_days: int | None) -> Any:

@@ -44,6 +44,8 @@ def put_plant(ctx: AppContext, inp: PlantInput, if_match: str | None) -> PlantRe
         row.name, row.utc_offset = inp.name, inp.utc_offset
         row.planning_horizon_days, row.currency = inp.planning_horizon_days, inp.currency
         row.attributes = dict(inp.attributes)
+        for k, v in repo.plant_mrp_columns(inp).items():       # M2-DESIGN 3.1
+            setattr(row, k, v)
         row.row_version = current + 1
         row.updated_at = utcnow()
         s.flush()

@@ -98,6 +98,14 @@ def plant_mrp_columns(p: Any) -> dict[str, Any]:
             "mrp_release_window_days": int(p.mrp_release_window_days), "over_receipt_pct": float(p.over_receipt_pct)}
 
 
+def plant_row_unlocked(s: Session) -> MfgPlantRow:
+    """The plant row without the master lock (transactional imports); created (default) when missing."""
+    row = s.execute(select(MfgPlantRow)).scalars().first()
+    if row is None:
+        row = lock_plant(s)
+    return row
+
+
 def get_row(s: Session, model: Any, row_id: str, *, what: str, lock: bool = False) -> Any:
     """Owned lookup by id (`not_found(what, id)` -> 404 for unknown and foreign ids alike). `lock=True` takes
     `FOR NO KEY UPDATE`."""

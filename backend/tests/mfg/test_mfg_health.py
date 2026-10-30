@@ -295,7 +295,10 @@ DATASET_ONLY = ("MFG_ASSIGNMENT_UNKNOWN_SHIFT", "MFG_OPERATOR_UNKNOWN_SHIFT")
 
 
 def test_cases_cover_all_43_codes():
-    assert [c for c, _, _ in CASES] == [c for c in HEALTH_CODES if c not in DATASET_ONLY] and len(HEALTH_CODES) == 43
+    m2 = ("MFG_BUY_NO_SUPPLIER", "MFG_PREFERRED_SUPPLIER_INACTIVE", "MFG_NO_NETTABLE_LOCATION", "MFG_PACK_FRACTIONAL")
+    # the M2 codes 44-47 are covered by tests/mfg_m2/test_m2_health.py
+    assert [c for c, _, _ in CASES] == [c for c in HEALTH_CODES if c not in DATASET_ONLY and c not in m2] and \
+        len(HEALTH_CODES) == 47
 
 
 @pytest.mark.parametrize("code", DATASET_ONLY)

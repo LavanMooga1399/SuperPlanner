@@ -17,7 +17,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ....mfg import limits as L
-from ....mfg.bundle import dataset_to_bundle
+from ....mfg.bundle import MASTER_SHEETS, TXN_SHEETS, dataset_to_bundle
 from ....mfg.dataset import MfgDataset
 from ....mfg.io import export as xport
 from ....mfg.io.mapping import MappingError, apply_mapping, suggest_mapping, validate_mapping
@@ -27,7 +27,7 @@ from ...context import AppContext
 from ...db import new_id, utcnow
 from ...errors import ApiError, not_found
 from ...schemas import as_utc
-from .. import repo, writer
+from .. import repo, repo_m2, writer
 from ..db_models import MfgImportRow
 from .common import audit, check_version, read_tx, write_tx
 
@@ -126,7 +126,8 @@ def _options(mapping: dict[str, Any]) -> ImportOptions:
     from datetime import date
 
     return ImportOptions(replace_children=bool(o.get("replace_children", True)), release=bool(o.get("release", False)),
-                         default_effective_from=date.fromisoformat(d) if isinstance(d, str) else d)
+                         default_effective_from=date.fromisoformat(d) if isinstance(d, str) else d,
+                         stock_mode=str(o.get("stock_mode") or "set"))
 
 
 def _plan(staged: list[dict[str, Any]], mapping: dict[str, Any], ds: MfgDataset
@@ -170,7 +171,7 @@ def put_mapping(ctx: AppContext, import_id: str, mapping: dict[str, Any], if_mat
         except MappingError as exc:
             raise ApiError(422, "VALIDATION_ERROR", f"The mapping is not valid: {exc.errors[0]['msg']}",
                            {"errors": exc.errors}) from None
-        ds = repo.load_dataset(s)
+        ds = repo_m2.load_import_dataset(s)
     plan, map_errors, warnings = _plan(staged, mapping, ds)
     preview = _preview(plan, map_errors, warnings)
     with write_tx(ctx, lock=False) as (s, _):
@@ -200,7 +201,32 @@ def _plant_key(s: Session) -> tuple[str | None, int]:
     return p.id, p.data_version
 
 
-def commit(ctx: AppContext, import_id: str, if_match: str | None) -> dict[str, Any]:
+SHEET_PERMISSION = {**{n: "master_edit" for n in MASTER_SHEETS}, "suppliers": "supplier_edit",
+                    "item_suppliers": "supplier_edit", "stock": "inventory", "demand_orders": "demand_edit",
+                    "demand_lines": "demand_edit", "work_orders": "wo_edit", "wo_components": "wo_edit"}
+
+
+def _check_sheet_permissions(bundle: dict[str, Any], perms: frozenset[str] | None) -> None:
+    """M2-DESIGN 10.2: commit needs the permission of every sheet kind present (403 `MFG_FORBIDDEN`)."""
+    if perms is None:
+        return
+    from ..access import roles_allowed
+
+    for name, rows in bundle.items():
+        if not rows:
+            continue
+        if name in ("purchase_docs", "purchase_lines", "purchase_schedules"):
+            need = sorted({"pr_edit" if str(r.get("doc_type") or "").strip() == "pr" else "po_edit" for r in rows})
+        else:
+            need = [SHEET_PERMISSION.get(name, "master_edit")]
+        for p in need:
+            if p not in perms:
+                raise ApiError(403, "MFG_FORBIDDEN", f"Your role in this workspace does not allow importing the "
+                               f"{name!r} sheet.", {"permission": p, "roles_allowed": roles_allowed(p), "sheet": name})
+
+
+def commit(ctx: AppContext, import_id: str, if_match: str | None, perms: frozenset[str] | None = None
+           ) -> dict[str, Any]:
     t0 = time.monotonic()
     with read_tx(ctx) as s:
         row = _get(s, import_id)
@@ -212,16 +238,21 @@ def commit(ctx: AppContext, import_id: str, if_match: str | None) -> dict[str, A
             raise ApiError(409, "MFG_IMPORT_NOT_MAPPED", "Map the columns and look at the preview before committing.")
         staged, mapping = row.sheets or [], row.mapping
         key = _plant_key(s)
-        ds = repo.load_dataset(s)
+        ds = repo_m2.load_import_dataset(s)
     plan, map_errors, warnings = _plan(staged, mapping, ds)
-    with write_tx(ctx) as (s, plant):
+    bundle, _src, _errs = apply_mapping(staged, mapping)
+    _check_sheet_permissions(bundle, perms)
+    master = any(rows for n, rows in bundle.items() if n not in TXN_SHEETS)
+    with write_tx(ctx, lock=master) as (s, plant):
         row = _get(s, import_id, lock=True)
         check_version(row, str(version))
         if row.status == "committed":
             raise ApiError(409, "MFG_IMPORT_ALREADY_COMMITTED", "This import was committed already.",
                            {"result": row.result})
-        if (plant.id, plant.data_version - 1) != key:
-            plan, map_errors, warnings = _plan(staged, mapping, repo.load_dataset(s))
+        if plant is None:
+            plant = repo.plant_row_unlocked(s)
+        if not master or (plant.id, plant.data_version - 1) != key or any(bundle.get(n) for n in TXN_SHEETS):
+            plan, map_errors, warnings = _plan(staged, mapping, repo_m2.load_import_dataset(s))
         errors = map_errors + plan.row_errors
         if errors:
             raise ApiError(409, "MFG_IMPORT_HAS_ERRORS",
@@ -229,7 +260,7 @@ def commit(ctx: AppContext, import_id: str, if_match: str | None) -> dict[str, A
                            {"row_errors": errors[:L.MAX_ROW_ERRORS_RETURNED], "error_count": len(errors)})
         if plan.has_writes():
             writer.apply(s, plan, plant)
-        else:
+        elif master:
             plant.data_version -= 1             # nothing changed: data_version stays (re-import is a no-op)
         result = {"counts": plan.result_counts(), "duration_ms": int((time.monotonic() - t0) * 1000),
                   "data_version": plant.data_version}
@@ -252,10 +283,11 @@ def slug(name: str) -> str:
     return s or "plant"
 
 
-def export_file(ctx: AppContext, fmt: str) -> tuple[bytes, str, str]:
+def export_file(ctx: AppContext, fmt: str, scope: str = "master") -> tuple[bytes, str, str]:
+    """M2-DESIGN 11: `master` = M1 + the M2 master sheets; `transactions` = stock and documents; `all`."""
     with read_tx(ctx) as s:
-        ds = repo.load_dataset(s)
-    bundle = dataset_to_bundle(ds)
+        ds = repo_m2.load_import_dataset(s) if scope != "master" else repo.load_dataset(s)
+    bundle = dataset_to_bundle(ds, scope=scope)
     from .common import plant_today
 
     stamp = plant_today(ds.plant.utc_offset).strftime("%Y%m%d")
@@ -265,8 +297,10 @@ def export_file(ctx: AppContext, fmt: str) -> tuple[bytes, str, str]:
     return xport.bundle_to_csv_zip(bundle), name, ZIP_TYPE
 
 
-def template_file(fmt: str) -> tuple[bytes, str, str]:
+def template_file(fmt: str, scope: str = "master") -> tuple[bytes, str, str]:
     bundle = xport.template_bundle()
+    keep = TXN_SHEETS if scope == "transactions" else MASTER_SHEETS if scope == "master" else tuple(bundle)
+    bundle = {k: v for k, v in bundle.items() if k in keep}
     if fmt == "xlsx":
         return xport.bundle_to_xlsx(bundle), "superplanner-mfg-template.xlsx", XLSX_TYPE
     return xport.bundle_to_csv_zip(bundle), "superplanner-mfg-template.zip", ZIP_TYPE

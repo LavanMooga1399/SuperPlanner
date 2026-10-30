@@ -60,6 +60,8 @@ def bundle_to_csv_zip(bundle: MfgBundle) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for spec in SHEETS:
+            if spec.name not in bundle:          # scope=master / transactions exports (M2-DESIGN 11)
+                continue
             rows = bundle.get(spec.name) or []
             cols = sheet_columns(spec, rows)
             out = io.StringIO(newline="")
@@ -117,6 +119,8 @@ def bundle_to_xlsx(bundle: MfgBundle, *, readme: bool = True) -> bytes:
         return c
 
     for spec in SHEETS:
+        if spec.name not in bundle:
+            continue
         ws = wb.create_sheet(spec.name)
         rows = bundle.get(spec.name) or []
         cols = sheet_columns(spec, rows)

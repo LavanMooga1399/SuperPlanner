@@ -7,6 +7,7 @@ transaction. `replace: true` first deletes all of the owner's mfg rows (reset se
 from __future__ import annotations
 
 import time
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import delete
@@ -21,11 +22,30 @@ from ....mfg.model import PlantRecord
 from ...context import AppContext
 from ...db import new_id
 from ...errors import ApiError, not_found
-from .. import repo, writer
-from ..db_models import MFG_MODELS
+from .. import repo, repo_m2, writer
+from ..db_models_m2 import ALL_MFG_MODELS
 from .common import audit, plant_today, read_tx, write_tx
 
 RESET_PHRASE = "DELETE ALL MANUFACTURING DATA"
+
+
+def _reserve_released(s: Session, bundle: Any) -> None:
+    """13.3: released / in-progress sample WOs reserve their open components (WO-number order), as
+    `samples.sample_reservations` does for the pure state."""
+    from sqlalchemy import select
+
+    from ..db_models_m2 import MfgWoComponentRow, MfgWorkOrderRow
+    from .workorders import reserve_in
+
+    numbers = sorted(r["number"] for r in bundle.get("work_orders") or [] if r.get("status") in
+                     ("released", "in_progress"))
+    for no in numbers:
+        w = s.execute(select(MfgWorkOrderRow).where(MfgWorkOrderRow.number == no)).scalars().first()
+        if w is None:
+            continue
+        comps = list(s.execute(select(MfgWoComponentRow).where(MfgWoComponentRow.wo_id == w.id)
+                               .order_by(MfgWoComponentRow.id)).scalars())
+        reserve_in(s, w, comps, None)
 
 
 def list_samples() -> dict[str, Any]:
@@ -33,9 +53,10 @@ def list_samples() -> dict[str, Any]:
 
 
 def delete_all(s: Session) -> dict[str, int]:
-    """Delete every mfg row of the bound owner, children first (ORM delete statements, owner-filtered)."""
+    """Delete every mfg data row of the bound owner, children first (ORM delete statements, owner-filtered;
+    M2-DESIGN 9.4: `ALL_MFG_MODELS`; workspace memberships survive)."""
     out: dict[str, int] = {}
-    for model in reversed(MFG_MODELS):
+    for model in reversed(ALL_MFG_MODELS):
         res = s.execute(delete(model).execution_options(synchronize_session=False))
         out[model.__tablename__[len("mfg_"):]] = int(res.rowcount or 0)
     s.expunge_all()
@@ -59,12 +80,22 @@ def _errors(plan: Any) -> ApiError:
                     {"row_errors": plan.row_errors[:L.MAX_ROW_ERRORS_RETURNED], "error_count": plan.error_count})
 
 
-def load(ctx: AppContext, sample_id: str, replace: bool) -> dict[str, Any]:
+def default_anchor(today: date) -> date:
+    """13.1: the Monday on or before plant today."""
+    return today - timedelta(days=today.weekday())
+
+
+def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = None,
+         include_transactions: bool = True) -> dict[str, Any]:
     if sample_id not in S.SAMPLES:
         raise not_found("Sample", sample_id)
     t0 = time.monotonic()
-    bundle = S.build(sample_id)
-    opts = ImportOptions(release=True)
+    with read_tx(ctx) as s:
+        today = plant_today(repo.plant_or_default(s).utc_offset)
+    anchor = anchor or default_anchor(today)
+    bundle = S.build(sample_id, anchor=anchor, include_transactions=include_transactions)
+    opts = ImportOptions(release=True, today=anchor)
+    stock_date = anchor - timedelta(days=1)
     if replace:
         plan = plan_import(bundle, MfgDataset(plant=PlantRecord()), opts, id_factory=new_id)
         key = None
@@ -72,7 +103,7 @@ def load(ctx: AppContext, sample_id: str, replace: bool) -> dict[str, Any]:
         with read_tx(ctx) as s:
             p = repo.plant_or_default(s)
             key = (p.id, p.data_version)
-            ds = repo.load_dataset(s)
+            ds = repo_m2.load_import_dataset(s)
         plan = plan_import(bundle, ds, opts, id_factory=new_id)
     with write_tx(ctx) as (s, plant):
         if replace:
@@ -81,17 +112,21 @@ def load(ctx: AppContext, sample_id: str, replace: bool) -> dict[str, Any]:
             plant = repo.lock_plant(s)
             plant.data_version = dv + 1
             s.flush()
-        elif (plant.id, plant.data_version - 1) != key:
-            plan = plan_import(bundle, repo.load_dataset(s), opts, id_factory=new_id)
+        elif (plant.id, plant.data_version - 1) != key or include_transactions:
+            plan = plan_import(bundle, repo_m2.load_import_dataset(s), opts, id_factory=new_id)
         if not plan.ok:
             raise _errors(plan)
         if plan.has_writes():
-            writer.apply(s, plan, plant)
+            writer.apply(s, plan, plant, stock_date=stock_date)
+            if include_transactions:
+                _reserve_released(s, bundle)
         else:
             plant.data_version -= 1
         result = {"counts": plan.result_counts(), "duration_ms": int((time.monotonic() - t0) * 1000),
                   "data_version": plant.data_version}
-        audit(s, "plant", plant.id, "sample_load", {"sample_id": sample_id, "replace": replace})
+        audit(s, "plant", plant.id, "sample_load", {"sample_id": sample_id, "replace": replace,
+                                                     "anchor": anchor.isoformat(),
+                                                     "include_transactions": include_transactions})
     with read_tx(ctx) as s:
         ds = repo.load_dataset(s)
     report = run_health_check(ds, plant_today(ds.plant.utc_offset), ds.plant.planning_horizon_days)

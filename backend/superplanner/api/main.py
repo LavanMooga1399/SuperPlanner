@@ -43,6 +43,7 @@ from .intake import router as intake_router
 from .intake import service as intake_service
 from .limits import BodySizeLimitMiddleware
 from .mfg import router as mfg_router
+from .mfg import router_m2 as mfg_router_m2
 from .routes import health, metrics, problems, schedules, solver_runs, templates
 
 API_PREFIX = "/api/v1"
@@ -80,7 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router, prefix=API_PREFIX)
     app.include_router(auth_router.router, prefix=API_PREFIX)   # auth routes resolve the session themselves
     protected = (templates.router, problems.router, solver_runs.router, schedules.router, finance_router.router,
-                 intake_router.router, mfg_router.router)
+                 intake_router.router, mfg_router.router, mfg_router_m2.router)
     for r in protected:
         app.include_router(r, prefix=API_PREFIX, dependencies=[Depends(require_user)])
     body_gate.install(app, protected)   # 401/403 before 422 also for unparseable JSON bodies

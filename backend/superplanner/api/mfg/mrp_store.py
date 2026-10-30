@@ -84,7 +84,8 @@ def store(s: Session, run: MfgMrpRunRow, result: MrpResult, snapshot: Any) -> di
             start_date=p.start_date, dock_date=p.dock_date, projected_start=p.projected_start,
             projected_due=p.projected_due, late_days=p.late_days, release_status=p.release_status,
             segment=_seg(p.segment), bom_id=p.bom_id, routing_id=p.routing_id, llc=p.llc, lot_note=p.lot_note[:200],
-            peg_summary=_jsonable(p.peg_summary), order_key=p.order_key[:200], status="open", converted_type=None,
+            peg_summary={"pegs": _jsonable(p.peg_summary), "directives": dict(p.directives or {})},
+            order_key=p.order_key[:200], status="open", converted_type=None,
             converted_id=None, converted_number=None, converted_at=None, converted_by=None))
     s.add_all(po_rows)
     s.flush()
@@ -168,10 +169,21 @@ def planned_row(run_id: str, r: MfgMrpPlannedOrderRow, item: dict[str, Any], sup
             "qty": r.qty, "need_date": r.need_date, "start_date": r.start_date, "dock_date": r.dock_date,
             "projected_start": r.projected_start, "projected_due": r.projected_due, "late_days": r.late_days,
             "release_status": r.release_status, "segment": r.segment, "lot_note": r.lot_note,
-            "peg_summary": r.peg_summary, "status": r.status,
+            "peg_summary": peg_list(r), "status": r.status,
             "converted": {"type": r.converted_type, "id": r.converted_id, "number": r.converted_number}
             if r.converted_type else None,
             "link": f"/mfg/mrp/runs/{run_id}/planned?order={r.id}"}
+
+
+def peg_list(r: MfgMrpPlannedOrderRow) -> list[dict[str, Any]]:
+    v = r.peg_summary
+    return list(v.get("pegs") or []) if isinstance(v, dict) else list(v or [])
+
+
+def directives_of(r: MfgMrpPlannedOrderRow) -> dict[tuple[str, str], float]:
+    v = r.peg_summary
+    d = v.get("directives") if isinstance(v, dict) else None
+    return {(r.order_key, k): float(q) for k, q in (d or {}).items()}
 
 
 def exception_row(r: MfgMrpExceptionRow, item: dict[str, Any] | None) -> dict[str, Any]:

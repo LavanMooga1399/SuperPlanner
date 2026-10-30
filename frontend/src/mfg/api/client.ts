@@ -73,7 +73,7 @@ export interface MfgRequestOptions {
   query?: QueryParams;
 }
 
-export type QueryValue = string | number | boolean | null | undefined;
+export type QueryValue = string | number | boolean | null | undefined | readonly string[];
 export type QueryParams = Record<string, QueryValue>;
 
 export interface MfgRawResponse<T> {
@@ -92,12 +92,16 @@ function envelopeOf(x: unknown): { code: string; message: string; details?: Reco
   return e as { code: string; message: string; details?: Record<string, unknown> };
 }
 
-/** `?a=1&b=x`; undefined, null and "" values are left out. */
+/** `?a=1&b=x`; undefined, null and "" values are left out; arrays repeat the key (`status=a&status=b`). */
 export function queryString(q: QueryParams | undefined): string {
   if (!q) return "";
   const parts: string[] = [];
   for (const [k, v] of Object.entries(q)) {
     if (v === undefined || v === null || v === "") continue;
+    if (Array.isArray(v)) {
+      for (const x of v as readonly string[]) if (x !== "") parts.push(`${enc(k)}=${enc(x)}`);
+      continue;
+    }
     parts.push(`${enc(k)}=${enc(String(v))}`);
   }
   return parts.length ? `?${parts.join("&")}` : "";

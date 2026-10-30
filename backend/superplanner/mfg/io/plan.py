@@ -53,6 +53,8 @@ class ImportOptions:
     replace_children: bool = True
     release: bool = False
     default_effective_from: date | None = None
+    stock_mode: str = "set"                      # M2-DESIGN 11: set | add
+    today: date | None = None                    # plant today (WO component generation date)
 
 
 @dataclass
@@ -347,6 +349,9 @@ class _Planner:
         self.serial_documents_in_use()
         self.cycles()
         self.releases()
+        from .plan_m2 import M2Planner
+
+        M2Planner(self).run()
         for name in SHEET_NAMES:
             if name in self.b:
                 self.counts.setdefault(name, {"create": 0, "update": 0, "unchanged": 0, "delete": 0, "error": 0})
