@@ -75,8 +75,15 @@ def _stale(s: Session, r: MfgApsRunRow) -> dict[str, Any] | None:
     tx = any(tok.get(k) != old.get(k) for k in tok if k != "data_version")
     latest = repo_m3.latest_live_mrp_run(s)
     mrp = (latest.id if latest else None) != r.mrp_run_id and r.kind == "live"
-    return {"is_stale": master or tx or mrp, "master_changed": master, "transactions_changed": tx,
-            "mrp_changed": mrp}
+    basis = _basis_changed(s, r)
+    return {"is_stale": master or tx or mrp or basis, "master_changed": master, "transactions_changed": tx,
+            "mrp_changed": mrp, "basis_changed": basis}
+
+
+def _basis_changed(s: Session, r: MfgApsRunRow) -> bool:
+    """M3 review M3: the run was frozen against another published run than the one published now."""
+    cur = s.execute(select(MfgApsRunRow.id).where(MfgApsRunRow.is_published.is_(True))).scalar()
+    return cur is not None and cur != r.id and cur != r.basis_published_run_id
 
 
 def run_record(s: Session, r: MfgApsRunRow, *, detail: bool = False, stale: bool = True) -> dict[str, Any]:
@@ -92,6 +99,7 @@ def run_record(s: Session, r: MfgApsRunRow, *, detail: bool = False, stale: bool
         "pinned": r.pinned, "is_published": r.is_published, "published_at": as_utc(r.published_at),
         "published_by": {"id": r.published_by, "name": names.get(r.published_by, "")} if r.published_by else None,
         "parent_run_id": r.parent_run_id, "copy_of_run_id": r.copy_of_run_id, "mrp_run": mrp,
+        "basis_published_run_id": r.basis_published_run_id,
         "as_of": as_utc(r.as_of), "horizon_end": as_utc(r.horizon_end),
         "horizon_days": (r.params or {}).get("horizon_days"), "policy": (r.params or {}).get("overtime"),
         "master_fingerprint": r.master_fingerprint, "row_version": r.row_version,
@@ -129,9 +137,12 @@ def _resolve(s: Session, body: ApsParams) -> tuple[ApsParams, str, datetime, Mfg
         if "label" not in upd:
             tag = "accepted overtime" if upd.get("open_shifts") else (upd.get("overtime") or base.overtime or "")
             upd["label"] = f"{base.label or f'Run {src.run_no}'} ({tag})"[:100]
-        params = base.model_copy(update={**upd, "edits": [], "copy_of": None})
+        params = base.model_copy(update={**upd, "copy_of": None})        # m2: the source's edits are kept
         mrp = s.execute(select(MfgMrpRunRow).where(MfgMrpRunRow.id == src.mrp_run_id)).scalars().first() \
             if src.mrp_run_id else None
+        if mrp is None and (params.include_planned or params.material == "strict"):     # m1
+            raise ApiError(422, "APS_NO_MRP_RUN", "The MRP run of the copied schedule is gone; run MRP and start a "
+                           "new schedule run.", {"copy_of": src.id})
         return params, src.kind, as_utc(src.as_of), mrp, src.id
     if body.edits:
         raise ApiError(422, "VALIDATION_ERROR", "Edits are made with POST /aps/runs/{id}/edits.",
@@ -241,9 +252,11 @@ def create_run(ctx: AppContext, body: ApsParams, idem_key: str | None) -> tuple[
 def _create_run(ctx: AppContext, body: ApsParams, idem: Any) -> dict[str, Any]:
     actor = actor_id()
     with write_tx(ctx, lock=False) as (s, _p):
+        repo.lock_plant(s)              # m4: run_no races serialise on the plant row
         if idem is not None:
             idempotency.lookup(s, idem, ctx.settings.idempotency_ttl_hours, _created_from_job)
         params, kind, as_of, mrp, copy_of = _resolve(s, body)
+        carry = _carried_locks(s, copy_of) if copy_of else []
         active = s.execute(select(MfgApsRunRow.run_no).where(MfgApsRunRow.status.in_(("queued", "running")))).first()
         if active is not None:
             raise _in_progress(active[0])
@@ -257,7 +270,8 @@ def _create_run(ctx: AppContext, body: ApsParams, idem: Any) -> dict[str, Any]:
             as_of=as_of, horizon_end=as_of + timedelta(days=int(params.horizon_days or 42)), master_fingerprint=fp,
             data_version=dv, inputs_token=repo_m3.aps_inputs_token(s), job_id=None, cancel_requested=False,
             progress={"phase": "queued", "percent": 0, "best_score": None, "updated_at": now.isoformat()},
-            summary=None, score=None, validation=None, extras=None, error=None, actor_id=actor, started_at=None,
+            summary=None, score=None, validation=None, extras={"carry_locks": carry} if carry else None, error=None,
+            actor_id=actor, started_at=None,
             finished_at=None, duration_ms=None, row_version=1, created_at=now, updated_at=now)
         try:
             with s.begin_nested():
@@ -274,6 +288,62 @@ def _create_run(ctx: AppContext, body: ApsParams, idem: Any) -> dict[str, Any]:
                                                **({"copy_of": copy_of} if copy_of else {})})
         out = run_record(s, run, stale=False)
     ctx.jobs.dispatch(job)
+    return out
+
+
+def _carried_locks(s: Session, src_id: str) -> list[dict[str, Any]]:
+    """m2: a copy carries the source's locked / edited placements (re-applied as locks); every one must still
+    apply (the operation exists, is open and not done) or the copy is refused with the list."""
+    from ....mfg.aps.pure import wo_routing_id
+    from ..db_models_m2 import MfgMrpPlannedOrderRow
+
+    rows = list(s.execute(select(MfgApsOpRow).where(MfgApsOpRow.run_id == src_id, MfgApsOpRow.locked.is_(True),
+                                                    MfgApsOpRow.status == "scheduled")).scalars())
+    if not rows:
+        return []
+    done = repo_m3.done_map(s)
+    wos = {w.id: w for w in s.execute(select(MfgWorkOrderRow).where(MfgWorkOrderRow.id.in_(
+        {r.order_id for r in rows if r.order_type == "wo"}))).scalars()}
+    planned = {p.id: p for p in s.execute(select(MfgMrpPlannedOrderRow).where(MfgMrpPlannedOrderRow.id.in_(
+        {r.order_id for r in rows if r.order_type == "planned"}))).scalars()}
+    bad = []
+    for r in rows:
+        if r.order_type == "wo":
+            w = wos.get(r.order_id)
+            ok = w is not None and w.status in ("planned", "released", "in_progress") and \
+                r.seq not in done.get(w.id, set())
+        else:
+            p = planned.get(r.order_id)
+            ok = p is not None and p.status == "open"
+        if not ok:
+            bad.append({"op_no": r.op_no, "order_number": r.order_number, "seq": r.seq})
+    if bad:
+        raise ApiError(422, "APS_EDIT_INFEASIBLE", f"{len(bad)} locked / edited operation(s) of the copied run "
+                       "no longer apply.", {"violations": [{"code": "APS_LOCK_STALE", **b} for b in bad]})
+    out = []
+    for r in rows:
+        p = repo_m3.published_op(r)
+        out.append({"key": [r.order_type, r.order_id, r.seq, r.split_index],
+                    "op": {"op_no": p.op_no, "order_type": p.order_type, "order_id": p.order_id, "seq": p.seq,
+                           "split_index": p.split_index, "split_count": p.split_count, "qty": p.qty,
+                           "line_id": p.line_id, "start": p.start.isoformat(), "end": p.end.isoformat(),
+                           "crew": [[c[0], c[1].isoformat(), c[2].isoformat()] for c in p.crew],
+                           "pieces": [[a.isoformat(), b.isoformat()] for a, b in p.pieces],
+                           "setup_minutes": p.setup_minutes, "run_minutes": p.run_minutes}})
+    _unused = wo_routing_id
+    return out
+
+
+def _locks_of(run: MfgApsRunRow) -> dict[tuple[str, str, int, int], PublishedOp]:
+    out = {}
+    for x in ((run.extras or {}).get("carry_locks") or []):
+        o = x["op"]
+        dt = datetime.fromisoformat
+        out[tuple(x["key"])] = PublishedOp(o["op_no"], o["order_type"], o["order_id"], o["seq"], o["split_index"],
+                                           o["split_count"], o["qty"], o["line_id"], dt(o["start"]), dt(o["end"]),
+                                           tuple((c[0], dt(c[1]), dt(c[2])) for c in o["crew"]),
+                                           tuple((dt(a), dt(b)) for a, b in o["pieces"]), o["setup_minutes"],
+                                           o["run_minutes"])
     return out
 
 
@@ -366,7 +436,7 @@ def run_job(ctx: Any, run_id: str, lease: Any) -> None:
             t1 = time.monotonic()
             with repo_m2.snapshot_tx(ctx.db) as s:
                 run = s.get(MfgApsRunRow, run_id)
-                snap = _snapshot(ctx, s, run, params)
+                snap = _snapshot(ctx, s, run, params, locked=_locks_of(run))
             load_ms = int((time.monotonic() - t1) * 1000)
             prog("construct", 5, None, force=True)
             res = schedule(snap, params, prog, lambda: lease.cancel_event.is_set())
@@ -380,6 +450,7 @@ def run_job(ctx: Any, run_id: str, lease: Any) -> None:
                     raise LeaseLost(f"APS run {run_id} is gone")
                 lease.fence(s)
                 res.summary.timings_ms["store"] = 0
+                run.basis_published_run_id = snap.published.run_id if snap.published is not None else None
                 aps_store.store(s, run, res, parents)
                 run.status = "cancelled" if run.cancel_requested else "completed"
                 run.finished_at = utcnow()
@@ -429,11 +500,14 @@ def _retention(s: Session) -> None:
         n += 1
         if n > RETENTION:
             drop.append(r.id)
-    for rid in drop:
-        row = s.get(MfgApsRunRow, rid)
-        if row is not None:
+    if drop:   # m3: never a run that was published or pinned meanwhile
+        from sqlalchemy import delete as sa_delete
+
+        gone = s.execute(sa_delete(MfgApsRunRow).where(MfgApsRunRow.id.in_(drop), MfgApsRunRow.is_published.is_(False),
+                                                       MfgApsRunRow.pinned.is_(False))
+                         .returning(MfgApsRunRow.id).execution_options(synchronize_session=False)).scalars().all()
+        for rid in sorted(gone):
             audit(s, "aps_run", rid, "delete", {"reason": "retention"})
-            s.delete(row)
     s.flush()
 
 
@@ -539,10 +613,17 @@ def cancel_run(ctx: AppContext, run_id: str) -> dict[str, Any]:
     return out
 
 
-def publish_run(ctx: AppContext, run_id: str, if_match: str | None) -> dict[str, Any]:
+def publish_run(ctx: AppContext, run_id: str, if_match: str | None, confirm_stale_basis: bool = False
+                ) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        repo.lock_plant(s)              # m4: one publish at a time per plant
         r = _get(s, run_id, lock=True)
         check_version(r, if_match)
+        if not r.is_published and _basis_changed(s, r) and not confirm_stale_basis:
+            cur = s.execute(select(MfgApsRunRow.run_no).where(MfgApsRunRow.is_published.is_(True))).scalar()
+            raise ApiError(409, "APS_RUN_STALE_BASIS", f"Schedule run {r.run_no} was frozen against another "
+                           f"published plan than run {cur}; re-run it, or publish with confirm_stale_basis.",
+                           {"basis_published_run_id": r.basis_published_run_id, "published_run_no": cur})
         ok = r.kind == "live" and r.status == "completed" and bool(r.validation and r.validation.get("ok"))
         if not ok:
             why = "a what-if run" if r.kind != "live" else (f"{r.status}" if r.status != "completed" else
@@ -576,7 +657,8 @@ def create_edits(ctx: AppContext, run_id: str, body: Any) -> dict[str, Any]:
         parent = _completed(s, run_id)
         from types import SimpleNamespace
 
-        cols = ("op_no", "order_type", "order_id", "seq", "split_index", "line_id", "status", "locked", "frozen")
+        cols = ("op_no", "order_type", "order_id", "seq", "split_index", "split_count", "qty", "line_id", "status",
+                "locked", "frozen", "start_at")
         rows = {r.op_no: SimpleNamespace(**{c: getattr(r, c) for c in cols}, pub=repo_m3.published_op(r))
                 for r in s.execute(select(MfgApsOpRow).where(MfgApsOpRow.run_id == parent.id)).scalars()}
         pparams = ApsParams.model_validate(parent.params)
@@ -584,7 +666,7 @@ def create_edits(ctx: AppContext, run_id: str, body: Any) -> dict[str, Any]:
     key = lambda r: (r.order_type, r.order_id, r.seq, r.split_index)  # noqa: E731
     locked: dict[tuple[str, str, int, int], PublishedOp] = {key(r): r.pub for r in rows.values()
                                                              if r.locked and r.status == "scheduled"}
-    moves: dict[tuple[str, str, int, int], tuple[str | None, datetime | None]] = {}
+    moves: dict[tuple[str, str, int, int], tuple[Any, ...]] = {}
     reseq: list[tuple[str, tuple[tuple[str, str, int], ...]]] = []
     for i, e in enumerate(body.edits):
         nos = e.op_nos if e.kind == "resequence" else [e.op_no]
@@ -605,7 +687,18 @@ def create_edits(ctx: AppContext, run_id: str, body: Any) -> dict[str, Any]:
         elif e.kind == "move":
             r = rows[e.op_no]
             locked.pop(key(r), None)
-            moves[key(r)] = (e.line_id or r.line_id, e.start)
+            if r.split_count > 1:       # m8: one part moves; its siblings stay where they are (locked)
+                if e.start is None:
+                    raise ApiError(422, "APS_EDIT_SPLIT", f"Operation {e.op_no} is one part of a split operation; "
+                                   "give the start time for the move.", {"loc": ["body", "edits", i],
+                                                                         "op_no": e.op_no})
+                for sib in rows.values():
+                    if (sib.order_id, sib.seq) == (r.order_id, r.seq) and sib.op_no != r.op_no and \
+                            sib.status == "scheduled" and key(sib) not in moves:
+                        locked.setdefault(key(sib), sib.pub)
+                moves[key(r)] = (e.line_id or r.line_id, e.start, r.qty, r.split_count)
+            else:
+                moves[key(r)] = (e.line_id or r.line_id, e.start)
         else:
             reseq.append((e.line_id, tuple((rows[n].order_type, rows[n].order_id, rows[n].seq) for n in e.op_nos)))
             for n in e.op_nos:
@@ -614,11 +707,13 @@ def create_edits(ctx: AppContext, run_id: str, body: Any) -> dict[str, Any]:
     t0 = time.monotonic()
     with repo_m2.snapshot_tx(ctx.db) as s:
         parent = _get(s, run_id)
-        snap = _snapshot(ctx, s, parent, params, published=not body.override_freeze, edits=tuple(body.edits),
+        snap = _snapshot(ctx, s, parent, params, published=True, edits=tuple(body.edits),
                          locked=locked, override_freeze=body.override_freeze, moves=moves, resequence=tuple(reseq))
     try:
         res = schedule(snap, params)
     except EditInfeasible as ex:
+        if ex.code in ("APS_EDIT_FROZEN", "APS_EDIT_SPLIT"):
+            raise ApiError(422, ex.code, ex.message, {"order": ex.op.order.number, "seq": ex.op.seq}) from None
         raise ApiError(422, "APS_EDIT_INFEASIBLE", f"The edit breaks a hard constraint: {ex.message}",
                        {"violations": [{"code": ex.code, "op_no": None, "message": ex.message, "refs": {}}]}) from None
     if not res.validation.ok:
@@ -627,14 +722,18 @@ def create_edits(ctx: AppContext, run_id: str, body: Any) -> dict[str, Any]:
                                                          for v in res.validation.violations[:50]]})
     parents = _parents(snap, res)
 
+    basis = snap.published.run_id if snap.published is not None else None
+
     def fn(s: Session) -> dict[str, Any]:
+        repo.lock_plant(s)              # m4: run_no / publish races serialise on the plant row
         p = _get(s, run_id, lock=True)
         n = int(s.execute(select(func.coalesce(func.max(MfgApsRunRow.run_no), 0))).scalar() or 0) + 1
         now = utcnow()
         run = MfgApsRunRow(
             id=new_id("apr_"), run_no=n, kind=p.kind, status="completed", label=f"{p.label or f'Run {p.run_no}'} "
             "(edited)"[:100], note=p.note, pinned=False, is_published=False, published_at=None, published_by=None,
-            parent_run_id=p.id, copy_of_run_id=None, mrp_run_id=p.mrp_run_id, params=params.model_dump(mode="json"),
+            parent_run_id=p.id, copy_of_run_id=None, mrp_run_id=p.mrp_run_id, basis_published_run_id=basis,
+            params=params.model_dump(mode="json"),
             as_of=p.as_of, horizon_end=p.horizon_end, master_fingerprint=p.master_fingerprint,
             data_version=p.data_version, inputs_token=p.inputs_token, job_id=None, cancel_requested=False,
             progress={"phase": "done", "percent": 100, "best_score": list(res.score), "updated_at": now.isoformat()},

@@ -140,6 +140,12 @@ class EditsRequest(MfgModel):
     override_freeze: bool = False
 
 
+class PublishRequest(MfgModel):
+    """`POST /aps/runs/{id}/publish` body (optional): publish although the run was frozen against another published
+    run (409 `APS_RUN_STALE_BASIS` otherwise)."""
+    confirm_stale_basis: bool = False
+
+
 class RunUpdate(MfgModel):
     label: Annotated[str, StringConstraints(max_length=100)] | None = None
     note: Annotated[str, StringConstraints(max_length=500)] | None = None

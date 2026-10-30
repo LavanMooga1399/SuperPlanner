@@ -209,9 +209,17 @@ def _shift_starts(ds: Any) -> dict[tuple[str, str], int]:
     return out
 
 
+def exception_minutes(ds: Any, ln: Any, clock: Clock) -> list[Interval]:
+    """Calendar exceptions of a line (plant / its group / the line) as schedule minutes from their UTC instants."""
+    return [(clock.to_min(x.start, ceil=False), clock.to_min(x.end)) for x in ds.calendar_exceptions.values()
+            if x.scope == "plant" or (x.scope == "group" and x.group_id == ln.group_id) or
+            (x.scope == "line" and x.line_id == ln.id)]
+
+
 def build_line(ds: Any, ln: Any, clock: Clock, d0: date, d1: date, closes: list[Interval], opens: list[Interval],
                lo: int, hi: int) -> tuple[LineRes, set[str]]:
-    det = line_detail(ds, ln.id, d0, d1)
+    det = line_detail(ds, ln.id, d0, d1, with_exceptions=False)
+    closes = list(closes) + exception_minutes(ds, ln, clock)      # UTC instants (m6: correct in DST fall-back)
     starts = _shift_starts(ds)
     asg = ds.shift_assignments
     base: list[Interval] = []
@@ -371,7 +379,9 @@ def build(snap: ApsSnapshot, params: ApsParams, policy: str, horizon_days: int) 
     for e in sorted(ds.operators.values(), key=lambda x: x.code):
         if not e.active:
             continue
-        av = [(clock.local(s), clock.local(t)) for s, t in operator_intervals(ds, e.id, d0, d1)]
+        av = [(clock.local(s), clock.local(t)) for s, t in operator_intervals(ds, e.id, d0, d1, with_absences=False)]
+        av = isub(iunion(av), iunion((clock.to_min(a.start, ceil=False), clock.to_min(a.end))
+                                     for a in getattr(ds, "operator_absences", {}).values() if a.operator_id == e.id))
         av = [(max(s, lo), min(t, hi)) for s, t in av if min(t, hi) > max(s, lo)]
         operators[e.id] = OperatorRes(e.id, e.code, frozenset(e.skill_ids), iunion(av))
         operators[e.id].starts = [s for s, _ in operators[e.id].avail]
@@ -409,8 +419,8 @@ def build(snap: ApsSnapshot, params: ApsParams, policy: str, horizon_days: int) 
     m = Model(clock, params, policy, horizon, window_end, ds, lines, operators, tools, orders, ops, matrix, rates, {},
               exc, items, forced)
     _fixed_from_published(snap, m)
-    m.moves = {k: (lid, clock.to_min(st, ceil=False) if st is not None else None)   # type: ignore[attr-defined]
-               for k, (lid, st) in snap.moves.items()}
+    m.moves = {k: (v[0], clock.to_min(v[1], ceil=False) if v[1] is not None else None, *v[2:])  # type: ignore
+               for k, v in snap.moves.items()}
     if snap.mrp is not None:
         m.demand = list(snap.mrp.demand)
     return m
@@ -504,7 +514,9 @@ def _fixed_from_published(snap: ApsSnapshot, m: Model) -> None:
     by_key = {op.key: op for op in m.ops}
     freeze = int(getattr(m.ds.plant, "aps_freeze_hours", 48) or 0) * 60
     pub = snap.published
-    if pub is not None and not snap.override_freeze:
+    # operations an edit targets (6.7): with `override_freeze` only these leave the freeze; in-progress never does
+    edited = {(k[1], k[2]) for k in snap.moves} | {(k[1], k[2]) for _l, ks in snap.resequence for k in ks}
+    if pub is not None:
         for p in sorted(pub.ops, key=lambda x: x.op_no):
             if p.start is None or p.end is None or p.line_id is None:
                 continue
@@ -523,6 +535,8 @@ def _fixed_from_published(snap: ApsSnapshot, m: Model) -> None:
                 continue
             in_progress = s < 0 < e
             if not in_progress and s >= freeze:
+                continue
+            if not in_progress and snap.override_freeze and (p.order_id, p.seq) in edited:
                 continue
             if abs(p.qty - (op.qty / max(1, p.split_count))) > 1e-6 and p.split_count == 1:
                 m.exceptions.append({"code": "APS_FROZEN_DROPPED", "op_no": p.op_no, "order_id": p.order_id,

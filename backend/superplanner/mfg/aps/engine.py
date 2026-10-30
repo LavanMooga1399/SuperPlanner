@@ -164,7 +164,8 @@ def edit_hints(m: Model, snap: ApsSnapshot) -> dict[tuple[str, int], tuple[str, 
                 continue
             hints[op.key] = (line_id, prev)
             prev = op.key
-    for (otype, oid, seq, _si), (line_id, start) in snap.moves.items():
+    for (otype, oid, seq, _si), mv in snap.moves.items():
+        line_id, start = mv[0], mv[1]
         op = by_id.get((otype, oid, seq))
         if op is not None and line_id and start is None and line_id in m.lines:
             hints[op.key] = (line_id, None)

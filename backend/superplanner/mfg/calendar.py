@@ -235,8 +235,10 @@ class LineDetail:
     optional_after_base: dict[str, int]
 
 
-def line_detail(ds: MfgDataset, line_id: str, d0: date, d1: date, kinds: tuple[str, ...] = ("base", "optional")
-                ) -> LineDetail:
+def line_detail(ds: MfgDataset, line_id: str, d0: date, d1: date, kinds: tuple[str, ...] = ("base", "optional"),
+                *, with_exceptions: bool = True) -> LineDetail:
+    """`with_exceptions=False` (M3 schedulers): exceptions are not removed here - the caller subtracts them as UTC
+    instants after converting the windows (correct in a DST fall-back hour)."""
     line = ds.lines[line_id]
     group = ds.groups.get(line.group_id)
     tz = plant_tz(ds.plant)
@@ -264,7 +266,7 @@ def line_detail(ds: MfgDataset, line_id: str, d0: date, d1: date, kinds: tuple[s
         if x.scope == "plant" or (x.scope == "group" and x.group_id == line.group_id) or \
                 (x.scope == "line" and x.line_id == line_id):
             s, e = to_local_minute(x.start, tz), to_local_minute(x.end, tz, ceil=True)
-            if e > lo - DAY and s < hi:
+            if e > lo - DAY and s < hi and with_exceptions:
                 exc.append((s, e))
     exc = union(exc)
     pieces: list[Piece] = []
@@ -355,8 +357,10 @@ def absence_intervals(ds: MfgDataset, operator_id: str, tz: tzinfo | None = None
     return union(out)
 
 
-def operator_intervals(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> list[Interval]:
-    """Shift spans of the operator (breaks not removed) minus absences (M3 3.2), local minutes."""
+def operator_intervals(ds: MfgDataset, operator_id: str, d0: date, d1: date, *,
+                       with_absences: bool = True) -> list[Interval]:
+    """Shift spans of the operator (breaks not removed) minus absences (M3 3.2), local minutes. Schedulers pass
+    `with_absences=False` and subtract absences as UTC instants (DST fall-back)."""
     op = ds.operators[operator_id]
     if op.shift_template_id is None:
         return []
@@ -371,7 +375,7 @@ def operator_intervals(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> 
         if d == date.max:
             break
         d = add_days(d, 1)
-    return subtract(union(out), absence_intervals(ds, operator_id))
+    return subtract(union(out), absence_intervals(ds, operator_id)) if with_absences else union(out)
 
 
 def operator_windows(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> list[Window]:

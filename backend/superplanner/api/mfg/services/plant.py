@@ -46,12 +46,22 @@ def put_plant(ctx: AppContext, inp: PlantInput, if_match: str | None) -> PlantRe
             if not valid_zone(inp.time_zone):
                 raise ApiError(422, "MFG_TZ_INVALID", f"{inp.time_zone!r} is not an IANA time zone (for example "
                                "Asia/Kolkata).", {"loc": ["body", "time_zone"], "time_zone": inp.time_zone})
-            # M3 5: with a zone, utc_offset is display only and calendar exceptions stay UTC instants (no rebase)
-            rebased = 0
+            # M3 5 / review m7: with a zone, utc_offset is display only; switching the plant time (offset -> zone or
+            # zone -> zone) rebases calendar exceptions so they keep their wall-clock times (M1 F7 rule)
+            from ....mfg.tz import plant_tz, zone
+
+            rebased = rebase_exceptions_tz(s, plant_tz(row), zone(inp.time_zone)) \
+                if not created and row.time_zone != inp.time_zone else 0
             row.name, row.utc_offset = inp.name, current_offset(inp)
         else:
-            rebased = rebase_exceptions(s, row.utc_offset, inp.utc_offset) if not created and not row.time_zone \
-                else 0
+            if created:
+                rebased = 0
+            elif row.time_zone:                 # zone -> fixed offset: keep wall-clock times too
+                from ....mfg.tz import plant_tz
+
+                rebased = rebase_exceptions_tz(s, plant_tz(row), offset_tz(inp.utc_offset))
+            else:
+                rebased = rebase_exceptions(s, row.utc_offset, inp.utc_offset)
             row.name, row.utc_offset = inp.name, inp.utc_offset
         row.planning_horizon_days, row.currency = inp.planning_horizon_days, inp.currency
         row.attributes = dict(inp.attributes)
@@ -78,6 +88,25 @@ def rebase_exceptions(s: Session, old_offset: str, new_offset: str) -> int:
     n = 0
     for x in s.execute(select(MfgCalendarExceptionRow).order_by(MfgCalendarExceptionRow.id)).scalars():
         x.start_at, x.end_at = x.start_at + delta, x.end_at + delta
+        x.row_version = (x.row_version or 0) + 1
+        x.updated_at = now
+        n += 1
+    if n:
+        s.flush()
+    return n
+
+
+def rebase_exceptions_tz(s: Session, old_tz: Any, new_tz: Any) -> int:
+    """Keep every calendar exception's local wall-clock times when the plant time changes (fold 0 in the new zone).
+    Returns the number of rows moved."""
+    now = utcnow()
+    n = 0
+    for x in s.execute(select(MfgCalendarExceptionRow).order_by(MfgCalendarExceptionRow.id)).scalars():
+        a = x.start_at.astimezone(old_tz).replace(tzinfo=new_tz, fold=0)
+        b = x.end_at.astimezone(old_tz).replace(tzinfo=new_tz, fold=0)
+        if a.astimezone(x.start_at.tzinfo) == x.start_at and b.astimezone(x.end_at.tzinfo) == x.end_at:
+            continue
+        x.start_at, x.end_at = a, b
         x.row_version = (x.row_version or 0) + 1
         x.updated_at = now
         n += 1

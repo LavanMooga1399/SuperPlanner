@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from apimfgm2_helpers import A, Api, acc_app, im, make_app, sign_up  # noqa: F401
+from apimfgm2_helpers import MFG, A, Api, acc_app, im, make_app, sign_up  # noqa: F401
 
 
 def wait_run(api: Api, run_id: str, timeout: float = 120) -> dict[str, Any]:

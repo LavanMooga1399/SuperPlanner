@@ -78,7 +78,10 @@ export const updateApsRun = (id: string, body: { label: string; note: string; pi
   mfgRequest<ApsRunRecord>(`${R}/${enc(id)}`, { method: "PUT", body, headers: ifMatch(v) });
 export const deleteApsRun = (id: string, v: number) => mfgRequest<void>(`${R}/${enc(id)}`, { method: "DELETE", headers: ifMatch(v) });
 export const cancelApsRun = (id: string) => mfgRequest<ApsRunRecord>(`${R}/${enc(id)}/cancel`, { method: "POST", body: {} });
-export const publishApsRun = (id: string, v: number) => mfgRequest<ApsRunRecord>(`${R}/${enc(id)}/publish`, { method: "POST", body: {}, headers: ifMatch(v) });
+export const publishApsRun = (id: string, v: number, confirmStaleBasis = false) =>
+  mfgRequest<ApsRunRecord>(`${R}/${enc(id)}/publish`, {
+    method: "POST", body: confirmStaleBasis ? { confirm_stale_basis: true } : {}, headers: ifMatch(v),
+  });
 export const editApsRun = (id: string, body: EditRequest) => mfgRequest<ApsRunRecord>(`${R}/${enc(id)}/edits`, { method: "POST", body });
 
 // ---------------------------------------------------------------- #188-199 views

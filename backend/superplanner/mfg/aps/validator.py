@@ -111,6 +111,50 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
             return _ceil(r.run_minutes * n)
         return _ceil(op.run_minutes * n / (line.speed_factor or 1.0))
 
+    # ---- re-derived freeze (6.6): from the published plan, the plant freeze hours and as_of (M4)
+    freeze = int(getattr(ds.plant, "aps_freeze_hours", 48) or 0) * 60
+    edited = {(k[1], k[2]) for k in snap.moves} | {(k[1], k[2]) for _l, ks in snap.resequence for k in ks}
+    frozen_pub: dict[tuple[str, int, int], Any] = {}
+    if snap.published is not None:
+        for p in snap.published.ops:
+            if p.start is None or p.end is None or p.line_id is None:
+                continue
+            ps_, pe_ = _m(as_of, p.start), _m(as_of, p.end)
+            if pe_ <= 0:
+                continue
+            inprog = ps_ < 0 < pe_
+            if not inprog and ps_ >= freeze:
+                continue
+            if not inprog and snap.override_freeze and (p.order_id, p.seq) in edited:
+                continue
+            frozen_pub[(p.order_id, p.seq, p.split_index)] = p
+
+    # ---- allowed optional capacity (M4): opened only by the allow policy, forced only by open_shifts /
+    # capacity_overrides(open_optional)
+    forced_spans: dict[str, list[tuple[int, int]]] = {}
+    for sh in res.params.open_shifts:
+        forced_spans.setdefault(sh.line_id, []).append((_m(as_of, sh.start), _m(as_of, sh.end)))
+    for ov in res.params.capacity_overrides:
+        if ov.mode != "open_optional":
+            continue
+        for ln in ds.lines.values():
+            if (ov.target_type == "line" and ln.id == ov.target_id) or (ov.target_type == "group" and
+                                                                        ln.group_id == ov.target_id):
+                forced_spans.setdefault(ln.id, []).append((_m(as_of, ov.start), _m(as_of, ov.end)))
+    policy = res.summary.policy
+    allowed_ot = []
+    for w in res.overtime:
+        if w.status == "suggested":
+            continue
+        a, b = _m(as_of, w.start), _m(as_of, w.end)
+        ok = (w.status == "opened" and policy == "allow") or (
+            w.status == "forced" and any(x < b and a < y for x, y in forced_spans.get(w.line_id, [])))
+        if not ok:
+            bad("APS_V_OVERTIME_POLICY", None, f"Optional time on line {w.line_id} is {w.status} although the run "
+                f"(policy {policy}) does not allow it.", line_id=w.line_id)
+            continue
+        allowed_ot.append(w)
+
     # ---- open windows per line (base + opened/forced optional instances - closures)
     closes: dict[str, list[tuple[int, int]]] = {}
     for ov in res.params.capacity_overrides:
@@ -121,20 +165,25 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
                                                                         ln.group_id == ov.target_id):
                 closes.setdefault(ln.id, []).append((_m(as_of, ov.start), _m(as_of, ov.end)))
     opened_by_line: dict[str, list[tuple[int, int]]] = {}
-    for w in res.overtime:
-        if w.status in ("opened", "forced"):
-            opened_by_line.setdefault(w.line_id, []).append((_m(as_of, w.start), _m(as_of, w.end)))
+    for w in allowed_ot:
+        opened_by_line.setdefault(w.line_id, []).append((_m(as_of, w.start), _m(as_of, w.end)))
+    for x in ds.calendar_exceptions.values():      # m6: exceptions as UTC instants (DST fall-back)
+        for ln in ds.lines.values():
+            if x.scope == "plant" or (x.scope == "group" and x.group_id == ln.group_id) or \
+                    (x.scope == "line" and x.line_id == ln.id):
+                closes.setdefault(ln.id, []).append((_m(as_of, x.start), _m(as_of, x.end)))
     used_lines = sorted({o.line_id for o in sched if o.line_id})
     windows: dict[str, list[tuple[int, int]]] = {}
     for lid in used_lines:
         if lid not in ds.lines:
             continue
-        det = line_detail(ds, lid, d0, d1)
+        det = line_detail(ds, lid, d0, d1, with_exceptions=False)
         base = [(loc(p.start), loc(p.end)) for p in det.pieces if p.kind == "base"]
         opt = [(loc(p.start), loc(p.end)) for p in det.pieces if p.kind == "optional" and any(
             loc(p.start) < b and a < loc(p.end) for a, b in opened_by_line.get(lid, []))]
         win = _union(base + opt)
         cl = _union(closes.get(lid, []))
+        win = _union(win)
         if cl:
             out = []
             for s, e in win:
@@ -151,6 +200,8 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
         windows[lid] = win
 
     # ---- per operation checks
+    tool_need: dict[int, list[tuple[str, int]]] = {}
+    fixed_ops = {o.op_no for o in sched if (o.order.id, o.seq, o.split.index) in frozen_pub}
     by_line: dict[str, list[Any]] = {}
     for o in sched:
         by_line.setdefault(o.line_id or "", []).append(o)
@@ -169,7 +220,16 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
                 line_id=line.id)
         s, e = _m(as_of, o.start), _m(as_of, o.end)
         pcs = [(_m(as_of, p.start), _m(as_of, p.end)) for p in o.pieces] or [(s, e)]
-        fixed = o.frozen
+        pub = frozen_pub.get((o.order.id, o.seq, o.split.index))
+        fixed = pub is not None
+        if o.frozen and not fixed:
+            bad("APS_V_FROZEN", o.op_no, f"Op {o.op_no} is marked frozen but is not frozen in the published plan.")
+        if fixed and (o.line_id != pub.line_id or abs(_m(as_of, o.start) - _m(as_of, pub.start)) > 0):
+            bad("APS_V_FROZEN", o.op_no, f"Op {o.op_no} is frozen in the published plan but was moved.")
+        need_tools = sorted((t.tool_pool_id, int(t.qty)) for t in rop.tools)
+        if sorted((t.tool_pool_id, t.qty) for t in o.tools) != need_tools:
+            bad("APS_V_TOOL", o.op_no, f"Op {o.op_no}: tools differ from the routing operation.")
+        tool_need[o.op_no] = need_tools
         win = windows.get(line.id, [])
         if not fixed:
             for a, b in pcs:
@@ -203,7 +263,7 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
                     f"changeover on {line.code} ({sorted(cand)}).")
         # crew
         k = int(rop.crew_size)
-        if k > 0 and not fixed:
+        if k > 0 and not fixed:  # crew
             if rop.labor == "attended":
                 att = pcs
             else:
@@ -237,16 +297,20 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
     for e, lst in sorted(slots_by_emp.items()):
         if e not in ds.operators:
             continue
-        avail = _union((loc(a), loc(b)) for a, b in operator_intervals(ds, e, d0, d1))
+        avail = _union((loc(a), loc(b)) for a, b in operator_intervals(ds, e, d0, d1, with_absences=False))
+        absent = _union((_m(as_of, x.start), _m(as_of, x.end)) for x in getattr(ds, "operator_absences", {}).values()
+                        if x.operator_id == e)
         lst.sort()
-        frozen_ops = {o.op_no for o in sched if o.frozen}
-        for i, (a, b, n) in enumerate(lst):
-            if n not in frozen_ops and not _inside(avail, a, b):
+        far_end, far_op = -(1 << 60), None
+        for a, b, n in lst:
+            if n not in fixed_ops and (not _inside(avail, a, b) or any(x < b and a < y for x, y in absent)):
                 bad("APS_V_CREW_SHIFT", n, f"Op {n}: operator {ds.operators[e].code} is off shift or absent.",
                     operator_id=e)
-            if i > 0 and a < lst[i - 1][1] and lst[i - 1][2] != n:
+            if a < far_end and far_op != n:
                 bad("APS_V_CREW_DOUBLE", n, f"Op {n}: operator {ds.operators[e].code} is also on op "
-                    f"{lst[i - 1][2]}.", operator_id=e)
+                    f"{far_op}.", operator_id=e)
+            if b > far_end:
+                far_end, far_op = b, n
     # ---- line capacity
     for lid, lst in by_line.items():
         line = ds.lines.get(lid)
@@ -264,8 +328,8 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
     # ---- tools
     use: dict[str, list[tuple[int, int, int, int]]] = {}
     for o in sched:
-        for t in o.tools:
-            use.setdefault(t.tool_pool_id, []).append((_m(as_of, o.start), _m(as_of, o.end), t.qty, o.op_no))
+        for pool, q in tool_need.get(o.op_no, [(t.tool_pool_id, t.qty) for t in o.tools]):
+            use.setdefault(pool, []).append((_m(as_of, o.start), _m(as_of, o.end), q, o.op_no))
     for pool, lst in use.items():
         cap = ds.tool_pools[pool].quantity if pool in ds.tool_pools else 0
         ev = sorted([(a, q, n) for a, b, q, n in lst] + [(b, -q, n) for a, b, q, n in lst], key=lambda x: (x[0], x[1]))
@@ -316,30 +380,97 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
         for p in planned_by_id.values():
             if p.id in end_of:
                 child_end[f"planned:{p.planned_no}"] = end_of[p.id]
+        planned_by_no = {str(p.planned_no): p.id for p in planned_by_id.values()}
+        PARTIAL = -1
         for oid, lst in by_order.items():
-            sch = [x for x in lst if x.status == "scheduled" and not x.frozen]
-            if not sch:
+            sch = [x for x in lst if x.status == "scheduled" and (x.order.id, x.seq, x.split.index) not in frozen_pub]
+            if not sch or oid not in keys:
                 continue
             first = min(x.seq for x in lst)
             for c in comps.get(oid, []):
+                if c.qty <= 1e-9:
+                    continue
                 seq = c.operation_seq if any(x.seq == c.operation_seq for x in lst) else first
                 tgt = [x for x in sch if x.seq == seq]
                 if not tgt:
                     continue
                 st = min(_m(as_of, x.start) for x in tgt)
-                for sp in snap.mrp.pegs.get((keys[oid][0], keys[oid][1], c.item_id), ()):
-                    need = None
+                pn = ds.items[c.item_id].part_number if c.item_id in ds.items else c.item_id
+                sups = snap.mrp.pegs.get((keys[oid][0], keys[oid][1], c.item_id), ())
+                needs: list[int | None] = []
+                for sp in sups:
                     if sp.kind in ("po_schedule", "pr_schedule", "po", "pr") and sp.available_date:
-                        need = max(0, mid(sp.available_date))
+                        needs.append(max(0, mid(sp.available_date)))
                     elif sp.kind in ("work_order", "wo"):
-                        need = child_end.get(f"wo:{sp.ref_id}")
+                        needs.append(child_end.get(f"wo:{sp.ref_id}", PARTIAL) if sp.ref_id in by_order else None)
                     elif sp.kind == "planned":
-                        need = child_end.get(f"planned:{sp.planned_no if sp.planned_no is not None else sp.ref_id}")
-                    if need is not None and st < need:
-                        bad("APS_V_MATERIAL", tgt[0].op_no, f"Op {tgt[0].op_no} starts before its component "
-                            f"{ds.items[c.item_id].part_number if c.item_id in ds.items else c.item_id} is available.",
-                            item_id=c.item_id)
-                        break
+                        no = str(sp.planned_no if sp.planned_no is not None else sp.ref_id)
+                        pid = planned_by_no.get(no)
+                        if pid is not None and pid in by_order:
+                            needs.append(child_end.get(f"planned:{no}", PARTIAL))
+                        elif sp.available_date:
+                            needs.append(max(0, mid(sp.available_date)))
+                covered = sum(x.qty for x in sups)
+                if covered + 1e-6 < c.qty:            # live fallback (6.4), replayed
+                    need_q = c.qty - covered
+                    free = snap.stock_now.get(c.item_id, 0.0)
+                    if free + 1e-6 < need_q:
+                        rest, got, when = need_q - max(0.0, free), 0.0, None
+                        for sup in sorted((x for x in snap.open_supply if x.item_id == c.item_id),
+                                          key=lambda x: (x.available_date, x.ref_id)):
+                            got += sup.qty
+                            if got + 1e-6 >= rest:
+                                when = max(0, mid(sup.available_date))
+                                break
+                        if when is None:
+                            bad("APS_V_MATERIAL", tgt[0].op_no, f"Op {tgt[0].op_no} is scheduled but {pn} has no "
+                                "supply.", item_id=c.item_id)
+                            continue
+                        needs.append(when)
+                if PARTIAL in needs:
+                    bad("APS_V_MATERIAL", tgt[0].op_no, f"Op {tgt[0].op_no} uses {pn} from a child order that is "
+                        "not completely scheduled.", item_id=c.item_id)
+                    continue
+                need = max((x for x in needs if x is not None), default=None)
+                if need is not None and st < need:
+                    bad("APS_V_MATERIAL", tgt[0].op_no, f"Op {tgt[0].op_no} starts before its component {pn} is "
+                        "available.", item_id=c.item_id)
+    # ---- every operation present with its quantity (M4)
+    from ..aps.pure import wo_routing_id
+
+    hz_date = res.horizon_end.astimezone(tz).date()
+    expected: list[tuple[str, Any, float, frozenset[int], Any]] = []
+    for w in snap.work_orders:
+        rid = wo_routing_id(ds, w.item_id, w.start_date, w.serial_from, w.routing_id)
+        if rid in ds.routings and w.qty > 1e-9 and w.item_id in ds.items:
+            expected.append((w.id, ds.routings[rid], w.qty, w.done_seqs, ds.items[w.item_id]))
+    if res.params.include_planned:
+        for p in planned_by_id.values():
+            if p.routing_id in ds.routings and p.start_date <= hz_date and p.item_id in ds.items:
+                expected.append((p.id, ds.routings[p.routing_id], p.qty, frozenset(), ds.items[p.item_id]))
+    for oid, rt, q, done, it in expected:
+        ops = sorted(rt.operations, key=lambda x: x.seq)
+        qs = lot_inputs(ops, q, is_count(it.uom))
+        for op, need in zip(ops, qs):
+            if op.seq in done:
+                continue
+            rows = [x for x in by_order.get(oid, []) if x.seq == op.seq]
+            if not rows:
+                bad("APS_V_MISSING", None, f"Operation {op.seq} of order {oid} is missing from the result.",
+                    order_id=oid, seq=op.seq)
+                continue
+            if all(x.status == "scheduled" for x in rows) and abs(sum(x.qty for x in rows) - need) > \
+                    1e-6 * max(1.0, need):
+                bad("APS_V_QTY", rows[0].op_no, f"Operation {op.seq} of order {oid} carries "
+                    f"{sum(x.qty for x in rows):g} instead of {need:g}.", order_id=oid, seq=op.seq)
+    # ---- requested moves placed as requested (6.7)
+    for (otype, oid, seq, si), mv in snap.moves.items():
+        if mv[1] is None:
+            continue
+        hit = [o for o in sched if o.order.id == oid and o.seq == seq and o.split.index == si]
+        if not hit or (mv[0] and hit[0].line_id != mv[0]) or _m(as_of, hit[0].start) != _m(as_of, mv[1]):
+            bad("APS_V_EDIT", hit[0].op_no if hit else None, f"Operation {seq} of {oid} is not where the edit "
+                "placed it.", order_id=oid, seq=seq)
     # ---- overtime weekly limits
     per: dict[tuple[str, tuple[int, int]], int] = {}
     for w in res.overtime:

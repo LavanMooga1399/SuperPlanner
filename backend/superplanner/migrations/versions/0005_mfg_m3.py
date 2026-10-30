@@ -158,6 +158,7 @@ def upgrade() -> None:
                                 name='fk_mfg_aps_runs_parent_run_id_mfg_aps_runs'), nullable=True),
         sa.Column('copy_of_run_id', sa.String(64), nullable=True),
         sa.Column('mrp_run_id', sa.String(64), nullable=True),
+        sa.Column('basis_published_run_id', sa.String(64), nullable=True),
         sa.Column('params', _json(), nullable=False),
         sa.Column('as_of', sa.DateTime(timezone=True), nullable=False),
         sa.Column('horizon_end', sa.DateTime(timezone=True), nullable=False),

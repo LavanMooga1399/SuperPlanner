@@ -231,7 +231,7 @@ def test_items_paging_filters_sort(mfg: Mfg):
 
 def test_meta_has_every_field(mfg: Mfg, client):
     m = mfg.get("/meta")
-    assert set(m) == {"uoms", "enums", "limits", "import_spec", "samples", "health_codes"}
+    assert set(m) == {"uoms", "enums", "limits", "import_spec", "samples", "health_codes", "time_zones"}   # M3 12
     assert {u["code"] for u in m["uoms"]} >= {"EA", "M", "MM", "ML"}
     assert set(m["enums"]) == {"make_buy", "lot_rule", "status", "run_per", "labor", "assignment_kind",
                                "target_type", "exception_scope", "exception_kind", "weekday"}

@@ -108,6 +108,8 @@ class MfgApsRunRow(OwnedMixin, _Editable, Base):
                                                       nullable=True)
     copy_of_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     mrp_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: the published run whose freeze this run was planned against (M3 review M3); None = nothing published
+    basis_published_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     params: Mapped[dict[str, Any]] = mapped_column(JsonType)
     as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     horizon_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))

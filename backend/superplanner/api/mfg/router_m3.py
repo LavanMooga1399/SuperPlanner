@@ -10,7 +10,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, Response
 
-from ...mfg.aps.model import ApsParams, EditsRequest, RunUpdate
+from ...mfg.aps.model import ApsParams, EditsRequest, PublishRequest, RunUpdate
 from ...mfg.model import PlanDateTime
 from ...mfg.model_m3 import OperationLineRateInput, OperatorAbsenceInput, SetupMatrixRowInput
 from ..context import AppContext, get_ctx
@@ -183,8 +183,9 @@ def cancel_run(run_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
 
 
 @router.post("/aps/runs/{run_id}/publish", dependencies=P("schedule_publish"))
-def publish_run(run_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    rec = aps.publish_run(ctx, run_id, if_match)
+def publish_run(run_id: str, body: PublishRequest | None = None, if_match: str | None = _if_match(),
+                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    rec = aps.publish_run(ctx, run_id, if_match, bool(body and body.confirm_stale_basis))
     return _ok(rec, etag=rec["row_version"])
 
 

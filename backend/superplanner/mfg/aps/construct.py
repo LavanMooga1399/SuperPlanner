@@ -772,29 +772,55 @@ class Engine:
 
     def place_moves(self) -> None:
         """Timed `move` edits (6.7): placed exactly at the requested start on the requested line (a start in a
-        closed window or on a busy slot is rejected, never snapped) and locked."""
+        closed window or on a busy slot is rejected, never snapped) and locked. A move of one part of a split
+        operation places that part (its siblings are locked by the caller). An edit of a frozen / in-progress
+        operation is rejected (`APS_EDIT_FROZEN`)."""
         moves = getattr(self.m, "moves", {})
         by_id = {(op.order.type, op.order.id, op.seq): op for op in self.m.ops}
-        for (otype, oid, seq, si), (line_id, start) in sorted(moves.items(), key=lambda kv: str(kv[0])):
+        for (otype, oid, seq, si), val in sorted(moves.items(), key=lambda kv: str(kv[0])):
+            line_id, start = val[0], val[1]
+            qty = val[2] if len(val) > 2 else None
+            count = val[3] if len(val) > 3 else 1
             op = by_id.get((otype, oid, seq))
-            if op is None or start is None or op.key in self.placed:
+            if op is None:
+                continue
+            fx = self.m.fixed.get((op.key, si))
+            if fx is not None and fx.kind in ("frozen", "in_progress"):
+                raise EditInfeasible(op, "APS_EDIT_FROZEN", f"Operation {op.seq} of {op.order.number} is "
+                                     f"{'in progress' if fx.kind == 'in_progress' else 'frozen'} in the published "
+                                     "plan; set override_freeze to move it (in-progress work never moves).")
+            if start is None:
+                continue
+            parts = self.placed.get(op.key, [])
+            if any(p.part == si for p in parts):
                 continue
             ln = self.m.lines.get(line_id or (op.lines[0] if op.lines else ""))
             if ln is None:
                 raise EditInfeasible(op, "APS_V_ELIGIBLE", "The line is not available for this operation.")
-            p, _w = self.place_on_line(op, op.qty, ln, start, 0, None)
+            p, _w = self.place_on_line(op, qty or op.qty, ln, start, 0, None)
             if p is None or p.start != start:
-                raise EditInfeasible(op, "APS_V_WINDOW", f"{ln.code} cannot run this operation from the requested "
-                                     "start (closed window, busy line or no crew).")
-            p.fixed = "edit"
-            p.reason = "edit"
+                code = "APS_EDIT_SPLIT" if count > 1 else "APS_V_WINDOW"
+                raise EditInfeasible(op, code, f"{ln.code} cannot run this {'part of a split ' if count > 1 else ''}"
+                                     "operation from the requested start (closed window, busy line or no crew).")
+            p.fixed, p.reason, p.part, p.parts = "edit", "edit", si, count
             self.commit(p)
-            self.placed[op.key] = [p]
-            self.order_seq.append(op.key)
+            if op.key not in self.placed:
+                self.order_seq.append(op.key)
+            self.placed[op.key] = sorted(parts + [p], key=lambda x: x.part)
+
+    def check_hints(self) -> None:
+        """Resequence / line-only moves must not target frozen or in-progress work (M1 fix)."""
+        for k in self.hints:
+            for (fk, _si), fx in self.m.fixed.items():
+                if fk == k and fx.kind in ("frozen", "in_progress"):
+                    op = self.ops[k]
+                    raise EditInfeasible(op, "APS_EDIT_FROZEN", f"Operation {op.seq} of {op.order.number} is "
+                                         "frozen in the published plan; set override_freeze to move it.")
 
     # ------------------------------------------------------------ main loop
     def run(self) -> Schedule:
         self.place_fixed()
+        self.check_hints()
         self.place_moves()
         deps: dict[tuple[str, int], set[tuple[str, int]]] = {}
         users: dict[tuple[str, int], list[tuple[str, int]]] = {}

@@ -142,7 +142,10 @@ minute). Local wall-clock rules (shift templates, exceptions given as local time
 attribution of shifts stays M1 4.6. Business dates ("today", due dates) are local dates in `plant_tz`; a due date
 means **available at local 00:00 of that date** (M2 8.5 semantics). M1/M2 code switches from `utc_offset` to
 `tz.plant_tz(plant)` (one helper; with `time_zone` None it returns the fixed offset, so existing data behaves as
-before). Calendar exceptions stay UTC instants (no rebase needed when switching to a zone). New pin: `tzdata`
+before). Calendar exceptions are stored as UTC instants; switching the plant time (fixed offset -> zone, zone -> zone or
+zone -> offset) rebases them so they keep their local wall-clock times (the M1 F7 rule; fold 0 in the new zone).
+Schedulers subtract exceptions and absences as UTC instants after converting the windows (correct in a
+fall-back hour). New pin: `tzdata`
 (pure-Python wheel; Windows has no system zone database).
 
 ## 6. Scheduling model
@@ -630,9 +633,36 @@ of the failing tests and their folders; no second full run unless a fix touches 
   (`test_mfg_bundle.py`), health code count (`test_mfg_health.py`), statement bounds +3 (`test_mfg_repo.py`,
   `test_m2_repo.py`, `test_mfg_perf.py`; the perf counter already drops job polls), M3 master rows in
   `mfgdb_helpers.write_dataset`, M2 migration test upgrades to `0004_mfg_m2` explicitly, `test_mfg_migration.py`
-  table set, reset key count (`tests/api_mfg/test_mfg_samples.py`), route table +36 / permission table 199 and the
+  table set, reset key count (`tests/api_mfg/test_mfg_samples.py`), `/meta` key set (`test_mfg_crud.py`), route table +36 / permission table 199 and the
   user-B test, authz sweep (APS run, rate, matrix row, absence, `op_no`, `seq`); E's `mrp/fixtures/example_result.json`
   regenerated (`use_schedule` in params).
+- **Review fix round (LEAD, 2026-10-30)** - regression tests `tests/aps/test_aps_review_fixes.py`,
+  `tests/api_mfg_m3/test_m3_review_fixes_api.py`:
+  - Freeze vs edits: frozen is computed at edit time against the *current* published plan (not the parent's flags):
+    a move / resequence / line-only move of a frozen operation -> 422 `APS_EDIT_FROZEN` unless `override_freeze`;
+    `override_freeze` keeps the published plan loaded and only exempts the edited operations; in-progress work never
+    moves (422 `APS_EDIT_FROZEN` even with the override). The validator checks every timed move is placed as asked
+    (`APS_V_EDIT`).
+  - Freeze basis: runs record `basis_published_run_id` (the published run their freeze came from; new column on
+    `mfg_aps_runs`, 0005 edited in place). `stale.basis_changed` when another run is published now; publish answers
+    409 `APS_RUN_STALE_BASIS` unless the body has `confirm_stale_basis: true`.
+  - Validator re-derives instead of trusting the result: the frozen set (published plan + `aps_freeze_hours` +
+    as_of; `APS_V_FROZEN` for a false flag or a moved frozen op), tools from the routing operation, quantity per
+    (order, seq) and presence of every operation (`APS_V_QTY`, `APS_V_MISSING`), allowed optional time (opened only
+    under `allow`, forced only inside `open_shifts` / `open_optional` overrides: `APS_V_OVERTIME_POLICY`), the live
+    material fallback for unpegged components, child orders that are only partly scheduled, and double booking
+    against any earlier overlapping crew slot (not only the adjacent one).
+  - `copy_of`: the `APS_NO_MRP_RUN` guard applies (the source's MRP run may be gone); the source's edits stay in
+    the params and its locked / edited placements are carried as locks (run `extras.carry_locks`); if one no longer
+    applies (order closed, operation done) -> 422 `APS_EDIT_INFEASIBLE` listing them (`APS_LOCK_STALE`).
+  - Retention deletes with `is_published = false AND pinned = false` in the statement; create, edit and publish
+    lock the plant row first (no run_no / publish race -> 500).
+  - Jobs: `set_run_error` stores `{code, message}` on APS runs (requeue-or-fail, orphans, inline leftovers).
+  - DST: line exceptions and operator absences are subtracted as UTC instants after the windows are converted, in
+    construction and validator (`line_detail(with_exceptions=False)`, `operator_intervals(with_absences=False)`).
+  - Moving one part of a split operation: that part moves (start required, else 422 `APS_EDIT_SPLIT`), its
+    siblings stay locked; an infeasible part placement -> 422 `APS_EDIT_SPLIT`.
+  - §17.WP-U already describes acceptance via `copy_of + open_shifts`; no stale paragraph remained.
 - **Performance (PostgreSQL local):** AP1 Kavach construct 0.6 s (target 5); AP2 LNS 30 s budget: 33-38 s pure,
   weighted tardiness 17.82 M -> 17.23 M, deterministic; AP3 ~9,900 operations construct 29.9 s (target 30; validator
   7.3 s more); AP4 ~27,700 operations construct 102 s (target 120; validator 27 s more); AP5 queue -> completed 27 s, store 0.45 s (targets 45 / 3); AP6 edit child run 2.8 s (5); AP7

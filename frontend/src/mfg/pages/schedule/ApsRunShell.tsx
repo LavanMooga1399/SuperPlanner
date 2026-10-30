@@ -4,6 +4,7 @@
  */
 import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate, useOutletContext, useParams } from "react-router";
+import { ApiError } from "../../../api/client";
 import { saveBlob } from "../../api/client";
 import { Banner } from "../../../components/Banner";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
@@ -58,11 +59,13 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
           : !run.publishable
             ? "This run cannot be published"
             : undefined;
+  // 409 APS_RUN_STALE_BASIS: another run was published after this one was computed; publish only on confirmation.
+  const staleBasis = error instanceof ApiError && error.code === "APS_RUN_STALE_BASIS";
   const go = async () => {
     setBusy(true);
     setError(null);
     try {
-      onDone(await publishApsRun(run.id, run.row_version));
+      onDone(await publishApsRun(run.id, run.row_version, staleBasis));
       setConfirm(false);
     } catch (e) {
       setError(e);
@@ -76,9 +79,17 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
         <Icon name="flag" /> Publish
       </button>
       {confirm ? (
-        <ConfirmDialog title={`Publish ${apsRunTitle(run)}?`} confirmLabel="Publish" busy={busy} onCancel={() => setConfirm(false)} onConfirm={() => void go()}>
+        <ConfirmDialog title={`Publish ${apsRunTitle(run)}?`} confirmLabel={staleBasis ? "Publish anyway" : "Publish"} busy={busy} onCancel={() => { setConfirm(false); setError(null); }} onConfirm={() => void go()}>
           <p style={{ margin: 0 }}>It becomes the plant plan: dispatch lists, the freeze window of the next run and MRP dates use it. It replaces the currently published schedule.</p>
-          <MfgError error={error} title={isConflict(error) ? "The run changed meanwhile; reload" : "Could not publish"} />
+          {staleBasis ? (
+            <p style={{ margin: "8px 0 0" }} data-testid="aps-publish-stale-basis">
+              <strong>Another schedule was published after this run was computed.</strong> This run froze the next hours
+              from the older plan, so publishing it changes work already planned for the floor. Re-run to plan from the
+              current schedule, or publish anyway.
+            </p>
+          ) : (
+            <MfgError error={error} title={isConflict(error) ? "The run changed meanwhile; reload" : "Could not publish"} />
+          )}
         </ConfirmDialog>
       ) : null}
     </>

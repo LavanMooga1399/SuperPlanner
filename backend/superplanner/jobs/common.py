@@ -37,6 +37,16 @@ def run_model(kind: str) -> Any:
     raise ValueError(f"unknown job kind {kind!r}")
 
 
+def set_run_error(run: Any, message: str | None) -> None:
+    """Kind-aware run error (m5): APS runs store `{code, message}`, solver / finance runs a string."""
+    from ..api.mfg.db_models_m3 import MfgApsRunRow
+
+    if isinstance(run, MfgApsRunRow) and message is not None:
+        run.error = {"code": "APS_RUN_FAILED", "message": str(message)[:500]}
+    else:
+        run.error = message
+
+
 def job_fk(kind: str) -> Any:
     from ..api.db import JobRow
 
@@ -165,7 +175,7 @@ def requeue_or_fail(s: Session, job: Any, run: Any, reason: str, settings: Any) 
         return "queued"
     error = WORKER_LOST_ERROR.format(n=attempts)
     run.status = "failed"
-    run.error = error
+    set_run_error(run, error)
     run.finished_at = wall
     add_run_event(kind, s, run.id, "run_failed", {"error": error})
     _set(s, job, status="failed", finished_at=wall, last_error=f"{reason}: max attempts reached", **common)
@@ -211,7 +221,7 @@ def mirror_finish(ctx: Any, lease: Lease, fallback_error: str) -> str | None:
         wall = utcnow()
         if run is not None and run.status in ACTIVE_RUN_STATUSES:
             run.status = "failed"
-            run.error = fallback_error
+            set_run_error(run, fallback_error)
             run.finished_at = wall
             add_run_event(lease.kind, s, run.id, "run_failed", {"error": fallback_error})
             status, error = "failed", fallback_error
@@ -243,7 +253,7 @@ def fail_orphan_runs(ctx: Any) -> int:
                 if run is None or run.status not in ACTIVE_RUN_STATUSES:
                     continue
                 run.status = "failed"
-                run.error = RESTART_ERROR
+                set_run_error(run, RESTART_ERROR)
                 run.finished_at = utcnow()
                 add_run_event(kind, s, rid, "run_failed", {"error": RESTART_ERROR})
                 n += 1
@@ -281,7 +291,7 @@ def fail_inline_leftovers(ctx: Any) -> int:
                 wall = utcnow()
                 if run is not None and run.status in ACTIVE_RUN_STATUSES:
                     run.status = "failed"
-                    run.error = RESTART_ERROR
+                    set_run_error(run, RESTART_ERROR)
                     run.finished_at = wall
                     add_run_event(row.kind, s, run.id, "run_failed", {"error": RESTART_ERROR})
                     status = "failed"
