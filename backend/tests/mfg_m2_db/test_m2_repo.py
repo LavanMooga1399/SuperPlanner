@@ -62,7 +62,7 @@ def test_load_mrp_snapshot_equals_the_pure_snapshot(kavach_db):
     with owner_scope("usr_a"), repo_m2.snapshot_tx(db) as s:
         with count_statements(db) as c:
             snap = repo_m2.load_mrp_snapshot(s, A)
-        assert c.count <= 32, c.count
+        assert c.count <= 35, c.count          # M3-DESIGN 14.1: + the 3 M3 master tables
     assert fingerprint(snap.dataset) == fingerprint(pure)
     assert _norm({f.name: getattr(snap, f.name) for f in dataclasses.fields(snap)}, None) == \
         _norm(mrp_inputs(pure, A), ids)

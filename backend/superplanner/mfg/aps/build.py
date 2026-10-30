@@ -291,6 +291,8 @@ def build(snap: ApsSnapshot, params: ApsParams, policy: str, horizon_days: int) 
         iv = (clock.to_min(ov.start, ceil=False), clock.to_min(ov.end))
         for lid in tgt:
             (closes if ov.mode == "close" else opens).setdefault(lid, []).append(iv)
+    for sh in params.open_shifts:       # accepted suggestions (16 Q1): planner-opened optional time
+        opens.setdefault(sh.line_id, []).append((clock.to_min(sh.start, ceil=False), clock.to_min(sh.end)))
 
     # ---- orders
     items = ds.items

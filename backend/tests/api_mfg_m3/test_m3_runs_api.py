@@ -51,6 +51,13 @@ def test_run_lifecycle_views_publish(api: Api):
     assert set(cmp["tradeoff"]) == {"weighted_tardiness_saved", "late_minutes_saved", "late_demand_saved",
                                     "overtime_hours_added", "overtime_cost_added"}
     api.err("POST", "/aps/runs", 422, "VALIDATION_ERROR", json={"copy_of": rid, "split": False})
+    # accepting suggested overtime: copy_of + open_shifts stays live and publishable (16 Q1)
+    first_op = ops["items"][0]
+    acc = api.post("/aps/runs", {"copy_of": rid, "open_shifts": [{"line_id": first_op["line"]["id"],
+                                                                  "start": first_op["start"],
+                                                                  "end": first_op["end"]}]}, status=202)
+    acc = wait_run(api, acc["id"])
+    assert acc["kind"] == "live" and acc["publishable"] and acc["copy_of_run_id"] == rid, acc
     # edits: lock + move to its own start (a no-op move) -> child run
     first = ops["items"][0]
     child = api.post(f"/aps/runs/{rid}/edits", {"edits": [{"kind": "lock", "op_no": first["op_no"]}]},

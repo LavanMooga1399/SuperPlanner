@@ -257,17 +257,31 @@ class Engine:
         self.events: list[dict[str, Any]] = []
         self.order_seq: list[tuple[str, int]] = []
         self.ops = {op.key: op for op in m.ops}
+        self.cw_cache: dict[tuple[str | None, int], tuple[int, int, int, list[Interval]]] = {}
+        self.busy_version = 0
+        self.free: dict[str, list[Interval]] = {}
 
     # ------------------------------------------------------------ crew
     def crew_windows(self, op: Op, lo: int, hi: int) -> list[Interval]:
-        """Times in [lo, hi) with >= crew_size qualified operators available and free."""
+        """Times in [lo, hi) with >= crew_size qualified operators available and free (cached per skill and crew
+        size until an operator booking changes)."""
         k = op.crew_size
         if k <= 0:
             return [(lo, hi)]
+        key = (op.skill_id, k)
+        c = self.cw_cache.get(key)
+        if c is not None and c[0] == self.busy_version and c[1] <= lo and hi <= c[2]:
+            return clip(c[3], lo, hi)
+        wide_hi = hi
+        out = self._crew_windows(op, lo, wide_hi)
+        self.cw_cache[key] = (self.busy_version, lo, wide_hi, out)
+        return clip(out, lo, hi)
+
+    def _crew_windows(self, op: Op, lo: int, hi: int) -> list[Interval]:
+        k = op.crew_size
         ev: list[tuple[int, int]] = []
         for e in self.st.quals(op.skill_id):
-            free = isub(clip(self.m.operators[e].avail, lo, hi), clip(self.st.busy[e].iv, lo, hi))
-            for s, t in free:
+            for s, t in clip(self.free_of(e), lo, hi):
                 ev.append((s, 1))
                 ev.append((t, -1))
         if not ev:
@@ -285,6 +299,13 @@ class Engine:
                     out.append((cur, t))
                 cur = None
         return iunion(out)
+
+    def free_of(self, e: str) -> list[Interval]:
+        """Availability minus bookings of one operator, maintained incrementally."""
+        f = self.free.get(e)
+        if f is None:
+            f = self.free[e] = isub(self.m.operators[e].avail, self.st.busy[e].iv)
+        return f
 
     def assign_crew(self, op: Op, segs: list[Interval]) -> list[tuple[str, int, int]] | None:
         k = op.crew_size
@@ -387,6 +408,8 @@ class Engine:
         cont = not op.interruptible
         needs_crew = op.crew_size > 0
         cw_cache: list[Interval] | None = None
+        cw_hi = -1
+        span = 0
         for _ in range(MAX_TRIES):
             if t >= hi:
                 return None, reason or "no_window"
@@ -397,10 +420,17 @@ class Engine:
                 continue
             setup = self.setup_on(op, ln, prev)
             dur = setup + run
-            lw = clip(windows, t, hi)
+            if nxt is not None and nxt.start - t < dur:      # the idle gap is shorter than the work: skip it
+                t = nxt.end
+                reason = "line_busy"
+                continue
+            span = max(span, 7 * 1440, 4 * dur)
+            whi = min(hi, t + span)        # look ahead in a bounded range (extended when nothing fits)
+            lw = clip(windows, t, whi)
             if needs_crew:
-                if cw_cache is None:
-                    cw_cache = self.crew_windows(op, t0, hi)
+                if cw_cache is None or cw_hi < whi:
+                    cw_hi = min(hi, whi + span)
+                    cw_cache = self.crew_windows(op, t0, cw_hi)
                 eff = intersect(lw, cw_cache)
             else:
                 eff = lw
@@ -420,6 +450,9 @@ class Engine:
                     else:
                         rp = walk(lw, sp[-1][1], run, False) if run > 0 else []
                         pieces = iunion(sp + rp) if rp is not None else None
+            if pieces is None and whi < hi:
+                span *= 3
+                continue
             if pieces is None:
                 if not cont:
                     return None, ("crew" if needs_crew and len(eff) < len(lw) else "no_window")
@@ -479,18 +512,25 @@ class Engine:
 
     # ------------------------------------------------------------ commit / undo
     def commit(self, p: Placed) -> None:
+        if p.crew:
+            self.busy_version += 1
         self.st.slots[p.line_id][p.slot].add(p)
         for e, a, b in p.crew:
             self.st.busy[e].add(a, b)
+            if e in self.free:
+                self.free[e] = isub(self.free[e], [(a, b)])
         for pool, q in p.tools:
             self.st.tool_use.setdefault(pool, []).append((p.start, p.end, q))
         for k in p.opened:
             self.st.open_instance(k)
 
     def undo(self, p: Placed) -> None:
+        if p.crew:
+            self.busy_version += 1
         self.st.slots[p.line_id][p.slot].remove(p)
         for e, a, b in p.crew:
             self.st.busy[e].remove(a, b)
+            self.free.pop(e, None)
         for pool, q in p.tools:
             self.st.tool_use[pool].remove((p.start, p.end, q))
         for k in p.opened:

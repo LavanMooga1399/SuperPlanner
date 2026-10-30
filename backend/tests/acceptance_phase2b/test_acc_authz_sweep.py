@@ -207,6 +207,39 @@ def make_mfg_m2_world(c: TestClient, w: dict[str, Any], make_item: dict[str, Any
         "/mrp/runs/{run_id}/planned-orders/convert": {"orders": [{"id": planned[0]["id"]}]},
         "/purchase-requests/{doc_id}/reject": {"reason": "no"},
     })
+    make_mfg_m3_world(c, w, make_item)
+
+
+def make_mfg_m3_world(c: TestClient, w: dict[str, Any], make_item: dict[str, Any]) -> None:
+    """M3 objects (M3-DESIGN 14.1): a line rate, a setup-matrix row, an absence and one completed APS run."""
+    ids = w["mfg_ids"]
+    rtg = c.get(f"{MFG}/items/{make_item['id']}/routings").json()["items"][0]
+    op = c.get(f"{MFG}/routings/{rtg['id']}").json()["operations"][0]
+    line = next(x for x in c.get(f"{MFG}/lines").json()["items"] if x["group_id"] == op["group_id"])
+    rate = c.post(f"{MFG}/operation-line-rates", json={"operation_id": op["id"], "line_id": line["id"]})
+    assert rate.status_code == 201, rate.text
+    row = c.post(f"{MFG}/setup-matrix", json={"line_setup_family": "SW", "setup_minutes": 5})
+    assert row.status_code == 201, row.text
+    emp = c.get(f"{MFG}/operators").json()["items"][0]
+    absence = {"operator_id": emp["id"], "start": "2027-03-01T00:00:00+05:30", "end": "2027-03-02T00:00:00+05:30"}
+    ab = c.post(f"{MFG}/operator-absences", json=absence)
+    assert ab.status_code == 201, ab.text
+    r = c.post(f"{MFG}/aps/runs", json={"improve_seconds": 0})
+    assert r.status_code == 202, r.text
+    run = wait_for(lambda: (lambda j: j if j["status"] not in ("queued", "running") else None)(
+        c.get(f"{MFG}/aps/runs/{r.json()['id']}").json()), 90, 0.2, what="aps run")
+    assert run["status"] == "completed", run
+    aops = c.get(f"{MFG}/aps/runs/{run['id']}/operations").json()["items"]
+    ids.update({"rate_id": rate.json()["id"], "row_id": row.json()["id"], "absence_id": ab.json()["id"],
+                "aps_run_id": run["id"], "op_no": str(aops[0]["op_no"]), "seq": str(op["seq"]),
+                "aps_line_id": line["id"]})
+    w["mfg_bodies"].update({
+        "/operation-line-rates/{rate_id}": {"operation_id": op["id"], "line_id": line["id"]},
+        "/setup-matrix/{row_id}": {"line_setup_family": "SW", "setup_minutes": 5},
+        "/operator-absences/{absence_id}": absence,
+        "/aps/runs/{run_id}": {"label": "x"},
+        "/aps/runs/{run_id}/edits": {"edits": [{"kind": "lock", "op_no": aops[0]["op_no"]}]},
+    })
 
 
 def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
@@ -215,6 +248,10 @@ def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
         return {"params": {"from": "2026-11-02", "to": "2026-11-04"}}
     if rel == "/mrp/runs/{run_id}/compare":
         return {"params": {"with": w["mfg_ids"]["mrp_run_id"]}}
+    if rel == "/aps/runs/{run_id}/compare":
+        return {"params": {"with": w["mfg_ids"]["aps_run_id"]}}
+    if rel == "/aps/runs/{run_id}/dispatch":
+        return {"params": {"line_id": w["mfg_ids"]["aps_line_id"]}}
     if rel == "/mrp/runs/{run_id}/pegging":
         return {"params": {"item_id": w["mfg_ids"]["item_id"], "node": 0}}
     if method == "POST" and PARAM.search(rel) and rel not in w["mfg_bodies"] and not rel.startswith(
@@ -282,6 +319,8 @@ def fill(path: str, ids: dict[str, str]) -> str:
     def key(n: str) -> str:
         if n == "run_id" and "/finance/" in path:
             return "fin_run_id"
+        if n == "run_id" and "/mfg/aps/" in path:
+            return "aps_run_id"
         return "mrp_run_id" if (n == "run_id" and "/mfg/" in path) else n
     return PARAM.sub(lambda m: ids[key(m.group(1))], path)
 

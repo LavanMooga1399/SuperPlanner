@@ -22,6 +22,15 @@ from .services.common import respond
 router = APIRouter(prefix="/mfg", tags=["mfg-m3"])
 
 
+def _int(v: str, what: str) -> int:
+    """Path numbers are plain strings like ids: malformed -> 404 (as unknown)."""
+    if not v.isdigit() or len(v) > 9:
+        from ..errors import not_found
+
+        raise not_found(what, v)
+    return int(v)
+
+
 # ---------------------------------------------------------------- 164-167 operation line rates
 
 @router.get("/operation-line-rates", dependencies=P("view"))
@@ -110,14 +119,14 @@ def wo_operations(wo_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONRespons
 
 
 @router.post("/work-orders/{wo_id}/operations/{seq}/done", dependencies=P("wo_edit"))
-def wo_operation_done(wo_id: str, seq: int, if_match: str | None = _if_match(),
+def wo_operation_done(wo_id: str, seq: str, if_match: str | None = _if_match(),
                       ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     out = aps_master.set_done(ctx, wo_id, seq, True, if_match)
     return _ok(out, etag=out["wo"]["row_version"])
 
 
 @router.post("/work-orders/{wo_id}/operations/{seq}/reopen", dependencies=P("wo_edit"))
-def wo_operation_reopen(wo_id: str, seq: int, if_match: str | None = _if_match(),
+def wo_operation_reopen(wo_id: str, seq: str, if_match: str | None = _if_match(),
                         ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     out = aps_master.set_done(ctx, wo_id, seq, False, if_match)
     return _ok(out, etag=out["wo"]["row_version"])
@@ -209,7 +218,7 @@ def run_operations(run_id: str, line_id: str | None = Id(), group_id: str | None
 
 
 @router.get("/aps/runs/{run_id}/operations/{op_no}", dependencies=P("view"))
-def run_operation(run_id: str, op_no: int, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def run_operation(run_id: str, op_no: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(aps.operation(ctx, run_id, op_no))
 
 

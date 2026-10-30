@@ -15,7 +15,7 @@ from ..calendar import DAY
 from .build import Model, Op, build
 from .construct import Placed, Schedule, construct
 from .model import (ApsException, ApsParams, ApsResult, ApsSnapshot, ApsSummary, Bottleneck, CrewSlot, DemandRef,
-                    DemandResult, LateStep, LoadRow, OrderRef, OrderResult, OvertimeWindow, RefItem, ReleaseInfo,
+                    DemandResult, OvertimeOrder, LateStep, LoadRow, OrderRef, OrderResult, OvertimeWindow, RefItem, ReleaseInfo,
                     ScheduledOp, Span, SplitInfo, StartReason, ToolUse, Validation)
 
 Progress = Callable[[str, float, list[float] | None], None]
@@ -195,12 +195,48 @@ def suggest(m: Model, base: Schedule, hints: Any) -> list[OvertimeWindow]:
     for k in sorted(use, key=lambda k: (inst[k].intervals[0][0], k)):
         x = inst[k]
         cost = x.minutes * x.cost_per_hour / 60.0
+        ords, why = window_orders(m, alt, x)
         out.append(OvertimeWindow(line_id=x.line_id, assignment_id=x.assignment_id or None,
                                   start=clock.to_dt(x.intervals[0][0]), end=clock.to_dt(x.intervals[-1][1]),
                                   minutes=x.minutes, cost=round(cost, 2), status="suggested",
-                                  tardiness_saved_minutes=round(saved * use[k] / total, 2)))
+                                  tardiness_saved_minutes=round(saved * use[k] / total, 2),
+                                  reason=f"Suggested (from an internal allow pass). {why}",
+                                  orders=ords))
     out.sort(key=lambda w: (-(w.tardiness_saved_minutes or 0) / max(w.cost, 1e-9), w.start, w.line_id))
     return out
+
+
+# ---------------------------------------------------------------- overtime attribution
+
+def window_orders(m: Model, sc: Schedule, x: Any, op_no_of: dict[Any, int] | None = None
+                  ) -> tuple[list[OvertimeOrder], str]:
+    """Orders (and operations) whose pieces run in the optional instance `x`, with the text reason."""
+    ends = order_ends(m, sc)
+    per: dict[str, list[Any]] = {}
+    for k, ps in sc.placed.items():
+        for p in ps:
+            if p.line_id != x.line_id:
+                continue
+            u = sum(max(0, min(b, pe) - max(a, ps_)) for a, b in x.intervals for ps_, pe in p.pieces)
+            if u > 0:
+                per.setdefault(p.op.order.key, []).append((p, u))
+    out: list[OvertimeOrder] = []
+    for okey in sorted(per, key=lambda k: (m.orders[k].rank, m.orders[k].number)):
+        o = m.orders[okey]
+        e = ends[okey][1]
+        late = max(0, e - o.due) if (e is not None and o.due is not None) else 0
+        nos = sorted(op_no_of[(p.op.key, p.part)] for p, _u in per[okey] if (p.op.key, p.part) in op_no_of) \
+            if op_no_of is not None else []
+        out.append(OvertimeOrder(order=OrderRef(type=o.type, id=o.id, number=o.number, planned_no=o.planned_no,
+                                                item_id=o.item_id),
+                                 op_nos=nos, minutes=sum(u for _p, u in per[okey]), late_minutes=int(late)))
+    if not out:
+        return out, "No operation uses this window."
+    names = ", ".join(x2.order.number for x2 in out[:4]) + (f" and {len(out) - 4} more" if len(out) > 4 else "")
+    crit = sum(1 for k in per for p, _u in per[k] if p.op.latest_start < p.start or
+               p.end > p.op.latest_start + p.op.min_duration)
+    return out, (f"Runs {sum(x2.minutes for x2 in out)} min of {names}"
+                 + (f"; {crit} operation(s) here are late or critical without it." if crit else "."))
 
 
 # ---------------------------------------------------------------- result assembly
@@ -367,10 +403,13 @@ def assemble(snap: ApsSnapshot, params: ApsParams, m: Model, sc: Schedule, polic
         if k not in inst:
             continue
         x = inst[k]
+        ords, why = window_orders(m, sc, x, op_no_of)
         overtime.append(OvertimeWindow(line_id=x.line_id, assignment_id=x.assignment_id or None,
                                        start=clock.to_dt(x.intervals[0][0]), end=clock.to_dt(x.intervals[-1][1]),
                                        minutes=x.minutes, cost=round(x.minutes * x.cost_per_hour / 60.0, 2),
-                                       status="forced" if sc.opened[k] == "forced" else "opened"))
+                                       status="forced" if sc.opened[k] == "forced" else "opened",
+                                       reason=("Opened by the planner. " if sc.opened[k] == "forced" else
+                                               "Opened automatically (allow). ") + why, orders=ords))
     overtime += suggested
     # ---- load (9.2)
     load, util = load_rows(m, sc)

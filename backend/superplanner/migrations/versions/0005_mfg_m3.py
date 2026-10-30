@@ -245,6 +245,8 @@ def upgrade() -> None:
         sa.Column('cost', sa.Double(), nullable=False),
         sa.Column('status', sa.String(16), nullable=False),
         sa.Column('tardiness_saved_minutes', sa.Double(), nullable=True),
+        sa.Column('reason', sa.String(500), nullable=False),
+        sa.Column('orders', _json(), nullable=False),
         sa.Column('owner_id', sa.String(64),
                   sa.ForeignKey('users.id', ondelete='RESTRICT',
                                 name='fk_mfg_aps_overtime_owner_id_users'), nullable=False),

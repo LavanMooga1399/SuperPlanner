@@ -19,29 +19,33 @@ from superplanner.mfg.bom import split_alternates
 AS_OF = date(2026, 11, 2)
 BACKEND = Path(__file__).resolve().parents[2]
 
-# Changing a generator means updating these values in the same change, deliberately (M 10.1).
+# Changing a generator means updating these values in the same change, deliberately (M 10.1). M3: the M3
+# master sheets, plant time_zone and the Kavach M3 additions (M3-DESIGN 13, 14.1).
 GOLDEN = {
-    "small": "77052ac74b6103632c623b37b8e514d3fdc64ab4db09834ee80c11b104486ffa",
-    "medium": "4ba25302cbc47e5c7f0acf0881facd931dfb36908937d05a8c7d14afb0d7809a",
-    "kavach": "21644d0cb79ea65af748a1f515ca11eda0d5204360360ca00bb4820a66666c12",
+    "small": "c515a930637cf51565b0f259f8a968681f1bb2cdb79954d537a621e7e626307b",
+    "medium": "6aa980f2b139f47b7c7dba7049a3cfb04182ce6c529768b2504a17b0b5df66e9",
+    "kavach": "c4513da189ae487d381125a142218be47b63f32767beafdbc1ec5a2cfa0aaa7e",
 }
-GOLDEN_KAVACH_X2 = "10311ea87de5e107ec3a2d4851bd4c4ad3f18e7f7c71a665fdf3505198492984"
+GOLDEN_KAVACH_X2 = "fb162b8c71b4a84e1929b45118999841f3273a9e51fb1328b60299bc890ab591"
 COUNTS = {
     "small": {"plant": 1, "items": 10, "skills": 2, "tool_pools": 2, "groups": 4, "lines": 4, "shift_templates": 3,
               "shifts": 3, "shift_assignments": 6, "calendar_exceptions": 1, "operators": 3, "boms": 1,
               "bom_lines": 9, "routings": 1, "operations": 4, "locations": 3, "suppliers": 2, "item_suppliers": 10,
               "stock": 8, "purchase_docs": 1, "purchase_lines": 1, "purchase_schedules": 2, "demand_orders": 2,
-              "demand_lines": 2, "work_orders": 0, "wo_components": 0},
+              "demand_lines": 2, "work_orders": 0, "wo_components": 0, "operation_line_rates": 0, "setup_matrix": 0,
+              "operator_absences": 0},
     "medium": {"plant": 1, "items": 171, "skills": 6, "tool_pools": 12, "groups": 10, "lines": 14,
                "shift_templates": 3, "shifts": 5, "shift_assignments": 11, "calendar_exceptions": 2, "operators": 12,
                "boms": 11, "bom_lines": 260, "routings": 10, "operations": 40, "locations": 3, "suppliers": 3,
                "item_suppliers": 161, "stock": 156, "purchase_docs": 3, "purchase_lines": 3, "purchase_schedules": 5,
-               "demand_orders": 2, "demand_lines": 2, "work_orders": 1, "wo_components": 29},
+               "demand_orders": 2, "demand_lines": 2, "work_orders": 1, "wo_components": 29,
+               "operation_line_rates": 0, "setup_matrix": 0, "operator_absences": 0},
     "kavach": {"plant": 1, "items": 1200, "skills": 14, "tool_pools": 86, "groups": 20, "lines": 50,
                "shift_templates": 6, "shifts": 8, "shift_assignments": 35, "calendar_exceptions": 8, "operators": 48,
                "boms": 64, "bom_lines": 2480, "routings": 61, "operations": 287, "locations": 6, "suppliers": 8,
                "item_suppliers": 1331, "stock": 1139, "purchase_docs": 13, "purchase_lines": 14,
-               "purchase_schedules": 29, "demand_orders": 5, "demand_lines": 8, "work_orders": 3, "wo_components": 332},
+               "purchase_schedules": 29, "demand_orders": 5, "demand_lines": 8, "work_orders": 3, "wo_components": 332,
+               "operation_line_rates": 4, "setup_matrix": 5, "operator_absences": 3},   # M3-DESIGN 13
 }
 INTENDED = {"small": {}, "medium": {"MFG_LONG_LEAD_TIME": 1},
             "kavach": {"MFG_SKILL_NOT_ON_SHIFT": 1, "MFG_DUPLICATE_COMPONENT": 1, "MFG_LONG_LEAD_TIME": 7}}

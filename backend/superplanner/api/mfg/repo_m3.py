@@ -142,3 +142,29 @@ def aps_inputs_token(s: Session) -> dict[str, Any]:
     tok["progress_n"] = int(n or 0)
     tok["progress_updated"] = as_utc(last).isoformat() if last is not None else None
     return tok
+
+
+def calendar_dataset(s: Session, line_ids: list[str] | None = None) -> MfgDataset:
+    """The calendar slice of the dataset (plant, groups, lines, shift templates / assignments, exceptions): enough
+    for `calendar.line_windows` (Gantt bands, dispatch shifts; AP8). 6 statements."""
+    from . import repo
+    from .db_models import (MfgCalendarExceptionRow, MfgGroupRow, MfgLineRow, MfgPlantRow, MfgShiftAssignmentRow,
+                            MfgShiftTemplateRow)
+
+    prow = s.execute(select(MfgPlantRow)).scalars().first()
+    plant = repo.to_record(prow) if prow is not None else repo.plant_or_default(s)
+    ds = MfgDataset(plant=plant)
+    for r in s.execute(select(MfgGroupRow)).scalars():
+        ds.groups[r.id] = repo.to_record(r)
+    q = select(MfgLineRow)
+    if line_ids is not None:
+        q = q.where(MfgLineRow.id.in_(sorted(set(line_ids))))
+    for r in s.execute(q).scalars():
+        ds.lines[r.id] = repo.to_record(r, eligible_item_ids=[])
+    for r in s.execute(select(MfgShiftTemplateRow)).scalars():
+        ds.shift_templates[r.id] = repo.to_record(r)
+    for r in s.execute(select(MfgShiftAssignmentRow)).scalars():
+        ds.shift_assignments[r.id] = repo.to_record(r)
+    for r in s.execute(select(MfgCalendarExceptionRow)).scalars():
+        ds.calendar_exceptions[r.id] = repo.to_record(r, utc_offset=plant.utc_offset)
+    return ds

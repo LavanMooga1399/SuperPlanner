@@ -320,11 +320,14 @@ def wo_operations(ctx: AppContext, wo_id: str) -> dict[str, Any]:
         return _wo_operations(s, wo)
 
 
-def set_done(ctx: AppContext, wo_id: str, seq: int, done: bool, if_match: str | None) -> dict[str, Any]:
+def set_done(ctx: AppContext, wo_id: str, seq_s: str | int, done: bool, if_match: str | None) -> dict[str, Any]:
     from .m2util import actor_id, run_tx
 
     def fn(s: Any) -> dict[str, Any]:
         wo = repo.get_row(s, MfgWorkOrderRow, wo_id, what="Work order", lock=True)
+        if not str(seq_s).isdigit() or len(str(seq_s)) > 9:
+            raise ApiError(404, "NOT_FOUND", f"Operation {seq_s!r} was not found on {wo.number}.", {"id": str(seq_s)})
+        seq = int(seq_s)
         check_version(wo, if_match)
         if wo.status not in ("planned", "released", "in_progress", "completed"):
             raise ApiError(409, "MFG_INVALID_STATE", f"{wo.number} is {wo.status}; operations cannot change.",

@@ -377,3 +377,19 @@ def test_ts4_setup_matrix_and_lns_groups_families():
     assert [o.family for o in ops] == ["PCBA-HDI", "PCBA-HDI", "PCBA-STD"] and \
         [o.setup_minutes for o in ops] == [45, 20, 60]
     assert r.validation.ok and r.summary.accepted_moves >= 1 and r.score < c.score
+
+
+def test_accepted_suggestion_opens_the_window_in_a_live_run():
+    from superplanner.mfg.aps.model import OpenShift
+
+    ds = ds_of(_ot_plant())
+    s = snap(ds, [wo(ds, "WO-1", "P", 675, MON + timedelta(days=1), priority=5)])
+    sug = run(s, overtime="suggest")
+    (w,) = sug.overtime
+    assert w.orders and w.orders[0].order.number == "WO-1" and w.reason.startswith("Suggested")
+    acc = run(s, overtime="suggest", open_shifts=[OpenShift(line_id=w.line_id, start=w.start, end=w.end)])
+    assert acc.kind == "live" and acc.orders[0].late_minutes == 0 and acc.validation.ok
+    (f,) = [x for x in acc.overtime if x.status != "suggested"]
+    assert f.status == "forced" and f.cost == 1600.0 and f.orders[0].op_nos and "planner" in f.reason
+    allow = run(s, overtime="allow")
+    assert allow.overtime[0].orders[0].late_minutes == 0 and "automatically" in allow.overtime[0].reason

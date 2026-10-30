@@ -217,7 +217,7 @@ def solve(m: Model, sc: Schedule, keys: list[tuple[str, int]], max_time: float
     sol.parameters.num_workers = 1
     sol.parameters.random_seed = SEED
     sol.parameters.max_deterministic_time = max_time
-    sol.parameters.max_time_in_seconds = max(1.0, 4 * max_time)
+    sol.parameters.max_time_in_seconds = max(30.0, 20 * max_time)   # safety only: the deterministic limit binds
     st_ = sol.Solve(md)
     used = sol.deterministic_time
     if st_ not in (cp_model.OPTIMAL, cp_model.FEASIBLE):

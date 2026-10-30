@@ -154,6 +154,19 @@ def write_dataset(s: Any, ds: MfgDataset) -> dict[str, str]:
         vals.update(item_id=nid(x.item_id), supplier_id=nid(x.supplier_id))
         s.add(m2.MfgItemSupplierRow(id=nid(x.id), **vals, **st))
     s.flush()
+    # M3 master data (M3-DESIGN 3.2)
+    from superplanner.api.mfg import db_models_m3 as m3
+
+    for x in ds.operation_line_rates.values():
+        s.add(m3.MfgOperationLineRateRow(id=nid(x.id), operation_id=nid(x.operation_id), line_id=nid(x.line_id),
+                                         setup_minutes=x.setup_minutes, run_minutes=x.run_minutes, note=x.note, **st))
+    for x in ds.setup_matrix.values():
+        s.add(m3.MfgSetupMatrixRow(id=nid(x.id), line_setup_family=x.line_setup_family, from_family=x.from_family,
+                                   to_family=x.to_family, setup_minutes=x.setup_minutes, **st))
+    for x in ds.operator_absences.values():
+        s.add(m3.MfgOperatorAbsenceRow(id=nid(x.id), operator_id=nid(x.operator_id), start_at=x.start, end_at=x.end,
+                                       kind=x.kind, note=x.note, **st))
+    s.flush()
     return ids
 
 

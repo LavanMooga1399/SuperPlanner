@@ -75,9 +75,10 @@ def test_p2_p3_explosion_and_where_used(kavach_app, db_kind):
 def test_p5_p10_p11_health_export_windows(kavach_app, db_kind):
     c = TestClient(kavach_app)
     _r, dt, n = _timed(c, "GET", "/health", params={"as_of": "2026-11-02"})
-    assert dt < _limit(db_kind, 2.0) and n <= 20, (dt, n)
+    # M3-DESIGN 14.1: `load_dataset` reads the 3 M3 master tables too (bounds +3)
+    assert dt < _limit(db_kind, 2.0) and n <= 23, (dt, n)
     _r, dt, n = _timed(c, "GET", "/export", params={"format": "xlsx"})
-    assert dt < _limit(db_kind, 5.0) and n <= 20, (dt, n)
+    assert dt < _limit(db_kind, 5.0) and n <= 23, (dt, n)
     line = next(x for x in Mfg(c).get("/lines")["items"] if x["code"] == "SMT-2")
     _r, dt, n = _timed(c, "GET", f"/lines/{line['id']}/windows", params={"from": "2026-11-01", "to": "2027-01-02"})
     assert dt < _limit(db_kind, 0.1) and n <= 6, (dt, n)
@@ -142,7 +143,7 @@ def test_p6_p7_p8_import_5000_rows(db_url_factory, db_kind, monkeypatch):
         mp = {"sheets": {s["name"]: s["suggested"] for s in rec["sheets"]}, "options": {}}
         r, dt, n = _timed(c, "PUT", f"/imports/{rec['id']}/mapping", json=mp, headers=etag(1))
         assert r.json()["preview"]["ok"] and r.json()["preview"]["counts"]["bom_lines"]["create"] == 4000
-        assert dt < _limit(db_kind, 4.0) and n <= 25, (dt, n)
+        assert dt < _limit(db_kind, 4.0) and n <= 28, (dt, n)      # M3-DESIGN 14.1: + 3
         held.clear()
         t = time.monotonic()
         r = m.req("POST", f"/imports/{rec['id']}/commit", 200, json={}, headers=etag(2))

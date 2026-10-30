@@ -1969,7 +1969,8 @@
   "note": "",
   "protect_programs": [],
   "safety_stock": true,
-  "supply_date_overrides": []
+  "supply_date_overrides": [],
+  "use_schedule": true
  },
  "planned_orders": [
   {

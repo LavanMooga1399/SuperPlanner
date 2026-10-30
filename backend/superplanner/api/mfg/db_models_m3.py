@@ -185,6 +185,8 @@ class MfgApsOvertimeRow(OwnedMixin, Base):
     cost: Mapped[float] = mapped_column(Double)
     status: Mapped[str] = mapped_column(String(16))
     tardiness_saved_minutes: Mapped[float | None] = mapped_column(Double, nullable=True)
+    reason: Mapped[str] = mapped_column(String(500))
+    orders: Mapped[Any] = mapped_column(JsonType)
 
 
 class MfgApsOrderRow(OwnedMixin, Base):

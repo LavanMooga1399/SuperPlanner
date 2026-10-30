@@ -1,5 +1,6 @@
-"""Kavach M3 additions (M3-DESIGN 13): plant time zone, SMT setup families and matrix, three line rates (master);
-operator absences dated from the anchor and the operation progress of WO-KV-0001 (transactional side)."""
+"""Kavach M3 additions (M3-DESIGN 13): plant time zone, SMT setup families and matrix, two-person coating, three
+line rates, operator absences (master; dated from the default anchor 2026-11-02) and the operation progress of
+WO-KV-0001 (applied by the sample load / `aps.pure.sample_snapshot`)."""
 
 from __future__ import annotations
 
@@ -25,6 +26,8 @@ def master(b: MfgBundle) -> MfgBundle:
         {"line_setup_family": "SMT", "from_family": "PCBA-STD", "to_family": "PCBA-STD", "setup_minutes": 20},
         {"line_setup_family": "SMT", "from_family": "PCBA-HDI", "to_family": "PCBA-STD", "setup_minutes": 60},
         {"line_setup_family": "SMT", "from_family": "PCBA-STD", "to_family": "PCBA-HDI", "setup_minutes": 60}]
+    # master data, so dated from the default anchor (a sample loaded with another anchor keeps these dates)
+    b.update(_absences(date(2026, 11, 2)))
     b["operation_line_rates"] = [
         {"part_number": "KV-PCB-BPL", "code": "STD", "version": 1, "seq": 10, "line_code": "SMT-3",
          "run_minutes": 3.0, "note": "SMT-3 slower on the backplane"},
@@ -37,7 +40,7 @@ def master(b: MfgBundle) -> MfgBundle:
     return b
 
 
-def dated(b: MfgBundle, anchor: date) -> dict[str, Any]:
+def _absences(anchor: date) -> dict[str, Any]:
     def at(days: int) -> datetime:
         d = anchor + timedelta(days=days)
         return datetime(d.year, d.month, d.day)

@@ -53,6 +53,7 @@ def test_reset(client, mfg: Mfg):
     err(mfg.req("POST", "/reset", json={"confirm": "yes"}), 422, "MFG_RESET_CONFIRM")
     err(mfg.req("POST", "/reset", json={}), 422, "MFG_RESET_CONFIRM")
     out = mfg.post("/reset", {"confirm": "DELETE ALL MANUFACTURING DATA"}, status=200)
-    assert out["deleted"]["items"] == 10 and out["deleted"]["plant"] == 1 and len(out["deleted"]) == 18 + 21  # M2: + the 21 M2 data tables
+    assert out["deleted"]["items"] == 10 and out["deleted"]["plant"] == 1
+    assert len(out["deleted"]) == 18 + 21 + 10          # + the M2 and M3 data tables
     assert all(v == 0 for v in row_counts(client.app).values())
     err(mfg.req("POST", "/samples/nope/load", json={}), 404, "NOT_FOUND")

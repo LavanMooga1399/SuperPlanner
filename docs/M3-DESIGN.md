@@ -413,6 +413,13 @@ frozen, locked, split, status_color}`; band: `{row_key, start, end, kind: base|o
 closed|absence}`. Typed examples of every shape are delivered at S0 (`backend/.../aps/fixtures/example_run.json`,
 `frontend/src/mfg/api/contractExamplesM3.ts`).
 
+"Why late" chains (`OrderResult.late_chain[]`, `LateStep.kind`): besides the roots of 8 (`material`, `capacity`,
+`calendar`, `lead_time`, `frozen`, `locked`) the engine returns the intermediate / root kinds `crew` (waited for
+qualified operators), `tool` (waited for a tool pool), `predecessor` (a step through the previous operation),
+`setup` (changeover) and `as_of` (nothing waited: the processing time from the planning start is the cause). Each
+step has `op_no`, `text` and `refs`; `late_text` joins them. Overtime windows also carry `reason` (text) and
+`orders [{order, op_nos, minutes, late_minutes}]` (which orders / operations use the window).
+
 Permissions (M2 10.2 + two): `schedule_run` (owner, planner) - runs, edits, cancel, PUT/DELETE; `schedule_publish`
 (owner, planner). Master rates/matrix/absences: `master_edit`; operation progress: `wo_edit`; everything GET: `view`
 (viewers and store keepers see dispatch lists). `MFG_PERMISSIONS` gains the 36 routes (199 total).
@@ -578,6 +585,58 @@ of the failing tests and their folders; no second full run unless a fix touches 
   `extras` (demand view rows + bottlenecks); op columns `family`, `setup_from_family`; order columns `planned_no`,
   `rank_label`, `late_text`, `unscheduled_ops`; jobs gain `aps_run_id` (FK CASCADE) and `ck_jobs_one_target` becomes
   "exactly one of three" (this touches `jobs/` and `api/db`, so the final gate needs its full run).
+
+**S1-S4 built (2026-10-30).** Notes, interpretations and deviations (all minimal):
+- **Overtime acceptance (16 Q1, LEAD request):** `ApsParams.open_shifts [{line_id, start, end}]` opens the optional
+  windows of that line overlapping the span as planner-opened overtime (`status: forced`, cost counted); it is not
+  a what-if input, so `POST /aps/runs {copy_of, open_shifts}` (accepting suggested windows of a suggest/off run)
+  gives a normal live, publishable run with the source's as_of / horizon / MRP run. `open_shifts` may also be
+  given without `copy_of`. Overtime windows carry `reason` and `orders` (new columns `reason`, `orders` on
+  `mfg_aps_overtime`, 0005 edited in place, unreleased).
+- **LNS (7.2):** CP-SAT re-decides line assignment and sequence of a neighbourhood on an elapsed-minute axis
+  (each operation's elapsed length from its current placement); the exact calendar is applied by the decoder, which
+  turns the CP-SAT sequence into construction hints (forced line + predecessor on the line) and rebuilds the plan.
+  Accepted only if the 7.3 tuple improves and the validator is clean. To keep the budget machine-independent each
+  decode is charged 1.0 deterministic second on top of the CP-SAT deterministic time; the wall-clock cap (2 x budget)
+  is a safety net (`summary.budget_cut`). CP-SAT: 1 worker, seed 20261030.
+- **Suggest (6.8):** an internal allow pass; saved weighted tardiness is apportioned to its opened windows by the
+  operation minutes they carry. Weekly limits per assignment and ISO week of the local start date; the cost of an
+  opened instance is its whole length (breaks excluded) x `cost_per_hour` (assignment, else line) / 60.
+- **Material (6.4):** the live fallback treats each unpegged component on its own (no allocation between orders).
+  An order whose operation is unscheduled for a reason other than `beyond_horizon` counts as late until the window
+  end in the objective (so LNS can never "improve" by dropping work).
+- **Freeze / edits:** frozen and in-progress operations keep line, start, pieces and crew; the validator does not
+  re-check their duration / window / crew. `move {op_no, start}` places exactly (else 422 `APS_EDIT_INFEASIBLE`);
+  `move {op_no, line_id}` without start = earliest feasible on that line; child runs run without LNS.
+- **Routing of a WO:** a WO without `routing_id` (imported WOs) uses the primary routing effective at its start.
+- **Health:** #49 `MFG_TZ_NOT_SET` only when the plant uses M3 master data (M1/M2 issue sets unchanged).
+- **Kavach M3 sample:** absences are master data dated from the default anchor (2026-11-02); SMT-1..3 get
+  `setup_family SMT`; coating is a two-person operation (`crew_size 2`) so the coating leave pauses COAT-1. Pinned
+  (`tests/aps/test_aps_kavach.py`, as_of A 09:00, `improve_seconds 0`): validator clean, no `material_missing`, 775
+  operations, 13 `beyond_horizon`; the late demand line is **DO-KV-003/10** (KV-PCB-CPU behind the FPGA buy, beyond
+  the horizon - consistent with M2's 85 days); **DO-KV-004/10 is on time** in the finite schedule (ends 11 Nov, due
+  14 Nov) - unlike 13's intent (LEAD to decide whether to tighten the sample); suggest lists EVE windows incl. FCT /
+  final test / harness with positive saved tardiness; allow weighted tardiness 14.4 M < off 17.8 M; SMT changeovers
+  grouped by family; COAT-1 work pauses through the leave.
+- **MRP feedback (10):** `MrpParams.use_schedule` (default true) adds the published schedule's WO completion (local
+  date after the last operation end) as `supply_date_overrides` (not a what-if input); planned orders keep their MRP
+  dates (M2 has no override for them).
+- **Contract additions:** run `extras` JSON (demand view rows, bottlenecks, `parents` for the order Gantt); staleness
+  adds the WO progress token and `mrp_changed`; dispatch rows `wo_row_version`, dispatch response `shifts` (the line's
+  windows that day); `op_no` / `seq` path parameters are strings (malformed -> 404 like ids).
+- **Jobs:** kind `aps_run` (`jobs.aps_run_id`, `RUN_ID_COLUMN`; `jobs/common.py`, `pg.py`, `worker.py`, `types.py`,
+  `api/config.py`, `api/context.py`, `obs/http_metrics.py`) - the final gate needs its full run.
+- **Existing tests changed (14.1):** golden hashes / counts (`tests/mfg/test_mfg_samples.py`), sheet list
+  (`test_mfg_bundle.py`), health code count (`test_mfg_health.py`), statement bounds +3 (`test_mfg_repo.py`,
+  `test_m2_repo.py`, `test_mfg_perf.py`; the perf counter already drops job polls), M3 master rows in
+  `mfgdb_helpers.write_dataset`, M2 migration test upgrades to `0004_mfg_m2` explicitly, `test_mfg_migration.py`
+  table set, reset key count (`tests/api_mfg/test_mfg_samples.py`), route table +36 / permission table 199 and the
+  user-B test, authz sweep (APS run, rate, matrix row, absence, `op_no`, `seq`); E's `mrp/fixtures/example_result.json`
+  regenerated (`use_schedule` in params).
+- **Performance (PostgreSQL local):** AP1 Kavach construct 0.6 s (target 5); AP2 LNS 30 s budget: 33-38 s pure,
+  weighted tardiness 17.82 M -> 17.23 M, deterministic; AP3 ~9,900 operations construct 29.9 s (target 30; validator
+  7.3 s more); AP5 queue -> completed 27 s, store 0.45 s (targets 45 / 3); AP6 edit child run 2.8 s (5); AP7
+  validator 0.25-0.35 s (1); AP8 gantt one stage 2 weeks 0.06 s, load 0.03 s, dispatch 0.03 s (0.3/0.3/0.2).
 
 ### 17.WP-U UI
 

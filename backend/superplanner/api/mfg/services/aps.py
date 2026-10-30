@@ -116,18 +116,19 @@ def _resolve(s: Session, body: ApsParams) -> tuple[ApsParams, str, datetime, Mfg
     if body.copy_of is not None:
         extra = set(body.model_fields_set) - COPY_FIELDS
         if extra:
-            raise ApiError(422, "VALIDATION_ERROR", "With copy_of only overtime, label, note and improve_seconds may "
-                           "be given.", {"errors": [{"loc": ["body", f], "msg": "not allowed with copy_of",
+            raise ApiError(422, "VALIDATION_ERROR", "With copy_of only overtime, label, note, improve_seconds and "
+                           "open_shifts may be given.", {"errors": [{"loc": ["body", f], "msg": "not allowed with copy_of",
                                                      "type": "value_error"} for f in sorted(extra)]})
         src = _get(s, body.copy_of)
         if src.status not in ("completed", "cancelled", "failed"):
             raise ApiError(409, "APS_RUN_NOT_COMPLETED", f"Schedule run {src.run_no} is {src.status}.",
                            {"status": src.status})
         base = ApsParams.model_validate({k: v for k, v in (src.params or {}).items() if k in ApsParams.model_fields})
-        upd = {f: getattr(body, f) for f in ("overtime", "label", "note", "improve_seconds")
+        upd = {f: getattr(body, f) for f in ("overtime", "label", "note", "improve_seconds", "open_shifts")
                if f in body.model_fields_set}
         if "label" not in upd:
-            upd["label"] = f"{base.label or f'Run {src.run_no}'} ({(upd.get('overtime') or base.overtime or '')})"[:100]
+            tag = "accepted overtime" if upd.get("open_shifts") else (upd.get("overtime") or base.overtime or "")
+            upd["label"] = f"{base.label or f'Run {src.run_no}'} ({tag})"[:100]
         params = base.model_copy(update={**upd, "edits": [], "copy_of": None})
         mrp = s.execute(select(MfgMrpRunRow).where(MfgMrpRunRow.id == src.mrp_run_id)).scalars().first() \
             if src.mrp_run_id else None
@@ -698,9 +699,12 @@ def operations(ctx: AppContext, run_id: str, *, line_id: str | None, group_id: s
         return page([aps_store.op_view(x, refs, r.id) for x in rows], total, limit, offset)
 
 
-def operation(ctx: AppContext, run_id: str, op_no: int) -> dict[str, Any]:
+def operation(ctx: AppContext, run_id: str, op_no_s: str) -> dict[str, Any]:
     with read_tx(ctx) as s:
         r = _completed(s, run_id)
+        if not op_no_s.isdigit() or len(op_no_s) > 9:
+            raise ApiError(404, "NOT_FOUND", f"Operation {op_no_s!r} was not found.", {"id": op_no_s})
+        op_no = int(op_no_s)
         x = s.execute(select(MfgApsOpRow).where(MfgApsOpRow.run_id == r.id, MfgApsOpRow.op_no == op_no)
                       ).scalars().first()
         if x is None:
@@ -837,12 +841,16 @@ def dispatch(ctx: AppContext, run_id: str, *, line_id: str, day: date | None, sh
         rows = list(s.execute(select(MfgApsOpRow).where(
             MfgApsOpRow.run_id == r.id, MfgApsOpRow.line_id == line_id, MfgApsOpRow.start_at >= lo,
             MfgApsOpRow.start_at < hi).order_by(MfgApsOpRow.start_at, MfgApsOpRow.op_no)).scalars())
-        ds = repo.load_dataset(s)
+        ds = repo_m3.calendar_dataset(s, [line_id])
         wins = line_windows(ds, line_id, day - timedelta(days=1), day + timedelta(days=1))
         if shift:
             wins = [w for w in wins if shift in w.shift_label.split("/")[-1].split("+")]
             rows = [x for x in rows if any(w.start <= as_utc(x.start_at) < w.end for w in wins)]
         wo_ids = sorted({x.order_id for x in rows if x.order_type == "wo"})
+        wo_ver = {w.id: w.row_version for w in s.execute(select(MfgWorkOrderRow).where(
+            MfgWorkOrderRow.id.in_(wo_ids))).scalars()} if wo_ids else {}
+        day_shifts = [{"label": w.shift_label, "start": as_utc(w.start), "end": as_utc(w.end), "kind": w.kind}
+                      for w in line_windows(ds, line_id, day, day + timedelta(days=1))]
         done = {(w, q) for w, q in s.execute(select(MfgWoOpProgressRow.wo_id, MfgWoOpProgressRow.seq).where(
             MfgWoOpProgressRow.wo_id.in_(wo_ids), MfgWoOpProgressRow.done.is_(True))).all()} if wo_ids else set()
         kit: dict[str, str] = {}
@@ -884,9 +892,10 @@ def dispatch(ctx: AppContext, run_id: str, *, line_id: str, day: date | None, sh
                 "setup_from_family": x.setup_from_family, "family": x.family, "crew": x.crew, "tools": x.tools,
                 "predecessor_status": ps,
                 "material_status": kit.get(x.order_id, "n/a") if x.order_type == "wo" else "n/a",
-                "done": (x.order_id, x.seq) in done, "shift_label": label})
+                "done": (x.order_id, x.seq) in done, "shift_label": label,
+                "wo_row_version": wo_ver.get(x.order_id)})
         return {"line": {"id": line.id, "code": line.code}, "date": day.isoformat(), "shift": shift, "run_id": r.id,
-                "items": items}
+                "shifts": day_shifts, "items": items}
 
 
 def gantt(ctx: AppContext, run_id: str, *, view: str, frm: datetime | None, to: datetime | None,
@@ -924,7 +933,7 @@ def gantt(ctx: AppContext, run_id: str, *, view: str, frm: datetime | None, to: 
                 used = sorted({lid for lid, ln in lines.items() if ln.group_id == group_id and ln.active} | set(used),
                               key=lambda i: lines[i].code)
             seen_g: set[str] = set()
-            ds = repo.load_dataset(s)
+            ds = repo_m3.calendar_dataset(s, used)
             p_tz = plant_tz(ds.plant)
             d0, d1 = frm.astimezone(p_tz).date() - timedelta(days=1), to.astimezone(p_tz).date() + timedelta(days=1)
             ot = list(s.execute(select(MfgApsOvertimeRow).where(MfgApsOvertimeRow.run_id == r.id)).scalars())

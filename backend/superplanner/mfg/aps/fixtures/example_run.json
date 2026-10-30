@@ -13,12 +13,23 @@
   "improve_seconds": 30,
   "capacity_overrides": [],
   "edits": [],
-  "copy_of": null
+  "copy_of": null,
+  "open_shifts": []
  },
  "post_runs_copy_of_body": {
   "copy_of": "apr_00000000000000000000000000000001",
   "overtime": "allow",
   "label": "Weekly (Allow)"
+ },
+ "post_runs_accept_overtime_body": {
+  "copy_of": "apr_00000000000000000000000000000001",
+  "open_shifts": [
+   {
+    "line_id": "lin_00000000000000000000000000000001",
+    "start": "2026-11-02T12:30:00+00:00",
+    "end": "2026-11-02T16:30:00+00:00"
+   }
+  ]
  },
  "post_runs_response_202": {
   "id": "apr_00000000000000000000000000000003",
@@ -243,7 +254,8 @@
    "improve_seconds": 30,
    "capacity_overrides": [],
    "edits": [],
-   "copy_of": null
+   "copy_of": null,
+   "open_shifts": []
   }
  },
  "run_copy_allow": {
@@ -609,7 +621,8 @@
    "improve_seconds": 30,
    "capacity_overrides": [],
    "edits": [],
-   "copy_of": null
+   "copy_of": null,
+   "open_shifts": []
   },
   "kind": "live",
   "as_of": "2026-11-02T03:30:00Z",
@@ -984,7 +997,22 @@
     "minutes": 240,
     "cost": 1600.0,
     "status": "suggested",
-    "tardiness_saved_minutes": 7680.0
+    "tardiness_saved_minutes": 7680.0,
+    "reason": "Suggested (from an internal allow pass). Runs 230 min of P-12; 1 operation(s) here are late or critical without it.",
+    "orders": [
+     {
+      "order": {
+       "type": "planned",
+       "id": "mpo_00000000000000000000000000000001",
+       "number": "P-12",
+       "planned_no": 12,
+       "item_id": "itm_00000000000000000000000000000002"
+      },
+      "op_nos": [],
+      "minutes": 230,
+      "late_minutes": 0
+     }
+    ]
    }
   ],
   "orders": [
@@ -1991,6 +2019,20 @@
   "date": "2026-11-02",
   "shift": "A",
   "run_id": "apr_00000000000000000000000000000001",
+  "shifts": [
+   {
+    "label": "3SHIFT/A",
+    "start": "2026-11-02T00:00:00+00:00",
+    "end": "2026-11-02T08:00:00+00:00",
+    "kind": "base"
+   },
+   {
+    "label": "3SHIFT/B",
+    "start": "2026-11-02T08:00:00+00:00",
+    "end": "2026-11-02T16:00:00+00:00",
+    "kind": "base"
+   }
+  ],
   "items": [
    {
     "op_no": 1,
@@ -2028,7 +2070,8 @@
     "predecessor_status": "none",
     "material_status": "kitted",
     "done": false,
-    "shift_label": "KV-3SHIFT/A"
+    "shift_label": "KV-3SHIFT/A",
+    "wo_row_version": 4
    }
   ]
  },
@@ -2042,7 +2085,22 @@
     "minutes": 240,
     "cost": 1600.0,
     "status": "suggested",
-    "tardiness_saved_minutes": 7680.0
+    "tardiness_saved_minutes": 7680.0,
+    "reason": "Suggested (from an internal allow pass). Runs 230 min of P-12; 1 operation(s) here are late or critical without it.",
+    "orders": [
+     {
+      "order": {
+       "type": "planned",
+       "id": "mpo_00000000000000000000000000000001",
+       "number": "P-12",
+       "planned_no": 12,
+       "item_id": "itm_00000000000000000000000000000002"
+      },
+      "op_nos": [],
+      "minutes": 230,
+      "late_minutes": 0
+     }
+    ]
    }
   ],
   "totals": {
@@ -2477,7 +2535,8 @@
    "improve_seconds": 30,
    "capacity_overrides": [],
    "edits": [],
-   "copy_of": null
+   "copy_of": null,
+   "open_shifts": []
   }
  },
  "edit_infeasible_422": {

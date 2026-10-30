@@ -50,7 +50,9 @@ summary = M.ApsSummary(policy="suggest", operations=5, scheduled_operations=4, u
   utilisation={G_SMT: 0.81, G_BI: 0.64}, bottlenecks=[G_SMT, G_BI], setup_minutes=165, changeovers=2, avg_flow_days=1.4,
   makespan_minutes=1790, validation_ok=True, violations=0, splits=1, iterations=12, accepted_moves=3, budget_used=4.2,
   budget_cut=False, timings_ms={"load": 410, "construct": 1830, "improve": 9200, "validate": 240, "store": 860})
-ot = [M.OvertimeWindow(line_id=SMT1, assignment_id=iid("sha",9), start=t(540), end=t(780), minutes=240, cost=1600.0, status="suggested", tardiness_saved_minutes=7680.0)]
+ot = [M.OvertimeWindow(line_id=SMT1, assignment_id=iid("sha",9), start=t(540), end=t(780), minutes=240, cost=1600.0, status="suggested", tardiness_saved_minutes=7680.0,
+        reason="Suggested (from an internal allow pass). Runs 230 min of P-12; 1 operation(s) here are late or critical without it.",
+        orders=[M.OvertimeOrder(order=o_pl, op_nos=[], minutes=230, late_minutes=0)])]
 orders = [M.OrderResult(order=o_wo, part_number="KV-TPU-1000", qty=10, due=t(60*24*5), start=t(0), end=t(1790), late_minutes=0, weight=256, priority=1, rank_label="P1 DO-KV-001/10",
   demand_refs=[M.DemandRef(demand_line_id=iid("dml",1), order_number="DO-KV-001", line_no=10)]),
   M.OrderResult(order=o_pl, part_number="KV-PCB-FLT", qty=100, due=t(60*24*3), start=t(60), end=None, late_minutes=480, weight=16, priority=5, rank_label="P5 DO-KV-004/10",
@@ -116,7 +118,7 @@ gantt = M.Gantt(view="line", rows=[M.GanttRow(key=f"group:{G_SMT}", label="SMT",
          M.GanttBand(row_key=f"line:{SMT2}", start=t(1440*5), end=t(1440*6), kind="closed")], truncated=False)
 dispatch = [M.DispatchRow(op_no=1, position=1, start=t(0), end=t(140), order=o_wo, part_number="KV-TPU-1000", qty=10, seq=10, name="SMT top",
    setup_minutes=45, run_minutes=95, setup_from_family=None, family="PCBA-HDI", crew=ops[0].crew, tools=ops[0].tools, predecessor_status="none",
-   material_status="kitted", done=False, shift_label="KV-3SHIFT/A")]
+   material_status="kitted", done=False, shift_label="KV-3SHIFT/A", wo_row_version=4)]
 cmp = M.Compare(a={"id": RUN, "run_no": 4, "label": "Weekly", "policy": "suggest"}, b={"id": RUN2, "run_no": 5, "label": "Weekly (Allow)", "policy": "allow"},
   kpis=[M.CompareDelta(key="weighted_tardiness", a=7680, b=0, delta=-7680), M.CompareDelta(key="late_demand_count", a=1, b=0, delta=-1),
         M.CompareDelta(key="overtime_minutes", a=0, b=240, delta=240), M.CompareDelta(key="overtime_cost", a=0, b=1600, delta=1600)],
@@ -128,6 +130,7 @@ fx = {
  "_doc": "M3 S0 contract examples (M3-DESIGN 6.1, 11). Shapes are frozen; values are illustrative. Instants are UTC ISO-8601.",
  "post_runs_body": J(params),
  "post_runs_copy_of_body": {"copy_of": RUN, "overtime": "allow", "label": "Weekly (Allow)"},
+ "post_runs_accept_overtime_body": {"copy_of": RUN, "open_shifts": [{"line_id": SMT1, "start": t(540).isoformat(), "end": t(780).isoformat()}]},
  "post_runs_response_202": dict(running, status="queued", progress={"phase": "queued", "percent": 0, "best_score": None, "updated_at": T0.isoformat()}),
  "run_running": running,
  "run": run_detail,
@@ -140,7 +143,10 @@ fx = {
  "orders_page": page([J(o) for o in orders]),
  "demand": {"items": [J(d) for d in demand], "counts": {"on_time": 1, "late": 1}},
  "load": {"bucket": "day", "items": [J(x) for x in load]},
- "dispatch": {"line": {"id": SMT1, "code": "SMT-1"}, "date": "2026-11-02", "shift": "A", "run_id": RUN, "items": [J(x) for x in dispatch]},
+ "dispatch": {"line": {"id": SMT1, "code": "SMT-1"}, "date": "2026-11-02", "shift": "A", "run_id": RUN,
+              "shifts": [{"label": "3SHIFT/A", "start": t(-210).isoformat(), "end": t(270).isoformat(), "kind": "base"},
+                         {"label": "3SHIFT/B", "start": t(270).isoformat(), "end": t(750).isoformat(), "kind": "base"}],
+              "items": [J(x) for x in dispatch]},
  "overtime": {"items": [J(x) for x in ot], "totals": {"opened_minutes": 0, "opened_cost": 0.0, "suggested_minutes": 240, "suggested_cost": 1600.0, "tardiness_saved_minutes": 7680.0}},
  "exceptions_page": dict(page([J(e) | {"id": iid("aex", i+1), "ex_no": i+1} for i, e in enumerate(exc)]), counts={"by_severity": {"critical": 1, "warning": 0, "info": 2}, "by_code": {"APS_ORDER_LATE": 1, "APS_BEYOND_HORIZON": 1, "APS_OVERTIME_SUGGESTED": 1}}),
  "bottlenecks": {"items": [J(b) | {"group": {"id": b.group_id, "code": "SMT" if b.group_id == G_SMT else "BURNIN"}} for b in bn]},

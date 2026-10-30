@@ -113,10 +113,26 @@ class ApsParams(MfgModel):
     #: Q1 escalation (16): re-run run `copy_of` with identical inputs (its resolved as_of, horizon, MRP run, params)
     #: and only `overtime` / `label` / `note` / `improve_seconds` taken from this body; the kind follows the source
     copy_of: EntityId | None = None
+    #: accepted suggested overtime (16 Q1): opened as planned overtime; not a what-if input
+    open_shifts: Annotated[list[OpenShift], Field(max_length=APS_MAX_OVERRIDES)] = Field(default_factory=list)
 
 
 #: body fields that may accompany `copy_of`
-COPY_FIELDS: frozenset[str] = frozenset({"copy_of", "overtime", "label", "note", "improve_seconds"})
+COPY_FIELDS: frozenset[str] = frozenset({"copy_of", "overtime", "label", "note", "improve_seconds", "open_shifts"})
+
+
+class OpenShift(MfgModel):
+    """An optional shift instance to open as planned overtime (accepting a suggestion, 6.8 / 16 Q1): the optional
+    windows of `line_id` overlapping [start, end) are opened; the run stays live and publishable."""
+    line_id: EntityId
+    start: PlanDateTime
+    end: PlanDateTime
+
+    @model_validator(mode="after")
+    def _span(self) -> "OpenShift":
+        if self.end <= self.start:
+            raise ValueError("end must be after start")
+        return self
 
 
 class EditsRequest(MfgModel):
@@ -351,6 +367,16 @@ class OvertimeWindow(MfgModel):
     cost: float
     status: OvertimeStatus
     tardiness_saved_minutes: float | None = None    # suggested: weighted late minutes saved (6.8)
+    reason: str = ""                                # why it is opened / suggested (which late work it helps)
+    orders: list["OvertimeOrder"] = Field(default_factory=list)
+
+
+class OvertimeOrder(MfgModel):
+    """An order whose operations run in an opened / suggested overtime window."""
+    order: OrderRef
+    op_nos: list[int] = Field(default_factory=list)       # operations of this run in the window (opened only)
+    minutes: int = 0                                       # operation minutes inside the window
+    late_minutes: int = 0                                  # the order's lateness in the run that opened it
 
 
 class LateStep(MfgModel):
@@ -568,6 +594,7 @@ class DispatchRow(MfgModel):
     material_status: Literal["kitted", "partial", "short", "n/a"]
     done: bool
     shift_label: str
+    wo_row_version: int | None = None    # If-Match for the done / reopen buttons (WO operations)
 
 
 class CompareDelta(MfgModel):

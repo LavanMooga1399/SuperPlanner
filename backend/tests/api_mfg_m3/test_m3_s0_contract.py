@@ -81,6 +81,11 @@ def test_contract_examples_validate_against_the_frozen_models():
     M.ApsParams.model_validate(fx["post_runs_body"])
     cp = M.ApsParams.model_validate(fx["post_runs_copy_of_body"])
     assert cp.copy_of and cp.overtime == "allow" and set(cp.model_fields_set) <= M.COPY_FIELDS
+    acc = M.ApsParams.model_validate(fx["post_runs_accept_overtime_body"])
+    assert acc.open_shifts and set(acc.model_fields_set) <= M.COPY_FIELDS
+    assert fx["dispatch"]["shifts"] and "wo_row_version" in fx["dispatch"]["items"][0]
+    for w in fx["result"]["overtime"]:
+        assert "reason" in w and "orders" in w
     M.EditsRequest.model_validate(fx["edits_body"])
     M.Gantt.model_validate(fx["gantt"])
     M.Compare.model_validate(fx["compare"])

@@ -43,7 +43,8 @@ def store(s: Session, run: MfgApsRunRow, res: ApsResult, parents: dict[str, str]
     s.add_all([MfgApsOvertimeRow(
         id=new_id("aot_"), owner_id=owner, run_id=run.id, line_id=w.line_id, assignment_id=w.assignment_id,
         start_at=w.start, end_at=w.end, minutes=w.minutes, cost=w.cost, status=w.status,
-        tardiness_saved_minutes=w.tardiness_saved_minutes) for w in res.overtime])
+        tardiness_saved_minutes=w.tardiness_saved_minutes, reason=w.reason[:500],
+        orders=[_j(o) for o in w.orders]) for w in res.overtime])
     s.add_all([MfgApsExceptionRow(
         id=new_id("aex_"), owner_id=owner, run_id=run.id, ex_no=n, code=e.code, severity=e.severity,
         subject=_j(e.subject), op_no=e.op_no, order_ref=_j(e.order) if e.order else None, message=e.message[:1000],
@@ -100,7 +101,7 @@ def order_view(r: MfgApsOrderRow) -> dict[str, Any]:
 def overtime_view(r: MfgApsOvertimeRow) -> dict[str, Any]:
     return {"line_id": r.line_id, "assignment_id": r.assignment_id, "start": as_utc(r.start_at),
             "end": as_utc(r.end_at), "minutes": r.minutes, "cost": r.cost, "status": r.status,
-            "tardiness_saved_minutes": r.tardiness_saved_minutes}
+            "tardiness_saved_minutes": r.tardiness_saved_minutes, "reason": r.reason, "orders": r.orders}
 
 
 def exception_view(r: MfgApsExceptionRow) -> dict[str, Any]:
