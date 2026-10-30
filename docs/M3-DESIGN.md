@@ -546,7 +546,10 @@ of the failing tests and their folders; no second full run unless a fix touches 
 
 1. **Q1 Overtime default — decided (2026-10-30):** default `suggest`; the planner can switch any run to `allow`
    on demand (run form toggle and API parameter), and `off` stays available as a baseline. Both suggest and allow
-   must be fully built.
+   must be fully built. Escalation path: when a `suggest` (or `off`) run still has late demand, its results show a
+   "Re-run with automatic overtime (Allow)" action that creates a new run with identical inputs and
+   `overtime_policy=allow` (API: `POST /schedule/runs` with `copy_of=<run_id>` and the policy override), then opens
+   the compare view of the two runs (lateness saved vs overtime hours added). The planner picks which one to publish.
 2. **Q2 Due-date meaning — decided (2026-10-30):** "available at 00:00 of the due date", same as MRP.
 3. **Q3 Real setup data.** SMT changeover times by board family (and any other stages with real changeovers) are
    needed for a meaningful pilot; the sample uses 20/45/60 minutes.
