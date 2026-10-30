@@ -24,11 +24,12 @@ from ..db.ownership import bind_actor, bind_owner, system_scope
 from ..errors import ApiError
 
 PERMISSIONS: tuple[str, ...] = ("view", "master_edit", "supplier_edit", "inventory", "pr_edit", "pr_approve",
-                                "po_edit", "demand_edit", "wo_edit", "mrp_run", "import", "owner")
+                                "po_edit", "demand_edit", "wo_edit", "mrp_run", "schedule_run", "schedule_publish",
+                                "import", "owner")
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "owner": frozenset(PERMISSIONS),
     "planner": frozenset({"view", "master_edit", "supplier_edit", "pr_edit", "demand_edit", "wo_edit", "mrp_run",
-                          "import"}),
+                          "schedule_run", "schedule_publish", "import"}),   # M3-DESIGN 11
     "purchaser": frozenset({"view", "supplier_edit", "pr_edit", "po_edit"}),
     "store_keeper": frozenset({"view", "inventory"}),
     "approver": frozenset({"view", "pr_approve"}),

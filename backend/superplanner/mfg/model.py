@@ -212,13 +212,7 @@ class PlantInput(MfgModel):
     @model_validator(mode="after")
     def _workdays(self) -> "PlantInput":
         _unique(self.mrp_workdays, "mrp_workdays")
-        if self.time_zone is not None:
-            from .tz import valid_zone
-
-            if not valid_zone(self.time_zone):
-                raise PydanticCustomError("MFG_TZ_INVALID", "{tz!r} is not an IANA time zone.",
-                                          {"tz": self.time_zone})
-        return self
+        return self   # time_zone: checked against the zone database by the plant service (422 MFG_TZ_INVALID)
 
 
 class PlantRecord(PlantInput):

@@ -26,6 +26,7 @@ import { ConflictBanner, MfgError, NotFoundPanel, Spinner } from "../../componen
 import { numOrNull, strOrNull, TextField } from "../../components/Field";
 import { ItemPicker } from "../../components/ItemPicker";
 import { KittingTable } from "../../components/KittingTable";
+import { WoOperations } from "../../components/WoOperations";
 import { SourceBadge, WoStatusChip } from "../../components/StatusM2";
 import { fmtDate } from "../../lib/format";
 import { fmtNum, POSTING_LABEL, serialText } from "../../lib/formatM2";
@@ -391,6 +392,8 @@ export function WorkOrderPage() {
           <KittingTable components={wo.components} kitting={kitting.data?.rows ?? null} highlight={params.get("component")} showKitting={active} />
         </section>
       ) : null}
+
+      {wo && wo.routing ? <WoOperations woId={wo.id} woVersion={wo.row_version} onChanged={() => void getWorkOrder(woId).then(reset, setError)} /> : null}
 
       {wo && txns.data && txns.data.items.length ? (
         <section className="card" data-testid="wo-transactions">

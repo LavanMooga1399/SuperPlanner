@@ -26,6 +26,7 @@ const SETUP: Section[] = [
 const PLANNING: Section[] = [
   { key: "demand", label: "Demand", to: mfgPaths.demand(), icon: "flag" },
   { key: "mrp", label: "MRP", to: mfgPaths.mrp(), icon: "graph" },
+  { key: "schedule", label: "Schedule", to: mfgPaths.schedule(), icon: "calendar" },
   { key: "shortages", label: "Shortages", to: mfgPaths.shortages(), icon: "alert" },
   { key: "work-orders", label: "Work orders", to: mfgPaths.workOrders(), icon: "play" },
   { key: "purchasing", label: "Purchasing", to: mfgPaths.purchasing(), icon: "briefcase" },

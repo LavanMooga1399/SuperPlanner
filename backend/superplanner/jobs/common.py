@@ -13,8 +13,8 @@ from typing import Any
 from sqlalchemy import exists, select, update
 from sqlalchemy.orm import Session
 
-from .types import (ACTIVE_RUN_STATUSES, JOB_KINDS, RESTART_ERROR, RUN_TO_JOB_STATUS, WORKER_LOST_ERROR, Lease,
-                    LeaseLost, backoff_seconds, db_now, iso_z)
+from .types import (ACTIVE_RUN_STATUSES, JOB_KINDS, RESTART_ERROR, RUN_ID_COLUMN, RUN_TO_JOB_STATUS,
+                    WORKER_LOST_ERROR, Lease, LeaseLost, backoff_seconds, db_now, iso_z)
 
 log = logging.getLogger("superplanner.jobs")
 
@@ -30,17 +30,21 @@ def run_model(kind: str) -> Any:
         from ..api.finance.db_models import FinanceRunRow
 
         return FinanceRunRow
+    if kind == "aps_run":
+        from ..api.mfg.db_models_m3 import MfgApsRunRow
+
+        return MfgApsRunRow
     raise ValueError(f"unknown job kind {kind!r}")
 
 
 def job_fk(kind: str) -> Any:
     from ..api.db import JobRow
 
-    return JobRow.solver_run_id if kind == "solver_run" else JobRow.finance_run_id
+    return getattr(JobRow, RUN_ID_COLUMN[kind])
 
 
 def run_id_of(job: Any) -> str:
-    rid = job.solver_run_id if job.kind == "solver_run" else job.finance_run_id
+    rid = getattr(job, RUN_ID_COLUMN[job.kind])
     assert rid is not None, f"job {job.id} has no run"
     return rid
 
@@ -50,6 +54,8 @@ def add_run_event(kind: str, s: Session, run_id: str, type_: str, fields: dict[s
         from ..api.services import run_service
 
         run_service.add_event(s, run_id, type_, fields, 0.0)
+    elif kind == "aps_run":
+        return   # APS runs have no event log (progress lives on the run row, M3-DESIGN 10)
     else:
         from ..api.finance import run_service as finance_run_service
 
@@ -76,7 +82,8 @@ def new_job(s: Session, kind: str, run_id: str, owner_id: str, max_attempts: int
         raise ValueError(f"unknown job kind {kind!r}")
     now = utcnow()
     job = JobRow(id=new_id("job_"), kind=kind, solver_run_id=run_id if kind == "solver_run" else None,
-                 finance_run_id=run_id if kind == "finance_run" else None, owner_id=owner_id, status="queued",
+                 finance_run_id=run_id if kind == "finance_run" else None,
+                 aps_run_id=run_id if kind == "aps_run" else None, owner_id=owner_id, status="queued",
                  priority=0, attempts=0, max_attempts=max_attempts, run_after=now, cancel_requested=False,
                  idempotency_key=idempotency_key, request_hash=request_hash, request_id=request_id,
                  created_at=now, updated_at=now)
@@ -211,6 +218,8 @@ def mirror_finish(ctx: Any, lease: Lease, fallback_error: str) -> str | None:
         else:
             status = RUN_TO_JOB_STATUS.get(run.status, "failed") if run is not None else "failed"
             error = (run.error if run is not None and status == "failed" else None)
+            if error is not None and not isinstance(error, str):   # APS runs store a JSON error
+                error = str(error.get("message", error)) if isinstance(error, dict) else str(error)
         _set(s, job, status=status, finished_at=wall, updated_at=wall, last_error=error, lease_token=None,
              lease_expires_at=None)
     lease.outcome = status
@@ -259,10 +268,11 @@ def fail_inline_leftovers(ctx: Any) -> int:
     n = 0
     with system_scope():
         with ctx.db.read() as s:
-            rows = s.execute(select(JobRow.id, JobRow.kind, JobRow.solver_run_id, JobRow.finance_run_id)
+            rows = s.execute(select(JobRow.id, JobRow.kind, JobRow.solver_run_id, JobRow.finance_run_id,
+                                    JobRow.aps_run_id)
                              .where(JobRow.status == "running", JobRow.lease_expires_at.is_(None))).all()
         for row in rows:
-            run_id = row.solver_run_id if row.kind == "solver_run" else row.finance_run_id
+            run_id = getattr(row, RUN_ID_COLUMN[row.kind])
             with ctx.write_guard(), ctx.db.write() as s:
                 run = lock_run(s, row.kind, run_id) if run_id else None
                 job = s.get(JobRow, row.id, with_for_update=True)

@@ -92,6 +92,10 @@ class MfgDataset:
     locations: dict[str, LocationRecord] = field(default_factory=dict)
     suppliers: dict[str, SupplierRecord] = field(default_factory=dict)
     item_suppliers: dict[str, ItemSupplierRecord] = field(default_factory=dict)
+    # M3 master data (M3-DESIGN 3.2): line rates, setup matrix, operator absences
+    operation_line_rates: dict[str, Any] = field(default_factory=dict)
+    setup_matrix: dict[str, Any] = field(default_factory=dict)
+    operator_absences: dict[str, Any] = field(default_factory=dict)
     # M2 transactional state (stock, documents); never part of the fingerprint. None = not loaded.
     txn: "TxnData | None" = None
 
@@ -285,6 +289,19 @@ def link(ds: MfgDataset) -> MfgDataset:
         sup_items[r.supplier_id] = sup_items.get(r.supplier_id, 0) + 1
     for sp in ds.suppliers.values():
         sp.item_count = sup_items.get(sp.id, 0)
+    # M3 master (M3-DESIGN 3.2)
+    for x in ds.operation_line_rates.values():
+        ln = ds.lines.get(x.line_id)
+        x.line = ref(ln) if ln is not None else _missing_ref(x.line_id)
+    fams: dict[str, int] = {}
+    for ln in ds.lines.values():
+        if ln.setup_family:
+            fams[ln.setup_family] = fams.get(ln.setup_family, 0) + 1
+    for x in ds.setup_matrix.values():
+        x.line_count = fams.get(x.line_setup_family, 0)
+    for x in ds.operator_absences.values():
+        o = ds.operators.get(x.operator_id)
+        x.operator = ref(o) if o is not None else _missing_ref(x.operator_id)
     return ds
 
 

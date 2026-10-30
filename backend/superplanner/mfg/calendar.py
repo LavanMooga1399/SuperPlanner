@@ -1,10 +1,11 @@
 """Shift windows (M1-DESIGN 4.6). Internally every instant is an integer "local minute" = `date.toordinal() * 1440
-+ minute of day` in the plant's fixed UTC offset; results are converted to aware datetimes at the end."""
++ minute of day` (wall clock) in the plant time `tz.plant_tz` (M3 5: the IANA zone if set, else the fixed offset);
+results are converted to aware datetimes (fold 0) at the end. Durations of windows are elapsed UTC minutes."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
 from .dataset import MfgDataset
@@ -27,13 +28,10 @@ def add_days(d: date, n: int) -> date:
     return date.fromordinal(min(max(o, 1), date.max.toordinal()))
 
 
-def offset_tz(utc_offset: str) -> timezone:
-    sign = -1 if utc_offset[0] == "-" else 1
-    h, m = utc_offset[1:].split(":")
-    return timezone(sign * timedelta(hours=int(h), minutes=int(m)))
+from .tz import offset_tz, plant_tz  # noqa: E402  (offset_tz re-exported for M1/M2 callers)
 
 
-def to_local_minute(dt: datetime, tz: timezone, *, ceil: bool = False) -> int:
+def to_local_minute(dt: datetime, tz: tzinfo, *, ceil: bool = False) -> int:
     loc = dt.astimezone(tz)
     base = loc.date().toordinal() * DAY + loc.hour * 60 + loc.minute
     if ceil and (loc.second or loc.microsecond):
@@ -41,7 +39,7 @@ def to_local_minute(dt: datetime, tz: timezone, *, ceil: bool = False) -> int:
     return base
 
 
-def from_local_minute(m: int, tz: timezone) -> datetime:
+def from_local_minute(m: int, tz: tzinfo) -> datetime:
     d = date.fromordinal(m // DAY)
     mm = m % DAY
     return datetime(d.year, d.month, d.day, mm // 60, mm % 60, tzinfo=tz)
@@ -241,7 +239,7 @@ def line_detail(ds: MfgDataset, line_id: str, d0: date, d1: date, kinds: tuple[s
                 ) -> LineDetail:
     line = ds.lines[line_id]
     group = ds.groups.get(line.group_id)
-    tz = offset_tz(ds.plant.utc_offset)
+    tz = plant_tz(ds.plant)
     lo, hi = d0.toordinal() * DAY, d1.toordinal() * DAY
     line_asg = [a for a in ds.shift_assignments.values() if a.target_type == "line" and a.line_id == line_id
                 and line.active]
@@ -327,7 +325,7 @@ def _clip_merge(pieces: list[Piece], lo: int, hi: int) -> list[tuple[int, int, s
     return [tuple(m) for m in merged]  # type: ignore[misc]
 
 
-def _windows(merged: list[Any], tz: timezone) -> list[Window]:
+def _windows(merged: list[Any], tz: tzinfo) -> list[Window]:
     return [Window.model_construct(start=from_local_minute(s, tz), end=from_local_minute(e, tz), kind=kind,
                                    assignment_id=aid, shift_label=f"{tcode}/{'+'.join(names)}", cost_per_hour=cost)
             for s, e, kind, aid, names, tcode, cost in merged]
@@ -335,7 +333,7 @@ def _windows(merged: list[Any], tz: timezone) -> list[Window]:
 
 def line_windows(ds: MfgDataset, line_id: str, d0: date, d1: date, *,
                  kinds: tuple[str, ...] | list[str] = ("base", "optional")) -> list[Window]:
-    tz = offset_tz(ds.plant.utc_offset)
+    tz = plant_tz(ds.plant)
     det = line_detail(ds, line_id, d0, d1, tuple(kinds))
     merged = _clip_merge(det.pieces, d0.toordinal() * DAY, d1.toordinal() * DAY)
     return _windows(merged, tz)
@@ -349,7 +347,16 @@ def line_intervals(ds: MfgDataset, line_id: str, d0: date, d1: date,
     return [(s, e, kind, f"{tcode}/{'+'.join(names)}") for s, e, kind, _aid, names, tcode, _c in merged]
 
 
+def absence_intervals(ds: MfgDataset, operator_id: str, tz: tzinfo | None = None) -> list[Interval]:
+    """M3-DESIGN 3.2: the operator's absences as merged local-minute intervals."""
+    tz = tz or plant_tz(ds.plant)
+    out = [(to_local_minute(a.start, tz), to_local_minute(a.end, tz, ceil=True))
+           for a in getattr(ds, "operator_absences", {}).values() if a.operator_id == operator_id]
+    return union(out)
+
+
 def operator_intervals(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> list[Interval]:
+    """Shift spans of the operator (breaks not removed) minus absences (M3 3.2), local minutes."""
     op = ds.operators[operator_id]
     if op.shift_template_id is None:
         return []
@@ -364,16 +371,17 @@ def operator_intervals(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> 
         if d == date.max:
             break
         d = add_days(d, 1)
-    return union(out)
+    return subtract(union(out), absence_intervals(ds, operator_id))
 
 
 def operator_windows(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> list[Window]:
     """Shift spans of the operator's template / shift names (breaks NOT removed), clipped to [d0, d1); no
-    exceptions. Touching spans are merged (label `<template>/<names>`); `kind` is "base", `assignment_id` None."""
+    exceptions; absences removed (M3 3.2). Touching spans are merged (label `<template>/<names>`); `kind` is
+    "base", `assignment_id` None."""
     op = ds.operators[operator_id]
     if op.shift_template_id is None or op.shift_template_id not in ds.shift_templates:
         return []
-    tz = offset_tz(ds.plant.utc_offset)
+    tz = plant_tz(ds.plant)
     pieces: list[Piece] = []
     d = add_days(d0, -1)
     while d < d1:
@@ -382,13 +390,20 @@ def operator_windows(ds: MfgDataset, operator_id: str, d0: date, d1: date) -> li
         if d == date.max:
             break
         d = add_days(d, 1)
+    absent = absence_intervals(ds, operator_id, tz)
+    if absent:
+        cut: list[Piece] = []
+        for p in pieces:
+            for a, b in subtract([(p.start, p.end)], absent):
+                cut.append(Piece(a, b, p.kind, p.assignment_id, p.shift, p.template, p.cost))
+        pieces = cut
     return _windows(_clip_merge(pieces, d0.toordinal() * DAY, d1.toordinal() * DAY), tz)
 
 
 def window_minutes(windows: list[Window]) -> dict[str, float]:
     out = {"base_minutes": 0.0, "optional_minutes": 0.0}
-    for w in windows:
-        out[f"{w.kind}_minutes"] += (w.end - w.start).total_seconds() / 60.0
+    for w in windows:   # elapsed (UTC) minutes: a shift across a DST change has its real length (M3 5)
+        out[f"{w.kind}_minutes"] += (w.end.astimezone(UTC) - w.start.astimezone(UTC)).total_seconds() / 60.0
     return out
 
 

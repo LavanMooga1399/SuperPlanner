@@ -73,7 +73,7 @@ def plant(s: Session) -> PlantRecord:
 
 
 def today(s: Session) -> date:
-    return plant_today(plant(s).utc_offset)
+    return plant_today(plant(s))
 
 
 def plant_lock_free(s: Session) -> MfgPlantRow | None:

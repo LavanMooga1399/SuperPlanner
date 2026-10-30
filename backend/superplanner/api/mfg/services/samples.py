@@ -91,7 +91,7 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
         raise not_found("Sample", sample_id)
     t0 = time.monotonic()
     with read_tx(ctx) as s:
-        today = plant_today(repo.plant_or_default(s).utc_offset)
+        today = plant_today(repo.plant_or_default(s))
     anchor = anchor or default_anchor(today)
     bundle = S.build(sample_id, anchor=anchor, include_transactions=include_transactions)
     opts = ImportOptions(release=True, today=anchor)
@@ -129,6 +129,6 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
                                                      "include_transactions": include_transactions})
     with read_tx(ctx) as s:
         ds = repo.load_dataset(s)
-    report = run_health_check(ds, plant_today(ds.plant.utc_offset), ds.plant.planning_horizon_days)
+    report = run_health_check(ds, plant_today(ds.plant), ds.plant.planning_horizon_days)
     return {"sample_id": sample_id, "result": result,
             "health": {"ok": report.ok, "counts": report.counts.model_dump()}}

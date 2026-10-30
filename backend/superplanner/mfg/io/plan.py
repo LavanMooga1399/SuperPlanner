@@ -28,6 +28,7 @@ from .. import limits as L
 from ..bom import find_cycles
 from ..bundle import ATTR_PREFIX, SHEET_NAMES, SHEETS_BY_NAME, MfgBundle, parse_break, parse_days, parse_tool
 from ..calendar import offset_tz, validate_template
+from ..tz import plant_tz, valid_zone
 from ..dataset import MfgDataset, link
 from ..model import (BomInput, BomLineInput, BomLineRecord, BomRecord, CalendarExceptionInput, GroupInput,
                      GroupRecord, ItemInput, ItemRecord, LineInput, OperationInput, OperationRecord,
@@ -202,7 +203,7 @@ class _Planner:
         self.warnings: list[dict[str, Any]] = []
         self.sample: list[dict[str, Any]] = []
         self.bump: dict[str, set[str]] = {"boms": set(), "routings": set()}
-        self.tz = offset_tz(ds.plant.utc_offset)
+        self.tz = plant_tz(ds.plant)
         self.shrunk_templates: dict[str, tuple[str, Source, set[str]]] = {}   # id -> (code, source, final names)
         self.unserialized: dict[str, tuple[str, Source]] = {}     # item id -> (part number, source): serialized off
         self.rebase: tuple[Any, Any] | None = None       # (old tz, new tz) when the file changes the plant offset
@@ -352,6 +353,9 @@ class _Planner:
         from .plan_m2 import M2Planner
 
         M2Planner(self).run()
+        from .plan_m3 import M3Planner
+
+        M3Planner(self).run()
         for name in SHEET_NAMES:
             if name in self.b:
                 self.counts.setdefault(name, {"create": 0, "update": 0, "unchanged": 0, "delete": 0, "error": 0})
@@ -375,12 +379,16 @@ class _Planner:
         if inp is None:
             return
         new = inp.model_dump()
-        ch = self.diff(base, new, ("name", "utc_offset", "planning_horizon_days", "currency"))
+        if new.get("time_zone") is not None and not valid_zone(new["time_zone"]):
+            self.err("plant", src, "time_zone", "IMP_BAD_VALUE",
+                     f"{new['time_zone']!r} is not an IANA time zone (for example Asia/Kolkata).")
+            return
+        ch = self.diff(base, new, ("name", "utc_offset", "planning_horizon_days", "currency", "time_zone"))
         if ch:
             self.add("plant", "update", p.id, {k: new[k] for k in ch})
             self.note("plant", "create" if p.id is None else "update", {}, ch)
-            self.tz = offset_tz(new["utc_offset"])
-            if "utc_offset" in ch and p.id is not None:
+            self.tz = plant_tz(inp)
+            if "utc_offset" in ch and p.id is not None and not new.get("time_zone") and not p.time_zone:
                 self.rebase = (offset_tz(p.utc_offset), self.tz)
         else:
             self.note("plant", "unchanged", {})

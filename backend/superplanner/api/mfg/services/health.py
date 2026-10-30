@@ -23,12 +23,15 @@ from .common import plant_today, read_tx
 
 
 def meta(ctx: AppContext) -> dict[str, Any]:
+    from ....mfg.tz import zone_names
+
     limits: dict[str, Any] = dict(L.all_limits())
     limits["max_body_bytes"] = int(ctx.settings.max_body_bytes)
     return {"uoms": [{"code": u.code, "dimension": u.dimension, "factor": u.factor, "aliases": list(u.aliases)}
                      for u in UOMS],
             "enums": {k: list(v) for k, v in ENUMS.items()}, "limits": limits, "import_spec": meta_spec(),
-            "samples": sample_list(), "health_codes": [{"code": c.code, "severity": c.severity} for c in CODES]}
+            "samples": sample_list(), "health_codes": [{"code": c.code, "severity": c.severity} for c in CODES],
+            "time_zones": list(zone_names())}   # M3-DESIGN 12: IANA picker
 
 
 def summary(ctx: AppContext) -> dict[str, Any]:
@@ -69,7 +72,7 @@ def _m2_counts(s: Any) -> dict[str, int]:
     def n(q: Any) -> int:
         return int(s.execute(q).scalar() or 0)
 
-    today = plant_today(repo.plant_or_default(s).utc_offset)
+    today = plant_today(repo.plant_or_default(s))
     dock = func.coalesce(MfgPurchaseScheduleRow.confirmed_date, MfgPurchaseScheduleRow.requested_date)
     return {
         "locations": n(select(func.count()).select_from(MfgLocationRow)),
@@ -98,7 +101,7 @@ def health(ctx: AppContext, as_of: date | None, horizon_days: int | None) -> Any
     if horizon_days is not None and not 7 <= horizon_days <= 730:
         raise ApiError(422, "VALIDATION_ERROR", "horizon_days must be between 7 and 730.",
                        {"errors": [{"loc": ["query", "horizon_days"], "msg": "must be 7..730", "type": "range"}]})
-    report = run_health_check(ds, as_of or plant_today(ds.plant.utc_offset),
+    report = run_health_check(ds, as_of or plant_today(ds.plant),
                               horizon_days or ds.plant.planning_horizon_days)
     report.data_version = ds.plant.data_version
     return report

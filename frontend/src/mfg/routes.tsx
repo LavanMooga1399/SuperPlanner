@@ -56,6 +56,17 @@ import { PeggingPage } from "./pages/mrp/PeggingPage";
 import { CompareView } from "./pages/mrp/CompareView";
 import { ShortagesPage } from "./pages/ShortagesPage";
 import { MembersPage } from "./pages/MembersPage";
+import { SetupMatrixPage } from "./pages/SetupMatrixPage";
+import { ApsRunsPage } from "./pages/schedule/ApsRunsPage";
+import { ApsRunShell } from "./pages/schedule/ApsRunShell";
+import { ApsSummaryTab } from "./pages/schedule/ApsSummaryTab";
+import { ApsGanttTab } from "./pages/schedule/ApsGanttTab";
+import { ApsLoadTab } from "./pages/schedule/ApsLoadTab";
+import { ApsDispatchTab } from "./pages/schedule/ApsDispatchTab";
+import { ApsDemandTab, ApsOrdersTab } from "./pages/schedule/ApsOrdersTab";
+import { ApsOvertimeTab } from "./pages/schedule/ApsOvertimeTab";
+import { ApsExceptionsTab } from "./pages/schedule/ApsExceptionsTab";
+import { ApsCompareTab } from "./pages/schedule/ApsCompareTab";
 
 /** A fresh page instance per document id (no state carried from one document to the next). */
 function Keyed({ param, children }: { param: string; children: (key: string) => ReactElement }) {
@@ -93,6 +104,7 @@ export const mfgRoutes: RouteObject[] = [
           { path: "shifts", element: <ShiftsPage /> },
           { path: "calendar", element: <CalendarPage /> },
           { path: "settings", element: <PlantSettingsPage /> },
+          { path: "setups", element: <SetupMatrixPage /> },
           { path: "*", element: <MfgNotFound /> },
         ],
       },
@@ -162,6 +174,24 @@ export const mfgRoutes: RouteObject[] = [
       },
       { path: "shortages", element: <ShortagesPage /> },
       { path: "settings/members", element: <MembersPage /> },
+      // ---------------------------------------------------------------- M3 (12)
+      { path: "schedule", element: <ApsRunsPage /> },
+      {
+        path: "schedule/runs/:runId",
+        element: <Keyed param="runId">{(k) => <ApsRunShell key={k} />}</Keyed>,
+        children: [
+          { index: true, element: <ApsSummaryTab /> },
+          { path: "gantt", element: <ApsGanttTab /> },
+          { path: "load", element: <ApsLoadTab /> },
+          { path: "dispatch", element: <ApsDispatchTab /> },
+          { path: "orders", element: <ApsOrdersTab /> },
+          { path: "demand", element: <ApsDemandTab /> },
+          { path: "overtime", element: <ApsOvertimeTab /> },
+          { path: "exceptions", element: <ApsExceptionsTab /> },
+          { path: "compare", element: <ApsCompareTab /> },
+          { path: "*", element: <MfgNotFound /> },
+        ],
+      },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

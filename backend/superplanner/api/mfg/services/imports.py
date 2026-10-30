@@ -329,7 +329,7 @@ def export_file(ctx: AppContext, fmt: str, scope: str = "master") -> tuple[bytes
     bundle = dataset_to_bundle(ds, scope=scope)
     from .common import plant_today
 
-    stamp = plant_today(ds.plant.utc_offset).strftime("%Y%m%d")
+    stamp = plant_today(ds.plant).strftime("%Y%m%d")
     name = f"superplanner-mfg-{slug(ds.plant.name)}-{stamp}.{fmt}"
     if fmt == "xlsx":
         return xport.bundle_to_xlsx(bundle), name, XLSX_TYPE

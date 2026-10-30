@@ -558,4 +558,25 @@ of the failing tests and their folders; no second full run unless a fix touches 
 
 ### 17.WP-S Backend
 
+**S0 frozen (2026-10-30).** In place for the UI:
+- Contract: `backend/superplanner/mfg/aps/model.py` (params, snapshot, result, view shapes), `mfg/model_m3.py`
+  (rates, setup matrix, absences, WO operation rows), plant fields `time_zone`, `aps_freeze_hours`,
+  `aps_horizon_days`, `aps_overtime_policy`; `/meta` gains `time_zones` (IANA list).
+- Examples of every response shape: `backend/superplanner/mfg/aps/fixtures/example_run.json` (regenerate with
+  `fixtures/build_example.py`; validated by `tests/api_mfg_m3/test_m3_s0_contract.py`). `frontend/src/mfg/api/
+  contractExamplesM3.ts` is the UI's typed copy of this file (WP-U writes it; WP-S stays out of `frontend/src`).
+- All 36 routes (#164-199) are live with their permissions; the master/progress routes (#164-178) are real, the
+  APS run routes (#179-199) answer with the fixture until S3. Migration `0005_mfg_m3` (head) with up/down test.
+- Q1 escalation (16): `POST /aps/runs` takes `copy_of=<run_id>` with `overtime` (and optionally `label`, `note`,
+  `improve_seconds`); any other field next to `copy_of` -> 422. The copy reuses the source's resolved `as_of`,
+  horizon, MRP run and params; its `kind` follows the source (a copied live run stays live and publishable).
+  The run record has `copy_of_run_id` and `late_demand_remains` (= `summary.late_demand_count > 0`); compare
+  has `tradeoff {weighted_tardiness_saved, late_minutes_saved, late_demand_saved, overtime_hours_added,
+  overtime_cost_added}` of `with` relative to the run. The path is `/aps/runs` (11), not `/schedule/runs` (16
+  wording).
+- Additions to 10 (contract, not behaviour): run columns `copy_of_run_id`, `cancel_requested`, `data_version`,
+  `extras` (demand view rows + bottlenecks); op columns `family`, `setup_from_family`; order columns `planned_no`,
+  `rank_label`, `late_text`, `unscheduled_ops`; jobs gain `aps_run_id` (FK CASCADE) and `ck_jobs_one_target` becomes
+  "exactly one of three" (this touches `jobs/` and `api/db`, so the final gate needs its full run).
+
 ### 17.WP-U UI

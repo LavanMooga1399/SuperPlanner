@@ -7,6 +7,7 @@ import { Icon } from "../../components/Icon";
 import { getHealthReport, getSummary, resetMfg } from "../api/client";
 import { RESET_PHRASE, type SampleLoadResponse, type Summary, type SummaryCounts } from "../api/types";
 import type { SummaryLatestRun, SummaryM2Counts } from "../api/typesM2";
+import type { PublishedScheduleSummary } from "../api/typesM3";
 import { PermissionGate } from "../components/PermissionGate";
 import { ExportButtons } from "../components/ExportButtons";
 import { MfgError } from "../components/Feedback";
@@ -130,7 +131,8 @@ function ResetDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) {
 
 /** M2 12.3: additive `/summary` counts and the latest live run. Shown only when the server provides them. */
 function PlanningCard({ summary }: { summary: Summary }) {
-  const x = summary as Summary & { counts: SummaryM2Counts; latest_run?: SummaryLatestRun | null };
+  const x = summary as Summary & { counts: SummaryM2Counts; latest_run?: SummaryLatestRun | null; published_schedule?: PublishedScheduleSummary | null };
+  const ps = x.published_schedule ?? null;
   const c = x.counts;
   if (c.open_demand_lines === undefined) return null;
   const run = x.latest_run ?? null;
@@ -145,6 +147,17 @@ function PlanningCard({ summary }: { summary: Summary }) {
     <section className="card" data-testid="mfg-planning-card">
       <div className="card-header">
         <h2>Planning & stores</h2>
+        <span className="row" style={{ gap: 6 }}>
+        {ps ? (
+          <Link to={mfgPaths.apsRun(ps.id)} className="btn sm" data-testid="mfg-published-schedule">
+            Schedule #{ps.run_no}: {ps.late_orders ? `${ps.late_orders} late orders` : "all on time"}
+            {ps.stale ? " (out of date)" : ""} <Icon name="arrow-right" />
+          </Link>
+        ) : (
+          <Link to={mfgPaths.schedule()} className="btn sm">
+            Schedule production <Icon name="arrow-right" />
+          </Link>
+        )}
         {run ? (
           <Link to={mfgPaths.run(run.id)} className="btn sm">
             MRP run #{run.run_no}: {run.demand_late ? `${run.demand_late} late` : "all on time"}
@@ -155,6 +168,7 @@ function PlanningCard({ summary }: { summary: Summary }) {
             Run MRP <Icon name="arrow-right" />
           </Link>
         )}
+        </span>
       </div>
       <div className="card-body kpis">
         {tiles.map((t) => (

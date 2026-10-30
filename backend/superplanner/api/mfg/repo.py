@@ -91,11 +91,24 @@ def lock_plant_created(s: Session) -> tuple[MfgPlantRow, bool]:
     return row, created
 
 
+def _display_offset(row: Any) -> str:
+    """With an IANA `time_zone` the offset is display only: the zone's current offset (M3-DESIGN 3.1)."""
+    if getattr(row, "time_zone", None):
+        from ...mfg.tz import current_offset
+
+        return current_offset(row)
+    return row.utc_offset
+
+
 def plant_mrp_columns(p: Any) -> dict[str, Any]:
-    """The M2 MRP columns of a plant input/record (M2-DESIGN 3.1)."""
+    """The M2 MRP and M3 APS columns of a plant input/record (M2-DESIGN 3.1, M3-DESIGN 3.1)."""
     return {"mrp_workdays": list(p.mrp_workdays), "mrp_day_minutes": float(p.mrp_day_minutes),
             "mrp_defer_tolerance_days": int(p.mrp_defer_tolerance_days),
-            "mrp_release_window_days": int(p.mrp_release_window_days), "over_receipt_pct": float(p.over_receipt_pct)}
+            "mrp_release_window_days": int(p.mrp_release_window_days), "over_receipt_pct": float(p.over_receipt_pct),
+            # M3-DESIGN 3.1
+            "time_zone": getattr(p, "time_zone", None), "aps_freeze_hours": int(getattr(p, "aps_freeze_hours", 48)),
+            "aps_horizon_days": int(getattr(p, "aps_horizon_days", 42)),
+            "aps_overtime_policy": getattr(p, "aps_overtime_policy", "suggest")}
 
 
 def plant_row_unlocked(s: Session) -> MfgPlantRow:
@@ -142,12 +155,13 @@ def to_record(row: Any, **extra: Any) -> Any:
     empty. Calendar exceptions accept `utc_offset` to return `start`/`end` in the plant offset."""
     if isinstance(row, MfgPlantRow):
         return PlantRecord.model_construct(
-            name=row.name, utc_offset=row.utc_offset, planning_horizon_days=row.planning_horizon_days,
+            name=row.name, utc_offset=_display_offset(row), planning_horizon_days=row.planning_horizon_days,
             currency=row.currency, attributes=dict(row.attributes or {}), data_version=row.data_version,
             mrp_workdays=list(row.mrp_workdays or []), mrp_day_minutes=row.mrp_day_minutes,
             mrp_defer_tolerance_days=row.mrp_defer_tolerance_days,
             mrp_release_window_days=row.mrp_release_window_days, over_receipt_pct=row.over_receipt_pct,
-            **_stamp(row), **extra)
+            time_zone=row.time_zone, aps_freeze_hours=row.aps_freeze_hours, aps_horizon_days=row.aps_horizon_days,
+            aps_overtime_policy=row.aps_overtime_policy, **_stamp(row), **extra)
     if isinstance(row, MfgItemRow):
         data = dict(part_number=row.part_number, revision=row.revision, description=row.description, uom=row.uom,
                     make_buy=row.make_buy, family=row.family, setup_family=row.setup_family,
@@ -251,7 +265,7 @@ def to_record(row: Any, **extra: Any) -> Any:
 
 
 def load_dataset(s: Session) -> MfgDataset:
-    """The owner's complete snapshot: one SELECT per table (20, the plant and the 3 M2 master tables included), no
+    """The owner's complete snapshot: one SELECT per table (23: the plant, the 3 M2 and 3 M3 master tables), no
     lazy loads; refs and counts are filled by `dataset.link`."""
     def rows(model: Any) -> list[Any]:
         return list(s.execute(select(model)).scalars())
@@ -304,6 +318,9 @@ def load_dataset(s: Session) -> MfgDataset:
     from . import repo_m2
 
     repo_m2.load_master_m2(s, ds)          # M2-DESIGN 9.5: locations, suppliers, item-suppliers (3 statements)
+    from . import repo_m3
+
+    repo_m3.load_master_m3(s, ds)          # M3-DESIGN 3.2: line rates, setup matrix, absences (3 statements)
     return link(ds)
 
 

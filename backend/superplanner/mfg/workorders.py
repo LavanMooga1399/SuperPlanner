@@ -100,9 +100,9 @@ def open_qty(qty: float, qty_completed: float) -> float:
 
 def plant_holidays(ds: Any) -> frozenset[date]:
     """Plant-scope holiday/shutdown exceptions covering a whole local day (8.2 `MrpSnapshot.holidays`)."""
-    from .calendar import offset_tz
+    from .tz import plant_tz
 
-    tz = offset_tz(ds.plant.utc_offset)
+    tz = plant_tz(ds.plant)
     out: set[date] = set()
     for e in ds.calendar_exceptions.values():
         if e.scope != "plant" or e.kind not in ("holiday", "shutdown"):

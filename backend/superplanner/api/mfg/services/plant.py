@@ -40,8 +40,19 @@ def put_plant(ctx: AppContext, inp: PlantInput, if_match: str | None) -> PlantRe
         row, created = repo.lock_plant_created(s)
         current = 0 if created else row.row_version
         check_version(row, if_match, current=current)
-        rebased = rebase_exceptions(s, row.utc_offset, inp.utc_offset) if not created else 0
-        row.name, row.utc_offset = inp.name, inp.utc_offset
+        if inp.time_zone is not None:
+            from ....mfg.tz import current_offset, valid_zone
+
+            if not valid_zone(inp.time_zone):
+                raise ApiError(422, "MFG_TZ_INVALID", f"{inp.time_zone!r} is not an IANA time zone (for example "
+                               "Asia/Kolkata).", {"loc": ["body", "time_zone"], "time_zone": inp.time_zone})
+            # M3 5: with a zone, utc_offset is display only and calendar exceptions stay UTC instants (no rebase)
+            rebased = 0
+            row.name, row.utc_offset = inp.name, current_offset(inp)
+        else:
+            rebased = rebase_exceptions(s, row.utc_offset, inp.utc_offset) if not created and not row.time_zone \
+                else 0
+            row.name, row.utc_offset = inp.name, inp.utc_offset
         row.planning_horizon_days, row.currency = inp.planning_horizon_days, inp.currency
         row.attributes = dict(inp.attributes)
         for k, v in repo.plant_mrp_columns(inp).items():       # M2-DESIGN 3.1

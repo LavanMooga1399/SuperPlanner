@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 # Unused since PostgreSQL-only (row locks + unique indexes); exported for old imports.
 WRITE_LOCK = threading.RLock()
 
-JOB_KINDS = ("solver_run", "finance_run")
+JOB_KINDS = ("solver_run", "finance_run", "aps_run")
 _LIVE: "weakref.WeakSet[AppContext]" = weakref.WeakSet()   # started contexts (test harness: stop leftovers)
 
 
@@ -80,8 +80,11 @@ class AppContext:
                     from .finance import run_service as finance_run_service
                     from .services import run_service
 
+                    from .mfg.services import aps as aps_service
+
                     run_service.recover_interrupted_runs(self)
                     finance_run_service.recover_interrupted_runs(self)
+                    aps_service.recover_interrupted_runs(self)
                     self._executor = RunExecutor(self.settings.run_workers)
                     jobs = InlineQueue(self)
                     if self.settings.auth_mode == "accounts":

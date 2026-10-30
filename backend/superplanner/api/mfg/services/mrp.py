@@ -109,7 +109,7 @@ def create_run(ctx: AppContext, params: MrpParams) -> dict[str, Any]:
 
     def start(s: Session) -> tuple[str, date, int, str]:
         p = repo.plant_or_default(s)
-        d = plant_today(p.utc_offset)
+        d = plant_today(p)
         stale_before = utcnow() - timedelta(minutes=L.MRP_STALE_RUNNING_MINUTES)
         for r in s.execute(select(MfgMrpRunRow).where(MfgMrpRunRow.status == "running",
                                                       MfgMrpRunRow.started_at < stale_before).with_for_update()

@@ -18,6 +18,7 @@ from ...mfg.io.plan import ImportPlan
 from ...mfg.limits import SQL_IN_CHUNK
 from ..db import utcnow
 from . import db_models_m2 as m2
+from . import db_models_m3 as m3
 from .db_models import (MfgBomLineRow, MfgBomRow, MfgCalendarExceptionRow, MfgGroupRow, MfgItemRow, MfgLineItemRow,
                         MfgLineRow, MfgOperationRow, MfgOperationToolRow, MfgOperatorRow, MfgOperatorSkillRow,
                         MfgPlantRow, MfgRoutingRow, MfgShiftAssignmentRow, MfgShiftTemplateRow, MfgSkillRow,
@@ -35,11 +36,15 @@ TABLES: dict[str, Any] = {
     "purchase_docs": m2.MfgPurchaseDocRow, "purchase_lines": m2.MfgPurchaseLineRow,
     "purchase_schedules": m2.MfgPurchaseScheduleRow, "demand_orders": m2.MfgDemandOrderRow,
     "demand_lines": m2.MfgDemandLineRow, "work_orders": m2.MfgWorkOrderRow, "wo_components": m2.MfgWoComponentRow,
+    # M3-DESIGN 3.2
+    "operation_line_rates": m3.MfgOperationLineRateRow, "setup_matrix": m3.MfgSetupMatrixRow,
+    "operator_absences": m3.MfgOperatorAbsenceRow,
 }
 ORDER = ("items", "groups", "skills", "tool_pools", "shift_templates", "lines", "line_items", "boms", "bom_lines",
          "routings", "operations", "operation_tools", "shift_assignments", "calendar_exceptions", "operators",
          "operator_skills", "locations", "suppliers", "item_suppliers", "purchase_docs", "purchase_lines",
-         "purchase_schedules", "demand_orders", "demand_lines", "work_orders", "wo_components")
+         "purchase_schedules", "demand_orders", "demand_lines", "work_orders", "wo_components",
+         "operation_line_rates", "setup_matrix", "operator_absences")
 DELETE_ORDER = ("operation_tools", "operations", "bom_lines", "line_items", "operator_skills", "wo_components",
                 "purchase_schedules", "purchase_lines", "demand_lines")
 #: document tables whose header row_version is bumped when an import touches them (4.5)

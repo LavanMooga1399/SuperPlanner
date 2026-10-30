@@ -379,7 +379,7 @@ def explosion(ctx: AppContext, item_id: str, *, on: date | None, serial: int | N
               include_scrap: bool, include_yield: bool, max_depth: int | None) -> Any:
     with read_tx(ctx) as s:
         if on is None:
-            on = plant_today(repo.plant_or_default(s).utc_offset)
+            on = plant_today(repo.plant_or_default(s))
         index = repo.load_bom_index_down(s, item_id, on, serial)
     try:
         return explode(index, item_id, qty=qty, mode=mode, include_scrap=include_scrap,  # type: ignore[arg-type]

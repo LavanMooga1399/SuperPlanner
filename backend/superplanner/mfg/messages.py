@@ -1,5 +1,5 @@
 """Health-check codes (M1-DESIGN 7.2): severity, plain-language message templates and fixes. Codes are stable;
-wording may improve. 47 health codes (M2 adds 44-47) (the 40 of 7.2 plus `MFG_ASSIGNMENT_UNKNOWN_SHIFT`, `MFG_OPERATOR_UNKNOWN_SHIFT`
+wording may improve. 49 health codes (M2 adds 44-47, M3 adds 48-49) (the 40 of 7.2 plus `MFG_ASSIGNMENT_UNKNOWN_SHIFT`, `MFG_OPERATOR_UNKNOWN_SHIFT`
 and `MFG_SERIAL_NOT_ALLOWED`, added by the M1 fix round); the release-only code `MFG_BOM_EMPTY` is listed last."""
 
 from __future__ import annotations
@@ -122,6 +122,11 @@ CODES: tuple[CodeInfo, ...] = (
        "can be planned or kitted.", "Add a stores location."),
     _C("MFG_PACK_FRACTIONAL", "warning", "item_supplier", "{pn} is counted in {uom} but supplier {sup} packs "
        "{pack} units per {unit}.", "Use a whole number of units per pack."),
+    # M3-DESIGN 3.2 (48-49)
+    _C("MFG_RATE_LINE_INELIGIBLE", "warning", "operation_line_rate", "A line rate of {pn} operation {seq} is for line "
+       "{line}, which is not eligible for {pn}.", "Delete the rate or make the line eligible for the item."),
+    _C("MFG_TZ_NOT_SET", "info", "plant", "The plant has no time zone, so schedules use the fixed offset {off} "
+       "(no daylight-saving changes).", "Set the plant time zone (for example Asia/Kolkata)."),
     # release-only codes (4.2)
     _C("MFG_BOM_EMPTY", "error", "bom", "BOM {doc} of {pn} has no lines.", "Add lines before releasing."),
 )

@@ -514,9 +514,10 @@ def main(argv: list[str] | None = None) -> int:
         configure_logging(settings, "worker")
         if args.kinds is not None:
             settings.worker_kinds = [k.strip() for k in args.kinds.split(",") if k.strip()]
-            bad = [k for k in settings.worker_kinds if k not in ("solver_run", "finance_run")]
+            bad = [k for k in settings.worker_kinds if k not in ("solver_run", "finance_run", "aps_run")]
             if bad or not settings.worker_kinds:
-                raise ConfigError(f"--kinds must be a comma list of solver_run,finance_run (got {args.kinds!r}).")
+                raise ConfigError("--kinds must be a comma list of solver_run,finance_run,aps_run "
+                                  f"(got {args.kinds!r}).")
         if settings.job_backend != "queue":
             raise ConfigError("the worker needs JOB_BACKEND=queue (JOB_BACKEND=inline runs jobs inside the API).")
         if args.concurrency is not None and args.concurrency < 1:

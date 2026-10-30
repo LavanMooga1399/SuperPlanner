@@ -23,6 +23,16 @@ export const EXCEPTION_LABEL: Record<string, string> = {
   MRP_RESERVATION_EXCESS: "Reserved more than needed",
   MRP_WO_COMPONENT_CYCLE: "Component loop",
   MRP_DEMAND_OUTSIDE_HORIZON: "Demand beyond the horizon",
+  APS_ORDER_LATE: "Order late",
+  APS_MATERIAL_MISSING: "Material missing",
+  APS_BEYOND_HORIZON: "Beyond the horizon",
+  APS_OVERTIME_SUGGESTED: "Overtime suggested",
+  APS_OVERTIME_LIMIT: "Weekly overtime limit reached",
+  APS_NO_CREW: "Waited for operators",
+  APS_PAST_OP_NOT_DONE: "Past operation not marked done",
+  APS_FROZEN_DROPPED: "Frozen operation dropped",
+  APS_SPLIT: "Operation split",
+  APS_BUDGET_CUT: "Improvement time cut short",
 };
 
 export const exceptionLabel = (code: string) => EXCEPTION_LABEL[code] ?? code.replace(/^MRP_/, "").replace(/_/g, " ").toLowerCase();

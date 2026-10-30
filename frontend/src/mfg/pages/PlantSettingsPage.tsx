@@ -4,11 +4,13 @@ import { Icon } from "../../components/Icon";
 import { getPlant, updatePlant } from "../api/client";
 import { WEEKDAYS, type PlantInput, type PlantRecord, type Weekday } from "../api/types";
 import type { PlantM2Fields } from "../api/typesM2";
+import { OVERTIME_POLICIES, type OvertimePolicy, type PlantM3Fields } from "../api/typesM3";
+import { POLICY_TEXT } from "./schedule/ApsRunForm";
 import { WEEKDAY_LABEL } from "../lib/format";
 import { ConflictBanner, MfgError, SaveState, Spinner } from "../components/Feedback";
 import { Field, numOr, TextField } from "../components/Field";
 import { PermissionGate } from "../components/PermissionGate";
-import { isConflict, usePlant } from "../lib/useMfg";
+import { isConflict, useMeta, usePlant } from "../lib/useMfg";
 
 const OFFSET = /^[+-](0\d|1[0-4]):[0-5]\d$/;
 
@@ -25,7 +27,20 @@ export function PlantSettingsPage() {
     deferTol: "7",
     releaseWindow: "7",
     overReceipt: "0",
+    timeZone: "",
+    freeze: "48",
+    apsHorizon: "42",
+    policy: "suggest" as OvertimePolicy,
   });
+  const meta = useMeta() as (ReturnType<typeof useMeta> & { time_zones?: string[] }) | null;
+  const zones = (() => {
+    if (meta?.time_zones?.length) return meta.time_zones;
+    try {
+      return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") ?? [];
+    } catch {
+      return [];
+    }
+  })();
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -33,7 +48,7 @@ export function PlantSettingsPage() {
 
   const reset = (p: PlantRecord) => {
     setBase(p);
-    const x = p as PlantRecord & PlantM2Fields;
+    const x = p as PlantRecord & PlantM2Fields & PlantM3Fields;
     setF({
       name: p.name,
       utc_offset: p.utc_offset,
@@ -44,6 +59,10 @@ export function PlantSettingsPage() {
       deferTol: String(x.mrp_defer_tolerance_days ?? 7),
       releaseWindow: String(x.mrp_release_window_days ?? 7),
       overReceipt: String(x.over_receipt_pct ?? 0),
+      timeZone: x.time_zone ?? "",
+      freeze: String(x.aps_freeze_hours ?? 48),
+      apsHorizon: String(x.aps_horizon_days ?? 42),
+      policy: x.aps_overtime_policy ?? "suggest",
     });
     setConflict(false);
   };
@@ -66,7 +85,13 @@ export function PlantSettingsPage() {
         over_receipt_pct: numOr(f.overReceipt, 0),
       }
     : {};
-  const body: PlantInput & PlantM2Fields = {
+  // M3 3.1: time zone and schedule defaults, only when the server knows them
+  const m3 = "aps_overtime_policy" in base;
+  const m3Body: PlantM3Fields = m3
+    ? { time_zone: f.timeZone.trim() || null, aps_freeze_hours: numOr(f.freeze, 48), aps_horizon_days: numOr(f.apsHorizon, 42), aps_overtime_policy: f.policy }
+    : {};
+  const body: PlantInput & PlantM2Fields & PlantM3Fields = {
+    ...m3Body,
     name: f.name.trim() || "Plant",
     utc_offset: f.utc_offset.trim(),
     planning_horizon_days: numOr(f.horizon, 90),
@@ -86,7 +111,9 @@ export function PlantSettingsPage() {
       !inRange(f.deferTol, 0, 90) ||
       !inRange(f.releaseWindow, 0, 90) ||
       !inRange(f.overReceipt, 0, 100, false));
-  const invalid = !OFFSET.test(f.utc_offset.trim()) || !(horizon >= 7 && horizon <= 730) || m2Invalid;
+  const tzBad = m3 && f.timeZone.trim() !== "" && zones.length > 0 && !zones.includes(f.timeZone.trim());
+  const m3Invalid = m3 && (tzBad || !inRange(f.freeze, 0, 336) || !inRange(f.apsHorizon, 7, 120));
+  const invalid = (!m3 || !f.timeZone.trim() ? !OFFSET.test(f.utc_offset.trim()) : false) || !(horizon >= 7 && horizon <= 730) || m2Invalid || m3Invalid;
 
   const save = async () => {
     setBusy(true);
@@ -124,6 +151,7 @@ export function PlantSettingsPage() {
         <div className="form-grid">
           <TextField
             label="Time zone offset"
+            disabled={m3 && Boolean(f.timeZone.trim())}
             value={f.utc_offset}
             onChange={(v) => setF({ ...f, utc_offset: v })}
             placeholder="+05:30"
@@ -133,6 +161,45 @@ export function PlantSettingsPage() {
           <TextField label="Planning horizon (days)" type="number" value={f.horizon} onChange={(v) => setF({ ...f, horizon: v })} hint="7 to 730; used by the data-health check." testId="plant-horizon" />
           <TextField label="Currency" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} hint="Shown with costs, e.g. INR" />
         </div>
+        {m3 ? (
+          <fieldset className="mfg-fieldset" data-testid="plant-aps">
+            <legend>Time zone and production schedule</legend>
+            <div className="form-grid">
+              <div className="field">
+                <label htmlFor="plant-tz">Time zone</label>
+                <input
+                  id="plant-tz"
+                  className="input"
+                  list="plant-tz-list"
+                  value={f.timeZone}
+                  onChange={(e) => setF({ ...f, timeZone: e.target.value })}
+                  placeholder="e.g. Asia/Kolkata"
+                  aria-invalid={tzBad}
+                  data-testid="tz-select"
+                />
+                <datalist id="plant-tz-list">
+                  {zones.map((z) => (
+                    <option key={z} value={z} />
+                  ))}
+                </datalist>
+                <span className="hint">{tzBad ? "Choose a zone from the list." : "With a zone, daylight saving is handled and the offset above is only shown. Empty = use the fixed offset."}</span>
+              </div>
+              <TextField label="Freeze window (hours)" type="number" value={f.freeze} onChange={(v) => setF({ ...f, freeze: v })} hint="0 to 336. Published operations starting this soon stay where they are." testId="plant-aps-freeze" />
+              <TextField label="Schedule horizon (days)" type="number" value={f.apsHorizon} onChange={(v) => setF({ ...f, apsHorizon: v })} hint="7 to 120; default of new schedule runs." testId="plant-aps-horizon" />
+              <div className="field">
+                <label htmlFor="plant-aps-policy">Overtime in new schedules</label>
+                <select id="plant-aps-policy" className="select" value={f.policy} onChange={(e) => setF({ ...f, policy: e.target.value as OvertimePolicy })} data-testid="plant-aps-policy">
+                  {OVERTIME_POLICIES.map((p) => (
+                    <option key={p} value={p}>
+                      {POLICY_TEXT[p].label}
+                    </option>
+                  ))}
+                </select>
+                <span className="hint">{POLICY_TEXT[f.policy].help}</span>
+              </div>
+            </div>
+          </fieldset>
+        ) : null}
         {m2 ? (
           <fieldset className="mfg-fieldset" data-testid="plant-mrp">
             <legend>Material planning (MRP)</legend>

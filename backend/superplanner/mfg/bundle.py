@@ -78,8 +78,8 @@ _DOC_EFF = (_c("effective_from", "date"), _c("effective_to", "date"), _c("serial
             _c("serial_to", "int"), _c("note"), _c("status", enum=_STATUS))
 
 SHEETS: tuple[SheetSpec, ...] = (
-    SheetSpec("plant", (_c("name"), _c("utc_offset"), _c("planning_horizon_days", "int"), _c("currency")),
-              max_rows=1),
+    SheetSpec("plant", (_c("name"), _c("utc_offset"), _c("planning_horizon_days", "int"), _c("currency"),
+                        _c("time_zone")), max_rows=1),
     SheetSpec("items", (
         _c("part_number", req=True, key=True), _c("revision"), _c("description"), _c("uom", enum=UOM_CODES),
         _c("make_buy", req=True, enum=("make", "buy", "phantom")), _c("family"), _c("setup_family"),
@@ -180,11 +180,23 @@ SHEETS: tuple[SheetSpec, ...] = (
     SheetSpec("wo_components", (
         _c("wo_number", req=True, key=True), _c("part_number", req=True, key=True), _c("find_number", key=True),
         _c("required_qty", "float", req=True), _c("issued_qty", "float"), _c("operation_seq", "int"), _c("note"))),
+    # ------------------------------------------------------------ M3-DESIGN 3.2 (master; after the M2 sheets)
+    SheetSpec("operation_line_rates", (
+        _c("part_number", req=True, key=True), _c("revision", key=True), _c("code", key=True),
+        _c("version", "int", key=True), _c("seq", "int", req=True, key=True), _c("line_code", req=True, key=True),
+        _c("setup_minutes", "float"), _c("run_minutes", "float"), _c("note"))),
+    SheetSpec("setup_matrix", (
+        _c("line_setup_family", req=True, key=True), _c("from_family", req=True, key=True),
+        _c("to_family", req=True, key=True), _c("setup_minutes", "float", req=True))),
+    SheetSpec("operator_absences", (
+        _c("operator_code", req=True, key=True), _c("start", "datetime", req=True, key=True),
+        _c("end", "datetime", req=True), _c("kind", enum=("leave", "training", "sick", "other")), _c("note"))),
 )
 SHEET_NAMES: tuple[str, ...] = tuple(s.name for s in SHEETS)
 SHEETS_BY_NAME: dict[str, SheetSpec] = {s.name: s for s in SHEETS}
 #: M2-DESIGN 11: sheet kind -> permission(s) checked on import commit
 M2_MASTER_SHEETS: tuple[str, ...] = ("locations", "suppliers", "item_suppliers")
+M3_MASTER_SHEETS: tuple[str, ...] = ("operation_line_rates", "setup_matrix", "operator_absences")
 TXN_SHEETS: tuple[str, ...] = ("stock", "purchase_docs", "purchase_lines", "purchase_schedules", "demand_orders",
                                "demand_lines", "work_orders", "wo_components")
 MASTER_SHEETS: tuple[str, ...] = tuple(n for n in SHEET_NAMES if n not in TXN_SHEETS)
@@ -318,13 +330,13 @@ def dataset_to_bundle(ds: MfgDataset, scope: Literal["all", "master", "transacti
         return transactions_to_bundle(ds)
     items = ds.items
     pn = {i: it.part_number for i, it in items.items()}
-    from .calendar import offset_tz
+    from .tz import plant_tz
 
-    tz = offset_tz(ds.plant.utc_offset)
+    tz = plant_tz(ds.plant)
     p = ds.plant
     out: MfgBundle = {name: [] for name in MASTER_SHEETS}
     out["plant"] = [{"name": p.name, "utc_offset": p.utc_offset, "planning_horizon_days": p.planning_horizon_days,
-                     "currency": p.currency}]
+                     "currency": p.currency, "time_zone": getattr(p, "time_zone", None)}]
     for it in sorted(items.values(), key=lambda x: x.part_number):
         row = {"part_number": it.part_number, "revision": it.revision, "description": it.description,
                "uom": it.uom, "make_buy": it.make_buy, "family": it.family, "setup_family": it.setup_family,
@@ -441,6 +453,7 @@ def dataset_to_bundle(ds: MfgDataset, scope: Literal["all", "master", "transacti
                     "active": r.active, "note": r.note})
     isu.sort(key=lambda r: (r["part_number"] or "", r["supplier_code"] or ""))
     out["item_suppliers"] = isu
+    _m3_master_out(ds, out, pn, tz)
     if scope == "all":
         out.update(transactions_to_bundle(ds))
         out = {name: out[name] for name in SHEET_NAMES}
@@ -568,7 +581,11 @@ def bundle_to_dataset(bundle: MfgBundle) -> MfgDataset:
         pin = PlantInput()
     plant = PlantRecord.model_construct(**pin.__dict__, id=deterministic_id("plt_", "plant"), row_version=1,
                                         created_at=BUNDLE_EPOCH, updated_at=BUNDLE_EPOCH, data_version=0)
-    tz = offset_tz(plant.utc_offset)
+    from .tz import plant_tz, valid_zone
+
+    if plant.time_zone is not None and not valid_zone(plant.time_zone):
+        cx.err("plant", 1, f"time_zone {plant.time_zone!r} is not an IANA time zone")
+    tz = plant_tz(plant)
     ds = MfgDataset(plant=plant)
 
     def keyed(sheet: str, n: int, seen: dict[Any, int], key: Any) -> bool:
@@ -776,6 +793,7 @@ def bundle_to_dataset(bundle: MfgBundle) -> MfgDataset:
 
     _documents(rows, ds, by_pn, groups, skills, pools, cx, stamp)
     _m2_master(rows, ds, by_pn, cx, stamp)
+    _m3_master(rows, ds, by_pn, cx, stamp, tz)
     if not cx.errors:
         link(ds)
         _m2_transactions(rows, ds, by_pn, cx)
@@ -944,6 +962,129 @@ def bundle_counts(bundle: MfgBundle) -> dict[str, int]:
 
 
 # ---------------------------------------------------------------- M2 sheets (strict)
+
+
+# ---------------------------------------------------------------- M3 master sheets (M3-DESIGN 3.2)
+
+def _routing_key_index(ds: MfgDataset, pn: dict[str, str]) -> dict[tuple[str, str, str, int], Any]:
+    return {(pn.get(r.item_id, ""), r.revision, r.code, r.version): r for r in ds.routings.values()}
+
+
+def _m3_master_out(ds: MfgDataset, out: MfgBundle, pn: dict[str, str], tz: Any) -> None:
+    ops = {}
+    for r in ds.routings.values():
+        for op in r.operations:
+            ops[op.id] = (r, op)
+    lcode = {x.id: x.code for x in ds.lines.values()}
+    rates = []
+    for x in ds.operation_line_rates.values():
+        ro = ops.get(x.operation_id)
+        if ro is None:
+            continue
+        r, op = ro
+        rates.append({"part_number": pn.get(r.item_id), "revision": r.revision, "code": r.code, "version": r.version,
+                      "seq": op.seq, "line_code": lcode.get(x.line_id), "setup_minutes": _f(x.setup_minutes),
+                      "run_minutes": _f(x.run_minutes), "note": x.note})
+    rates.sort(key=lambda d: (d["part_number"] or "", d["revision"], d["code"], d["version"], d["seq"],
+                              d["line_code"] or ""))
+    out["operation_line_rates"] = rates
+    out["setup_matrix"] = sorted(({"line_setup_family": x.line_setup_family, "from_family": x.from_family,
+                                   "to_family": x.to_family, "setup_minutes": float(x.setup_minutes)}
+                                  for x in ds.setup_matrix.values()),
+                                 key=lambda d: (d["line_setup_family"], d["from_family"], d["to_family"]))
+    ocode = {x.id: x.code for x in ds.operators.values()}
+    out["operator_absences"] = sorted(({"operator_code": ocode.get(x.operator_id), "start": x.start.astimezone(tz),
+                                        "end": x.end.astimezone(tz), "kind": x.kind, "note": x.note}
+                                       for x in ds.operator_absences.values()),
+                                      key=lambda d: (d["operator_code"] or "", d["start"]))
+
+
+def _m3_master(rows: dict[str, list[dict[str, Any]]], ds: MfgDataset, by_pn: dict[str, ItemRecord], cx: _Ctx,
+               stamp: dict[str, Any], tz: Any) -> None:
+    from .model_m3 import (OperationLineRateInput, OperationLineRateRecord, OperatorAbsenceInput,
+                           OperatorAbsenceRecord, SetupMatrixRowInput, SetupMatrixRowRecord)
+
+    pn = {i: it.part_number for i, it in ds.items.items()}
+    rindex = _routing_key_index(ds, pn)
+    lines = {x.code: x for x in ds.lines.values()}
+    seen: dict[Any, int] = {}
+    for n, r in enumerate(rows["operation_line_rates"], 1):
+        d = _clean(r, SHEETS_BY_NAME["operation_line_rates"])
+        part = str(d.pop("part_number", "") or "").strip()
+        it = by_pn.get(part)
+        if it is None:
+            cx.err("operation_line_rates", n, f"unknown part number {part!r}")
+            continue
+        rev, code = d.pop("revision", None) or it.revision, d.pop("code", None) or "STD"
+        ver = d.pop("version", None)
+        cands = [k for k in rindex if k[:3] == (part, rev, code) and (ver is None or k[3] == ver)]
+        seq, lc = d.pop("seq", None), str(d.pop("line_code", "") or "").strip()
+        rt = rindex[max(cands, key=lambda k: k[3])] if cands else None
+        op = next((o for o in rt.operations if o.seq == seq), None) if rt else None
+        line = lines.get(lc)
+        if op is None or line is None:
+            cx.err("operation_line_rates", n, f"unknown {'operation' if op is None else 'line'} "
+                   f"{(part, rev, code, ver, seq) if op is None else lc!r}")
+            continue
+        if line.group_id != op.group_id:
+            cx.err("operation_line_rates", n, f"line {lc} is not in the operation's group")
+            continue
+        d.update(operation_id=op.id, line_id=line.id)
+        try:
+            inp = OperationLineRateInput.model_validate(d)
+        except ValidationError as exc:
+            cx.err("operation_line_rates", n, _pyd_msg(exc))
+            continue
+        key = (op.id, line.id)
+        if key in seen:
+            cx.err("operation_line_rates", n, f"duplicate key (also row {seen[key]})")
+            continue
+        seen[key] = n
+        rec = OperationLineRateRecord.model_construct(**inp.__dict__, id=deterministic_id("olr_", *key), **stamp,
+                                                      line=None, routing_id=rt.id, item_id=it.id, seq=op.seq)
+        ds.operation_line_rates[rec.id] = rec
+    seen = {}
+    for n, r in enumerate(rows["setup_matrix"], 1):
+        try:
+            inp2 = SetupMatrixRowInput.model_validate(_clean(r, SHEETS_BY_NAME["setup_matrix"]))
+        except ValidationError as exc:
+            cx.err("setup_matrix", n, _pyd_msg(exc))
+            continue
+        key2 = (inp2.line_setup_family, inp2.from_family, inp2.to_family)
+        if key2 in seen:
+            cx.err("setup_matrix", n, f"duplicate key {key2!r} (also row {seen[key2]})")
+            continue
+        seen[key2] = n
+        rec2 = SetupMatrixRowRecord.model_construct(**inp2.__dict__, id=deterministic_id("stm_", *key2), **stamp,
+                                                    line_count=0)
+        ds.setup_matrix[rec2.id] = rec2
+    ops_by_code = {x.code: x for x in ds.operators.values()}
+    seen = {}
+    for n, r in enumerate(rows["operator_absences"], 1):
+        d = _clean(r, SHEETS_BY_NAME["operator_absences"])
+        oc = str(d.pop("operator_code", "") or "").strip()
+        o = ops_by_code.get(oc)
+        if o is None:
+            cx.err("operator_absences", n, f"unknown operator {oc!r}")
+            continue
+        try:
+            d["start"] = _as_datetime(d["start"], tz).astimezone(tz)
+            d["end"] = _as_datetime(d["end"], tz, end=True).astimezone(tz)
+            d["operator_id"] = o.id
+            if d.get("kind") is None:
+                d.pop("kind", None)
+            inp3 = OperatorAbsenceInput.model_validate(d)
+        except (ValidationError, ValueError, TypeError, KeyError) as exc:
+            cx.err("operator_absences", n, _pyd_msg(exc) if isinstance(exc, ValidationError) else str(exc))
+            continue
+        key3 = (oc, inp3.start.astimezone(UTC).isoformat())
+        if key3 in seen:
+            cx.err("operator_absences", n, f"duplicate key {key3!r} (also row {seen[key3]})")
+            continue
+        seen[key3] = n
+        rec3 = OperatorAbsenceRecord.model_construct(**inp3.__dict__, id=deterministic_id("oab_", *key3), **stamp,
+                                                     operator=None)
+        ds.operator_absences[rec3.id] = rec3
 
 
 def _m2_master(rows: dict[str, list[dict[str, Any]]], ds: MfgDataset, by_pn: dict[str, ItemRecord], cx: _Ctx,

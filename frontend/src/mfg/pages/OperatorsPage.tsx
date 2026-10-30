@@ -1,5 +1,6 @@
 /** `/mfg/resources/operators` (`?operator=`, M 11.1): operators with skills, shift template + shift names, home stage. */
 import { useEffect, useMemo, useState } from "react";
+import { OperatorAbsences } from "../components/OperatorAbsences";
 import { useSearchParams } from "react-router";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Icon } from "../../components/Icon";
@@ -110,6 +111,7 @@ export function OperatorsPage() {
         ) : (
           <div className="card card-body muted">Select an operator, or add a new one.</div>
         )}
+        {!creating && opParam ? <OperatorAbsences key={`abs-${opParam}`} operatorId={opParam} /> : null}
       </aside>
     </div>
   );

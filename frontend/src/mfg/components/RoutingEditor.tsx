@@ -3,6 +3,7 @@
  * edit, add/remove; reordering renumbers 10, 20, ... and warns when BOM lines reference operation numbers.
  * Advanced fields of an operation open in a detail row ("More").
  */
+import { LineRates } from "./LineRates";
 import { Fragment, useEffect, useRef, useState, type DragEvent } from "react";
 import { Icon } from "../../components/Icon";
 import type { GroupRecord, Labor, OperationRecord, RunPer, SkillRecord, ToolPoolRecord } from "../api/types";
@@ -489,6 +490,7 @@ function OpDetails({
           </div>
         )}
       </fieldset>
+      <LineRates operationId={o.id} groupId={o.group_id} readOnly={readOnly} />
     </div>
   );
 }

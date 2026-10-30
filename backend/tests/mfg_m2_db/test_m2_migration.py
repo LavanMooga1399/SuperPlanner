@@ -50,7 +50,7 @@ def _diffs(url: str) -> list:
 
 
 def test_head_and_table_lists():
-    assert migrate.HEAD == "0004_mfg_m2"
+    assert migrate.HEAD == "0005_mfg_m3"   # M3 on top (M3-DESIGN 10)
     assert len(M2_TABLES) == 22 and len(M2_MODELS) == 21 and len(MFG_ACCESS_MODELS) == 1
     assert [m.__tablename__ for m in ALL_MFG_MODELS][-21:] == [
         "mfg_locations", "mfg_suppliers", "mfg_item_suppliers", "mfg_lots", "mfg_purchase_docs", "mfg_purchase_lines",
@@ -78,9 +78,8 @@ def test_upgrade_from_0003_keeps_data_and_downgrade_removes_exactly_m2(empty_pg_
     finally:
         eng.dispose()
     t3 = _tables(url)
-    migrate.run_alembic_upgrade(url)
+    migrate.run_alembic_upgrade(url, "0004_mfg_m2")             # M3 (0005) adds more on top: see tests/api_mfg_m3
     assert _tables(url) - t3 == set(M2_TABLES)
-    assert _diffs(url) == []
     eng = sa.create_engine(url)
     try:
         with eng.connect() as c:

@@ -17,6 +17,7 @@ export function PlantLayout() {
           { to: mfgPaths.groups(), label: "Stages & lines", testId: "plant-tab-groups" },
           { to: mfgPaths.shifts(), label: "Shifts", testId: "plant-tab-shifts" },
           { to: mfgPaths.calendar(), label: "Calendar", testId: "plant-tab-calendar" },
+          { to: mfgPaths.setups(), label: "Changeovers", testId: "plant-tab-setups" },
           { to: mfgPaths.settings(), label: "Settings", testId: "plant-tab-settings" },
         ]}
       />

@@ -49,6 +49,11 @@ class MfgPlantRow(OwnedMixin, _Editable, Base):
     mrp_defer_tolerance_days: Mapped[int] = mapped_column(Integer)
     mrp_release_window_days: Mapped[int] = mapped_column(Integer)
     over_receipt_pct: Mapped[float] = mapped_column(Double)
+    # M3-DESIGN 3.1, 10
+    time_zone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    aps_freeze_hours: Mapped[int] = mapped_column(Integer)
+    aps_horizon_days: Mapped[int] = mapped_column(Integer)
+    aps_overtime_policy: Mapped[str] = mapped_column(String(8))
 
 
 class MfgItemRow(OwnedMixin, _Editable, Base):

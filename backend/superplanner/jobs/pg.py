@@ -20,7 +20,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from . import common
-from .types import NOTIFY_CHANNEL, TERMINAL_JOB_STATUSES, Lease, db_now
+from .types import NOTIFY_CHANNEL, RUN_ID_COLUMN, TERMINAL_JOB_STATUSES, Lease, db_now
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..api.context import AppContext
@@ -40,7 +40,7 @@ UPDATE jobs AS j
        lease_expires_at = now() + make_interval(secs => :lease_seconds), heartbeat_at = now(),
        started_at = COALESCE(j.started_at, now()), updated_at = now()
   FROM next WHERE j.id = next.id
-RETURNING j.id, j.kind, j.solver_run_id, j.finance_run_id, j.attempts, j.max_attempts, j.request_id, j.owner_id,
+RETURNING j.id, j.kind, j.solver_run_id, j.finance_run_id, j.aps_run_id, j.attempts, j.max_attempts, j.request_id, j.owner_id,
           EXTRACT(EPOCH FROM (now() - j.run_after)) AS queue_wait
 """)
 
@@ -54,7 +54,7 @@ RETURNING cancel_requested
 """)
 
 EXPIRED_SQL = text("""
-SELECT id, kind, solver_run_id, finance_run_id FROM jobs
+SELECT id, kind, solver_run_id, finance_run_id, aps_run_id FROM jobs
  WHERE status = 'running' AND lease_expires_at < now()
  ORDER BY lease_expires_at LIMIT 100
 """)
@@ -104,7 +104,7 @@ def claim(s: Session, kinds: list[str], worker_id: str, token: str, lease_second
                                 "lease_seconds": float(lease_seconds)}).first()
     if row is None:
         return None
-    run_id = row.solver_run_id if row.kind == "solver_run" else row.finance_run_id
+    run_id = getattr(row, RUN_ID_COLUMN[row.kind])
     return Claimed(row.id, row.kind, run_id, int(row.attempts), int(row.max_attempts), row.request_id, row.owner_id,
                    float(row.queue_wait or 0.0))
 
@@ -148,7 +148,7 @@ def reap_expired(ctx: Any) -> dict[str, int]:
             expired = s.execute(EXPIRED_SQL).all()
         for row in expired:
             kind = row.kind
-            run_id = row.solver_run_id if kind == "solver_run" else row.finance_run_id
+            run_id = getattr(row, RUN_ID_COLUMN[kind])
             try:
                 with ctx.write_guard(), ctx.db.write() as s:
                     run = common.lock_run(s, kind, run_id) if run_id else None
@@ -241,7 +241,8 @@ class PgQueue:
         while True:
             with system_scope(), self.ctx.db.read() as s:
                 job = s.execute(select(JobRow.status, JobRow.lease_token).where(
-                    or_(JobRow.solver_run_id == run_id, JobRow.finance_run_id == run_id))).first()
+                    or_(JobRow.solver_run_id == run_id, JobRow.finance_run_id == run_id,
+                        JobRow.aps_run_id == run_id))).first()
                 idle = job is None or job.status in TERMINAL_JOB_STATUSES or (job.status == "queued"
                                                                               and job.lease_token is None)
             if idle and (self.loop is None or not self.loop.holds_run(run_id)):

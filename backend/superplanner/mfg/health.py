@@ -65,6 +65,10 @@ def entity_label(ds: MfgDataset, type_: str, id_: str | None) -> str:
             op = next(o for o in r.operations if o.id == id_)
             return f"{_pn(ds, r.item_id)} {doc_label(r)} op {op.seq}"
         return id_ or ""
+    if type_ == "operation_line_rate":
+        x = ds.operation_line_rates.get(id_ or "")
+        ln = ds.lines.get(x.line_id) if x else None
+        return f"line rate {ln.code if ln else '?'}" if x else (id_ or "")
     if type_ == "item_supplier":
         r = ds.item_suppliers.get(id_ or "")
         if r is None:
@@ -115,6 +119,10 @@ def entity_link(ds: MfgDataset, type_: str, id_: str | None) -> str | None:
         return f"/mfg/items/{b.item_id}/bom?bom={b.id}&line={id_}"
     if type_ == "routing":
         return f"/mfg/items/{ds.routings[id_].item_id}/routing?routing={id_}"
+    if type_ == "operation_line_rate":
+        x = ds.operation_line_rates.get(id_)
+        rt = ds.operation_routing.get(x.operation_id) if x else None
+        return f"/mfg/items/{rt.item_id}/routing?routing={rt.id}&rate={id_}" if rt else None
     if type_ == "item_supplier":
         r = ds.item_suppliers.get(id_)
         return f"/mfg/purchasing/suppliers/{r.supplier_id}?item_supplier={id_}" if r else None
@@ -258,6 +266,7 @@ def run_health_check(ds: MfgDataset, as_of: date, horizon_days: int) -> HealthRe
     _unknown_shift_names(c)
     _serial_ranges(c)
     _m2_master(c, in_use)
+    _m3_master(c)
 
     issues = sort_issues(c.issues)
     counts = HealthCounts.model_construct(error=0, warning=0, info=0)
@@ -748,6 +757,27 @@ def _m2_master(c: _Check, in_use: set[str]) -> None:
                   uom=it.uom, sup=sp.code, pack=r.units_per_purchase_unit, unit=r.purchase_unit or "pack")
     if ds.locations and not any(x.active and x.kind in ("stores", "line_side") for x in ds.locations.values()):
         c.add("MFG_NO_NETTABLE_LOCATION", "plant", None, field="kind")
+
+
+def _m3_master(c: _Check) -> None:
+    """M3-DESIGN 3.2 #48-49. #49 (no time zone) applies once the plant uses M3 master data (rates, setup matrix,
+    absences), so M1/M2 datasets keep their exact issue sets (17.WP-S)."""
+    from .routing import line_eligible
+
+    ds = c.ds
+    ops = {op.id: (r, op) for r in ds.routings.values() for op in r.operations}
+    for x in sorted(ds.operation_line_rates.values(), key=lambda x: x.id):
+        ro = ops.get(x.operation_id)
+        ln = ds.lines.get(x.line_id)
+        it = ds.items.get(ro[0].item_id) if ro else None
+        if ro is None or ln is None or it is None:
+            continue
+        if not line_eligible(ln, it):
+            c.add("MFG_RATE_LINE_INELIGIBLE", "operation_line_rate", x.id, field="line_id", pn=it.part_number,
+                  seq=ro[1].seq, line=ln.code)
+    uses_m3 = bool(ds.operation_line_rates or ds.setup_matrix or ds.operator_absences)
+    if uses_m3 and not getattr(ds.plant, "time_zone", None):
+        c.add("MFG_TZ_NOT_SET", "plant", None, field="time_zone", off=ds.plant.utc_offset)
 
 
 __all__ = ["doc_label", "entity_label", "entity_link", "is_effective", "date_window_contains", "make_issue",

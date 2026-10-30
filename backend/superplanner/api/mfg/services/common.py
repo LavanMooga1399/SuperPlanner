@@ -148,8 +148,13 @@ def count(s: Session, model: Any, *where: Any) -> int:
     return int(s.execute(select(func.count()).select_from(model).where(*where)).scalar() or 0)
 
 
-def plant_today(utc_offset: str) -> date:
-    return datetime.now(offset_tz(utc_offset)).date()
+def plant_today(plant: Any) -> date:
+    """Local date in plant time (M3 5): a plant row/record (IANA zone or fixed offset) or an offset string."""
+    if isinstance(plant, str):
+        return datetime.now(offset_tz(plant)).date()
+    from ....mfg.tz import plant_today as _today
+
+    return _today(plant)
 
 
 def like_pattern(q: str) -> str:
