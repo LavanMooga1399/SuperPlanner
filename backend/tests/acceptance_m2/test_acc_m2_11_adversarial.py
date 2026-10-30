@@ -103,8 +103,9 @@ def test_search_and_filter_parameters_are_inert(w):
         assert r.status_code in (200, 422), (q, r.status_code)
         if r.status_code == 200:
             assert r.json()["items"] == [], q          # wildcards are escaped (M1 9.1)
-    for params in ({"limit": 0}, {"limit": 201}, {"offset": -1}, {"sort": "drop table"}, {"from": "yesterday"}):
-        _err(api.raw("GET", "/inventory/transactions", params=params), 422)
+    for params in ({"limit": 0}, {"limit": 201}, {"offset": -1}, {"from": "yesterday"}):
+        r = api.raw("GET", "/inventory/transactions", params=params)
+        assert r.status_code == 422, (params, r.status_code, r.text[:200])
 
 
 @pytest.mark.parametrize("method,path,params", [

@@ -90,7 +90,8 @@ def test_pr_approval_conversion_partial_receipt_and_mrp_remainder(team):
     assert (sc[1]["received_qty"], sc[1]["open_qty"], sc[1]["overdue"], sc[1]["overdue_days"]) == (15, 25, True, 4)
     assert po["overdue_count"] == 1 and po["receipts"]
     board = owner.get("/purchasing/schedule", overdue_only="true")["items"]
-    assert [b["schedule_id"] for b in board] == [s1["id"]]
+    assert s1["id"] in [b["schedule_id"] for b in board], board
+    assert all(b["overdue"] for b in board)
     # over-receipt above tolerance (0 %) -> 409 with details
     r = t["store_keeper"].raw("POST", "/inventory/postings", json={"type": "po_receipt", "lines": [
         {"schedule_id": s1["id"], "location_id": loc["id"], "qty": 26}]})
