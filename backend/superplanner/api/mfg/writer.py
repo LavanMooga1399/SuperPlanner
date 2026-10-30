@@ -93,6 +93,9 @@ def apply(s: Session, plan: ImportPlan, plant: MfgPlantRow, now: datetime | None
         dels = [c for c in by_table.get(table, []) if c.action == "delete"]
         if not dels:
             continue
+        if table == "wo_components":  # reservations are released first (balances' qty_reserved; FK RESTRICT)
+            from .services.inventory import release_reservations
+            release_reservations(s, [c.id for c in dels], now)
         model = TABLES[table]
         if table in LINKS:
             a, b = LINKS[table]

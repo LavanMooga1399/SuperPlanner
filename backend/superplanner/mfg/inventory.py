@@ -176,6 +176,7 @@ class TxnPlan:
     wo_component_id: str | None = None
     demand_line_id: str | None = None
     set_last_receipt: date | None = None     # value for last_receipt_on (receipts / transfer in)
+    scrap_qty: float | None = None           # wo_receipt: scrap recorded with the line (signed on reversals)
 
     @property
     def key(self) -> BalKey:
@@ -363,6 +364,21 @@ class _Planner:
             self.plan.reservation_qty[r.id] = round(max(0.0, r.qty), 6)
             if rest <= EPS:
                 break
+
+    def trim_reservations(self, component_id: str, open_qty: float) -> None:
+        """m5 / 4.4: a component's reservations never exceed its open qty (required - issued); the excess is
+        released newest first (the reservations' balances are in the posting's lock set)."""
+        rs = [r for r in self.res.values() if r.wo_component_id == component_id and r.qty > EPS]
+        excess = sum(r.qty for r in rs) - max(0.0, open_qty)
+        for r in sorted(rs, key=lambda r: (r.order, r.id), reverse=True):
+            if excess <= EPS:
+                break
+            take = min(r.qty, excess)
+            r.qty -= take
+            if r.balance_key in self.bal:
+                self.bal[r.balance_key].qty_reserved -= take
+            excess -= take
+            self.plan.reservation_qty[r.id] = round(max(0.0, r.qty), 6)
 
     def release_reservations(self, comp_ids: set[str]) -> None:
         for r in self.res.values():
@@ -557,6 +573,7 @@ class _Planner:
         self.issued[c.id] += ln.qty
         self.plan.component_issued[c.id] = round(self.plan.component_issued.get(c.id, 0.0) + ln.qty, 6)
         self.plan.wo_touched.add(w.id)
+        self.trim_reservations(c.id, c.required_qty - self.issued[c.id])
 
     def _wo_return(self, i: int, ln: Any) -> None:
         c, w = self._component(i, ln.wo_component_id, "return")
@@ -589,7 +606,7 @@ class _Planner:
         if ln.qty > EPS:
             self.ensure_lot(it, ln.lot_code, ln.expires_on, "")
         self.inbound(i + 1, "wo_receipt", it, lc, ln.lot_code, ln.qty, self.d, unit_cost=it.standard_cost,
-                     wo_id=w.id)
+                     wo_id=w.id, scrap_qty=round(ln.scrap_qty, 6) if ln.scrap_qty > EPS else None)
         self.completed[w.id] += ln.qty
         self.plan.wo_completed[w.id] = round(self.plan.wo_completed.get(w.id, 0.0) + ln.qty, 6)
         if ln.scrap_qty > EPS:
@@ -676,6 +693,7 @@ class OrigTxn:
     wo_id: str | None = None
     wo_component_id: str | None = None
     demand_line_id: str | None = None
+    scrap_qty: float | None = None
 
 
 def plan_reversal(ptype: str, original: Iterable[OrigTxn], ctx: PostingContext, txn_date: date) -> PostingPlan:
@@ -696,7 +714,8 @@ def plan_reversal(ptype: str, original: Iterable[OrigTxn], ctx: PostingContext, 
         else:
             p.balance(key).qty_on_hand += q
         p.plan.transactions.append(TxnPlan(o.line_no, o.txn_type, o.item_id, o.location_id, o.lot_code, round(q, 6),
-                                           o.unit_cost, o.schedule_id, o.wo_id, o.wo_component_id, o.demand_line_id))
+                                           o.unit_cost, o.schedule_id, o.wo_id, o.wo_component_id, o.demand_line_id,
+                                           scrap_qty=-o.scrap_qty if o.scrap_qty else None))
         if o.txn_type == "po_receipt" and o.schedule_id:
             p.plan.schedule_received[o.schedule_id] = round(p.plan.schedule_received.get(o.schedule_id, 0) + q, 6)
         elif o.txn_type in ("wo_issue", "wo_return") and o.wo_component_id:
@@ -706,6 +725,8 @@ def plan_reversal(ptype: str, original: Iterable[OrigTxn], ctx: PostingContext, 
                 p.plan.wo_touched.add(o.wo_id)
         elif o.txn_type == "wo_receipt" and o.wo_id:
             p.plan.wo_completed[o.wo_id] = round(p.plan.wo_completed.get(o.wo_id, 0) + q, 6)
+            if o.scrap_qty:
+                p.plan.wo_scrapped[o.wo_id] = round(p.plan.wo_scrapped.get(o.wo_id, 0) - o.scrap_qty, 6)
             p.plan.wo_touched.add(o.wo_id)
         elif o.txn_type == "ship" and o.demand_line_id:
             p.plan.demand_shipped[o.demand_line_id] = round(p.plan.demand_shipped.get(o.demand_line_id, 0) - q, 6)

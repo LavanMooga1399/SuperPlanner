@@ -198,9 +198,8 @@ def new_wo(s: Session, ds: Any, inp: WorkOrderInput, *, source: str = "manual", 
                        {"loc": ["body", "qty"]})
     if inp.external_ref is not None:
         ensure_unique(s, MfgWorkOrderRow, "A work order", {"external_ref": inp.external_ref})
-    if inp.demand_line_id is not None and s.execute(select(MfgDemandLineRow.id).where(
-            MfgDemandLineRow.id == inp.demand_line_id)).first() is None:
-        raise unknown_ref(["body", "demand_line_id"], inp.demand_line_id, "Demand line")
+    if inp.demand_line_id is not None:
+        _check_demand_line(s, inp.demand_line_id)
     d = today(s)
     start = inp.start_date or WOR.default_start_date(ds, it.id, inp.qty, inp.due_date, calendar(ds),
                                                       on=max(inp.due_date, d), serial=inp.serial_from)
@@ -256,6 +255,29 @@ def create_wo(ctx: AppContext, inp: WorkOrderInput) -> dict[str, Any]:
     return run_tx(ctx, fn)
 
 
+def _check_demand_line(s: Session, demand_line_id: str) -> None:
+    """Owned lookup (central ownership filter): another workspace's line is unknown here."""
+    if s.execute(select(MfgDemandLineRow.id).where(MfgDemandLineRow.id == demand_line_id)).first() is None:
+        raise unknown_ref(["body", "demand_line_id"], demand_line_id, "Demand line")
+
+
+def _check_component_items(s: Session, comps: list[Any], old: dict[str, Any]) -> None:
+    """A component's item cannot change once it has issues, transactions or reservations (they belong to the old
+    item's stock)."""
+    for i, ci in enumerate(comps):
+        c = old.get(ci.id) if ci.id else None
+        if c is None or ci.item_id == c.item_id:
+            continue
+        used = c.issued_qty > EPS or s.execute(select(MfgInvTransactionRow.id).where(
+            MfgInvTransactionRow.wo_component_id == c.id).limit(1)).first() is not None or s.execute(
+            select(MfgInvReservationRow.id).where(MfgInvReservationRow.wo_component_id == c.id).limit(1)
+            ).first() is not None
+        if used:
+            raise ApiError(422, "WO_COMPONENT_IN_USE", "The item of a component with issues, transactions or "
+                           "reservations cannot change; unreserve it, or add a new component instead.",
+                           {"loc": ["body", "components", i, "item_id"], "component_id": c.id})
+
+
 def _has_txn(s: Session, wo_id: str) -> bool:
     return s.execute(select(MfgInvTransactionRow.id).where(MfgInvTransactionRow.wo_id == wo_id).limit(1)).first() \
         is not None
@@ -280,6 +302,10 @@ def update_wo(ctx: AppContext, wo_id: str, inp: WorkOrderInput, if_match: str | 
             raise rule_error(e) from None
         it = _check_item(s, inp.item_id)
         _check_serial(it, inp)
+        if inp.demand_line_id is not None and inp.demand_line_id != w.demand_line_id:
+            _check_demand_line(s, inp.demand_line_id)
+        if inp.components is not None:
+            _check_component_items(s, inp.components, old)
         if inp.number is not None and inp.number != w.number:
             ensure_unique(s, MfgWorkOrderRow, "A work order", {"number": inp.number}, exclude_id=w.id)
             w.number = inp.number
@@ -337,11 +363,13 @@ def update_wo(ctx: AppContext, wo_id: str, inp: WorkOrderInput, if_match: str | 
 
 
 def _trim_reservations(s: Session, wo_id: str, now: Any) -> None:
-    """A reservation never exceeds its component's open qty (4.4): excess is released."""
+    """A reservation never exceeds its component's open qty (4.4): excess is released. Balances are locked first,
+    then the reservations re-read `FOR UPDATE` (M3: no stale qty against a concurrent posting)."""
     comps = {c.id: c for c in s.execute(select(MfgWoComponentRow).where(MfgWoComponentRow.wo_id == wo_id)).scalars()}
-    res = list(s.execute(select(MfgInvReservationRow).where(MfgInvReservationRow.wo_component_id.in_(sorted(comps)))
-                         .order_by(MfgInvReservationRow.created_at.desc(), MfgInvReservationRow.id)).scalars()) \
-        if comps else []
+    if not comps:
+        return
+    bals, res = repo_m2.lock_reservations_of(s, comps)
+    res.sort(key=lambda r: (-as_utc(r.created_at).timestamp(), r.id))
     by_comp: dict[str, list[MfgInvReservationRow]] = {}
     for r in res:
         by_comp.setdefault(r.wo_component_id, []).append(r)
@@ -352,8 +380,7 @@ def _trim_reservations(s: Session, wo_id: str, now: Any) -> None:
             if excess <= EPS:
                 break
             take = min(r.qty, excess)
-            b = s.execute(select(MfgInvBalanceRow).where(MfgInvBalanceRow.id == r.balance_id).with_for_update()
-                          .execution_options(populate_existing=True)).scalars().one()
+            b = bals[r.balance_id]
             b.qty_reserved = round(max(0.0, b.qty_reserved - take), 6)
             b.updated_at = now
             excess -= take

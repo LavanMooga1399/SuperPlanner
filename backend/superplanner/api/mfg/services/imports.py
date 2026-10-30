@@ -211,6 +211,37 @@ SHEET_PERMISSION = {**{n: "master_edit" for n in MASTER_SHEETS}, "suppliers": "s
                     "demand_lines": "demand_edit", "work_orders": "wo_edit", "wo_components": "wo_edit"}
 
 
+def _approved_pr(r: dict[str, Any]) -> bool:
+    return str(r.get("doc_type") or "").strip() == "pr" and str(r.get("status") or "").strip() in ("approved",
+                                                                                                    "ordered")
+
+
+def _check_pr_self_approval(s: Session, bundle: dict[str, Any], perms: frozenset[str] | None) -> None:
+    """m3 / 10.2: importing a PR as approved/ordered approves it; a member cannot approve a PR they requested
+    (new PR: the importer is the requester; existing PR: its `submitted_by`). The workspace owner may."""
+    from ....mfg import purchasing as PUR
+    from ....mfg.purchasing import RuleError
+    from ..db_models_m2 import MfgPurchaseDocRow
+    from .m2util import actor_id, is_workspace_owner, rule_error
+
+    if perms is None:
+        return
+    numbers = sorted({str(r.get("number") or "").strip() for r in bundle.get("purchase_docs") or []
+                      if _approved_pr(r)})
+    if not numbers:
+        return
+    actor, owner = actor_id(), is_workspace_owner()
+    existing = {n: sb for n, sb in s.execute(select(MfgPurchaseDocRow.number, MfgPurchaseDocRow.submitted_by).where(
+        MfgPurchaseDocRow.doc_type == "pr", MfgPurchaseDocRow.number.in_(numbers))).all()}
+    for n in numbers:
+        try:
+            PUR.check_self_approval(existing[n] if n in existing else actor, actor, owner)
+        except RuleError as e:
+            err = rule_error(e)
+            err.details = {**(err.details or {}), "number": n, "sheet": "purchase_docs"}
+            raise err from None
+
+
 def _check_sheet_permissions(bundle: dict[str, Any], perms: frozenset[str] | None) -> None:
     """M2-DESIGN 10.2: commit needs the permission of every sheet kind present (403 `MFG_FORBIDDEN`)."""
     if perms is None:
@@ -224,6 +255,8 @@ def _check_sheet_permissions(bundle: dict[str, Any], perms: frozenset[str] | Non
             need = sorted({"pr_edit" if str(r.get("doc_type") or "").strip() == "pr" else "po_edit" for r in rows})
         else:
             need = [SHEET_PERMISSION.get(name, "master_edit")]
+        if name == "purchase_docs" and any(_approved_pr(r) for r in rows):
+            need.append("pr_approve")  # m3: an approved/ordered PR in the file is an approval
         for p in need:
             if p not in perms:
                 raise ApiError(403, "MFG_FORBIDDEN", f"Your role in this workspace does not allow importing the "
@@ -256,6 +289,7 @@ def commit(ctx: AppContext, import_id: str, if_match: str | None, perms: frozens
                            {"result": row.result})
         if plant is None:
             plant = repo.plant_row_unlocked(s)
+        _check_pr_self_approval(s, bundle, perms)
         if not master or (plant.id, plant.data_version - 1) != key or any(bundle.get(n) for n in TXN_SHEETS):
             plan, map_errors, warnings = _plan(staged, mapping, repo_m2.load_import_dataset(s))
         errors = map_errors + plan.row_errors

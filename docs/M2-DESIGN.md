@@ -1985,6 +1985,33 @@ they land. With the synthetic stock every Kavach demand line is late (many long-
   (`test_user_b_gets_404_for_every_owned_endpoint` skips `/mfg/` paths: their `{run_id}` is an MRP run, which the
   manufacturing sweep covers), `tests/acceptance_phase2b/test_acc_authz_sweep.py` per 19.2 (member, lot, PR, WO and
   an MRP run added; `run_id` under `/mfg/` maps to the MRP run).
+- **Review fix round (LEAD, 2026-10-30)** - regression tests in `tests/api_mfg_m2/test_m2_review_fixes_api.py`:
+  - WO PUT: a component's `item_id` cannot change once it has issues, ledger transactions or reservations
+    (new 422 `WO_COMPONENT_IN_USE`, `details.component_id`); `demand_line_id` is checked with the owned lookup of
+    `POST /work-orders` (422 `MFG_UNKNOWN_REFERENCE`).
+  - Import: deleting WO components releases their reservations first; components / schedules / demand lines
+    referenced by the ledger cannot be removed (`IMP_IN_USE`; `TxnData.in_ledger`, one extra statement in
+    `load_txn`, not in the MRP snapshot). `mfg_inv_reservations.wo_component_id` is `ON DELETE RESTRICT`
+    (0004 edited in place, unreleased).
+  - Locking (4.5): `release_reservations`, `_trim_reservations` and the posting context lock every balance the
+    components' reservations sit on (plus the posting's pairs) in one key-ordered pass, then re-read the
+    reservations `FOR UPDATE` with `populate_existing` (`repo_m2.lock_reservations_of`).
+  - Idempotency: a posting with `Idempotency-Key` takes `pg_advisory_xact_lock(hashtext('mfg-posting:' owner
+    ':' key))` and re-checks the key inside the write transaction (a concurrent retry replays 200 instead of 409);
+    PR->PO convert re-checks the replay under the PR lock before If-Match.
+  - Items: `lot_controlled` cannot change while the item has balances or transactions (409 `MFG_IN_USE`).
+  - **Decision m3:** importing a PR with status `approved`/`ordered` needs `pr_approve` (per-sheet check, 403
+    `MFG_FORBIDDEN`), and the self-approval rule applies: a member cannot import as approved a PR they requested
+    (a new PR's requester is the importer; an existing PR's is `submitted_by`) -> 409 `PUR_SELF_APPROVAL`; the
+    workspace owner may.
+  - `wo_receipt` scrap is stored on the transaction (`mfg_inv_transactions.scrap_qty`, nullable) and the reversal
+    negates it, so `qty_scrapped` is reverted (supersedes the WP-A note above).
+  - A `wo_issue` trims the component's reservations to `required - issued` (newest first) inside the posting.
+  - Staleness token: also `lots_updated` (max lot `updated_at`) and row counts `*_n` of lots, purchase docs /
+    lines / schedules, demand orders / lines, WOs, components, reservations (still one statement); every key but
+    `data_version` feeds `transactions_changed`.
+  - UI (`frontend/src/mfg/lib/permissions.ts`): the owner fallback is used only when no workspace is stored and
+    `/me` answers 404; any other failure gives no permissions and an error banner with retry (`mfg-access-error`).
 - E's engine tests live in `tests/mrp` (WP-E).
 - Targeted runs: `tests/api_mfg_m2` 22, `tests/api_mfg` + `tests/auth/test_route_coverage.py` + `tests/mfg_db` +
   `tests/db/test_db_roles.py` (148), `tests/acceptance_phase2b/test_acc_authz_sweep.py` 5 - all pass.

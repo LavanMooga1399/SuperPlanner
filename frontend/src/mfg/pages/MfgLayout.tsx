@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
+import { MfgError } from "../components/Feedback";
 import { RoleBadge, WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { mfgPaths } from "../lib/paths";
 import { AccessProvider, useAccess } from "../lib/permissions";
@@ -55,6 +56,17 @@ function NavGroup({ label, sections, testId }: { label: string; sections: Sectio
   );
 }
 
+/** `/me` failed: say so and offer a retry (no edit permissions meanwhile). */
+function AccessError() {
+  const { error, retry } = useAccess();
+  if (!error) return null;
+  return (
+    <div data-testid="mfg-access-error">
+      <MfgError error={error} onRetry={retry} title="Your workspace permissions could not be loaded" />
+    </div>
+  );
+}
+
 function MfgNav() {
   const { isOwner, assumed } = useAccess();
   const setup = isOwner && !assumed ? [...SETUP, { key: "members", label: "Members", to: mfgPaths.members(), icon: "lock" as IconName }] : SETUP;
@@ -84,6 +96,7 @@ export function MfgLayout() {
     <AccessProvider>
       <div className="mfg-page">
         <MfgNav />
+        <AccessError />
         <Outlet />
       </div>
     </AccessProvider>

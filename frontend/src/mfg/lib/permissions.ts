@@ -1,8 +1,9 @@
 /**
  * Role-based UI gating (M2 10.2, 14.1). `GET /me` is loaded once per Manufacturing area mount and shared via
  * context; components ask `can("inventory")`. The server stays the authority: a 403 `MFG_FORBIDDEN` is shown
- * as the forbidden banner (`Feedback.MfgError`). Until `/me` exists on the server (or in M1-only deployments)
- * the caller is treated as the owner of their own workspace, which is exactly the M1 behaviour.
+ * as the forbidden banner (`Feedback.MfgError`). Only when no workspace is stored and `/me` answers 404 (an
+ * M1-only server) is the caller treated as the owner of their own workspace (the M1 behaviour); any other `/me`
+ * failure offers no permissions and shows an error with a retry.
  */
 import { createContext, createElement, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApiError } from "../../api/client";
@@ -73,6 +74,9 @@ export interface Access {
   loading: boolean;
   /** True when `/me` is not available and the UI assumes the own workspace (owner). */
   assumed: boolean;
+  /** `/me` failed (network, 5xx, ...): no permissions are offered until `retry()` succeeds. */
+  error: unknown;
+  retry(): void;
   can(p: Permission): boolean;
   isOwner: boolean;
 }
@@ -91,11 +95,15 @@ const AccessContext = createContext<Access | null>(null);
 export function AccessProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [assumed, setAssumed] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
   const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const ctl = new AbortController();
+    setLoading(true);
+    setError(null);
     getMe(ctl.signal)
       .then((m) => {
         setMe(m);
@@ -103,14 +111,23 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       })
       .catch((e: unknown) => {
         if (ctl.signal.aborted) return;
-        if (e instanceof ApiError && e.status === 404 && currentWorkspace()) {
+        const notFound = e instanceof ApiError && e.status === 404;
+        if (notFound && currentWorkspace()) {
           // the stored workspace is gone (membership removed): back to the own one
           clearWorkspace();
           window.location.assign("/mfg");
           return;
         }
-        setMe(OWNER_FALLBACK);
-        setAssumed(true);
+        if (notFound) {
+          // `/me` does not exist on this server (M1-only deployment): the own workspace, as in M1
+          setMe(OWNER_FALLBACK);
+          setAssumed(true);
+          return;
+        }
+        // any other failure: no edit permissions, an error with a retry (never assume the owner)
+        setMe(null);
+        setAssumed(false);
+        setError(e);
       })
       .finally(() => {
         if (!ctl.signal.aborted) setLoading(false);
@@ -119,7 +136,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       .then((w) => setWorkspaces(w.items))
       .catch(() => undefined);
     return () => ctl.abort();
-  }, []);
+  }, [attempt]);
 
   const value = useMemo<Access>(() => {
     const perms = new Set<Permission>(me?.permissions ?? []);
@@ -128,11 +145,13 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       workspaces,
       loading,
       assumed,
-      // while loading, nothing is offered (avoids flashing buttons a viewer cannot use)
+      error,
+      retry: () => setAttempt((n) => n + 1),
+      // while loading or after an error, nothing is offered (avoids flashing buttons a viewer cannot use)
       can: (p) => perms.has(p),
       isOwner: Boolean(me?.is_owner),
     };
-  }, [me, workspaces, loading, assumed]);
+  }, [me, workspaces, loading, assumed, error]);
 
   return createElement(AccessContext.Provider, { value }, children);
 }
@@ -141,7 +160,16 @@ export function AccessProvider({ children }: { children: ReactNode }) {
 export function useAccess(): Access {
   const ctx = useContext(AccessContext);
   if (ctx) return ctx;
-  return { me: OWNER_FALLBACK, workspaces: [], loading: false, assumed: true, can: () => true, isOwner: true };
+  return {
+    me: OWNER_FALLBACK,
+    workspaces: [],
+    loading: false,
+    assumed: true,
+    error: null,
+    retry: () => undefined,
+    can: () => true,
+    isOwner: true,
+  };
 }
 
 export function useCan(p: Permission): boolean {

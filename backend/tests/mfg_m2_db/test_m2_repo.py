@@ -89,7 +89,10 @@ def test_inputs_token_is_one_statement(kavach_db):
         with count_statements(db) as c:
             tok = repo_m2.inputs_token(s)
         assert c.count == 1
-    assert set(tok) == {"seq", "purchase_docs", "demand_orders", "work_orders", "data_version"}
+    assert set(tok) == {"seq", "purchase_docs", "demand_orders", "work_orders", "data_version", "lots_updated",
+                        "lots_n", "purchase_docs_n", "purchase_lines_n", "purchase_schedules_n", "demand_orders_n",
+                        "demand_lines_n", "work_orders_n", "wo_components_n", "reservations_n"}
+    assert tok["lots_n"] > 0 and tok["work_orders_n"] == 3
 
 
 def test_concurrent_lot_balance_and_series_creation_is_race_free(kavach_db):

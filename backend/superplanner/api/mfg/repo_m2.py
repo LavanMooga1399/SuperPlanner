@@ -101,6 +101,12 @@ def load_txn(s: Session, *, open_only: bool = False) -> TxnData:
                                       r.qty_reserved, r.last_receipt_on)
     for r in s.execute(select(MfgInvReservationRow)).scalars():
         t.reservations[r.id] = TxnReservation(r.id, r.wo_component_id, r.balance_id, r.qty)
+    if not open_only:
+        T = MfgInvTransactionRow
+        refs = select(T.schedule_id.label("ref")).where(T.schedule_id.is_not(None)).union(
+            select(T.wo_component_id).where(T.wo_component_id.is_not(None)),
+            select(T.demand_line_id).where(T.demand_line_id.is_not(None)))
+        t.in_ledger = set(s.execute(refs).scalars())
     q = select(MfgPurchaseDocRow)
     if open_only:
         q = q.where(((MfgPurchaseDocRow.doc_type == "po") & MfgPurchaseDocRow.status.in_(_PO_SUPPLY))
@@ -172,9 +178,18 @@ def load_mrp_snapshot(s: Session, as_of: date) -> Any:
     return MrpSnapshot(as_of=as_of, dataset=ds, **mrp_inputs(ds, as_of))
 
 
+#: tables whose row count is part of the staleness token (m6: deletes do not move a max(updated_at))
+_TOKEN_COUNTS = (("lots_n", MfgLotRow), ("purchase_docs_n", MfgPurchaseDocRow),
+                 ("purchase_lines_n", MfgPurchaseLineRow),
+                 ("purchase_schedules_n", MfgPurchaseScheduleRow), ("demand_orders_n", MfgDemandOrderRow),
+                 ("demand_lines_n", MfgDemandLineRow), ("work_orders_n", MfgWorkOrderRow),
+                 ("wo_components_n", MfgWoComponentRow), ("reservations_n", MfgInvReservationRow))
+
+
 def inputs_token(s: Session) -> dict[str, Any]:
     """Staleness token (8.14): max transaction seq, max `updated_at` of purchase docs / demand orders / work
-    orders, plant `data_version` (one statement)."""
+    orders / lots, row counts of the transactional tables (m6: deletes and lot edits count), plant `data_version`
+    (one statement). Every key except `data_version` is compared for `transactions_changed`."""
     from .db_models import MfgPlantRow
 
     row = s.execute(select(
@@ -182,13 +197,17 @@ def inputs_token(s: Session) -> dict[str, Any]:
         select(func.max(MfgPurchaseDocRow.updated_at)).scalar_subquery(),
         select(func.max(MfgDemandOrderRow.updated_at)).scalar_subquery(),
         select(func.max(MfgWorkOrderRow.updated_at)).scalar_subquery(),
-        select(func.max(MfgPlantRow.data_version)).scalar_subquery())).one()
+        select(func.max(MfgPlantRow.data_version)).scalar_subquery(),
+        select(func.max(MfgLotRow.updated_at)).scalar_subquery(),
+        *[select(func.count()).select_from(m).scalar_subquery() for _k, m in _TOKEN_COUNTS])).one()
 
     def ts(v: Any) -> str | None:
         return as_utc(v).isoformat() if v is not None else None
 
-    return {"seq": int(row[0] or 0), "purchase_docs": ts(row[1]), "demand_orders": ts(row[2]),
-            "work_orders": ts(row[3]), "data_version": int(row[4] or 0)}
+    out = {"seq": int(row[0] or 0), "purchase_docs": ts(row[1]), "demand_orders": ts(row[2]),
+           "work_orders": ts(row[3]), "data_version": int(row[4] or 0), "lots_updated": ts(row[5])}
+    out.update({k: int(row[6 + i] or 0) for i, (k, _m) in enumerate(_TOKEN_COUNTS)})
+    return out
 
 
 @contextmanager
@@ -299,6 +318,46 @@ def lock_balances_at(s: Session, pairs: Iterable[tuple[str, str]]) -> dict[tuple
             if (r.item_id, r.location_id) in ps:
                 out[(r.item_id, r.location_id, r.lot_key)] = r
     return out
+
+
+def reservation_pairs(s: Session, comp_ids: Iterable[str]) -> set[tuple[str, str]]:
+    """(item, location) of the balances the components' reservations sit on (unlocked read: lock candidates)."""
+    out: set[tuple[str, str]] = set()
+    for chunk in _chunks(sorted(set(comp_ids))):
+        out.update((a, b) for a, b in s.execute(
+            select(MfgInvBalanceRow.item_id, MfgInvBalanceRow.location_id).join(
+                MfgInvReservationRow, MfgInvReservationRow.balance_id == MfgInvBalanceRow.id)
+            .where(MfgInvReservationRow.wo_component_id.in_(chunk)).distinct()).all())
+    return out
+
+
+def lock_balances_by_id(s: Session, ids: Iterable[str]) -> dict[str, MfgInvBalanceRow]:
+    out: dict[str, MfgInvBalanceRow] = {}
+    for chunk in _chunks(sorted(set(ids))):
+        for r in s.execute(select(MfgInvBalanceRow).where(MfgInvBalanceRow.id.in_(chunk))
+                           .order_by(MfgInvBalanceRow.item_id, MfgInvBalanceRow.location_id, MfgInvBalanceRow.lot_key)
+                           .with_for_update().execution_options(populate_existing=True)).scalars():
+            out[r.id] = r
+    return out
+
+
+def lock_reservations_of(s: Session, comp_ids: Iterable[str], pairs: Iterable[tuple[str, str]] = ()
+                         ) -> tuple[dict[str, MfgInvBalanceRow], list[MfgInvReservationRow]]:
+    """Lock order 4.5 for reservation changes: every balance the components' reservations sit on (plus `pairs`)
+    `FOR UPDATE` in key order, then the reservations re-read `FOR UPDATE` with fresh values. A reservation made on
+    another balance in between (rare) gets its balance locked afterwards. -> (balances by id, reservations)."""
+    cids = sorted(set(comp_ids))
+    ps = set(pairs) | reservation_pairs(s, cids)
+    bals = {b.id: b for b in lock_balances_at(s, ps).values()}
+    res: list[MfgInvReservationRow] = []
+    for chunk in _chunks(cids):
+        res.extend(s.execute(select(MfgInvReservationRow).where(MfgInvReservationRow.wo_component_id.in_(chunk))
+                             .order_by(MfgInvReservationRow.id).with_for_update()
+                             .execution_options(populate_existing=True)).scalars())
+    missing = {r.balance_id for r in res if r.balance_id not in bals}
+    if missing:
+        bals.update(lock_balances_by_id(s, missing))
+    return bals, res
 
 
 def lock_or_create_balances(s: Session, keys: Iterable[tuple[str, str, str]], lot_ids: dict[tuple[str, str], str]

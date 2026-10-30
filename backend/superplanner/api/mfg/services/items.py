@@ -110,6 +110,11 @@ def update_item(ctx: AppContext, item_id: str, inp: ItemInput, if_match: str | N
             refs = _m2_refs(s, row.id, uom_rule=True)
             if any(refs.values()):
                 raise in_use(f"The unit of {row.part_number}", refs)
+        if bool(inp.lot_controlled) != bool(row.lot_controlled):
+            refs = _m2_refs(s, row.id)
+            refs = {k: refs[k] for k in ("balances", "transactions") if refs.get(k)}
+            if refs:
+                raise in_use(f"Lot control of {row.part_number}", refs)
         _apply(row, inp)
         touch(row)
         s.flush()

@@ -292,7 +292,7 @@ class MfgInvReservationRow(OwnedMixin, Base):
                       Index("ix_mfg_inv_reservations_owner", "owner_id"))
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    wo_component_id: Mapped[str] = mapped_column(ForeignKey("mfg_wo_components.id", ondelete="CASCADE"))
+    wo_component_id: Mapped[str] = mapped_column(ForeignKey("mfg_wo_components.id", ondelete="RESTRICT"))
     balance_id: Mapped[str] = mapped_column(ForeignKey("mfg_inv_balances.id", ondelete="RESTRICT"))
     qty: Mapped[float] = mapped_column(Double)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -346,6 +346,8 @@ class MfgInvTransactionRow(OwnedMixin, Base):
     qty: Mapped[float] = mapped_column(Double)
     balance_after: Mapped[float] = mapped_column(Double)
     unit_cost: Mapped[float | None] = mapped_column(Double, nullable=True)
+    #: `wo_receipt`: scrap recorded with this receipt line (moves no stock; the reversal negates it)
+    scrap_qty: Mapped[float | None] = mapped_column(Double, nullable=True)
     schedule_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_purchase_schedules.id", ondelete="RESTRICT"),
                                                     nullable=True)
     wo_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_work_orders.id", ondelete="RESTRICT"), nullable=True)

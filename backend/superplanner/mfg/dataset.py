@@ -517,6 +517,8 @@ class TxnData:
     purchase_docs: dict[str, TxnPurchaseDoc] = field(default_factory=dict)
     demand_orders: dict[str, TxnDemandOrder] = field(default_factory=dict)
     work_orders: dict[str, TxnWorkOrder] = field(default_factory=dict)
+    #: ids of schedules / WO components / demand lines the ledger refers to (they cannot be deleted; DB only)
+    in_ledger: set[str] = field(default_factory=set)
 
     def is_empty(self) -> bool:
         return not (self.lots or self.balances or self.reservations or self.purchase_docs or self.demand_orders

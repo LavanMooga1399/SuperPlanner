@@ -580,11 +580,11 @@ def convert_pr(ctx: AppContext, pr_id: str, body: Any, if_match: str | None, ide
 
     def fn(s: Session) -> tuple[dict[str, Any], bool]:
         pr = _get(s, "pr", pr_id, lock=True)
-        check_version(pr, if_match)
-        if idem:
+        if idem:  # re-checked under the PR lock and before If-Match: a concurrent retry replays (C17)
             out = _convert_replay(s, idem, h)
             if out is not None:
                 return out, True
+        check_version(pr, if_match)
         try:
             PUR.check_action("pr", pr.status, "convert")
         except RuleError as e:

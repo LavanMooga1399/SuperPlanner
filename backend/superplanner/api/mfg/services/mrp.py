@@ -52,7 +52,7 @@ def _stale(s: Session, run: MfgMrpRunRow) -> dict[str, Any]:
     tok = repo_m2.inputs_token(s)
     old = dict(run.inputs_token or {})
     master = tok.get("data_version") != run.data_version
-    tx = any(tok.get(k) != old.get(k) for k in ("seq", "purchase_docs", "demand_orders", "work_orders"))
+    tx = any(tok.get(k) != old.get(k) for k in tok if k != "data_version")
     return {"is_stale": master or tx, "master_changed": master, "transactions_changed": tx}
 
 

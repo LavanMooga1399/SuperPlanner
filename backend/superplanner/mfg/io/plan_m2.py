@@ -346,7 +346,7 @@ class M2Planner:
             for no, old in old_lines.items():
                 if no in line_seen:
                     continue
-                if any(sc.received_qty > EPS for sc in old.schedules):
+                if any(sc.received_qty > EPS or sc.id in self.txn.in_ledger for sc in old.schedules):
                     P.err("purchase_docs", src or lrows[0][1] if (src or lrows) else None, "number", "IMP_IN_USE",
                           f"{number} line {no} has receipts and cannot be removed.")
                     continue
@@ -408,7 +408,7 @@ class M2Planner:
         if P.o.replace_children and rows and old:
             for seq, o in old.items():
                 if seq not in seen:
-                    if o.received_qty > EPS:
+                    if o.received_qty > EPS or o.id in self.txn.in_ledger:
                         P.err("purchase_schedules", rows[0][1], "seq", "IMP_IN_USE",
                               f"Schedule {seq} has receipts and cannot be removed.")
                         continue
@@ -538,7 +538,7 @@ class M2Planner:
         if P.o.replace_children and lrows and old_lines:
             for no, o in old_lines.items():
                 if no not in seen:
-                    if o.shipped_qty > EPS:
+                    if o.shipped_qty > EPS or o.id in self.txn.in_ledger:
                         P.err("demand_lines", lrows[0][1], "line_no", "IMP_IN_USE", f"Line {no} has shipments and "
                               "cannot be removed.")
                         continue
@@ -717,9 +717,9 @@ class M2Planner:
         if P.o.replace_children and old:
             for k, o in oldk.items():
                 if k not in seen:
-                    if o.issued_qty > EPS:
+                    if o.issued_qty > EPS or o.id in self.txn.in_ledger:
                         P.err("wo_components", rows[0][1], "part_number", "IMP_IN_USE", "A component with issues "
-                              "cannot be removed.")
+                              "or transactions cannot be removed.")
                         continue
                     P.add("wo_components", "delete", o.id)
                     P.count("wo_components", "delete")

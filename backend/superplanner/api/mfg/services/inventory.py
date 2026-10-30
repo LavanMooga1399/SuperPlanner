@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from datetime import date
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,7 @@ from ....mfg.purchasing import RuleError
 from ...context import AppContext
 from ...db import new_id, utcnow
 from ...db.locks import is_unique_violation
+from ...db.ownership import current_owner
 from ...errors import ApiError, not_found
 from ...schemas import as_utc
 from .. import repo, repo_m2
@@ -219,8 +220,10 @@ def _context(s: Session, L: _Loaded, item_ids: set[str], pairs: set[tuple[str, s
                            .order_by(MfgLotRow.item_id, MfgLotRow.lot_code).with_for_update()
                            .execution_options(populate_existing=True)).scalars():
             L.lots[(r.item_id, r.lot_code)] = r
-    L.balances = repo_m2.lock_balances_at(s, pairs)
+    # m8 / 4.5: every balance this posting may touch - the lines' pairs and the balances the components'
+    # reservations sit on - is locked in one key-ordered pass before any reservation row
     comp_ids = sorted(L.comps)
+    L.balances = repo_m2.lock_balances_at(s, set(pairs) | repo_m2.reservation_pairs(s, comp_ids))
     bal_ids = sorted(b.id for b in L.balances.values())
     conds = []
     if comp_ids:
@@ -232,7 +235,7 @@ def _context(s: Session, L: _Loaded, item_ids: set[str], pairs: set[tuple[str, s
                            .with_for_update().execution_options(populate_existing=True)).scalars():
             L.res[r.id] = r
     by_bal_id = {b.id: k for k, b in L.balances.items()}
-    # reservations on balances not locked yet (a component's reservation elsewhere): lock those balances too
+    # a reservation made on another balance between the candidate read and the locks (rare): lock it too
     missing = {r.balance_id for r in L.res.values() if r.balance_id not in by_bal_id}
     if missing:
         extra = s.execute(select(MfgInvBalanceRow).where(MfgInvBalanceRow.id.in_(sorted(missing)))
@@ -353,7 +356,8 @@ def _apply(s: Session, L: _Loaded, plan: INV.PostingPlan, posting: MfgInvPosting
             id=new_id("txn_"), posting_id=posting.id, line_no=t.line_no, txn_type=t.txn_type,
             txn_date=posting.txn_date, item_id=t.item_id, location_id=t.location_id,
             lot_id=lot_ids.get((t.item_id, t.lot_code)) if t.lot_code else None, qty=t.qty,
-            balance_after=b.qty_on_hand, unit_cost=t.unit_cost, schedule_id=t.schedule_id, wo_id=t.wo_id,
+            balance_after=b.qty_on_hand, unit_cost=t.unit_cost, scrap_qty=t.scrap_qty, schedule_id=t.schedule_id,
+            wo_id=t.wo_id,
             wo_component_id=t.wo_component_id, demand_line_id=t.demand_line_id, actor_id=actor, created_at=now))
     # reservations first (a released reservation lowers qty_reserved before the on-hand check of the row)
     by_id = {b.id: b for b in L.balances.values()}
@@ -426,16 +430,12 @@ def _release_wo(s: Session, L: _Loaded, wo_id: str, now: Any) -> None:
 
 
 def release_reservations(s: Session, comp_ids: list[str], now: Any) -> float:
-    """Delete the reservations of these components and lower their balances' `qty_reserved` (lock order: balances
-    then reservations). Returns the released quantity."""
-    res = list(s.execute(select(MfgInvReservationRow).where(MfgInvReservationRow.wo_component_id.in_(sorted(comp_ids)))
-                         .order_by(MfgInvReservationRow.id)).scalars())
-    if not res:
+    """Delete the reservations of these components and lower their balances' `qty_reserved`. Lock order (4.5):
+    the balances first (key order), then the reservations re-read `FOR UPDATE` (fresh values). Returns the
+    released quantity."""
+    if not comp_ids:
         return 0.0
-    bals = {b.id: b for b in s.execute(select(MfgInvBalanceRow).where(
-        MfgInvBalanceRow.id.in_(sorted({r.balance_id for r in res})))
-        .order_by(MfgInvBalanceRow.item_id, MfgInvBalanceRow.location_id, MfgInvBalanceRow.lot_key)
-        .with_for_update().execution_options(populate_existing=True)).scalars()}
+    bals, res = repo_m2.lock_reservations_of(s, comp_ids)
     total = 0.0
     for r in res:
         b = bals[r.balance_id]
@@ -502,6 +502,14 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
                 return _replay(s, found, h), True
 
     def fn(s: Session) -> tuple[dict[str, Any], bool]:
+        if idem:
+            # serialise concurrent retries of one key, then re-check: the second one replays instead of 409
+            s.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+                      {"k": f"mfg-posting:{current_owner()}:{idem}"})
+            found = _find_idem(s, idem)
+            if found is not None:
+                audit(s, "posting", found.id, "replay", {"idempotency_key": idem})
+                return _replay(s, found, h), True
         try:
             with s.begin_nested():
                 row, warnings = post_in_session(s, inp, idem=idem, body_hash=h if idem else None)
@@ -540,7 +548,7 @@ def reverse_posting(ctx: AppContext, posting_id: str, note: str) -> dict[str, An
         pctx = _context(s, L, {t.item_id for t in txns}, pairs, d)
         original = [INV.OrigTxn(t.line_no, t.txn_type, t.item_id, t.location_id,
                                 lt[t.lot_id].lot_code if t.lot_id else None, t.qty, t.unit_cost, t.schedule_id,
-                                t.wo_id, t.wo_component_id, t.demand_line_id) for t in txns]
+                                t.wo_id, t.wo_component_id, t.demand_line_id, t.scrap_qty) for t in txns]
         try:
             plan = INV.plan_reversal(orig.type, original, pctx, d)
         except RuleError as e:
@@ -580,7 +588,8 @@ def _apply_reversal(s: Session, L: _Loaded, plan: INV.PostingPlan, posting: MfgI
             id=new_id("txn_"), posting_id=posting.id, line_no=t.line_no, txn_type=t.txn_type,
             txn_date=posting.txn_date, item_id=t.item_id, location_id=t.location_id,
             lot_id=lot_ids.get((t.item_id, t.lot_code)) if t.lot_code else None, qty=t.qty,
-            balance_after=b.qty_on_hand, unit_cost=t.unit_cost, schedule_id=t.schedule_id, wo_id=t.wo_id,
+            balance_after=b.qty_on_hand, unit_cost=t.unit_cost, scrap_qty=t.scrap_qty, schedule_id=t.schedule_id,
+            wo_id=t.wo_id,
             wo_component_id=t.wo_component_id, demand_line_id=t.demand_line_id, actor_id=actor, created_at=now))
     s.add_all(rows)
     s.flush()
