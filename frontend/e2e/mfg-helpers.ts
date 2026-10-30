@@ -275,8 +275,8 @@ export async function findDoc(
 
 /** On-hand quantity of an item at a location (sum over lots). */
 export async function onHand(request: APIRequestContext, itemId: string, locationId: string, opts?: MfgOptions): Promise<number> {
-  const r = await mfgJson<{ balances: { qty_on_hand: number; location: { id: string } }[] }>(request, `/items/${itemId}/stock`, opts);
-  return r.balances.filter((b) => b.location.id === locationId).reduce((s, b) => s + b.qty_on_hand, 0);
+  const r = await mfgJson<{ items: { qty_on_hand: number }[] }>(request, `/inventory/balances?item_id=${itemId}&location_id=${locationId}&only_nonzero=false&limit=200`, opts);
+  return r.items.reduce((s, b) => s + b.qty_on_hand, 0);
 }
 
 export interface RunLite {

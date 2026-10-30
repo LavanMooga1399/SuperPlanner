@@ -100,7 +100,8 @@ class Mfg:
         return self.post("/lines", {"code": code, "name": f"Line {code}", "group_id": group_id, **kw})
 
     def load(self, sample: str = "small", replace: bool = False) -> dict[str, Any]:
-        return self.post(f"/samples/{sample}/load", {"replace": replace}, status=200)
+        # M1 tests load master data only (M2-DESIGN 13.1 `include_transactions`, default true for the API)
+        return self.post(f"/samples/{sample}/load", {"replace": replace, "include_transactions": False}, status=200)
 
     def by_pn(self, pn: str) -> dict[str, Any]:
         items = self.get("/items", params={"q": pn, "limit": 200})["items"]

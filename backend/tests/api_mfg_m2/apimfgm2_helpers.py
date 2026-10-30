@@ -55,8 +55,8 @@ class Api:
             assert r.status_code == status, (method, path, r.status_code, r.text[:3000])
         return r
 
-    def get(self, path: str, status: int = 200, **params: Any) -> Any:
-        return self.req("GET", path, status, params=params or None).json()
+    def get(self, path: str, _status: int = 200, **params: Any) -> Any:
+        return self.req("GET", path, _status, params=params or None).json()
 
     def post(self, path: str, body: Any = None, status: int = 201, version: int | None = None,
              headers: dict[str, str] | None = None) -> Any:

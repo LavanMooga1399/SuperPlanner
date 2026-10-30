@@ -125,7 +125,7 @@ export function RunShell() {
         ))}
       </nav>
       <div className="tab-panel" style={{ paddingTop: 4 }}>
-        <Outlet context={ctx} />
+        <Outlet key={r.id} context={ctx} />
       </div>
     </div>
   );

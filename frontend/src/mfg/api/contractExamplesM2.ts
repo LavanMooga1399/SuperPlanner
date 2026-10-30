@@ -196,8 +196,8 @@ export const examplePostingHeader: PostingHeader = {
   reason_code: null,
   actor,
   created_at: TS,
-  reversal_of: null,
-  reversed_by: null,
+  reversal_of_id: null,
+  reversed_by_number: null,
   line_count: 1,
 };
 
@@ -235,8 +235,8 @@ export const exampleItemStock: ItemStock = {
   item: exCon,
   totals: { nettable: 20, inspection: 0, quarantine: 50, reserved: 8, available: 12, value: 1700 },
   balances: [exampleBalance],
-  open_supply: [{ type: "po", ref: { type: "po", id: id("pdc", 2), number: "PO-KV-0102", line_no: 10, schedule_seq: 1, label: "PO-KV-0102 / 10 / 1" }, date: "2026-10-21", qty: 200 }],
-  open_demand: [{ type: "wo", ref: { type: "wo", id: id("wko", 1), number: "WO-KV-0001", line_no: null, schedule_seq: null, label: "WO-KV-0001" }, date: "2026-10-30", qty: 60 }],
+  open_supply: [{ type: "po_schedule", ref: { id: id("psc", 7), doc_id: id("pdc", 2), label: "PO-KV-0102 / 10 / 1" }, date: "2026-10-21", qty: 200 }],
+  open_demand: [{ type: "wo_component", ref: { id: id("woc", 2), wo_id: id("wko", 1), label: "WO-KV-0001" }, date: "2026-10-30", qty: 60 }],
   latest_run: { run_id: id("mrr", 12), run_no: 12, first_short_date: "2026-11-04", short_qty: 48 },
 };
 
@@ -484,13 +484,13 @@ export const exampleWorkOrderSummary: WorkOrderSummary = (() => {
   return { ...head, component_count: 2 };
 })();
 
-const nextSupply = { type: "po" as const, label: "PO-KV-0102 / 10 / 1", date: "2026-11-02", qty: 200, link: exampleScheduleRow.link };
+const nextSupply = { type: "po_schedule", label: "PO-KV-0102 / 10 / 1", date: "2026-11-02", qty: 200, link: exampleScheduleRow.link };
 
 export const exampleKitting: KittingResponse = {
   wo: { id: exampleWorkOrder.id, number: exampleWorkOrder.number, status: "released" },
-  components: [
-    { component_id: id("woc", 1), item: exFpga, required: 30, issued: 15, open: 15, reserved: 15, free: 30, shortage: 0, locations: [{ location: stores, lot: { id: exampleLot.id, lot_code: "FV1-2609", expires_on: null, hold: false }, qty_available: 30 }], next_supply: null },
-    { component_id: id("woc", 2), item: exCon, required: 60, issued: 30, open: 30, reserved: 0, free: 12, shortage: 18, locations: [{ location: stores, lot: null, qty_available: 12 }], next_supply: nextSupply },
+  rows: [
+    { component_id: id("woc", 1), item_id: exFpga.id, item: exFpga, required: 30, issued: 15, open: 15, reserved: 15, free: 30, shortage: 0, locations: [{ balance_id: id("bal", 2), location_id: stores.id, location_code: stores.code, lot_code: "FV1-2609", available: 30 }], next_supply: null },
+    { component_id: id("woc", 2), item_id: exCon.id, item: exCon, required: 60, issued: 30, open: 30, reserved: 0, free: 12, shortage: 18, locations: [{ balance_id: id("bal", 1), location_id: stores.id, location_code: stores.code, lot_code: null, available: 12 }], next_supply: nextSupply },
   ],
   totals: { components: 2, short_components: 1, kit_complete: false },
 };
@@ -498,7 +498,8 @@ export const exampleKitting: KittingResponse = {
 export const exampleKittingCheck: KittingCheckResponse = {
   rows: [
     {
-      wo: { id: exampleWorkOrder.id, number: exampleWorkOrder.number, item: exCpu },
+      wo: { id: exampleWorkOrder.id, number: exampleWorkOrder.number },
+      link: `/mfg/work-orders/${exampleWorkOrder.id}`,
       start_date: "2026-10-30",
       priority: 5,
       status: "released",

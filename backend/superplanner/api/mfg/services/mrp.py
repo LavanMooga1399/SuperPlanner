@@ -330,7 +330,7 @@ def list_items(ctx: AppContext, run_id: str, *, q: str | None, make_buy: str | N
         if make_buy:
             conds.append(R.make_buy == make_buy)
         if family:
-            conds.append(R.detail["family"].astext == family)
+            conds.append(R.detail["family"].as_string() == family)
         if short_only:
             conds.append(R.short_qty > EPS)
         if has_exceptions:
@@ -710,7 +710,7 @@ def _replay_convert(s: Session, run_id: str, key: str, h: str) -> dict[str, Any]
     ev = s.execute(select(AuditEventRow.details).where(
         AuditEventRow.entity_type == "mfg_mrp_run", AuditEventRow.action == "convert",
         AuditEventRow.entity_id == run_id, AuditEventRow.created_at > utcnow() - timedelta(hours=24),
-        AuditEventRow.details["idempotency_key"].astext == key)).scalars().first()
+        AuditEventRow.details["idempotency_key"].as_string() == key)).scalars().first()
     if ev is None:
         return None
     if ev.get("request_hash") != h:

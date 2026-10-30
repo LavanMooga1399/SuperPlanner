@@ -82,7 +82,7 @@ export function KittingCheckPage() {
                         <Link to={mfgPaths.workOrder(x.wo.id)} className="mono">
                           {x.wo.number}
                         </Link>{" "}
-                        <span className="muted small">{x.wo.item.part_number}</span>
+                        {x.wo.item ? <span className="muted small">{x.wo.item.part_number}</span> : null}
                         <div>
                           <WoStatusChip status={x.status} />
                         </div>

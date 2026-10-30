@@ -313,8 +313,8 @@ export interface PostingHeader {
   reason_code: string | null;
   actor: Actor;
   created_at: IsoDateTime;
-  reversal_of: { id: EntityId; number: string } | null;
-  reversed_by: { id: EntityId; number: string } | null;
+  reversal_of_id: EntityId | null;
+  reversed_by_number: string | null;
   line_count: number;
 }
 
@@ -537,7 +537,10 @@ export interface PurchaseDocRecord extends PurchaseDocBase {
   receipts?: PostingHeader[];
 }
 
-export interface PurchaseDocSummary extends PurchaseDocBase {
+/** List rows are lean: approval details, note and references are only on the full record. */
+export interface PurchaseDocSummary
+  extends Omit<PurchaseDocBase, "supplier_id" | "note" | "external_ref" | "submitted_at" | "submitted_by" | "approved_at" | "approved_by" | "rejected_reason">,
+    Partial<Pick<PurchaseDocBase, "supplier_id" | "note" | "external_ref" | "submitted_at" | "submitted_by" | "approved_at" | "approved_by" | "rejected_reason">> {
   line_count: number;
   next_dock_date: IsoDate | null;
 }
@@ -673,7 +676,7 @@ export interface DemandOrderRecord extends DemandOrderBase {
   lines: DemandLineRecord[];
 }
 
-export interface DemandOrderSummary extends DemandOrderBase {
+export interface DemandOrderSummary extends Omit<DemandOrderBase, "note" | "external_ref">, Partial<Pick<DemandOrderBase, "note" | "external_ref">> {
   line_count: number;
   open_qty: number;
   next_due: IsoDate | null;
@@ -773,7 +776,8 @@ export interface WorkOrderRecord extends WorkOrderBase {
   reserved?: ReserveResult[];
 }
 
-export interface WorkOrderSummary extends WorkOrderBase {
+type WoLean = "demand_line_id" | "demand_line" | "bom" | "routing" | "released_at" | "completed_at" | "closed_at" | "note" | "external_ref";
+export interface WorkOrderSummary extends Omit<WorkOrderBase, WoLean>, Partial<Pick<WorkOrderBase, WoLean>> {
   component_count: number;
 }
 
@@ -799,7 +803,8 @@ export interface WoQuery {
 
 // ---------------------------------------------------------------- 7.4 kitting
 export interface NextSupply {
-  type: "po" | "pr" | "wo";
+  /** e.g. `po_schedule`, `pr_schedule`, `wo`. */
+  type: string;
   label: string;
   date: IsoDate;
   qty: number;
@@ -807,13 +812,16 @@ export interface NextSupply {
 }
 
 export interface KittingLocation {
-  location: LocationRef;
-  lot: LotRef | null;
-  qty_available: number;
+  balance_id: EntityId;
+  location_id: EntityId;
+  location_code: string;
+  lot_code: string | null;
+  available: number;
 }
 
 export interface KittingComponent {
   component_id: EntityId;
+  item_id: EntityId;
   item: ItemRef;
   required: number;
   issued: number;
@@ -826,8 +834,8 @@ export interface KittingComponent {
 }
 
 export interface KittingResponse {
-  wo: { id: EntityId; number: string; status: WoStatus };
-  components: KittingComponent[];
+  wo: { id: EntityId; number: string; status: WoStatus; start_date?: IsoDate };
+  rows: KittingComponent[];
   totals: { components: number; short_components: number; kit_complete: boolean };
 }
 
@@ -838,16 +846,18 @@ export interface KittingCheckRequest {
 }
 
 export interface KittingCheckRow {
-  wo: { id: EntityId; number: string; item: ItemRef };
+  wo: { id: EntityId; number: string; item?: ItemRef };
+  link?: string;
   start_date: IsoDate;
   priority: number;
   status: WoStatus;
   kit_complete: boolean;
   short_components: number;
-  shortages: { item: ItemRef; shortage: number; next_supply: NextSupply | null }[];
+  shortages: { item_id?: EntityId; item: ItemRef; shortage: number; next_supply: NextSupply | null }[];
 }
 
 export interface ItemShort {
+  item_id?: EntityId;
   item: ItemRef;
   total_shortage: number;
   wo_count: number;
@@ -861,9 +871,12 @@ export interface KittingCheckResponse {
 }
 
 // ---------------------------------------------------------------- #100 item stock
+/** #100 open supply / demand entry; `ref` carries the ids needed for a link (`doc_id` for purchase schedules,
+ * `wo_id` for work orders / WO components, `order_id` for demand lines). */
 export interface StockFlow {
+  /** e.g. `po_schedule`, `pr_schedule`, `wo`, `wo_component`, `demand_line`. */
   type: string;
-  ref: DocRef | { label: string; link?: string | null };
+  ref: { id: EntityId; label: string; doc_id?: EntityId; wo_id?: EntityId; order_id?: EntityId };
   date: IsoDate;
   qty: number;
 }
@@ -1258,7 +1271,7 @@ export interface ExceptionQuery {
 export type LimitingReason = "lead_time" | "start_in_past" | "supply_date" | "component";
 
 export interface LimitingStep {
-  item: ItemRef;
+  item: Pick<ItemRef, "id" | "part_number">;
   label: string;
   date: IsoDate | null;
   reason: LimitingReason;

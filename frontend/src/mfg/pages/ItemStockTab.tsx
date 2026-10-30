@@ -10,13 +10,15 @@ import { fmtDate } from "../lib/format";
 import { fmtMoney, fmtNum } from "../lib/formatM2";
 import { mfgPaths } from "../lib/paths";
 import { useLoad, usePlant } from "../lib/useMfg";
-import { docRefLink } from "./inventory/TransactionsTab";
 import { useItem } from "./ItemShell";
 
 function flowLink(f: StockFlow): string | null {
   const r = f.ref;
-  if ("type" in r && "number" in r) return docRefLink(r);
-  return "link" in r ? (r.link ?? null) : null;
+  if (r.doc_id) return mfgPaths.purchaseDoc(f.type.startsWith("pr") ? "pr" : "po", r.doc_id, f.type.endsWith("schedule") ? { schedule: r.id } : undefined);
+  if (r.wo_id) return mfgPaths.workOrder(r.wo_id, f.type === "wo_component" ? r.id : undefined);
+  if (f.type === "wo") return mfgPaths.workOrder(r.id);
+  if (r.order_id) return mfgPaths.demandOrder(r.order_id, r.id);
+  return null;
 }
 
 function FlowTable({ title, rows, testId, uom }: { title: string; rows: StockFlow[]; testId: string; uom: string }) {

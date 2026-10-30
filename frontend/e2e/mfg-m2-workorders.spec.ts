@@ -46,7 +46,7 @@ test("demand order -> work order -> release with reserve -> issue -> partial out
   await page.getByRole("dialog").getByRole("button", { name: "Release" }).click();
   await expect(page.getByTestId("wo-status")).toHaveAttribute("data-status", "released");
   // the bare PCB has no stock in `small`: it is short; the MCU is covered
-  await expect(page.locator('[data-testid="kitting-row"][data-item="SM-BPCB-100"]')).not.toHaveAttribute("data-shortage", "0");
+  await expect(page.locator('[data-testid="kitting-row"][data-item="SM-BPCB-100"]')).toHaveAttribute("data-shortage", /^[1-9]/);
   await expect(page.locator('[data-testid="kitting-row"][data-item="SM-MCU-01"]')).toHaveAttribute("data-shortage", "0");
 
   // --- issue components (fill from what is available) then report 2 of 5
@@ -61,16 +61,16 @@ test("demand order -> work order -> release with reserve -> issue -> partial out
   const loc = page.getByTestId("wo-receipt-location");
   await loc.selectOption((await loc.locator("option", { hasText: /^STORES / }).first().getAttribute("value"))!);
   await page.getByTestId("wo-receipt-submit").click();
-  await expect(page.getByTestId("wo-transactions")).toBeVisible();
+  await expect(page.getByText(/Output posted/)).toBeVisible();
   const woId = page.url().match(/work-orders\/(wko_[^/?]+)/)![1];
-  const wo = await mfgJson<{ qty_completed: number; status: string }>(request, `/work-orders/${woId}`);
-  expect(wo.qty_completed).toBe(2);
-  expect(wo.status).toBe("in_progress");
+  await expect.poll(async () => (await mfgJson<{ qty_completed: number }>(request, `/work-orders/${woId}`)).qty_completed).toBe(2);
+  expect((await mfgJson<{ status: string }>(request, `/work-orders/${woId}`)).status).toBe("in_progress");
 
-  // --- kitting check and shortage dashboard name the bare PCB
+  // --- kitting check page; the shortage dashboard (released / in-progress WOs) names the bare PCB
   await gotoMfg(page, "/work-orders/kitting");
-  await expect(page.locator('[data-testid="kitting-check-rows"] [data-testid="kitting-row"]').first()).toBeVisible();
-  await expect(page.locator('[data-testid="kitting-items-short"] [data-testid="item-short-row"][data-item="SM-BPCB-100"]')).toBeVisible();
+  // 7.4: the check covers released and planned WOs; this one is in progress now, so it is not listed
+  await expect(page.getByTestId("kitting-check-rows")).toBeVisible();
+  await expect(page.getByTestId("kitting-items-short")).toBeVisible();
   await gotoMfg(page, "/shortages");
   await expect(page.getByTestId("shortage-panel-wo")).toContainText("SM-BPCB-100");
   expectClean(problems);

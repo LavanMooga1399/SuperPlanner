@@ -2,7 +2,8 @@
  * Manufacturing routes (M 11.1), spread into the existing `App` children inside `RequireAuth` next to the
  * finance routes. The health "Fix" links of M 11.3 resolve to these patterns exactly.
  */
-import { Navigate, type RouteObject } from "react-router";
+import type { ReactElement } from "react";
+import { Navigate, useParams, type RouteObject } from "react-router";
 import "./mfg.css";
 import { MfgLayout, MfgNotFound } from "./pages/MfgLayout";
 import { MfgHome } from "./pages/MfgHome";
@@ -35,7 +36,7 @@ import { LotsTab } from "./pages/inventory/LotsTab";
 import { LocationsTab } from "./pages/inventory/LocationsTab";
 import { PurchasingLayout } from "./pages/purchasing/PurchasingLayout";
 import { PurchaseDocList } from "./pages/purchasing/PurchaseDocList";
-import { PurchaseDocPage } from "./pages/purchasing/PurchaseDocPage";
+import { PurchaseDocRoute } from "./pages/purchasing/PurchaseDocPage";
 import { DeliveryBoard } from "./pages/purchasing/DeliveryBoard";
 import { SupplierPage, SuppliersPage } from "./pages/purchasing/SuppliersPage";
 import { DemandList } from "./pages/demand/DemandList";
@@ -55,6 +56,12 @@ import { PeggingPage } from "./pages/mrp/PeggingPage";
 import { CompareView } from "./pages/mrp/CompareView";
 import { ShortagesPage } from "./pages/ShortagesPage";
 import { MembersPage } from "./pages/MembersPage";
+
+/** A fresh page instance per document id (no state carried from one document to the next). */
+function Keyed({ param, children }: { param: string; children: (key: string) => ReactElement }) {
+  const params = useParams();
+  return children(params[param] ?? "");
+}
 
 export const mfgRoutes: RouteObject[] = [
   {
@@ -123,9 +130,9 @@ export const mfgRoutes: RouteObject[] = [
         children: [
           { index: true, element: <Navigate to="orders" replace /> },
           { path: "orders", element: <PurchaseDocList docType="po" /> },
-          { path: "orders/:docId", element: <PurchaseDocPage docType="po" /> },
+          { path: "orders/:docId", element: <PurchaseDocRoute docType="po" /> },
           { path: "requests", element: <PurchaseDocList docType="pr" /> },
-          { path: "requests/:docId", element: <PurchaseDocPage docType="pr" /> },
+          { path: "requests/:docId", element: <PurchaseDocRoute docType="pr" /> },
           { path: "schedule", element: <DeliveryBoard /> },
           { path: "suppliers", element: <SuppliersPage /> },
           { path: "suppliers/:supplierId", element: <SupplierPage /> },
@@ -133,10 +140,10 @@ export const mfgRoutes: RouteObject[] = [
         ],
       },
       { path: "demand", element: <DemandList /> },
-      { path: "demand/:orderId", element: <DemandPage /> },
+      { path: "demand/:orderId", element: <Keyed param="orderId">{(k) => <DemandPage key={k} />}</Keyed> },
       { path: "work-orders", element: <WorkOrderList /> },
       { path: "work-orders/kitting", element: <KittingCheckPage /> },
-      { path: "work-orders/:woId", element: <WorkOrderPage /> },
+      { path: "work-orders/:woId", element: <Keyed param="woId">{(k) => <WorkOrderPage key={k} />}</Keyed> },
       { path: "mrp", element: <MrpRunsPage /> },
       {
         path: "mrp/runs/:runId",

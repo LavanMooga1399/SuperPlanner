@@ -153,10 +153,12 @@ def load_txn(s: Session, *, open_only: bool = False) -> TxnData:
     return t
 
 
-def load_import_dataset(s: Session) -> MfgDataset:
-    """Master data + the complete transactional state (imports, `scope=transactions|all` exports)."""
+def load_import_dataset(s: Session, *, with_txn: bool = True) -> MfgDataset:
+    """Master data + the complete transactional state (imports, `scope=transactions|all` exports). `with_txn=False`
+    (an import without transactional sheets) skips the 10 transactional statements; `ds.txn` stays empty."""
     ds = load_dataset(s)
-    ds.txn = load_txn(s)
+    if with_txn:
+        ds.txn = load_txn(s)
     return ds
 
 

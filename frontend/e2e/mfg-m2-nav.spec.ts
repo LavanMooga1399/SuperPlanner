@@ -32,6 +32,7 @@ test("two navigation groups and every M2 screen renders cleanly", async ({ page,
   await gotoMfg(page);
   await expect(page.getByTestId("nav-group-planning")).toBeVisible();
   for (const k of ["demand", "mrp", "shortages", "work-orders", "purchasing", "inventory"]) await expect(page.getByTestId(`mfg-subnav-${k}`)).toBeVisible();
+  await expect(page.getByTestId("mfg-planning-card")).toBeVisible();
 
   const routes = [
     "/inventory",

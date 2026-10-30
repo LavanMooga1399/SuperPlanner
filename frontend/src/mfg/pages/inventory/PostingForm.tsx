@@ -9,7 +9,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { ApiError } from "../../../api/client";
 import { Banner } from "../../../components/Banner";
 import { Icon } from "../../../components/Icon";
-import { createPosting, getItemStock, newIdempotencyKey } from "../../api/clientM2";
+import { createPosting, listBalances, newIdempotencyKey } from "../../api/clientM2";
 import type { ItemRef } from "../../api/types";
 import type { BalanceRow, PostingInput, PostingType } from "../../api/typesM2";
 import { MfgError } from "../../components/Feedback";
@@ -91,9 +91,8 @@ function useBalances(itemId: string | undefined, locationId: string): BalanceRow
       return;
     }
     const ctl = new AbortController();
-    // `/items/{id}/stock` lists every non-zero balance of the item (all lots); keep this location's
-    getItemStock(itemId, ctl.signal)
-      .then((st) => setRows(st.balances.filter((b) => b.location.id === locationId)))
+    listBalances({ item_id: itemId, location_id: locationId, only_nonzero: true, limit: 200, offset: 0 }, ctl.signal)
+      .then((p) => setRows(p.items))
       .catch((e: unknown) => {
         if (!isAbortError(e)) setRows([]);
       });

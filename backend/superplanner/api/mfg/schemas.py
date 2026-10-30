@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -40,6 +40,7 @@ class ImportOptionsModel(_Strict):
     replace_children: bool = True
     release: bool = False
     default_effective_from: PlanDate | None = None
+    stock_mode: Literal["set", "add"] = "set"            # M2-DESIGN 11
 
 
 class ImportMappingRequest(_Strict):

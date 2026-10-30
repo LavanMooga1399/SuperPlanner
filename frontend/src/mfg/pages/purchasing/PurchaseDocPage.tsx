@@ -165,6 +165,12 @@ function ConvertDialog({ pr, onClose, onDone }: { pr: PurchaseDocRecord; onClose
   );
 }
 
+/** Route element: a new instance per document, so no dialog or edit state leaks from one document to the next. */
+export function PurchaseDocRoute({ docType }: { docType: DocType }) {
+  const { docId = "" } = useParams();
+  return <PurchaseDocPage key={`${docType}:${docId}`} docType={docType} />;
+}
+
 export function PurchaseDocPage({ docType }: { docType: DocType }) {
   const { docId = "" } = useParams();
   const isNew = docId === "new";
@@ -388,7 +394,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
                 <span>{fmtDate(r.txn_date)}</span>
                 <span className="muted small">
                   {POSTING_LABEL[r.type]} · {r.line_count} lines · {r.actor.name}
-                  {r.reversed_by ? ` · reversed by ${r.reversed_by.number}` : ""}
+                  {r.reversed_by_number ? ` · reversed by ${r.reversed_by_number}` : ""}
                 </span>
               </li>
             ))}
@@ -453,7 +459,10 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
           }}
         />
       ) : null}
-      {converting && doc ? <ConvertDialog pr={doc} onClose={() => setConverting(false)} onDone={(poId) => navigate(mfgPaths.purchaseDoc("po", poId))} /> : null}
+      {converting && doc ? <ConvertDialog pr={doc} onClose={() => setConverting(false)} onDone={(poId) => {
+            setConverting(false);
+            navigate(mfgPaths.purchaseDoc("po", poId));
+          }} /> : null}
     </div>
   );
 }

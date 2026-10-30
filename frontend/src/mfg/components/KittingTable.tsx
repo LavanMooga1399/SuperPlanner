@@ -83,7 +83,7 @@ export function KittingTable({ components, kitting, highlight, showKitting }: { 
             key: "where",
             header: "Where",
             width: "minmax(120px, 1fr)",
-            render: (r) => <span className="mfg-ellipsis small faint">{(r.k?.locations ?? []).map((l) => `${l.location.code}${l.lot ? `/${l.lot.lot_code}` : ""} ${fmtNum(l.qty_available)}`).join(", ")}</span>,
+            render: (r) => <span className="mfg-ellipsis small faint">{(r.k?.locations ?? []).map((l) => `${l.location_code}${l.lot_code ? `/${l.lot_code}` : ""} ${fmtNum(l.available)}`).join(", ")}</span>,
           },
         ] as Column<KitRow>[])
       : []),
@@ -98,7 +98,7 @@ export function KittingTable({ components, kitting, highlight, showKitting }: { 
       testId="kitting-table"
       height="min(56vh, 600px)"
       scrollTo={scrollTo}
-      rowExtras={(r) => ({ testId: "kitting-row", data: { item: r.c.item.part_number, shortage: r.k?.shortage ?? 0, component: r.c.id }, className: r.c.id === highlight ? "mfg-selected" : undefined })}
+      rowExtras={(r) => ({ testId: "kitting-row", data: { item: r.c.item.part_number, shortage: r.k ? r.k.shortage : undefined, component: r.c.id }, className: r.c.id === highlight ? "mfg-selected" : undefined })}
       empty="No components. Without an effective BOM nothing is generated; use Refresh from BOM after releasing one."
     />
   );

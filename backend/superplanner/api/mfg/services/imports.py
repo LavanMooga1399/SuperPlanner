@@ -158,6 +158,11 @@ def _preview(plan: ImportPlan, map_errors: list[dict[str, Any]], warnings: list[
             "changes_sample": plan.changes_sample[:50]}
 
 
+def _maps_txn(mapping: dict[str, Any]) -> bool:
+    """Does the mapping target a transactional sheet (then the planner needs `ds.txn`)?"""
+    return any((m or {}).get("target") in TXN_SHEETS for m in (mapping.get("sheets") or {}).values())
+
+
 def put_mapping(ctx: AppContext, import_id: str, mapping: dict[str, Any], if_match: str | None) -> dict[str, Any]:
     with read_tx(ctx) as s:
         row = _get(s, import_id)
@@ -171,7 +176,7 @@ def put_mapping(ctx: AppContext, import_id: str, mapping: dict[str, Any], if_mat
         except MappingError as exc:
             raise ApiError(422, "VALIDATION_ERROR", f"The mapping is not valid: {exc.errors[0]['msg']}",
                            {"errors": exc.errors}) from None
-        ds = repo_m2.load_import_dataset(s)
+        ds = repo_m2.load_import_dataset(s, with_txn=_maps_txn(mapping))
     plan, map_errors, warnings = _plan(staged, mapping, ds)
     preview = _preview(plan, map_errors, warnings)
     with write_tx(ctx, lock=False) as (s, _):
@@ -238,7 +243,7 @@ def commit(ctx: AppContext, import_id: str, if_match: str | None, perms: frozens
             raise ApiError(409, "MFG_IMPORT_NOT_MAPPED", "Map the columns and look at the preview before committing.")
         staged, mapping = row.sheets or [], row.mapping
         key = _plant_key(s)
-        ds = repo_m2.load_import_dataset(s)
+        ds = repo_m2.load_import_dataset(s, with_txn=_maps_txn(mapping))
     plan, map_errors, warnings = _plan(staged, mapping, ds)
     bundle, _src, _errs = apply_mapping(staged, mapping)
     _check_sheet_permissions(bundle, perms)

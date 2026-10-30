@@ -150,7 +150,8 @@ def doc_records(s: Session, docs: list[MfgPurchaseDocRow], *, full: bool = True)
             lrecs.append({"id": ln.id, "line_no": ln.line_no, "item_id": ln.item_id, "item": iref(it, ln.item_id),
                           "unit_price": ln.unit_price, "note": ln.note, "status": ln.status, "qty": r6(qty),
                           "received_qty": r6(rec), "open_qty": r6(sum(x["open_qty"] for x in ss)),
-                          "converted_to": conv.get(ln.id), "source_pr": src.get(ln.id), "schedules": ss})
+                          "converted_to": conv.get(ln.id), "source_pr": src.get(ln.source_pr_line_id or ""),
+                          "schedules": ss})
         base["lines"] = lrecs
         out.append(base)
     return out

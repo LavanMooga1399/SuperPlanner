@@ -54,7 +54,7 @@ export function IssueDialog({
   const [rows, setRows] = useState(() =>
     comps.map((c) => {
       const loc = kit.get(c.id)?.locations[0];
-      return { c, qty: "", location_id: loc?.location.id ?? "", lot_code: "", over: false };
+      return { c, qty: "", location_id: loc?.location_id ?? "", lot_code: "", over: false };
     }),
   );
   const { post, busy, error } = usePost();
@@ -87,7 +87,7 @@ export function IssueDialog({
             <button
               type="button"
               className="btn ghost"
-              onClick={() => setRows((rs) => rs.map((r) => ({ ...r, qty: String(Math.min(r.c.open_qty, Math.max(r.c.reserved_qty, kit.get(r.c.id)?.locations[0]?.qty_available ?? 0))) })))}
+              onClick={() => setRows((rs) => rs.map((r) => ({ ...r, qty: String(Math.min(r.c.open_qty, Math.max(r.c.reserved_qty, kit.get(r.c.id)?.locations[0]?.available ?? 0))) })))}
               data-testid="wo-issue-fill"
             >
               Fill open quantities (as available)

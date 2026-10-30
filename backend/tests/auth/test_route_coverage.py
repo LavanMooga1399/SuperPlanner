@@ -177,8 +177,10 @@ OWNED_PARAMS = {"problem_id", "run_id", "schedule_id", "plan_id", "result_id"}
 
 
 def _owned_ops(app) -> list[tuple[str, str]]:
+    # mfg paths (`/mfg/mrp/runs/{run_id}`) own MRP runs, not solver runs; the manufacturing sweep covers them
+    # (tests/acceptance_phase2b/test_acc_authz_sweep.py, M2-DESIGN 19.2)
     return sorted(op for op in openapi_operations(app) - PUBLIC_ALLOWLIST
-                  if set(path_params(op[1])) & OWNED_PARAMS)
+                  if set(path_params(op[1])) & OWNED_PARAMS and not op[1].startswith("/mfg/"))
 
 
 def _assert_same_404(rb, ru, foreign: str, unknown: str, what: str) -> None:

@@ -26,12 +26,31 @@ from .services import demand, inventory, locations, members, mrp, purchasing, su
 from .services.common import jsonable, respond
 
 router = APIRouter(prefix="/mfg", tags=["mfg-m2"])
-IfMatch = Header(default=None, alias="If-Match")
-IdemKey = Header(default=None, alias="Idempotency-Key")
-Limit = Query(default=L.PAGE_DEFAULT, ge=1, le=L.PAGE_MAX)
-Offset = Query(default=0, ge=0)
-Id = Query(default=None, max_length=64)
-QText = Query(default=None, max_length=200)
+
+
+def _if_match() -> Any:
+    return Header(default=None, alias="If-Match")
+
+
+def _idem_key() -> Any:
+    return Header(default=None, alias="Idempotency-Key")
+# factories: a Query() object must not be shared between parameters (FastAPI would mix their names up)
+
+
+def Limit() -> Any:
+    return Query(default=L.PAGE_DEFAULT, ge=1, le=L.PAGE_MAX)
+
+
+def Offset() -> Any:
+    return Query(default=0, ge=0)
+
+
+def Id() -> Any:
+    return Query(default=None, max_length=64)
+
+
+def QText() -> Any:
+    return Query(default=None, max_length=200)
 
 
 def P(perm: str) -> list[Any]:
@@ -89,13 +108,13 @@ def add_member(body: MemberInput, p: MfgPrincipal = Depends(mfg_principal),
 
 
 @router.put("/members/{member_id}", dependencies=P("owner"))
-def put_member(member_id: str, body: MemberUpdate, if_match: str | None = IfMatch,
+def put_member(member_id: str, body: MemberUpdate, if_match: str | None = _if_match(),
                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(members.update_member(ctx, member_id, body, if_match))
 
 
 @router.delete("/members/{member_id}", status_code=204, dependencies=P("owner"))
-def delete_member(member_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
+def delete_member(member_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> Response:
     members.remove_member(ctx, member_id, if_match)
     return _no_content()
 
@@ -103,7 +122,7 @@ def delete_member(member_id: str, if_match: str | None = IfMatch, ctx: AppContex
 # ---------------------------------------------------------------- 84-87 locations
 
 @router.get("/locations", dependencies=P("view"))
-def list_locations(q: str | None = QText, kind: Literal["stores", "line_side", "inspection", "quarantine"] | None = None,
+def list_locations(q: str | None = QText(), kind: Literal["stores", "line_side", "inspection", "quarantine"] | None = None,
                    active: bool | None = None, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(locations.list_locations(ctx, q, kind, active))
 
@@ -115,13 +134,13 @@ def create_location(body: LocationInput, ctx: AppContext = Depends(get_ctx)) -> 
 
 
 @router.put("/locations/{location_id}", dependencies=P("master_edit"))
-def put_location(location_id: str, body: LocationInput, if_match: str | None = IfMatch,
+def put_location(location_id: str, body: LocationInput, if_match: str | None = _if_match(),
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(locations.update_location(ctx, location_id, body, if_match))
 
 
 @router.delete("/locations/{location_id}", status_code=204, dependencies=P("master_edit"))
-def delete_location(location_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
+def delete_location(location_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> Response:
     locations.delete_location(ctx, location_id, if_match)
     return _no_content()
 
@@ -129,7 +148,7 @@ def delete_location(location_id: str, if_match: str | None = IfMatch, ctx: AppCo
 # ---------------------------------------------------------------- 88-96 suppliers, item-suppliers
 
 @router.get("/suppliers", dependencies=P("view"))
-def list_suppliers(q: str | None = QText, active: bool | None = None,
+def list_suppliers(q: str | None = QText(), active: bool | None = None,
                    ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(suppliers.list_suppliers(ctx, q, active))
 
@@ -146,19 +165,19 @@ def get_supplier(supplier_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONRe
 
 
 @router.put("/suppliers/{supplier_id}", dependencies=P("supplier_edit"))
-def put_supplier(supplier_id: str, body: SupplierInput, if_match: str | None = IfMatch,
+def put_supplier(supplier_id: str, body: SupplierInput, if_match: str | None = _if_match(),
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(suppliers.update_supplier(ctx, supplier_id, body, if_match))
 
 
 @router.delete("/suppliers/{supplier_id}", status_code=204, dependencies=P("supplier_edit"))
-def delete_supplier(supplier_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
+def delete_supplier(supplier_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> Response:
     suppliers.delete_supplier(ctx, supplier_id, if_match)
     return _no_content()
 
 
 @router.get("/item-suppliers", dependencies=P("view"))
-def list_item_suppliers(item_id: str | None = Id, supplier_id: str | None = Id,
+def list_item_suppliers(item_id: str | None = Id(), supplier_id: str | None = Id(),
                         ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(suppliers.list_item_suppliers(ctx, item_id, supplier_id))
 
@@ -170,13 +189,13 @@ def create_item_supplier(body: ItemSupplierInput, ctx: AppContext = Depends(get_
 
 
 @router.put("/item-suppliers/{item_supplier_id}", dependencies=P("supplier_edit"))
-def put_item_supplier(item_supplier_id: str, body: ItemSupplierInput, if_match: str | None = IfMatch,
+def put_item_supplier(item_supplier_id: str, body: ItemSupplierInput, if_match: str | None = _if_match(),
                       ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(suppliers.update_item_supplier(ctx, item_supplier_id, body, if_match))
 
 
 @router.delete("/item-suppliers/{item_supplier_id}", status_code=204, dependencies=P("supplier_edit"))
-def delete_item_supplier(item_supplier_id: str, if_match: str | None = IfMatch,
+def delete_item_supplier(item_supplier_id: str, if_match: str | None = _if_match(),
                          ctx: AppContext = Depends(get_ctx)) -> Response:
     suppliers.delete_item_supplier(ctx, item_supplier_id, if_match)
     return _no_content()
@@ -185,25 +204,25 @@ def delete_item_supplier(item_supplier_id: str, if_match: str | None = IfMatch,
 # ---------------------------------------------------------------- 97-105 lots, inventory
 
 @router.get("/lots", dependencies=P("view"))
-def list_lots(item_id: str | None = Id, q: str | None = QText, expiring_before: PlanDate | None = None,
-              hold: bool | None = None, limit: int = Limit, offset: int = Offset,
+def list_lots(item_id: str | None = Id(), q: str | None = QText(), expiring_before: PlanDate | None = None,
+              hold: bool | None = None, limit: int = Limit(), offset: int = Offset(),
               ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(inventory.list_lots(ctx, item_id=item_id, q=q, expiring_before=expiring_before, hold=hold, limit=limit,
                                    offset=offset))
 
 
 @router.put("/lots/{lot_id}", dependencies=P("inventory"))
-def put_lot(lot_id: str, body: LotUpdate, if_match: str | None = IfMatch,
+def put_lot(lot_id: str, body: LotUpdate, if_match: str | None = _if_match(),
             ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(inventory.update_lot(ctx, lot_id, body, if_match))
 
 
 @router.get("/inventory/balances", dependencies=P("view"))
-def list_balances(q: str | None = QText, item_id: str | None = Id, location_id: str | None = Id,
+def list_balances(q: str | None = QText(), item_id: str | None = Id(), location_id: str | None = Id(),
                   kind: Literal["stores", "line_side", "inspection", "quarantine"] | None = None,
-                  nettable: bool | None = None, lot_id: str | None = Id, only_nonzero: bool = True,
-                  sort: Literal["part_number", "location", "-qty"] = "part_number", limit: int = Limit,
-                  offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                  nettable: bool | None = None, lot_id: str | None = Id(), only_nonzero: bool = True,
+                  sort: Literal["part_number", "location", "-qty"] = "part_number", limit: int = Limit(),
+                  offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(inventory.list_balances(ctx, q=q, item_id=item_id, location_id=location_id, kind=kind,
                                        nettable=nettable, lot_id=lot_id, only_nonzero=only_nonzero, sort=sort,
                                        limit=limit, offset=offset))
@@ -215,19 +234,19 @@ def item_stock(item_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse
 
 
 @router.get("/inventory/transactions", dependencies=P("view"))
-def list_transactions(item_id: str | None = Id, location_id: str | None = Id, lot_id: str | None = Id,
-                      txn_type: str | None = Query(default=None, max_length=16), posting_id: str | None = Id,
-                      ref_type: str | None = Query(default=None, max_length=8), ref_id: str | None = Id,
+def list_transactions(item_id: str | None = Id(), location_id: str | None = Id(), lot_id: str | None = Id(),
+                      txn_type: str | None = Query(default=None, max_length=16), posting_id: str | None = Id(),
+                      ref_type: str | None = Query(default=None, max_length=8), ref_id: str | None = Id(),
                       d0: Annotated[PlanDate | None, Query(alias="from")] = None,
-                      d1: Annotated[PlanDate | None, Query(alias="to")] = None, limit: int = Limit,
-                      offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                      d1: Annotated[PlanDate | None, Query(alias="to")] = None, limit: int = Limit(),
+                      offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(inventory.list_transactions(ctx, item_id=item_id, location_id=location_id, lot_id=lot_id,
                                            txn_type=txn_type, posting_id=posting_id, ref_type=ref_type,
                                            ref_id=ref_id, d0=d0, d1=d1, limit=limit, offset=offset))
 
 
 @router.post("/inventory/postings", status_code=201, dependencies=P("inventory"))
-def create_posting(body: PostingInput, idempotency_key: str | None = IdemKey,
+def create_posting(body: PostingInput, idempotency_key: str | None = _idem_key(),
                    ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     key = _idem(idempotency_key)
     rec, replay = inventory.create_posting(ctx, body, body.model_dump(mode="json"), key)
@@ -239,8 +258,8 @@ def create_posting(body: PostingInput, idempotency_key: str | None = IdemKey,
 @router.get("/inventory/postings", dependencies=P("view"))
 def list_postings(type: str | None = Query(default=None, max_length=16),
                   d0: Annotated[PlanDate | None, Query(alias="from")] = None,
-                  d1: Annotated[PlanDate | None, Query(alias="to")] = None, q: str | None = QText,
-                  limit: int = Limit, offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                  d1: Annotated[PlanDate | None, Query(alias="to")] = None, q: str | None = QText(),
+                  limit: int = Limit(), offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(inventory.list_postings(ctx, type_=type, d0=d0, d1=d1, q=q, limit=limit, offset=offset))
 
 
@@ -258,11 +277,11 @@ def reverse_posting(posting_id: str, body: NoteRequest = Body(default_factory=No
 # ---------------------------------------------------------------- 106-125 purchasing
 
 def _doc_list(doc_type: str) -> Any:
-    def handler(status: list[str] | None = Query(default=None), supplier_id: str | None = Id,
-                item_id: str | None = Id, overdue: bool | None = None, q: str | None = QText,
+    def handler(status: list[str] | None = Query(default=None), supplier_id: str | None = Id(),
+                item_id: str | None = Id(), overdue: bool | None = None, q: str | None = QText(),
                 source: Literal["manual", "mrp", "import"] | None = None,
-                sort: Literal["-created_at", "number", "next_dock_date"] = "-created_at", limit: int = Limit,
-                offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                sort: Literal["-created_at", "number", "next_dock_date"] = "-created_at", limit: int = Limit(),
+                offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
         return _ok(purchasing.list_docs(ctx, doc_type, status=status, supplier_id=supplier_id, item_id=item_id,
                                         overdue=overdue, q=q, source=source, sort=sort, limit=limit, offset=offset))
     return handler
@@ -284,47 +303,47 @@ def get_pr(doc_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
 
 
 @router.put("/purchase-requests/{doc_id}", dependencies=P("pr_edit"))
-def put_pr(doc_id: str, body: PurchaseDocInput, if_match: str | None = IfMatch,
+def put_pr(doc_id: str, body: PurchaseDocInput, if_match: str | None = _if_match(),
            ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.update_doc(ctx, "pr", doc_id, body, if_match))
 
 
 @router.delete("/purchase-requests/{doc_id}", status_code=204, dependencies=P("pr_edit"))
-def delete_pr(doc_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
+def delete_pr(doc_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> Response:
     purchasing.delete_doc(ctx, "pr", doc_id, if_match)
     return _no_content()
 
 
 @router.post("/purchase-requests/{doc_id}/submit", dependencies=P("pr_edit"))
-def submit_pr(doc_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def submit_pr(doc_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.action(ctx, "pr", doc_id, "submit", if_match))
 
 
 @router.post("/purchase-requests/{doc_id}/approve", dependencies=P("pr_approve"))
-def approve_pr(doc_id: str, body: NoteRequest = Body(default_factory=NoteRequest), if_match: str | None = IfMatch,
+def approve_pr(doc_id: str, body: NoteRequest = Body(default_factory=NoteRequest), if_match: str | None = _if_match(),
                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.action(ctx, "pr", doc_id, "approve", if_match))
 
 
 @router.post("/purchase-requests/{doc_id}/reject", dependencies=P("pr_approve"))
-def reject_pr(doc_id: str, body: RejectRequest, if_match: str | None = IfMatch,
+def reject_pr(doc_id: str, body: RejectRequest, if_match: str | None = _if_match(),
               ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.action(ctx, "pr", doc_id, "reject", if_match, reason=body.reason))
 
 
 @router.post("/purchase-requests/{doc_id}/revise", dependencies=P("pr_edit"))
-def revise_pr(doc_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def revise_pr(doc_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.action(ctx, "pr", doc_id, "revise", if_match))
 
 
 @router.post("/purchase-requests/{doc_id}/cancel", dependencies=P("pr_edit"))
-def cancel_pr(doc_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def cancel_pr(doc_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.action(ctx, "pr", doc_id, "cancel", if_match))
 
 
 @router.post("/purchase-requests/{doc_id}/convert", status_code=201, dependencies=P("po_edit"))
 def convert_pr(doc_id: str, body: ConvertPrRequest = Body(default_factory=ConvertPrRequest),
-               if_match: str | None = IfMatch, idempotency_key: str | None = IdemKey,
+               if_match: str | None = _if_match(), idempotency_key: str | None = _idem_key(),
                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     out, replay = purchasing.convert_pr(ctx, doc_id, body, if_match, _idem(idempotency_key))
     if replay:
@@ -348,37 +367,37 @@ def get_po(doc_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
 
 
 @router.put("/purchase-orders/{doc_id}", dependencies=P("po_edit"))
-def put_po(doc_id: str, body: PurchaseDocInput, if_match: str | None = IfMatch,
+def put_po(doc_id: str, body: PurchaseDocInput, if_match: str | None = _if_match(),
            ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.update_doc(ctx, "po", doc_id, body, if_match))
 
 
 @router.delete("/purchase-orders/{doc_id}", status_code=204, dependencies=P("po_edit"))
-def delete_po(doc_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
+def delete_po(doc_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> Response:
     purchasing.delete_doc(ctx, "po", doc_id, if_match)
     return _no_content()
 
 
 @router.post("/purchase-orders/{doc_id}/issue", dependencies=P("po_edit"))
-def issue_po(doc_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def issue_po(doc_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.action(ctx, "po", doc_id, "issue", if_match))
 
 
 @router.post("/purchase-orders/{doc_id}/close", dependencies=P("po_edit"))
-def close_po(doc_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def close_po(doc_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.action(ctx, "po", doc_id, "close", if_match))
 
 
 @router.post("/purchase-orders/{doc_id}/cancel", dependencies=P("po_edit"))
-def cancel_po(doc_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def cancel_po(doc_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(purchasing.action(ctx, "po", doc_id, "cancel", if_match))
 
 
 @router.get("/purchasing/schedule", dependencies=P("view"))
 def schedule_board(d0: Annotated[PlanDate | None, Query(alias="from")] = None,
-                   d1: Annotated[PlanDate | None, Query(alias="to")] = None, supplier_id: str | None = Id,
-                   item_id: str | None = Id, doc_type: Literal["pr", "po"] | None = None, overdue_only: bool = False,
-                   limit: int = Limit, offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                   d1: Annotated[PlanDate | None, Query(alias="to")] = None, supplier_id: str | None = Id(),
+                   item_id: str | None = Id(), doc_type: Literal["pr", "po"] | None = None, overdue_only: bool = False,
+                   limit: int = Limit(), offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(purchasing.schedule_board(ctx, d0=d0, d1=d1, supplier_id=supplier_id, item_id=item_id,
                                          doc_type=doc_type, overdue_only=overdue_only, limit=limit, offset=offset))
 
@@ -388,9 +407,9 @@ def schedule_board(d0: Annotated[PlanDate | None, Query(alias="from")] = None,
 @router.get("/demand-orders", dependencies=P("view"))
 def list_demand(status: Literal["draft", "open", "closed", "cancelled"] | None = None,
                 demand_type: Literal["customer", "internal", "spares", "project"] | None = None,
-                program: str | None = Query(default=None, max_length=32), item_id: str | None = Id,
+                program: str | None = Query(default=None, max_length=32), item_id: str | None = Id(),
                 due_from: PlanDate | None = None, due_to: PlanDate | None = None, late_only: bool = False,
-                q: str | None = QText, limit: int = Limit, offset: int = Offset,
+                q: str | None = QText(), limit: int = Limit(), offset: int = Offset(),
                 ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(demand.list_orders(ctx, status=status, demand_type=demand_type, program=program, item_id=item_id,
                                   due_from=due_from, due_to=due_to, late_only=late_only, q=q, limit=limit,
@@ -409,40 +428,40 @@ def get_demand(order_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONRespons
 
 
 @router.put("/demand-orders/{order_id}", dependencies=P("demand_edit"))
-def put_demand(order_id: str, body: DemandOrderInput, if_match: str | None = IfMatch,
+def put_demand(order_id: str, body: DemandOrderInput, if_match: str | None = _if_match(),
                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(demand.update_order(ctx, order_id, body, if_match))
 
 
 @router.delete("/demand-orders/{order_id}", status_code=204, dependencies=P("demand_edit"))
-def delete_demand(order_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
+def delete_demand(order_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> Response:
     demand.delete_order(ctx, order_id, if_match)
     return _no_content()
 
 
 @router.post("/demand-orders/{order_id}/open", dependencies=P("demand_edit"))
-def open_demand(order_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def open_demand(order_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(demand.action(ctx, order_id, "open", if_match))
 
 
 @router.post("/demand-orders/{order_id}/close", dependencies=P("demand_edit"))
-def close_demand(order_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def close_demand(order_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(demand.action(ctx, order_id, "close", if_match))
 
 
 @router.post("/demand-orders/{order_id}/cancel", dependencies=P("demand_edit"))
-def cancel_demand(order_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def cancel_demand(order_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(demand.action(ctx, order_id, "cancel", if_match))
 
 
 # ---------------------------------------------------------------- 134-147 work orders
 
 @router.get("/work-orders", dependencies=P("view"))
-def list_wos(status: list[str] | None = Query(default=None), item_id: str | None = Id, q: str | None = QText,
+def list_wos(status: list[str] | None = Query(default=None), item_id: str | None = Id(), q: str | None = QText(),
              start_from: PlanDate | None = None, start_to: PlanDate | None = None,
              source: Literal["manual", "mrp", "import"] | None = None,
-             sort: Literal["start_date", "due_date", "number", "priority"] = "start_date", limit: int = Limit,
-             offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+             sort: Literal["start_date", "due_date", "number", "priority"] = "start_date", limit: int = Limit(),
+             offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(workorders.list_wos(ctx, status=status, item_id=item_id, q=q, start_from=start_from, start_to=start_to,
                                    source=source, sort=sort, limit=limit, offset=offset))
 
@@ -465,25 +484,25 @@ def get_wo(wo_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
 
 
 @router.put("/work-orders/{wo_id}", dependencies=P("wo_edit"))
-def put_wo(wo_id: str, body: WorkOrderInput, if_match: str | None = IfMatch,
+def put_wo(wo_id: str, body: WorkOrderInput, if_match: str | None = _if_match(),
            ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(workorders.update_wo(ctx, wo_id, body, if_match))
 
 
 @router.delete("/work-orders/{wo_id}", status_code=204, dependencies=P("wo_edit"))
-def delete_wo(wo_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
+def delete_wo(wo_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> Response:
     workorders.delete_wo(ctx, wo_id, if_match)
     return _no_content()
 
 
 @router.post("/work-orders/{wo_id}/release", dependencies=P("wo_edit"))
 def release_wo(wo_id: str, body: ReleaseWoRequest = Body(default_factory=ReleaseWoRequest),
-               if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+               if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(workorders.action(ctx, wo_id, "release", if_match, reserve=body.reserve))
 
 
 def _wo_action(act: str) -> Any:
-    def handler(wo_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    def handler(wo_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
         return respond(workorders.action(ctx, wo_id, act, if_match))
     return handler
 
@@ -500,13 +519,13 @@ def wo_kitting(wo_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
 
 @router.post("/work-orders/{wo_id}/reserve", dependencies=P("wo_edit"))
 def wo_reserve(wo_id: str, body: ComponentIdsRequest = Body(default_factory=ComponentIdsRequest),
-               if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+               if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(workorders.reserve(ctx, wo_id, body.component_ids, if_match))
 
 
 @router.post("/work-orders/{wo_id}/unreserve", dependencies=P("wo_edit"))
 def wo_unreserve(wo_id: str, body: ComponentIdsRequest = Body(default_factory=ComponentIdsRequest),
-                 if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                 if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(workorders.reserve(ctx, wo_id, body.component_ids, if_match, release=True))
 
 
@@ -518,8 +537,8 @@ def create_run(body: MrpParams = Body(default_factory=MrpParams), ctx: AppContex
 
 
 @router.get("/mrp/runs", dependencies=P("view"))
-def list_runs(kind: Literal["live", "what_if"] | None = None, pinned: bool | None = None, limit: int = Limit,
-              offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+def list_runs(kind: Literal["live", "what_if"] | None = None, pinned: bool | None = None, limit: int = Limit(),
+              offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(mrp.list_runs(ctx, kind, pinned, limit, offset))
 
 
@@ -534,24 +553,24 @@ def get_run(run_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
 
 
 @router.put("/mrp/runs/{run_id}", dependencies=P("mrp_run"))
-def put_run(run_id: str, body: RunUpdate, if_match: str | None = IfMatch,
+def put_run(run_id: str, body: RunUpdate, if_match: str | None = _if_match(),
             ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return respond(mrp.update_run(ctx, run_id, body.label, body.note, body.pinned, if_match))
 
 
 @router.delete("/mrp/runs/{run_id}", status_code=204, dependencies=P("mrp_run"))
-def delete_run(run_id: str, if_match: str | None = IfMatch, ctx: AppContext = Depends(get_ctx)) -> Response:
+def delete_run(run_id: str, if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> Response:
     mrp.delete_run(ctx, run_id, if_match)
     return _no_content()
 
 
 @router.get("/mrp/runs/{run_id}/items", dependencies=P("view"))
-def run_items(run_id: str, q: str | None = QText, make_buy: Literal["make", "buy", "phantom"] | None = None,
+def run_items(run_id: str, q: str | None = QText(), make_buy: Literal["make", "buy", "phantom"] | None = None,
               family: str | None = Query(default=None, max_length=32), short_only: bool = False,
               has_exceptions: bool = False, planned_only: bool = False, llc: int | None = Query(default=None, ge=0,
                                                                                                    le=100),
-              sort: Literal["llc", "part_number", "first_short_date", "-short_qty"] = "llc", limit: int = Limit,
-              offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+              sort: Literal["llc", "part_number", "first_short_date", "-short_qty"] = "llc", limit: int = Limit(),
+              offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(mrp.list_items(ctx, run_id, q=q, make_buy=make_buy, family=family, short_only=short_only,
                               has_exceptions=has_exceptions, planned_only=planned_only, llc=llc, sort=sort,
                               limit=limit, offset=offset))
@@ -566,19 +585,19 @@ def run_item(run_id: str, item_id: str, bucket: Literal["day", "week", "month"] 
 
 
 @router.get("/mrp/runs/{run_id}/planned-orders", dependencies=P("view"))
-def run_planned(run_id: str, kind: Literal["make", "buy"] | None = None, item_id: str | None = Id,
-                supplier_id: str | None = Id,
+def run_planned(run_id: str, kind: Literal["make", "buy"] | None = None, item_id: str | None = Id(),
+                supplier_id: str | None = Id(),
                 release_status: Literal["start_in_past", "release_now", "later"] | None = None,
-                status: Literal["open", "converted"] | None = None, q: str | None = QText,
+                status: Literal["open", "converted"] | None = None, q: str | None = QText(),
                 sort: Literal["start_date", "need_date", "part_number", "supplier"] = "start_date",
-                limit: int = Limit, offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                limit: int = Limit(), offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(mrp.list_planned(ctx, run_id, kind=kind, item_id=item_id, supplier_id=supplier_id,
                                 release_status=release_status, status=status, q=q, sort=sort, limit=limit,
                                 offset=offset))
 
 
 @router.post("/mrp/runs/{run_id}/planned-orders/convert", status_code=201, dependencies=P("mrp_run"))
-def run_convert(run_id: str, body: ConvertPlannedRequest, idempotency_key: str | None = IdemKey,
+def run_convert(run_id: str, body: ConvertPlannedRequest, idempotency_key: str | None = _idem_key(),
                 ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     out, replay = mrp.convert(ctx, run_id, body, _idem(idempotency_key))
     if replay:
@@ -589,17 +608,17 @@ def run_convert(run_id: str, body: ConvertPlannedRequest, idempotency_key: str |
 @router.get("/mrp/runs/{run_id}/exceptions", dependencies=P("view"))
 def run_exceptions(run_id: str, code: list[str] | None = Query(default=None),
                    severity: list[Literal["critical", "warning", "info"]] | None = Query(default=None),
-                   item_id: str | None = Id, demand_line_id: str | None = Id, q: str | None = QText,
-                   limit: int = Limit, offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                   item_id: str | None = Id(), demand_line_id: str | None = Id(), q: str | None = QText(),
+                   limit: int = Limit(), offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(mrp.list_exceptions(ctx, run_id, code=code, severity=severity, item_id=item_id,
                                    demand_line_id=demand_line_id, q=q, limit=limit, offset=offset))
 
 
 @router.get("/mrp/runs/{run_id}/demand", dependencies=P("view"))
 def run_demand(run_id: str, status: Literal["on_time", "late", "past_due"] | None = None,
-               program: str | None = Query(default=None, max_length=32), order_id: str | None = Id,
-               late_only: bool = False, sort: Literal["-late_days", "due_date"] = "-late_days", limit: int = Limit,
-               offset: int = Offset, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+               program: str | None = Query(default=None, max_length=32), order_id: str | None = Id(),
+               late_only: bool = False, sort: Literal["-late_days", "due_date"] = "-late_days", limit: int = Limit(),
+               offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(mrp.list_demand(ctx, run_id, status=status, program=program, order_id=order_id, late_only=late_only,
                                sort=sort, limit=limit, offset=offset))
 

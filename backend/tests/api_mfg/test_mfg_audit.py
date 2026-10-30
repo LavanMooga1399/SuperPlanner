@@ -18,20 +18,22 @@ OCTET = {"content-type": "application/octet-stream"}
 
 
 def test_every_mutating_mfg_service_records_an_audit_event():
-    """Static guard: each function that opens an mfg write transaction calls `audit(...)`."""
+    """Static guard: each function that opens an mfg write transaction (`write_tx(` or the M2 `run_tx(`) calls
+    `audit(...)` (M2-DESIGN 10.3; `post_in_session` is the posting core shared by the posting endpoint, imports and
+    sample loads and audits itself)."""
     missing: list[str] = []
     checked = 0
     for path in sorted(SERVICES.glob("*.py")):
-        if path.name == "common.py":
+        if path.name in ("common.py", "m2util.py"):
             continue
         for node in ast.parse(path.read_text()).body:
             if isinstance(node, ast.FunctionDef):
                 src = ast.unparse(node)
-                if "write_tx(" in src:
+                if "write_tx(" in src or "run_tx(" in src:
                     checked += 1
                     if "audit(" not in src:
                         missing.append(f"{path.name}:{node.name}")
-    assert checked >= 45, checked
+    assert checked >= 80, checked
     assert not missing, missing
 
 

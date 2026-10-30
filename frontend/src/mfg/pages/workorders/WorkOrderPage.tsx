@@ -388,7 +388,7 @@ export function WorkOrderPage() {
             ) : null}
           </div>
           <MfgError error={kitting.error} onRetry={kitting.reload} title="Kitting could not be checked" />
-          <KittingTable components={wo.components} kitting={kitting.data?.components ?? null} highlight={params.get("component")} showKitting={active} />
+          <KittingTable components={wo.components} kitting={kitting.data?.rows ?? null} highlight={params.get("component")} showKitting={active} />
         </section>
       ) : null}
 
@@ -476,7 +476,7 @@ export function WorkOrderPage() {
           </p>
         </ConfirmDialog>
       ) : null}
-      {(dlg === "issue" || dlg === "return") && wo ? <IssueDialog wo={wo} mode={dlg} kitting={kitting.data?.components ?? null} onClose={() => setDlg(null)} onDone={(p) => afterPost(`Posted ${p.number}.`)} /> : null}
+      {(dlg === "issue" || dlg === "return") && wo ? <IssueDialog wo={wo} mode={dlg} kitting={kitting.data?.rows ?? null} onClose={() => setDlg(null)} onDone={(p) => afterPost(`Posted ${p.number}.`)} /> : null}
       {dlg === "output" && wo ? <OutputDialog wo={wo} onClose={() => setDlg(null)} onDone={(p) => afterPost(`Output posted: ${p.number}.`)} /> : null}
       {dlg === "components" && wo ? (
         <ComponentsEditor
