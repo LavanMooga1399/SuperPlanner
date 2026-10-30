@@ -90,6 +90,9 @@ class MrpParams(MfgModel):
         Field(default_factory=list)
     lead_time_overrides: Annotated[list[LeadTimeOverride], Field(max_length=MRP_MAX_OVERRIDES)] = \
         Field(default_factory=list)
+    #: M3-DESIGN 10: with a published schedule, existing WOs' projected dates come from it (applied by the service
+    #: as `supply_date_overrides`; not a what-if input)
+    use_schedule: bool = True
 
     def what_if_inputs(self) -> bool:
         """True when any what-if input other than `as_of` is set (8.14)."""

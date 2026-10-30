@@ -3,7 +3,7 @@ import { ifMatch, mfgDownload, mfgRequest } from "./client";
 import type { List, Page } from "./types";
 import type {
   ApsCompareResponse,
-  ApsDemandRow,
+  ApsDemandResponse,
   ApsExceptionPage,
   ApsParams,
   ApsRunRecord,
@@ -12,7 +12,7 @@ import type {
   EditRequest,
   GanttQuery,
   GanttResponse,
-  LoadRow,
+  LoadResponse,
   OpDetail,
   OperationLineRateInput,
   OperationLineRateRecord,
@@ -86,9 +86,9 @@ export const getApsOperation = (id: string, opNo: number, signal?: AbortSignal) 
 export const listApsOrders = (id: string, query: { late_only?: boolean; order_type?: string; q?: string; sort?: string; limit?: number; offset?: number }, signal?: AbortSignal) =>
   mfgRequest<Page<OrderResultRow>>(`${R}/${enc(id)}/orders`, { query: { ...query }, signal });
 export const listApsDemand = (id: string, query: { late_only?: boolean; program?: string }, signal?: AbortSignal) =>
-  mfgRequest<{ items: ApsDemandRow[] }>(`${R}/${enc(id)}/demand`, { query: { ...query }, signal });
+  mfgRequest<ApsDemandResponse>(`${R}/${enc(id)}/demand`, { query: { ...query }, signal });
 export const getApsLoad = (id: string, query: { group_id?: string; line_id?: string; bucket?: "day" | "week"; from?: string; to?: string }, signal?: AbortSignal) =>
-  mfgRequest<{ items: LoadRow[] }>(`${R}/${enc(id)}/load`, { query: { ...query }, signal });
+  mfgRequest<LoadResponse>(`${R}/${enc(id)}/load`, { query: { ...query }, signal });
 export const getDispatch = (id: string, query: { line_id: string; date?: string; shift?: string }, signal?: AbortSignal) =>
   mfgRequest<DispatchResponse>(`${R}/${enc(id)}/dispatch`, { query: { ...query }, signal });
 export const getApsOvertime = (id: string, status?: string, signal?: AbortSignal) =>

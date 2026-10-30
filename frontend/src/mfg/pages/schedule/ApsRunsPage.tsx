@@ -21,7 +21,7 @@ import { usePolling } from "../../lib/usePolling";
 import { useLoad } from "../../lib/useMfg";
 import { ApsRunForm } from "./ApsRunForm";
 
-export function apsRunTitle(r: ApsRunRecord): string {
+export function apsRunTitle(r: Pick<ApsRunRecord, "run_no" | "label">): string {
   return `Schedule #${r.run_no}${r.label ? ` · ${r.label}` : ""}`;
 }
 
@@ -103,11 +103,11 @@ export function ApsRunsPage() {
                       {isActive(r) ? <ApsProgress run={r} /> : <ApsStatusChip run={r} />}
                     </td>
                     <td>
-                      <PolicyBadge policy={s?.overtime_policy ?? r.params?.overtime ?? null} />
+                      <PolicyBadge policy={r.policy} />
                     </td>
                     <td className="small">{clock.dateTime(r.as_of)}</td>
                     <td className="right">{s ? <span className={s.late_orders ? "mfg-neg" : undefined}>{s.late_orders}</span> : ""}</td>
-                    <td className="right">{s ? fmtDuration(s.weighted_tardiness_minutes) || "0" : ""}</td>
+                    <td className="right">{s ? fmtDuration(s.weighted_tardiness) || "0" : ""}</td>
                     <td className="right">{s ? fmtDuration(s.overtime_minutes) || "none" : ""}</td>
                     <td className="small">
                       {fmtTimestamp(r.finished_at)} {r.actor.name}

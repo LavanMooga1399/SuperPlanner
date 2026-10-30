@@ -16,6 +16,7 @@ import { fmtNum } from "../../lib/formatM2";
 import { fmtDuration, usePlantClock } from "../../lib/plantTime";
 import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
+import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 
@@ -25,7 +26,7 @@ const STATUS: Record<OvertimeWindow["status"], { label: string; tone: string; ic
   forced: { label: "Opened by you (what-if)", tone: "accent", icon: "lock" },
 };
 
-const keyOf = (w: OvertimeWindow) => w.id ?? `${w.line.id}:${w.start}`;
+const keyOf = (w: OvertimeWindow) => w.assignment_id ? `${w.assignment_id}:${w.start}` : `${w.line_id}:${w.start}`;
 
 export function ApsOvertimeTab() {
   const { run } = useApsRun();
@@ -40,20 +41,22 @@ export function ApsOvertimeTab() {
     () => items.filter((w) => w.status === "suggested").sort((a, b) => (b.tardiness_saved_minutes ?? 0) / Math.max(1, b.cost) - (a.tardiness_saved_minutes ?? 0) / Math.max(1, a.cost)),
     [items],
   );
-  const policy = run.summary?.overtime_policy ?? run.params?.overtime ?? "suggest";
+  const policy = run.policy ?? run.summary?.policy ?? run.params?.overtime ?? "suggest";
   const t = ot.data?.totals;
   const acceptedRows = suggested.filter((w) => accepted.has(keyOf(w)));
 
   const rerunAccepted = () => {
+    // a copy of this run's inputs + the accepted windows forced open (`copy_of` only allows overtime/label/note/
+    // improve_seconds alongside it, so the params are copied instead)
+    const { copy_of: _c, edits: _e, ...base } = run.params ?? {};
     const prefill: ApsParams = {
-      ...(run.params ?? {}),
-      copy_of: run.id,
+      ...base,
+      as_of: base.as_of ?? null,
       label: `${run.label || `Schedule #${run.run_no}`} with ${acceptedRows.length} extra shift${acceptedRows.length === 1 ? "" : "s"}`,
       capacity_overrides: [
         ...(run.params?.capacity_overrides ?? []),
-        ...acceptedRows.map((w) => ({ target_type: "line" as const, target_id: w.line.id, start: w.start, end: w.end, mode: "open_optional" as const })),
+        ...acceptedRows.map((w) => ({ target_type: "line" as const, target_id: w.line_id, start: w.start, end: w.end, mode: "open_optional" as const })),
       ],
-      edits: undefined,
     };
     navigate(mfgPaths.schedule(), { state: { prefill } });
   };
@@ -73,7 +76,7 @@ export function ApsOvertimeTab() {
             <div className="kpi-label">Overtime suggested</div>
             <div className="kpi-value">{fmtDuration(t.suggested_minutes) || "none"}</div>
             <div className="kpi-sub">
-              cost {fmtNum(Math.round(t.suggested_cost))} · saves {fmtDuration(t.suggested_saved_minutes) || "0"} weighted lateness
+              cost {fmtNum(Math.round(t.suggested_cost))} · saves {fmtDuration(t.tardiness_saved_minutes) || "0"} weighted lateness
             </div>
           </div>
         </div>
@@ -154,6 +157,7 @@ function OtTable({
   onToggle?(w: OvertimeWindow): void;
   canAccept?: boolean;
 }) {
+  const names = useResourceNames();
   return (
     <div className="table-wrap">
       <table className="table">
@@ -161,7 +165,6 @@ function OtTable({
           <tr>
             {mode === "suggested" ? <th>Accept</th> : null}
             <th>Line</th>
-            <th>Shift</th>
             <th>When</th>
             <th className="right">Hours</th>
             <th className="right">Cost</th>
@@ -172,7 +175,7 @@ function OtTable({
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={8} className="muted">
+              <td colSpan={mode === "suggested" ? 7 : 6} className="muted">
                 None: no work would otherwise be late.
               </td>
             </tr>
@@ -181,17 +184,16 @@ function OtTable({
             const s = STATUS[w.status];
             const k = keyOf(w);
             return (
-              <tr key={k} data-testid="overtime-row" data-status={w.status} data-line={w.line.code} data-saved={w.tardiness_saved_minutes ?? ""}>
+              <tr key={k} data-testid="overtime-row" data-status={w.status} data-line={names.line(w.line_id).code} data-saved={w.tardiness_saved_minutes ?? ""}>
                 {mode === "suggested" ? (
                   <td>
-                    <input type="checkbox" checked={accepted?.has(k) ?? false} disabled={!canAccept} onChange={() => onToggle?.(w)} aria-label={`Accept ${w.shift_label ?? "extra shift"} on ${w.line.code} ${clock.dateTime(w.start)}`} data-testid="overtime-accept" />
+                    <input type="checkbox" checked={accepted?.has(k) ?? false} disabled={!canAccept} onChange={() => onToggle?.(w)} aria-label={`Accept extra shift on ${names.line(w.line_id).code} ${clock.dateTime(w.start)}`} data-testid="overtime-accept" />
                   </td>
                 ) : null}
                 <td className="mono">
-                  {w.line.code}
-                  {w.group ? <span className="faint small"> · {w.group.code}</span> : null}
+                  {names.line(w.line_id).code}
+                  {names.line(w.line_id).group_id ? <span className="faint small"> · {names.group(names.line(w.line_id).group_id).code}</span> : null}
                 </td>
-                <td>{w.shift_label ?? ""}</td>
                 <td className="small">
                   {clock.dateTime(w.start)} – {clock.time(w.end)}
                 </td>
@@ -202,7 +204,12 @@ function OtTable({
                     <strong>{fmtDuration(w.tardiness_saved_minutes ?? 0)} weighted</strong>
                   ) : (
                     <>
-                      {w.reason ?? ""}
+                      {w.reason ??
+                        (w.tardiness_saved_minutes
+                          ? `Needed to finish late work sooner: saves ${fmtDuration(w.tardiness_saved_minutes)} weighted lateness.`
+                          : w.status === "forced"
+                            ? "Opened by you in this what-if."
+                            : "Needed to finish work that would otherwise be late.")}
                       {w.orders?.length ? (
                         <div>
                           {w.orders.map((o) => (

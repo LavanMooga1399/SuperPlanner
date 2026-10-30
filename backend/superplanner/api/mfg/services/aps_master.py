@@ -267,9 +267,18 @@ def delete_absence(ctx: AppContext, absence_id: str, if_match: str | None) -> No
 
 # ---------------------------------------------------------------- WO operations and progress (176-178)
 
+def _routing_of(s: Any, wo: MfgWorkOrderRow) -> str | None:
+    if wo.routing_id:
+        return wo.routing_id
+    from ....mfg.aps.pure import wo_routing_id
+
+    return wo_routing_id(repo.load_dataset(s), wo.item_id, wo.start_date, wo.serial_from, None)
+
+
 def _wo_operations(s: Any, wo: MfgWorkOrderRow) -> dict[str, Any]:
-    ops = list(s.execute(select(MfgOperationRow).where(MfgOperationRow.routing_id == wo.routing_id)
-                         .order_by(MfgOperationRow.seq)).scalars()) if wo.routing_id else []
+    rid = _routing_of(s, wo)
+    ops = list(s.execute(select(MfgOperationRow).where(MfgOperationRow.routing_id == rid)
+                         .order_by(MfgOperationRow.seq)).scalars()) if rid else []
     groups = {g.id: g for g in s.execute(select(MfgGroupRow).where(
         MfgGroupRow.id.in_({o.group_id for o in ops}))).scalars()} if ops else {}
     prog = {p.seq: p for p in s.execute(select(MfgWoOpProgressRow).where(MfgWoOpProgressRow.wo_id == wo.id))
@@ -321,8 +330,9 @@ def set_done(ctx: AppContext, wo_id: str, seq: int, done: bool, if_match: str | 
             raise ApiError(409, "MFG_INVALID_STATE", f"{wo.number} is {wo.status}; operations cannot change.",
                            {"status": wo.status, "action": "done" if done else "reopen",
                             "allowed_from": ["planned", "released", "in_progress", "completed"]})
-        if wo.routing_id is None or s.execute(select(MfgOperationRow.id).where(
-                MfgOperationRow.routing_id == wo.routing_id, MfgOperationRow.seq == seq)).first() is None:
+        rid = _routing_of(s, wo)
+        if rid is None or s.execute(select(MfgOperationRow.id).where(
+                MfgOperationRow.routing_id == rid, MfgOperationRow.seq == seq)).first() is None:
             raise ApiError(404, "NOT_FOUND", f"Operation {seq} was not found on {wo.number}.", {"id": str(seq)})
         p = s.execute(select(MfgWoOpProgressRow).where(MfgWoOpProgressRow.wo_id == wo.id,
                                                        MfgWoOpProgressRow.seq == seq)).scalars().first()

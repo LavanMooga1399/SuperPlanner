@@ -103,6 +103,35 @@ def _what_if(p: MrpParams, today_: date) -> bool:
     return (p.as_of is not None and p.as_of != today_) or p.what_if_inputs()
 
 
+def _with_schedule(ctx: AppContext, params: MrpParams, as_of: date) -> MrpParams:
+    """M3-DESIGN 10 (MRP feedback): the published schedule's last-operation end (local date) of every open WO becomes
+    a `supply_date_overrides` entry (user overrides win). Planned orders keep their MRP dates (no override exists
+    for them in M2; 17.WP-S)."""
+    from ....mfg.mrp.model import SupplyDateOverride
+    from ....mfg.tz import plant_tz
+    from ..db_models_m3 import MfgApsOpRow, MfgApsRunRow
+
+    with read_tx(ctx) as s:
+        run = s.execute(select(MfgApsRunRow).where(MfgApsRunRow.is_published.is_(True))).scalars().first()
+        if run is None:
+            return params
+        tz = plant_tz(repo.plant_or_default(s))
+        ends: dict[str, Any] = {}
+        incomplete: set[str] = set()
+        for oid, st, end in s.execute(select(MfgApsOpRow.order_id, MfgApsOpRow.status, MfgApsOpRow.end_at).where(
+                MfgApsOpRow.run_id == run.id, MfgApsOpRow.order_type == "wo")).all():
+            if st != "scheduled" or end is None:
+                incomplete.add(oid)
+            elif oid not in ends or end > ends[oid]:
+                ends[oid] = end
+    have = {o.wo_id for o in params.supply_date_overrides if o.wo_id}
+    extra = [SupplyDateOverride(wo_id=oid, date=max(as_of, end.astimezone(tz).date() + timedelta(days=1)))
+             for oid, end in sorted(ends.items()) if oid not in incomplete and oid not in have]
+    if not extra:
+        return params
+    return params.model_copy(update={"supply_date_overrides": list(params.supply_date_overrides) + extra})
+
+
 def create_run(ctx: AppContext, params: MrpParams) -> dict[str, Any]:
     t0 = time.monotonic()
     actor = actor_id()
@@ -174,8 +203,9 @@ def create_run(ctx: AppContext, params: MrpParams) -> dict[str, Any]:
         from ....mfg.mrp import run_mrp
 
         t2 = time.monotonic()
+        run_params = _with_schedule(ctx, params, as_of) if params.use_schedule else params
         try:
-            result = run_mrp(snap, params)
+            result = run_mrp(snap, run_params)
         except MrpPreflightError as e:
             raise drop("MRP_PREFLIGHT_FAILED", "MRP cannot run on this data.", {"issues": e.issues}) from None
         except MrpTooLarge as e:

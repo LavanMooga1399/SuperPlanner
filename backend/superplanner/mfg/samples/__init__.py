@@ -54,7 +54,23 @@ def _master(sample_id: str) -> MfgBundle:
     info = SAMPLES[sample_id]
     b = importlib.import_module(f".{info.module}", __name__).build()
     m2 = importlib.import_module(f".{info.module}_m2", __name__)
-    return canonical(m2.master(b))
+    b = m2.master(b)
+    m3 = _m3(sample_id)
+    return canonical(m3.master(b) if m3 is not None else b)
+
+
+def _m3(sample_id: str):  # type: ignore[no-untyped-def]
+    """The optional M3 module `<id>_m3` (M3-DESIGN 13)."""
+    try:
+        return importlib.import_module(f".{SAMPLES[sample_id].module}_m3", __name__)
+    except ModuleNotFoundError:
+        return None
+
+
+def sample_progress(sample_id: str) -> dict[str, list[int]]:
+    """WO number -> operation seqs marked done when the sample is loaded (M3 3.3)."""
+    m3 = _m3(sample_id)
+    return dict(getattr(m3, "PROGRESS", {})) if m3 is not None else {}
 
 
 @lru_cache(maxsize=16)
@@ -63,6 +79,9 @@ def _built(sample_id: str, anchor: date = DEFAULT_ANCHOR, include_transactions: 
     if include_transactions:
         m2 = importlib.import_module(f".{SAMPLES[sample_id].module}_m2", __name__)
         b.update(m2.transactions(copy.deepcopy(b), anchor))
+        m3 = _m3(sample_id)
+        if m3 is not None and hasattr(m3, "dated"):
+            b.update(m3.dated(b, anchor))
         b = canonical(b)
     return b
 

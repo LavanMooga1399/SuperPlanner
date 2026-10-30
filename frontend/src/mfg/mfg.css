@@ -195,3 +195,8 @@ details.card > summary { cursor: pointer; }
 .mfg-load-lbl { font-size: 9.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 @media print { .app-shell header, .mfg-nav, nav.tabs, .no-print, .mfg-sticky-actions { display: none !important; } .print-only { display: block !important; } }
 .print-only { display: none; }
+
+/* M3 schedule exceptions */
+.mfg-ex-list { list-style: none; margin: 0; padding: 0; }
+.mfg-ex-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.mfg-ex-item:last-child { border-bottom: 0; }

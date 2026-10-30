@@ -20,10 +20,10 @@ from ....mfg.health import run_health_check
 from ....mfg.io.plan import ImportOptions, plan_import
 from ....mfg.model import PlantRecord
 from ...context import AppContext
-from ...db import new_id
+from ...db import new_id, utcnow
 from ...errors import ApiError, not_found
 from .. import repo, repo_m2, writer
-from ..db_models_m2 import ALL_MFG_MODELS
+from ..db_models_m3 import ALL_MFG_MODELS
 from .common import audit, plant_today, read_tx, write_tx
 
 RESET_PHRASE = "DELETE ALL MANUFACTURING DATA"
@@ -50,6 +50,31 @@ def _reserve_released(s: Session, bundle: Any) -> None:
 
 def list_samples() -> dict[str, Any]:
     return {"items": S.sample_list()}
+
+
+def _sample_progress(s: Session, sample_id: str) -> None:
+    """M3 13: the sample's WO operation progress markers (idempotent)."""
+    from sqlalchemy import select
+
+    from ....mfg import samples as sample_data
+    from ..db_models_m2 import MfgWorkOrderRow
+    from ..db_models_m3 import MfgWoOpProgressRow
+
+    prog = sample_data.sample_progress(sample_id)
+    if not prog:
+        return
+    wos = {w.number: w.id for w in s.execute(select(MfgWorkOrderRow).where(
+        MfgWorkOrderRow.number.in_(sorted(prog)))).scalars()}
+    have = {(p.wo_id, p.seq) for p in s.execute(select(MfgWoOpProgressRow)).scalars()}
+    now = utcnow()
+    for number, seqs in sorted(prog.items()):
+        wid = wos.get(number)
+        for q in seqs:
+            if wid is None or (wid, q) in have:
+                continue
+            s.add(MfgWoOpProgressRow(id=new_id("wop_"), wo_id=wid, seq=q, done=True, done_at=now, done_by=None,
+                                     row_version=1, created_at=now, updated_at=now))
+    s.flush()
 
 
 def delete_all(s: Session) -> dict[str, int]:
@@ -122,6 +147,8 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
                 _reserve_released(s, bundle)
         else:
             plant.data_version -= 1
+        if include_transactions:
+            _sample_progress(s, sample_id)
         result = {"counts": plan.result_counts(), "duration_ms": int((time.monotonic() - t0) * 1000),
                   "data_version": plant.data_version}
         audit(s, "plant", plant.id, "sample_load", {"sample_id": sample_id, "replace": replace,

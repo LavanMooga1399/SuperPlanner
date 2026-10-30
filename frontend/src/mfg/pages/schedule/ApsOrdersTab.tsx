@@ -3,9 +3,8 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Icon } from "../../../components/Icon";
 import { listApsDemand, listApsOrders } from "../../api/clientM3";
-import type { OrderResultRow } from "../../api/typesM3";
+import type { LateChainStep, OrderRef, OrderResultRow } from "../../api/typesM3";
 import { MfgError } from "../../components/Feedback";
-import { fmtDate } from "../../lib/format";
 import { fmtNum } from "../../lib/formatM2";
 import { fmtDuration, usePlantClock } from "../../lib/plantTime";
 import { mfgPaths } from "../../lib/paths";
@@ -13,19 +12,38 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 
-const KIND_LABEL: Record<string, string> = { material: "material", capacity: "capacity", calendar: "no shift", lead_time: "processing time", frozen: "frozen", locked: "locked" };
+const KIND_LABEL: Record<string, string> = {
+  material: "material",
+  capacity: "capacity",
+  calendar: "no shift",
+  lead_time: "processing time",
+  frozen: "frozen",
+  locked: "locked",
+  crew: "operators",
+  tool: "tooling",
+  predecessor: "previous step",
+  setup: "changeover",
+  as_of: "plan start",
+};
 
-export function LateChain({ chain }: { chain: OrderResultRow["late_chain"] }) {
-  if (!chain) return null;
+/** Link of a work order / planned order reference. */
+export function orderLink(o: OrderRef, runId?: string): string {
+  return o.type === "wo" ? mfgPaths.workOrder(o.id) : runId ? mfgPaths.apsGantt(runId, { view: "order", order: o.id }) : mfgPaths.mrp();
+}
+
+/** "Why late": the server text plus one chip per binding step (material, capacity, calendar, ...). */
+export function LateChain({ text, steps }: { text?: string; steps?: LateChainStep[] }) {
+  if (!text && !steps?.length) return null;
   return (
     <div className="col" style={{ gap: 2 }} data-testid="late-chain">
-      <span className="small">{chain.text}</span>
-      {chain.steps.length ? (
+      {text ? <span className="small">{text}</span> : null}
+      {steps?.length ? (
         <div className="mfg-chip-row">
-          {chain.steps.map((s, i) => (
-            <span key={i} className={`mfg-step-chip${i === chain.steps.length - 1 ? " mfg-step-last" : ""}`} data-kind={s.kind}>
+          {steps.map((s, i) => (
+            <span key={i} className={`mfg-step-chip${i === steps.length - 1 ? " mfg-step-last" : ""}`} data-kind={s.kind}>
               <span className="faint">{KIND_LABEL[s.kind] ?? s.kind}:</span>
-              {s.ref?.link ? <Link to={s.ref.link}>{s.label}</Link> : <span>{s.label}</span>}
+              <span>{s.text}</span>
+              {s.refs.map((r) => (r.link ? <Link key={`${r.type}${r.id}`} to={r.link}>{r.label}</Link> : null))}
             </span>
           ))}
         </div>
@@ -73,7 +91,7 @@ export function ApsOrdersTab() {
               <th>Order</th>
               <th>Item</th>
               <th className="right">Qty</th>
-              <th>Prio.</th>
+              <th>Rank</th>
               <th>Due</th>
               <th>Start / end</th>
               <th>Late</th>
@@ -89,25 +107,22 @@ export function ApsOrdersTab() {
               </tr>
             ) : null}
             {data.rows.map((o) => [
-              <tr key={o.order_id} data-testid="aps-order-row" data-number={o.number} data-late-minutes={o.late_minutes}>
+              <tr key={o.order.id} data-testid="aps-order-row" data-number={o.order.number} data-late-minutes={o.late_minutes}>
                 <td>
-                  {o.link ? (
-                    <Link to={o.link} className="mono">
-                      {o.number}
-                    </Link>
-                  ) : (
-                    <span className="mono">{o.number}</span>
-                  )}{" "}
-                  <Link to={mfgPaths.apsGantt(run.id, { view: "order", order: o.order_id })} className="small" title="Show in the Gantt">
+                  <Link to={orderLink(o.order, run.id)} className="mono">
+                    {o.order.number}
+                  </Link>{" "}
+                  <Link to={mfgPaths.apsGantt(run.id, { view: "order", order: o.order.id })} className="small" title="Show in the Gantt" aria-label={`Show ${o.order.number} in the Gantt`}>
                     <Icon name="calendar" size={12} />
                   </Link>
+                  {o.unscheduled_ops ? <div className="faint small">{o.unscheduled_ops} operations not scheduled</div> : null}
                 </td>
-                <td className="mono">{o.item.part_number}</td>
+                <td className="mono">{o.part_number}</td>
                 <td className="right">{fmtNum(o.qty)}</td>
-                <td>P{o.priority}</td>
-                <td className="small">{clock.dateTime(o.due_at)}</td>
+                <td className="small">{o.rank_label || `P${o.priority}`}</td>
+                <td className="small">{clock.dateTime(o.due)}</td>
                 <td className="small">
-                  {clock.dateTime(o.start_at)} – {clock.dateTime(o.end_at)}
+                  {clock.dateTime(o.start)} – {clock.dateTime(o.end)}
                 </td>
                 <td>
                   {o.late_minutes > 0 ? (
@@ -121,13 +136,17 @@ export function ApsOrdersTab() {
                   )}
                 </td>
                 <td className="small">
-                  {o.demand_refs.map((d) => (d.link ? <Link key={d.demand_line_id} to={d.link}>{d.label} </Link> : <span key={d.demand_line_id}>{d.label} </span>))}
+                  {o.demand_refs.map((d) => (
+                    <span key={d.demand_line_id}>
+                      {d.order_id ? <Link to={mfgPaths.demandOrder(d.order_id, d.demand_line_id)}>{`${d.order_number}/${d.line_no}`}</Link> : `${d.order_number}/${d.line_no}`}{" "}
+                    </span>
+                  ))}
                 </td>
               </tr>,
-              o.late_chain ? (
-                <tr key={`${o.order_id}-c`} className="mfg-schedule-row">
+              o.late_text || o.late_chain.length ? (
+                <tr key={`${o.order.id}-c`} className="mfg-schedule-row">
                   <td colSpan={8}>
-                    <LateChain chain={o.late_chain} />
+                    <LateChain text={o.late_text} steps={o.late_chain} />
                   </td>
                 </tr>
               ) : null,
@@ -151,11 +170,19 @@ export function ApsDemandTab() {
   const clock = usePlantClock();
   const [lateOnly, setLateOnly] = useState(false);
   const d = useLoad((signal) => listApsDemand(run.id, { late_only: lateOnly || undefined }, signal), [run.id, lateOnly]);
+  const c = d.data?.counts;
   return (
     <div className="col gap-lg">
-      <label className="checkbox">
-        <input type="checkbox" checked={lateOnly} onChange={(e) => setLateOnly(e.target.checked)} /> Only late
-      </label>
+      <div className="row wrap">
+        <label className="checkbox">
+          <input type="checkbox" checked={lateOnly} onChange={(e) => setLateOnly(e.target.checked)} /> Only late
+        </label>
+        {c ? (
+          <span className="small muted">
+            {c.on_time} on time · {c.late} late{c.unscheduled ? ` · ${c.unscheduled} not scheduled` : ""}
+          </span>
+        ) : null}
+      </div>
       <MfgError error={d.error} onRetry={d.reload} />
       <div className="table-wrap card">
         <table className="table" data-testid="aps-demand">
@@ -167,42 +194,38 @@ export function ApsDemandTab() {
               <th>Due</th>
               <th>Scheduled completion</th>
               <th>Status</th>
+              <th>Orders</th>
             </tr>
           </thead>
           <tbody>
             {(d.data?.items ?? []).length === 0 ? (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={7} className="muted">
                   {d.loading ? "Loading…" : "No open demand lines."}
                 </td>
               </tr>
             ) : null}
             {(d.data?.items ?? []).map((x) => [
-              <tr key={x.demand_line_id} data-testid="aps-demand-row" data-late-minutes={x.late_minutes} data-line={x.order ? `${x.order.number}/${x.line_no}` : ""}>
+              <tr key={x.demand_line_id} data-testid="aps-demand-row" data-late-minutes={x.late_minutes} data-line={`${x.order_number}/${x.line_no}`}>
                 <td>
-                  {x.link ? (
-                    <Link to={x.link} className="mono">
-                      {x.order?.number}/{x.line_no}
-                    </Link>
-                  ) : (
-                    <span className="mono">
-                      {x.order?.number}/{x.line_no}
-                    </span>
-                  )}
-                  {x.order?.program ? <span className="faint small"> · {x.order.program}</span> : null}
+                  <Link to={mfgPaths.demandOrder(x.order_id, x.demand_line_id)} className="mono">
+                    {x.order_number}/{x.line_no}
+                  </Link>
+                  {x.program ? <span className="faint small"> · {x.program}</span> : null}
+                  <div className="faint small">P{x.priority}</div>
                 </td>
-                <td className="mono">{x.item.part_number}</td>
+                <td className="mono">{x.part_number}</td>
                 <td className="right">{fmtNum(x.qty)}</td>
-                <td>{fmtDate(x.due_date)}</td>
+                <td className="small">{clock.dateTime(x.due)}</td>
                 <td className="small">{x.scheduled_end ? clock.dateTime(x.scheduled_end) : <span className="faint">not scheduled</span>}</td>
                 <td>
-                  {x.status === "late" ? (
+                  {!x.scheduled_end ? (
+                    <span className="badge warn">
+                      <Icon name="help" /> Not scheduled{x.late_minutes ? `, ≥ ${fmtDuration(x.late_minutes)} late` : ""}
+                    </span>
+                  ) : x.late_minutes > 0 ? (
                     <span className="badge danger">
                       <Icon name="alert" /> {fmtDuration(x.late_minutes)} late
-                    </span>
-                  ) : x.status === "unscheduled" ? (
-                    <span className="badge warn">
-                      <Icon name="help" /> Not scheduled
                     </span>
                   ) : (
                     <span className="badge ok">
@@ -210,11 +233,18 @@ export function ApsDemandTab() {
                     </span>
                   )}
                 </td>
+                <td className="small">
+                  {x.orders.map((o) => (
+                    <Link key={o.id} to={orderLink(o, run.id)} className="mono" style={{ marginRight: 6 }}>
+                      {o.number}
+                    </Link>
+                  ))}
+                </td>
               </tr>,
-              x.late_chain?.text ? (
+              x.late_text ? (
                 <tr key={`${x.demand_line_id}-c`} className="mfg-schedule-row">
-                  <td colSpan={6} className="small">
-                    {x.late_chain.text}
+                  <td colSpan={7} className="small">
+                    {x.late_text}
                   </td>
                 </tr>
               ) : null,

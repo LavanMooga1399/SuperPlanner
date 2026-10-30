@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as RMouseEvent, type WheelEvent } from "react";
 import { Icon } from "../../components/Icon";
-import type { BandKind, GanttBar, GanttResponse, GanttRow } from "../api/typesM3";
+import { lineIdOfRow, type BandKind, type GanttBar, type GanttResponse, type GanttRow } from "../api/typesM3";
 import type { PlantClock } from "../lib/plantTime";
 import { fmtDuration } from "../lib/plantTime";
 
@@ -138,7 +138,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
     setView((v) => ({ ...v, left: el.scrollLeft }));
   }, [zoom, pxPerMs]);
 
-  // bring the selected bar into view (e.g. `?op=` deep link)
+  // bring the selected bar into view (e.g. `?op=` deep link), also after zooming
   useEffect(() => {
     if (selected === null) return;
     const b = data.bars.find((x) => x.op_no === selected);
@@ -152,7 +152,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
       if (y < el.scrollTop || y > el.scrollTop + el.clientHeight - HEAD_H - ROW_H) el.scrollTop = Math.max(0, y - 80);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+  }, [selected, pxPerMs]);
 
   const timeAt = useCallback((x: number) => from + x / pxPerMs, [from, pxPerMs]);
 
@@ -307,7 +307,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
         if (it.e < t0 || it.s > t1) continue;
         const b = it.bar;
         const dragging = d && d.moved && d.bar.op_no === b.op_no;
-        drawBar(g, b, X(it.s), X(it.e), y, it.s, b.setup_end ? X(Date.parse(b.setup_end)) : null, b.pieces.map(([a, z]) => [X(Date.parse(a)), X(Date.parse(z))]), C, selected === b.op_no, dragging ? 0.35 : 1);
+        drawBar(g, b, X(it.s), X(it.e), y, it.s, b.setup_end ? X(Date.parse(b.setup_end)) : null, b.pieces.map((pc) => [X(Date.parse(pc.start)), X(Date.parse(pc.end))]), C, selected === b.op_no, dragging ? 0.35 : 1);
       }
     }
     // drag ghost / preview
@@ -363,7 +363,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
     let ri = srcRi;
     if (rowsAreLines) {
       ri = Math.max(0, Math.min(visibleRows.length - 1, srcRi + Math.round(d.dy / ROW_H)));
-      if (!visibleRows[ri].line_id) ri = srcRi;
+      if (!lineIdOfRow(visibleRows[ri].key)) ri = srcRi;
     }
     const snap = SNAP_MIN * 60000;
     const startMs = Math.round((Date.parse(d.bar.start) + d.dx / pxPerMs) / snap) * snap;
@@ -410,7 +410,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
   const onMouseMove = (e: RMouseEvent<HTMLCanvasElement>) => {
     if (drag.current?.moved) return;
     const h = hit(e.clientX, e.clientY);
-    setHover(h);
+    setHover(h ? { ...h, x: e.clientX, y: e.clientY } : null);
     onHover(h ? h.bar.op_no : null);
     e.currentTarget.style.cursor = h ? (editable ? "grab" : "pointer") : "default";
   };
@@ -505,7 +505,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
         </div>
       </div>
       {hover && !drag.current?.moved ? (
-        <div className="pg-tip" role="tooltip" style={{ left: LABEL_W + hover.x + 14, top: hover.y + 14 }} data-testid="gantt-tooltip">
+        <div className="pg-tip" role="tooltip" style={{ position: "fixed", left: Math.min(hover.x + 14, window.innerWidth - 360), top: Math.min(hover.y + 14, window.innerHeight - 160) }} data-testid="gantt-tooltip">
           <strong>{hover.bar.label}</strong>
           <div className="mono small">
             {hover.bar.item_part_number} x {hover.bar.qty}
@@ -517,9 +517,9 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
           {hover.bar.late_minutes > 0 ? <div className="small mfg-neg">Late by {fmtDuration(hover.bar.late_minutes)}</div> : null}
           {hover.bar.frozen ? <div className="small">Frozen (inside the freeze window of the published plan)</div> : null}
           {hover.bar.locked ? <div className="small">Locked by an edit</div> : null}
-          {hover.bar.split ? (
+          {hover.bar.split && hover.bar.split.count > 1 ? (
             <div className="small">
-              Split part {hover.bar.split.index} of {hover.bar.split.count}
+              Split part {hover.bar.split.index + 1} of {hover.bar.split.count}
             </div>
           ) : null}
           <div className="small muted">{hoverReason ?? "Why it starts here: loading…"}</div>
@@ -605,7 +605,7 @@ function drawBar(
   // label with markers
   const w = xb - xa;
   if (w > 14) {
-    const marks = `${late ? "! " : ""}${b.frozen ? "F " : ""}${b.locked ? "L " : ""}${b.split ? `${b.split.index}/${b.split.count} ` : ""}`;
+    const marks = `${late ? "! " : ""}${b.frozen ? "F " : ""}${b.locked ? "L " : ""}${b.split && b.split.count > 1 ? `${b.split.index + 1}/${b.split.count} ` : ""}`;
     g.save();
     g.beginPath();
     g.rect(xa, top, w, h);

@@ -5,7 +5,7 @@
  * M3-DESIGN 17.WP-U; fields the UI can live without are optional.
  */
 import type { EntityId, IsoDate, IsoDateTime, ItemRef, Page, Ref } from "./types";
-import type { Actor, MrpExceptionRow, RunStale, SeverityCountsM2 } from "./typesM2";
+import type { Actor, RunStale, SeverityCountsM2 } from "./typesM2";
 
 export type OvertimePolicy = "off" | "suggest" | "allow";
 export const OVERTIME_POLICIES: readonly OvertimePolicy[] = ["off", "suggest", "allow"];
@@ -139,41 +139,42 @@ export interface Violation {
 
 // ---------------------------------------------------------------- 10 runs
 export type ApsRunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
-export type ApsPhase = "load" | "construct" | "improve" | "validate" | "store";
+export type ApsPhase = "load" | "construct" | "improve" | "validate" | "store" | "done";
 
-export interface ApsGroupUtil {
-  group: Ref;
-  utilisation_pct: number;
-}
-
-/** 9.4 KPIs. */
+/** 9.4 KPIs (names as the S0 fixture). `utilisation` is a fraction 0..1 per group id. */
 export interface ApsSummary {
-  overtime_policy?: OvertimePolicy;
+  policy: OvertimePolicy;
   operations: number;
-  scheduled_operations?: number;
-  demand_lines: number;
-  demand_on_time: number;
-  demand_late: number;
-  orders?: number;
+  scheduled_operations: number;
+  unscheduled: Record<string, number>;
+  orders: number;
   late_orders: number;
-  weighted_tardiness_minutes: number;
-  max_late_minutes: number;
+  late_wos: number;
+  demand_lines: number;
+  demand_lines_on_time: number;
+  demand_lines_late: number;
+  late_demand_count: number;
+  weighted_tardiness: number;
+  max_lateness_minutes: number;
   overtime_minutes: number;
   overtime_cost: number;
-  suggested_overtime_minutes?: number;
-  suggested_overtime_cost?: number;
-  suggested_tardiness_saved_minutes?: number;
-  utilisation?: ApsGroupUtil[];
-  bottlenecks?: Ref[];
+  suggested_overtime_minutes: number;
+  suggested_overtime_cost: number;
+  suggested_tardiness_saved: number;
+  utilisation: Record<EntityId, number>;
+  bottlenecks: EntityId[];
   setup_minutes: number;
   changeovers: number;
   avg_flow_days: number | null;
   makespan_minutes: number | null;
-  unscheduled?: Record<string, number>;
-  budget_cut?: boolean;
+  validation_ok: boolean;
+  violations: number;
+  splits?: number;
   iterations?: number;
+  accepted_moves?: number;
+  budget_used?: number;
+  budget_cut: boolean;
   timings_ms?: Record<string, number>;
-  exceptions?: { by_severity: SeverityCountsM2; by_code: Record<string, number> };
 }
 
 export interface ApsRunRecord {
@@ -184,65 +185,101 @@ export interface ApsRunRecord {
   label: string;
   note: string;
   pinned: boolean;
+  is_published: boolean;
+  published_at: IsoDateTime | null;
+  published_by: string | null;
+  parent_run_id: EntityId | null;
+  copy_of_run_id: EntityId | null;
+  mrp_run: { id: EntityId; run_no: number } | null;
   as_of: IsoDateTime;
-  horizon_end?: IsoDateTime | null;
-  horizon_days?: number;
-  params?: ApsParams;
+  horizon_end: IsoDateTime | null;
+  horizon_days: number;
+  policy: OvertimePolicy;
   master_fingerprint?: string;
   row_version: number;
   started_at: IsoDateTime | null;
   finished_at: IsoDateTime | null;
   duration_ms: number | null;
   actor: Actor;
+  progress: { phase: ApsPhase; percent: number; best_score?: number[] | null; updated_at: IsoDateTime } | null;
   summary: ApsSummary | null;
   score?: number[] | null;
-  stale?: RunStale;
-  error: { code?: string; message: string } | null;
-  progress: { phase: ApsPhase; percent: number; best_score?: number[] | null; updated_at: IsoDateTime } | null;
-  parent_run_id: EntityId | null;
-  mrp_run: { id: EntityId; run_no: number } | null;
-  is_published: boolean;
-  published_at?: IsoDateTime | null;
-  published_by?: string | null;
   validation: { ok: boolean; counts?: Record<string, number>; violations?: Violation[] } | null;
+  stale?: RunStale & { mrp_changed?: boolean };
+  /** 16 Q1: the run is completed, not `allow`, and demand is still late -> offer the Allow re-run. */
+  late_demand_remains: boolean;
+  publishable: boolean;
+  error: { code?: string; message: string } | null;
+  link?: string;
+  params?: ApsParams;
 }
 
 // ---------------------------------------------------------------- 6.1 / 11 operations
+export interface OrderRef {
+  type: "wo" | "planned";
+  id: EntityId;
+  number: string;
+  planned_no: number | null;
+  item_id: EntityId;
+}
+
+export interface Piece {
+  start: IsoDateTime;
+  end: IsoDateTime;
+}
+
+export interface RefAt {
+  type: string;
+  id: EntityId | null;
+  label: string;
+  at?: IsoDateTime | null;
+  link?: string | null;
+}
+
 export interface ReasonInfo {
   code: string;
   text: string;
-  refs?: { type: string; id: EntityId | null; label: string; link?: string | null }[];
+  refs: RefAt[];
 }
 
 export interface ScheduledOpRow {
   op_no: number;
-  order: { type: "wo" | "planned"; id: EntityId; number: string; planned_no: number | null; item_id: EntityId };
-  item: ItemRef;
+  order: OrderRef;
   seq: number;
   name: string;
-  group: { id: EntityId; code: string };
-  line: { id: EntityId; code: string } | null;
+  group_id: EntityId;
+  line_id: EntityId | null;
   qty: number;
-  split: { index: number; count: number } | null;
+  /** `index` is 0-based; `count` 1 = not split */
+  split: { index: number; count: number };
   start: IsoDateTime | null;
   end: IsoDateTime | null;
   setup_minutes: number;
   run_minutes: number;
-  pieces: [IsoDateTime, IsoDateTime][];
-  crew: { operator_id: EntityId; code?: string; start: IsoDateTime; end: IsoDateTime }[];
-  tools: { tool_pool_id: EntityId; code?: string; qty: number }[];
-  release: { material_at: IsoDateTime | null; predecessor_at: IsoDateTime | null; refs?: ReasonInfo["refs"] } | null;
+  pieces: Piece[];
+  crew: { operator_id: EntityId; start: IsoDateTime; end: IsoDateTime }[];
+  tools: { tool_pool_id: EntityId; qty: number }[];
+  release: { material_at: IsoDateTime | null; predecessor_at: IsoDateTime | null; refs: RefAt[] } | null;
   locked: boolean;
   frozen: boolean;
   status: "scheduled" | "unscheduled";
   reason: ReasonInfo;
   due: IsoDateTime | null;
   late_minutes: number;
+  family?: string | null;
+  setup_from_family?: string | null;
+  item: ItemRef;
+  line: { id: EntityId; code: string } | null;
+  group: { id: EntityId; code: string };
   link?: string;
 }
 
-export interface OpDetail extends ScheduledOpRow {
-  neighbours?: { prev: ScheduledOpRow | null; next: ScheduledOpRow | null };
+/** #190 */
+export interface OpDetail {
+  op: ScheduledOpRow;
+  reason: ReasonInfo;
+  release: ScheduledOpRow["release"];
+  neighbours: { before: ScheduledOpRow | null; after: ScheduledOpRow | null };
 }
 
 export interface OpQuery {
@@ -263,13 +300,12 @@ export interface OpQuery {
 export type GanttView = "line" | "order" | "demand";
 export type BandKind = "base" | "optional_opened" | "optional_suggested" | "closed" | "absence";
 
+/** Row keys are `group:<id>`, `line:<id>`, `order:<id>`, `demand:<id>` (S0 fixture). */
 export interface GanttRow {
   key: string;
   label: string;
-  kind: string; // group | line | order | demand | ...
+  kind: string;
   parent_key: string | null;
-  /** line rows: the line id (drop target). */
-  line_id?: EntityId | null;
 }
 
 export interface GanttBar {
@@ -278,7 +314,7 @@ export interface GanttBar {
   start: IsoDateTime;
   end: IsoDateTime;
   setup_end: IsoDateTime | null;
-  pieces: [IsoDateTime, IsoDateTime][];
+  pieces: Piece[];
   label: string;
   order_number: string;
   item_part_number: string;
@@ -287,7 +323,6 @@ export interface GanttBar {
   frozen: boolean;
   locked: boolean;
   split: { index: number; count: number } | null;
-  /** server hint: "late" | "critical" | "ok" | "frozen" | ... */
   status_color: string;
 }
 
@@ -299,12 +334,11 @@ export interface GanttBand {
 }
 
 export interface GanttResponse {
+  view?: GanttView;
   rows: GanttRow[];
   bars: GanttBar[];
   bands: GanttBand[];
   truncated: boolean;
-  from?: IsoDateTime;
-  to?: IsoDateTime;
 }
 
 export interface GanttQuery {
@@ -317,49 +351,62 @@ export interface GanttQuery {
   demand_order_id?: string;
 }
 
+/** The line id of a gantt row key (`line:<id>`), else null. */
+export function lineIdOfRow(key: string): string | null {
+  return key.startsWith("line:") ? key.slice(5) : null;
+}
+
 // ---------------------------------------------------------------- orders, demand (#191-192)
 export interface LateChainStep {
-  kind: string; // material | capacity | calendar | lead_time | frozen | locked | ...
-  label: string;
-  op_no?: number | null;
-  ref?: { type: string; id: EntityId | null; label: string; link?: string | null } | null;
+  kind: string; // material | capacity | calendar | lead_time | frozen | locked
+  op_no: number | null;
+  text: string;
+  refs: RefAt[];
 }
 
 export interface OrderResultRow {
-  order_type: "wo" | "planned";
-  order_id: EntityId;
-  number: string;
-  item: ItemRef;
+  order: OrderRef;
+  part_number: string;
   qty: number;
-  due_at: IsoDateTime | null;
-  start_at: IsoDateTime | null;
-  end_at: IsoDateTime | null;
+  due: IsoDateTime | null;
+  start: IsoDateTime | null;
+  end: IsoDateTime | null;
   late_minutes: number;
   weight: number;
   priority: number;
-  demand_refs: { demand_line_id: EntityId; label: string; link?: string | null }[];
-  late_chain: { text: string; steps: LateChainStep[] } | null;
-  link?: string;
+  rank_label: string;
+  demand_refs: { demand_line_id: EntityId; order_number: string; line_no: number; order_id?: EntityId }[];
+  late_chain: LateChainStep[];
+  late_text: string;
+  unscheduled_ops: number;
 }
 
 export interface ApsDemandRow {
   demand_line_id: EntityId;
-  order: { id: EntityId; number: string; program?: string | null } | null;
+  order_id: EntityId;
+  order_number: string;
   line_no: number;
-  item: ItemRef;
+  item_id: EntityId;
+  part_number: string;
   qty: number;
-  due_date: IsoDate;
+  due: IsoDateTime;
   scheduled_end: IsoDateTime | null;
   late_minutes: number;
-  status: "on_time" | "late" | "unscheduled";
-  late_chain?: { text: string } | null;
-  link?: string | null;
+  priority: number;
+  program: string | null;
+  orders: OrderRef[];
+  late_text: string;
+}
+
+export interface ApsDemandResponse {
+  items: ApsDemandRow[];
+  counts?: { on_time: number; late: number; unscheduled?: number };
 }
 
 // ---------------------------------------------------------------- 9.2 load (#193)
 export interface LoadRow {
-  group: Ref;
-  line: { id: EntityId; code: string } | null;
+  group_id: EntityId;
+  line_id: EntityId | null;
   /** bucket start (local date) */
   day: IsoDate;
   scheduled_minutes: number;
@@ -369,80 +416,107 @@ export interface LoadRow {
   opened_minutes: number;
 }
 
+export interface LoadResponse {
+  bucket: "day" | "week";
+  items: LoadRow[];
+}
+
 // ---------------------------------------------------------------- 9.3 dispatch (#194)
 export interface DispatchRow {
   op_no: number;
-  seq: number;
-  name: string;
+  position: number;
   start: IsoDateTime;
   end: IsoDateTime;
-  order: { type: "wo" | "planned"; id: EntityId; number: string };
-  item: ItemRef;
+  order: OrderRef;
+  part_number: string;
   qty: number;
-  setup_from_family: string | null;
-  setup_to_family: string | null;
+  seq: number;
+  name: string;
   setup_minutes: number;
-  crew: { operator_id: EntityId; code: string; name?: string }[];
-  tools: { tool_pool_id: EntityId; code: string; qty: number }[];
-  predecessor_status: "done" | "scheduled_before" | "not_started" | "none";
-  material: { kit_complete: boolean; short_components: number } | null;
+  run_minutes: number;
+  setup_from_family: string | null;
+  family: string | null;
+  crew: { operator_id: EntityId; start: IsoDateTime; end: IsoDateTime }[];
+  tools: { tool_pool_id: EntityId; qty: number }[];
+  predecessor_status: string; // none | done | scheduled_before | not_started
+  material_status: string; // kitted | short | unknown | ...
   done: boolean;
-  /** If-Match for the done action (WO row version). */
-  wo_row_version?: number | null;
-  link?: string;
+  shift_label: string | null;
 }
 
 export interface DispatchResponse {
-  line: { id: EntityId; code: string; name?: string };
+  line: { id: EntityId; code: string };
   date: IsoDate;
   shift: string | null;
-  shifts: { name: string; start: IsoDateTime; end: IsoDateTime }[];
-  rows: DispatchRow[];
+  run_id: EntityId;
+  items: DispatchRow[];
 }
 
 // ---------------------------------------------------------------- 6.8 overtime (#195)
 export interface OvertimeWindow {
-  id?: EntityId;
-  line: { id: EntityId; code: string };
-  group?: Ref | null;
+  line_id: EntityId;
   assignment_id: EntityId | null;
-  shift_label?: string;
   start: IsoDateTime;
   end: IsoDateTime;
   minutes: number;
   cost: number;
   status: "opened" | "suggested" | "forced";
   tardiness_saved_minutes: number | null;
-  /** allow runs: why it was opened (the late/critical operations that use it). */
+  /** optional (requested from WP-S, 17.WP-U): why an `allow` run opened it */
   reason?: string | null;
-  orders?: { id: EntityId; number: string }[];
+  orders?: OrderRef[];
 }
 
 export interface OvertimeResponse {
   items: OvertimeWindow[];
-  totals: { opened_minutes: number; opened_cost: number; suggested_minutes: number; suggested_cost: number; suggested_saved_minutes: number };
+  totals: { opened_minutes: number; opened_cost: number; suggested_minutes: number; suggested_cost: number; tardiness_saved_minutes: number };
 }
+
+// ---------------------------------------------------------------- exceptions (#196)
+export interface ApsExceptionRow {
+  id: EntityId;
+  ex_no: number;
+  code: string;
+  severity: "critical" | "warning" | "info";
+  subject: RefAt;
+  op_no: number | null;
+  order: OrderRef | null;
+  message: string;
+  refs: RefAt[];
+}
+
+export type ApsExceptionPage = Page<ApsExceptionRow> & { counts?: { by_severity: SeverityCountsM2; by_code: Record<string, number> } };
 
 // ---------------------------------------------------------------- 8 bottlenecks (#197)
 export interface BottleneckRow {
-  group: Ref;
-  utilisation_pct: number;
+  group_id: EntityId;
+  group: { id: EntityId; code: string; name?: string };
+  rank: number;
+  /** fraction 0..1 */
+  utilisation: number;
   late_chains: number;
-  suggestion: { text: string; saved_minutes: number; line?: { id: EntityId; code: string } | null } | null;
+  suggestion: string | null;
+  saved_minutes: number | null;
 }
 
 // ---------------------------------------------------------------- 9.5 compare (#198)
-export interface ApsCompareResponse {
-  a: ApsRunRecord;
-  b: ApsRunRecord;
-  kpis: { key: string; label: string; a: number | null; b: number | null; delta: number | null; better: "lower" | "higher" }[];
-  orders: { order_id: EntityId; number: string; due_at: IsoDateTime | null; a_end: IsoDateTime | null; b_end: IsoDateTime | null; a_late_minutes: number; b_late_minutes: number; delta_minutes: number | null }[];
-  groups: { group: Ref; a_util: number; b_util: number }[];
-  overtime: { a_minutes: number; b_minutes: number; a_cost: number; b_cost: number };
-  truncated: boolean;
+export interface ApsRunBrief {
+  id: EntityId;
+  run_no: number;
+  label: string;
+  policy: OvertimePolicy;
 }
 
-export type ApsExceptionPage = Page<MrpExceptionRow> & { counts: { by_severity: SeverityCountsM2; by_code: Record<string, number> } };
+export interface ApsCompareResponse {
+  a: ApsRunBrief;
+  b: ApsRunBrief;
+  kpis: { key: string; a: number | null; b: number | null; delta: number | null }[];
+  /** B against A: positive "saved" = better in B; "added" = more overtime in B */
+  tradeoff: { weighted_tardiness_saved: number; late_minutes_saved: number; late_demand_saved: number; overtime_hours_added: number; overtime_cost_added: number } | null;
+  orders: { order: OrderRef; end_a: IsoDateTime | null; end_b: IsoDateTime | null; delta_minutes: number | null; late_a: number; late_b: number }[];
+  utilisation: { key: EntityId; a: number; b: number; delta: number }[];
+  truncated: boolean;
+}
 
 // ---------------------------------------------------------------- summary addition
 export interface PublishedScheduleSummary {

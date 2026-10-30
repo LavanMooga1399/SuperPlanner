@@ -233,6 +233,9 @@ class PublishedOp:
     start: datetime | None
     end: datetime | None
     crew: tuple[tuple[str, datetime, datetime], ...] = ()
+    pieces: tuple[tuple[datetime, datetime], ...] = ()
+    setup_minutes: int = 0
+    run_minutes: int = 0
 
 
 @dataclass(frozen=True)
@@ -256,6 +259,10 @@ class ApsSnapshot:
     #: (order_type, order_id, seq, split_index) -> locked placement taken from the parent run (edits, 6.7)
     locked: dict[tuple[str, str, int, int], PublishedOp] = field(default_factory=dict)
     override_freeze: bool = False
+    #: move edits translated to operation keys: (order_type, order_id, seq, split_index) -> (line_id, start)
+    moves: dict[tuple[str, str, int, int], tuple[str | None, datetime | None]] = field(default_factory=dict)
+    #: resequence edits: (line_id, [(order_type, order_id, seq)])
+    resequence: tuple[tuple[str, tuple[tuple[str, str, int], ...]], ...] = ()
 
 
 # ---------------------------------------------------------------- result

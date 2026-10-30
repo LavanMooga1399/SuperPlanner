@@ -15,13 +15,33 @@ import { fmtDuration, usePlantClock } from "../../lib/plantTime";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam } from "../../lib/usePaged";
 import { usePolling } from "../../lib/usePolling";
+import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
+import { orderLink } from "./ApsOrdersTab";
 import { PublishButton, useApsRun } from "./ApsRunShell";
 import { apsRunTitle, isActive } from "./ApsRunsPage";
 
 function policyOf(r: ApsRunRecord) {
-  return r.summary?.overtime_policy ?? r.params?.overtime ?? null;
+  return r.policy ?? r.summary?.policy ?? r.params?.overtime ?? null;
 }
+
+/** Labels of the compare KPIs (#198 carries only keys); all of them are "lower is better" except the listed ones. */
+const KPI_LABEL: Record<string, { label: string; unit?: "min" | "num" | "pct"; higherBetter?: boolean }> = {
+  weighted_tardiness: { label: "Weighted lateness", unit: "min" },
+  late_demand_count: { label: "Late demand lines" },
+  late_orders: { label: "Late orders" },
+  late_wos: { label: "Late work orders" },
+  max_lateness_minutes: { label: "Worst lateness", unit: "min" },
+  overtime_minutes: { label: "Overtime", unit: "min" },
+  overtime_cost: { label: "Overtime cost" },
+  setup_minutes: { label: "Changeover time", unit: "min" },
+  changeovers: { label: "Changeovers" },
+  makespan_minutes: { label: "Time to finish everything", unit: "min" },
+  avg_flow_days: { label: "Average days in production" },
+  unscheduled: { label: "Operations not scheduled" },
+  demand_lines_on_time: { label: "Demand lines on time", higherBetter: true },
+};
+const kpiText = (v: number | null, unit?: string) => (v === null ? "" : unit === "min" ? fmtDuration(v) || "0" : fmtNum(Math.round(v * 10) / 10));
 
 function Delta({ v, unit, lowerIsBetter = true }: { v: number | null; unit?: "min" | "num"; lowerIsBetter?: boolean }) {
   if (v === null || Math.abs(v) < 1e-9) return <span className="faint">no change</span>;
@@ -37,6 +57,7 @@ function Delta({ v, unit, lowerIsBetter = true }: { v: number | null; unit?: "mi
 export function ApsCompareTab() {
   const { run, setRun } = useApsRun();
   const clock = usePlantClock();
+  const names = useResourceNames();
   const [params, setParams] = useSearchParams();
   const withId = params.get("with") ?? "";
   const runs = useLoad((signal) => listApsRuns({ limit: 50, offset: 0 }, signal), []);
@@ -47,26 +68,31 @@ export function ApsCompareTab() {
   const c = cmp.data;
   const choices = (runs.data?.items ?? []).filter((r) => r.id !== run.id && r.status === "completed");
 
-  // the trade-off between a run with automatic overtime and one without (16 Q1)
+  // full records of both runs (publish needs row state); the compare response only carries briefs
+  const recordOf = (id: string): ApsRunRecord | null => (id === run.id ? run : other.data?.id === id ? other.data : null);
+
+  // the trade-off between a run with automatic overtime and one without (16 Q1); `tradeoff` is B against A
   const trade = (() => {
-    if (!c) return null;
-    const pa = policyOf(c.a);
-    const pb = policyOf(c.b);
-    if ((pa === "allow") === (pb === "allow")) return null;
-    const allow = pa === "allow" ? c.a : c.b;
-    const base = pa === "allow" ? c.b : c.a;
-    const sa = allow.summary!;
-    const sb = base.summary!;
+    if (!c || !c.tradeoff) return null;
+    if ((c.a.policy === "allow") === (c.b.policy === "allow")) return null;
+    const allowIsB = c.b.policy === "allow";
+    const sign = allowIsB ? 1 : -1;
+    const t = c.tradeoff;
     return {
-      allow,
-      base,
-      lateSaved: sb.weighted_tardiness_minutes - sa.weighted_tardiness_minutes,
-      ordersSaved: sb.late_orders - sa.late_orders,
-      demandSaved: sb.demand_late - sa.demand_late,
-      otAdded: sa.overtime_minutes - sb.overtime_minutes,
-      costAdded: sa.overtime_cost - sb.overtime_cost,
+      allow: allowIsB ? c.b : c.a,
+      base: allowIsB ? c.a : c.b,
+      lateSaved: sign * t.weighted_tardiness_saved,
+      lateMinutesSaved: sign * t.late_minutes_saved,
+      demandSaved: sign * t.late_demand_saved,
+      otHoursAdded: sign * t.overtime_hours_added,
+      costAdded: sign * t.overtime_cost_added,
     };
   })();
+  const kpi = (id: string, key: string) => {
+    if (!c) return null;
+    const k = c.kpis.find((x) => x.key === key);
+    return k ? (c.a.id === id ? k.a : k.b) : null;
+  };
 
   return (
     <div className="col gap-lg" data-testid="aps-compare">
@@ -109,33 +135,45 @@ export function ApsCompareTab() {
                   {fmtDuration(trade.lateSaved) || "0"}
                 </div>
                 <div className="kpi-sub">
-                  {trade.ordersSaved} fewer late orders · {trade.demandSaved} fewer late demand lines
+                  {fmtNum(trade.demandSaved)} fewer late demand lines · {fmtDuration(trade.lateMinutesSaved) || "0"} less lateness in total
                 </div>
               </div>
               <div className="card kpi" data-testid="aps-tradeoff-overtime">
                 <div className="kpi-label">Overtime added</div>
-                <div className="kpi-value">{(trade.otAdded / 60).toFixed(1)} h</div>
+                <div className="kpi-value">{trade.otHoursAdded.toFixed(1)} h</div>
                 <div className="kpi-sub">cost {fmtNum(Math.round(trade.costAdded))}</div>
               </div>
             </div>
             <div className="grid-2">
-              {[trade.base, trade.allow].map((r) => (
-                <div key={r.id} className="card card-body col" style={{ gap: 6 }} data-testid="aps-compare-run" data-policy={policyOf(r) ?? ""}>
+              {[trade.base, trade.allow].map((r) => {
+                const rec = recordOf(r.id);
+                const late = kpi(r.id, "late_demand_count");
+                const wt = kpi(r.id, "weighted_tardiness");
+                const ot = kpi(r.id, "overtime_minutes");
+                return (
+                <div key={r.id} className="card card-body col" style={{ gap: 6 }} data-testid="aps-compare-run" data-policy={r.policy}>
                   <div className="row wrap">
                     <Link to={mfgPaths.apsRun(r.id)}>
                       <strong>{apsRunTitle(r)}</strong>
                     </Link>
-                    <PolicyBadge policy={policyOf(r)} />
+                    <PolicyBadge policy={r.policy} />
                   </div>
                   <span className="small">
-                    {r.summary!.late_orders} late orders · {fmtDuration(r.summary!.weighted_tardiness_minutes) || "0"} weighted lateness · overtime{" "}
-                    {fmtDuration(r.summary!.overtime_minutes) || "none"}
+                    {late === null ? "" : `${fmtNum(late)} late demand lines · `}
+                    {fmtDuration(wt ?? 0) || "0"} weighted lateness · overtime {fmtDuration(ot ?? 0) || "none"}
                   </span>
                   <div>
-                    <PublishButton run={r} testId={`aps-publish-${policyOf(r) === "allow" ? "allow" : "base"}`} onDone={(x) => (x.id === run.id ? setRun(x) : other.setData(x))} />
+                    {rec ? (
+                      <PublishButton run={rec} testId={`aps-publish-${r.policy === "allow" ? "allow" : "base"}`} onDone={(x) => (x.id === run.id ? setRun(x) : other.setData(x))} />
+                    ) : (
+                      <Link to={mfgPaths.apsRun(r.id)} className="btn sm">
+                        Open to publish
+                      </Link>
+                    )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <p className="faint small" style={{ margin: 0 }}>
               Publish the plan you want the plant to follow; the other stays available for reference.
@@ -164,24 +202,19 @@ export function ApsCompareTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {c.kpis.map((k) => (
-                    <tr key={k.key} data-key={k.key}>
-                      <td>{k.label}</td>
-                      <td className="right">{k.a === null ? "" : fmtNum(k.a)}</td>
-                      <td className="right">{k.b === null ? "" : fmtNum(k.b)}</td>
-                      <td>
-                        <Delta v={k.delta} lowerIsBetter={k.better === "lower"} />
-                      </td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td>Overtime (h)</td>
-                    <td className="right">{(c.overtime.a_minutes / 60).toFixed(1)}</td>
-                    <td className="right">{(c.overtime.b_minutes / 60).toFixed(1)}</td>
-                    <td>
-                      <Delta v={(c.overtime.b_minutes - c.overtime.a_minutes) / 60} />
-                    </td>
-                  </tr>
+                  {c.kpis.map((k) => {
+                    const m = KPI_LABEL[k.key];
+                    return (
+                      <tr key={k.key} data-key={k.key}>
+                        <td>{m?.label ?? k.key.replace(/_/g, " ")}</td>
+                        <td className="right">{kpiText(k.a, m?.unit)}</td>
+                        <td className="right">{kpiText(k.b, m?.unit)}</td>
+                        <td>
+                          <Delta v={k.delta} unit={m?.unit === "min" ? "min" : "num"} lowerIsBetter={!m?.higherBetter} />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -203,13 +236,17 @@ export function ApsCompareTab() {
                   </thead>
                   <tbody>
                     {c.orders.map((o) => (
-                      <tr key={o.order_id}>
-                        <td className="mono">{o.number}</td>
-                        <td className="small">
-                          {clock.dateTime(o.a_end)} {o.a_late_minutes ? <span className="mfg-neg">({fmtDuration(o.a_late_minutes)} late)</span> : null}
+                      <tr key={o.order.id} data-testid="aps-compare-order">
+                        <td>
+                          <Link to={orderLink(o.order, run.id)} className="mono">
+                            {o.order.number}
+                          </Link>
                         </td>
                         <td className="small">
-                          {clock.dateTime(o.b_end)} {o.b_late_minutes ? <span className="mfg-neg">({fmtDuration(o.b_late_minutes)} late)</span> : null}
+                          {o.end_a ? clock.dateTime(o.end_a) : "not scheduled"} {o.late_a ? <span className="mfg-neg">({fmtDuration(o.late_a)} late)</span> : null}
+                        </td>
+                        <td className="small">
+                          {o.end_b ? clock.dateTime(o.end_b) : "not scheduled"} {o.late_b ? <span className="mfg-neg">({fmtDuration(o.late_b)} late)</span> : null}
                         </td>
                         <td>
                           <Delta v={o.delta_minutes} unit="min" />
@@ -234,11 +271,11 @@ export function ApsCompareTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {c.groups.map((x) => (
-                    <tr key={x.group.id}>
-                      <td>{x.group.code}</td>
-                      <td className="right">{Math.round(x.a_util)}%</td>
-                      <td className="right">{Math.round(x.b_util)}%</td>
+                  {c.utilisation.map((x) => (
+                    <tr key={x.key}>
+                      <td>{names.group(x.key).code}</td>
+                      <td className="right">{Math.round(x.a * 100)}%</td>
+                      <td className="right">{Math.round(x.b * 100)}%</td>
                     </tr>
                   ))}
                 </tbody>

@@ -11,6 +11,7 @@ import type { LoadRow } from "../../api/typesM3";
 import { MfgError, Spinner } from "../../components/Feedback";
 import { addDays, fmtDate } from "../../lib/format";
 import { mfgPaths } from "../../lib/paths";
+import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 
@@ -28,24 +29,31 @@ export function ApsLoadTab() {
   const [group, setGroup] = useState("");
   const load = useLoad((signal) => getApsLoad(run.id, { bucket, group_id: group || undefined }, signal), [run.id, bucket, group]);
   const rows = load.data?.items ?? [];
+  const names = useResourceNames();
+  const gLabel = (id: string) => {
+    const g = names.group(id);
+    return g.name ? `${g.code} · ${g.name}` : g.code;
+  };
 
   const series = useMemo(() => {
     const m = new Map<string, { key: string; label: string; groupId: string; lineId: string | null; rows: LoadRow[] }>();
     for (const r of rows) {
       const lineLevel = Boolean(group);
-      if (lineLevel ? !r.line : r.line) continue;
-      const key = lineLevel ? r.line!.id : r.group.id;
-      if (!m.has(key)) m.set(key, { key, label: lineLevel ? r.line!.code : `${r.group.code} · ${r.group.name}`, groupId: r.group.id, lineId: lineLevel ? r.line!.id : null, rows: [] });
+      if (lineLevel ? !r.line_id : r.line_id) continue;
+      const key = lineLevel ? r.line_id! : r.group_id;
+      if (!m.has(key)) m.set(key, { key, label: lineLevel ? names.line(r.line_id).code : gLabel(r.group_id), groupId: r.group_id, lineId: lineLevel ? r.line_id : null, rows: [] });
       m.get(key)!.rows.push(r);
     }
     for (const s of m.values()) s.rows.sort((a, b) => (a.day < b.day ? -1 : 1));
     return [...m.values()];
-  }, [rows, group]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, group, names.ready]);
   const groups = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of rows) m.set(r.group.id, `${r.group.code} · ${r.group.name}`);
+    for (const r of rows) m.set(r.group_id, gLabel(r.group_id));
     return [...m.entries()];
-  }, [rows]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, names.ready]);
 
   return (
     <div className="col gap-lg" data-testid="aps-load">

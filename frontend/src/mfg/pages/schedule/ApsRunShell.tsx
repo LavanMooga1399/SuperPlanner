@@ -32,14 +32,13 @@ export function useApsRun(): ApsRunContext {
 }
 
 export function canPublish(r: ApsRunRecord): boolean {
-  return r.kind === "live" && r.status === "completed" && Boolean(r.validation?.ok) && !r.is_published;
+  return Boolean(r.publishable) && !r.is_published;
 }
 
 /** Late demand left and overtime not used automatically -> offer the Allow re-run (16 Q1). */
 export function offersAllow(r: ApsRunRecord): boolean {
-  const s = r.summary;
-  const policy = s?.overtime_policy ?? r.params?.overtime ?? null;
-  return r.status === "completed" && policy !== "allow" && Boolean(s && (s.demand_late > 0 || s.late_orders > 0));
+  // the server decides (`late_demand_remains`); status/policy guard records from older servers
+  return r.status === "completed" && r.policy !== "allow" && Boolean(r.late_demand_remains);
 }
 
 export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: ApsRunRecord; onDone(r: ApsRunRecord): void; testId?: string }) {
@@ -56,7 +55,9 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
         ? "Only completed runs can be published"
         : !run.validation?.ok
           ? "The plan breaks hard rules (see validation)"
-          : undefined;
+          : !run.publishable
+            ? "This run cannot be published"
+            : undefined;
   const go = async () => {
     setBusy(true);
     setError(null);
@@ -92,7 +93,7 @@ export function RerunAllowBanner({ run }: { run: ApsRunRecord }) {
   const [error, setError] = useState<unknown>(null);
   if (!offersAllow(run)) return null;
   const s = run.summary!;
-  const saved = s.suggested_tardiness_saved_minutes;
+  const saved = s.suggested_tardiness_saved;
   const go = async () => {
     setBusy(true);
     setError(null);
@@ -108,7 +109,7 @@ export function RerunAllowBanner({ run }: { run: ApsRunRecord }) {
     <Banner
       tone="warn"
       icon="clock"
-      title={`${s.demand_late || s.late_orders} ${s.demand_late ? "demand lines" : "orders"} still late without overtime`}
+      title={`${s.late_demand_count || s.late_orders} ${s.late_demand_count ? (s.late_demand_count === 1 ? "demand line" : "demand lines") : "orders"} still late without overtime`}
       testId="aps-rerun-allow-banner"
       actions={
         <button type="button" className="btn primary" onClick={() => void go()} disabled={!can || busy} title={can ? undefined : needsText("schedule_run")} data-testid="aps-rerun-allow">
@@ -181,7 +182,7 @@ export function ApsRunShell() {
           <h1 data-testid="aps-run-title">{apsRunTitle(r)}</h1>
           <RunKindBadge kind={r.kind} />
           <ApsStatusChip run={r} />
-          <PolicyBadge policy={r.summary?.overtime_policy ?? r.params?.overtime ?? null} />
+          <PolicyBadge policy={r.policy} />
           {r.parent_run_id ? (
             <Link className="badge info" to={mfgPaths.apsRun(r.parent_run_id)} title="Created by manual edits of another run">
               <Icon name="copy" /> edited copy
@@ -207,10 +208,10 @@ export function ApsRunShell() {
               {done ? (
                 <>
                   <button type="button" className="btn sm" onClick={() => void exp("xlsx")} data-testid="aps-export">
-                    <Icon name="download" /> Export
+                    <Icon name="download" /> Export Excel
                   </button>
                   <button type="button" className="btn sm ghost" onClick={() => void exp("zip")}>
-                    CSV (zip)
+                    Export CSV (zip)
                   </button>
                 </>
               ) : null}
@@ -249,6 +250,7 @@ export function ApsRunShell() {
       ) : null}
       {r.status === "completed" && r.validation && !r.validation.ok ? (
         <Banner tone="danger" icon="x" title="This plan breaks hard rules and cannot be published" testId="aps-invalid-banner">
+          {r.summary?.violations ? `${r.summary.violations} rule violations. ` : null}
           {(r.validation.violations ?? []).slice(0, 5).map((v, i) => (
             <div key={i}>
               <code>{v.code}</code> {v.message}

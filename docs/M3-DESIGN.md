@@ -580,3 +580,52 @@ of the failing tests and their folders; no second full run unless a fix touches 
   "exactly one of three" (this touches `jobs/` and `api/db`, so the final gate needs its full run).
 
 ### 17.WP-U UI
+
+**Built (2026-10-30), against S0 shapes, re-checked against the S3 engine.**
+- Screens (all under `/mfg/schedule`, nav "Schedule"):
+  - Runs list with 2 s polling progress, and a new-run form. Guided default: overtime `suggest`, with `allow`/`off`
+    one click away. Expert settings (horizon, MRP run, split, planned orders, time budget) and the what-if
+    (as-of, capacity changes, ignore material) sit behind toggles.
+  - Run shell: title, status, policy and published badges; Publish; Export Excel/CSV; stale and invalid banners.
+    Tabs are Summary, Gantt, Capacity load, Dispatch lists, Orders, Demand, Overtime, Exceptions and Compare.
+  - Gantt: canvas, by line/order/demand, with pan/zoom (8 levels), shift bands and a tooltip with the server
+    reason. Drag gives a preview, then Apply posts `/edits` (child run) or lists the 422 violations inline. There
+    are lock and resequence (drop on own line) controls. Status is shown as a mark plus text (`!`, `F`, `L`,
+    `1/2`), never by colour alone.
+  - Q1 escalation "Re-run with automatic overtime (Allow)" on suggest/off runs with `late_demand_remains`. It
+    navigates to the compare view, where the trade-off card (lateness saved vs overtime h/cost) has Publish for
+    both runs.
+  - Overtime tab: for allow runs, every opened shift and why; for suggest runs, suggestions ranked by saving per
+    cost, each with "Accept".
+  - Master editors: setup matrix (`/mfg/plant/setups`), operator absences, routing line rates, plant time zone
+    and APS defaults, WO Operations (done/reopen). Home shows the published schedule.
+- Types (`api/typesM3.ts`) follow the backend fixture and model, not my first reading of 11. Where they differ,
+  the backend shape won (pieces `{start,end}`, 0-based split index, `OpDetail {op, reason, release,
+  neighbours{before,after}}`, ids rather than embedded refs in load/overtime/bottlenecks, utilisation fractions).
+  Codes are resolved client-side (`lib/resourceNames.ts`).
+- Accepting suggested shifts does **not** use `copy_of`, because `copy_of` only takes overtime/label/note/
+  improve_seconds. Instead it opens the run form prefilled with the source params plus `capacity_overrides`
+  `open_optional` for the accepted windows. The result is a what-if (overrides make it `what_if`), which is
+  labelled as such. The publishable route stays "automatic overtime (Allow)".
+- Gantt default window = as-of + 14 days. When it is empty (e.g. `small` work starts weeks out), the tab says so
+  and offers "Go to <first operation day>" via `operations?status=scheduled&sort=start&limit=1`.
+- Requested from WP-S, not blocking:
+  1. Overtime windows: add `reason` and `orders` (why an `allow` run opened a shift). The UI shows them when
+     present; until then it derives "why" from `tardiness_saved_minutes`.
+  2. Dispatch rows: add `wo_row_version`. "Done" currently reads the WO first to get the If-Match version.
+  3. Dispatch: a list of the day's shifts. The shift filter is currently built from the rows' `shift_label`.
+  4. LateStep kinds beyond the six in 11 (crew, tool, predecessor, setup, as_of) are labelled in the UI.
+- Test ids added (stable for e2e):
+  - Runs and form: `aps-run-form`, `aps-policy-{suggest,allow,off}`, `aps-run-submit`, `aps-expert(-toggle)`,
+    `aps-whatif(-toggle)`, `aps-override-row`, `aps-run-row`, `aps-progress`.
+  - Run shell: `aps-tab-*`, `aps-publish`, `aps-rerun-allow`, `aps-kpi-*`.
+  - Gantt: `gantt-canvas` (data-bars/rows), `gantt-row`, `gantt-tooltip`, `gantt-drop-preview/apply/cancel`,
+    `edit-violations`, `gantt-op-panel`, `gantt-zoom-in/out`, `gantt-empty`, `gantt-jump-first`.
+  - Compare: `aps-tradeoff(-late/-overtime)`, `aps-compare-run` (data-policy), `aps-publish-{base,allow}`.
+  - Overtime: `overtime-row` (data-status/saved), `overtime-accept`, `overtime-rerun-accepted`.
+  - Dispatch: `dispatch-row` (data-op), `dispatch-material`, `dispatch-print`, `op-done`.
+  - Masters: `setup-matrix-row`, `absence-row`.
+- e2e: `frontend/e2e/m3-schedule.spec.ts` (3 tests) uses `small` plus a rush demand line and an optional evening
+  shift per stage. It covers run, then Gantt jump/drag/apply (child run or violations); the Allow re-run, compare
+  trade-off and publish; and the overtime tab and dispatch. In `small` the lateness is material-bound, so no
+  overtime is suggested; the accept branch runs only when the engine returns suggestions.

@@ -34,6 +34,12 @@ def meta(ctx: AppContext) -> dict[str, Any]:
             "time_zones": list(zone_names())}   # M3-DESIGN 12: IANA picker
 
 
+def _published(s: Any) -> Any:
+    from .aps import published_summary
+
+    return published_summary(s)
+
+
 def summary(ctx: AppContext) -> dict[str, Any]:
     with read_tx(ctx) as s:
         plant = repo.plant_or_default(s)
@@ -60,7 +66,8 @@ def summary(ctx: AppContext) -> dict[str, Any]:
         from .mrp import summary_latest
 
         return {"counts": counts, "end_items": [item_ref(repo.to_record(r)) for r in ends],
-                "data_version": plant.data_version, "latest_run": summary_latest(s)}
+                "data_version": plant.data_version, "latest_run": summary_latest(s),
+                "published_schedule": _published(s)}
 
 
 def _m2_counts(s: Any) -> dict[str, int]:

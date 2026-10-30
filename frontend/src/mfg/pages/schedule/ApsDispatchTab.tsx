@@ -8,6 +8,7 @@ import { Link, useSearchParams } from "react-router";
 import { Banner } from "../../../components/Banner";
 import { Icon } from "../../../components/Icon";
 import { listLines } from "../../api/client";
+import { getWorkOrder } from "../../api/clientM2";
 import { getDispatch, setWoOperationDone } from "../../api/clientM3";
 import type { DispatchRow } from "../../api/typesM3";
 import { MfgError, Spinner } from "../../components/Feedback";
@@ -20,7 +21,15 @@ import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 
-const PRED: Record<DispatchRow["predecessor_status"], { label: string; tone: string }> = {
+const MATERIAL: Record<string, { label: string; tone: string; icon: "check" | "alert" | "help" }> = {
+  kitted: { label: "kit complete", tone: "ok", icon: "check" },
+  available: { label: "material available", tone: "ok", icon: "check" },
+  short: { label: "material short", tone: "danger", icon: "alert" },
+  expected: { label: "material expected in time", tone: "info", icon: "help" },
+  unknown: { label: "material not checked", tone: "warn", icon: "help" },
+};
+
+const PRED: Record<string, { label: string; tone: string }> = {
   done: { label: "previous step done", tone: "ok" },
   scheduled_before: { label: "previous step planned earlier", tone: "info" },
   not_started: { label: "previous step not started", tone: "warn" },
@@ -46,13 +55,22 @@ export function ApsDispatchTab() {
   const [error, setError] = useState<unknown>(null);
   const [doneOps, setDoneOps] = useState<Set<number>>(new Set());
   const d = disp.data;
+  const lineCode = (lines.data?.items ?? []).find((l) => l.id === lineId)?.code;
+  // the dispatch response has no shift list: offer the shift labels seen on the day (plus the selected one)
+  const [shiftNames, setShiftNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!d || shift) return;
+    setShiftNames([...new Set(d.items.map((r) => r.shift_label).filter((x): x is string => Boolean(x)))]);
+  }, [d, shift]);
 
   const markDone = async (r: DispatchRow) => {
-    if (r.order.type !== "wo" || r.wo_row_version == null) return;
+    if (r.order.type !== "wo") return;
     setBusyOp(r.op_no);
     setError(null);
     try {
-      await setWoOperationDone(r.order.id, r.seq, true, r.wo_row_version);
+      // the dispatch row carries no work-order row_version (17.WP-U): read it just before the guarded write
+      const wo = await getWorkOrder(r.order.id);
+      await setWoOperationDone(r.order.id, r.seq, true, wo.row_version);
       setDoneOps((s) => new Set(s).add(r.op_no));
       disp.reload();
     } catch (e) {
@@ -91,9 +109,9 @@ export function ApsDispatchTab() {
           <label htmlFor="dp-shift">Shift</label>
           <select id="dp-shift" className="select" value={shift} onChange={(e) => set("shift", e.target.value)} data-testid="dispatch-shift">
             <option value="">Whole day</option>
-            {(d?.shifts ?? []).map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name} {clock.time(s.start)}–{clock.time(s.end)}
+            {[...new Set([...shiftNames, ...(shift ? [shift] : [])])].map((s) => (
+              <option key={s} value={s}>
+                {s}
               </option>
             ))}
           </select>
@@ -113,11 +131,11 @@ export function ApsDispatchTab() {
         <section className="card">
           <div className="card-header">
             <h2>
-              {d.line.code} · {fmtDate(d.date)}
+              {d.line.code || lineCode} · {fmtDate(d.date)}
               {d.shift ? ` · ${d.shift}` : ""}
             </h2>
             <span className="muted small">
-              {d.rows.length} operations · times in {clock.zoneLabel}
+              {d.items.length} operations · times in {clock.zoneLabel}
             </span>
           </div>
           <div className="table-wrap">
@@ -137,14 +155,14 @@ export function ApsDispatchTab() {
                 </tr>
               </thead>
               <tbody>
-                {d.rows.length === 0 ? (
+                {d.items.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="muted">
                       Nothing planned on this line in this period.
                     </td>
                   </tr>
                 ) : null}
-                {d.rows.map((r, i) => {
+                {d.items.map((r, i) => {
                   const done = r.done || doneOps.has(r.op_no);
                   return (
                     <tr key={r.op_no} data-testid="dispatch-row" data-op={r.op_no} data-done={done}>
@@ -152,8 +170,8 @@ export function ApsDispatchTab() {
                       <td className="mono">{clock.time(r.start)}</td>
                       <td className="mono">{clock.time(r.end)}</td>
                       <td>
-                        {r.link ? (
-                          <Link to={r.link} className="mono">
+                        {r.order.type === "wo" ? (
+                          <Link to={mfgPaths.workOrder(r.order.id)} className="mono">
                             {r.order.number}
                           </Link>
                         ) : (
@@ -162,29 +180,23 @@ export function ApsDispatchTab() {
                         / {r.seq} {r.name}
                       </td>
                       <td>
-                        <span className="mono">{r.item.part_number}</span>
-                        <div className="faint small mfg-ellipsis">{r.item.description}</div>
+                        <span className="mono">{r.part_number}</span>
+                        {r.shift_label && !shift ? <div className="faint small">{r.shift_label}</div> : null}
                       </td>
                       <td className="right">{fmtNum(r.qty)}</td>
                       <td className="small">
-                        {r.setup_minutes ? `${r.setup_from_family || "start"} → ${r.setup_to_family || "-"} (${fmtDuration(r.setup_minutes)})` : "none"}
+                        {r.setup_minutes ? `${r.setup_from_family || "start"} → ${r.family || "-"} (${fmtDuration(r.setup_minutes)})` : "none"}
                       </td>
                       <td className="small">
-                        {r.crew.map((c) => c.name ?? c.code).join(", ") || "unattended"}
-                        {r.tools.length ? <div className="faint">{r.tools.map((t) => `${t.code} x${t.qty}`).join(", ")}</div> : null}
+                        {r.crew.length ? `${r.crew.length} operator${r.crew.length === 1 ? "" : "s"}` : "unattended"}
+                        {r.tools.length ? <div className="faint">{r.tools.length} tool pool{r.tools.length === 1 ? "" : "s"} ({r.tools.map((t) => `x${t.qty}`).join(", ")})</div> : null}
                       </td>
                       <td className="small">
                         <span className={`badge ${PRED[r.predecessor_status]?.tone ?? "info"}`}>{PRED[r.predecessor_status]?.label ?? r.predecessor_status}</span>
-                        {r.material ? (
-                          r.material.kit_complete ? (
-                            <span className="badge ok">
-                              <Icon name="check" /> kit complete
-                            </span>
-                          ) : (
-                            <span className="badge danger">
-                              <Icon name="alert" /> {r.material.short_components} parts short
-                            </span>
-                          )
+                        {r.material_status ? (
+                          <span className={`badge ${MATERIAL[r.material_status]?.tone ?? "info"}`} data-testid="dispatch-material" data-status={r.material_status}>
+                            <Icon name={MATERIAL[r.material_status]?.icon ?? "help"} /> {MATERIAL[r.material_status]?.label ?? r.material_status.replace(/_/g, " ")}
+                          </span>
                         ) : null}
                       </td>
                       <td className="no-print">
