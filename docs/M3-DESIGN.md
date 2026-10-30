@@ -662,18 +662,13 @@ of the failing tests and their folders; no second full run unless a fix touches 
   the backend shape won (pieces `{start,end}`, 0-based split index, `OpDetail {op, reason, release,
   neighbours{before,after}}`, ids rather than embedded refs in load/overtime/bottlenecks, utilisation fractions).
   Codes are resolved client-side (`lib/resourceNames.ts`).
-- Accepting suggested shifts does **not** use `copy_of`, because `copy_of` only takes overtime/label/note/
-  improve_seconds. Instead it opens the run form prefilled with the source params plus `capacity_overrides`
-  `open_optional` for the accepted windows. The result is a what-if (overrides make it `what_if`), which is
-  labelled as such. The publishable route stays "automatic overtime (Allow)".
+- Accepting suggested shifts posts `{copy_of, open_shifts:[{line_id,start,end}], label}`. That creates a live,
+  publishable run with those windows `forced`, then opens compare against the source run.
 - Gantt default window = as-of + 14 days. When it is empty (e.g. `small` work starts weeks out), the tab says so
   and offers "Go to <first operation day>" via `operations?status=scheduled&sort=start&limit=1`.
-- Requested from WP-S, not blocking:
-  1. Overtime windows: add `reason` and `orders` (why an `allow` run opened a shift). The UI shows them when
-     present; until then it derives "why" from `tardiness_saved_minutes`.
-  2. Dispatch rows: add `wo_row_version`. "Done" currently reads the WO first to get the If-Match version.
-  3. Dispatch: a list of the day's shifts. The shift filter is currently built from the rows' `shift_label`.
-  4. LateStep kinds beyond the six in 11 (crew, tool, predecessor, setup, as_of) are labelled in the UI.
+- WP-S follow-ups, all closed: overtime `reason` and `orders` are shown as sent. Dispatch "Done" uses
+  `wo_row_version`, and the shift filter uses `shifts`. LateStep kinds beyond §11 (crew, tool, predecessor,
+  setup, as_of) are labelled.
 - Test ids added (stable for e2e):
   - Runs and form: `aps-run-form`, `aps-policy-{suggest,allow,off}`, `aps-run-submit`, `aps-expert(-toggle)`,
     `aps-whatif(-toggle)`, `aps-override-row`, `aps-run-row`, `aps-progress`.
@@ -681,7 +676,8 @@ of the failing tests and their folders; no second full run unless a fix touches 
   - Gantt: `gantt-canvas` (data-bars/rows), `gantt-row`, `gantt-tooltip`, `gantt-drop-preview/apply/cancel`,
     `edit-violations`, `gantt-op-panel`, `gantt-zoom-in/out`, `gantt-empty`, `gantt-jump-first`.
   - Compare: `aps-tradeoff(-late/-overtime)`, `aps-compare-run` (data-policy), `aps-publish-{base,allow}`.
-  - Overtime: `overtime-row` (data-status/saved), `overtime-accept`, `overtime-rerun-accepted`.
+  - Overtime: `overtime-row` (data-status/saved), `overtime-reason`, `overtime-orders`, `overtime-accept`,
+    `overtime-rerun-accepted`.
   - Dispatch: `dispatch-row` (data-op), `dispatch-material`, `dispatch-print`, `op-done`.
   - Masters: `setup-matrix-row`, `absence-row`.
 - e2e: `frontend/e2e/m3-schedule.spec.ts` (3 tests) uses `small` plus a rush demand line and an optional evening

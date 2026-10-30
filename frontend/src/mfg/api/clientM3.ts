@@ -20,6 +20,7 @@ import type {
   OperatorAbsenceRecord,
   OpQuery,
   OrderResultRow,
+  OpenShift,
   OvertimePolicy,
   OvertimeResponse,
   ScheduledOpRow,
@@ -66,6 +67,9 @@ export const createApsRun = (body: ApsParams) => mfgRequest<ApsRunRecord>(R, { m
  */
 export const rerunWithPolicy = (runId: string, overtime: OvertimePolicy, label?: string) =>
   createApsRun({ copy_of: runId, overtime, ...(label ? { label } : {}) });
+/** Accept suggested overtime: a live, publishable copy of `runId` with these optional shifts opened ("forced"). */
+export const rerunWithOpenShifts = (runId: string, shifts: OpenShift[], label?: string) =>
+  createApsRun({ copy_of: runId, open_shifts: shifts, ...(label ? { label } : {}) });
 export const listApsRuns = (query: { kind?: string; status?: string; pinned?: boolean; limit?: number; offset?: number } = {}, signal?: AbortSignal) =>
   mfgRequest<Page<ApsRunRecord>>(R, { query: { ...query }, signal });
 export const getPublishedRun = (signal?: AbortSignal) => mfgRequest<ApsRunRecord>(`${R}/published`, { signal });

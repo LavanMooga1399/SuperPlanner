@@ -8,7 +8,6 @@ import { Link, useSearchParams } from "react-router";
 import { Banner } from "../../../components/Banner";
 import { Icon } from "../../../components/Icon";
 import { listLines } from "../../api/client";
-import { getWorkOrder } from "../../api/clientM2";
 import { getDispatch, setWoOperationDone } from "../../api/clientM3";
 import type { DispatchRow } from "../../api/typesM3";
 import { MfgError, Spinner } from "../../components/Feedback";
@@ -56,21 +55,21 @@ export function ApsDispatchTab() {
   const [doneOps, setDoneOps] = useState<Set<number>>(new Set());
   const d = disp.data;
   const lineCode = (lines.data?.items ?? []).find((l) => l.id === lineId)?.code;
-  // the dispatch response has no shift list: offer the shift labels seen on the day (plus the selected one)
-  const [shiftNames, setShiftNames] = useState<string[]>([]);
+  // the day's shifts on this line (base and optional); kept while one is selected so the filter can be changed back
+  const [dayShifts, setDayShifts] = useState<{ label: string; start: string; end: string; kind: string }[]>([]);
   useEffect(() => {
-    if (!d || shift) return;
-    setShiftNames([...new Set(d.items.map((r) => r.shift_label).filter((x): x is string => Boolean(x)))]);
+    if (!d?.shifts) return;
+    const byLabel = new Map<string, { label: string; start: string; end: string; kind: string }>();
+    for (const x of d.shifts) if (x.label && !byLabel.has(x.label)) byLabel.set(x.label, { ...x, label: x.label });
+    if (byLabel.size || !shift) setDayShifts([...byLabel.values()]);
   }, [d, shift]);
 
   const markDone = async (r: DispatchRow) => {
-    if (r.order.type !== "wo") return;
+    if (r.order.type !== "wo" || r.wo_row_version == null) return;
     setBusyOp(r.op_no);
     setError(null);
     try {
-      // the dispatch row carries no work-order row_version (17.WP-U): read it just before the guarded write
-      const wo = await getWorkOrder(r.order.id);
-      await setWoOperationDone(r.order.id, r.seq, true, wo.row_version);
+      await setWoOperationDone(r.order.id, r.seq, true, r.wo_row_version);
       setDoneOps((s) => new Set(s).add(r.op_no));
       disp.reload();
     } catch (e) {
@@ -109,11 +108,13 @@ export function ApsDispatchTab() {
           <label htmlFor="dp-shift">Shift</label>
           <select id="dp-shift" className="select" value={shift} onChange={(e) => set("shift", e.target.value)} data-testid="dispatch-shift">
             <option value="">Whole day</option>
-            {[...new Set([...shiftNames, ...(shift ? [shift] : [])])].map((s) => (
-              <option key={s} value={s}>
-                {s}
+            {dayShifts.map((s) => (
+              <option key={s.label} value={s.label}>
+                {s.label} {clock.time(s.start)}–{clock.time(s.end)}
+                {s.kind === "optional" ? " (overtime)" : ""}
               </option>
             ))}
+            {shift && !dayShifts.some((s) => s.label === shift) ? <option value={shift}>{shift}</option> : null}
           </select>
         </div>
         <button type="button" className="btn" style={{ alignSelf: "flex-end" }} onClick={() => window.print()} data-testid="dispatch-print">
@@ -204,7 +205,7 @@ export function ApsDispatchTab() {
                           <span className="badge ok">
                             <Icon name="check" /> Done
                           </span>
-                        ) : canDone && r.order.type === "wo" ? (
+                        ) : canDone && r.order.type === "wo" && r.wo_row_version != null ? (
                           <button type="button" className="btn sm" onClick={() => void markDone(r)} disabled={busyOp === r.op_no} data-testid="op-done">
                             {busyOp === r.op_no ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Done
                           </button>

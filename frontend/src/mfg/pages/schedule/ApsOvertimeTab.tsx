@@ -9,8 +9,8 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Banner } from "../../../components/Banner";
 import { Icon } from "../../../components/Icon";
-import { getApsOvertime } from "../../api/clientM3";
-import type { ApsParams, OvertimeWindow } from "../../api/typesM3";
+import { getApsOvertime, rerunWithOpenShifts } from "../../api/clientM3";
+import type { OvertimeWindow } from "../../api/typesM3";
 import { MfgError, Spinner } from "../../components/Feedback";
 import { fmtNum } from "../../lib/formatM2";
 import { fmtDuration, usePlantClock } from "../../lib/plantTime";
@@ -18,12 +18,13 @@ import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
 import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
+import { orderLink } from "./ApsOrdersTab";
 import { useApsRun } from "./ApsRunShell";
 
 const STATUS: Record<OvertimeWindow["status"], { label: string; tone: string; icon: "check" | "help" | "lock" }> = {
   opened: { label: "Opened by the scheduler", tone: "warn", icon: "check" },
   suggested: { label: "Suggested", tone: "info", icon: "help" },
-  forced: { label: "Opened by you (what-if)", tone: "accent", icon: "lock" },
+  forced: { label: "Opened by you", tone: "accent", icon: "lock" },
 };
 
 const keyOf = (w: OvertimeWindow) => w.assignment_id ? `${w.assignment_id}:${w.start}` : `${w.line_id}:${w.start}`;
@@ -45,25 +46,29 @@ export function ApsOvertimeTab() {
   const t = ot.data?.totals;
   const acceptedRows = suggested.filter((w) => accepted.has(keyOf(w)));
 
-  const rerunAccepted = () => {
-    // a copy of this run's inputs + the accepted windows forced open (`copy_of` only allows overtime/label/note/
-    // improve_seconds alongside it, so the params are copied instead)
-    const { copy_of: _c, edits: _e, ...base } = run.params ?? {};
-    const prefill: ApsParams = {
-      ...base,
-      as_of: base.as_of ?? null,
-      label: `${run.label || `Schedule #${run.run_no}`} with ${acceptedRows.length} extra shift${acceptedRows.length === 1 ? "" : "s"}`,
-      capacity_overrides: [
-        ...(run.params?.capacity_overrides ?? []),
-        ...acceptedRows.map((w) => ({ target_type: "line" as const, target_id: w.line_id, start: w.start, end: w.end, mode: "open_optional" as const })),
-      ],
-    };
-    navigate(mfgPaths.schedule(), { state: { prefill } });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  // accept: a live, publishable copy of this run with the accepted shifts opened as planner overtime, then compare
+  const rerunAccepted = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const n = acceptedRows.length;
+      const next = await rerunWithOpenShifts(
+        run.id,
+        acceptedRows.map((w) => ({ line_id: w.line_id, start: w.start, end: w.end })),
+        `${run.label || `Schedule #${run.run_no}`} with ${n} extra shift${n === 1 ? "" : "s"}`,
+      );
+      navigate(mfgPaths.apsCompare(next.id, run.id));
+    } catch (e) {
+      setError(e);
+      setBusy(false);
+    }
   };
 
   return (
     <div className="col gap-lg" data-testid="aps-overtime" data-policy={policy}>
-      <MfgError error={ot.error} onRetry={ot.reload} />
+      <MfgError error={ot.error ?? error} onRetry={ot.reload} />
       {ot.loading && !ot.data ? <Spinner /> : null}
       {t ? (
         <div className="kpis">
@@ -93,7 +98,7 @@ export function ApsOvertimeTab() {
           <div className="card-header">
             <h3>Extra shifts {policy === "allow" ? "opened by the scheduler" : "in this plan"} ({opened.length})</h3>
           </div>
-          <OtTable rows={opened} clock={clock} mode="opened" />
+          <OtTable rows={opened} clock={clock} mode="opened" runId={run.id} />
         </section>
       ) : null}
 
@@ -107,6 +112,7 @@ export function ApsOvertimeTab() {
             <div className="card-body muted">No extra shift would reduce lateness.</div>
           ) : (
             <OtTable
+              runId={run.id}
               rows={suggested}
               clock={clock}
               mode="suggested"
@@ -125,14 +131,14 @@ export function ApsOvertimeTab() {
           )}
           {suggested.length ? (
             <div className="card-footer row wrap">
-              <button type="button" className="btn primary" disabled={!canRun || acceptedRows.length === 0} title={canRun ? undefined : needsText("schedule_run")} onClick={rerunAccepted} data-testid="overtime-rerun-accepted">
-                <Icon name="play" /> Re-run with these opened ({acceptedRows.length})
+              <button type="button" className="btn primary" disabled={!canRun || busy || acceptedRows.length === 0} title={canRun ? undefined : needsText("schedule_run")} onClick={() => void rerunAccepted()} data-testid="overtime-rerun-accepted">
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} Re-run with these opened ({acceptedRows.length})
               </button>
               <button type="button" className="btn ghost" disabled={!canRun} onClick={() => setAccepted(new Set(suggested.map(keyOf)))}>
                 Accept all
               </button>
               <span className="faint small">
-                Opens exactly the accepted shifts in a new run (a what-if to compare). To let the scheduler choose and publish, use automatic overtime instead.
+                Creates a new run with exactly the accepted shifts opened, then compares it with this one. Either run can be published.
               </span>
             </div>
           ) : null}
@@ -143,6 +149,7 @@ export function ApsOvertimeTab() {
 }
 
 function OtTable({
+  runId,
   rows,
   clock,
   mode,
@@ -150,6 +157,7 @@ function OtTable({
   onToggle,
   canAccept,
 }: {
+  runId: string;
   rows: OvertimeWindow[];
   clock: ReturnType<typeof usePlantClock>;
   mode: "opened" | "suggested";
@@ -200,28 +208,29 @@ function OtTable({
                 <td className="right">{(w.minutes / 60).toFixed(1)}</td>
                 <td className="right">{fmtNum(Math.round(w.cost))}</td>
                 <td className="small">
-                  {mode === "suggested" ? (
-                    <strong>{fmtDuration(w.tardiness_saved_minutes ?? 0)} weighted</strong>
-                  ) : (
-                    <>
-                      {w.reason ??
-                        (w.tardiness_saved_minutes
-                          ? `Needed to finish late work sooner: saves ${fmtDuration(w.tardiness_saved_minutes)} weighted lateness.`
-                          : w.status === "forced"
-                            ? "Opened by you in this what-if."
-                            : "Needed to finish work that would otherwise be late.")}
-                      {w.orders?.length ? (
-                        <div>
-                          {w.orders.map((o) => (
-                            <Link key={o.id} to={mfgPaths.workOrder(o.id)} className="mono" style={{ marginRight: 6 }}>
-                              {o.number}
-                            </Link>
-                          ))}
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-                  {mode === "suggested" && w.reason ? <div className="faint">{w.reason}</div> : null}
+                  {mode === "suggested" ? <strong>{fmtDuration(w.tardiness_saved_minutes ?? 0)} weighted</strong> : null}
+                  {w.reason ? (
+                    <div className={mode === "suggested" ? "faint" : undefined} data-testid="overtime-reason">
+                      {w.reason}
+                    </div>
+                  ) : mode === "opened" ? (
+                    <div>{w.status === "forced" ? "Opened by you." : "Opened for work that would otherwise be late."}</div>
+                  ) : null}
+                  {w.orders?.length ? (
+                    <ul className="mfg-ot-orders" data-testid="overtime-orders">
+                      {w.orders.map((o) => (
+                        <li key={o.order.id}>
+                          <Link to={orderLink(o.order, runId)} className="mono">
+                            {o.order.number}
+                          </Link>{" "}
+                          <span className="faint">
+                            {fmtDuration(o.minutes)} in this shift{o.op_nos.length ? ` (op ${o.op_nos.join(", ")})` : ""}
+                            {o.late_minutes > 0 ? ` · ${fmtDuration(o.late_minutes)} late` : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </td>
                 <td>
                   <span className={`badge ${s.tone}`}>

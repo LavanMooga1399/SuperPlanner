@@ -170,9 +170,14 @@ test.describe("M3 schedule UI", () => {
       await expect(rows.first()).toContainText(/weighted/);
       await expect(page.getByTestId("overtime-rerun-accepted")).toBeDisabled();
       await rows.first().getByTestId("overtime-accept").check();
+      const posted = page.waitForRequest((r) => r.method() === "POST" && /\/aps\/runs$/.test(new URL(r.url()).pathname));
       await page.getByTestId("overtime-rerun-accepted").click();
-      await expect(page).toHaveURL(/\/mfg\/schedule$/);
-      await expect(page.getByTestId("aps-override-row")).toHaveCount(1);
+      // a live copy with exactly the accepted shift opened, then the compare view
+      const body = (await posted).postDataJSON() as { copy_of: string; open_shifts: unknown[] };
+      expect(body.copy_of).toBe(runId);
+      expect(body.open_shifts).toHaveLength(1);
+      await expect(page).toHaveURL(new RegExp(`/compare\\?with=${runId}`));
+      await expect(page.getByTestId("aps-compare-kpis")).toBeVisible({ timeout: 90_000 });
     } else {
       await expect(sug).toContainText("No extra shift would reduce lateness");
     }
@@ -185,5 +190,12 @@ test.describe("M3 schedule UI", () => {
     await expect(row).toContainText(op.order.number);
     await expect(page.getByTestId("dispatch-print")).toBeEnabled();
     await expect(row.getByTestId("dispatch-material")).toHaveText(/\w/);
+    // "Done" marks the work-order operation finished (planned orders have no button)
+    const doneBtn = page.getByTestId("dispatch-row").getByTestId("op-done").first();
+    if (await doneBtn.count()) {
+      const tr = page.locator('[data-testid="dispatch-row"]', { has: doneBtn });
+      await doneBtn.click();
+      await expect(tr).toHaveAttribute("data-done", "true");
+    }
   });
 });

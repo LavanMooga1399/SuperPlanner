@@ -123,6 +123,8 @@ export interface ApsParams {
   edits?: ScheduleEdit[];
   /** M3-DESIGN 16 Q1 escalation: "same inputs as this run" (+ the `overtime` override). */
   copy_of?: EntityId | null;
+  /** with `copy_of` only: optional shifts to open as planner overtime (accepted suggestions); the run stays live */
+  open_shifts?: OpenShift[];
 }
 
 export interface EditRequest {
@@ -442,6 +444,15 @@ export interface DispatchRow {
   material_status: string; // kitted | short | unknown | ...
   done: boolean;
   shift_label: string | null;
+  /** If-Match for done / reopen of the WO operation (null for planned orders) */
+  wo_row_version?: number | null;
+}
+
+export interface DispatchShift {
+  label: string | null;
+  start: IsoDateTime;
+  end: IsoDateTime;
+  kind: string; // base | optional | ...
 }
 
 export interface DispatchResponse {
@@ -449,6 +460,7 @@ export interface DispatchResponse {
   date: IsoDate;
   shift: string | null;
   run_id: EntityId;
+  shifts?: DispatchShift[];
   items: DispatchRow[];
 }
 
@@ -462,9 +474,23 @@ export interface OvertimeWindow {
   cost: number;
   status: "opened" | "suggested" | "forced";
   tardiness_saved_minutes: number | null;
-  /** optional (requested from WP-S, 17.WP-U): why an `allow` run opened it */
-  reason?: string | null;
-  orders?: OrderRef[];
+  /** why it is opened / suggested (which late work it helps) */
+  reason?: string;
+  orders?: OvertimeOrder[];
+}
+
+export interface OvertimeOrder {
+  order: OrderRef;
+  op_nos: number[];
+  minutes: number;
+  late_minutes: number;
+}
+
+/** accepting suggested overtime (with `copy_of`): opens the optional windows of the line overlapping [start, end) */
+export interface OpenShift {
+  line_id: EntityId;
+  start: IsoDateTime;
+  end: IsoDateTime;
 }
 
 export interface OvertimeResponse {
