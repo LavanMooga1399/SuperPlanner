@@ -46,10 +46,11 @@ def _norm(path: str) -> str:
 
 
 def registered_routes(app: Any) -> set[tuple[str, str]]:
+    """From `app.openapi()` (walking `app.routes` does not see into included routers in this FastAPI version)."""
     out = set()
-    for r in app.routes:
-        for m in getattr(r, "methods", None) or ():
-            out.add((m, _norm(getattr(r, "path", ""))))
+    for path, ops in app.openapi().get("paths", {}).items():
+        for m in ops:
+            out.add((m.upper(), _norm(path)))
     return out
 
 

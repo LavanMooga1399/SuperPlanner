@@ -222,7 +222,7 @@ def oplant_to_snapshot(p: OPlant) -> tuple[Any, Any]:
     balances = [build(BalanceSnap, id=b.id, balance_id=b.id, item_id=b.item_id, location_id=b.location_id,
                       kind=b.location_kind, location_kind=b.location_kind, lot_id=b.lot_id, lot_code=b.lot_code,
                       expires_on=b.expires_on, hold=b.hold, qty_on_hand=b.qty_on_hand, qty_reserved=b.qty_reserved,
-                      last_receipt_on=b.last_receipt_on) for b in p.balances if b.qty_on_hand > EPS]
+                      last_receipt_on=b.last_receipt_on, location_active=b.location_active) for b in p.balances if b.qty_on_hand > EPS]
     reservations = [build(ReservationSnap, wo_component_id=r.wo_component_id, balance_id=r.balance_id, qty=r.qty)
                     for r in p.reservations]
     schedules = [build(ScheduleSnap, doc_type=s.doc_type, doc_id=s.doc_id, number=s.number,
@@ -342,7 +342,8 @@ def snapshot_to_oplant(snap: Any, params: Any) -> OPlant:
             lot_code=g(lot, "lot_code") if lot is not None else g(b, "lot_code"),
             expires_on=g(b, "expires_on", default=g(lot, "expires_on") if lot is not None else None),
             hold=bool(g(b, "hold", default=g(lot, "hold", default=False) if lot is not None else False)),
-            last_receipt_on=g(b, "last_receipt_on")))
+            last_receipt_on=g(b, "last_receipt_on"),
+            location_active=bool(g(b, "location_active", default=True))))
     reservations = [OReservation(wo_component_id=g(r, "wo_component_id"), balance_id=g(r, "balance_id"),
                                  qty=g(r, "qty")) for r in g(snap, "reservations", default=[])]
     schedules = [OSchedule(doc_type=g(s, "doc_type"), doc_id=g(s, "doc_id"), number=g(s, "number"),
@@ -425,12 +426,13 @@ def _rank(x: Any) -> tuple[str, ...]:
 
 @dataclasses.dataclass
 class Canon:
-    planned: Counter                     # (part_number, kind, qty, need, start, segment) -> count
+    planned: dict                        # (part_number, kind, need, start, segment) -> sorted quantities
     demand: dict[Any, Any]               # demand key -> projected_date
     pegs: dict[tuple[Any, Any], float]   # (req key, supply key) -> qty
     pegs_tie: dict[tuple[Any, Any], float]
     req_totals: dict[Any, float]
     iterations: int
+    count_items: frozenset = frozenset()     # part numbers with a count UoM (compared exactly, C18)
 
 
 def _planned_ids(rows: list[tuple[int, Any]]) -> dict[int, tuple[Any, ...]]:
@@ -448,8 +450,10 @@ def oracle_canon(res: OResult, plant: OPlant) -> Canon:
     pn = {i: it.part_number for i, it in plant.items.items()}
     pids = _planned_ids([(p.planned_no, (pn[p.item_id], p.kind, p.segment, p.need_date, p.start_date,
                                          _q(p.qty))) for p in res.planned])
-    planned = Counter((pn[p.item_id], p.kind, _q(p.qty), p.need_date, p.start_date, p.segment)
-                      for p in res.planned)
+    planned: dict = defaultdict(list)
+    for p in res.planned:
+        planned[(pn[p.item_id], p.kind, p.need_date, p.start_date, p.segment)].append(p.qty)
+    planned = {k: sorted(v) for k, v in planned.items()}
 
     def req_key(r: Any) -> tuple[Any, ...]:
         if r.kind == "demand":
@@ -495,16 +499,28 @@ def oracle_canon(res: OResult, plant: OPlant) -> Canon:
         else:
             x = plant.params.extra_demand[dp.key[1]]
             demand[("extra", pn[x.item_id], x.due_date, round(x.qty, 6))] = dp.projected_date
-    return Canon(planned, demand, _r(pegs), _r(tie), _r(totals), res.iterations)
+    return Canon(planned, demand, _r(pegs), _r(tie), _r(totals), res.iterations, _counts(plant))
 
 
 def _r(d: dict) -> dict:
-    return {k: round(v, 6) for k, v in d.items() if round(v, 6) != 0}
+    return {k: v for k, v in d.items() if abs(v) > 1e-9}
+
+
+def _counts(plant: OPlant) -> frozenset:
+    return frozenset(i.part_number for i in plant.items.values() if i.uom == "EA")
+
+
+def close(a: float, b: float, exact: bool) -> bool:
+    """C18: |a - b| <= 1e-6 x max(1, |a|); count-UoM quantities exact."""
+    if exact:
+        return abs(a - b) <= 1e-9
+    a, b = round(a, 6), round(b, 6)          # both sides as stored ("round(q, 6) on store")
+    return abs(a - b) <= 1e-6 * max(1.0, abs(a)) + 1e-12
 
 
 def _q(x: float) -> float:
-    """Quantities in canonical keys: 5 decimals (both sides apply round(q, 6) to differently summed floats)."""
-    return round(x, 5)
+    """Quantity inside a canonical *identity* (planned-order ids in peg keys) - values are compared with C18."""
+    return round(x, 4)
 
 
 def engine_canon(result: Any, plant: OPlant) -> Canon:
@@ -518,8 +534,11 @@ def engine_canon(result: Any, plant: OPlant) -> Canon:
     pids = _planned_ids([(g(p, "planned_no"), (pn[g(p, "item_id")], g(p, "kind"), _seg(g(p, "segment")),
                                                g(p, "need_date"), g(p, "start_date"), _q(g(p, "qty"))))
                          for p in pos])
-    planned = Counter((pn[g(p, "item_id")], g(p, "kind"), _q(g(p, "qty")), g(p, "need_date"),
-                       g(p, "start_date"), _seg(g(p, "segment"))) for p in pos)
+    planned: dict = defaultdict(list)
+    for p in pos:
+        planned[(pn[g(p, "item_id")], g(p, "kind"), g(p, "need_date"), g(p, "start_date"),
+                 _seg(g(p, "segment")))].append(g(p, "qty"))
+    planned = {k: sorted(v) for k, v in planned.items()}
     plans = {g(ip, "item_id"): ip for ip in g(result, "items", default=[])}
     sup_index = {(iid, g(s, "node")): s for iid, ip in plans.items() for s in g(ip, "supplies", default=[])}
 
@@ -592,26 +611,37 @@ def engine_canon(result: Any, plant: OPlant) -> Canon:
         else:
             demand[("extra", pn[g(dp, "item_id")], g(dp, "due_date"), round(g(dp, "qty"), 6))] = \
                 g(dp, "projected_date")
-    return Canon(planned, demand, _r(pegs), _r(tie), _r(totals), int(g(result, "iterations", default=1)))
+    return Canon(planned, demand, _r(pegs), _r(tie), _r(totals), int(g(result, "iterations", default=1)),
+                 _counts(plant))
 
 
 def diff_canon(a: Canon, b: Canon, *, limit: int = 25) -> dict[str, list[str]]:
-    """a = engine, b = oracle. Returns {'planned', 'demand', 'pegs', 'pegs_tie', 'totals', 'iterations'} diffs."""
+    """a = engine, b = oracle. Returns {'planned', 'demand', 'pegs', 'pegs_tie', 'totals', 'iterations'} diffs;
+    quantities compared with C18 (relative 1e-6, count UoM exact)."""
     out: dict[str, list[str]] = {k: [] for k in ("planned", "demand", "pegs", "pegs_tie", "totals", "iterations")}
+    counts = a.count_items | b.count_items
+
+    def pn_of(key: Any) -> str:
+        while isinstance(key, tuple) and key and isinstance(key[0], tuple):
+            key = key[0]
+        for x in (key if isinstance(key, tuple) else (key,)):
+            if isinstance(x, str) and not x.startswith(("dml_", "wko_")) and x not in (
+                    "demand", "extra", "ss", "woc", "pc", "bal", "sch", "wo", "pl", "make", "buy"):
+                return x
+        return ""
+
     for k in sorted(set(a.planned) | set(b.planned), key=repr):
-        if a.planned[k] != b.planned[k]:
-            out["planned"].append(f"{k}: engine {a.planned[k]} oracle {b.planned[k]}")
+        x, y = a.planned.get(k, []), b.planned.get(k, [])
+        if len(x) != len(y) or not all(close(p, q, k[0] in counts) for p, q in zip(x, y)):
+            out["planned"].append(f"{k}: engine {x} oracle {y}")
     for k in sorted(set(a.demand) | set(b.demand), key=repr):
         if a.demand.get(k) != b.demand.get(k):
             out["demand"].append(f"{k}: engine {a.demand.get(k)} oracle {b.demand.get(k)}")
-    for name in ("pegs", "pegs_tie"):
-        x, y = getattr(a, name), getattr(b, name)
+    for name, src in (("pegs", "pegs"), ("pegs_tie", "pegs_tie"), ("totals", "req_totals")):
+        x, y = getattr(a, src), getattr(b, src)
         for k in sorted(set(x) | set(y), key=repr):
-            if abs(x.get(k, 0) - y.get(k, 0)) > 1e-5:
+            if not close(x.get(k, 0.0), y.get(k, 0.0), pn_of(k) in counts):
                 out[name].append(f"{k}: engine {x.get(k, 0)} oracle {y.get(k, 0)}")
-    for k in sorted(set(a.req_totals) | set(b.req_totals), key=repr):
-        if abs(a.req_totals.get(k, 0) - b.req_totals.get(k, 0)) > 1e-5:
-            out["totals"].append(f"{k}: engine {a.req_totals.get(k, 0)} oracle {b.req_totals.get(k, 0)}")
     if a.iterations != b.iterations:
         out["iterations"].append(f"engine {a.iterations} oracle {b.iterations}")
     return {k: v[:limit] for k, v in out.items() if v}

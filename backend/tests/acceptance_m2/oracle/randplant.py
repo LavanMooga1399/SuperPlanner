@@ -35,6 +35,7 @@ def random_plant(seed: int) -> OPlant:
     b.location("LS", "line_side")
     b.location("INSP", "inspection")
     b.location("Q", "quarantine")
+    b.location("LSX", "line_side")          # inactive location (C9: never nettable)
 
     # ---------------------------------------------------------- buy items
     buys: list[OItem] = []
@@ -145,6 +146,8 @@ def random_plant(seed: int) -> OPlant:
                         hold=rng.random() < 0.1)
             else:
                 b.stock(it, q, loc=rng.choice(["STORES", "STORES", "LS", "Q"]))
+        if rng.random() < 0.1:
+            b.stock(it, float(rng.choice([7, 70])), loc="LSX").location_active = False
         if it.make_buy == "buy" and rng.random() < 0.15:
             b.stock(it, float(rng.choice([3, 30])), loc="INSP", last_receipt=AS_OF - timedelta(days=rng.choice([0, 1])))
     for it in buys:
@@ -167,6 +170,7 @@ def random_plant(seed: int) -> OPlant:
                  if ln.alt_priority == 1 and pl.items[ln.child_id].make_buy != "phantom"]
         w = b.wo(m, 10, start, start + timedelta(days=rng.randint(0, 8)), components=comps,
                  status=rng.choice(["planned", "released", "in_progress"]))
+        w.routing_id = next(x.id for x in pl.routings if x.item_id == m.id)        # C12
         if w.status != "planned":
             for c in w.components:
                 bal = next((x for x in pl.balances if x.item_id == c.item_id and x.location_kind == "stores"

@@ -269,14 +269,16 @@ class Oracle:
             cum[k] = cum[k + 1] * ys[k]
         return ops, cum
 
-    def mld(self, item_id: str, qty: float, on: date, serial: int | None) -> int:
+    def mld(self, item_id: str, qty: float, on: date, serial: int | None, routing_id: str | None = None) -> int:
         """8.5 manufacturing_lead_days."""
         if item_id in self.par.lead_time_overrides:
             return int(self.par.lead_time_overrides[item_id])
         it = self.items[item_id]
         if it.lead_time_days is not None:
             return int(it.lead_time_days)
-        r = self.primary_routing(item_id, on, serial)
+        r = next((x for x in self.routings_by_item.get(item_id, []) if x.id == routing_id), None) if routing_id \
+            else None
+        r = r or self.primary_routing(item_id, on, serial)
         if r is None:
             return 0
         ops, cum = self._yields(r)
@@ -398,9 +400,11 @@ class Oracle:
 
     # ------------------------------------------------------------ low-level codes (8.4)
     def llc(self) -> dict[str, int]:
-        max_lt = max([i.lead_time_days or 0 for i in self.items.values()]
-                     + [r.lead_time_days or 0 for r in self.p.item_suppliers]
-                     + [s.lead_time_days or 0 for s in self.p.suppliers.values()] + [0])
+        buys = [i for i in self.items.values() if i.make_buy == "buy"]       # C10: purchase lead times + 1 day
+        max_lt = max([i.lead_time_days or 0 for i in buys] + [r.lead_time_days or 0 for r in self.p.item_suppliers]
+                     + [s.lead_time_days or 0 for s in self.p.suppliers.values()]
+                     + [v for k, v in self.par.lead_time_overrides.items()
+                        if k in self.items and self.items[k].make_buy == "buy"] + [0]) + 1
         lo, hi = self.as_of, self.horizon_end + timedelta(days=max_lt)
         children: dict[str, set[str]] = defaultdict(set)
         for b in self.p.boms:
@@ -481,8 +485,12 @@ class Oracle:
                 if free <= EPS:
                     continue
                 take = min(self.to_alt(late, g.primary, a), free)
+                if is_count(self.items[a.child_id].uom) and ceil_eps(take) > free + EPS:
+                    take = math.floor(free + 1e-9)       # I15: the rounded alternate need must fit the free stock
+                    if take <= EPS:
+                        continue
                 prim_eq = self.from_alt(take, g.primary, a)
-                taken[a.child_id] += take
+                taken[a.child_id] += ceil_eps(take) if is_count(self.items[a.child_id].uom) else take
                 directives[(order.planned.order_key, g.alt_group, a.id)] += prim_eq
                 late -= prim_eq
         return dict(directives)
@@ -558,7 +566,7 @@ class _Pass:
             return (prot, d.priority, d.due_date, d.number, d.line_no)
         if r.kind == "extra_demand":
             x = r.source[2]
-            return (1, x.priority, x.due_date, x.label, r.source[1])
+            return (1, x.priority, x.due_date, f"EXTRA-{r.source[1] + 1:03d}", 0)   # C14
         if r.kind == "safety_stock":
             return SS_RANK
         parent = self._parent_supply(r)
@@ -616,7 +624,7 @@ class _Pass:
         for rv in o.p.reservations:
             rsv_by_bal[rv.balance_id].append(rv)
         for b in sorted(o.p.balances, key=lambda b: (b.item_id, b.location_id, b.lot_code or "")):
-            if b.location_kind not in NETTABLE or b.qty_on_hand <= EPS or b.hold:
+            if b.location_kind not in NETTABLE or b.qty_on_hand <= EPS or b.hold or not b.location_active:   # C9
                 continue
             if b.expires_on is not None and b.expires_on <= o.as_of:
                 self.exceptions.append(OException("MRP_EXPIRED_STOCK", "warning", b.item_id, ("lot", b.lot_id),
@@ -944,7 +952,7 @@ class _Pass:
             n = o.mld(s.item_id, s.qty, max(po.need_date, o.as_of), po.segment[0] if po.segment else None)
         else:
             w = o.wos[s.ref[1]]
-            n = o.mld(s.item_id, w.open_qty, max(w.start_date, o.as_of), w.serial_from)
+            n = o.mld(s.item_id, w.open_qty, max(w.start_date, o.as_of), w.serial_from, w.routing_id)   # C12
         s.projected_date = max(s.due_date, o.cal.add(ready, n))
 
     # ------------------------------------------------------------ main
@@ -1021,7 +1029,7 @@ class _Pass:
         E = self.exceptions
         for d in demand:
             subj = ("demand_line", d.key[1]) if d.key[0] == "demand" else ("extra", d.key[1])
-            if d.late_days > 0:
+            if d.late_days > 0 and d.due_date >= o.as_of:      # C8: a past-due line gets PAST_DUE only
                 E.append(OException("MRP_DEMAND_LATE", "critical", d.item_id, subj, date=d.projected_date,
                                     qty=d.qty, days=d.late_days))
             if d.due_date < o.as_of:

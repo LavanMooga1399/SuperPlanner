@@ -33,6 +33,10 @@ def team(acc):
     return acc, owner, t, item, loc, sup
 
 
+def _uid(actor) -> str:
+    return actor["id"] if isinstance(actor, dict) else actor
+
+
 def _pr_body(item_id: str, today: date) -> dict:
     return {"lines": [{"item_id": item_id, "schedules": [
         {"requested_date": (today - timedelta(days=4)).isoformat(), "qty": 40},
@@ -46,7 +50,7 @@ def test_pr_approval_conversion_partial_receipt_and_mrp_remainder(team):
     assert pr["status"] == "draft" and pr["number"].startswith("PR-")
     assert pr["lines"][0]["unit_price"] == 4.0                      # item-supplier price on create
     pr = t["planner"].post(f"/purchase-requests/{pr['id']}/submit", {}, status=200, version=pr["row_version"])
-    assert pr["status"] == "submitted" and pr["submitted_by"] == acc.uid("planner@pur-m2.example.com")
+    assert pr["status"] == "submitted" and _uid(pr["submitted_by"]) == acc.uid("planner@pur-m2.example.com")
     r = t["planner"].raw("POST", f"/purchase-requests/{pr['id']}/approve", json={"note": ""},
                          headers={"If-Match": f'"{pr["row_version"]}"'})
     assert r.status_code == 403 and r.json()["error"]["code"] == "MFG_FORBIDDEN"
@@ -63,7 +67,7 @@ def test_pr_approval_conversion_partial_receipt_and_mrp_remainder(team):
     assert t["approver"].raw("POST", f"/purchase-requests/{pr['id']}/approve", json={"note": ""}).status_code == 428
     pr = t["approver"].post(f"/purchase-requests/{pr['id']}/approve", {"note": "ok"}, status=200,
                             version=pr["row_version"])
-    assert pr["status"] == "approved" and pr["approved_by"] == acc.uid("approver@pur-m2.example.com")
+    assert pr["status"] == "approved" and _uid(pr["approved_by"]) == acc.uid("approver@pur-m2.example.com")
     # wrong-state action carries allowed_from
     r = t["planner"].raw("POST", f"/purchase-requests/{pr['id']}/submit", json={},
                          headers={"If-Match": f'"{pr["row_version"]}"'})

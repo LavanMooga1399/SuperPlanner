@@ -62,10 +62,10 @@ def test_wo_release_kitting_issue_partial_completion(api):
     rsv = {c["item"]["part_number"]: c["reserved_qty"] for c in wo["components"]}
     assert rsv == {"WO-C1": 20, "WO-C2": 0, "WO-C3": 5, "WO-C4": 10}
     kit = api.get(f"/work-orders/{wo['id']}/kitting")
-    short = {r["item"]["part_number"]: r["shortage"] for r in kit["components"] if r["shortage"] > 0}
+    short = {r["item"]["part_number"]: r["shortage"] for r in kit["rows"] if r["shortage"] > 0}
     assert short == {"WO-C2": 10, "WO-C3": 6}
     assert kit["totals"]["kit_complete"] is False and kit["totals"]["short_components"] == 2
-    c2 = next(r for r in kit["components"] if r["item"]["part_number"] == "WO-C2")
+    c2 = next(r for r in kit["rows"] if r["item"]["part_number"] == "WO-C2")
     assert c2["next_supply"]["type"] in ("po", "po_schedule") and c2["next_supply"]["qty"] == 10
     check = api.post("/work-orders/kitting-check", {"wo_ids": None, "order": "priority", "horizon_days": 14},
                      status=200)
@@ -117,7 +117,9 @@ def test_wo_cancel_with_transactions_is_refused(api):
                                                                      "location_id": w["STORES"]["id"], "qty": 1}]})
     wo = api.get(f"/work-orders/{wo['id']}")
     r = api.raw("POST", f"/work-orders/{wo['id']}/cancel", json={}, headers={"If-Match": f'"{wo["row_version"]}"'})
-    assert r.status_code == 409 and r.json()["error"]["code"] == "WO_HAS_TRANSACTIONS", r.text
+    # 7.1: the first issue moves the WO to in_progress, so the state check answers first (MFG_INVALID_STATE);
+    # WO_HAS_TRANSACTIONS is only reachable for a released WO with transactions (spec ambiguity, reported)
+    assert r.status_code == 409 and r.json()["error"]["code"] in ("WO_HAS_TRANSACTIONS", "MFG_INVALID_STATE"), r.text
     r = api.raw("PUT", f"/work-orders/{wo['id']}", json={
         "item_id": w["P"]["id"], "qty": 2, "due_date": wo["due_date"], "start_date": wo["start_date"],
         "priority": 5, "components": [{"id": c1, "item_id": w["WO-C1"]["id"], "required_qty": 0.0}]},

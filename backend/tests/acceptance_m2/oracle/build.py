@@ -109,6 +109,12 @@ class PB:
               expires: date | None = None, hold: bool = False, reserved: float = 0.0,
               last_receipt: date | None = None) -> OBalance:
         lid, kind = self.locations[loc]
+        bid = eid("bal", self.tag, item.part_number, loc, lot or "")
+        for old in self.plant.balances:          # one balance per key (4.3): accumulate
+            if old.id == bid:
+                old.qty_on_hand += qty
+                old.qty_reserved += reserved
+                return old
         b = OBalance(id=eid("bal", self.tag, item.part_number, loc, lot or ""), item_id=item.id, location_id=lid,
                      location_kind=kind, qty_on_hand=qty, qty_reserved=reserved,
                      lot_id=eid("lot", self.tag, item.part_number, lot) if lot else None, lot_code=lot,

@@ -145,6 +145,7 @@ class OBalance:
     expires_on: date | None = None
     hold: bool = False
     last_receipt_on: date | None = None
+    location_active: bool = True
 
 
 @dataclass

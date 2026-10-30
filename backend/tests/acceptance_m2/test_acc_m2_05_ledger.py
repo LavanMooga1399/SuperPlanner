@@ -169,7 +169,8 @@ def test_scripted_plant_day_keeps_the_ledger_consistent(api):
     api.error("POST", f"/inventory/postings/{rev['id']}/reverse", 409, "MFG_INVALID_STATE", json={"note": ""})
     # --- insufficient stock: 409, nothing posted (the whole multi-line posting is one transaction)
     before = len(ledger(api))
-    have = api.balance(a, ls)
+    row = [b for b in balances(api) if b["item"]["id"] == a and b["location"]["id"] == ls][0]
+    have = row["qty_available"]
     e = api.error("POST", "/inventory/postings", 409, "INV_INSUFFICIENT_STOCK", json={"type": "issue_misc",
                   "reason_code": "SCRAP", "lines": [{"item_id": kg, "location_id": stores, "qty": 0.5},
                                                     {"item_id": a, "location_id": ls, "qty": have + 1}]})

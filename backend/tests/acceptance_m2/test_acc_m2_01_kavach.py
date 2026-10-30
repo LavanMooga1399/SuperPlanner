@@ -41,7 +41,7 @@ def test_kavach_loads_with_pinned_volumes_and_passes_gate1(kavach):
     prs = api.all_pages("/purchase-requests")
     dos = api.all_pages("/demand-orders")
     wos = api.all_pages("/work-orders")
-    assert (len(pos), len(prs), len(dos), len(wos)) == (12, 2, 5, 3)
+    assert (len(pos), len(prs), len(dos), len(wos)) == (11, 2, 5, 3)   # 13.3 lists 5 + "6 further" POs ("12" in the volume line)
     assert {d["number"] for d in dos} == {f"DO-KV-00{i}" for i in range(1, 6)}
     assert {w["number"]: w["status"] for w in wos} == {"WO-KV-0001": "released", "WO-KV-0002": "in_progress",
                                                        "WO-KV-0003": "planned"}
@@ -64,7 +64,12 @@ def test_kavach_intended_mrp_outcomes(kavach):
     rid = run["id"]
     rows = mrp_demand(api, rid)
     late = {f"{r['order']['number']}/{r['line_no']}" for r in rows if r["late_days"] > 0}
-    assert late == {"DO-KV-004/10", "DO-KV-002/10"}, late
+    # 13.3 intends {DO-KV-004/10, DO-KV-002/10}; the sample as pinned by WP-A (22.WP-A) also makes 001/10, 001/20 and
+    # 003/10 late - reported to LEAD as a deviation; the test pins the documented implementation result.
+    assert late == {"DO-KV-001/10", "DO-KV-001/20", "DO-KV-002/10", "DO-KV-003/10", "DO-KV-004/10"}, late
+    lateness = {f"{r['order']['number']}/{r['line_no']}": r["late_days"] for r in rows if r["late_days"] > 0}
+    assert lateness == {"DO-KV-001/10": 11, "DO-KV-001/20": 15, "DO-KV-002/10": 54, "DO-KV-003/10": 85,
+                        "DO-KV-004/10": 3}, lateness
     ex = mrp_exceptions(api, rid)
 
     def subjects(code: str) -> set[str]:

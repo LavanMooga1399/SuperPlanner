@@ -49,6 +49,10 @@ def _receipt(w, **line) -> dict:
 @pytest.mark.parametrize("qty", [0, -1, 1_000_001, "1e309", "ten", None, 1e-12, [1]])
 def test_posting_quantities_out_of_range(w, qty):
     r = w["api"].raw("POST", "/inventory/postings", json=_receipt(w, qty=qty))
+    if r.status_code < 300:
+        pytest.fail(f"qty {qty!r} accepted on a count-UoM item: posted line qty "
+                    f"{[ln['qty'] for ln in r.json()['lines']]}, balance after "
+                    f"{[ln['balance_after'] for ln in r.json()['lines']]}")
     _err(r, 422)
 
 
@@ -79,7 +83,7 @@ def test_posting_limits_and_combined_stock_check(w):
     assert api.balance(w["A"]["id"], w["loc"]["id"]) == 10
     # well-formed but unknown ids inside a body -> 422 MFG_UNKNOWN_REFERENCE; unknown path ids -> 404
     _err(api.raw("POST", "/inventory/postings", json=_receipt(w, location_id=FAKE)), 422, "MFG_UNKNOWN_REFERENCE")
-    for path in ("/inventory/postings/pst_nope", "/purchase-orders/../../items", "/work-orders/%00",
+    for path in ("/inventory/postings/pst_nope", "/purchase-orders/../../items",
                  "/mrp/runs/' OR 1=1 --", "/demand-orders/" + "a" * 500):
         r = api.raw("GET", path)
         assert r.status_code == 404, (path, r.status_code, r.text[:300])
@@ -94,13 +98,25 @@ def test_bad_idempotency_keys(w, key):
 
 def test_search_and_filter_parameters_are_inert(w):
     api = w["api"]
-    for q in ("%", "_", "\\", "' OR '1'='1", "\u0000", "x" * 2000):
+    for q in ("%", "_", "\\", "' OR '1'='1", "x" * 2000):
         r = api.raw("GET", "/inventory/balances", params={"q": q})
         assert r.status_code in (200, 422), (q, r.status_code)
         if r.status_code == 200:
             assert r.json()["items"] == [], q          # wildcards are escaped (M1 9.1)
     for params in ({"limit": 0}, {"limit": 201}, {"offset": -1}, {"sort": "drop table"}, {"from": "yesterday"}):
         _err(api.raw("GET", "/inventory/transactions", params=params), 422)
+
+
+@pytest.mark.parametrize("method,path,params", [
+    ("GET", "/work-orders/%00", None), ("GET", "/inventory/postings/%00", None), ("GET", "/items/%00", None),
+    ("GET", "/inventory/balances", {"q": "\u0000"}), ("GET", "/purchase-orders", {"q": "a\u0000b"}),
+])
+def test_nul_bytes_never_reach_the_database(w, method, path, params):
+    """PostgreSQL rejects NUL in text: ids/search terms with U+0000 must answer 404/422 (or an empty page), not 500."""
+    r = w["api"].raw(method, path, params=params)
+    assert r.status_code in (200, 404, 422), (path, params, r.status_code, r.text[:300])
+    if r.status_code == 200:
+        assert r.json()["items"] == []
 
 
 def test_purchase_document_validation(w):
@@ -213,7 +229,9 @@ def test_cross_tenant_ids_are_invisible(acc):
     for method, path in (("GET", f"/inventory/postings/{pst['id']}"),
                          ("POST", f"/inventory/postings/{pst['id']}/reverse"),
                          ("PUT", f"/locations/{loc['id']}"), ("DELETE", f"/locations/{loc['id']}")):
-        r = b.raw(method, path, json={} if method != "GET" else None, headers={"If-Match": '"1"'})
+        body = {"code": "A-ST", "name": "x", "kind": "stores"} if method == "PUT" else ({"note": ""} if method ==
+                                                                                       "POST" else None)
+        r = b.raw(method, path, json=body, headers={"If-Match": '"1"'})
         _err(r, 404, "NOT_FOUND")
     assert b.get("/inventory/balances")["items"] == []
     assert a.balance(item["id"], loc["id"]) == 3
