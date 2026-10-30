@@ -1792,6 +1792,12 @@ Plug-in points for M3:
 
 ## 21. Open questions for the product owner
 
+**Decided by the product owner (2026-10-29), built as specified:** Q1 yes - roles are in M2 (shared plant
+workspaces with planner, purchaser, store keeper, approver, viewer; section 10). Q2 confirmed - Mon-Sat working
+days, 480 routing minutes per manufacturing day, supplier lead times in calendar days (plant defaults
+`mrp_workdays`, `mrp_day_minutes = 480`). Q3 one PR approval step (no value thresholds, no second approver in M2).
+Item 4 (data request) stays open.
+
 1. **Q1 Shared plant in the pilot.** Will different people (store keeper, purchaser, approver) work in the same
    plant during the M2 pilot? Default built: yes (workspaces + roles, 10). If one person runs everything, WP-B drops
    members/workspaces (about one milestone); the permission table stays.
@@ -1811,6 +1817,47 @@ Developers write only to their own subsection (interpretations, measured numbers
 with LEAD).
 
 ### 22.WP-A Domain, DB, samples
+
+- Modules as in 3/9: `mfg/model_m2.py` (Inputs/Records, `PostingInput` union, snapshot rows), `mfg/workdays.py`
+  (`WorkCalendar`), pure rules `mfg/{inventory,purchasing,demand,workorders}.py` (`RuleError(status, code,
+  message, details)`; the API maps them 1:1), `api/mfg/db_models_m2.py` (22 tables: `M2_MODELS` 21 data tables +
+  `MFG_ACCESS_MODELS` members; `ALL_MFG_MODELS` = M1 + M2 data tables), `api/mfg/repo_m2.py`, migration
+  `0004_mfg_m2` (new NOT NULL columns are added with a server default that is dropped again in the same revision;
+  `migrate.HEAD` updated). The `seq` identity column (`Identity(always=True)`) is the only remaining server default
+  (the migration test exempts it).
+- `MfgDataset` carries the M2 master dicts plus `txn: TxnData` (transactional state, dataclasses `Txn*`).
+  `ds.txn` is **never** part of the fingerprint (`dataset_to_bundle(ds, scope="master")`); M1 golden hashes changed
+  only through the new item/plant columns and the M2 master sheets.
+- `repo_m2`: `load_dataset` 20 statements; `load_mrp_snapshot` = 20 + 10 (bound 32), equal to the pure snapshot of
+  the same bundle (`tests/mfg_m2_db/test_m2_repo.py`); `inputs_token` is 1 statement (bound 4);
+  `load_import_dataset(s, with_txn=)` skips the 10 transactional statements when an import maps no transactional
+  sheet (keeps M1 P6 mapping preview within its 25-statement bound).
+- Health: codes 44-47 added; **#44 (buy item without an active supplier source) only fires when the plant has at
+  least one supplier, #46 (no receipt-default location) only when it has at least one location** - otherwise every
+  M1 plant (and every M1 health test case) would fail health after the upgrade. MRP falls back to item lead times
+  as in 3.3 in that case.
+- Samples: `build(sid, *, anchor=2026-11-02, include_transactions=True)`. Opening stock is dated `anchor - 1`
+  (`last_receipt_on = anchor - 1`); sample reservations (released WOs) are reserved at load. Sample tuning needed
+  to reach the 13.3 outcomes: small - PO schedule 2 at `A+50`, PCB item-supplier lead time 14; medium - MCU stock 25,
+  dues `A+77`/`A+88`, WO parts covered; kavach - cover `{30: 30 %, 70: 70 %}` (70 % for lead > 42 days), GSM stock
+  12, DO-KV-004 due `A+12`, L-2610 qty 3.0, `KV-CAP-1210-22U-A` 0 stock / `-B` 500 (alternate), passive MOQ on
+  REEL rows (pack 5000), IC second supplier +28 days, `period` lot rule 30 days, ECO BOM v2 for serials 126+ with
+  `KV-DOC-PACK-B`. Pinned Kavach result (as_of 2026-11-02, `tests/mfg_m2/test_m2_samples.py` against `run_mrp`):
+  late DO-KV-001/10 (11 d), /20 (15 d), DO-KV-002/10 (54 d), DO-KV-003/10 (85 d), DO-KV-004/10 (3 d); EXPEDITE
+  PO-KV-0101/10/2 and 0104/10/2, PAST_DUE_SUPPLY PO-KV-0102/10/1, CANCEL PO-KV-0105/10/1, EXPIRING_STOCK L-2610
+  (A+18), SHORTAGE GSM, WO_LATE WO-KV-0003, ALTERNATE_USED x3 (KV-CAP-1210-22U), iterations 2, planned TPU segments
+  121-125 / 126-135.
+- Bundle import of work orders accepts all six statuses (an export of a running plant must re-import); start date
+  and components default from E's `manufacturing_lead_days` / `order_components`.
+- Rules: reversal of a `wo_receipt` reverts `qty_completed` but not `qty_scrapped` (the `scrap_qty` of a receipt
+  line moves no stock, so the reversal's ledger lines carry nothing to undo). New code
+  `WO_RETURN_ABOVE_ISSUED` (409): a `wo_return` above the net issued qty; `wo_return`
+  is also allowed on a `completed` WO (leftover material back to stores).
+- Existing tests changed beyond 19.2: `tests/mfg/test_mfg_bundle.py` (sheet list), `tests/mfg/test_mfg_health.py`
+  (47 codes; M2 codes excluded from the M1 case list), `tests/mfg_db/mfgdb_helpers.py` (new columns + M2 master
+  tables), `tests/mfg_db/test_mfg_migration.py` (table set includes `M2_TABLES`).
+- Targeted runs: `tests/mfg` 248, `tests/mfg_io` 22, `tests/mfg_m2` 23, `tests/mfg_m2_db` 10,
+  `tests/db/test_db_migrations.py`, `tests/db/test_db_roles.py`, `tests/mfg_db` - all pass (PostgreSQL 54329).
 
 ### 22.WP-E MRP engine
 
@@ -1903,6 +1950,44 @@ they land. With the synthetic stock every Kavach demand line is late (many long-
 13.3 "intended outcomes" depend on A's pinned stock.
 
 ### 22.WP-B API, access, import/export
+
+- Access (10): `api/mfg/access.py` - `mfg_principal` (after `require_user`; binds owner = workspace, actor = user)
+  and `require_perm(perm)`; every one of the 163 mfg operations carries `dependencies=[require_perm(...)]`
+  (`tests/auth/test_route_coverage.py` compares the table with the routes). Audit `actor_id` = `current_actor()`
+  (the member), `owner_id` = the workspace. C16 as built: a foreign `X-SP-Workspace` in single_user mode -> 404.
+- Router: `api/mfg/router_m2.py` (86 operations). FastAPI `Query()`/`Header()` objects are created per parameter
+  by factories (`Id()`, `Limit()`, ...): a shared instance made `?item_id=` leak into `ref_id` (the UI-reported
+  "ledger filtered by item is empty" bug). The ledger filter is **`item_id`** (`?item=` is an unknown parameter and
+  ignored).
+- Idempotency: posting replays as 4.6; **C17 confirmed** for both converts (MRP planned-order convert and PR->PO
+  convert): a replay with the same key and body answers **200** + `Idempotent-Replay: true` with the original body.
+  The MRP convert finds its replay through the audit event of the first call (`details.idempotency_key`,
+  `request_hash`, `planned_order_ids`); no extra table.
+- MRP store (`api/mfg/mrp_store.py`): E's planned ids (`str(planned_no)`) are mapped to stored `mpo_` ids
+  everywhere (links, pegging, exceptions). `mfg_mrp_planned_orders.peg_summary` is stored as
+  `{"pegs": [...], "directives": {...}}` (the API returns `peg_summary` as the list); conversion with unchanged qty
+  passes the stored directives to `order_components`. `summary.timings_ms = {load, compute, store}` added at store.
+  Measured (Kavach, PostgreSQL): load 307 / compute 328 / store 768 ms; sample load 4.5 s.
+- C9/C13 wiring: the snapshot passes `location_active`; the fallback item-supplier requires an active supplier.
+- Import/export: `scope=master|transactions|all` on export and templates; `stock_mode=set|add` import option;
+  per-sheet permission check at commit (403 `MFG_FORBIDDEN` with `details.sheet`); the plant row is locked only
+  when master sheets change. Stock rows become `count` (`IMPORT`, mode set) / `receipt_misc` (mode add) postings
+  dated `stock_date`. `IMP_READONLY_STATUS` is raised only when the import would change a read-only document.
+  Sample load body: `{replace, anchor?, include_transactions = true}`; default anchor = the Monday on or before
+  today (plant time).
+- Reset: `delete_all` covers `ALL_MFG_MODELS` (members survive); the `/reset` response's `deleted` map has the 21
+  M2 tables added (39 keys).
+- Existing tests changed beyond 19.2: `tests/api_mfg/apimfg_helpers.py` (M1 tests load samples with
+  `include_transactions: false`), `tests/api_mfg/test_mfg_samples.py` (`deleted` has 18 + 21 keys),
+  `tests/api_mfg/test_mfg_audit.py` (static guard extended to the M2 services and `run_tx`),
+  `tests/api_mfg/test_mfg_perf.py` (the statement counter drops the job worker's queue polls, which run on the same
+  engine and made counts flaky; bounds unchanged), `tests/auth/test_route_coverage.py`
+  (`test_user_b_gets_404_for_every_owned_endpoint` skips `/mfg/` paths: their `{run_id}` is an MRP run, which the
+  manufacturing sweep covers), `tests/acceptance_phase2b/test_acc_authz_sweep.py` per 19.2 (member, lot, PR, WO and
+  an MRP run added; `run_id` under `/mfg/` maps to the MRP run).
+- E's engine tests live in `tests/mrp` (WP-E).
+- Targeted runs: `tests/api_mfg_m2` 22, `tests/api_mfg` + `tests/auth/test_route_coverage.py` + `tests/mfg_db` +
+  `tests/db/test_db_roles.py` (148), `tests/acceptance_phase2b/test_acc_authz_sweep.py` 5 - all pass.
 
 ### 22.WP-C UI
 

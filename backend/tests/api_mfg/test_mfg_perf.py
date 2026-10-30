@@ -43,6 +43,8 @@ def _timed(c: TestClient, method: str, url: str, **kw: Any) -> tuple[Any, float,
         r = c.request(method, "/api/v1/mfg" + url, **kw)
         dt = time.monotonic() - t
     assert r.status_code < 300, r.text[:500]
+    # the job worker's queue polls run on the same engine during the call; they are not the service's statements
+    seen = [x for x in seen if "FROM jobs WHERE status = 'queued'" not in " ".join(x.split())]
     print(f"[perf] {method} {url.split('?')[0]}: {dt:.3f} s, {len(seen)} statements")
     return r, dt, len(seen)
 

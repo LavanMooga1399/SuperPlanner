@@ -154,18 +154,78 @@ def make_mfg_world(c: TestClient, w: dict[str, Any]) -> None:
             "part_number": "part_number", "make_buy": "make_buy"}}}, "options": {}},
         "/samples/{sample_id}/load": {"replace": False},
     }
+    make_mfg_m2_world(c, w, item)
+
+
+def make_mfg_m2_world(c: TestClient, w: dict[str, Any], make_item: dict[str, Any]) -> None:
+    """M2 objects (M2-DESIGN 19.2): `small` was loaded with transactions; plus a member, a lot, a PR, a WO and one
+    MRP run, so every new path parameter has a real id."""
+    ids = w["mfg_ids"]
+    other = f"member-{uuid.uuid4().hex[:8]}@example.com"
+    signed_up(c.app, other)
+    r = c.post(f"{MFG}/members", json={"email": other, "roles": ["viewer"]})
+    assert r.status_code == 201, r.text
+    ids["member_id"] = r.json()["id"]
+    loc = next(x for x in c.get(f"{MFG}/locations").json()["items"] if x["code"] == "STORES")
+    sup = c.get(f"{MFG}/suppliers").json()["items"][0]
+    isup = c.get(f"{MFG}/item-suppliers", params={"supplier_id": sup["id"]}).json()["items"][0]
+    r = c.post(f"{MFG}/items", json={"part_number": "SW-LOT", "make_buy": "buy", "lead_time_days": 5,
+                                     "lot_controlled": True})
+    assert r.status_code == 201, r.text
+    r = c.post(f"{MFG}/inventory/postings", json={"type": "receipt_misc", "lines": [
+        {"item_id": r.json()["id"], "location_id": loc["id"], "qty": 2, "lot_code": "L1"}]})
+    assert r.status_code == 201, r.text
+    posting = r.json()
+    lot_id = posting["lines"][0]["lot"]["id"]
+    buy = isup["item"]["id"]
+    r = c.post(f"{MFG}/purchase-requests", json={"lines": [{"item_id": buy, "schedules": [
+        {"requested_date": "2026-12-01", "qty": 1}]}]})
+    assert r.status_code == 201, r.text
+    pr = r.json()
+    r = c.post(f"{MFG}/work-orders", json={"item_id": make_item["id"], "qty": 1, "due_date": "2026-12-15"})
+    assert r.status_code == 201, r.text
+    wo = r.json()
+    order = c.get(f"{MFG}/demand-orders").json()["items"][0]
+    r = c.post(f"{MFG}/mrp/runs", json={"label": "sweep"})
+    assert r.status_code == 201, r.text
+    run = r.json()
+    planned = c.get(f"{MFG}/mrp/runs/{run['id']}/planned-orders").json()["items"]
+    assert planned
+    ids.update({"location_id": loc["id"], "supplier_id": sup["id"], "item_supplier_id": isup["id"],
+                "lot_id": lot_id, "posting_id": posting["id"], "doc_id": pr["id"], "order_id": order["id"],
+                "wo_id": wo["id"], "mrp_run_id": run["id"]})
+    doc = {"lines": [{"item_id": buy, "schedules": [{"requested_date": "2026-12-01", "qty": 1}]}]}
+    w["mfg_bodies"].update({
+        "/locations/{location_id}": {"code": loc["code"], "name": loc["name"], "kind": loc["kind"]},
+        "/suppliers/{supplier_id}": {"code": sup["code"], "name": sup["name"]},
+        "/item-suppliers/{item_supplier_id}": {"item_id": buy, "supplier_id": isup["supplier"]["id"]},
+        "/lots/{lot_id}": {"hold": False}, "/members/{member_id}": {"roles": ["viewer"]},
+        "/mrp/runs/{run_id}": {"label": "x"}, "/purchase-orders/{doc_id}": doc, "/purchase-requests/{doc_id}": doc,
+        "/demand-orders/{order_id}": {"demand_type": "customer", "lines": [
+            {"item_id": make_item["id"], "qty": 1, "due_date": "2026-12-01"}]},
+        "/work-orders/{wo_id}": {"item_id": make_item["id"], "qty": 1, "due_date": "2026-12-15"},
+        "/mrp/runs/{run_id}/planned-orders/convert": {"orders": [{"id": planned[0]["id"]}]},
+        "/purchase-requests/{doc_id}/reject": {"reason": "no"},
+    })
 
 
 def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
     rel = path[len(MFG):]
     if rel == "/lines/{line_id}/windows":
         return {"params": {"from": "2026-11-02", "to": "2026-11-04"}}
+    if rel == "/mrp/runs/{run_id}/compare":
+        return {"params": {"with": w["mfg_ids"]["mrp_run_id"]}}
+    if rel == "/mrp/runs/{run_id}/pegging":
+        return {"params": {"item_id": w["mfg_ids"]["item_id"], "node": 0}}
+    if method == "POST" and PARAM.search(rel) and rel not in w["mfg_bodies"] and not rel.startswith(
+            ("/imports/", "/samples/", "/boms/", "/routings/")):
+        return {"json": {}, "headers": {"If-Match": "1"}}            # M2 document actions
     if method == "PUT" and rel in w["mfg_bodies"]:
         return {"json": copy.deepcopy(w["mfg_bodies"][rel]), "headers": {"If-Match": "1"}}
     if method == "POST" and rel.endswith(("/release", "/obsolete", "/copy", "/commit")):
         return {"json": {}, "headers": {"If-Match": "1"}}
     if method == "POST" and rel in w["mfg_bodies"]:
-        return {"json": copy.deepcopy(w["mfg_bodies"][rel])}
+        return {"json": copy.deepcopy(w["mfg_bodies"][rel]), "headers": {"If-Match": "1"}}
     if method == "POST" and rel == "/reset":
         return {"json": {"confirm": "DELETE ALL MANUFACTURING DATA"}}
     if method == "DELETE" and not rel.startswith("/imports/"):
@@ -219,7 +279,10 @@ def id_map(w: dict[str, Any], which: str = "baseline") -> dict[str, str]:
 
 
 def fill(path: str, ids: dict[str, str]) -> str:
-    key = lambda n: "fin_run_id" if (n == "run_id" and "/finance/" in path) else n  # noqa: E731
+    def key(n: str) -> str:
+        if n == "run_id" and "/finance/" in path:
+            return "fin_run_id"
+        return "mrp_run_id" if (n == "run_id" and "/mfg/" in path) else n
     return PARAM.sub(lambda m: ids[key(m.group(1))], path)
 
 

@@ -341,6 +341,8 @@ For point-in-time recovery, add WAL archiving (`archive_mode`, or your provider'
 - [ ] Check disk space for the migration (index builds) and plan a window: migrations take
       `ACCESS EXCLUSIVE` locks on the tables they change.
 - [ ] Note the current image tag (`SP_IMAGE_TAG`) for a rollback.
+- [ ] M2 (manufacturing inventory, purchasing, MRP): revision `0004_mfg_m2` adds 22 tables and new columns on
+      `mfg_plant`/`mfg_items`; the app role's default privileges cover the new tables (no extra GRANT).
 - [ ] Check the new `.env.example` for added variables.
 
 **Upgrade**
