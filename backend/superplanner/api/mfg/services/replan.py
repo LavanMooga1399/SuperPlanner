@@ -345,16 +345,27 @@ def run_replan(ctx: AppContext, trigger_ids: list[str] | None, idem_key: str | N
         params = _replan_params(s, pub, utcnow())
     rec, replayed = aps.create_run(ctx, params, idem_key, extras={"replan": {"trigger_ids": ids, "auto": False}})
     if not replayed:
-        run_tx(ctx, lambda s: _attach(s, ids, rec["id"]))
+        def attach(s: Session) -> None:
+            if _attach(s, ids, rec["id"], allow_running=True):
+                audit(s, "aps_run", rec["id"], "replan_attach", {"triggers": ids})
+
+        run_tx(ctx, attach)
     return rec, replayed
 
 
-def _attach(s: Session, ids: list[str], run_id: str) -> None:
+def _attach(s: Session, ids: list[str], run_id: str, *, allow_running: bool = False) -> bool:
+    """Attach open triggers to a proposal under a lock on the run row, only while it is queued (review M9; a
+    manual proposal also while it runs). Returns False when the run moved on (the triggers stay open)."""
+    run = s.execute(select(MfgApsRunRow).where(MfgApsRunRow.id == run_id).with_for_update()
+                    .execution_options(populate_existing=True)).scalars().first()
+    if run is None or run.status not in (("queued", "running") if allow_running else ("queued",)):
+        return False
     for r in s.execute(select(MfgReplanTriggerRow).where(MfgReplanTriggerRow.id.in_(ids),
                                                          MfgReplanTriggerRow.status.in_(("open", "attached")))
                        .with_for_update()).scalars():
         r.status, r.aps_run_id = "attached", run_id
     s.flush()
+    return True
 
 
 def _sweep_background(ctx: AppContext) -> None:
@@ -398,6 +409,7 @@ def ack_notification(ctx: AppContext, notification_id: str) -> dict[str, Any]:
         if row.acknowledged_at is None:
             row.acknowledged_at, row.acknowledged_by = utcnow(), actor_id()
             s.flush()
+            audit(s, "notification", row.id, "ack", {"kind": row.kind})
         return notification_records(s, [row])[0]
 
     return run_tx(ctx, fn)
@@ -429,9 +441,16 @@ def apply_policy(ctx: AppContext) -> dict[str, Any] | None:
         pub = _published(s)
         debounce = int(p.replan_debounce_minutes if p is not None else 15)
         params = _replan_params(s, pub, utcnow())
+    def attach(s: Session, rid: str) -> bool:
+        ok = _attach(s, ids, rid)
+        if ok:
+            audit(s, "aps_run", rid, "replan_attach", {"triggers": ids, "policy": policy})
+        return ok
+
     if run_id is not None:
-        run_tx(ctx, lambda s: _attach(s, ids, run_id))
-        return {"id": run_id, "attached": ids}
+        if run_tx(ctx, lambda s: attach(s, run_id)):
+            return {"id": run_id, "attached": ids}
+        return None                       # it started meanwhile: after_run re-checks the open triggers
     try:
         rec, _r = aps.create_run(ctx, params, None, extras={"replan": {"trigger_ids": ids, "auto": True,
                                                                         "policy": policy}},
@@ -443,7 +462,7 @@ def apply_policy(ctx: AppContext) -> dict[str, Any] | None:
         log.warning("auto replan run not started: %s %s", e.code, msg)
         run_tx(ctx, lambda s: notify(s, "replan.failed", "warning", "Automatic replan could not start", msg))
         return None
-    run_tx(ctx, lambda s: _attach(s, ids, rec["id"]))
+    run_tx(ctx, lambda s: attach(s, rec["id"]))
     return rec
 
 
@@ -466,7 +485,8 @@ def after_run(ctx: AppContext, run_id: str) -> None:
                                        float(summary.get("weighted_tardiness", 0.0)), pub_wt)
         if ok:
             try:
-                aps.publish_run(ctx, run_id, f'"{row_version}"', confirm_stale_basis=True)
+                # never across a changed freeze basis (review M5): a stale proposal stays a proposal
+                aps.publish_run(ctx, run_id, f'"{row_version}"', confirm_stale_basis=False)
                 run_tx(ctx, lambda s: (audit(s, "aps_run", run_id, "auto_publish", {"triggers": rp.get("trigger_ids")}),
                                        notify(s, "replan.published", "info", "Replan published automatically",
                                               "The proposal met the auto-publish rules and is now the published "

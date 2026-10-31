@@ -501,6 +501,15 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
                 return _replay(s, found, h), True
 
     def fn(s: Session) -> tuple[dict[str, Any], bool]:
+        if inp.type == "wo_receipt":            # M4 review M3: the floor books the output of tracked WOs
+            from ..db_models_m4 import MfgFloorEventRow
+
+            wids = sorted({ln.wo_id for ln in inp.lines})
+            hit = s.execute(select(MfgFloorEventRow.wo_id).where(MfgFloorEventRow.wo_id.in_(wids)).limit(1)).scalar()
+            if hit is not None:
+                w = s.get(MfgWorkOrderRow, hit)
+                raise ApiError(409, "WO_FLOOR_TRACKED", f"{w.number if w else hit} is tracked on the floor; its "
+                               "output is received by the last operation's floor events.", {"wo_id": hit})
         if idem:
             # serialise concurrent retries of one key, then re-check: the second one replays instead of 409
             s.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"),

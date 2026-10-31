@@ -66,7 +66,7 @@ def write_dataset(s: Any, ds: MfgDataset) -> dict[str, str]:
                            handling_class=it.handling_class, handling_note=it.handling_note,
                            attributes=dict(it.attributes), active=it.active, external_ref=it.external_ref,
                            standard_cost=it.standard_cost, lot_controlled=it.lot_controlled,
-                           lot_period_days=it.lot_period_days, **st))
+                           lot_period_days=it.lot_period_days, issue_method=it.issue_method, **st))
     s.flush()
     for g in ds.groups.values():
         s.add(m.MfgGroupRow(id=nid(g.id), code=g.code, name=g.name, description=g.description, kind=g.kind,
@@ -84,7 +84,8 @@ def write_dataset(s: Any, ds: MfgDataset) -> dict[str, str]:
         s.add(m.MfgLineRow(id=nid(ln.id), group_id=nid(ln.group_id), code=ln.code, name=ln.name,
                            speed_factor=ln.speed_factor, parallel_capacity=ln.parallel_capacity,
                            setup_family=ln.setup_family, eligible_families=list(ln.eligible_families),
-                           cost_per_hour=ln.cost_per_hour, active=ln.active, **st))
+                           cost_per_hour=ln.cost_per_hour, active=ln.active, location_id=ln.location_id,
+                           batch_merge=ln.batch_merge, batch_wait_minutes=ln.batch_wait_minutes, **st))
     s.flush()
     for ln in ds.lines.values():
         for i in ln.eligible_item_ids:
@@ -116,7 +117,8 @@ def write_dataset(s: Any, ds: MfgDataset) -> dict[str, str]:
                 run_per=op.run_per, units_per_panel=op.units_per_panel, units_per_batch=op.units_per_batch,
                 queue_minutes=op.queue_minutes, move_minutes=op.move_minutes, wait_minutes=op.wait_minutes,
                 labor=op.labor, crew_size=op.crew_size, skill_id=opt(op.skill_id), transfer_batch=op.transfer_batch,
-                yield_pct=op.yield_pct, inspection_gate=op.inspection_gate, interruptible=op.interruptible, **st))
+                yield_pct=op.yield_pct, inspection_gate=op.inspection_gate, interruptible=op.interruptible,
+                capture_serial=op.capture_serial, **st))
     s.flush()
     for r in ds.routings.values():
         for op in r.operations:

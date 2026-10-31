@@ -145,16 +145,32 @@ def lock_wo(s: Session, wo_id: str) -> MfgWorkOrderRow:
 def ensure_rows(s: Session, wo: MfgWorkOrderRow) -> list[MfgWoOperationRow]:
     """The WO's operation rows; created lazily for a released / in-progress WO without them (caller writes)."""
     rows = wo_rows(s, wo.id)
-    if rows or wo.status not in ("released", "in_progress"):
+    if wo.status not in ("released", "in_progress"):
         return rows
-    return derive_rows(s, wo, "lazy", utcnow())
+    if not rows:
+        return derive_rows(s, wo, "lazy", utcnow())
+    have = {r.seq for r in rows}               # review M2: add routing operations missing from older rows
+    missing = [o for o in routing_ops(s, routing_of(s, wo)) if o.seq not in have]
+    if missing:
+        now = utcnow()
+        for o in missing:
+            s.add(MfgWoOperationRow(
+                id=new_id("wop_"), wo_id=wo.id, seq=o.seq, name=o.name, group_id=o.group_id, status="pending",
+                qty_planned=float(wo.qty), qty_good=0.0, qty_scrap=0.0, qty_rework_out=0.0, qty_rework_in=0.0,
+                line_id=None, setup_minutes_actual=0.0, run_minutes_actual=0.0, labour_minutes=0.0,
+                actual_start=None, actual_end=None, started_short=False, source="lazy", last_event_seq=None,
+                effects={}, completed_at=None, completed_by=None, row_version=1, created_at=now, updated_at=now))
+        s.flush()
+        rows = wo_rows(s, wo.id)
+    return rows
 
 
 def _needs_lazy(s: Session, wo_id: str) -> bool:
     w = s.get(MfgWorkOrderRow, wo_id)
     if w is None or w.status not in ("released", "in_progress"):
         return False
-    return s.execute(select(MfgWoOperationRow.id).where(MfgWoOperationRow.wo_id == wo_id).limit(1)).first() is None
+    have = set(s.execute(select(MfgWoOperationRow.seq).where(MfgWoOperationRow.wo_id == wo_id)).scalars())
+    return not have or bool({o.seq for o in routing_ops(s, routing_of(s, w))} - have)
 
 
 def ensure_lazy(ctx: AppContext, wo_ids: Iterable[str]) -> None:
@@ -170,7 +186,7 @@ def ensure_lazy(ctx: AppContext, wo_ids: Iterable[str]) -> None:
     def fn(s: Session) -> None:
         for wid in missing:
             w = s.get(MfgWorkOrderRow, wid, with_for_update=True)
-            if w is not None and not wo_rows(s, wid):
+            if w is not None:
                 ensure_rows(s, w)
 
     try:
@@ -1424,7 +1440,10 @@ def retry_backflush(ctx: AppContext, wo_id: str | None) -> dict[str, Any]:
             rows = wo_rows(s, wid, lock=True)
             if not any(floor_effects.pending_of(r) for r in rows):
                 continue
-            results.extend(floor_effects.retry_wo(s, wo, rows))
+            got = floor_effects.retry_wo(s, wo, rows)
+            results.extend(got)
+            audit(s, "work_order", wo.id, "backflush_retry",
+                  {"number": wo.number, "posted": sum(1 for r in got if r["status"] == "posted")})
         return {"results": results, "posted": sum(1 for r in results if r["status"] == "posted"),
                 "pending": sum(1 for r in results if r["status"] == "pending")}
 

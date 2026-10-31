@@ -58,7 +58,7 @@ def test_members_roles_matrix_isolation_and_audit_actor(db_url):
         # /me and /workspaces
         me = users["store_keeper"][0].get("/me")
         assert me["workspace_owner_id"] == oid and not me["is_owner"] and me["roles"] == ["store_keeper"]
-        assert me["permissions"] == ["view", "inventory"]
+        assert me["permissions"] == ["view", "inventory", "floor_view"]       # + M4 floor_view (all roles)
         ws = users["viewer"][0].at(None).get("/workspaces")["items"]
         assert [w["is_owner"] for w in ws] == [True, False] and ws[1]["owner_id"] == oid
         # a member sees the owner's data

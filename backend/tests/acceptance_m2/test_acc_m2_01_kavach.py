@@ -41,10 +41,13 @@ def test_kavach_loads_with_pinned_volumes_and_passes_gate1(kavach):
     prs = api.all_pages("/purchase-requests")
     dos = api.all_pages("/demand-orders")
     wos = api.all_pages("/work-orders")
-    assert (len(pos), len(prs), len(dos), len(wos)) == (11, 2, 5, 3)   # 13.3 lists 5 + "6 further" POs ("12" in the volume line)
-    assert {d["number"] for d in dos} == {f"DO-KV-00{i}" for i in range(1, 6)}
-    assert {w["number"]: w["status"] for w in wos} == {"WO-KV-0001": "released", "WO-KV-0002": "in_progress",
-                                                       "WO-KV-0003": "planned"}
+    # 13.3 lists 5 + "6 further" POs ("12" in the volume line); M4-DESIGN 14 adds the floor history: PO-KV-H001,
+    # DO-KV-H01/H02 and WO-KV-H01..H03 (closed)
+    assert (len(pos), len(prs), len(dos), len(wos)) == (12, 2, 7, 6)
+    assert {d["number"] for d in dos if "-H" not in d["number"]} == {f"DO-KV-00{i}" for i in range(1, 6)}
+    assert {w["number"]: w["status"] for w in wos if "-H" not in w["number"]} == {
+        "WO-KV-0001": "released", "WO-KV-0002": "in_progress", "WO-KV-0003": "planned"}
+    assert {w["status"] for w in wos if "-H" in w["number"]} == {"closed"}
     balances = api.get("/inventory/balances", limit=1)["total"]
     assert 1000 <= balances <= 1400, balances                 # "~1,200 balances"
     assert elapsed < 5, f"MP4: POST /mrp/runs on kavach took {elapsed:.2f} s"

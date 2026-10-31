@@ -117,11 +117,13 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
     frozen_pub: dict[tuple[str, int, int], Any] = {}
     # M4-DESIGN 6.1: the floor state supersedes published placements of active operations; frozen placements on a
     # closed line are re-planned (re-derived here from the snapshot, independent of the builder)
-    from .actuals import closures as _closures, moved_by_downtime as _moved, superseded as _superseded
-
+    # (re-derived here, independent of `aps.actuals` used by the builder - review M8)
     actuals = getattr(snap, "actuals", {}) or {}
-    sup_keys = _superseded(snap)
-    moved_keys = _moved(snap, res.params)
+    sup_keys = {k for k, a in actuals.items() if a.status in ("setup", "running", "paused") and a.line_id}
+    closed_spans = _closed_spans(snap, res.params)
+    moved_keys = {(p.order_id, p.seq, p.split_index) for p in (snap.published.ops if snap.published else ())
+                  if p.line_id in closed_spans and p.start is not None and p.end is not None and
+                  any(a < p.end and p.start < b for a, b in closed_spans[p.line_id])}
     if snap.published is not None:
         for p in snap.published.ops:
             if p.start is None or p.end is None or p.line_id is None:
@@ -176,7 +178,7 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
     opened_by_line: dict[str, list[tuple[int, int]]] = {}
     for w in allowed_ot:
         opened_by_line.setdefault(w.line_id, []).append((_m(as_of, w.start), _m(as_of, w.end)))
-    for lid, spans in _closures(snap, res.params).items():          # M4 6.1 / 8: downtime, breakdowns
+    for lid, spans in closed_spans.items():                          # M4 6.1 / 8: downtime, breakdowns
         for a, b in spans:
             closes.setdefault(lid, []).append((_m(as_of, a), _m(as_of, b)))
     for x in ds.calendar_exceptions.values():      # m6: exceptions as UTC instants (DST fall-back)
@@ -235,10 +237,22 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
         pub = frozen_pub.get((o.order.id, o.seq, o.split.index))
         fixed = pub is not None
         act = actuals.get((o.order.id, o.seq)) if o.order.type == "wo" else None
-        if act is not None and act.active and (o.order.id, o.seq) in sup_keys:
+        if act is not None and (o.order.id, o.seq) in sup_keys:
             if o.line_id != act.line_id:
                 bad("APS_V_ACTUAL", o.op_no, f"Op {o.op_no} is {act.status} on the floor but planned on another "
                     "line.", line_id=o.line_id)
+            elif _m(as_of, o.start) < 0:
+                bad("APS_V_ACTUAL", o.op_no, f"Op {o.op_no} is planned before the planning start.")
+            elif getattr(ds.lines.get(o.line_id or ""), "parallel_capacity", 1) == 1:
+                # first on its (single-slot) line: nothing re-planned starts before it (fixed work may)
+                st = _m(as_of, o.start)
+                for x in by_line.get(o.line_id or "", []):
+                    if x is o or x.frozen or x.locked or (x.order.id, x.seq) in sup_keys:
+                        continue
+                    if _m(as_of, x.start) < st:
+                        bad("APS_V_ACTUAL", o.op_no, f"Op {o.op_no} is {act.status} on the floor but op "
+                            f"{x.op_no} is planned before it on its line.", line_id=o.line_id)
+                        break
         elif o.frozen and not fixed:
             bad("APS_V_FROZEN", o.op_no, f"Op {o.op_no} is marked frozen but is not frozen in the published plan.")
         if fixed and (o.line_id != pub.line_id or abs(_m(as_of, o.start) - _m(as_of, pub.start)) > 0):
@@ -553,5 +567,20 @@ def _collapse_loads(line: Any, lst: list[Any], routing_of: dict[str, Any], ds: A
             out.append(xs[0])
         else:
             out += xs
+    return out
+
+
+def _closed_spans(snap: Any, params: Any) -> dict[str, list[tuple[Any, Any]]]:
+    """Downtime (end, else expected end, else as_of + 4 h) and what-if breakdowns per line (M4 6.1 / 8)."""
+    from datetime import timedelta
+
+    out: dict[str, list[tuple[Any, Any]]] = {}
+    for d in getattr(snap, "downtime", ()) or ():
+        end = d.end or (max(d.expected_end, snap.as_of) if d.expected_end else max(snap.as_of, d.start)
+                        + timedelta(hours=4))
+        if end > snap.as_of and end > d.start:
+            out.setdefault(d.line_id, []).append((d.start, end))
+    for b in getattr(params, "line_breakdowns", ()) or ():
+        out.setdefault(b.line_id, []).append((b.start, b.start + timedelta(hours=float(b.hours))))
     return out
 

@@ -82,7 +82,7 @@ def apply_effects(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], be
         eff = _eff(last)
         if eff.get("hold"):
             eff.pop("hold")
-            last.effects = eff
+            last.effects = dict(eff)   # a new object: JSON columns detect reassignment only
     _receipt(c, wo, last, item, at, rows)
 
 
@@ -96,7 +96,7 @@ def _scrap(s: Session, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow]) -> No
         if abs(r.qty_scrap - booked) > EPS:
             delta += r.qty_scrap - booked
             eff["scrap"] = round(r.qty_scrap, 6)
-            r.effects = eff
+            r.effects = dict(eff)   # a new object: JSON columns detect reassignment only
     if abs(delta) > EPS:
         from .common import touch
 
@@ -164,7 +164,7 @@ def _backflush(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], op: M
                                 "message": info.get("message", "")})
         bf[cpt.id] = st
     eff["backflush"] = bf
-    op.effects = eff
+    op.effects = dict(eff)   # a new object: JSON columns detect reassignment only
     pend = [r for r in results if r["status"] == "pending"]
     if pend:
         text = "; ".join(f"{r['part_number']}: {r['qty']:g}" for r in pend)
@@ -255,7 +255,7 @@ def _reverse_receipts(c: Any, wo: MfgWorkOrderRow, last: MfgWoOperationRow, at: 
     eff["received"] = 0.0
     if hold:
         eff["hold"] = True
-    last.effects = eff
+    last.effects = dict(eff)   # a new object: JSON columns detect reassignment only
     s.flush()
     s.refresh(wo)
 
@@ -268,17 +268,20 @@ def _receipt(c: Any, wo: MfgWorkOrderRow, last: MfgWoOperationRow, item: MfgItem
     eff = _eff(last)
     if eff.get("hold"):
         return
+    if "base" not in eff:      # review M3: receipts booked before floor tracking (manual / migrated) count as done
+        eff["base"] = round(float(wo.qty_completed), 6) if not eff.get("receipts") else 0.0
+        last.effects = dict(eff)   # a new object: JSON columns detect reassignment only
     received = float(eff.get("received") or 0.0)
     target = round(last.qty_good, 6)
     if last.status == "skipped" and rows:      # review M4: a skipped last operation passes its input on
         from .floor import _chain
 
         target = round(_chain(rows)[last.seq].qty_input, 6)
-    if target < received - EPS:
+    if max(0.0, target - float(eff.get("base") or 0.0)) < received - EPS:
         _reverse_receipts(c, wo, last, at, hold=False)
         eff = _eff(last)
         received = 0.0
-    delta = round(target - received, 6)
+    delta = round(max(0.0, target - float(eff.get("base") or 0.0)) - received, 6)
     if delta <= EPS:
         return
     loc = _receipt_location(s, wo)
@@ -293,7 +296,7 @@ def _receipt(c: Any, wo: MfgWorkOrderRow, last: MfgWoOperationRow, item: MfgItem
     row, _w = post_in_session(s, inp, system=True, txn_date=_txn_date(s, at), note_audit=False)
     eff["receipts"] = list(eff.get("receipts") or []) + [row.id]
     eff["received"] = round(received + delta, 6)
-    last.effects = eff
+    last.effects = dict(eff)   # a new object: JSON columns detect reassignment only
     c.postings.append(_posting_ref(s, row))
     s.flush()
     s.refresh(wo)

@@ -429,7 +429,8 @@ def allocate_number(s: Session, kind: str, taken: Callable[[str], bool]) -> str:
     from ..db.ownership import SYSTEM, current_owner
 
     owner = current_owner()
-    if not isinstance(owner, str) or owner == SYSTEM:
+    if not isinstance(owner, str) or owner == SYSTEM or s.info.get("sp_series_reset"):
+        # (a reset in this transaction deleted the series rows: a separate transaction would wait for it)
         return next_number(s, kind, taken)
     eng = s.get_bind()
     while True:

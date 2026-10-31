@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date, timedelta
 from typing import Any
 
@@ -139,7 +140,9 @@ def _frozen_moved(snap: ApsSnapshot, sops: list[Any]) -> int:
     if snap.published is None:
         return 0
     freeze = int(getattr(snap.dataset.plant, "aps_freeze_hours", 48) or 0) * 60
-    excused = moved_by_downtime(snap, None) | {(w, q, si) for (w, q) in superseded(snap) for si in range(64)}
+    # review M7: only unplanned downtime excuses a frozen move (planned maintenance should have been planned)
+    unplanned = replace(snap, downtime=tuple(d for d in (snap.downtime or ()) if not d.planned))
+    excused = moved_by_downtime(unplanned, None) | {(w, q, si) for (w, q) in superseded(snap) for si in range(64)}
     by = {(x.order.id, x.seq, x.split.index): x for x in sops}
     n = 0
     for p in snap.published.ops:

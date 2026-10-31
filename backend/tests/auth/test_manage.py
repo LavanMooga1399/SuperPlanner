@@ -127,7 +127,8 @@ def test_load_sample_cli(db_url):
     assert code == 0, err
     assert out.startswith("loaded sample kavach for usr_local:") and "health" in out
     assert run(db_url, "load-sample", "--sample", "small")[0] == 0            # additive (different part numbers)
-    assert run(db_url, "load-sample", "--sample", "small", "--replace")[0] == 0
+    r = run(db_url, "load-sample", "--sample", "small", "--replace")
+    assert r[0] == 0, r
     assert run(db_url, "load-sample", "--sample", "nope")[0] == 1
     run(db_url, "create-user", "--email", "plant@example.com", "--password-stdin", stdin=PASSWORD + "\n")
     code, out, err = run(db_url, "load-sample", "--email", "plant@example.com")

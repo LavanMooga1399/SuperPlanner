@@ -86,11 +86,13 @@ def test_migration_0005_to_0006_and_back(empty_pg_db):
         with eng.begin() as c:
             ops = c.execute(sa.text("SELECT id, wo_id, seq, name, group_id, status, qty_planned, qty_good, source, "
                                     "last_event_seq FROM mfg_wo_operations")).all()
-            assert len(ops) == 1
-            o = ops[0]
+            assert [(x.seq, x.status) for x in sorted(ops, key=lambda x: x.seq)] == \
+                [(10, "completed"), (20, "pending")]          # review M2: every routing operation of the WO
+            o = next(x for x in ops if x.seq == 10)
             assert (o.wo_id, o.seq, o.name, o.group_id, o.status, o.qty_planned, o.qty_good, o.source) == \
                 ("wko_1", 10, "Kit", "wcg_1", "completed", 7.0, 7.0, "migrated")
             ev = c.execute(sa.text("SELECT event_type, qty_good, details, actor_id, seq FROM mfg_floor_events")).one()
+            # (one synthetic event: only the completed operation)
             assert ev.event_type == "complete" and ev.qty_good == 7.0 and ev.details == {"migrated": True}
             assert o.last_event_seq == ev.seq and ev.actor_id == "usr_local"
             plant = c.execute(sa.text("SELECT replan_policy, replan_debounce_minutes, overrun_tolerance_pct, "
@@ -117,7 +119,7 @@ def test_migration_0005_to_0006_and_back(empty_pg_db):
     try:
         with eng.begin() as c:
             rows = c.execute(sa.text("SELECT wo_id, seq, done FROM mfg_wo_op_progress")).all()
-            assert [tuple(r) for r in rows] == [("wko_1", 10, True)]
+            assert [tuple(r) for r in rows] == [("wko_1", 10, True)]      # pending ops are not progress
     finally:
         eng.dispose()
     migrate.run_alembic_upgrade(url)

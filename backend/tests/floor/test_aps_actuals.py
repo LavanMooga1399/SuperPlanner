@@ -101,3 +101,40 @@ def test_split_parts_straddling_the_freeze_keep_their_quantity(base):
         if any(x.frozen for x in mine) and not all(x.frozen for x in mine):
             hit += 1
     assert hit >= 1 and freeze > 0
+
+
+def test_review_m7_planned_downtime_moves_count_as_frozen_moved(base):
+    snap, res = base
+    pub = _published(res)
+    first = min((o for o in res.operations if o.status == "scheduled" and o.order.type == "wo"),
+                key=lambda o: o.start)
+    for planned, expect_counted in ((False, False), (True, True)):
+        down = Downtime("dtm_1", first.line_id, snap.as_of - timedelta(minutes=5), None,
+                        first.end + timedelta(hours=2), planned)
+        r = schedule(replace(snap, published=pub, downtime=(down,)), P)
+        assert r.validation.ok
+        assert (r.summary.frozen_moved >= 1) is expect_counted, (planned, r.summary.frozen_moved)
+
+
+def test_review_m8_validator_checks_in_progress_ops_first_on_their_line(base):
+    from superplanner.mfg.aps.validator import validate
+
+    snap, res = base
+    o = next(x for x in res.operations if x.status == "scheduled" and x.order.type == "wo" and x.split.count == 1
+             and any(y.line_id == x.line_id and y.op_no != x.op_no and y.status == "scheduled"
+                     for y in res.operations))
+    a = ActualOp(o.order.id, o.seq, "wop_1", "running", o.line_id, o.qty, snap.as_of - timedelta(minutes=60))
+    snap2 = replace(snap, actuals={(o.order.id, o.seq): a})
+    r = schedule(snap2, P)
+    assert r.validation.ok
+    x = next(y for y in r.operations if (y.order.id, y.seq) == (o.order.id, o.seq))
+    other = next(y for y in r.operations if y.line_id == x.line_id and y.op_no != x.op_no and y.status ==
+                 "scheduled" and not y.frozen)
+    bad = r.model_copy(deep=True)
+    for y in bad.operations:              # move the in-progress op behind another op of its line
+        if y.op_no == x.op_no:
+            shift = (other.end - y.start) + timedelta(minutes=1)
+            y.start, y.end = y.start + shift, y.end + shift
+            y.pieces = [p.model_copy(update={"start": p.start + shift, "end": p.end + shift}) for p in y.pieces]
+    v = validate(snap2, bad)
+    assert not v.ok and "APS_V_ACTUAL" in v.counts

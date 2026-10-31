@@ -121,7 +121,7 @@ def create_downtime(ctx: AppContext, inp: DowntimeInput, idem: str | None = None
 def _create(s: Session, inp: DowntimeInput, idem: str | None) -> tuple[dict[str, Any], bool]:
     from . import replan
 
-    line = s.get(MfgLineRow, inp.line_id)
+    line = s.get(MfgLineRow, inp.line_id, with_for_update=True)    # review M10: serialise the overlap check
     if line is None:
         raise ApiError(422, "MFG_UNKNOWN_REFERENCE", f"Line {inp.line_id!r} was not found.",
                        {"loc": ["body", "line_id"], "id": inp.line_id})

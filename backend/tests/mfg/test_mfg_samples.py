@@ -22,11 +22,11 @@ BACKEND = Path(__file__).resolve().parents[2]
 # Changing a generator means updating these values in the same change, deliberately (M 10.1). M3: the M3
 # master sheets, plant time_zone and the Kavach M3 additions (M3-DESIGN 13, 14.1).
 GOLDEN = {
-    "small": "c515a930637cf51565b0f259f8a968681f1bb2cdb79954d537a621e7e626307b",
-    "medium": "6aa980f2b139f47b7c7dba7049a3cfb04182ce6c529768b2504a17b0b5df66e9",
-    "kavach": "c4513da189ae487d381125a142218be47b63f32767beafdbc1ec5a2cfa0aaa7e",
+    "small": "3625dcf3b40f11e9a098b501d668fb9e6b820b6ce5d607dd4c863fd2492f757a",
+    "medium": "da9022a214955f4d282cdb8fba05aca29f36eba24df603fad75cfd6586483bcc",
+    "kavach": "5eb5a2c80167263f372a0a66c0be3fd3a4d312ca311b46184726dfeaeebf4d89",
 }
-GOLDEN_KAVACH_X2 = "fb162b8c71b4a84e1929b45118999841f3273a9e51fb1328b60299bc890ab591"
+GOLDEN_KAVACH_X2 = "4f29f77868374eebd326a5b598ed76fa969cf4a1204de7a9a901619ec0d20766"
 COUNTS = {
     "small": {"plant": 1, "items": 10, "skills": 2, "tool_pools": 2, "groups": 4, "lines": 4, "shift_templates": 3,
               "shifts": 3, "shift_assignments": 6, "calendar_exceptions": 1, "operators": 3, "boms": 1,

@@ -559,8 +559,46 @@ S0 interpretations / deviations:
     `downtime`, response `batches`; `GET /floor/operations/{id}` carries `reason_codes` {pause, scrap, rework}
     (defaults in `model_m4.DEFAULT_REASON_CODES`, plant attribute `floor_reasons_<kind>` = "CODE:Label,..."
     overrides); batch-load scans carry `context.line_id`.
-20. Not done in WP-S: the Kavach M4 sample (flags + 10-day event history) and FP2 (60-tablet load) / FP8 (1 M events)
-    measurements.
+20. **FP2 (60 tablets x 10 min) and FP8 (1 M events) are not measured** (LEAD decision). Measured (Kavach, local
+    PostgreSQL, through the API test client): FP1 simple p95 50 ms, complete p95 124 ms; FP3 queue 30 ms / scan
+    10 ms; FP4 replan proposal 2.8 s (improve 0); FP6 risk run 20 samples 27-29 s; FP7 cached 0.13-0.20 s, first
+    0.5-0.58 s.
+21. **Kavach M4 sample** (pinned in `tests/api_mfg_m4/test_m4_kavach_sample.py`): master flags in
+    `mfg/samples/kavach_m4.py` (passives / wire / sleeving / labels backflushed, serials at every PCB's ICT and
+    KV-TPU-1000 final test, BI-1/2 and OVEN-1/2 merge batches, wait 4 h); at load (`services/samples_m4.py`) plant
+    receipt `FG` / backflush `LS-SMT` (+ SMT lines) and a history in the 10 working days before min(anchor, today):
+    WO-KV-H01..H03 (KV-PCB-CPU x 10, all eleven operations with floor events, SMT overruns, 1 board scrapped at ICT,
+    two rework loops at FCT, closed), DO-KV-H01 shipped on time and DO-KV-H02 three days late, one 5 h SMT-2
+    breakdown (+ two older ones for the MTBF, one planned BI-1 maintenance), PO-KV-H001 (KV-IC-FPGA-V1 at SUP-SEMI-1,
+    six receipts 0/7/14/7/10/3 days late). History stock is booked out again (net zero) and the history runs
+    without a backflush location, so the M2 / M3 results are unchanged. **Real results**: OTD 0.5 (1 of 2 history
+    lines on time; the current DO-KV-* lines are due later - the design's "OTD < 100 % with DO-KV-003" is met by
+    the history orders instead); ICT FPY 35/36 = 0.972, plant FPY 70/73 = 0.959 (FCT rework counts); SMT-2
+    availability below SMT-1; 35 serials; the risk run's top contributor is **SUP-SEMI-2** - it holds the open FPGA
+    PO PO-KV-0101 and, with fewer than 5 own receipts, samples the plant-wide (SUP-SEMI-1) FPGA lateness; so the
+    FPGA supply is the top contributor, through SUP-SEMI-2. No open `late_receipt` trigger at load (triggers need a
+    published plan; the sweep raises them once one is published). Sample counts changed: 12 POs, 7 demand orders,
+    6 WOs (`tests/acceptance_m2/test_acc_m2_01_kavach.py` updated); golden bundle hashes re-pinned (M4 columns).
+22. M3 split-freeze gap fixed (construction): a published split operation with only some parts inside the freeze
+    keeps the frozen parts and plans the rest of its quantity as one more part (`Engine._place_rest`); regression
+    test `test_split_parts_straddling_the_freeze_keep_their_quantity`; APS tests run with splitting on again.
+23. Release rule 4.1 adopted by the M2 acceptance tests (`test_acc_m2_08_wo_loop.py` sends `override_reason`).
+24. A reset in the same transaction (`samples.delete_all`) allocates document numbers inside that transaction (the
+    MP8 separate-transaction allocation waited on the deleted series rows: `load-sample --replace` timed out).
+25. **LEAD review fixes**: (M1) events, load events and backflush retry lock the WO header first and reload the WO
+    and its operations under the lock (`populate_existing`); JSON `effects` are always reassigned as new objects
+    (in-place updates were lost); (M2) migration 0006 creates every routing operation of a WO with a done marker
+    (others pending) and `ensure_rows` adds routing operations missing from older rows; (M3) a manual `wo_receipt`
+    on a WO with floor events is refused 409 `WO_FLOOR_TRACKED`; receipts booked before floor tracking are the
+    floor's `effects.base` (seeded by the migration from `qty_completed`) and the floor receives only beyond it;
+    (M4) a skipped last operation receives its passed-through input; `reopen` of a skipped operation reverts the
+    skip and its receipt; (M5) auto-publish never confirms a stale freeze basis (a stale proposal stays a proposal
+    with a notification); (M7) only unplanned downtime excuses frozen moves (planned downtime moves count in
+    `frozen_moved`); (M8) the validator derives closures and in-progress operations itself and checks they are on
+    their actual line, not before as_of and first on a single-slot line; (M9) triggers attach under a lock on the
+    run row, only while it is queued (a manual proposal also while running); (M10) creating downtime locks the line
+    before the overlap check; (M11) an operation event naming a `batch_load_id` must be one of its members (422).
+    Regression tests: `tests/api_mfg_m4/test_m4_review_fixes.py`, `tests/floor/test_aps_actuals.py::test_review_*`.
 
 ### 16.WP-U UI
 

@@ -101,6 +101,7 @@ def delete_all(s: Session) -> dict[str, int]:
     """Delete every mfg data row of the bound owner, children first (ORM delete statements, owner-filtered;
     M2-DESIGN 9.4: `ALL_MFG_MODELS`; workspace memberships survive)."""
     out: dict[str, int] = {}
+    s.info["sp_series_reset"] = True          # number allocation stays in this transaction (repo_m2)
     for model in reversed(ALL_MFG_MODELS):
         res = s.execute(delete(model).execution_options(synchronize_session=False))
         out[model.__tablename__[len("mfg_"):]] = int(res.rowcount or 0)

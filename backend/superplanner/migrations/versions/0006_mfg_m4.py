@@ -109,19 +109,32 @@ COALESCE(w.routing_id, (
      ORDER BY r.priority, r.version DESC, r.id LIMIT 1))
 """
 
-_MIGRATE_PROGRESS = f"""
-INSERT INTO mfg_wo_operations (id, wo_id, seq, name, group_id, status, qty_planned, qty_good, qty_scrap,
+_COLS = """id, wo_id, seq, name, group_id, status, qty_planned, qty_good, qty_scrap,
     qty_rework_out, qty_rework_in, line_id, setup_minutes_actual, run_minutes_actual, labour_minutes, actual_start,
     actual_end, started_short, source, last_event_seq, effects, completed_at, completed_by, owner_id, row_version,
-    created_at, updated_at)
-SELECT p.id, p.wo_id, p.seq,
-       COALESCE(o.name, 'Operation ' || p.seq::text), COALESCE(o.group_id, ''),
-       'completed', w.qty, w.qty, 0, 0, 0, NULL, 0, 0, 0, NULL, p.done_at, false, 'migrated', NULL,
-       CAST('{{}}' AS JSONB), p.done_at, p.done_by, p.owner_id, 1, p.created_at, p.updated_at
+    created_at, updated_at"""
+
+#: every routing operation of a WO with at least one M3 done marker: done -> completed, the rest pending (review M2)
+_MIGRATE_PROGRESS = f"""
+INSERT INTO mfg_wo_operations ({_COLS})
+SELECT COALESCE(p.id, 'wop_' || md5(w.id || ':' || o.seq::text)), w.id, o.seq, o.name, o.group_id,
+       CASE WHEN p.done THEN 'completed' ELSE 'pending' END, w.qty, CASE WHEN p.done THEN w.qty ELSE 0 END, 0, 0, 0,
+       CAST(NULL AS VARCHAR), 0, 0, 0, CAST(NULL AS TIMESTAMPTZ), CASE WHEN p.done THEN p.done_at END, false,
+       'migrated', CAST(NULL AS BIGINT), CAST('{{}}' AS JSONB),
+       CASE WHEN p.done THEN p.done_at END, CASE WHEN p.done THEN p.done_by END, w.owner_id, 1,
+       COALESCE(p.created_at, w.updated_at), COALESCE(p.updated_at, w.updated_at)
+  FROM mfg_work_orders w
+  JOIN mfg_operations o ON o.routing_id = {_ROUTING_OF_WO}
+  LEFT JOIN mfg_wo_op_progress p ON p.wo_id = w.id AND p.seq = o.seq
+ WHERE EXISTS (SELECT 1 FROM mfg_wo_op_progress q WHERE q.wo_id = w.id AND q.done)
+UNION ALL
+SELECT p.id, p.wo_id, p.seq, 'Operation ' || p.seq::text, '', 'completed', w.qty, w.qty, 0, 0, 0,
+       CAST(NULL AS VARCHAR), 0, 0, 0, CAST(NULL AS TIMESTAMPTZ), p.done_at, false, 'migrated', CAST(NULL AS BIGINT),
+       CAST('{{}}' AS JSONB), p.done_at, p.done_by, p.owner_id, 1,
+       p.created_at, p.updated_at
   FROM mfg_wo_op_progress p
   JOIN mfg_work_orders w ON w.id = p.wo_id
-  LEFT JOIN mfg_operations o ON o.routing_id = {_ROUTING_OF_WO} AND o.seq = p.seq
- WHERE p.done
+ WHERE p.done AND NOT EXISTS (SELECT 1 FROM mfg_operations o WHERE o.routing_id = {_ROUTING_OF_WO} AND o.seq = p.seq)
 """
 
 _MIGRATE_EVENTS = """
@@ -131,8 +144,16 @@ INSERT INTO mfg_floor_events (id, wo_operation_id, wo_id, event_type, event_at, 
 SELECT 'fev_' || md5(o.id), o.id, o.wo_id, 'complete', COALESCE(o.completed_at, o.updated_at), o.updated_at, NULL,
        CAST('[]' AS JSONB), o.qty_good, 0, NULL, NULL, NULL, 'Migrated from the M3 done marker', NULL, NULL, NULL,
        NULL, NULL, CAST('{"migrated": true}' AS JSONB), COALESCE(o.completed_by, o.owner_id), o.owner_id
-  FROM mfg_wo_operations o WHERE o.source = 'migrated'
+  FROM mfg_wo_operations o WHERE o.source = 'migrated' AND o.status = 'completed'
  ORDER BY o.owner_id, o.wo_id, o.seq
+"""
+
+#: review M3: the floor's receipts start after what the WO had received already (manual M2 receipts)
+_SEED_RECEIVED = """
+UPDATE mfg_wo_operations o SET effects = jsonb_build_object('base', w.qty_completed)
+  FROM mfg_work_orders w
+ WHERE w.id = o.wo_id AND o.source = 'migrated'
+   AND o.seq = (SELECT max(x.seq) FROM mfg_wo_operations x WHERE x.wo_id = o.wo_id)
 """
 
 _EVENT_CURSOR = """
@@ -439,6 +460,7 @@ def upgrade() -> None:
     op.execute(_MIGRATE_PROGRESS)
     op.execute(_MIGRATE_EVENTS)
     op.execute(_EVENT_CURSOR)
+    op.execute(_SEED_RECEIVED)
     op.drop_table("mfg_wo_op_progress")
 
 

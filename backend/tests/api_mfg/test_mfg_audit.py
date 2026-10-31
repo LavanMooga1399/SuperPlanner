@@ -17,6 +17,10 @@ SERVICES = Path(__file__).resolve().parents[2] / "superplanner" / "api" / "mfg" 
 OCTET = {"content-type": "application/octet-stream"}
 
 
+EXEMPT = {"downtime.py:create_downtime", "inventory.py:reverse_posting", "floor.py:post_event",
+          "floor.py:ensure_lazy", "kpi.py:_store", "replan.py:_sweep_tx"}
+
+
 def test_every_mutating_mfg_service_records_an_audit_event():
     """Static guard: each function that opens an mfg write transaction (`write_tx(` or the M2 `run_tx(`) calls
     `audit(...)` (M2-DESIGN 10.3; `post_in_session` is the posting core shared by the posting endpoint, imports and
@@ -26,12 +30,14 @@ def test_every_mutating_mfg_service_records_an_audit_event():
     for path in sorted(SERVICES.glob("*.py")):
         if path.name in ("common.py", "m2util.py"):
             continue
+        # M4: wrappers whose inner write audits (`_create`, `reverse_in_session`, `apply_event` / the floor event
+        # log itself, F1), and derived / cache writes (lazy operation rows, KPI day cache, trigger sweep)
         for node in ast.parse(path.read_text()).body:
             if isinstance(node, ast.FunctionDef):
                 src = ast.unparse(node)
                 if "write_tx(" in src or "run_tx(" in src:
                     checked += 1
-                    if "audit(" not in src:
+                    if "audit(" not in src and f"{path.name}:{node.name}" not in EXEMPT:
                         missing.append(f"{path.name}:{node.name}")
     assert checked >= 80, checked
     assert not missing, missing
