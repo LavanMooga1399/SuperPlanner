@@ -469,7 +469,8 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     _resolve_pairs(inp, L, pairs, s)
     if txn_date is not None:
         inp = inp.model_copy(update={"txn_date": txn_date})
-    number = repo_m2.next_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))   # lock order (5) (4.5)
+    # posting numbers come from their own short transaction (4.5, 22.WP-B): no series lock is held here
+    number = repo_m2.allocate_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))
     ctx = _context(s, L, set(item_ids), pairs, today(s), system=system)
     try:
         plan = INV.plan_posting(inp, ctx)
@@ -539,7 +540,7 @@ def reverse_posting(ctx: AppContext, posting_id: str, note: str) -> dict[str, An
         L = _lock_documents(s, [t.schedule_id for t in txns if t.schedule_id],
                             [t.demand_line_id for t in txns if t.demand_line_id],
                             [t.wo_component_id for t in txns if t.wo_component_id], [t.wo_id for t in txns if t.wo_id])
-        number = repo_m2.next_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))
+        number = repo_m2.allocate_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))
         lt = lots(s, [t.lot_id for t in txns if t.lot_id])
         pairs = {(t.item_id, t.location_id) for t in txns}
         d = today(s)

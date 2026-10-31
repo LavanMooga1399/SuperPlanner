@@ -421,6 +421,30 @@ def next_number(s: Session, kind: str, taken: Callable[[str], bool]) -> str:
             return cand
 
 
+def allocate_number(s: Session, kind: str, taken: Callable[[str], bool]) -> str:
+    """The next number of a series, allocated in its own short autocommit transaction (M2 4.5 / 22.WP-B, MP8): the
+    series row is never held by the caller's transaction, so postings on different balances do not serialise.
+    A number is used at most once; a caller that rolls back leaves a gap (accepted for postings). Outside an owner
+    binding (system scope) it falls back to `next_number` in the caller's transaction."""
+    from ..db.ownership import SYSTEM, current_owner
+
+    owner = current_owner()
+    if not isinstance(owner, str) or owner == SYSTEM:
+        return next_number(s, kind, taken)
+    eng = s.get_bind()
+    while True:
+        with eng.connect() as c:
+            c.execute(text("INSERT INTO mfg_number_series (id, owner_id, kind, prefix, next_value) "
+                           "VALUES (:id, :o, :k, :p, 1) ON CONFLICT ON CONSTRAINT uq_mfg_number_series_kind DO NOTHING"),
+                      {"id": new_id("nsr_"), "o": owner, "k": kind, "p": SERIES_PREFIX[kind]})
+            row = c.execute(text("UPDATE mfg_number_series SET next_value = next_value + 1 WHERE owner_id = :o AND "
+                                 "kind = :k RETURNING next_value - 1, prefix"), {"o": owner, "k": kind}).one()
+            c.commit()
+        cand = f"{row[1]}{int(row[0]):0{SERIES_WIDTH}d}"
+        if not taken(cand):
+            return cand
+
+
 def number_taken(s: Session, model: Any, **where: Any) -> Callable[[str], bool]:
     def taken(cand: str) -> bool:
         q = select(model.id).where(model.number == cand, *[getattr(model, k) == v for k, v in where.items()])

@@ -483,7 +483,8 @@ and by `count` below reserved. A reservation never exceeds the component's open 
 - **Lock order (binding for every service):** (1) plant row (master writes only) -> (2) MRP run row (conversion) ->
   (3) document headers: `mfg_purchase_docs`, then `mfg_demand_orders`, then `mfg_work_orders`, each sorted by id,
   `SELECT ... FOR NO KEY UPDATE` -> (4) document children (schedules, demand lines, WO components) sorted by id,
-  `FOR UPDATE` -> (5) number series rows (`FOR UPDATE`) -> (6) lots sorted by `(item_id, lot_code)` -> (7) balances
+  `FOR UPDATE` -> (5) number series rows (`FOR UPDATE`; documents only - posting numbers are allocated in their own
+  short transaction, never held, see 22.WP-B) -> (6) lots sorted by `(item_id, lot_code)` -> (7) balances
   sorted by `(item_id, location_id, lot_key)`, `FOR UPDATE` -> (8) reservations.
 - Rows that may not exist yet (balance, lot, number series) are created with the M1 savepoint pattern
   (`begin_nested`, insert, on unique violation roll back the savepoint and `SELECT ... FOR UPDATE` again).
@@ -847,7 +848,11 @@ primary-equivalent qty`. If any directive exists, run pass 2 with the directives
 <segment>:<need_date>:<index>"`; levels above the alternates are identical in both passes, so keys are stable.
 Clarified (C2, C3, C5): "late" means coverage after `n' = max(need_date, as_of)`; free supply = unpegged existing
 supply with `avail_date <= n'` (stock at `as_of` counts); the moved primary-equivalent qty is capped at the primary
-line's **unrounded** need of that order (minus earlier moves). Several alternates are tried in `alt_priority` order,
+line's **unrounded** need of that order (minus earlier moves). Count-UoM alternates (C19): pass 2 requires the
+rounded-up alternate quantity, so each take is limited to `floor(free)` whenever `ceil(take) > free`, and the
+**rounded** quantity `ceil(take)` is what is reserved against the alternate's free stock for later candidates
+(non-count: unrounded). The late quantity is `sum of the requirement's pegs whose supply projects after n'`, capped at
+the unrounded primary need. Several alternates are tried in `alt_priority` order,
 each taking `min(remaining late qty x ratio, its free qty)`; the first alternate's key is `(order_key, alt_key)`,
 later ones `(order_key, "<alt_key>:<alt_priority>")` (22.WP-E E5).
 Alternates are never ordered new (only free existing stock/receipts are used) and existing WOs' components are never
@@ -2012,6 +2017,14 @@ they land. With the synthetic stock every Kavach demand line is late (many long-
     `data_version` feeds `transactions_changed`.
   - UI (`frontend/src/mfg/lib/permissions.ts`): the owner fallback is used only when no workspace is stored and
     `/me` answers 404; any other failure gives no permissions and an error banner with retry (`mfg-access-error`).
+- **Posting numbers (LEAD decision MP8, 2026-10-31):** `TXN-` numbers are allocated by `repo_m2.allocate_number` in
+  a separate autocommit transaction (`INSERT .. ON CONFLICT DO NOTHING` + `UPDATE .. RETURNING`) before the posting
+  transaction locks anything, so no posting holds the series row. Numbers stay human-readable and unique; a posting
+  that fails afterwards (409 insufficient stock, validation, deadlock retry) leaves a **gap** in the TXN series -
+  accepted. Document numbers (PO/PR/DO/WO) keep the in-transaction series lock (gap-free). Measured: MP8 (20 threads
+  x 50 postings on 5 shared balances, 2 processes) is unchanged at ~60 s - the hot rows are the 5 balances and a
+  posting costs ~20-26 ms of Python per request, so 1,000 postings on two processes cannot finish in 10 s
+  (CPU alone >= 10-13 s); the target needs more processes or a relaxed MP8 (open).
 - E's engine tests live in `tests/mrp` (WP-E).
 - Targeted runs: `tests/api_mfg_m2` 22, `tests/api_mfg` + `tests/auth/test_route_coverage.py` + `tests/mfg_db` +
   `tests/db/test_db_roles.py` (148), `tests/acceptance_phase2b/test_acc_authz_sweep.py` 5 - all pass.
@@ -2043,3 +2056,9 @@ they land. With the synthetic stock every Kavach demand line is late (many long-
 - C17 4.6: convert replays answer 200 + `Idempotent-Replay: true` (WP-B to confirm for the MRP convert).
 - C18 3: floats, deterministic summation order, `round(q, 6)` on store; compare with `1e-6 x max(1, |q|)`, count
   UoM exact (no engine change; the oracle tightens its 5-decimal tolerance).
+- C19 8.9 (oracle seed 103): late qty = pegs projected after `n'`, capped at the primary line's **unrounded** need
+  (the engine capped at the rounded need); for count-UoM alternates the take must satisfy `ceil(take) <= free`
+  (else `take = floor(free)`) and `ceil(take)` is reserved (the engine reserved the unrounded take, so pass 2 could
+  need more alternate stock than was free, i.e. an alternate shortfall). **Engine fixed** (`mrp/engine.py`:
+  fast-path explosion records the unrounded primary need; `alternate_directives` applies the rounding rule); the
+  oracle already implemented this reading.

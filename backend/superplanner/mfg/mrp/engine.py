@@ -578,7 +578,7 @@ class Pass:
                     a = agg[child] = [0.0, []]
                 a[0] += q
                 if group is not None:
-                    a[1].append((group, q))
+                    a[1].append((group, x))          # C19: unrounded primary need (cap of 8.9)
         rank, rank_label = self._best(po.sup, SS_RANK, "Safety stock")
         src = SourceRef("planned_order", str(po.no), po.sup.ref.label, item_id=po.item_id, node=po.sup.node,
                         number=f"P-{po.no}")
@@ -704,10 +704,16 @@ def alternate_directives(p: Pass) -> tuple[dict[tuple[str, str], float], list[di
                 if free <= EPS or ratio <= 0:
                     continue
                 take = min(lq * ratio, free)
+                count = is_count(items[a.item_id].uom)
+                if count and math.ceil(take - 1e-9) > free + EPS:
+                    take = float(math.floor(free + 1e-9))   # C19: the rounded alternate need must fit free stock
+                    if take <= EPS:
+                        continue
                 moved = take / ratio
                 key = g.alt_key if i == 0 else f"{g.alt_key}:{prio}"
                 out[(r.order_key, key)] = out.get((r.order_key, key), 0.0) + moved
-                taken[a.item_id] = taken.get(a.item_id, 0.0) + take
+                # C19: reserve what pass 2 will actually require (rounded up for count UoM)
+                taken[a.item_id] = taken.get(a.item_id, 0.0) + (float(math.ceil(take - 1e-9)) if count else take)
                 lq -= moved
                 late_left -= moved
                 records.append({"order_key": r.order_key, "primary_item_id": r.item_id, "alt_item_id": a.item_id,
