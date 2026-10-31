@@ -57,7 +57,8 @@ def test_wo_release_kitting_issue_partial_completion(api):
     assert wo["status"] == "planned" and wo["number"].startswith("WO-") and wo["bom"]["id"]
     req = {c["item"]["part_number"]: c["required_qty"] for c in wo["components"]}
     assert req == {"WO-C1": 20, "WO-C2": 10, "WO-C3": 11, "WO-C4": 10}      # 10 x 1.05 = 10.5 -> 11
-    wo = api.post(f"/work-orders/{wo['id']}/release", {"reserve": True}, status=200, version=wo["row_version"])
+    wo = api.post(f"/work-orders/{wo['id']}/release", {"reserve": True, "override_reason": "partial kit (M4 4.1)"},
+                  status=200, version=wo["row_version"])
     assert wo["status"] == "released" and wo["released_at"]
     rsv = {c["item"]["part_number"]: c["reserved_qty"] for c in wo["components"]}
     assert rsv == {"WO-C1": 20, "WO-C2": 0, "WO-C3": 5, "WO-C4": 10}
@@ -111,7 +112,8 @@ def test_wo_cancel_with_transactions_is_refused(api):
     wo = api.post("/work-orders", {"item_id": w["P"]["id"], "qty": 2, "due_date": (today + timedelta(days=3))
                                    .isoformat()})
     assert wo["start_date"] <= wo["due_date"]
-    wo = api.post(f"/work-orders/{wo['id']}/release", {"reserve": False}, status=200, version=wo["row_version"])
+    wo = api.post(f"/work-orders/{wo['id']}/release", {"reserve": False, "override_reason": "partial kit (M4 4.1)"},
+                  status=200, version=wo["row_version"])
     c1 = next(c["id"] for c in wo["components"] if c["item"]["part_number"] == "WO-C1")
     api.post("/inventory/postings", {"type": "wo_issue", "lines": [{"wo_component_id": c1,
                                                                      "location_id": w["STORES"]["id"], "qty": 1}]})
