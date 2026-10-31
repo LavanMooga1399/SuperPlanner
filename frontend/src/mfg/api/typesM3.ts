@@ -300,7 +300,7 @@ export interface OpQuery {
 
 // ---------------------------------------------------------------- 9.1 gantt (#188)
 export type GanttView = "line" | "order" | "demand";
-export type BandKind = "base" | "optional_opened" | "optional_suggested" | "closed" | "absence";
+export type BandKind = "base" | "optional_opened" | "optional_suggested" | "closed" | "absence" | "downtime";
 
 /** Row keys are `group:<id>`, `line:<id>`, `order:<id>`, `demand:<id>` (S0 fixture). */
 export interface GanttRow {
@@ -326,6 +326,11 @@ export interface GanttBar {
   locked: boolean;
   split: { index: number; count: number } | null;
   status_color: string;
+  /** M4 (11): execution state of the WO operation, drawn as a thin bar under the planned one */
+  actual?: { status: string; start: IsoDateTime | null; end: IsoDateTime | null } | null;
+  /** M4 6.3: the batch load this operation runs in */
+  load_no?: number | null;
+  moved_by_downtime?: boolean;
 }
 
 export interface GanttBand {
@@ -341,6 +346,8 @@ export interface GanttResponse {
   bars: GanttBar[];
   bands: GanttBand[];
   truncated: boolean;
+  /** M4 6.3: batch loads (one bar with member markers) */
+  batches?: { load_no: number; line_id: EntityId; row_key?: string; start: IsoDateTime; end: IsoDateTime; members: { op_no: number; qty: number }[] }[];
 }
 
 export interface GanttQuery {

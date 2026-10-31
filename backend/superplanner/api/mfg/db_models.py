@@ -54,6 +54,15 @@ class MfgPlantRow(OwnedMixin, _Editable, Base):
     aps_freeze_hours: Mapped[int] = mapped_column(Integer)
     aps_horizon_days: Mapped[int] = mapped_column(Integer)
     aps_overtime_policy: Mapped[str] = mapped_column(String(8))
+    # M4-DESIGN 3.1
+    replan_policy: Mapped[str] = mapped_column(String(16))
+    replan_debounce_minutes: Mapped[int] = mapped_column(Integer)
+    overrun_tolerance_pct: Mapped[float] = mapped_column(Double)
+    adherence_tolerance_minutes: Mapped[int] = mapped_column(Integer)
+    wo_receipt_location_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_locations.id", ondelete="SET NULL"),
+                                                               nullable=True)
+    backflush_location_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_locations.id", ondelete="SET NULL"),
+                                                              nullable=True)
 
 
 class MfgItemRow(OwnedMixin, _Editable, Base):
@@ -90,6 +99,7 @@ class MfgItemRow(OwnedMixin, _Editable, Base):
     standard_cost: Mapped[float | None] = mapped_column(Double, nullable=True)
     lot_controlled: Mapped[bool] = mapped_column(Boolean)
     lot_period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    issue_method: Mapped[str] = mapped_column(String(8))                 # M4-DESIGN 3.1
 
 
 class MfgGroupRow(OwnedMixin, _Editable, Base):
@@ -151,6 +161,10 @@ class MfgLineRow(OwnedMixin, _Editable, Base):
     setup_family: Mapped[str | None] = mapped_column(String(32), nullable=True)
     eligible_families: Mapped[list[Any]] = mapped_column(JsonType)
     cost_per_hour: Mapped[float] = mapped_column(Double)
+    # M4-DESIGN 3.1
+    location_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_locations.id", ondelete="SET NULL"), nullable=True)
+    batch_merge: Mapped[bool] = mapped_column(Boolean)
+    batch_wait_minutes: Mapped[int] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean)
 
     item_links: Mapped[list["MfgLineItemRow"]] = relationship(back_populates="line", cascade="all, delete-orphan",
@@ -265,6 +279,7 @@ class MfgOperationRow(OwnedMixin, Base):
     yield_pct: Mapped[float] = mapped_column(Double)
     inspection_gate: Mapped[bool] = mapped_column(Boolean)
     interruptible: Mapped[bool] = mapped_column(Boolean)
+    capture_serial: Mapped[bool] = mapped_column(Boolean)                 # M4-DESIGN 3.1
     row_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -342,6 +357,7 @@ class MfgOperatorRow(OwnedMixin, _Editable, Base):
     home_group_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_groups.id", ondelete="SET NULL"),
                                                       nullable=True)
     active: Mapped[bool] = mapped_column(Boolean)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # M4
 
     skill_links: Mapped[list["MfgOperatorSkillRow"]] = relationship(back_populates="operator",
                                                                     cascade="all, delete-orphan", **_REL)

@@ -25,18 +25,24 @@ from ..errors import ApiError
 
 PERMISSIONS: tuple[str, ...] = ("view", "master_edit", "supplier_edit", "inventory", "pr_edit", "pr_approve",
                                 "po_edit", "demand_edit", "wo_edit", "mrp_run", "schedule_run", "schedule_publish",
-                                "import", "owner")
+                                "import", "owner",
+                                # M4-DESIGN 11
+                                "floor_view", "floor_report", "floor_supervise", "downtime_report", "replan_manage")
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "owner": frozenset(PERMISSIONS),
     "planner": frozenset({"view", "master_edit", "supplier_edit", "pr_edit", "demand_edit", "wo_edit", "mrp_run",
-                          "schedule_run", "schedule_publish", "import"}),   # M3-DESIGN 11
-    "purchaser": frozenset({"view", "supplier_edit", "pr_edit", "po_edit"}),
-    "store_keeper": frozenset({"view", "inventory"}),
-    "approver": frozenset({"view", "pr_approve"}),
-    "viewer": frozenset({"view"}),
+                          "schedule_run", "schedule_publish", "import",   # M3-DESIGN 11
+                          "floor_view", "floor_report", "downtime_report", "replan_manage"}),   # M4-DESIGN 11
+    "purchaser": frozenset({"view", "supplier_edit", "pr_edit", "po_edit", "floor_view"}),
+    "store_keeper": frozenset({"view", "inventory", "floor_view"}),
+    "approver": frozenset({"view", "pr_approve", "floor_view"}),
+    "viewer": frozenset({"view", "floor_view"}),
+    # M4-DESIGN 0.4 / 11: tablets (personal or station accounts) and shift supervisors
+    "operator": frozenset({"view", "floor_view", "floor_report", "downtime_report"}),
+    "supervisor": frozenset({"view", "floor_view", "floor_report", "floor_supervise", "downtime_report"}),
 }
 ROLE_LABELS = {"owner": "Owner", "planner": "Planner", "purchaser": "Purchaser", "store_keeper": "Store keeper",
-               "approver": "Approver", "viewer": "Viewer"}
+               "approver": "Approver", "viewer": "Viewer", "operator": "Operator", "supervisor": "Supervisor"}
 WORKSPACE_HEADER = "X-SP-Workspace"
 
 
@@ -60,7 +66,7 @@ def permissions_of(roles: tuple[str, ...] | list[str]) -> frozenset[str]:
 
 
 def roles_allowed(perm: str) -> list[str]:
-    return [r for r in ("owner", "planner", "purchaser", "store_keeper", "approver", "viewer")
+    return [r for r in ("owner", "planner", "purchaser", "store_keeper", "approver", "viewer", "operator", "supervisor")
             if perm in ROLE_PERMISSIONS[r]]
 
 

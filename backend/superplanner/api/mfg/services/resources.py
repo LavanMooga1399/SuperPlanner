@@ -216,6 +216,7 @@ def _operator_refs(s: Session, inp: OperatorInput) -> None:
 def _set_operator(s: Session, row: MfgOperatorRow, inp: OperatorInput, old: list[str]) -> None:
     row.code, row.name, row.active = inp.code, inp.name, inp.active
     row.shift_template_id, row.home_group_id = inp.shift_template_id, inp.home_group_id
+    row.user_id = inp.user_id                                                    # M4-DESIGN 3.1
     row.shift_names = list(inp.shift_names)
     s.flush()
     new, prev = set(inp.skill_ids), set(old)

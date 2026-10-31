@@ -247,6 +247,9 @@ def list_lines(ctx: AppContext, group_id: str | None, q: str | None, active: boo
 def _line_refs(s: Session, inp: LineInput) -> None:
     if s.execute(select(MfgGroupRow.id).where(MfgGroupRow.id == inp.group_id)).scalar() is None:
         raise unknown_ref(["body", "group_id"], inp.group_id, "Stage")
+    if inp.location_id is not None and \
+            s.execute(select(MfgLocationRow.id).where(MfgLocationRow.id == inp.location_id)).scalar() is None:
+        raise unknown_ref(["body", "location_id"], inp.location_id, "Location")      # M4-DESIGN 3.1
     if inp.eligible_item_ids:
         found = set(s.execute(select(MfgItemRow.id).where(MfgItemRow.id.in_(inp.eligible_item_ids))).scalars())
         for i, iid in enumerate(inp.eligible_item_ids):
@@ -256,7 +259,7 @@ def _line_refs(s: Session, inp: LineInput) -> None:
 
 def _set_line(s: Session, row: MfgLineRow, inp: LineInput, old_items: list[str]) -> None:
     for f in ("group_id", "code", "name", "speed_factor", "parallel_capacity", "setup_family", "cost_per_hour",
-              "active"):
+              "active", "location_id", "batch_merge", "batch_wait_minutes"):          # + M4-DESIGN 3.1
         setattr(row, f, getattr(inp, f))
     row.eligible_families = list(inp.eligible_families)
     s.flush()

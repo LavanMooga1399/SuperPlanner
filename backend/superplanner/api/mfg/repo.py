@@ -108,7 +108,14 @@ def plant_mrp_columns(p: Any) -> dict[str, Any]:
             # M3-DESIGN 3.1
             "time_zone": getattr(p, "time_zone", None), "aps_freeze_hours": int(getattr(p, "aps_freeze_hours", 48)),
             "aps_horizon_days": int(getattr(p, "aps_horizon_days", 42)),
-            "aps_overtime_policy": getattr(p, "aps_overtime_policy", "suggest")}
+            "aps_overtime_policy": getattr(p, "aps_overtime_policy", "suggest"),
+            # M4-DESIGN 3.1
+            "replan_policy": getattr(p, "replan_policy", "notify"),
+            "replan_debounce_minutes": int(getattr(p, "replan_debounce_minutes", 15)),
+            "overrun_tolerance_pct": float(getattr(p, "overrun_tolerance_pct", 20)),
+            "adherence_tolerance_minutes": int(getattr(p, "adherence_tolerance_minutes", 120)),
+            "wo_receipt_location_id": getattr(p, "wo_receipt_location_id", None),
+            "backflush_location_id": getattr(p, "backflush_location_id", None)}
 
 
 def plant_row_unlocked(s: Session) -> MfgPlantRow:
@@ -161,7 +168,11 @@ def to_record(row: Any, **extra: Any) -> Any:
             mrp_defer_tolerance_days=row.mrp_defer_tolerance_days,
             mrp_release_window_days=row.mrp_release_window_days, over_receipt_pct=row.over_receipt_pct,
             time_zone=row.time_zone, aps_freeze_hours=row.aps_freeze_hours, aps_horizon_days=row.aps_horizon_days,
-            aps_overtime_policy=row.aps_overtime_policy, **_stamp(row), **extra)
+            aps_overtime_policy=row.aps_overtime_policy, replan_policy=row.replan_policy,
+            replan_debounce_minutes=row.replan_debounce_minutes, overrun_tolerance_pct=row.overrun_tolerance_pct,
+            adherence_tolerance_minutes=row.adherence_tolerance_minutes,
+            wo_receipt_location_id=row.wo_receipt_location_id, backflush_location_id=row.backflush_location_id,
+            **_stamp(row), **extra)
     if isinstance(row, MfgItemRow):
         data = dict(part_number=row.part_number, revision=row.revision, description=row.description, uom=row.uom,
                     make_buy=row.make_buy, family=row.family, setup_family=row.setup_family,
@@ -172,6 +183,7 @@ def to_record(row: Any, **extra: Any) -> Any:
                     handling_note=row.handling_note, attributes=dict(row.attributes or {}), active=row.active,
                     external_ref=row.external_ref, standard_cost=row.standard_cost,
                     lot_controlled=row.lot_controlled, lot_period_days=row.lot_period_days,
+                    issue_method=row.issue_method,
                     has_bom=False, has_routing=False, used_in_count=0)
         data.update(extra)
         return ItemRecord.model_construct(**_stamp(row), **data)
@@ -204,7 +216,7 @@ def to_record(row: Any, **extra: Any) -> Any:
                     queue_minutes=row.queue_minutes, move_minutes=row.move_minutes, wait_minutes=row.wait_minutes,
                     labor=row.labor, crew_size=row.crew_size, skill_id=row.skill_id,
                     transfer_batch=row.transfer_batch, yield_pct=row.yield_pct, inspection_gate=row.inspection_gate,
-                    interruptible=row.interruptible, tools=[], skill=None)
+                    interruptible=row.interruptible, capture_serial=row.capture_serial, tools=[], skill=None)
         data.update(extra)
         return OperationRecord.model_construct(**data)
     if isinstance(row, MfgOperationToolRow):
@@ -218,7 +230,9 @@ def to_record(row: Any, **extra: Any) -> Any:
         data = dict(group_id=row.group_id, code=row.code, name=row.name, speed_factor=row.speed_factor,
                     parallel_capacity=row.parallel_capacity, setup_family=row.setup_family,
                     eligible_families=list(row.eligible_families or []), eligible_item_ids=[],
-                    cost_per_hour=row.cost_per_hour, active=row.active, eligible_items=[])
+                    cost_per_hour=row.cost_per_hour, active=row.active, eligible_items=[],
+                    location_id=row.location_id, batch_merge=row.batch_merge,
+                    batch_wait_minutes=row.batch_wait_minutes)
         data.update(extra)
         return LineRecord.model_construct(**_stamp(row), **data)
     if isinstance(row, MfgShiftTemplateRow):
@@ -250,7 +264,7 @@ def to_record(row: Any, **extra: Any) -> Any:
     if isinstance(row, MfgOperatorRow):
         data = dict(code=row.code, name=row.name, skill_ids=[], shift_template_id=row.shift_template_id,
                     shift_names=list(row.shift_names or []), home_group_id=row.home_group_id, active=row.active,
-                    skills=[], shift_template=None, home_group=None)
+                    user_id=row.user_id, skills=[], shift_template=None, home_group=None)
         data.update(extra)
         return OperatorRecord.model_construct(**_stamp(row), **data)
     if isinstance(row, MfgToolPoolRow):

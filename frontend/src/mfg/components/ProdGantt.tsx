@@ -101,6 +101,16 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
     }
     return m;
   }, [data.bands]);
+  const batchesByRow = useMemo(() => {
+    const m = new Map<string, { load_no: number; s: number; e: number; members: number }[]>();
+    for (const b of data.batches ?? []) {
+      const key = b.row_key ?? `line:${b.line_id}`;
+      const arr = m.get(key) ?? [];
+      arr.push({ load_no: b.load_no, s: Date.parse(b.start), e: Date.parse(b.end), members: b.members.length });
+      m.set(key, arr);
+    }
+    return m;
+  }, [data.batches]);
 
   const totalW = Math.max(400, (to - from) * pxPerMs);
   const totalH = visibleRows.length * ROW_H;
@@ -279,6 +289,29 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
           g.setLineDash([3, 3]);
           g.strokeRect(xa + 0.5, y + 2.5, xb - xa - 1, ROW_H - 5);
           g.setLineDash([]);
+        } else if (b.kind === "downtime") {
+          // line down (M4): dense red hatching, solid frame and a "DOWN" text where it fits
+          g.save();
+          g.beginPath();
+          g.rect(xa, y + 1, xb - xa, ROW_H - 2);
+          g.clip();
+          g.strokeStyle = C.danger;
+          g.globalAlpha = 0.6;
+          for (let hx = xa - ROW_H; hx < xb; hx += 4) {
+            g.beginPath();
+            g.moveTo(hx, y + ROW_H);
+            g.lineTo(hx + ROW_H, y);
+            g.stroke();
+          }
+          g.globalAlpha = 1;
+          g.strokeRect(xa + 0.5, y + 1.5, xb - xa - 1, ROW_H - 3);
+          if (xb - xa > 44) {
+            g.fillStyle = C.danger;
+            g.font = "bold 10px system-ui, sans-serif";
+            g.textBaseline = "top";
+            g.fillText("DOWN", Math.max(xa, 0) + 3, y + 2);
+          }
+          g.restore();
         } else {
           // closed / absence: diagonal hatching
           g.save();
@@ -308,6 +341,45 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
         const b = it.bar;
         const dragging = d && d.moved && d.bar.op_no === b.op_no;
         drawBar(g, b, X(it.s), X(it.e), y, it.s, b.setup_end ? X(Date.parse(b.setup_end)) : null, b.pieces.map((pc) => [X(Date.parse(pc.start)), X(Date.parse(pc.end))]), C, selected === b.op_no, dragging ? 0.35 : 1);
+        // actual (M4): a thin bar under the planned one; running/paused bars run to now
+        const a = b.actual;
+        if (a?.start) {
+          const as = Date.parse(a.start);
+          const ae = a.end ? Date.parse(a.end) : Date.now();
+          const xa = X(as);
+          const xb = Math.max(xa + 2, X(ae));
+          g.fillStyle = a.status === "completed" ? C.ok : a.status === "paused" ? C.warn : C.accent;
+          g.fillRect(xa, y + ROW_H - 5, xb - xa, 3);
+          if (!a.end) {
+            // open end: an arrow head says "still going"
+            g.beginPath();
+            g.moveTo(xb, y + ROW_H - 7);
+            g.lineTo(xb + 4, y + ROW_H - 3.5);
+            g.lineTo(xb, y + ROW_H - 0);
+            g.fill();
+          }
+        }
+      }
+      // batch loads (M4 6.3): a bracket above the member bars with the load number
+      for (const ld of batchesByRow.get(row.key) ?? []) {
+        if (ld.e < t0 || ld.s > t1) continue;
+        const xa = X(ld.s);
+        const xb = X(ld.e);
+        g.strokeStyle = C.text;
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.moveTo(xa, y + 5);
+        g.lineTo(xa, y + 2);
+        g.lineTo(xb, y + 2);
+        g.lineTo(xb, y + 5);
+        g.stroke();
+        g.lineWidth = 1;
+        if (xb - xa > 30) {
+          g.fillStyle = C.text;
+          g.font = "9px system-ui, sans-serif";
+          g.textBaseline = "top";
+          g.fillText(`B${ld.load_no} (${ld.members})`, xa + 3, y + 3);
+        }
       }
     }
     // drag ghost / preview
@@ -337,7 +409,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
     }
     g.restore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, visibleRows, barsByRow, bandsByRow, from, pxPerMs, zoom, selected, preview, dragTick, clock]);
+  }, [view, visibleRows, barsByRow, bandsByRow, batchesByRow, from, pxPerMs, zoom, selected, preview, dragTick, clock]);
 
   // ---------------------------------------------------------------- hit testing and drag
   const hit = (clientX: number, clientY: number): { bar: GanttBar; x: number; y: number } | null => {
@@ -517,6 +589,14 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
           {hover.bar.late_minutes > 0 ? <div className="small mfg-neg">Late by {fmtDuration(hover.bar.late_minutes)}</div> : null}
           {hover.bar.frozen ? <div className="small">Frozen (inside the freeze window of the published plan)</div> : null}
           {hover.bar.locked ? <div className="small">Locked by an edit</div> : null}
+          {hover.bar.moved_by_downtime ? <div className="small">Moved because the line is down</div> : null}
+          {hover.bar.load_no ? <div className="small">Batch load B{hover.bar.load_no}</div> : null}
+          {hover.bar.actual?.start ? (
+            <div className="small" data-testid="gantt-tooltip-actual">
+              Actual: {hover.bar.actual.status} since {clock.dateTime(hover.bar.actual.start)}
+              {hover.bar.actual.end ? `, ended ${clock.dateTime(hover.bar.actual.end)}` : ""}
+            </div>
+          ) : null}
           {hover.bar.split && hover.bar.split.count > 1 ? (
             <div className="small">
               Split part {hover.bar.split.index + 1} of {hover.bar.split.count}

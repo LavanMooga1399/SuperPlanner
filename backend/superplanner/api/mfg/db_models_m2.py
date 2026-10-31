@@ -236,6 +236,11 @@ class MfgWorkOrderRow(OwnedMixin, _Editable, Base):
     source_run_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     source_planned_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     released_at: Mapped[datetime | None] = _dt()
+    # M4-DESIGN 3.1 / 4.1
+    receipt_location_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_locations.id", ondelete="SET NULL"),
+                                                            nullable=True)
+    released_to_floor_at: Mapped[datetime | None] = _dt()
+    release_override: Mapped[str | None] = mapped_column(String(200), nullable=True)
     completed_at: Mapped[datetime | None] = _dt()
     closed_at: Mapped[datetime | None] = _dt()
     note: Mapped[str] = mapped_column(String(500))

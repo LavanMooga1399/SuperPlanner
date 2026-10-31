@@ -24,7 +24,7 @@ from .common import audit, check_limit, check_version, ensure_unique, jsonable, 
 
 OP_FIELDS = ("seq", "name", "description", "group_id", "setup_minutes", "run_minutes", "run_per", "units_per_panel",
              "units_per_batch", "queue_minutes", "move_minutes", "wait_minutes", "labor", "crew_size", "skill_id",
-             "transfer_batch", "yield_pct", "inspection_gate", "interruptible")
+             "transfer_batch", "yield_pct", "inspection_gate", "interruptible", "capture_serial")
 HEADER_FIELDS = ("priority", "effective_from", "effective_to", "serial_from", "serial_to", "note")
 
 

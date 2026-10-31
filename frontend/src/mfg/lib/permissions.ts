@@ -25,6 +25,11 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "import",
   "schedule_run",
   "schedule_publish",
+  "floor_view",
+  "floor_report",
+  "floor_supervise",
+  "downtime_report",
+  "replan_manage",
   "owner",
 ];
 
@@ -35,6 +40,8 @@ export const ROLE_LABEL: Record<Role | "owner", string> = {
   purchaser: "Purchaser",
   store_keeper: "Store keeper",
   approver: "Approver",
+  operator: "Operator",
+  supervisor: "Supervisor",
 };
 
 export const ROLE_HELP: Record<Role, string> = {
@@ -43,11 +50,13 @@ export const ROLE_HELP: Record<Role, string> = {
   purchaser: "Suppliers, purchase requests and purchase orders (incl. converting approved requests).",
   store_keeper: "Stock postings: receipts, issues, transfers, counts, reversals, lots.",
   approver: "Approves or rejects purchase requests.",
+  operator: "Shop floor: starts, reports and completes operations, reports downtime. Sees the floor pages and reads the rest. Use it for shared station accounts too.",
+  supervisor: "Shop floor lead: everything an operator does plus corrections, reopen and skip of operations.",
 };
 
 /** 10.2 matrix: which member roles hold a permission (the owner holds all). */
 export const PERMISSION_ROLES: Record<Permission, Role[]> = {
-  view: ["viewer", "planner", "purchaser", "store_keeper", "approver"],
+  view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor"],
   master_edit: ["planner"],
   supplier_edit: ["planner", "purchaser"],
   inventory: ["store_keeper"],
@@ -60,6 +69,11 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   import: ["planner"],
   schedule_run: ["planner"],
   schedule_publish: ["planner"],
+  floor_view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor"],
+  floor_report: ["operator", "supervisor", "planner"],
+  floor_supervise: ["supervisor"],
+  downtime_report: ["operator", "supervisor", "planner"],
+  replan_manage: ["planner"],
   owner: [],
 };
 

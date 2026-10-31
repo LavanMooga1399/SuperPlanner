@@ -216,6 +216,13 @@ export function ApsGanttTab() {
           <span className="pg-swatch" style={{ border: "1px solid var(--warn)", background: "var(--shade)" }} /> overtime opened
         </span>
         <span>hatched = closed / absence</span>
+        <span>
+          <span className="pg-swatch" style={{ border: "1px solid var(--danger)" }} /> "DOWN" = line down
+        </span>
+        <span>
+          <span className="pg-swatch pg-swatch-actual" /> actual (thin bar under the plan; arrow = still running)
+        </span>
+        <span>"B3 (2)" bracket = batch load with 2 orders</span>
       </div>
       {canEdit ? (
         <p className="faint small" style={{ margin: 0 }}>

@@ -208,6 +208,13 @@ class PlantInput(MfgModel):
     aps_freeze_hours: Annotated[int, Field(ge=0, le=336)] = 48
     aps_horizon_days: Annotated[int, Field(ge=7, le=120)] = 42
     aps_overtime_policy: Literal["off", "suggest", "allow"] = "suggest"
+    # M4-DESIGN 3.1 (execution)
+    replan_policy: Literal["notify", "auto_whatif", "auto_publish"] = "notify"
+    replan_debounce_minutes: Annotated[int, Field(ge=0, le=1440)] = 15
+    overrun_tolerance_pct: Annotated[float, Field(ge=0, le=1000)] = 20
+    adherence_tolerance_minutes: Annotated[int, Field(ge=0, le=10080)] = 120
+    wo_receipt_location_id: EntityId | None = None
+    backflush_location_id: EntityId | None = None
 
     @model_validator(mode="after")
     def _workdays(self) -> "PlantInput":
@@ -251,6 +258,7 @@ class ItemInput(MfgModel):
     standard_cost: Money | None = None
     lot_controlled: bool = False
     lot_period_days: Annotated[int, Field(ge=1, le=365)] | None = None
+    issue_method: Literal["manual", "backflush"] = "manual"          # M4-DESIGN 3.1 / 4.4
 
     @model_validator(mode="after")
     def _lot(self) -> "ItemInput":
@@ -345,6 +353,7 @@ class OperationInput(MfgModel):
     yield_pct: YieldPct = 100
     inspection_gate: bool = False
     interruptible: bool = True
+    capture_serial: bool = False                                     # M4-DESIGN 3.1 / 10
 
     @model_validator(mode="after")
     def _rules(self) -> "OperationInput":
@@ -423,6 +432,9 @@ class LineInput(MfgModel):
     eligible_families: Annotated[list[Code], Field(max_length=50)] = Field(default_factory=list)
     eligible_item_ids: Annotated[list[EntityId], Field(max_length=500)] = Field(default_factory=list)
     cost_per_hour: Annotated[float, Field(ge=0, le=1_000_000)] = 0
+    location_id: EntityId | None = None                              # M4-DESIGN 3.1: line-side location
+    batch_merge: bool = False
+    batch_wait_minutes: Annotated[int, Field(ge=0, le=10080)] = 0
     active: bool = True
 
     @model_validator(mode="after")
@@ -557,6 +569,7 @@ class OperatorInput(MfgModel):
     shift_template_id: EntityId | None = None
     shift_names: list[_short(32, 1)] = Field(default_factory=list)
     home_group_id: EntityId | None = None
+    user_id: str | None = Field(default=None, max_length=64)         # M4-DESIGN 3.1: personal login
     active: bool = True
 
     @model_validator(mode="after")

@@ -201,3 +201,4 @@ details.card > summary { cursor: pointer; }
 .mfg-ex-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-bottom: 1px solid var(--border); }
 .mfg-ex-item:last-child { border-bottom: 0; }
 .mfg-ot-orders { list-style: none; margin: 4px 0 0; padding: 0; }
+.pg-swatch-actual { height: 3px !important; background: var(--accent); vertical-align: middle; }

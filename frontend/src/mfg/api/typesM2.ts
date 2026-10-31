@@ -7,8 +7,8 @@
 import type { EntityId, IsoDate, IsoDateTime, ItemRecord, ItemRef, LotRule, MakeBuy, Page, PlantRecord, Ref, Weekday } from "./types";
 
 // ---------------------------------------------------------------- 3 common types
-export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver";
-export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver"];
+export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor";
+export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor"];
 export type LocationKind = "stores" | "line_side" | "inspection" | "quarantine";
 export const LOCATION_KINDS: readonly LocationKind[] = ["stores", "line_side", "inspection", "quarantine"];
 export type LotRuleM2 = LotRule;
@@ -28,6 +28,11 @@ export type Permission =
   | "import"
   | "schedule_run"
   | "schedule_publish"
+  | "floor_view"
+  | "floor_report"
+  | "floor_supervise"
+  | "downtime_report"
+  | "replan_manage"
   | "owner";
 
 export interface Actor {
