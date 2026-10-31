@@ -88,8 +88,11 @@ def list_downtime(line_id: str | None = Id(), open: bool | None = None,  # noqa:
 
 
 @router.post("/downtime", status_code=201, dependencies=P("downtime_report"))
-def create_downtime(body: DowntimeInput, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    rec = downtime.create_downtime(ctx, body)
+def create_downtime(body: DowntimeInput, idem_key: str | None = _idem_key(),
+                    ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    rec, replayed = downtime.create_downtime(ctx, body, _idem(idem_key))
+    if replayed:
+        return _ok(rec, 200, etag=rec["row_version"], headers={"Idempotent-Replay": "true"})
     return _ok(rec, 201, etag=rec["row_version"], headers={"Location": f"/api/v1/mfg/downtime/{rec['id']}"})
 
 

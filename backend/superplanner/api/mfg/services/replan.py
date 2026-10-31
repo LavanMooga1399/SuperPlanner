@@ -158,7 +158,7 @@ def on_floor_event(s: Session, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow
         from .floor import _op_short
 
         out.append(raise_trigger(s, R.start_short(op.id, label, _op_short(s, wo, rows, op)), now))
-    if op.status in ("running", "setup") and ev.event_type in ("report", "start", "resume"):
+    if op.status in ("running", "setup") and ev.event_type == "report":
         out.append(_overrun(s, wo, op, label, now))
     return [x for x in out if x]
 
@@ -256,7 +256,21 @@ def _late_receipts(s: Session, pub: MfgApsRunRow, now: datetime) -> int:
     return n
 
 
+SWEEP_EVERY_SECONDS = 60.0
+_last_sweep: dict[str, float] = {}
+
+
 def _sweep_tx(ctx: AppContext) -> None:
+    """The time-based rules at most once a minute per workspace (the UI reads notifications on every page)."""
+    import time
+
+    from ...db.ownership import current_owner
+
+    owner = str(current_owner() or "")
+    now_m = time.monotonic()
+    if now_m - _last_sweep.get(owner, -1e9) < SWEEP_EVERY_SECONDS:
+        return
+    _last_sweep[owner] = now_m
     with read_tx(ctx) as s:
         if _published(s) is None:
             return
@@ -343,8 +357,29 @@ def _attach(s: Session, ids: list[str], run_id: str) -> None:
     s.flush()
 
 
+def _sweep_background(ctx: AppContext) -> None:
+    """The bell is read on every page: the time-based sweep runs off the request (at most once a minute)."""
+    import threading
+    import time
+
+    from ...db.ownership import current_owner, owner_scope
+
+    owner = current_owner()
+    if not owner or time.monotonic() - _last_sweep.get(str(owner), -1e9) < SWEEP_EVERY_SECONDS:
+        return
+
+    def run() -> None:
+        try:
+            with owner_scope(owner):
+                _sweep_tx(ctx)
+        except Exception:  # pragma: no cover - logged; the next read retries
+            log.exception("background replan sweep failed")
+
+    threading.Thread(target=run, name="replan-sweep", daemon=True).start()
+
+
 def list_notifications(ctx: AppContext, *, unacked: bool | None, limit: int, offset: int) -> dict[str, Any]:
-    _sweep_tx(ctx)
+    _sweep_background(ctx)
     conds = []
     if unacked:
         conds.append(MfgNotificationRow.acknowledged_at.is_(None))

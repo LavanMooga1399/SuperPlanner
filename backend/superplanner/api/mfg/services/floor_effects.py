@@ -70,6 +70,8 @@ def apply_effects(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], be
                   item: MfgItemRow | None, at: datetime) -> None:
     s = c.s
     last = rows[-1]
+    if ev.event_type not in E.QTY_EVENTS and ev.event_type not in ("correct", "reopen"):
+        return                       # transitions without quantities have no automatic effects (FP1)
     _scrap(s, wo, rows)
     if ev.event_type in E.QTY_EVENTS or ev.event_type == "correct":
         _serials(c, wo, rows, op, ev, inp, item, before, after, at)

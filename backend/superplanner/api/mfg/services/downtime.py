@@ -80,42 +80,74 @@ def _overlapping(s: Session, line_id: str, start: datetime, end: datetime | None
     return s.execute(q.limit(1)).scalars().first()
 
 
-def create_downtime(ctx: AppContext, inp: DowntimeInput) -> dict[str, Any]:
+def _by_key(s: Session, key: str | None) -> MfgDowntimeRow | None:
+    if not key:
+        return None
+    return s.execute(select(MfgDowntimeRow).where(MfgDowntimeRow.idempotency_key == key)).scalars().first()
+
+
+def create_downtime(ctx: AppContext, inp: DowntimeInput, idem: str | None = None) -> tuple[dict[str, Any], bool]:
+    """POST /downtime -> (record, replayed). A repeated `Idempotency-Key` returns the stored downtime (offline
+    replay of the tablets' queue never duplicates it)."""
+    from sqlalchemy.exc import IntegrityError
+
+    from ...db.locks import is_unique_violation
     from . import replan
 
+    if idem:
+        with read_tx(ctx) as s:
+            found = _by_key(s, idem)
+            if found is not None:
+                return records(s, [found])[0], True
+
     def fn(s: Session) -> tuple[dict[str, Any], bool]:
-        line = s.get(MfgLineRow, inp.line_id)
-        if line is None:
-            raise ApiError(422, "MFG_UNKNOWN_REFERENCE", f"Line {inp.line_id!r} was not found.",
-                           {"loc": ["body", "line_id"], "id": inp.line_id})
-        now = utcnow()
-        start = as_utc(inp.start_at) if inp.start_at is not None else now
-        if not inp.planned and start > now + SLACK:
-            raise ApiError(422, "FLR_TIME_INVALID", "Unplanned downtime cannot start in the future (plan it as "
-                           "maintenance with planned: true).", {"loc": ["body", "start_at"]})
-        end = as_utc(inp.end_at) if inp.end_at is not None else None
-        if end is not None and end > now + SLACK and not inp.planned:
-            raise ApiError(422, "FLR_TIME_INVALID", "end_at cannot be in the future; use expected_end_at.",
-                           {"loc": ["body", "end_at"]})
-        clash = _overlapping(s, line.id, start, end)
-        if clash is not None:
-            raise ApiError(409, "FLR_LINE_DOWN", f"{line.code} already has downtime from "
-                           f"{as_utc(clash.start_at).isoformat()}.", {"downtime_id": clash.id, "line_id": line.id})
-        row = MfgDowntimeRow(id=new_id("dtm_"), line_id=line.id, kind=inp.kind, planned=inp.planned, start_at=start,
-                             end_at=end, expected_end_at=as_utc(inp.expected_end_at) if inp.expected_end_at else None,
-                             reason=inp.reason, note=inp.note, reported_by=actor_id(),
-                             closed_by=actor_id() if end is not None else None, row_version=1, created_at=now,
-                             updated_at=now)
-        s.add(row)
-        s.flush()
-        audit(s, "downtime", row.id, "create", {"line": line.code, "kind": row.kind, "planned": row.planned})
-        trig = replan.on_downtime(s, row, now) if end is None or end > now else []
-        return records(s, [row], trig)[0], bool(trig)
+        try:
+            with s.begin_nested():
+                return _create(s, inp, idem)
+        except IntegrityError as exc:
+            found = _by_key(s, idem) if idem and is_unique_violation(exc, "uq_mfg_downtime_idem") else None
+            if found is None:
+                raise
+            return records(s, [found])[0], None   # type: ignore[return-value]
 
     rec, raised = run_tx(ctx, fn)
+    if raised is None:
+        return rec, True
     if raised:
         replan.apply_policy(ctx)
-    return rec
+    return rec, False
+
+
+def _create(s: Session, inp: DowntimeInput, idem: str | None) -> tuple[dict[str, Any], bool]:
+    from . import replan
+
+    line = s.get(MfgLineRow, inp.line_id)
+    if line is None:
+        raise ApiError(422, "MFG_UNKNOWN_REFERENCE", f"Line {inp.line_id!r} was not found.",
+                       {"loc": ["body", "line_id"], "id": inp.line_id})
+    now = utcnow()
+    start = as_utc(inp.start_at) if inp.start_at is not None else now
+    if not inp.planned and start > now + SLACK:
+        raise ApiError(422, "FLR_TIME_INVALID", "Unplanned downtime cannot start in the future (plan it as "
+                       "maintenance with planned: true).", {"loc": ["body", "start_at"]})
+    end = as_utc(inp.end_at) if inp.end_at is not None else None
+    if end is not None and end > now + SLACK and not inp.planned:
+        raise ApiError(422, "FLR_TIME_INVALID", "end_at cannot be in the future; use expected_end_at.",
+                       {"loc": ["body", "end_at"]})
+    clash = _overlapping(s, line.id, start, end)
+    if clash is not None:
+        raise ApiError(409, "FLR_LINE_DOWN", f"{line.code} already has downtime from "
+                       f"{as_utc(clash.start_at).isoformat()}.", {"downtime_id": clash.id, "line_id": line.id})
+    row = MfgDowntimeRow(id=new_id("dtm_"), line_id=line.id, kind=inp.kind, planned=inp.planned, start_at=start,
+                         end_at=end, expected_end_at=as_utc(inp.expected_end_at) if inp.expected_end_at else None,
+                         reason=inp.reason, note=inp.note, reported_by=actor_id(),
+                         closed_by=actor_id() if end is not None else None, idempotency_key=idem,
+                         row_version=1, created_at=now, updated_at=now)
+    s.add(row)
+    s.flush()
+    audit(s, "downtime", row.id, "create", {"line": line.code, "kind": row.kind, "planned": row.planned})
+    trig = replan.on_downtime(s, row, now) if end is None or end > now else []
+    return records(s, [row], trig)[0], bool(trig)
 
 
 def update_downtime(ctx: AppContext, downtime_id: str, inp: DowntimeUpdate, if_match: str | None) -> dict[str, Any]:

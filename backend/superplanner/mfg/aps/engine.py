@@ -21,6 +21,7 @@ from .model import (ApsException, ApsParams, ApsResult, ApsSnapshot, ApsSummary,
 Progress = Callable[[str, float, list[float] | None], None]
 
 REASON_TEXT = {
+    "batch": "Runs in a shared batch load with other work orders.",
     "as_of": "Starts at the planning start (as of).",
     "material": "Waits for material",
     "predecessor": "Waits for the previous operation",
@@ -106,6 +107,22 @@ def overtime_cost(m: Model, sc: Schedule) -> float:
 
 
 # ---------------------------------------------------------------- top level
+
+def batch_loads(ds: Any, sops: list[Any]) -> list[dict[str, Any]]:
+    """M4 6.3: scheduled batch operations sharing line, start and end on a `batch_merge` line form one load."""
+    groups: dict[tuple[str, Any, Any], list[Any]] = {}
+    for x in sops:
+        if x.status != "scheduled" or x.line_id is None or not getattr(ds.lines.get(x.line_id), "batch_merge", False):
+            continue
+        groups.setdefault((x.line_id, x.start, x.end), []).append(x)
+    out = []
+    for (lid, st, en), xs in sorted(groups.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        if len(xs) < 2:
+            continue
+        out.append({"load_no": len(out) + 1, "line_id": lid, "start": st.isoformat(), "end": en.isoformat(),
+                    "members": [{"op_no": x.op_no, "qty": x.qty} for x in sorted(xs, key=lambda y: y.op_no)]})
+    return out
+
 
 def _actual_of(snap: ApsSnapshot, o: Any, op: Any) -> dict[str, Any] | None:
     a = (getattr(snap, "actuals", {}) or {}).get((o.id, op.seq)) if o.type == "wo" else None
@@ -354,7 +371,8 @@ def assemble(snap: ApsSnapshot, params: ApsParams, m: Model, sc: Schedule, polic
         if op.idx == len(o.ops) - 1 and o.due is not None:
             late = max(0, p.end - o.due)
         reason_code = p.fixed if p.fixed in ("frozen", "locked", "edit", "in_progress") else (p.reason or "as_of")
-        txt = REASON_TEXT.get(reason_code, "") if p.fixed else reason_text(m, p)
+        txt = REASON_TEXT.get(reason_code, "") if p.fixed and p.fixed != "batch" else (
+            REASON_TEXT["batch"] if p.reason == "batch" else reason_text(m, p))
         refs = [_ref(r, clock) for r in p.reason_refs]
         for r in refs:
             if r.type == "operation" and r.id is not None:
@@ -481,12 +499,14 @@ def assemble(snap: ApsSnapshot, params: ApsParams, m: Model, sc: Schedule, polic
         budget_used=round(used, 3), budget_cut=cut,
         actual_ops=sum(1 for x in sops if x.actual is not None and x.actual.get("status") in ("setup", "running",
                                                                                             "paused")),
-        moved_by_downtime=sum(1 for x in sops if x.moved_by_downtime), frozen_moved=_frozen_moved(snap, sops))
+        moved_by_downtime=sum(1 for x in sops if x.moved_by_downtime), frozen_moved=_frozen_moved(snap, sops),
+        batches=len(batch_loads(snap.dataset, sops)))
     mrp_kind = snap.mrp.kind if snap.mrp is not None else None
     return ApsResult(params=params, kind=run_kind(params, mrp_kind), as_of=clock.as_of,
                      horizon_end=clock.to_dt(m.horizon), summary=summ, score=sc_score, validation=Validation(ok=True),
                      operations=sops, overtime=overtime, orders=orders, demand=demand, exceptions=exc, load=load,
-                     bottlenecks=bottl, iterations=iterations, budget_used=round(used, 3))
+                     bottlenecks=bottl, iterations=iterations, budget_used=round(used, 3),
+                     batches=batch_loads(snap.dataset, sops))
 
 
 def load_rows(m: Model, sc: Schedule) -> tuple[list[LoadRow], dict[str, float]]:

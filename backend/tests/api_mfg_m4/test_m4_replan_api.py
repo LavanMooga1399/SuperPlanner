@@ -123,3 +123,47 @@ def test_t_f15_risk_simulation_job_is_deterministic(api):
     assert a["status"] == "completed", a
     assert a["results"]["samples_done"] == 3 and a["results"] == b["results"]
     assert api.get("/aps/simulations")["total"] == 2
+
+
+def test_ui_gaps_downtime_idempotency_gantt_reason_codes(api):
+    p = plant(api, ops=1, wo_qty=4)
+    run = _published(api, p)
+    g0 = api.get(f"/aps/runs/{run['id']}/gantt", view="line")
+    lid = next(b for b in g0["bars"] if b["order_number"] == p["wo"]["number"])["row_key"].split(":")[1]
+    body = {"line_id": lid, "kind": "breakdown", "reason": "jam"}
+    h = {"Idempotency-Key": "tablet-1:dt:0001"}
+    a = api.req("POST", "/downtime", 201, json=body, headers=h).json()
+    r = api.req("POST", "/downtime", 200, json=body, headers=h)
+    assert r.headers["Idempotent-Replay"] == "true" and r.json()["id"] == a["id"]
+    assert api.get("/downtime", open=True)["total"] == 1
+    op = p["ops"][0]["id"]
+    ev(api, op, "start", line_id=lid)
+    g = api.get(f"/aps/runs/{run['id']}/gantt", view="line")
+    assert any(b["kind"] == "downtime" and b["row_key"] == f"line:{lid}" for b in g["bands"]), \
+        ({b["kind"] for b in g["bands"]}, lid, g["rows"])
+    bar = next(b for b in g["bars"] if b["order_number"] == p["wo"]["number"])
+    assert bar["actual"]["status"] == "running" and bar["actual"]["start"] and "batches" in g
+    rc = api.get(f"/floor/operations/{op}")["reason_codes"]
+    assert {"pause", "scrap", "rework"} == set(rc) and rc["pause"][0]["code"] == "BREAK"
+    n = api.get("/notifications")
+    assert "unacked" in n
+
+
+@pytest.mark.parametrize("merge", [True, False])
+def test_t_f11_two_wos_share_one_batch_load(api, merge):
+    p = plant(api, ops=1, wo_qty=5, batch=8, merge=merge, wait=120, bf_stock=0)
+    wo2 = api.post("/work-orders", {"item_id": p["fg"]["id"], "qty": 3, "due_date": "2026-12-01",
+                                    "start_date": "2026-11-02"})
+    api.post(f"/work-orders/{wo2['id']}/release", {"override_reason": "t"}, status=200, version=wo2["row_version"])
+    api.post("/mrp/runs", {})
+    run = wait_run(api, api.post("/aps/runs", {"improve_seconds": 0}, status=202)["id"])
+    assert run["status"] == "completed" and run["validation"]["ok"], run
+    ops = [o for o in api.get(f"/aps/runs/{run['id']}/operations")["items"] if o["status"] == "scheduled"]
+    assert len(ops) == 2
+    spans = {(o["start"], o["end"]) for o in ops}
+    g = api.get(f"/aps/runs/{run['id']}/gantt", view="line")
+    if merge:
+        assert len(spans) == 1 and len(g["batches"]) == 1 and len(g["batches"][0]["members"]) == 2
+        assert {b["load_no"] for b in g["bars"]} == {1}
+    else:
+        assert len(spans) == 2 and g["batches"] == []

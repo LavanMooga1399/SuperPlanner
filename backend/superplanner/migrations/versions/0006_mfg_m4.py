@@ -309,6 +309,7 @@ def upgrade() -> None:
         sa.Column('note', sa.String(500), nullable=False),
         sa.Column('reported_by', sa.String(64), nullable=True),
         sa.Column('closed_by', sa.String(64), nullable=True),
+        sa.Column('idempotency_key', sa.String(128), nullable=True),
         sa.Column('owner_id', sa.String(64),
                   sa.ForeignKey('users.id', ondelete='RESTRICT',
                                 name='fk_mfg_downtime_owner_id_users'), nullable=False),
@@ -318,6 +319,8 @@ def upgrade() -> None:
     )
     op.create_index('ix_mfg_downtime_line_start', 'mfg_downtime', ['line_id', 'start_at'])
     op.create_index('ix_mfg_downtime_owner_start', 'mfg_downtime', ['owner_id', 'start_at'])
+    op.create_index('uq_mfg_downtime_idem', 'mfg_downtime', ['owner_id', 'idempotency_key'], unique=True,
+                    postgresql_where=sa.text("idempotency_key IS NOT NULL"))
     op.create_table(
         'mfg_unit_serials',
         sa.Column('id', sa.String(64), primary_key=True, nullable=False),

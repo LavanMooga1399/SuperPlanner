@@ -259,9 +259,20 @@ def create_wo(ctx: AppContext, inp: WorkOrderInput) -> dict[str, Any]:
         audit(s, "work_order", w.id, "create", {"number": w.number})
         rec = wo_records(s, [w])[0]
         rec["warnings"] = warnings
+        from . import replan              # M4-DESIGN 7 rush_order
+
+        rec["_rush"] = replan.on_document(s, "work_order", w.id, w.number, w.priority, w.due_date)
         return rec
 
-    return run_tx(ctx, fn)
+    return _after_rush(ctx, run_tx(ctx, fn))
+
+
+def _after_rush(ctx: AppContext, rec: dict[str, Any]) -> dict[str, Any]:
+    if rec.pop("_rush", None):
+        from . import replan
+
+        replan.apply_policy(ctx)
+    return rec
 
 
 def _check_demand_line(s: Session, demand_line_id: str) -> None:
@@ -320,6 +331,7 @@ def update_wo(ctx: AppContext, wo_id: str, inp: WorkOrderInput, if_match: str | 
             w.number = inp.number
         if inp.external_ref is not None:
             ensure_unique(s, MfgWorkOrderRow, "A work order", {"external_ref": inp.external_ref}, exclude_id=w.id)
+        w._prio_before = w.priority         # type: ignore[attr-defined]
         w.qty, w.due_date, w.priority, w.note, w.external_ref = inp.qty, inp.due_date, inp.priority, inp.note, \
             inp.external_ref
         w.receipt_location_id = _receipt_loc(s, inp)
@@ -364,12 +376,18 @@ def update_wo(ctx: AppContext, wo_id: str, inp: WorkOrderInput, if_match: str | 
                                             created_at=now, updated_at=now))
             s.flush()
             _trim_reservations(s, w.id, now)
+        prio_before = getattr(w, "_prio_before", None)
         touch(w, now)
         s.flush()
         audit(s, "work_order", w.id, "update", {"number": w.number, "version": w.row_version})
-        return wo_records(s, [w])[0]
+        rec = wo_records(s, [w])[0]
+        if prio_before is None or prio_before != w.priority:
+            from . import replan          # M4-DESIGN 7 rush_order (re-prioritised)
 
-    return run_tx(ctx, fn)
+            rec["_rush"] = replan.on_document(s, "work_order", w.id, w.number, w.priority, w.due_date)
+        return rec
+
+    return _after_rush(ctx, run_tx(ctx, fn))
 
 
 def _trim_reservations(s: Session, wo_id: str, now: Any) -> None:

@@ -328,11 +328,12 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
                     f"{far_op}.", operator_id=e)
             if b > far_end:
                 far_end, far_op = b, n
-    # ---- line capacity
+    # ---- line capacity (M4 6.3: compatible batch operations sharing one load on a batch_merge line count once)
     for lid, lst in by_line.items():
         line = ds.lines.get(lid)
         if line is None:
             continue
+        lst = _collapse_loads(line, lst, routing_of, ds)
         ev = sorted([(_m(as_of, o.start), 1, o.op_no) for o in lst] + [(_m(as_of, o.end), -1, o.op_no) for o in lst],
                     key=lambda x: (x[0], x[1]))
         n = 0
@@ -521,3 +522,36 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
 
 __all__ = ["validate"]
 _unused = (DAY, date, is_count, lot_inputs)
+
+
+def _collapse_loads(line: Any, lst: list[Any], routing_of: dict[str, Any], ds: Any) -> list[Any]:
+    """Operations on one load: same line / start / end, `run_per = batch`, same group, item setup family, units per
+    batch and run minutes, total units <= units per batch. Each such load counts as one occupant."""
+    if not getattr(line, "batch_merge", False):
+        return lst
+    groups: dict[tuple[Any, Any], list[Any]] = {}
+    for o in lst:
+        groups.setdefault((o.start, o.end), []).append(o)
+    out = []
+    for xs in groups.values():
+        if len(xs) < 2:
+            out += xs
+            continue
+        keys = set()
+        upb = None
+        for o in xs:
+            rt = routing_of.get(o.order.id)
+            rop = next((r for r in rt.operations if r.seq == o.seq), None) if rt is not None else None
+            it = ds.items.get(o.order.item_id)
+            if rop is None or rop.run_per != "batch" or not rop.units_per_batch:
+                keys.add(None)
+                break
+            keys.add((rop.group_id, getattr(it, "setup_family", None) or getattr(it, "family", None),
+                      rop.units_per_batch, float(rop.run_minutes)))
+            upb = rop.units_per_batch
+        if len(keys) == 1 and None not in keys and sum(o.qty for o in xs) <= (upb or 0) + 1e-6:
+            out.append(xs[0])
+        else:
+            out += xs
+    return out
+

@@ -131,7 +131,9 @@ class MfgFloorEventRow(OwnedMixin, Base):
 class MfgDowntimeRow(OwnedMixin, _Editable, Base):
     __tablename__ = "mfg_downtime"
     __table_args__ = (Index("ix_mfg_downtime_line_start", "line_id", "start_at"),
-                      Index("ix_mfg_downtime_owner_start", "owner_id", "start_at"))
+                      Index("ix_mfg_downtime_owner_start", "owner_id", "start_at"),
+                      Index("uq_mfg_downtime_idem", "owner_id", "idempotency_key", unique=True,
+                            postgresql_where=text("idempotency_key IS NOT NULL")))
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     line_id: Mapped[str] = mapped_column(ForeignKey("mfg_lines.id", ondelete="RESTRICT"))
@@ -144,6 +146,8 @@ class MfgDowntimeRow(OwnedMixin, _Editable, Base):
     note: Mapped[str] = mapped_column(String(500))
     reported_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     closed_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: `Idempotency-Key` of the POST (offline tablets replay their queue, 16.WP-S)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
 
 class MfgUnitSerialRow(OwnedMixin, _Editable, Base):

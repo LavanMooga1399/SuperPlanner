@@ -104,7 +104,9 @@ def risk_run(snap: Any, base: ApsParams, inputs: RiskInputs, samples: int, seed:
     brk_n: dict[str, int] = defaultdict(int)
     late_by_sup: dict[str, int] = defaultdict(int)
     done = 0
-    base_res = None
+    late_minutes: dict[str, list[int]] = defaultdict(list)
+    base_res = schedule(snap, params0)          # the unperturbed plan (base_end per demand line)
+    base_end = {(d.demand_line_id or f"{d.order_number}/{d.line_no}"): d.scheduled_end for d in base_res.demand}
     for i in range(samples):
         if cancelled is not None and cancelled():
             break
@@ -115,8 +117,6 @@ def risk_run(snap: Any, base: ApsParams, inputs: RiskInputs, samples: int, seed:
         for b in brk:
             brk_n[b.line_id] += 1
         res = schedule(snap, params0.model_copy(update={"supply_delays": delays, "line_breakdowns": brk}))
-        if base_res is None and not delays and not brk:
-            base_res = res
         delayed = {d.schedule_id for d in delays}
         for d in res.demand:
             k = d.demand_line_id or f"{d.order_number}/{d.line_no}"
@@ -124,6 +124,8 @@ def risk_run(snap: Any, base: ApsParams, inputs: RiskInputs, samples: int, seed:
                                 "part_number": d.part_number, "due": d.due, "priority": d.priority})
             end = d.scheduled_end or horizon_end
             ends[k].append(end)
+            late_minutes[k].append(int(d.late_minutes) if d.scheduled_end is not None else
+                                   int(max(0.0, (horizon_end - d.due).total_seconds() / 60)))
             if d.late_minutes <= 0 and d.scheduled_end is not None:
                 on_time[k] += 1
             else:
@@ -144,7 +146,9 @@ def risk_run(snap: Any, base: ApsParams, inputs: RiskInputs, samples: int, seed:
         mt = meta[k]
         demand.append({**mt, "due": mt["due"].isoformat(), "p_on_time": round(on_time[k] / n, 4),
                        "p50": (_pct(ends[k], 0.5) or horizon_end).isoformat(),
-                       "p90": (_pct(ends[k], 0.9) or horizon_end).isoformat()})
+                       "p90": (_pct(ends[k], 0.9) or horizon_end).isoformat(),
+                       "base_end": base_end[k].isoformat() if base_end.get(k) else None,
+                       "samples_late_minutes": late_minutes[k]})
     lines = [{"line": inputs.line_names.get(lid, {"id": lid, "code": "", "name": ""}),
               "expected_lost_hours": round(lost_tot[lid] / n, 3),
               "mtbf_hours": round(inputs.history_hours[lid] / len(inputs.breakdowns[lid]), 3),

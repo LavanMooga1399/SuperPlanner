@@ -31,7 +31,8 @@ def _tables(url: str) -> set[str]:
 
 def _ins(c: sa.Connection, table: str, **vals: object) -> None:
     """INSERT with every other NOT NULL column filled by a neutral value of its type (literal schema, no ORM)."""
-    cols = c.execute(sa.text("SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns "
+    cols = c.execute(sa.text("SELECT column_name, data_type, is_nullable, column_default "
+                             "FROM information_schema.columns "
                              "WHERE table_name = :t"), {"t": table}).all()
     neutral = {"integer": 0, "bigint": 0, "smallint": 0, "double precision": 0.0, "boolean": False, "jsonb": "{}",
                "json": "{}", "date": "2026-11-02", "timestamp with time zone": NOW}

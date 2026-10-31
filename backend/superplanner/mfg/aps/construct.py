@@ -665,6 +665,10 @@ class Engine:
         if not lines:
             self.uns[op.key] = Unsched(op, "no_line", f"No active eligible line in the stage of operation {op.seq}.")
             return
+        if self._batchable(op) and h is None:                     # M4-DESIGN 6.3
+            if self._join_load(op, es, min_end, lines, why, refs):
+                return
+            es = self._wait_for_partners(op, es, lines)
         single, w = self.best(op, op.qty, es, min_end, lines)
         if single is not None and self.allow and (self.late(op, single.end) or op.latest_start < es):
             ot = self.overtime_try(op, op.qty, es, min_end, lines, single)
@@ -702,6 +706,81 @@ class Engine:
             self.events.append({"code": "APS_SPLIT", "op": op, "parts": len(parts)})
         self.placed[op.key] = parts
         self.order_seq.append(op.key)
+
+    # ------------------------------------------------------------ batching (M4-DESIGN 6.3)
+    def _batch_key(self, op: Op) -> tuple[Any, ...] | None:
+        r = op.rec
+        if getattr(r, "run_per", "unit") != "batch" or not getattr(r, "units_per_batch", None):
+            return None
+        return (op.group_id, op.family, int(r.units_per_batch), float(r.run_minutes))
+
+    def _batchable(self, op: Op) -> bool:
+        """A single-load batch operation without crew or tools on a `batch_merge` line can share a load."""
+        if self._batch_key(op) is None or op.qty > op.rec.units_per_batch + 1e-9 or op.tools:
+            return False
+        if op.crew_size and getattr(op, "attended", True):
+            return False
+        return any(getattr(self.m.ds.lines.get(lid), "batch_merge", False) for lid in op.lines)
+
+    def _wait(self, lid: str) -> int:
+        return int(getattr(self.m.ds.lines.get(lid), "batch_wait_minutes", 0) or 0)
+
+    def _join_load(self, op: Op, es: int, min_end: int, lines: list[str], why: str, refs: list[Any]) -> bool:
+        key = self._batch_key(op)
+        best = None
+        for k, parts in self.placed.items():
+            if len(parts) != 1:
+                continue
+            lead = parts[0]
+            if lead.line_id not in lines or not getattr(self.m.ds.lines.get(lead.line_id), "batch_merge", False):
+                continue
+            if lead.fixed not in (None, "batch") or self._batch_key(lead.op) != key or lead.start < es or \
+                    lead.start > es + self._wait(lead.line_id) or lead.end < min_end:
+                continue
+            used = sum(p.qty for ps in self.placed.values() for p in ps
+                       if p.line_id == lead.line_id and p.start == lead.start and p.end == lead.end and
+                       self._batch_key(p.op) == key)
+            if used + op.qty > key[2] + 1e-9:
+                continue
+            if best is None or (lead.start, lead.line_id) < (best.start, best.line_id):
+                best = lead
+        if best is None:
+            return False
+        p = Placed(op, 0, 1, op.qty, best.line_id, best.slot, best.start, best.end, best.setup, best.run,
+                   list(best.pieces), [], (), "batch", [{"type": "operation", "id": str(best.op.no),
+                                                         "label": f"{best.op.order.number} op {best.op.seq}"}],
+                   best.prev_family, fixed="batch")
+        best.fixed = "batch"
+        self.placed[op.key] = [p]
+        self.order_seq.append(op.key)
+        return True
+
+    def _wait_for_partners(self, op: Op, es: int, lines: list[str]) -> int:
+        """A partial load waits (at most the line's `batch_wait_minutes`) for compatible operations that become
+        ready meanwhile and fill it."""
+        key = self._batch_key(op)
+        wait = max((self._wait(lid) for lid in lines), default=0)
+        if wait <= 0:
+            return es
+        room = key[2] - op.qty
+        start = es
+        cands = []
+        for other in self.m.ops:
+            if other.key in self.placed or other.key == op.key or self._batch_key(other) != key or \
+                    not self._batchable(other) or not set(other.lines) & set(lines):
+                continue
+            if other.idx > 0 and other.order.ops[other.idx - 1].key not in self.placed:
+                continue
+            r = self.es(other)
+            if isinstance(r, Unsched):
+                continue
+            if es <= r[0] <= es + wait:
+                cands.append((r[0], other.order.rank, other.no, other))
+        for t, _r, _n, other in sorted(cands, key=lambda c: (c[1], c[0], c[2])):
+            if other.qty <= room + 1e-9:
+                room -= other.qty
+                start = max(start, t)
+        return start
 
     def try_split(self, op: Op, es: int, min_end: int, lines: list[str], single: Placed) -> list[Placed]:
         q = op.qty

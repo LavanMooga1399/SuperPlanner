@@ -69,11 +69,25 @@ def _local_date(s: Session, at: datetime) -> date:
 # ---------------------------------------------------------------- operation derivation (4.1)
 
 def routing_of(s: Session, wo: MfgWorkOrderRow) -> str | None:
+    """The WO's routing, else the item's primary routing at the start date (M2 3.7 / M3 17), from the item's
+    routing rows only (no full dataset load; cached per session)."""
     if wo.routing_id:
         return wo.routing_id
-    from ....mfg.aps.pure import wo_routing_id
+    from types import SimpleNamespace
 
-    return wo_routing_id(repo.load_dataset(s), wo.item_id, wo.start_date, wo.serial_from, None)
+    from ....mfg.routing import primary_routing
+
+    cache: dict[tuple[Any, ...], str | None] = s.info.setdefault("sp_wo_routing", {})
+    key = (wo.item_id, wo.start_date, wo.serial_from)
+    if key not in cache:
+        rows = [SimpleNamespace(id=r.id, status=r.status, effective_from=r.effective_from,
+                                effective_to=r.effective_to, serial_from=r.serial_from, serial_to=r.serial_to,
+                                priority=r.priority, version=r.version, revision=r.revision, code=r.code)
+                for r in s.execute(select(MfgRoutingRow).where(MfgRoutingRow.item_id == wo.item_id)).scalars()]
+        rt = primary_routing(SimpleNamespace(routings_by_item={wo.item_id: rows}), wo.item_id, wo.start_date,
+                             wo.serial_from)
+        cache[key] = rt.id if rt is not None else None
+    return cache[key]
 
 
 def routing_ops(s: Session, routing_id: str | None) -> list[MfgOperationRow]:
@@ -799,7 +813,7 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
     vb, va = _chain_after(rows, before), _chain_after(rows, after)
     others = [r for r in rows if r.id != op.id and (
         r.id in c.changed or (vb[r.seq].qty_input, vb[r.seq].ready) != (va[r.seq].qty_input, va[r.seq].ready))]
-    recs = op_records(s, [op] + others)
+    recs = op_records(s, [op] + others, placement=False)
     return {"event": _event_record(s, row), "operation": recs[0], "operations": recs[1:],
             "wo": wo_summary(s, wo), "postings": c.postings, "warnings": c.warnings, "triggers": c.triggers}
 
@@ -980,7 +994,27 @@ def operation_detail(ctx: AppContext, wo_op_id: str) -> dict[str, Any]:
                 "components": components, "tools": tools,
                 "eligible_lines": [_ref(x) for x in eligible_lines(s, op.group_id, item)],
                 "expected_input": rec["qty_input"], "events": _event_records(s, evs),
-                "allowed_actions": E.allowed_events(st, supervisor=False), "serials": serial_info}
+                "allowed_actions": E.allowed_events(st, supervisor=False), "serials": serial_info,
+                "reason_codes": reason_codes(_plant(s))}
+
+
+def reason_codes(plant: Any) -> dict[str, list[dict[str, str]]]:
+    """Floor reason codes per kind: the plant attribute `floor_reasons_<kind>` ("CODE:Label,...") or the defaults."""
+    from ....mfg.model_m4 import DEFAULT_REASON_CODES
+
+    attrs = dict(getattr(plant, "attributes", None) or {})
+    out = {}
+    for kind, default in DEFAULT_REASON_CODES.items():
+        raw = attrs.get(f"floor_reasons_{kind}")
+        pairs = default
+        if isinstance(raw, str) and raw.strip():
+            pairs = []
+            for part in raw.split(","):
+                code, _sep, label = part.strip().partition(":")
+                if code.strip():
+                    pairs.append((code.strip()[:32], (label or code).strip()[:100]))
+        out[kind] = [{"code": c, "label": lb} for c, lb in pairs]
+    return out
 
 
 def _serial_info(s: Session, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], op: MfgWoOperationRow,
@@ -1041,6 +1075,11 @@ def queue(ctx: AppContext, line_id: str, shift: str | None, day: date | None) ->
             MfgWoOperationRow.line_id == line_id,
             MfgWoOperationRow.status.in_(("setup", "running", "paused")))).scalars())
         wo_ids = sorted({x.order_id for x in aps_rows if x.order_type == "wo"} | {r.wo_id for r in live})
+        from types import SimpleNamespace
+
+        cols = ("order_type", "order_id", "seq", "name", "start_at", "end_at", "op_no", "qty")
+        aps_rows = [SimpleNamespace(**{c: getattr(x, c) for c in cols}) for x in aps_rows]
+        pub_id = pub.id if pub is not None else None
     ensure_lazy(ctx, wo_ids)
     with read_tx(ctx) as s:
         line = s.get(MfgLineRow, line_id)
@@ -1101,7 +1140,7 @@ def queue(ctx: AppContext, line_id: str, shift: str | None, day: date | None) ->
                 continue
             add(w, a.seq, a.name, a)
         dt = open_downtime(s, line_id, now)
-        return {"line": _ref(line), "date": day.isoformat(), "shift": shift, "run_id": pub.id if pub else None,
+        return {"line": _ref(line), "date": day.isoformat(), "shift": shift, "run_id": pub_id,
                 "down": ({"id": dt.id, "kind": dt.kind, "start_at": as_utc(dt.start_at),
                           "expected_end_at": as_utc(dt.expected_end_at), "reason": dt.reason} if dt else None),
                 "shifts": [{"label": w.shift_label, "start": as_utc(w.start), "end": as_utc(w.end), "kind": w.kind}

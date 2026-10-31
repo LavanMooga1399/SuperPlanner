@@ -48,6 +48,17 @@ Note500 = Annotated[str, StringConstraints(max_length=500, pattern=r"^[^\x00\x7f
 SerialText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64,
                                               pattern=r"^[^\x00-\x1f\x7f]+$")]
 EventQty = Annotated[float, Field(ge=0, le=1_000_000)]
+#: default floor reason codes (pause / scrap / rework); a plant overrides a list with the attribute
+#: `floor_reasons_<kind>` = "CODE:Label,CODE:Label" (16.WP-S)
+DEFAULT_REASON_CODES: dict[str, list[tuple[str, str]]] = {
+    "pause": [("BREAK", "Break"), ("NO_MATERIAL", "Waiting for material"), ("NO_OPERATOR", "No operator"),
+              ("MACHINE", "Machine problem"), ("QUALITY", "Quality hold"), ("CHANGEOVER", "Changeover"),
+              ("OTHER", "Other")],
+    "scrap": [("SOLDER_BRIDGE", "Solder bridge"), ("TOMBSTONE", "Tombstone"), ("MISSING_PART", "Missing part"),
+              ("DAMAGED", "Damaged"), ("TEST_FAIL", "Test failure"), ("OTHER", "Other")],
+    "rework": [("RESOLDER", "Resolder"), ("REPLACE_PART", "Replace part"), ("RETEST", "Retest"),
+               ("CLEAN", "Clean / recoat"), ("OTHER", "Other")],
+}
 MAX_EVENT_SERIALS = 1000
 MAX_EVENT_OPERATORS = 20
 MAX_LOAD_MEMBERS = 50
@@ -245,6 +256,7 @@ class FloorOperationDetail(MfgModel):
     events: list[FloorEventRecord] = Field(default_factory=list)
     allowed_actions: list[EventType] = Field(default_factory=list)
     serials: dict[str, Any] = Field(default_factory=dict)            # {capture, produced: [...], consumable: [...]}
+    reason_codes: dict[str, list[dict[str, str]]] = Field(default_factory=dict)   # pause / scrap / rework
 
 
 # ---------------------------------------------------------------- downtime (3.2)

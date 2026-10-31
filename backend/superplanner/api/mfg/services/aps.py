@@ -1086,6 +1086,15 @@ def gantt(ctx: AppContext, run_id: str, *, view: str, frm: datetime | None, to: 
                     if ov.get("mode") == "close" and (ov.get("target_id") in (lid, ln.group_id)):
                         bands.append({"row_key": f"line:{lid}", "start": aps_store.parse_dt(ov["start"]),
                                       "end": aps_store.parse_dt(ov["end"]), "kind": "closed"})
+            from ..db_models_m4 import MfgDowntimeRow         # M4-DESIGN 12: downtime bands
+
+            for d in s.execute(select(MfgDowntimeRow).where(MfgDowntimeRow.line_id.in_(used),
+                                                            MfgDowntimeRow.start_at < to)).scalars():
+                end = as_utc(d.end_at or d.expected_end_at) if (d.end_at or d.expected_end_at) else \
+                    max(utcnow(), as_utc(r.as_of)) + timedelta(hours=4)      # as APS closes it (6.1)
+                if end > frm:
+                    bands.append({"row_key": f"line:{d.line_id}", "start": as_utc(d.start_at), "end": end,
+                                  "kind": "downtime"})
             for x in rows:
                 row_of[x.op_no] = f"line:{x.line_id}"
         elif view == "order":
@@ -1115,6 +1124,14 @@ def gantt(ctx: AppContext, run_id: str, *, view: str, frm: datetime | None, to: 
             for x in rows:
                 row_of[x.op_no] = want[x.order_id]
         bars = []
+        live = _live_actuals(s, rows)
+        load_of: dict[int, int] = {}
+        batches = []
+        for b in extras.get("batches", []) or []:
+            for mbr in b.get("members", []):
+                load_of[int(mbr["op_no"])] = int(b["load_no"])
+            if b.get("line_id") and (not line_id or b["line_id"] == line_id):
+                batches.append({**b, "row_key": f"line:{b['line_id']}"})
         for x in rows:
             if x.op_no not in row_of:
                 continue
@@ -1134,8 +1151,26 @@ def gantt(ctx: AppContext, run_id: str, *, view: str, frm: datetime | None, to: 
                              f" ({x.split_index + 1}/{x.split_count})" if x.split_count > 1 else ""),
                          "order_number": x.order_number, "item_part_number": x.part_number, "qty": x.qty,
                          "late_minutes": x.late_minutes, "frozen": x.frozen, "locked": x.locked,
-                         "split": {"index": x.split_index, "count": x.split_count}, "status_color": color})
-        return {"view": view, "rows": out_rows, "bars": bars, "bands": bands, "truncated": truncated}
+                         "split": {"index": x.split_index, "count": x.split_count}, "status_color": color,
+                         "actual": live.get((x.order_id, x.seq)) or x.actual, "load_no": load_of.get(x.op_no),
+                         "moved_by_downtime": bool(x.moved_by_downtime)})
+        return {"view": view, "rows": out_rows, "bars": bars, "bands": bands, "truncated": truncated,
+                "batches": batches}
+
+
+def _live_actuals(s: Session, rows: list[MfgApsOpRow]) -> dict[tuple[str, int], dict[str, Any]]:
+    """M4 11: the floor state of the bars' WO operations now (start / end of the actual bar; open work ends now)."""
+    wo_ids = {x.order_id for x in rows if x.order_type == "wo"}
+    if not wo_ids:
+        return {}
+    now = utcnow()
+    out = {}
+    for r in s.execute(select(MfgWoOperationRow).where(MfgWoOperationRow.wo_id.in_(wo_ids),
+                                                       MfgWoOperationRow.actual_start.is_not(None))).scalars():
+        st, en = as_utc(r.actual_start), as_utc(r.actual_end) if r.actual_end else None
+        out[(r.wo_id, r.seq)] = {"status": r.status, "start": st, "end": en or now, "actual_start": st,
+                                 "actual_end": en, "wo_operation_id": r.id, "line_id": r.line_id}
+    return out
 
 
 def compare(ctx: AppContext, run_id: str, with_id: str) -> dict[str, Any]:

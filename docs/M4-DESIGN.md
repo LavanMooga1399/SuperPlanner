@@ -505,6 +505,63 @@ S0 interpretations / deviations:
    (lowest priority, newest version; serial effectivity ignored in SQL). Downgrade writes completed/skipped
    operations back as progress rows.
 
+
+**S1-S3 implementation notes (WP-S).**
+9. `mfg_items.issue_method` is S16 (not S8): `backflush` has 9 characters. New NOT NULL ORM columns carry Python-side
+   defaults (no server defaults) so older ORM writers keep working.
+10. Event rules: `event_at` never in the future (2 min slack); operators backdate <= 24 h; nothing earlier than the
+    WO's first actual start. `FLR_PREDECESSOR_OPEN` is a warning (F2), never a refusal; the quantity check is
+    consumed (good + scrap + rework sent back) <= input (predecessor good, first op `qty_planned`, + rework received);
+    supervisors force it with `force.reason`. A skipped operation passes its input through. `correct` replaces the
+    fields it carries on the referenced event (`event_at` only when given); `ready` is computed (`pending` with the
+    predecessor completed or its transfer batch reached). Labour minutes = interval minutes x operators recorded on
+    the event that opened the interval; a station login without badge scans records 0 operators, a personal login
+    the linked operator.
+11. Effects: scrap of every operation is booked on `work_orders.qty_scrapped` directly (the receipt line carries no
+    `scrap_qty`); the receipt of lot-controlled output goes into the lot named after the WO number; `reopen` of the
+    last operation reverses its receipts (WO back to in progress) - backflush issues are not reversed (the material
+    was consumed); a correction below the received quantity reverses all receipts of the operation and re-posts the
+    new total. A pending backflush of a WO that completed meanwhile is still posted by the retry. Effects run only for
+    report / complete / correct / reopen.
+12. Release (4.1): the first-operation kit check runs inside the M2 release action. **This changes M2 behaviour**:
+    releasing with a shortage now needs `override_reason`; `tests/api_mfg_m2/test_m2_documents_api.py` was updated;
+    `tests/acceptance_m2/test_acc_m2_08_wo_loop.py` (two tests, tester-owned) still release short WOs without a
+    reason and fail until LEAD/the tester adopt 4.1.
+13. M3 `/done` = `start` (if pending) + `complete` with the available input; one WO version step per shortcut.
+    Sample progress (M3 `PROGRESS`) is written as `complete` events marked `details.sample`.
+14. APS actuals (6.1): running / setup / paused operations replace their published placement and are placed first
+    on their line from as_of with the remaining quantity (`frozen = true`, reason `in_progress`, `actual` on the op);
+    open downtime without an end closes the line until as_of + 4 h; the validator re-derives closures,
+    superseded and downtime-moved placements from the snapshot. The `FLR_DOWNTIME_NO_END` exception is not emitted
+    as an APS exception (only the 4 h rule applies). Summary gains `actual_ops, moved_by_downtime, frozen_moved,
+    batches`; ops gain `actual`, `moved_by_downtime` (`mfg_aps_ops` columns in 0006).
+15. Batching (6.3): only single-load operations (qty <= units per batch) without crew/tools share loads; a member
+    joins a load that starts within its earliest start + the line's `batch_wait_minutes`; a partial load waits (same
+    limit) for compatible operations whose predecessors are placed. Shared-load placements are fixed for LNS
+    (`fixed = batch`). Loads are derived from the result (same line / start / end on a `batch_merge` line) and
+    stored in `run.extras.batches`; the validator counts a compatible load once for line capacity.
+16. Replan: the proposal is a live run of the published run's parameters (not `copy_of`, so `as_of` is taken when
+    it executes); debounce = the job's `run_after` (inline backend: a timer before dispatch). The time-based rules
+    (`not_started`, `late_receipt` via the published ops' release refs) run at most once a minute per workspace, in
+    the background for `GET /notifications` (the bell polls every page) and inline for `GET /replan/triggers`.
+    `overrun` uses the APS projection (remaining quantity at the planned rate) on `report` events; `rush_order`
+    runs on WO create / priority change and demand order create / update. `after_run` re-checks open triggers
+    after every APS run.
+17. KPIs: work intervals come from the event log; availability counts unplanned downtime inside base windows
+    (planned downtime is removed from the window); performance = standard minutes of reported units / running
+    minutes; FPY of inspection-gate operations = good / (good + scrap + rework sent back) of their reports; OTD and
+    WO on-time are plant-level only. Days are cached once closed (a `_computed` marker row per day).
+18. Risk run: one unperturbed base construction gives `base_end`; results carry per demand line
+    `samples_late_minutes` (histogram) and per supplier `late_lines` (late demand lines of samples in which one of
+    its delayed schedules is pegged to the line's orders, one level).
+19. UI gaps closed: `POST /downtime` honours `Idempotency-Key` (`mfg_downtime.idempotency_key`, replay 200 +
+    `Idempotent-Replay`); Gantt bars carry `actual` (live floor state), `load_no`, `moved_by_downtime`, bands kind
+    `downtime`, response `batches`; `GET /floor/operations/{id}` carries `reason_codes` {pause, scrap, rework}
+    (defaults in `model_m4.DEFAULT_REASON_CODES`, plant attribute `floor_reasons_<kind>` = "CODE:Label,..."
+    overrides); batch-load scans carry `context.line_id`.
+20. Not done in WP-S: the Kavach M4 sample (flags + 10-day event history) and FP2 (60-tablet load) / FP8 (1 M events)
+    measurements.
+
 ### 16.WP-U UI
 
 **Built (2026-10-31), types aligned to the S0 fixture, journey verified against the S1 engine.**

@@ -58,8 +58,9 @@ def store(s: Session, run: MfgApsRunRow, res: ApsResult, parents: dict[str, str]
     run.summary = res.summary.model_dump(mode="json")
     run.score = list(res.score)
     run.validation = res.validation.model_dump(mode="json")
-    run.extras = {"demand": [_j(d) for d in res.demand], "bottlenecks": [_j(b) for b in res.bottlenecks],
-                  "parents": parents}
+    keep = {k: v for k, v in (run.extras or {}).items() if k in ("replan",)}      # M4 7: proposal metadata
+    run.extras = {**keep, "demand": [_j(d) for d in res.demand], "bottlenecks": [_j(b) for b in res.bottlenecks],
+                  "parents": parents, "batches": list(res.batches)}
 
 
 def _pn(res: ApsResult, o: Any) -> str:

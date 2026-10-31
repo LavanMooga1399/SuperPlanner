@@ -207,9 +207,30 @@ def create_order(ctx: AppContext, inp: DemandOrderInput) -> dict[str, Any]:
         s.flush()
         _write_lines(s, o, inp, True)
         audit(s, "demand_order", o.id, "create", {"number": number, "lines": len(inp.lines)})
-        return order_records(s, [o])[0]
+        rec = order_records(s, [o])[0]
+        rec["_rush"] = _rush(s, o)
+        return rec
 
-    return run_tx(ctx, fn)
+    return _after_rush(ctx, run_tx(ctx, fn))
+
+
+def _rush(s: Session, o: MfgDemandOrderRow) -> list[Any]:
+    """M4-DESIGN 7 `rush_order`: demand lines of priority <= 2 (line priority, else the order's)."""
+    from . import replan
+
+    out: list[Any] = []
+    for dl in s.execute(select(MfgDemandLineRow).where(MfgDemandLineRow.order_id == o.id)).scalars():
+        prio = dl.priority if dl.priority is not None else o.priority
+        out += replan.on_document(s, "demand_line", dl.id, f"{o.number}/{dl.line_no}", prio, dl.due_date)
+    return out
+
+
+def _after_rush(ctx: AppContext, rec: dict[str, Any]) -> dict[str, Any]:
+    if rec.pop("_rush", None):
+        from . import replan
+
+        replan.apply_policy(ctx)
+    return rec
 
 
 def update_order(ctx: AppContext, order_id: str, inp: DemandOrderInput, if_match: str | None) -> dict[str, Any]:
@@ -236,9 +257,11 @@ def update_order(ctx: AppContext, order_id: str, inp: DemandOrderInput, if_match
         touch(o)
         s.flush()
         audit(s, "demand_order", o.id, "update", {"number": o.number, "version": o.row_version})
-        return order_records(s, [o])[0]
+        rec = order_records(s, [o])[0]
+        rec["_rush"] = _rush(s, o)
+        return rec
 
-    return run_tx(ctx, fn)
+    return _after_rush(ctx, run_tx(ctx, fn))
 
 
 def _shipped(s: Session, order_id: str) -> bool:

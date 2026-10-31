@@ -195,7 +195,8 @@ sim_done = J(M.SimulationRecord, dict(sim_q, status="completed", row_version=3, 
     "samples_done": 20, "seed": 7,
     "demand": [{"demand_line_id": iid("dln", 1), "order": "DO-KV-003/1", "part_number": "KV-TPU-1000",
                 "due": iso(60 * 24 * 6), "p_on_time": 0.35, "p50": iso(60 * 24 * 6.5), "p90": iso(60 * 24 * 8),
-                "base_end": iso(60 * 24 * 5.8)}],
+                "base_end": iso(60 * 24 * 5.8), "samples_late_minutes": [0, 0, 0, 0, 0, 0, 0, 120, 480, 600, 720, 900,
+                                                                     1200, 1440, 1440, 1800, 2160, 2880, 3600, 4320]}],
     "lines": [{"line": l_smt, "expected_lost_hours": 3.1, "mtbf_hours": 160.0, "breakdowns_sampled": 9}],
     "suppliers": [{"supplier": {"id": iid("sup", 1), "code": "SUP-FPGA", "name": "FPGA Distribution"},
                    "late_lines": 7, "mean_delay_days": 4.2, "history_receipts": 11}]}))
@@ -229,7 +230,8 @@ op_detail = J(M.FloorOperationDetail, {
     "tools": [{"tool_pool": {"id": iid("tlp", 1), "code": "STENCIL-17", "name": "Stencil 17"}, "qty": 1}],
     "eligible_lines": [l_smt, {"id": iid("lin", 5), "code": "SMT-2", "name": "SMT line 2"}],
     "expected_input": 100.0, "events": events, "allowed_actions": ["pause", "report", "complete"],
-    "serials": {"capture": False, "produced": [], "consumable": []}})
+    "serials": {"capture": False, "produced": [], "consumable": []},
+    "reason_codes": {k: [{"code": c, "label": lb} for c, lb in v] for k, v in M.DEFAULT_REASON_CODES.items()}})
 
 event_body = {"client_event_id": "tab-smt1-001048", "wo_operation_id": OP10, "event_type": "complete",
               "line_id": SMT1, "operator_codes": ["OP-SMT-1", "OP-ICT-1"], "qty_good": 55, "qty_scrap": 3,
@@ -271,6 +273,18 @@ fx = {
                                        "context": {"wo_id": WO1, "seq": 10, "status": "running", "line_id": SMT1}}),
     "scan_operator": J(M.ScanResult, {"type": "operator", "id": EMP1, "label": "OP-SMT-1 Asha", "link": "",
                                       "context": {"code": "OP-SMT-1"}}),
+    "scan_batch_load": J(M.ScanResult, {"type": "batch_load", "id": BL1, "label": "Load BL:00000001 on BI-1",
+                                        "link": f"/mfg/floor/loads/{BL1}",
+                                        "context": {"status": "open", "line_id": BI1}}),
+    "downtime_replay_200": {"headers": {"Idempotent-Replay": "true"}, "note": "POST /downtime with the same "
+                            "Idempotency-Key returns the stored downtime (200) instead of a duplicate"},
+    "gantt_m4": {"bar_fields": {"actual": {"status": "running", "start": iso(-120), "end": iso(0),
+                                           "actual_start": iso(-120), "actual_end": None, "wo_operation_id": OP10,
+                                           "line_id": SMT1},
+                                "load_no": None, "moved_by_downtime": False},
+                 "band_downtime": {"row_key": f"line:{SMT1}", "start": iso(5), "end": iso(245), "kind": "downtime"},
+                 "batches": [{"load_no": 1, "line_id": BI1, "row_key": f"line:{BI1}", "start": iso(400),
+                              "end": iso(1120), "members": [{"op_no": 2, "qty": 5.0}, {"op_no": 7, "qty": 3.0}]}]},
     "scan_unknown_404": {"error": {"code": "FLR_SCAN_UNKNOWN", "message": "Nothing matches 'XYZ-1'.",
                                    "details": {"code": "XYZ-1"}}},
     "queue": queue,

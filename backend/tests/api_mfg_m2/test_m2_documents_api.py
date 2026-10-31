@@ -185,7 +185,8 @@ def test_work_order_flow_reserve_kitting_issue_receipt(api: Api):
     assert w["bom"] is not None and w["start_date"] < due
     api.err("POST", "/work-orders", 422, "MFG_ITEM_NOT_MAKE", json={"item_id": x["c1"]["id"], "qty": 1,
                                                                      "due_date": due})
-    w = api.post(f"/work-orders/{w['id']}/release", {"reserve": True}, version=w["row_version"], status=200)
+    w = api.post(f"/work-orders/{w['id']}/release", {"reserve": True, "override_reason": "partial kit (M4 4.1)"},
+                 version=w["row_version"], status=200)
     assert w["status"] == "released"
     res = {r["component_id"]: r for r in w["reserved"]}
     c1 = next(c for c in w["components"] if c["item"]["part_number"] == "C1")

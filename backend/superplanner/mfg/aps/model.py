@@ -29,10 +29,11 @@ RUN_STATUSES: tuple[str, ...] = ("queued", "running", "completed", "failed", "ca
 OrderType = Literal["wo", "planned"]
 OpStatus = Literal["scheduled", "unscheduled"]
 ReasonCode = Literal["as_of", "material", "predecessor", "line_busy", "no_window", "crew", "tool", "setup", "frozen",
-                     "locked", "elapsed", "edit", "beyond_horizon", "material_missing", "no_line", "in_progress"]
+                     "locked", "elapsed", "edit", "beyond_horizon", "material_missing", "no_line", "in_progress",
+                     "batch"]
 REASON_CODES: tuple[str, ...] = ("as_of", "material", "predecessor", "line_busy", "no_window", "crew", "tool",
                                  "setup", "frozen", "locked", "elapsed", "edit", "beyond_horizon",
-                                 "material_missing", "no_line", "in_progress")
+                                 "material_missing", "no_line", "in_progress", "batch")
 #: unscheduled reasons (an operation without a placement always has one of these)
 UNSCHEDULED_REASONS: tuple[str, ...] = ("beyond_horizon", "material_missing", "no_window", "no_line", "crew", "tool")
 OvertimeStatus = Literal["opened", "suggested", "forced"]
@@ -565,6 +566,8 @@ class ApsResult(MfgModel):
     bottlenecks: list[Bottleneck]
     iterations: int = 0
     budget_used: float = 0.0
+    #: M4-DESIGN 6.3: shared loads [{load_no, line_id, start, end, members: [{op_no, qty}]}]
+    batches: list[dict[str, Any]] = Field(default_factory=list)
 
 
 def canonical(result: ApsResult) -> str:
@@ -600,13 +603,17 @@ class GanttBar(MfgModel):
     locked: bool
     split: SplitInfo
     status_color: Literal["on_time", "late", "critical", "frozen", "locked"]
+    # M4-DESIGN 11: execution state (drawn under the planned bar), batch load, downtime move
+    actual: dict[str, Any] | None = None
+    load_no: int | None = None
+    moved_by_downtime: bool = False
 
 
 class GanttBand(MfgModel):
     row_key: str
     start: datetime
     end: datetime
-    kind: Literal["base", "optional_opened", "optional_suggested", "closed", "absence"]
+    kind: Literal["base", "optional_opened", "optional_suggested", "closed", "absence", "downtime"]
 
 
 class Gantt(MfgModel):
@@ -615,6 +622,7 @@ class Gantt(MfgModel):
     bars: list[GanttBar]
     bands: list[GanttBand]
     truncated: bool
+    batches: list[dict[str, Any]] = Field(default_factory=list)       # M4 6.3
 
 
 class DispatchRow(MfgModel):
