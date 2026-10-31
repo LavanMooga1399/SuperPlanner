@@ -88,7 +88,8 @@ SHEETS: tuple[SheetSpec, ...] = (
         _c("fixed_lot_qty", "float"), _c("min_order_qty", "float"), _c("order_multiple", "float"),
         _c("safety_stock", "float"), _c("serialized", "bool"), _c("shelf_life_days", "int"),
         _c("handling_class"), _c("handling_note"), _c("active", "bool"), _c("external_ref"),
-        _c("standard_cost", "float"), _c("lot_controlled", "bool"), _c("lot_period_days", "int")),
+        _c("standard_cost", "float"), _c("lot_controlled", "bool"), _c("lot_period_days", "int"),
+        _c("issue_method", enum=("manual", "backflush"))),
               attr_columns=True),
     SheetSpec("skills", (_c("code", req=True, key=True), _c("name", req=True), _c("description"))),
     SheetSpec("tool_pools", (_c("code", req=True, key=True), _c("name", req=True), _c("kind"),
@@ -98,7 +99,8 @@ SHEETS: tuple[SheetSpec, ...] = (
     SheetSpec("lines", (_c("code", req=True, key=True), _c("group_code", req=True), _c("name", req=True),
                         _c("speed_factor", "float"), _c("parallel_capacity", "int"), _c("setup_family"),
                         _c("eligible_families", "list"), _c("eligible_part_numbers", "list"),
-                        _c("cost_per_hour", "float"), _c("active", "bool"))),
+                        _c("cost_per_hour", "float"), _c("active", "bool"), _c("batch_merge", "bool"),
+                        _c("batch_wait_minutes", "int"))),
     SheetSpec("shift_templates", (_c("code", req=True, key=True), _c("name", req=True), _c("description"))),
     SheetSpec("shifts", (_c("template_code", req=True, key=True), _c("shift_name", req=True, key=True),
                          _c("days", "list", req=True), _c("start", req=True), _c("end", req=True),
@@ -132,7 +134,7 @@ SHEETS: tuple[SheetSpec, ...] = (
         _c("queue_minutes", "float"), _c("move_minutes", "float"), _c("wait_minutes", "float"),
         _c("labor", enum=("attended", "unattended")), _c("crew_size", "int"), _c("skill_code"),
         _c("tools", "list"), _c("transfer_batch", "int"), _c("yield_pct", "float"), _c("inspection_gate", "bool"),
-        _c("interruptible", "bool"))),
+        _c("interruptible", "bool"), _c("capture_serial", "bool"))),
     # ------------------------------------------------------------ M2-DESIGN 11 (after the M1 sheets)
     SheetSpec("locations", (_c("code", req=True, key=True), _c("name", req=True),
                             _c("kind", req=True, enum=("stores", "line_side", "inspection", "quarantine")),
@@ -346,7 +348,8 @@ def dataset_to_bundle(ds: MfgDataset, scope: Literal["all", "master", "transacti
                "serialized": it.serialized, "shelf_life_days": it.shelf_life_days,
                "handling_class": it.handling_class, "handling_note": it.handling_note, "active": it.active,
                "external_ref": it.external_ref, "standard_cost": _f(it.standard_cost),
-               "lot_controlled": it.lot_controlled, "lot_period_days": it.lot_period_days}
+               "lot_controlled": it.lot_controlled, "lot_period_days": it.lot_period_days,
+               "issue_method": getattr(it, "issue_method", "manual")}
         for k in sorted(it.attributes):
             row[ATTR_PREFIX + k] = it.attributes[k]
         out["items"].append(row)
@@ -366,7 +369,9 @@ def dataset_to_bundle(ds: MfgDataset, scope: Literal["all", "master", "transacti
                              "speed_factor": float(ln.speed_factor), "parallel_capacity": ln.parallel_capacity,
                              "setup_family": ln.setup_family, "eligible_families": sorted(ln.eligible_families),
                              "eligible_part_numbers": sorted(pn[i] for i in ln.eligible_item_ids if i in pn),
-                             "cost_per_hour": float(ln.cost_per_hour), "active": ln.active})
+                             "cost_per_hour": float(ln.cost_per_hour), "active": ln.active,
+                             "batch_merge": bool(getattr(ln, "batch_merge", False)),
+                             "batch_wait_minutes": int(getattr(ln, "batch_wait_minutes", 0) or 0)})
     tcode = {t.id: t.code for t in ds.shift_templates.values()}
     for t in sorted(ds.shift_templates.values(), key=lambda x: x.code):
         out["shift_templates"].append({"code": t.code, "name": t.name, "description": t.description})
@@ -432,7 +437,8 @@ def dataset_to_bundle(ds: MfgDataset, scope: Literal["all", "master", "transacti
                 "crew_size": op.crew_size, "skill_code": scode.get(op.skill_id or ""),
                 "tools": sorted(format_tool(tools.get(t.tool_pool_id, "?"), t.qty) for t in op.tools),
                 "transfer_batch": op.transfer_batch, "yield_pct": float(op.yield_pct),
-                "inspection_gate": op.inspection_gate, "interruptible": op.interruptible})
+                "inspection_gate": op.inspection_gate, "interruptible": op.interruptible,
+                "capture_serial": bool(getattr(op, "capture_serial", False))})
     for loc in sorted(ds.locations.values(), key=lambda x: x.code):
         out["locations"].append({"code": loc.code, "name": loc.name, "kind": loc.kind,
                                  "receipt_default": loc.receipt_default, "active": loc.active,

@@ -87,6 +87,24 @@ export const mfgPaths = {
   apsExceptions: (runId: string, q?: { code?: string; severity?: string }) => `${MFG}/schedule/runs/${enc(runId)}/exceptions${queryString(q)}`,
   apsCompare: (runId: string, withId?: string) => `${MFG}/schedule/runs/${enc(runId)}/compare${queryString({ with: withId })}`,
   setups: () => `${MFG}/plant/setups`,
+
+  // ---------------------------------------------------------------- M4 (12)
+  floor: () => `${MFG}/floor`,
+  floorLine: (lineId: string, q?: { shift?: string; date?: string }) => `${MFG}/floor/lines/${enc(lineId)}${queryString(q)}`,
+  floorOp: (woOpId: string) => `${MFG}/floor/ops/${enc(woOpId)}`,
+  floorWo: (woId: string) => `${MFG}/floor/wo/${enc(woId)}`,
+  floorDowntime: (lineId: string) => `${MFG}/floor/lines/${enc(lineId)}/downtime`,
+  floorBatch: (lineId: string) => `${MFG}/floor/lines/${enc(lineId)}/batch`,
+  floorOverview: () => `${MFG}/floor/overview`,
+  floorEvents: (q?: { wo?: string; line?: string; op?: string }) => `${MFG}/floor/events${queryString(q)}`,
+  replan: () => `${MFG}/replan`,
+  kpis: () => `${MFG}/kpis`,
+  serials: () => `${MFG}/serials`,
+  serial: (id: string) => `${MFG}/serials/${enc(id)}`,
+  simulations: () => `${MFG}/schedule/simulations`,
+  simulation: (id: string) => `${MFG}/schedule/simulations/${enc(id)}`,
+  printTraveller: (woId: string) => `${MFG}/print/traveller/${enc(woId)}`,
+  printLabels: (q: { type: "lot" | "serial" | "badge"; ids?: string; item?: string; codes?: string }) => `${MFG}/print/labels${queryString(q)}`,
 };
 
 /** M 11.1 `isMfgPath`. */

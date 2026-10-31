@@ -34,15 +34,22 @@ def run_model(kind: str) -> Any:
         from ..api.mfg.db_models_m3 import MfgApsRunRow
 
         return MfgApsRunRow
+    if kind == "aps_simulation":
+        from ..api.mfg.db_models_m4 import MfgApsSimulationRow
+
+        return MfgApsSimulationRow
     raise ValueError(f"unknown job kind {kind!r}")
 
 
 def set_run_error(run: Any, message: str | None) -> None:
     """Kind-aware run error (m5): APS runs store `{code, message}`, solver / finance runs a string."""
     from ..api.mfg.db_models_m3 import MfgApsRunRow
+    from ..api.mfg.db_models_m4 import MfgApsSimulationRow
 
     if isinstance(run, MfgApsRunRow) and message is not None:
         run.error = {"code": "APS_RUN_FAILED", "message": str(message)[:500]}
+    elif isinstance(run, MfgApsSimulationRow) and message is not None:
+        run.error = {"code": "APS_SIMULATION_FAILED", "message": str(message)[:500]}
     else:
         run.error = message
 
@@ -64,7 +71,7 @@ def add_run_event(kind: str, s: Session, run_id: str, type_: str, fields: dict[s
         from ..api.services import run_service
 
         run_service.add_event(s, run_id, type_, fields, 0.0)
-    elif kind == "aps_run":
+    elif kind in ("aps_run", "aps_simulation"):
         return   # APS runs have no event log (progress lives on the run row, M3-DESIGN 10)
     else:
         from ..api.finance import run_service as finance_run_service
@@ -93,7 +100,8 @@ def new_job(s: Session, kind: str, run_id: str, owner_id: str, max_attempts: int
     now = utcnow()
     job = JobRow(id=new_id("job_"), kind=kind, solver_run_id=run_id if kind == "solver_run" else None,
                  finance_run_id=run_id if kind == "finance_run" else None,
-                 aps_run_id=run_id if kind == "aps_run" else None, owner_id=owner_id, status="queued",
+                 aps_run_id=run_id if kind == "aps_run" else None,
+                 aps_simulation_id=run_id if kind == "aps_simulation" else None, owner_id=owner_id, status="queued",
                  priority=0, attempts=0, max_attempts=max_attempts, run_after=now, cancel_requested=False,
                  idempotency_key=idempotency_key, request_hash=request_hash, request_id=request_id,
                  created_at=now, updated_at=now)
@@ -279,7 +287,7 @@ def fail_inline_leftovers(ctx: Any) -> int:
     with system_scope():
         with ctx.db.read() as s:
             rows = s.execute(select(JobRow.id, JobRow.kind, JobRow.solver_run_id, JobRow.finance_run_id,
-                                    JobRow.aps_run_id)
+                                    JobRow.aps_run_id, JobRow.aps_simulation_id)
                              .where(JobRow.status == "running", JobRow.lease_expires_at.is_(None))).all()
         for row in rows:
             run_id = getattr(row, RUN_ID_COLUMN[row.kind])

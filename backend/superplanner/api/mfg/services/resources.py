@@ -191,6 +191,20 @@ def list_operators(ctx: AppContext, q: str | None, active: bool | None, skill_id
         return {"items": operator_records(s, rows)}
 
 
+def _operator_user(s: Session, inp: OperatorInput, exclude_id: str | None) -> None:
+    """M4-DESIGN 3.1: `user_id` is the workspace owner or a member of it, and links at most one operator."""
+    if inp.user_id is None:
+        return
+    from ..db_models import MfgPlantRow
+    from ..db_models_m2 import MfgPlantMemberRow
+
+    owner = s.execute(select(MfgPlantRow.owner_id)).scalar()
+    member = s.execute(select(MfgPlantMemberRow.id).where(MfgPlantMemberRow.user_id == inp.user_id)).scalar()
+    if inp.user_id != owner and member is None:
+        raise unknown_ref(["body", "user_id"], inp.user_id, "Workspace member")
+    ensure_unique(s, MfgOperatorRow, "An operator", {"user_id": inp.user_id}, exclude_id=exclude_id)
+
+
 def _operator_refs(s: Session, inp: OperatorInput) -> None:
     if inp.skill_ids:
         found = set(s.execute(select(MfgSkillRow.id).where(MfgSkillRow.id.in_(inp.skill_ids))).scalars())
@@ -231,6 +245,7 @@ def _set_operator(s: Session, row: MfgOperatorRow, inp: OperatorInput, old: list
 def create_operator(ctx: AppContext, inp: OperatorInput) -> OperatorRecord:
     with write_tx(ctx) as (s, _):
         _operator_refs(s, inp)
+        _operator_user(s, inp, None)
         ensure_unique(s, MfgOperatorRow, "An operator", {"code": inp.code})
         check_limit(s, MfgOperatorRow, L.MAX_OPERATORS, "operators")
         now = utcnow()
@@ -252,6 +267,7 @@ def update_operator(ctx: AppContext, operator_id: str, inp: OperatorInput, if_ma
         row = repo.get_row(s, MfgOperatorRow, operator_id, what="Operator", lock=True)
         check_version(row, if_match)
         _operator_refs(s, inp)
+        _operator_user(s, inp, row.id)
         ensure_unique(s, MfgOperatorRow, "An operator", {"code": inp.code}, exclude_id=row.id)
         old = list(s.execute(select(MfgOperatorSkillRow.skill_id).where(MfgOperatorSkillRow.operator_id == row.id))
                    .scalars())

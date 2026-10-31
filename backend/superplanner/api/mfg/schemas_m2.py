@@ -33,6 +33,8 @@ class ConvertPrRequest(_Strict):
 
 class ReleaseWoRequest(_Strict):
     reserve: bool = False
+    #: M4-DESIGN 4.1: release despite a component shortage of the first operation (stored in `release_override`)
+    override_reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] | None = None
 
 
 class ComponentIdsRequest(_Strict):

@@ -48,8 +48,8 @@ def test_migration_0004_to_0005_and_back(empty_pg_db):
     finally:
         eng.dispose()
     t4 = _tables(url)
-    migrate.run_alembic_upgrade(url)
-    assert _tables(url) - t4 == set(M3_TABLES) and migrate.schema_state(url) == "current"
+    migrate.run_alembic_upgrade(url, "0005_mfg_m3")       # M4 (0006) on top: tests/api_mfg_m4
+    assert _tables(url) - t4 == set(M3_TABLES) | {"mfg_wo_op_progress"} and migrate.schema_state(url) == "behind"
     eng = sa.create_engine(url)
     try:
         with eng.begin() as c:

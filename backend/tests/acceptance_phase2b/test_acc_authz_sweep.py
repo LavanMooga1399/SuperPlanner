@@ -240,6 +240,52 @@ def make_mfg_m3_world(c: TestClient, w: dict[str, Any], make_item: dict[str, Any
         "/aps/runs/{run_id}": {"label": "x"},
         "/aps/runs/{run_id}/edits": {"edits": [{"kind": "lock", "op_no": aops[0]["op_no"]}]},
     })
+    make_mfg_m4_world(c, w, make_item, line, op)
+
+
+def make_mfg_m4_world(c: TestClient, w: dict[str, Any], make_item: dict[str, Any], line: dict[str, Any],
+                      rop: dict[str, Any]) -> None:
+    """M4 objects (M4-DESIGN 13.1): a released serialized WO with floor events (operation, unit serial, a
+    scrap-shortfall trigger and its notification), downtime, a batch load and one risk simulation."""
+    ids = w["mfg_ids"]
+
+    def ok(r: Any, code: int = 201) -> Any:
+        assert r.status_code == code, r.text
+        return r.json()
+
+    it = ok(c.post(f"{MFG}/items", json={"part_number": "SW-SER", "make_buy": "make", "serialized": True,
+                                         "family": make_item.get("family")}))
+    ops = [{"seq": q, "name": f"Op {q}", "group_id": rop["group_id"], "run_minutes": 1, "run_per": "batch",
+            "units_per_batch": 10, "labor": "unattended", "crew_size": 0, "capture_serial": q == 10}
+           for q in (10, 20)]
+    rt = ok(c.post(f"{MFG}/routings", json={"item_id": it["id"], "operations": ops}))
+    ok(c.post(f"{MFG}/routings/{rt['id']}/release", json={}, headers={"If-Match": f'"{rt["row_version"]}"'}), 200)
+    wo = ok(c.post(f"{MFG}/work-orders", json={"item_id": it["id"], "qty": 2, "due_date": "2026-12-15"}))
+    wo = ok(c.post(f"{MFG}/work-orders/{wo['id']}/release", json={"override_reason": "sweep"},
+                   headers={"If-Match": f'"{wo["row_version"]}"'}), 200)
+    wops = ok(c.get(f"{MFG}/work-orders/{wo['id']}/operations"), 200)["items"]
+    o10, o20 = wops[0]["id"], wops[1]["id"]
+    ok(c.post(f"{MFG}/floor/events", json={"client_event_id": "sweep-0001", "wo_operation_id": o10,
+                                           "event_type": "start", "line_id": line["id"]}))
+    r = ok(c.post(f"{MFG}/floor/events", json={"client_event_id": "sweep-0002", "wo_operation_id": o10,
+                                               "event_type": "complete", "qty_good": 1, "qty_scrap": 1,
+                                               "serials": {"produced": ["SW-1"]}}))
+    assert [t["kind"] for t in r["triggers"]] == ["scrap_shortfall"], r
+    serial = ok(c.get(f"{MFG}/serials", params={"item_id": it["id"]}), 200)["items"][0]
+    notif = ok(c.get(f"{MFG}/notifications"), 200)["items"][0]
+    dt = ok(c.post(f"{MFG}/downtime", json={"line_id": line["id"], "kind": "maintenance", "planned": True,
+                                           "start_at": "2027-02-01T08:00:00+05:30",
+                                           "end_at": "2027-02-01T10:00:00+05:30"}))
+    load = ok(c.post(f"{MFG}/batch-loads", json={"line_id": line["id"], "members": [
+        {"wo_operation_id": o20, "qty": 1}]}))
+    sim = ok(c.post(f"{MFG}/aps/simulations", json={"base_run_id": ids["aps_run_id"], "samples": 1}), 202)
+    wait_for(lambda: (lambda j: j if j["status"] not in ("queued", "running") else None)(
+        c.get(f"{MFG}/aps/simulations/{sim['id']}").json()), 90, 0.2, what="simulation")
+    ids.update({"wo_op_id": o10, "downtime_id": dt["id"], "load_id": load["id"], "serial_id": serial["id"],
+                "trigger_id": r["triggers"][0]["id"], "notification_id": notif["id"], "simulation_id": sim["id"]})
+    w["mfg_bodies"].update({
+        "/downtime/{downtime_id}": {"reason": "x"},
+    })
 
 
 def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
@@ -326,7 +372,7 @@ def fill(path: str, ids: dict[str, str]) -> str:
 
 
 def normalize(body: bytes, ids: list[str]) -> bytes:
-    for i in ids:
+    for i in sorted(ids, key=len, reverse=True):      # longest first: short ids ("1", "10") are substrings
         body = body.replace(i.encode(), b"<ID>")
     return body
 

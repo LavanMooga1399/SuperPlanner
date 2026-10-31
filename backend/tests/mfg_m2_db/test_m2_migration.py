@@ -50,7 +50,7 @@ def _diffs(url: str) -> list:
 
 
 def test_head_and_table_lists():
-    assert migrate.HEAD == "0005_mfg_m3"   # M3 on top (M3-DESIGN 10)
+    assert migrate.HEAD == "0006_mfg_m4"   # M3 and M4 on top (M3-DESIGN 10, M4-DESIGN 3.2)
     assert len(M2_TABLES) == 22 and len(M2_MODELS) == 21 and len(MFG_ACCESS_MODELS) == 1
     assert [m.__tablename__ for m in ALL_MFG_MODELS][-21:] == [
         "mfg_locations", "mfg_suppliers", "mfg_item_suppliers", "mfg_lots", "mfg_purchase_docs", "mfg_purchase_lines",

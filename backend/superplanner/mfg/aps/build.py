@@ -301,6 +301,11 @@ def build(snap: ApsSnapshot, params: ApsParams, policy: str, horizon_days: int) 
             (closes if ov.mode == "close" else opens).setdefault(lid, []).append(iv)
     for sh in params.open_shifts:       # accepted suggestions (16 Q1): planner-opened optional time
         opens.setdefault(sh.line_id, []).append((clock.to_min(sh.start, ceil=False), clock.to_min(sh.end)))
+    from .actuals import closures as _closures         # M4-DESIGN 6.1 / 8: downtime and what-if breakdowns
+    for lid, spans in _closures(snap, params).items():
+        for a, b in spans:
+            closes.setdefault(lid, []).append((clock.to_min(a, ceil=False), clock.to_min(b)))
+    actuals = getattr(snap, "actuals", {}) or {}
 
     # ---- orders
     items = ds.items
@@ -341,6 +346,16 @@ def build(snap: ApsSnapshot, params: ApsParams, policy: str, horizon_days: int) 
         qs = lot_inputs(all_ops, o.qty, o.count_uom)
         it = items[o.item_id]
         remaining = [(r, q) for r, q in zip(all_ops, qs) if r.seq not in done]
+        if o.type == "wo" and actuals:                  # M4 6.1: the floor's remaining quantity
+            rq = []
+            for r, q in remaining:
+                a = actuals.get((o.id, r.seq))
+                if a is not None and a.status != "pending":
+                    if a.remaining <= 1e-9:
+                        continue
+                    q = float(a.remaining)
+                rq.append((r, q))
+            remaining = rq
         prev = None
         for idx, (r, q) in enumerate(remaining):
             lines = [ln.id for ln in eligible_lines(ds, r.group_id, it)]
@@ -419,6 +434,7 @@ def build(snap: ApsSnapshot, params: ApsParams, policy: str, horizon_days: int) 
     m = Model(clock, params, policy, horizon, window_end, ds, lines, operators, tools, orders, ops, matrix, rates, {},
               exc, items, forced)
     _fixed_from_published(snap, m)
+    _actuals(snap, params, m)
     m.moves = {k: (v[0], clock.to_min(v[1], ceil=False) if v[1] is not None else None, *v[2:])  # type: ignore
                for k, v in snap.moves.items()}
     if snap.mrp is not None:
@@ -506,6 +522,30 @@ def _material(snap: ApsSnapshot, params: ApsParams, clock: Clock, o: Order, orde
         if mt.missing:
             mt.at = None
         op.material = mt
+
+
+def _actuals(snap: ApsSnapshot, params: ApsParams, m: Model) -> None:
+    """M4 6.1: active floor operations replace their published placement and are planned first on their line;
+    frozen placements overlapping a closure on their line are re-planned (`moved_by_downtime`)."""
+    from .actuals import moved_by_downtime, superseded
+
+    sup = superseded(snap)
+    moved = moved_by_downtime(snap, params)
+    m.actual_first = {}                  # type: ignore[attr-defined]
+    m.moved_by_downtime = set()          # type: ignore[attr-defined]
+    for (key, si), fx in list(m.fixed.items()):
+        op = next((o for o in m.ops if o.key == key), None)
+        if op is None:
+            continue
+        if (op.order.id, op.seq) in sup:
+            del m.fixed[(key, si)]
+        elif fx.kind in ("frozen", "in_progress") and (op.order.id, op.seq, si) in moved:
+            del m.fixed[(key, si)]
+            m.moved_by_downtime.add(key)  # type: ignore[attr-defined]
+    for op in m.ops:
+        a = (snap.actuals or {}).get((op.order.id, op.seq)) if op.order.type == "wo" else None
+        if a is not None and a.active and a.line_id in m.lines and a.line_id in op.lines:
+            m.actual_first[op.key] = a        # type: ignore[attr-defined]
 
 
 def _fixed_from_published(snap: ApsSnapshot, m: Model) -> None:

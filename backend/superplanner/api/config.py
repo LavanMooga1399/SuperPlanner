@@ -36,7 +36,7 @@ AUTH_MODES = ("single_user", "accounts")
 PASSWORD_HASH_PROFILES = ("default", "fast")
 LOG_FORMATS = ("text", "json")
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-JOB_KINDS = ("solver_run", "finance_run", "aps_run")
+JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation")
 
 
 class ConfigError(ValueError):

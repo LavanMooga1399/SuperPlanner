@@ -50,7 +50,8 @@ def horizon_days(snap: ApsSnapshot, params: ApsParams) -> int:
 
 
 def run_kind(params: ApsParams, mrp_kind: str | None) -> str:
-    if params.as_of is not None or params.material == "ignore" or params.capacity_overrides or mrp_kind == "what_if":
+    if params.as_of is not None or params.material == "ignore" or params.capacity_overrides or mrp_kind == "what_if" \
+            or getattr(params, "supply_delays", None) or getattr(params, "line_breakdowns", None):    # M4 8
         return "what_if"
     return "live"
 
@@ -106,9 +107,44 @@ def overtime_cost(m: Model, sc: Schedule) -> float:
 
 # ---------------------------------------------------------------- top level
 
+def _actual_of(snap: ApsSnapshot, o: Any, op: Any) -> dict[str, Any] | None:
+    a = (getattr(snap, "actuals", {}) or {}).get((o.id, op.seq)) if o.type == "wo" else None
+    if a is None:
+        return None
+    return {"status": a.status, "actual_start": a.actual_start.isoformat() if a.actual_start else None,
+            "wo_operation_id": a.wo_operation_id}
+
+
+def _frozen_moved(snap: ApsSnapshot, sops: list[Any]) -> int:
+    """Frozen published placements that moved for a reason other than downtime / the floor (7 auto-publish)."""
+    from .actuals import moved_by_downtime, superseded
+
+    if snap.published is None:
+        return 0
+    freeze = int(getattr(snap.dataset.plant, "aps_freeze_hours", 48) or 0) * 60
+    excused = moved_by_downtime(snap, None) | {(w, q, si) for (w, q) in superseded(snap) for si in range(64)}
+    by = {(x.order.id, x.seq, x.split.index): x for x in sops}
+    n = 0
+    for p in snap.published.ops:
+        if p.start is None or p.end is None or p.line_id is None:
+            continue
+        s = (p.start - snap.as_of).total_seconds() / 60
+        e = (p.end - snap.as_of).total_seconds() / 60
+        if e <= 0 or (s >= freeze and not s < 0 < e) or (p.order_id, p.seq, p.split_index) in excused:
+            continue
+        x = by.get((p.order_id, p.seq, p.split_index))
+        if x is not None and x.status == "scheduled" and (x.line_id != p.line_id or x.start != p.start):
+            n += 1
+    return n
+
+
 def schedule(snap: ApsSnapshot, params: ApsParams, progress: Progress | None = None,
              cancelled: Callable[[], bool] | None = None, *, wall_cap: float | None = None) -> ApsResult:
     t0 = time.monotonic()
+    if getattr(params, "supply_delays", None):        # M4-DESIGN 8 what-if
+        from .actuals import apply_supply_delays
+
+        snap = apply_supply_delays(snap, params.supply_delays)
     timings: dict[str, int] = {}
     policy = _policy(snap, params)
     hd = horizon_days(snap, params)
@@ -334,7 +370,8 @@ def assemble(snap: ApsSnapshot, params: ApsParams, m: Model, sc: Schedule, polic
             tools=[ToolUse(tool_pool_id=t, qty=q) for t, q in p.tools], release=release,
             locked=p.fixed in ("locked", "edit"), frozen=p.fixed in ("frozen", "in_progress"), status="scheduled",
             reason=StartReason(code=reason_code, refs=refs, text=txt), due=due, late_minutes=int(late),
-            family=op.family, setup_from_family=p.prev_family))
+            family=op.family, setup_from_family=p.prev_family, actual=_actual_of(snap, o, op),
+            moved_by_downtime=op.key in getattr(m, "moved_by_downtime", ())))
     # ---- orders + late chains
     from .explain import late_chain
 
@@ -441,7 +478,10 @@ def assemble(snap: ApsSnapshot, params: ApsParams, m: Model, sc: Schedule, polic
         bottlenecks=[b.group_id for b in bottl], setup_minutes=int(sc_score[5]), changeovers=len(setups),
         avg_flow_days=round(sum(flows) / len(flows), 3) if flows else 0.0, makespan_minutes=int(sc_score[4]),
         splits=sum(1 for ps in sc.placed.values() if len(ps) > 1), iterations=iterations, accepted_moves=accepted,
-        budget_used=round(used, 3), budget_cut=cut)
+        budget_used=round(used, 3), budget_cut=cut,
+        actual_ops=sum(1 for x in sops if x.actual is not None and x.actual.get("status") in ("setup", "running",
+                                                                                            "paused")),
+        moved_by_downtime=sum(1 for x in sops if x.moved_by_downtime), frozen_moved=_frozen_moved(snap, sops))
     mrp_kind = snap.mrp.kind if snap.mrp is not None else None
     return ApsResult(params=params, kind=run_kind(params, mrp_kind), as_of=clock.as_of,
                      horizon_end=clock.to_dt(m.horizon), summary=summ, score=sc_score, validation=Validation(ok=True),

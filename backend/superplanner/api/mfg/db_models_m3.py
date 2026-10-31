@@ -2,7 +2,7 @@
 
 M1/M2 conventions: owned tables, `new_id(prefix)` ids, no server defaults, named constraints, an `owner_id`-led
 index on every table and an index led by every FK column. Master tables (rates, setup matrix, absences) follow the
-plant lock / `data_version` rules; `mfg_wo_op_progress` is transactional; APS result tables store master ids as plain
+plant lock / `data_version` rules (M3's `mfg_wo_op_progress` became M4 `mfg_wo_operations`); APS result tables store master ids as plain
 strings without FKs (only `run_id` is a FK, CASCADE; the parent run reference is SET NULL).
 
 Registries: `M3_MODELS` (FK order); `ALL_MFG_MODELS` = M1 + M2 + M3 data models (reset deletes them in reverse).
@@ -67,19 +67,7 @@ class MfgOperatorAbsenceRow(OwnedMixin, _Editable, Base):
     note: Mapped[str] = mapped_column(String(500))
 
 
-# ---------------------------------------------------------------- WO operation progress (3.3)
-
-class MfgWoOpProgressRow(OwnedMixin, _Editable, Base):
-    __tablename__ = "mfg_wo_op_progress"
-    __table_args__ = (UniqueConstraint("wo_id", "seq", name="uq_mfg_wo_op_progress_key"),
-                      Index("ix_mfg_wo_op_progress_owner", "owner_id"))
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    wo_id: Mapped[str] = mapped_column(ForeignKey("mfg_work_orders.id", ondelete="CASCADE"))
-    seq: Mapped[int] = mapped_column(Integer)
-    done: Mapped[bool] = mapped_column(Boolean)
-    done_at: Mapped[datetime | None] = _dt()
-    done_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+# (M3 3.3 `mfg_wo_op_progress` was replaced by M4 `mfg_wo_operations`, migration 0006)
 
 
 # ---------------------------------------------------------------- APS runs and results (10)
@@ -170,6 +158,9 @@ class MfgApsOpRow(OwnedMixin, Base):
     late_minutes: Mapped[int] = mapped_column(Integer)
     family: Mapped[str] = mapped_column(String(32))
     setup_from_family: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # M4-DESIGN 6.1 / 11 (migration 0006)
+    actual: Mapped[Any | None] = mapped_column(JsonType, nullable=True)
+    moved_by_downtime: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class MfgApsOvertimeRow(OwnedMixin, Base):
@@ -256,7 +247,7 @@ class MfgApsLoadRow(OwnedMixin, Base):
 M3_MASTER_MODELS: tuple[type[Base], ...] = (MfgOperationLineRateRow, MfgSetupMatrixRow, MfgOperatorAbsenceRow)
 APS_RESULT_MODELS: tuple[type[Base], ...] = (MfgApsOpRow, MfgApsOvertimeRow, MfgApsOrderRow, MfgApsExceptionRow,
                                              MfgApsLoadRow)
-M3_MODELS: tuple[type[Base], ...] = M3_MASTER_MODELS + (MfgWoOpProgressRow, MfgApsRunRow) + APS_RESULT_MODELS
+M3_MODELS: tuple[type[Base], ...] = M3_MASTER_MODELS + (MfgApsRunRow,) + APS_RESULT_MODELS
 M3_TABLES: tuple[str, ...] = tuple(m.__tablename__ for m in M3_MODELS)
 #: M1 + M2 + M3 data tables in FK order (reset deletes in reverse; memberships are not data)
 ALL_MFG_MODELS: tuple[type[Base], ...] = _M1_M2_MODELS + M3_MODELS

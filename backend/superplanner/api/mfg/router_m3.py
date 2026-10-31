@@ -118,14 +118,14 @@ def wo_operations(wo_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONRespons
     return _ok(aps_master.wo_operations(ctx, wo_id))
 
 
-@router.post("/work-orders/{wo_id}/operations/{seq}/done", dependencies=P("wo_edit"))
+@router.post("/work-orders/{wo_id}/operations/{seq}/done", dependencies=P("floor_supervise"))   # M4 11
 def wo_operation_done(wo_id: str, seq: str, if_match: str | None = _if_match(),
                       ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     out = aps_master.set_done(ctx, wo_id, seq, True, if_match)
     return _ok(out, etag=out["wo"]["row_version"])
 
 
-@router.post("/work-orders/{wo_id}/operations/{seq}/reopen", dependencies=P("wo_edit"))
+@router.post("/work-orders/{wo_id}/operations/{seq}/reopen", dependencies=P("floor_supervise"))   # M4 11
 def wo_operation_reopen(wo_id: str, seq: str, if_match: str | None = _if_match(),
                         ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     out = aps_master.set_done(ctx, wo_id, seq, False, if_match)

@@ -469,4 +469,127 @@ Decided by LEAD 2026-10-31 (product owner delegated these; all are configuration
 
 ### 16.WP-S Backend
 
+**S0 frozen (2026-10-31).** Contract: `backend/superplanner/mfg/model_m4.py` (all request/response shapes of 11),
+`ApsParams.supply_delays / line_breakdowns` (`mfg/aps/model.py`), the 3.1 master fields on `mfg/model.py`
+(`PlantInput`, `ItemInput.issue_method`, `OperationInput.capture_serial`, `LineInput.location_id / batch_merge /
+batch_wait_minutes`, `OperatorInput.user_id`), `WorkOrderInput.receipt_location_id`, `ReleaseWoRequest.override_reason`.
+Typed examples: `backend/superplanner/mfg/floor/fixtures/example_floor.json` (built and validated by
+`build_example.py` next to it; `tests/api_mfg_m4/test_m4_s0_contract.py` re-validates every example). Migration
+`0006_mfg_m4` (`migrate.HEAD`), up/down tested incl. M3 progress rows. All routes are live with their permissions;
+routes not yet real answer from the fixture (marked in the services as S0 stubs).
+
+S0 interpretations / deviations:
+1. **Route count: 26 new operations, 225 in total** (not 27 / 226): #206 is M3's #176 extended and stays the same
+   operation (`GET /work-orders/{wo_id}/operations`), so 200-226 minus #206 = 26 new. `MFG_PERMISSIONS` = 225.
+2. `mfg/floor.py` became the package `mfg/floor/` (`engine.py` = the pure rules of 4.2) because 13 places the fixture
+   at `mfg/floor/fixtures/`; `mfg/scan.py` as designed.
+3. `GET /work-orders/{id}/operations` items are `WoOperationRecord` (`model_m4`): every M3 field is kept
+   (`seq, name, group, setup_minutes, run_minutes, labor, done, done_at, done_by, placement`; `done` = completed or
+   skipped) plus the full record (`id, status, qty_*, line, actual_*`, ...). A WO without operation rows (planned)
+   lists its routing operations as `pending` with `id = ""`.
+4. Floor event replay returns 200 with `Idempotent-Replay: true` (the event and the current operation state); a new
+   event returns 201.
+5. `FloorEventInput` also takes `corrects_event_id` (needed by `correct`; it alone identifies the operation).
+   `operator_codes` accept `OP:<code>` or the bare code.
+6. Extra error codes: 409 `WO_HAS_FLOOR_EVENTS` (refresh after events), 422 `FLR_LOAD_INCOMPATIBLE`,
+   `FLR_LOAD_OVER_CAPACITY`, 409 `FLR_LOAD_MEMBER_BUSY`; warnings `FLR_PREDECESSOR_OPEN`, `FLR_STARTED_SHORT`.
+7. `mfg_kpi_daily.dim_id` is `""` for the plant (not NULL) so the unique key holds; `mfg_wo_operations` has two extra
+   columns: `effects` JSON (cumulative receipts / backflush / scrap booked per operation, so partial reports never
+   double-post and reopen/corrections can reverse) and `completed_at/completed_by` (M3 `done_at/done_by`);
+   `mfg_floor_events` has `forced` (S200) and `details` (JSON); `mfg_unit_serials.event_id`;
+   `mfg_replan_triggers.note`; `mfg_aps_simulations` has `error, cancel_requested, actor_id, started_at,
+   finished_at, duration_ms` (run conventions).
+8. Migration of M3 progress: completed rows get `qty_planned = qty_good =` the WO quantity, `actual_end = done_at`,
+   and one synthetic `complete` event each (`details.migrated`) so the event log stays the only truth (F1,
+   acceptance 3). The routing is the WO's own, else the item's released routing effective at the start date
+   (lowest priority, newest version; serial effectivity ignored in SQL). Downgrade writes completed/skipped
+   operations back as progress rows.
+
 ### 16.WP-U UI
+
+**Built (2026-10-31), types aligned to the S0 fixture, journey verified against the S1 engine.**
+
+Screens:
+- **U1 floor (tablet, `/mfg/floor`, own shell without the planning nav):**
+  - Scan field always focused. Keys typed outside a text field go to it; focus returns after button presses.
+  - Pages can claim scans first (the quantity panel takes `S:` / unknown codes as serials); otherwise #200
+    opens the operation, work order, line or batch load, or signs in an operator badge.
+  - Station login: badges (`OP:<code>`) are kept on the device for one long shift and sent as `operator_ids` /
+    `operator_codes` with every action. A personal login linked to an operator needs none (15 Q1).
+  - Line picker, remembered per device and workspace.
+  - Queue with status and kit shown as icon + text, plan times and "behind" minutes. Rows without a WO
+    operation (`wo_operation_id = null`, not released) are not tappable.
+  - Operation screen:
+    - 72 px Start setup / Start / Pause / Resume / Report / Complete from `allowed_actions`.
+    - Glove-size quantity steppers with reason and rework-to selectors.
+    - Serial capture: one per good unit, enforced before submit; child serials scanned as `consumed`.
+    - Components with backflush status, instructions, tools, the event list, and "it happened earlier" backdating.
+    - Supervisor force reason on `FLR_QTY_EXCEEDS_INPUT`.
+  - Downtime in three taps (kind, reason, expected back: quick picks / not known / a time); "Line back up"
+    uses `close: true`.
+  - Batch loads: build from waiting operations; start/complete with `batch_load_id` only.
+  - Offline queue (`floor/offlineQueue.ts`, localStorage per workspace):
+    - Actions keep their `client_event_id` and replay in order.
+    - Rejections move to "needs attention" with the server's message.
+    - The header shows "N actions waiting to sync".
+- **U2 supervisor and planning:**
+  - `/mfg/floor/overview`: all lines, state, current operation, behind/on plan, next operation's kit; one #201
+    per active line every 30 s.
+  - `/mfg/floor/events`: filters; correct (a `correct` event, original kept) and reopen.
+  - WO operations section (M4 records): Done / Skip for supervisors, re-derive while nothing is recorded,
+    traveller and event-log links. It falls back to the M3 `done` view on M3 servers.
+  - `/mfg/replan`: plant policy explained, triggers (select, handled / ignore with a note), "Make a proposal" =
+    #219, then compare with the published run. Also proposals and notifications.
+  - Header bell (`notif-bell`, count also as text), polled every minute.
+  - Gantt: an actual bar under the planned one (arrow = still running), "DOWN" bands, and batch brackets
+    "B3 (2)". Zooming keeps the selected bar in view.
+- **U3:**
+  - `/mfg/kpis`: seven tiles, each with a plain definition and an 8-week sparkline (`bucket=week`). Drill-down
+    by stage/line, top scrap and downtime, lines furthest from the plan, and the per-operation adherence list
+    for a line.
+  - `/mfg/serials` and `/:id`: one level, parent / children / `consumed_by_wo`, print label.
+  - `/mfg/schedule/simulations` and `/:id`: guided defaults (published plan, 20 replays), seed/horizon as
+    expert settings. Risk table (`sim-row data-p-on-time`), "spread" per line, suppliers and lines.
+  - Print pages: `/mfg/print/traveller/:woId` (WO + `WO-n/seq` per operation) and
+    `/mfg/print/labels?type=lot|serial|badge|line&ids=`.
+  - Code 128 is our own encoder (`lib/code128.ts`, B with C for digit runs), drawn as SVG and checked against
+    the published example (`PJJ123C` checksum 55).
+- **Master fields:** item "Backflush from the line", routing operation "Capture serial numbers here", line
+  "Line-side stock location" / "Combine orders into batch loads" / wait, operator "Personal login" (members
+  list), plant "Shop floor and replanning" (policy; receipt and backflush locations; tolerances under expert
+  settings). Fields are sent back only when the server returned them.
+- **Release with kit check:** on 409 `WO_KIT_INCOMPLETE` the shortage list is shown and "Release anyway" needs a
+  reason (`override_reason`).
+- **Home:** "Shop floor" card from `summary.floor`. The schedule page links "Delivery risk".
+
+Interpretations:
+- The server's scan `link` for operations is `/mfg/floor/operations/:id`; both that and `/mfg/floor/ops/:id`
+  route to the operation screen.
+- Planned-WO operations with `id = ""` (16.WP-S 3) are shown without floor actions.
+- `ConfirmDialog` gained an optional `confirmDisabled` (shared component, additive).
+
+Requested from WP-S (none blocking):
+1. Idempotency on `POST /downtime`. An offline "line down" replays from the device, and without a key a lost
+   response could create a second downtime. The UI already sends `Idempotency-Key`.
+2. #202 `reason_codes` (pause/scrap/rework lists of the plant). The UI uses sensible defaults until then.
+3. Gantt bars with `actual`, downtime bands and `batches` (11, "run results gain"). The UI draws them as soon
+   as `gantt` returns them, accepting `start/end` or `actual_start/actual_end`.
+4. Optional `samples_late_minutes` per demand line in simulation results, for a true histogram. The UI shows a
+   due / plan / P50 / P90 strip without it.
+5. A `line_id` in the batch-load scan context. Otherwise the tablet's current line is used.
+
+Test ids added (beyond 12):
+- `floor-shell`, `floor-crew` (data-count), `floor-flash`, `floor-line-title`, `floor-queue`, `floor-op`
+  (data-status, data-seq), `floor-op-good` (data-good / data-scrap), `floor-qty-panel`, `floor-qty-submit`,
+  `floor-serial-count`, `floor-pause-submit`, `floor-force-reason`, `floor-sync-list`, `floor-sync-failed`,
+  `downtime-kind-*`, `downtime-submit`, `floor-batch-*`.
+- `overview-line`, `floor-event-row`, `event-correct`, `event-reopen`, `trigger-handle/ignore`, `replan-run`,
+  `notif-item`, `notif-ack`, `kpi-scope`, `serial-row`, `sim-start`, `traveller-op`, `label`,
+  `wo-kit-incomplete`, `wo-release-override`, `op-skip`, `wo-print-traveller`, `print-badges`,
+  `item-backflush`, `op-capture-serial`, `line-batch-merge`, `plant-replan-policy`, `gantt-tooltip-actual`.
+
+e2e: `frontend/e2e/m4-floor.spec.ts` (tablet 1024x768, acceptance 1).
+- Setup through the API: `small`, SM-100 made serialized, one WO of 4 with a receipt location, released.
+- Covers line pick, badge scan, traveller scan, start, report with scrap and reason, pause/resume, complete,
+  then an offline start that syncs once (one `start` event on the server). The last operation completes with
+  one serial per good unit; the WO's `qty_completed` and the captured serials are checked.

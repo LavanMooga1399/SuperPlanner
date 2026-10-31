@@ -115,9 +115,18 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
     freeze = int(getattr(ds.plant, "aps_freeze_hours", 48) or 0) * 60
     edited = {(k[1], k[2]) for k in snap.moves} | {(k[1], k[2]) for _l, ks in snap.resequence for k in ks}
     frozen_pub: dict[tuple[str, int, int], Any] = {}
+    # M4-DESIGN 6.1: the floor state supersedes published placements of active operations; frozen placements on a
+    # closed line are re-planned (re-derived here from the snapshot, independent of the builder)
+    from .actuals import closures as _closures, moved_by_downtime as _moved, superseded as _superseded
+
+    actuals = getattr(snap, "actuals", {}) or {}
+    sup_keys = _superseded(snap)
+    moved_keys = _moved(snap, res.params)
     if snap.published is not None:
         for p in snap.published.ops:
             if p.start is None or p.end is None or p.line_id is None:
+                continue
+            if (p.order_id, p.seq) in sup_keys or (p.order_id, p.seq, p.split_index) in moved_keys:
                 continue
             ps_, pe_ = _m(as_of, p.start), _m(as_of, p.end)
             if pe_ <= 0:
@@ -167,6 +176,9 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
     opened_by_line: dict[str, list[tuple[int, int]]] = {}
     for w in allowed_ot:
         opened_by_line.setdefault(w.line_id, []).append((_m(as_of, w.start), _m(as_of, w.end)))
+    for lid, spans in _closures(snap, res.params).items():          # M4 6.1 / 8: downtime, breakdowns
+        for a, b in spans:
+            closes.setdefault(lid, []).append((_m(as_of, a), _m(as_of, b)))
     for x in ds.calendar_exceptions.values():      # m6: exceptions as UTC instants (DST fall-back)
         for ln in ds.lines.values():
             if x.scope == "plant" or (x.scope == "group" and x.group_id == ln.group_id) or \
@@ -222,7 +234,12 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
         pcs = [(_m(as_of, p.start), _m(as_of, p.end)) for p in o.pieces] or [(s, e)]
         pub = frozen_pub.get((o.order.id, o.seq, o.split.index))
         fixed = pub is not None
-        if o.frozen and not fixed:
+        act = actuals.get((o.order.id, o.seq)) if o.order.type == "wo" else None
+        if act is not None and act.active and (o.order.id, o.seq) in sup_keys:
+            if o.line_id != act.line_id:
+                bad("APS_V_ACTUAL", o.op_no, f"Op {o.op_no} is {act.status} on the floor but planned on another "
+                    "line.", line_id=o.line_id)
+        elif o.frozen and not fixed:
             bad("APS_V_FROZEN", o.op_no, f"Op {o.op_no} is marked frozen but is not frozen in the published plan.")
         if fixed and (o.line_id != pub.line_id or abs(_m(as_of, o.start) - _m(as_of, pub.start)) > 0):
             bad("APS_V_FROZEN", o.op_no, f"Op {o.op_no} is frozen in the published plan but was moved.")
@@ -383,7 +400,8 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
         planned_by_no = {str(p.planned_no): p.id for p in planned_by_id.values()}
         PARTIAL = -1
         for oid, lst in by_order.items():
-            sch = [x for x in lst if x.status == "scheduled" and (x.order.id, x.seq, x.split.index) not in frozen_pub]
+            sch = [x for x in lst if x.status == "scheduled" and (x.order.id, x.seq, x.split.index) not in frozen_pub
+                   and (x.order.id, x.seq) not in sup_keys]
             if not sch or oid not in keys:
                 continue
             first = min(x.seq for x in lst)
@@ -454,6 +472,11 @@ def validate(snap: ApsSnapshot, res: ApsResult) -> Validation:
         for op, need in zip(ops, qs):
             if op.seq in done:
                 continue
+            a = actuals.get((oid, op.seq))
+            if a is not None and a.status != "pending":           # M4 6.1: the floor's remaining quantity
+                if a.remaining <= 1e-9:
+                    continue
+                need = float(a.remaining)
             rows = [x for x in by_order.get(oid, []) if x.seq == op.seq]
             if not rows:
                 bad("APS_V_MISSING", None, f"Operation {op.seq} of order {oid} is missing from the result.",

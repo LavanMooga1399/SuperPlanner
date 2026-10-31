@@ -8,6 +8,7 @@ import { getHealthReport, getSummary, resetMfg } from "../api/client";
 import { RESET_PHRASE, type SampleLoadResponse, type Summary, type SummaryCounts } from "../api/types";
 import type { SummaryLatestRun, SummaryM2Counts } from "../api/typesM2";
 import type { PublishedScheduleSummary } from "../api/typesM3";
+import type { FloorSummary } from "../api/typesM4";
 import { PermissionGate } from "../components/PermissionGate";
 import { ExportButtons } from "../components/ExportButtons";
 import { MfgError } from "../components/Feedback";
@@ -126,6 +127,39 @@ function ResetDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) {
       </div>
       <MfgError error={error} title="Could not delete the data" />
     </Dialog>
+  );
+}
+
+/** M4 11: `/summary.floor` - what is running on the shop floor and what needs attention. */
+function FloorCard({ summary }: { summary: Summary }) {
+  const f = (summary as Summary & { floor?: FloorSummary }).floor;
+  if (!f) return null;
+  const tiles: { label: string; value: number; to: string; bad?: boolean; testId: string }[] = [
+    { label: "Operations running", value: f.running_ops, to: mfgPaths.floorOverview(), testId: "mfg-floor-running" },
+    { label: "Lines down", value: f.lines_down, to: mfgPaths.floorOverview(), bad: f.lines_down > 0, testId: "mfg-floor-down" },
+    { label: "Changes to replan", value: f.open_triggers, to: mfgPaths.replan(), bad: f.open_triggers > 0, testId: "mfg-floor-triggers" },
+    { label: "Backflush waiting for stock", value: f.pending_backflush, to: mfgPaths.kitting(), bad: f.pending_backflush > 0, testId: "mfg-floor-backflush" },
+  ];
+  return (
+    <section className="card" data-testid="mfg-floor-card">
+      <div className="card-header">
+        <h2>Shop floor</h2>
+        <Link to={mfgPaths.floor()} className="btn sm primary">
+          <Icon name="factory" /> Floor screens
+        </Link>
+      </div>
+      <div className="card-body kpis">
+        {tiles.map((t) => (
+          <Link key={t.testId} to={t.to} className="card kpi" data-testid={t.testId} style={{ textDecoration: "none", color: "inherit" }}>
+            <div className="kpi-label">{t.label}</div>
+            <div className="kpi-value" style={{ color: t.bad ? "var(--danger)" : undefined }}>
+              {t.value}
+              {t.bad ? <Icon name="alert" size={16} /> : null}
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -255,6 +289,7 @@ export function MfgHome() {
       ) : null}
 
       {summary.data ? <PlanningCard summary={summary.data} /> : null}
+      {summary.data ? <FloorCard summary={summary.data} /> : null}
 
       <div className="grid-2">
         <HealthCard tick={tick} />

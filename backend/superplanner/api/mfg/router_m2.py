@@ -498,7 +498,8 @@ def delete_wo(wo_id: str, if_match: str | None = _if_match(), ctx: AppContext = 
 @router.post("/work-orders/{wo_id}/release", dependencies=P("wo_edit"))
 def release_wo(wo_id: str, body: ReleaseWoRequest = Body(default_factory=ReleaseWoRequest),
                if_match: str | None = _if_match(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    return respond(workorders.action(ctx, wo_id, "release", if_match, reserve=body.reserve))
+    return respond(workorders.action(ctx, wo_id, "release", if_match, reserve=body.reserve,
+                                     override_reason=body.override_reason))
 
 
 def _wo_action(act: str) -> Any:

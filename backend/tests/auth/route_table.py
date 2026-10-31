@@ -412,14 +412,76 @@ MFG_PERMISSIONS.update({
     ("POST", "/mfg/operation-line-rates"): "master_edit",
     ("POST", "/mfg/operator-absences"): "master_edit",
     ("POST", "/mfg/setup-matrix"): "master_edit",
-    ("POST", "/mfg/work-orders/{wo_id}/operations/{seq}/done"): "wo_edit",
-    ("POST", "/mfg/work-orders/{wo_id}/operations/{seq}/reopen"): "wo_edit",
+    ("POST", "/mfg/work-orders/{wo_id}/operations/{seq}/done"): "floor_supervise",      # M4-DESIGN 11
+    ("POST", "/mfg/work-orders/{wo_id}/operations/{seq}/reopen"): "floor_supervise",
     ("PUT", "/mfg/aps/runs/{run_id}"): "schedule_run",
     ("PUT", "/mfg/operation-line-rates/{rate_id}"): "master_edit",
     ("PUT", "/mfg/operator-absences/{absence_id}"): "master_edit",
     ("PUT", "/mfg/setup-matrix/{row_id}"): "master_edit",
 })
 assert len(MFG_PERMISSIONS) == 199, len(MFG_PERMISSIONS)
+
+
+# M4-DESIGN 11 #200-226 (#206 is M3's #176 extended): 26 new operations
+MFG_PROTECTED_M4 = frozenset({
+    ("GET", "/mfg/floor/scan"),
+    ("GET", "/mfg/floor/queue"),
+    ("GET", "/mfg/floor/operations/{wo_op_id}"),
+    ("POST", "/mfg/floor/events"),
+    ("GET", "/mfg/floor/events"),
+    ("POST", "/mfg/floor/backflush/retry"),
+    ("POST", "/mfg/work-orders/{wo_id}/operations/refresh"),
+    ("GET", "/mfg/downtime"),
+    ("POST", "/mfg/downtime"),
+    ("PUT", "/mfg/downtime/{downtime_id}"),
+    ("GET", "/mfg/batch-loads"),
+    ("POST", "/mfg/batch-loads"),
+    ("GET", "/mfg/batch-loads/{load_id}"),
+    ("GET", "/mfg/serials"),
+    ("GET", "/mfg/serials/{serial_id}"),
+    ("GET", "/mfg/replan/triggers"),
+    ("POST", "/mfg/replan/triggers/{trigger_id}/ignore"),
+    ("POST", "/mfg/replan/triggers/{trigger_id}/handle"),
+    ("POST", "/mfg/replan/run"),
+    ("GET", "/mfg/notifications"),
+    ("POST", "/mfg/notifications/{notification_id}/ack"),
+    ("GET", "/mfg/kpis"),
+    ("GET", "/mfg/kpis/adherence"),
+    ("POST", "/mfg/aps/simulations"),
+    ("GET", "/mfg/aps/simulations/{simulation_id}"),
+    ("GET", "/mfg/aps/simulations"),
+})
+assert len(MFG_PROTECTED_M4) == 26, len(MFG_PROTECTED_M4)
+MFG_PROTECTED = MFG_PROTECTED | MFG_PROTECTED_M4
+MFG_PERMISSIONS.update({
+    ("GET", "/mfg/floor/scan"): "floor_view",
+    ("GET", "/mfg/floor/queue"): "floor_view",
+    ("GET", "/mfg/floor/operations/{wo_op_id}"): "floor_view",
+    ("POST", "/mfg/floor/events"): "floor_report",
+    ("GET", "/mfg/floor/events"): "floor_view",
+    ("POST", "/mfg/floor/backflush/retry"): "inventory",
+    ("POST", "/mfg/work-orders/{wo_id}/operations/refresh"): "wo_edit",
+    ("GET", "/mfg/downtime"): "view",
+    ("POST", "/mfg/downtime"): "downtime_report",
+    ("PUT", "/mfg/downtime/{downtime_id}"): "downtime_report",
+    ("GET", "/mfg/batch-loads"): "floor_view",
+    ("POST", "/mfg/batch-loads"): "floor_report",
+    ("GET", "/mfg/batch-loads/{load_id}"): "floor_view",
+    ("GET", "/mfg/serials"): "view",
+    ("GET", "/mfg/serials/{serial_id}"): "view",
+    ("GET", "/mfg/replan/triggers"): "view",
+    ("POST", "/mfg/replan/triggers/{trigger_id}/ignore"): "replan_manage",
+    ("POST", "/mfg/replan/triggers/{trigger_id}/handle"): "replan_manage",
+    ("POST", "/mfg/replan/run"): "schedule_run",
+    ("GET", "/mfg/notifications"): "view",
+    ("POST", "/mfg/notifications/{notification_id}/ack"): "view",
+    ("GET", "/mfg/kpis"): "view",
+    ("GET", "/mfg/kpis/adherence"): "view",
+    ("POST", "/mfg/aps/simulations"): "schedule_run",
+    ("GET", "/mfg/aps/simulations/{simulation_id}"): "view",
+    ("GET", "/mfg/aps/simulations"): "view",
+})
+assert len(MFG_PERMISSIONS) == 225, len(MFG_PERMISSIONS)
 
 PARAM = re.compile(r"\{([a-z_]+)\}")
 

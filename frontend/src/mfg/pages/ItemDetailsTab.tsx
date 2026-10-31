@@ -7,6 +7,7 @@ import { useNavigate } from "react-router";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Icon } from "../../components/Icon";
 import { deleteItem, getItem, updateItem } from "../api/client";
+import type { ItemM4Fields } from "../api/typesM4";
 import type { AttrValue, Attributes, ItemInput, ItemRecord, MakeBuy } from "../api/types";
 import type { ItemM2Fields, LotRuleM2 } from "../api/typesM2";
 import { ConflictBanner, MfgError, SaveState } from "../components/Feedback";
@@ -46,6 +47,9 @@ interface ItemForm {
   order_multiple: string;
   safety_stock: string;
   serialized: boolean;
+  /** M4 4.4: present when the server returned `issue_method` (sent back on PUT) */
+  m4: boolean;
+  backflush: boolean;
   shelf_life_days: string;
   handling_class: string;
   handling_note: string;
@@ -85,6 +89,8 @@ function toForm(it: ItemRecord): ItemForm {
     order_multiple: String(it.order_multiple),
     safety_stock: String(it.safety_stock),
     serialized: it.serialized,
+    m4: "issue_method" in it,
+    backflush: (it as ItemRecord & ItemM4Fields).issue_method === "backflush",
     shelf_life_days: numText(it.shelf_life_days),
     handling_class: it.handling_class ?? "",
     handling_note: it.handling_note,
@@ -93,7 +99,7 @@ function toForm(it: ItemRecord): ItemForm {
   };
 }
 
-function toInput(f: ItemForm): ItemInput & ItemM2Fields {
+function toInput(f: ItemForm): ItemInput & ItemM2Fields & ItemM4Fields {
   const attributes: Attributes = {};
   for (const r of f.attributes) {
     const k = r.key.trim();
@@ -128,6 +134,7 @@ function toInput(f: ItemForm): ItemInput & ItemM2Fields {
     order_multiple: numOr(f.order_multiple, 0),
     safety_stock: numOr(f.safety_stock, 0),
     serialized: f.serialized,
+    ...(f.m4 ? { issue_method: f.backflush ? ("backflush" as const) : ("manual" as const) } : {}),
     shelf_life_days: numOrNull(f.shelf_life_days),
     handling_class: strOrNull(f.handling_class),
     handling_note: f.handling_note,
@@ -344,6 +351,15 @@ export function ItemDetailsTab() {
                 hint="Changeover class; empty = same as family."
               />
               <CheckField label="Serial numbers" checked={form.serialized} onChange={(v) => set("serialized", v)} hint="Units carry serial numbers (allows BOMs per serial range)." />
+              {form.m4 ? (
+                <CheckField
+                  label="Backflush from the line"
+                  checked={form.backflush}
+                  onChange={(v) => set("backflush", v)}
+                  hint="Issued automatically from the line-side stock when the operation reports output (e.g. reels, wire, labels). Off = issued by stores."
+                  testId="item-backflush"
+                />
+              ) : null}
               <TextField label="Shelf life (days)" type="number" value={form.shelf_life_days} onChange={(v) => set("shelf_life_days", v)} />
               <TextField label="Handling class" value={form.handling_class} onChange={(v) => set("handling_class", v)} maxLength={32} hint="e.g. MSL3, ESD, HAZ" />
             </div>

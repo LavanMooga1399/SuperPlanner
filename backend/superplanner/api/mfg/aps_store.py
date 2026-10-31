@@ -29,7 +29,8 @@ def store(s: Session, run: MfgApsRunRow, res: ApsResult, parents: dict[str, str]
         setup_minutes=o.setup_minutes, run_minutes=o.run_minutes, pieces=[_j(p) for p in o.pieces],
         crew=[_j(c) for c in o.crew], tools=[_j(t) for t in o.tools], release=_j(o.release), locked=o.locked,
         frozen=o.frozen, status=o.status, reason=_j(o.reason), due_at=o.due, late_minutes=o.late_minutes,
-        family=(o.family or "")[:32], setup_from_family=(o.setup_from_family or None))
+        family=(o.family or "")[:32], setup_from_family=(o.setup_from_family or None), actual=o.actual,
+        moved_by_downtime=o.moved_by_downtime)
         for o in res.operations])
     s.flush()
     s.add_all([MfgApsOrderRow(
@@ -82,6 +83,7 @@ def op_view(r: MfgApsOpRow, refs: dict[str, Any], run_id: str) -> dict[str, Any]
         "tools": r.tools, "release": r.release, "locked": r.locked, "frozen": r.frozen, "status": r.status,
         "reason": r.reason, "due": as_utc(r.due_at) if r.due_at else None, "late_minutes": r.late_minutes,
         "family": r.family, "setup_from_family": r.setup_from_family,
+        "actual": r.actual, "moved_by_downtime": bool(r.moved_by_downtime),        # M4-DESIGN 11
         "item": item, "line": {"id": line.id, "code": line.code} if line else None,
         "group": {"id": r.group_id, "code": grp.code if grp else ""},
         "link": f"/mfg/schedule/runs/{run_id}/gantt?op={r.op_no}"}

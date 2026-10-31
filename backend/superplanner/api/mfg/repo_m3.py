@@ -109,11 +109,11 @@ def published_op(r: Any) -> Any:
 
 
 def done_map(s: Session) -> dict[str, set[int]]:
-    from .db_models_m3 import MfgWoOpProgressRow
+    from .db_models_m4 import MfgWoOperationRow
 
     out: dict[str, set[int]] = {}
-    for wo_id, seq in s.execute(select(MfgWoOpProgressRow.wo_id, MfgWoOpProgressRow.seq)
-                                .where(MfgWoOpProgressRow.done.is_(True))).all():
+    for wo_id, seq in s.execute(select(MfgWoOperationRow.wo_id, MfgWoOperationRow.seq)
+                                .where(MfgWoOperationRow.status.in_(("completed", "skipped")))).all():
         out.setdefault(wo_id, set()).add(seq)
     return out
 
@@ -127,7 +127,40 @@ def load_aps_snapshot(s: Session, as_of: Any, mrp_run: Any, *, published: bool =
     ds.txn = repo_m2.load_txn(s, open_only=True)
     view = mrp_peg_view(s, mrp_run, ds) if mrp_run is not None else None
     pub = published_view(s) if published else None
+    kw.setdefault("actuals", actuals_map(s))
+    kw.setdefault("downtime", downtime_list(s, as_of))
     return snapshot_from_dataset(ds, as_of, view, pub, done_map(s), **kw)
+
+
+def actuals_map(s: Session) -> dict[tuple[str, int], Any]:
+    """M4-DESIGN 6.1: the floor state of started / partially reported operations of open WOs."""
+    from ...mfg.aps.actuals import ActualOp
+    from .db_models_m2 import MfgWorkOrderRow
+    from .db_models_m4 import MfgWoOperationRow
+
+    out: dict[tuple[str, int], Any] = {}
+    q = select(MfgWoOperationRow).join(MfgWorkOrderRow, MfgWorkOrderRow.id == MfgWoOperationRow.wo_id).where(
+        MfgWorkOrderRow.status.in_(("released", "in_progress")),
+        MfgWoOperationRow.status.in_(("pending", "setup", "running", "paused")))
+    for r in s.execute(q).scalars():
+        if r.status == "pending" and r.qty_good + r.qty_scrap + r.qty_rework_in <= 1e-9:
+            continue
+        rem = max(0.0, r.qty_planned - r.qty_good - r.qty_scrap - r.qty_rework_out + r.qty_rework_in)
+        out[(r.wo_id, r.seq)] = ActualOp(r.wo_id, r.seq, r.id, r.status, r.line_id, round(rem, 6),
+                                         as_utc(r.actual_start) if r.actual_start else None)
+    return out
+
+
+def downtime_list(s: Session, as_of: Any) -> tuple[Any, ...]:
+    from sqlalchemy import or_
+
+    from ...mfg.aps.actuals import Downtime
+    from .db_models_m4 import MfgDowntimeRow
+
+    rows = s.execute(select(MfgDowntimeRow).where(or_(MfgDowntimeRow.end_at.is_(None), MfgDowntimeRow.end_at > as_of))
+                     .order_by(MfgDowntimeRow.start_at, MfgDowntimeRow.id)).scalars()
+    return tuple(Downtime(r.id, r.line_id, as_utc(r.start_at), as_utc(r.end_at) if r.end_at else None,
+                          as_utc(r.expected_end_at) if r.expected_end_at else None, r.planned) for r in rows)
 
 
 def aps_inputs_token(s: Session) -> dict[str, Any]:
@@ -135,12 +168,15 @@ def aps_inputs_token(s: Session) -> dict[str, Any]:
     from sqlalchemy import func
 
     from . import repo_m2
-    from .db_models_m3 import MfgWoOpProgressRow
+    from .db_models_m4 import MfgDowntimeRow, MfgWoOperationRow
 
     tok = repo_m2.inputs_token(s)
-    n, last = s.execute(select(func.count(), func.max(MfgWoOpProgressRow.updated_at))).one()
+    n, last = s.execute(select(func.count(), func.max(MfgWoOperationRow.updated_at))).one()
     tok["progress_n"] = int(n or 0)
     tok["progress_updated"] = as_utc(last).isoformat() if last is not None else None
+    n, last = s.execute(select(func.count(), func.max(MfgDowntimeRow.updated_at))).one()   # M4 6.1
+    tok["downtime_n"] = int(n or 0)
+    tok["downtime_updated"] = as_utc(last).isoformat() if last is not None else None
     return tok
 
 

@@ -36,7 +36,8 @@ from .. import aps_store, repo, repo_m2, repo_m3
 from ..db_models import MfgGroupRow, MfgItemRow, MfgLineRow
 from ..db_models_m2 import MfgMrpRunRow, MfgWoComponentRow, MfgWorkOrderRow
 from ..db_models_m3 import (MfgApsExceptionRow, MfgApsLoadRow, MfgApsOpRow, MfgApsOrderRow, MfgApsOvertimeRow,
-                            MfgApsRunRow, MfgWoOpProgressRow)
+                            MfgApsRunRow)
+from ..db_models_m4 import MfgWoOperationRow
 from .common import audit, check_version, read_tx, touch, write_tx
 from .m2util import actor_id, page, run_tx, user_names
 
@@ -233,11 +234,13 @@ def _created_from_job(s: Session, job: Any) -> dict[str, Any]:
     return run_record(s, run, stale=False)
 
 
-def create_run(ctx: AppContext, body: ApsParams, idem_key: str | None) -> tuple[dict[str, Any], bool]:
+def create_run(ctx: AppContext, body: ApsParams, idem_key: str | None, *, extras: dict[str, Any] | None = None,
+               delay_minutes: int = 0) -> tuple[dict[str, Any], bool]:
+    """`extras` / `delay_minutes`: M4 replan proposals (7: trigger ids, policy; the job's `run_after` debounce)."""
     idem = idempotency.Idempotency(idem_key, idempotency.request_hash("aps_run", {}, body.model_dump(mode="json"))) \
         if idem_key else None
     try:
-        return _create_run(ctx, body, idem), False
+        return _create_run(ctx, body, idem, extras=extras, delay_minutes=delay_minutes), False
     except idempotency.Replay as rp:
         return rp.body, True
     except IntegrityError as exc:
@@ -249,7 +252,8 @@ def create_run(ctx: AppContext, body: ApsParams, idem_key: str | None) -> tuple[
         raise
 
 
-def _create_run(ctx: AppContext, body: ApsParams, idem: Any) -> dict[str, Any]:
+def _create_run(ctx: AppContext, body: ApsParams, idem: Any, *, extras: dict[str, Any] | None = None,
+                delay_minutes: int = 0) -> dict[str, Any]:
     actor = actor_id()
     with write_tx(ctx, lock=False) as (s, _p):
         repo.lock_plant(s)              # m4: run_no races serialise on the plant row
@@ -270,7 +274,8 @@ def _create_run(ctx: AppContext, body: ApsParams, idem: Any) -> dict[str, Any]:
             as_of=as_of, horizon_end=as_of + timedelta(days=int(params.horizon_days or 42)), master_fingerprint=fp,
             data_version=dv, inputs_token=repo_m3.aps_inputs_token(s), job_id=None, cancel_requested=False,
             progress={"phase": "queued", "percent": 0, "best_score": None, "updated_at": now.isoformat()},
-            summary=None, score=None, validation=None, extras={"carry_locks": carry} if carry else None, error=None,
+            summary=None, score=None, validation=None,
+            extras=({"carry_locks": carry} if carry else {}) | (extras or {}) or None, error=None,
             actor_id=actor, started_at=None,
             finished_at=None, duration_ms=None, row_version=1, created_at=now, updated_at=now)
         try:
@@ -284,10 +289,21 @@ def _create_run(ctx: AppContext, body: ApsParams, idem: Any) -> dict[str, Any]:
         job = ctx.jobs.enqueue(s, "aps_run", run.id, run.owner_id, idempotency_key=idem.key if idem else None,
                                request_hash=idem.request_hash if idem else None)
         run.job_id = job.id
+        if delay_minutes > 0:            # M4 7: debounce via the queue's run_after
+            job.run_after = job.run_after + timedelta(minutes=delay_minutes)
+            s.flush()
         audit(s, "aps_run", run.id, "create", {"run_no": n, "kind": kind, "policy": params.overtime,
-                                               **({"copy_of": copy_of} if copy_of else {})})
+                                               **({"copy_of": copy_of} if copy_of else {}),
+                                               **({"replan": True} if extras and "replan" in extras else {})})
         out = run_record(s, run, stale=False)
-    ctx.jobs.dispatch(job)
+    if delay_minutes > 0 and ctx.jobs.backend == "inline":
+        import threading
+
+        t = threading.Timer(delay_minutes * 60.0, ctx.jobs.dispatch, [job])
+        t.daemon = True
+        t.start()
+    else:
+        ctx.jobs.dispatch(job)
     return out
 
 
@@ -421,6 +437,12 @@ def run_job(ctx: Any, run_id: str, lease: Any) -> None:
                 return
             run.status = "running"
             run.started_at = run.started_at or utcnow()
+            if ((run.extras or {}).get("replan") or {}).get("auto"):     # M4 7: as_of taken at execution
+                from ....mfg.aps.pure import round_up_minute
+
+                span = as_utc(run.horizon_end) - as_utc(run.as_of)
+                run.as_of = round_up_minute(utcnow())
+                run.horizon_end = run.as_of + span
             run.progress = {"phase": "load", "percent": 1, "best_score": None, "updated_at": utcnow().isoformat()}
             owner = run.owner_id
             params = ApsParams.model_validate(run.params)
@@ -466,6 +488,12 @@ def run_job(ctx: Any, run_id: str, lease: Any) -> None:
                                                          "validation_ok": res.validation.ok})
                 _retention(s)
                 lease.finish(s, "succeeded" if run.status == "completed" else "cancelled")
+            try:                                           # M4 7: auto-publish / re-check open triggers
+                from . import replan
+
+                replan.after_run(ctx, run_id)
+            except Exception:  # pragma: no cover - the run itself is stored; never fail the job here
+                log.exception("replan after APS run %s failed", run_id)
     except LeaseLost:
         raise
     except Exception as exc:
@@ -950,8 +978,9 @@ def dispatch(ctx: AppContext, run_id: str, *, line_id: str, day: date | None, sh
             MfgWorkOrderRow.id.in_(wo_ids))).scalars()} if wo_ids else {}
         day_shifts = [{"label": w.shift_label, "start": as_utc(w.start), "end": as_utc(w.end), "kind": w.kind}
                       for w in line_windows(ds, line_id, day, day + timedelta(days=1))]
-        done = {(w, q) for w, q in s.execute(select(MfgWoOpProgressRow.wo_id, MfgWoOpProgressRow.seq).where(
-            MfgWoOpProgressRow.wo_id.in_(wo_ids), MfgWoOpProgressRow.done.is_(True))).all()} if wo_ids else set()
+        done = {(w, q) for w, q in s.execute(select(MfgWoOperationRow.wo_id, MfgWoOperationRow.seq).where(
+            MfgWoOperationRow.wo_id.in_(wo_ids), MfgWoOperationRow.status.in_(("completed", "skipped")))).all()} \
+            if wo_ids else set()
         kit: dict[str, str] = {}
         if wo_ids:
             from ..db_models_m2 import MfgInvReservationRow

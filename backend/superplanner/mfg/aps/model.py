@@ -66,6 +66,28 @@ class CapacityOverride(MfgModel):
         return self
 
 
+class SupplyDelay(MfgModel):
+    """M4-DESIGN 8: shift the pegged availability of one PO/PR schedule, one WO's output or all supply of an item by
+    `days` (what-if). Exactly one target."""
+    schedule_id: EntityId | None = None
+    wo_id: EntityId | None = None
+    item_id: EntityId | None = None
+    days: Annotated[int, Field(ge=1, le=365)]
+
+    @model_validator(mode="after")
+    def _one(self) -> "SupplyDelay":
+        if sum(x is not None for x in (self.schedule_id, self.wo_id, self.item_id)) != 1:
+            raise ValueError("give exactly one of schedule_id, wo_id, item_id")
+        return self
+
+
+class LineBreakdown(MfgModel):
+    """M4-DESIGN 8: a breakdown of `line_id` from `start` for `hours` (applied as a `close` capacity override)."""
+    line_id: EntityId
+    start: PlanDateTime
+    hours: Annotated[float, Field(gt=0, le=24 * 60)]
+
+
 class ScheduleEdit(MfgModel):
     """Manual edit (6.7). `move {op_no, line_id?, start?}`, `lock {op_no}`, `unlock {op_no}`,
     `resequence {line_id, op_nos}`."""
@@ -115,6 +137,9 @@ class ApsParams(MfgModel):
     copy_of: EntityId | None = None
     #: accepted suggested overtime (16 Q1): opened as planned overtime; not a what-if input
     open_shifts: Annotated[list[OpenShift], Field(max_length=APS_MAX_OVERRIDES)] = Field(default_factory=list)
+    #: M4-DESIGN 8 (what-if inputs)
+    supply_delays: Annotated[list[SupplyDelay], Field(max_length=APS_MAX_OVERRIDES)] = Field(default_factory=list)
+    line_breakdowns: Annotated[list[LineBreakdown], Field(max_length=APS_MAX_OVERRIDES)] = Field(default_factory=list)
 
 
 #: body fields that may accompany `copy_of`
@@ -285,6 +310,9 @@ class ApsSnapshot:
     moves: dict[tuple[str, str, int, int], tuple[str | None, datetime | None]] = field(default_factory=dict)
     #: resequence edits: (line_id, [(order_type, order_id, seq)])
     resequence: tuple[tuple[str, tuple[tuple[str, str, int], ...]], ...] = ()
+    #: M4-DESIGN 6.1: floor state (wo_id, seq) -> `aps.actuals.ActualOp`; line downtime (`aps.actuals.Downtime`)
+    actuals: dict[tuple[str, int], Any] = field(default_factory=dict)
+    downtime: tuple[Any, ...] = ()
 
 
 # ---------------------------------------------------------------- result
@@ -362,6 +390,10 @@ class ScheduledOp(MfgModel):
     late_minutes: int = 0
     family: str = ""
     setup_from_family: str | None = None
+    #: M4-DESIGN 6.1 / 11: floor state of the operation ({status, actual_start, wo_operation_id}) and whether a
+    #: frozen placement was moved because its line is down
+    actual: dict[str, Any] | None = None
+    moved_by_downtime: bool = False
 
 
 class OvertimeWindow(MfgModel):
@@ -509,6 +541,11 @@ class ApsSummary(MfgModel):
     budget_used: float = 0.0            # deterministic seconds spent by LNS
     budget_cut: bool = False            # the wall-clock safety cap cut LNS short (S3)
     timings_ms: dict[str, int] = Field(default_factory=dict)      # load, construct, improve, validate, store
+    # M4-DESIGN 6 / 7
+    actual_ops: int = 0                 # operations placed from their floor state (running / setup / paused)
+    moved_by_downtime: int = 0          # frozen operations re-planned because their line is down
+    frozen_moved: int = 0               # frozen operations moved for any other reason (auto-publish gate)
+    batches: int = 0                    # shared batch loads (6.3)
 
 
 class ApsResult(MfgModel):

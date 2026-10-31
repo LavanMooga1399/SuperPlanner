@@ -818,8 +818,24 @@ class Engine:
                                          "frozen in the published plan; set override_freeze to move it.")
 
     # ------------------------------------------------------------ main loop
+    def place_actuals(self) -> None:
+        """M4 6.1: running / setup / paused floor operations first on their line from as_of (remaining qty)."""
+        for k, a in sorted(getattr(self.m, "actual_first", {}).items(), key=lambda kv: str(kv[0])):
+            op = self.ops.get(k)
+            if op is None or k in self.placed:
+                continue
+            ln = self.m.lines[a.line_id]
+            p, _w = self.place_on_line(op, op.qty, ln, 0, 0, None)
+            if p is None:
+                continue
+            p.fixed, p.reason = "in_progress", "in_progress"
+            self.commit(p)
+            self.placed[k] = [p]
+            self.order_seq.append(k)
+
     def run(self) -> Schedule:
         self.place_fixed()
+        self.place_actuals()
         self.check_hints()
         self.place_moves()
         deps: dict[tuple[str, int], set[tuple[str, int]]] = {}

@@ -44,10 +44,10 @@ def test_enumerated_operations_equal_the_access_table(db_url):
 
 def test_every_mfg_operation_declares_exactly_the_permission_of_the_access_table():
     """M2-DESIGN 10.2: each mfg route has exactly one `require_perm` dependency; route set == table set."""
-    from superplanner.api.mfg import router as m1, router_m2 as m2, router_m3 as m3
+    from superplanner.api.mfg import router as m1, router_m2 as m2, router_m3 as m3, router_m4 as m4
 
     found: dict[tuple[str, str], str] = {}
-    for mod in (m1, m2, m3):
+    for mod in (m1, m2, m3, m4):
         for rt in mod.router.routes:
             perms = [d.dependency.mfg_permission for d in rt.dependencies
                      if hasattr(d.dependency, "mfg_permission")]

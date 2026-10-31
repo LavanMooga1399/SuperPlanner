@@ -526,44 +526,49 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
 
 def reverse_posting(ctx: AppContext, posting_id: str, note: str) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
-        orig = repo.get_row(s, MfgInvPostingRow, posting_id, what="Posting", lock=True)
-        if orig.reversal_of_id is not None:
-            raise ApiError(409, "MFG_INVALID_STATE", "A reversal cannot be reversed; post a new transaction instead.",
-                           {"status": "reversal", "action": "reverse", "allowed_from": []})
-        done = s.execute(select(MfgInvPostingRow.id, MfgInvPostingRow.number)
-                         .where(MfgInvPostingRow.reversal_of_id == orig.id)).first()
-        if done is not None:
-            raise ApiError(409, "INV_ALREADY_REVERSED", f"{orig.number} was reversed already by {done[1]}.",
-                           {"reversed_by": {"id": done[0], "number": done[1]}})
-        txns = list(s.execute(select(MfgInvTransactionRow).where(MfgInvTransactionRow.posting_id == orig.id)
-                              .order_by(MfgInvTransactionRow.seq)).scalars())
-        L = _lock_documents(s, [t.schedule_id for t in txns if t.schedule_id],
-                            [t.demand_line_id for t in txns if t.demand_line_id],
-                            [t.wo_component_id for t in txns if t.wo_component_id], [t.wo_id for t in txns if t.wo_id])
-        number = repo_m2.allocate_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))
-        lt = lots(s, [t.lot_id for t in txns if t.lot_id])
-        pairs = {(t.item_id, t.location_id) for t in txns}
-        d = today(s)
-        pctx = _context(s, L, {t.item_id for t in txns}, pairs, d)
-        original = [INV.OrigTxn(t.line_no, t.txn_type, t.item_id, t.location_id,
-                                lt[t.lot_id].lot_code if t.lot_id else None, t.qty, t.unit_cost, t.schedule_id,
-                                t.wo_id, t.wo_component_id, t.demand_line_id, t.scrap_qty) for t in txns]
-        try:
-            plan = INV.plan_reversal(orig.type, original, pctx, d)
-        except RuleError as e:
-            raise rule_error(e) from None
-        actor = actor_id()
-        row = MfgInvPostingRow(id=new_id("pst_"), number=number, type=orig.type, txn_date=d,
-                               note=note or f"Reversal of {orig.number}", reason_code=orig.reason_code,
-                               idempotency_key=None, request_hash=None, actor_id=actor, reversal_of_id=orig.id,
-                               created_at=utcnow())
-        s.add(row)
-        s.flush()
-        _apply_reversal(s, L, plan, row, actor)
-        audit(s, "posting", row.id, "reverse", {"number": row.number, "reversal_of": orig.number})
-        return posting_record(s, row)
+        return posting_record(s, reverse_in_session(s, posting_id, note))
 
     return run_tx(ctx, fn)
+
+
+def reverse_in_session(s: Session, posting_id: str, note: str, *, txn_date: date | None = None) -> MfgInvPostingRow:
+    """Reverse one posting in the caller's transaction (M2 4.2; also M4 floor reopen / corrections)."""
+    orig = repo.get_row(s, MfgInvPostingRow, posting_id, what="Posting", lock=True)
+    if orig.reversal_of_id is not None:
+        raise ApiError(409, "MFG_INVALID_STATE", "A reversal cannot be reversed; post a new transaction instead.",
+                       {"status": "reversal", "action": "reverse", "allowed_from": []})
+    done = s.execute(select(MfgInvPostingRow.id, MfgInvPostingRow.number)
+                     .where(MfgInvPostingRow.reversal_of_id == orig.id)).first()
+    if done is not None:
+        raise ApiError(409, "INV_ALREADY_REVERSED", f"{orig.number} was reversed already by {done[1]}.",
+                       {"reversed_by": {"id": done[0], "number": done[1]}})
+    txns = list(s.execute(select(MfgInvTransactionRow).where(MfgInvTransactionRow.posting_id == orig.id)
+                          .order_by(MfgInvTransactionRow.seq)).scalars())
+    L = _lock_documents(s, [t.schedule_id for t in txns if t.schedule_id],
+                        [t.demand_line_id for t in txns if t.demand_line_id],
+                        [t.wo_component_id for t in txns if t.wo_component_id], [t.wo_id for t in txns if t.wo_id])
+    number = repo_m2.allocate_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))
+    lt = lots(s, [t.lot_id for t in txns if t.lot_id])
+    pairs = {(t.item_id, t.location_id) for t in txns}
+    d = txn_date or today(s)
+    pctx = _context(s, L, {t.item_id for t in txns}, pairs, d, system=txn_date is not None)
+    original = [INV.OrigTxn(t.line_no, t.txn_type, t.item_id, t.location_id,
+                            lt[t.lot_id].lot_code if t.lot_id else None, t.qty, t.unit_cost, t.schedule_id,
+                            t.wo_id, t.wo_component_id, t.demand_line_id, t.scrap_qty) for t in txns]
+    try:
+        plan = INV.plan_reversal(orig.type, original, pctx, d)
+    except RuleError as e:
+        raise rule_error(e) from None
+    actor = actor_id()
+    row = MfgInvPostingRow(id=new_id("pst_"), number=number, type=orig.type, txn_date=d,
+                           note=note or f"Reversal of {orig.number}", reason_code=orig.reason_code,
+                           idempotency_key=None, request_hash=None, actor_id=actor, reversal_of_id=orig.id,
+                           created_at=utcnow())
+    s.add(row)
+    s.flush()
+    _apply_reversal(s, L, plan, row, actor)
+    audit(s, "posting", row.id, "reverse", {"number": row.number, "reversal_of": orig.number})
+    return row
 
 
 def _apply_reversal(s: Session, L: _Loaded, plan: INV.PostingPlan, posting: MfgInvPostingRow, actor: str) -> None:

@@ -1,7 +1,8 @@
 /** `/mfg/resources/operators` (`?operator=`, M 11.1): operators with skills, shift template + shift names, home stage. */
 import { useEffect, useMemo, useState } from "react";
 import { OperatorAbsences } from "../components/OperatorAbsences";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { mfgPaths } from "../lib/paths";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Icon } from "../../components/Icon";
 import { MultiSelect } from "../../components/Inputs";
@@ -16,6 +17,8 @@ import {
   updateOperator,
 } from "../api/client";
 import type { GroupRecord, OperatorInput, OperatorRecord, ShiftTemplateRecord, SkillRecord } from "../api/types";
+import { listMembers } from "../api/clientM2";
+import type { OperatorM4Fields } from "../api/typesM4";
 import { ConflictBanner, MfgError, SaveState, Spinner } from "../components/Feedback";
 import { CheckField, SelectField, TextField } from "../components/Field";
 import { RecordList, withParam } from "../components/RecordList";
@@ -39,6 +42,9 @@ export function OperatorsPage() {
       <section className="card" aria-labelledby="ops-title">
         <div className="card-header">
           <h2 id="ops-title">Operators</h2>
+          <Link className="btn sm" to={mfgPaths.printLabels({ type: "badge" })} data-testid="print-badges">
+            <Icon name="file" /> Print badges
+          </Link>
           <button
             type="button"
             className="btn sm primary"
@@ -136,7 +142,8 @@ function OperatorForm({
 }) {
   const loaded = useLoad((signal) => (operatorId ? getOperator(operatorId, signal) : null), [operatorId]);
   const [base, setBase] = useState<OperatorRecord | null>(null);
-  const [f, setF] = useState({ code: "", name: "", skill_ids: [] as string[], template: "", shift_names: [] as string[], home: "", active: true });
+  const [f, setF] = useState({ code: "", name: "", skill_ids: [] as string[], template: "", shift_names: [] as string[], home: "", active: true, user: "", m4: true });
+  const members = useLoad((signal) => listMembers(signal).catch(() => null), []);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -145,7 +152,7 @@ function OperatorForm({
 
   const reset = (o: OperatorRecord) => {
     setBase(o);
-    setF({ code: o.code, name: o.name, skill_ids: o.skill_ids, template: o.shift_template_id ?? "", shift_names: o.shift_names, home: o.home_group_id ?? "", active: o.active });
+    setF({ code: o.code, name: o.name, skill_ids: o.skill_ids, template: o.shift_template_id ?? "", shift_names: o.shift_names, home: o.home_group_id ?? "", active: o.active, user: (o as OperatorRecord & OperatorM4Fields).user_id ?? "", m4: "user_id" in o });
     setConflict(false);
   };
   useEffect(() => {
@@ -158,7 +165,8 @@ function OperatorForm({
   if (operatorId && loaded.error && !base) return <MfgError error={loaded.error} onRetry={loaded.reload} />;
   if (operatorId && !base) return <Spinner />;
 
-  const body = (): OperatorInput => ({
+  const body = (): OperatorInput & OperatorM4Fields => ({
+    ...(f.m4 ? { user_id: f.user || null } : {}),
     code: f.code.trim(),
     name: f.name.trim(),
     skill_ids: f.skill_ids,
@@ -218,6 +226,19 @@ function OperatorForm({
             testId="operator-template"
           />
           <SelectField label="Home stage" value={f.home} onChange={(v) => setF({ ...f, home: v })} options={[{ value: "", label: "None" }, ...groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))]} />
+          {f.m4 ? (
+            <SelectField
+              label="Personal login"
+              value={f.user}
+              onChange={(v) => setF({ ...f, user: v })}
+              options={[
+                { value: "", label: "None (badge scan on a shared tablet)" },
+                ...(members.data?.items ?? []).filter((m) => m.active).map((m) => ({ value: m.user.id, label: `${m.user.display_name || m.user.email}${m.user.email ? ` (${m.user.email})` : ""}` })),
+                ...(f.user && !(members.data?.items ?? []).some((m) => m.user.id === f.user) ? [{ value: f.user, label: "Linked account" }] : []),
+              ]}
+              hint="An operator signed in with their own account needs no badge scan. Members are managed under Members."
+            />
+          ) : null}
         </div>
         {template ? (
           <fieldset className="mfg-fieldset">

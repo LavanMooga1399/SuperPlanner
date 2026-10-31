@@ -31,6 +31,8 @@ export interface OpDraft {
   yield_pct: string;
   inspection_gate: boolean;
   interruptible: boolean;
+  /** M4 10: serial point; undefined when the server does not know the field (not sent back) */
+  capture_serial?: boolean;
 }
 
 let seqKey = 0;
@@ -61,6 +63,7 @@ export function opToDraft(o: OperationRecord): OpDraft {
     yield_pct: String(o.yield_pct),
     inspection_gate: o.inspection_gate,
     interruptible: o.interruptible,
+    ...("capture_serial" in o ? { capture_serial: Boolean((o as { capture_serial?: boolean }).capture_serial) } : {}),
   };
 }
 
@@ -89,6 +92,7 @@ export function blankOp(ops: OpDraft[], groupId: string): OpDraft {
     yield_pct: "100",
     inspection_gate: false,
     interruptible: true,
+    ...(ops.some((x) => x.capture_serial !== undefined) ? { capture_serial: false } : {}),
   };
 }
 
@@ -435,6 +439,12 @@ function OpDetails({
           <input type="checkbox" checked={o.inspection_gate} disabled={readOnly} onChange={(e) => onPatch({ inspection_gate: e.target.checked })} />
           Quality gate (inspection)
         </label>
+        {o.capture_serial !== undefined ? (
+          <label className="checkbox" title="Operators scan or type one serial per good unit when this operation completes (serialized items).">
+            <input type="checkbox" checked={o.capture_serial} disabled={readOnly} onChange={(e) => onPatch({ capture_serial: e.target.checked })} data-testid="op-capture-serial" />
+            Capture serial numbers here
+          </label>
+        ) : null}
         <label className="checkbox">
           <input type="checkbox" checked={!o.interruptible} disabled={readOnly} onChange={(e) => onPatch({ interruptible: !e.target.checked })} />
           Must not pause (one continuous run)

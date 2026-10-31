@@ -11,6 +11,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as RMouseEvent, type WheelEvent } from "react";
 import { Icon } from "../../components/Icon";
 import { lineIdOfRow, type BandKind, type GanttBar, type GanttResponse, type GanttRow } from "../api/typesM3";
+import type { WoOpStatus } from "../api/typesM4";
+import { OP_STATUS } from "../floor/floorText";
 import type { PlantClock } from "../lib/plantTime";
 import { fmtDuration } from "../lib/plantTime";
 
@@ -343,14 +345,16 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
         drawBar(g, b, X(it.s), X(it.e), y, it.s, b.setup_end ? X(Date.parse(b.setup_end)) : null, b.pieces.map((pc) => [X(Date.parse(pc.start)), X(Date.parse(pc.end))]), C, selected === b.op_no, dragging ? 0.35 : 1);
         // actual (M4): a thin bar under the planned one; running/paused bars run to now
         const a = b.actual;
-        if (a?.start) {
-          const as = Date.parse(a.start);
-          const ae = a.end ? Date.parse(a.end) : Date.now();
+        const aStart = a?.start ?? a?.actual_start ?? null;
+        const aEnd = a?.end ?? a?.actual_end ?? null;
+        if (a && aStart) {
+          const as = Date.parse(aStart);
+          const ae = aEnd ? Date.parse(aEnd) : Date.now();
           const xa = X(as);
           const xb = Math.max(xa + 2, X(ae));
           g.fillStyle = a.status === "completed" ? C.ok : a.status === "paused" ? C.warn : C.accent;
           g.fillRect(xa, y + ROW_H - 5, xb - xa, 3);
-          if (!a.end) {
+          if (!aEnd) {
             // open end: an arrow head says "still going"
             g.beginPath();
             g.moveTo(xb, y + ROW_H - 7);
@@ -591,10 +595,10 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
           {hover.bar.locked ? <div className="small">Locked by an edit</div> : null}
           {hover.bar.moved_by_downtime ? <div className="small">Moved because the line is down</div> : null}
           {hover.bar.load_no ? <div className="small">Batch load B{hover.bar.load_no}</div> : null}
-          {hover.bar.actual?.start ? (
+          {hover.bar.actual && (hover.bar.actual.start ?? hover.bar.actual.actual_start) ? (
             <div className="small" data-testid="gantt-tooltip-actual">
-              Actual: {hover.bar.actual.status} since {clock.dateTime(hover.bar.actual.start)}
-              {hover.bar.actual.end ? `, ended ${clock.dateTime(hover.bar.actual.end)}` : ""}
+              Actual: {OP_STATUS[hover.bar.actual.status as WoOpStatus]?.label.toLowerCase() ?? hover.bar.actual.status} since {clock.dateTime(hover.bar.actual.start ?? hover.bar.actual.actual_start)}
+              {hover.bar.actual.end ?? hover.bar.actual.actual_end ? `, ended ${clock.dateTime(hover.bar.actual.end ?? hover.bar.actual.actual_end)}` : ""}
             </div>
           ) : null}
           {hover.bar.split && hover.bar.split.count > 1 ? (

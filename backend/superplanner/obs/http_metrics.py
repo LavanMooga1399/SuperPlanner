@@ -26,7 +26,7 @@ from prometheus_client import Counter, Gauge, Histogram
 
 log = logging.getLogger(__name__)
 
-JOB_KINDS = ("solver_run", "finance_run", "aps_run")
+JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation")
 QUEUE_STATUSES = ("queued", "running")
 AUTH_EVENTS = ("sign_in_ok", "sign_in_failed", "sign_up", "rate_limited", "csrf_failed")
 COLLECTOR_TTL_SECONDS = 5.0

@@ -213,6 +213,7 @@ class MfgWorkOrderRow(OwnedMixin, _Editable, Base):
                       Index("ix_mfg_work_orders_item", "item_id"),
                       Index("ix_mfg_work_orders_bom", "bom_id"),
                       Index("ix_mfg_work_orders_routing", "routing_id"),
+                      Index("ix_mfg_work_orders_receipt_location", "receipt_location_id"),        # M4
                       Index("ix_mfg_work_orders_demand_line", "demand_line_id"),
                       _extref("mfg_work_orders"))
 

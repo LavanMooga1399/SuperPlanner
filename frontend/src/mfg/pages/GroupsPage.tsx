@@ -19,6 +19,8 @@ import {
   updateLine,
 } from "../api/client";
 import type { GroupInput, GroupRecord, ItemRef, LineInput, LineRecord } from "../api/types";
+import { listLocations } from "../api/clientM2";
+import type { LineM4Fields } from "../api/typesM4";
 import { ConflictBanner, MfgError, SaveState, Spinner } from "../components/Feedback";
 import { CheckField, numOr, SelectField, strOrNull, TextField } from "../components/Field";
 import { ItemPicker } from "../components/ItemPicker";
@@ -377,6 +379,10 @@ function LineEditor({
   onCancel?(): void;
   onDeleted?(): void;
 }) {
+  // new lines on an M4 server accept the M4 fields; existing ones tell by their record
+  const m4Known = true;
+  const locs = useLoad((signal) => listLocations({ active: true }, signal).catch(() => null), []);
+  const locations = locs.data?.items ?? [];
   const init = (x: LineRecord | null) => ({
     group_id: x?.group_id ?? groupId,
     code: x?.code ?? "",
@@ -388,6 +394,11 @@ function LineEditor({
     items: x?.eligible_items ?? ([] as ItemRef[]),
     cost_per_hour: String(x?.cost_per_hour ?? 0),
     active: x?.active ?? true,
+    // M4 3.1 (sent back only when the server knows them)
+    m4: x ? "batch_merge" in x : m4Known,
+    location_id: (x as (LineRecord & LineM4Fields) | null)?.location_id ?? "",
+    batch_merge: Boolean((x as (LineRecord & LineM4Fields) | null)?.batch_merge),
+    batch_wait: String((x as (LineRecord & LineM4Fields) | null)?.batch_wait_minutes ?? 0),
   });
   const [f, setF] = useState(() => init(line));
   const [version, setVersion] = useState(line?.row_version ?? 0);
@@ -397,7 +408,8 @@ function LineEditor({
   const [saved, setSaved] = useState(false);
   const [more, setMore] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const body = (): LineInput => ({
+  const body = (): LineInput & LineM4Fields => ({
+    ...(f.m4 ? { location_id: f.location_id || null, batch_merge: f.batch_merge, batch_wait_minutes: numOr(f.batch_wait, 0) } : {}),
     group_id: f.group_id,
     code: f.code.trim(),
     name: f.name.trim(),
@@ -484,13 +496,28 @@ function LineEditor({
         </fieldset>
         <div>
           <button type="button" className="btn ghost sm" aria-expanded={more} onClick={() => setMore((m) => !m)}>
-            <Icon name={more ? "chevron-down" : "chevron-right"} /> More settings (cost, setup family)
+            <Icon name={more ? "chevron-down" : "chevron-right"} /> More settings (cost, setup family, line-side stock, batching)
           </button>
         </div>
         {more ? (
           <div className="form-grid">
             <TextField label="Running cost per hour" type="number" value={f.cost_per_hour} onChange={(v) => setF({ ...f, cost_per_hour: v })} />
             <TextField label="Setup family" value={f.setup_family} onChange={(v) => setF({ ...f, setup_family: v })} maxLength={32} hint="Lines with the same value share changeover times." />
+            {f.m4 ? (
+              <>
+                <SelectField
+                  label="Line-side stock location"
+                  value={f.location_id}
+                  onChange={(v) => setF({ ...f, location_id: v })}
+                  options={[{ value: "", label: "Plant default" }, ...locations.map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]}
+                  hint="Backflushed components are taken from here."
+                />
+                <CheckField label="Combine orders into batch loads" checked={f.batch_merge} onChange={(v) => setF({ ...f, batch_merge: v })} hint="Ovens, burn-in: compatible batch operations of different work orders share one load." testId="line-batch-merge" />
+                {f.batch_merge ? (
+                  <TextField label="Wait for a fuller load (min)" type="number" value={f.batch_wait} onChange={(v) => setF({ ...f, batch_wait: v })} hint="How long a load may wait for more compatible units." />
+                ) : null}
+              </>
+            ) : null}
           </div>
         ) : null}
         <div className="row">

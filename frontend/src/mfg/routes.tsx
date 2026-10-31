@@ -68,6 +68,21 @@ import { ApsOvertimeTab } from "./pages/schedule/ApsOvertimeTab";
 import { ApsExceptionsTab } from "./pages/schedule/ApsExceptionsTab";
 import { ApsCompareTab } from "./pages/schedule/ApsCompareTab";
 
+import { FloorBatch } from "./floor/FloorBatch";
+import { FloorDowntime } from "./floor/FloorDowntime";
+import { FloorHome } from "./floor/FloorHome";
+import { FloorLayout } from "./floor/FloorLayout";
+import { FloorOperation } from "./floor/FloorOperation";
+import { FloorQueue } from "./floor/FloorQueue";
+import { FloorWo } from "./floor/FloorWo";
+import { FloorEvents } from "./pages/m4/FloorEvents";
+import { FloorOverview } from "./pages/m4/FloorOverview";
+import { KpiPage } from "./pages/m4/KpiPage";
+import { LabelsPage, TravellerPage } from "./pages/m4/PrintPages";
+import { ReplanPage } from "./pages/m4/ReplanPage";
+import { SerialPage, SerialsPage } from "./pages/m4/SerialsPage";
+import { SimulationPage, SimulationsPage } from "./pages/m4/SimulationsPage";
+
 /** A fresh page instance per document id (no state carried from one document to the next). */
 function Keyed({ param, children }: { param: string; children: (key: string) => ReactElement }) {
   const params = useParams();
@@ -75,6 +90,21 @@ function Keyed({ param, children }: { param: string; children: (key: string) => 
 }
 
 export const mfgRoutes: RouteObject[] = [
+  // ---------------------------------------------------------------- M4 floor (12): tablet shell without the mfg nav
+  {
+    path: "mfg/floor",
+    element: <FloorLayout />,
+    children: [
+      { index: true, element: <FloorHome /> },
+      { path: "lines/:lineId", element: <Keyed param="lineId">{(k) => <FloorQueue key={k} />}</Keyed> },
+      { path: "lines/:lineId/downtime", element: <FloorDowntime /> },
+      { path: "lines/:lineId/batch", element: <FloorBatch /> },
+      { path: "ops/:woOpId", element: <Keyed param="woOpId">{(k) => <FloorOperation key={k} />}</Keyed> },
+      // the server's scan links (#200 `link`) use this form
+      { path: "operations/:woOpId", element: <Keyed param="woOpId">{(k) => <FloorOperation key={k} />}</Keyed> },
+      { path: "wo/:woId", element: <FloorWo /> },
+    ],
+  },
   {
     path: "mfg",
     element: <MfgLayout />,
@@ -192,6 +222,17 @@ export const mfgRoutes: RouteObject[] = [
           { path: "*", element: <MfgNotFound /> },
         ],
       },
+      // ---------------------------------------------------------------- M4 (12)
+      { path: "floor/overview", element: <FloorOverview /> },
+      { path: "floor/events", element: <FloorEvents /> },
+      { path: "replan", element: <ReplanPage /> },
+      { path: "kpis", element: <KpiPage /> },
+      { path: "serials", element: <SerialsPage /> },
+      { path: "serials/:serialId", element: <Keyed param="serialId">{(k) => <SerialPage key={k} />}</Keyed> },
+      { path: "schedule/simulations", element: <SimulationsPage /> },
+      { path: "schedule/simulations/:simulationId", element: <Keyed param="simulationId">{(k) => <SimulationPage key={k} />}</Keyed> },
+      { path: "print/traveller/:woId", element: <TravellerPage /> },
+      { path: "print/labels", element: <LabelsPage /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

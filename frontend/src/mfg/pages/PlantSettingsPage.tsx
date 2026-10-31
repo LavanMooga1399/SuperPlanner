@@ -5,14 +5,22 @@ import { getPlant, updatePlant } from "../api/client";
 import { WEEKDAYS, type PlantInput, type PlantRecord, type Weekday } from "../api/types";
 import type { PlantM2Fields } from "../api/typesM2";
 import { OVERTIME_POLICIES, type OvertimePolicy, type PlantM3Fields } from "../api/typesM3";
+import type { PlantM4Fields, ReplanPolicy } from "../api/typesM4";
+import { listLocations } from "../api/clientM2";
 import { POLICY_TEXT } from "./schedule/ApsRunForm";
 import { WEEKDAY_LABEL } from "../lib/format";
 import { ConflictBanner, MfgError, SaveState, Spinner } from "../components/Feedback";
-import { Field, numOr, TextField } from "../components/Field";
+import { Field, numOr, SelectField, TextField } from "../components/Field";
 import { PermissionGate } from "../components/PermissionGate";
-import { isConflict, useMeta, usePlant } from "../lib/useMfg";
+import { isConflict, useLoad, useMeta, usePlant } from "../lib/useMfg";
 
 const OFFSET = /^[+-](0\d|1[0-4]):[0-5]\d$/;
+
+const REPLAN_HELP: Record<ReplanPolicy, string> = {
+  notify: "Changes are listed under Replanning; you decide when to make a new schedule.",
+  auto_whatif: "A new schedule is prepared after a line stops, a delivery is late, and so on. You compare and publish it.",
+  auto_publish: "As above, and published only when it breaks no rules, keeps the frozen work and is not later than the current plan.",
+};
 
 export function PlantSettingsPage() {
   const plant = usePlant();
@@ -31,7 +39,14 @@ export function PlantSettingsPage() {
     freeze: "48",
     apsHorizon: "42",
     policy: "suggest" as OvertimePolicy,
+    replanPolicy: "notify" as ReplanPolicy,
+    debounce: "15",
+    overrun: "20",
+    adherence: "120",
+    receiptLoc: "",
+    backflushLoc: "",
   });
+  const locs = useLoad((signal) => listLocations({ active: true }, signal).catch(() => null), []);
   const meta = useMeta() as (ReturnType<typeof useMeta> & { time_zones?: string[] }) | null;
   const zones = (() => {
     if (meta?.time_zones?.length) return meta.time_zones;
@@ -41,6 +56,7 @@ export function PlantSettingsPage() {
       return [];
     }
   })();
+  const [floorExpert, setFloorExpert] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -63,6 +79,12 @@ export function PlantSettingsPage() {
       freeze: String(x.aps_freeze_hours ?? 48),
       apsHorizon: String(x.aps_horizon_days ?? 42),
       policy: x.aps_overtime_policy ?? "suggest",
+      replanPolicy: (p as PlantRecord & PlantM4Fields).replan_policy ?? "notify",
+      debounce: String((p as PlantRecord & PlantM4Fields).replan_debounce_minutes ?? 15),
+      overrun: String((p as PlantRecord & PlantM4Fields).overrun_tolerance_pct ?? 20),
+      adherence: String((p as PlantRecord & PlantM4Fields).adherence_tolerance_minutes ?? 120),
+      receiptLoc: (p as PlantRecord & PlantM4Fields).wo_receipt_location_id ?? "",
+      backflushLoc: (p as PlantRecord & PlantM4Fields).backflush_location_id ?? "",
     });
     setConflict(false);
   };
@@ -90,8 +112,21 @@ export function PlantSettingsPage() {
   const m3Body: PlantM3Fields = m3
     ? { time_zone: f.timeZone.trim() || null, aps_freeze_hours: numOr(f.freeze, 48), aps_horizon_days: numOr(f.apsHorizon, 42), aps_overtime_policy: f.policy }
     : {};
-  const body: PlantInput & PlantM2Fields & PlantM3Fields = {
+  // M4 3.1: floor and replanning settings, only when the server knows them
+  const m4 = "replan_policy" in base;
+  const m4Body: PlantM4Fields = m4
+    ? {
+        replan_policy: f.replanPolicy,
+        replan_debounce_minutes: numOr(f.debounce, 15),
+        overrun_tolerance_pct: numOr(f.overrun, 20),
+        adherence_tolerance_minutes: numOr(f.adherence, 120),
+        wo_receipt_location_id: f.receiptLoc || null,
+        backflush_location_id: f.backflushLoc || null,
+      }
+    : {};
+  const body: PlantInput & PlantM2Fields & PlantM3Fields & PlantM4Fields = {
     ...m3Body,
+    ...m4Body,
     name: f.name.trim() || "Plant",
     utc_offset: f.utc_offset.trim(),
     planning_horizon_days: numOr(f.horizon, 90),
@@ -113,7 +148,8 @@ export function PlantSettingsPage() {
       !inRange(f.overReceipt, 0, 100, false));
   const tzBad = m3 && f.timeZone.trim() !== "" && zones.length > 0 && !zones.includes(f.timeZone.trim());
   const m3Invalid = m3 && (tzBad || !inRange(f.freeze, 0, 336) || !inRange(f.apsHorizon, 7, 120));
-  const invalid = (!m3 || !f.timeZone.trim() ? !OFFSET.test(f.utc_offset.trim()) : false) || !(horizon >= 7 && horizon <= 730) || m2Invalid || m3Invalid;
+  const m4Invalid = m4 && (!inRange(f.debounce, 0, 1440) || !inRange(f.overrun, 0, 500, false) || !inRange(f.adherence, 0, 1440));
+  const invalid = m4Invalid || (!m3 || !f.timeZone.trim() ? !OFFSET.test(f.utc_offset.trim()) : false) || !(horizon >= 7 && horizon <= 730) || m2Invalid || m3Invalid;
 
   const save = async () => {
     setBusy(true);
@@ -198,6 +234,34 @@ export function PlantSettingsPage() {
                 <span className="hint">{POLICY_TEXT[f.policy].help}</span>
               </div>
             </div>
+          </fieldset>
+        ) : null}
+        {m4 ? (
+          <fieldset className="mfg-fieldset" data-testid="plant-floor">
+            <legend>Shop floor and replanning</legend>
+            <div className="form-grid">
+              <div className="field">
+                <label htmlFor="plant-replan">When the floor or supply changes</label>
+                <select id="plant-replan" className="select" value={f.replanPolicy} onChange={(e) => setF({ ...f, replanPolicy: e.target.value as ReplanPolicy })} data-testid="plant-replan-policy">
+                  <option value="notify">Notify the planner (recommended)</option>
+                  <option value="auto_whatif">Prepare a new schedule automatically</option>
+                  <option value="auto_publish">Prepare and publish automatically when safe</option>
+                </select>
+                <span className="hint">{REPLAN_HELP[f.replanPolicy]}</span>
+              </div>
+              <SelectField label="Finished goods go to" value={f.receiptLoc} onChange={(v) => setF({ ...f, receiptLoc: v })} options={[{ value: "", label: "Not set (each work order needs one)" }, ...(locs.data?.items ?? []).map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]} hint="Receipt of the last operation's good output." />
+              <SelectField label="Backflush from" value={f.backflushLoc} onChange={(v) => setF({ ...f, backflushLoc: v })} options={[{ value: "", label: "Not set" }, ...(locs.data?.items ?? []).map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]} hint="Default line-side stock for backflushed items (a line can override)." />
+            </div>
+            <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={floorExpert} onClick={() => setFloorExpert((v) => !v)}>
+              <Icon name={floorExpert ? "chevron-down" : "chevron-right"} /> Expert settings (tolerances, waiting time)
+            </button>
+            {floorExpert ? (
+              <div className="form-grid">
+                <TextField label="Collect changes for (min)" type="number" value={f.debounce} onChange={(v) => setF({ ...f, debounce: v })} hint="0 to 1440. Automatic proposals wait this long so several changes go into one run." />
+                <TextField label="Overrun warning after (%)" type="number" value={f.overrun} onChange={(v) => setF({ ...f, overrun: v })} hint="A running operation projected this much over its planned time (at least 30 min) raises a warning." />
+                <TextField label="On time if within (min)" type="number" value={f.adherence} onChange={(v) => setF({ ...f, adherence: v })} hint="Schedule adherence: started and finished within this many minutes of the plan." />
+              </div>
+            ) : null}
           </fieldset>
         ) : null}
         {m2 ? (

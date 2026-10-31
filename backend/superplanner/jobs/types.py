@@ -23,12 +23,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..api.config import Settings
     from ..api.db import Database, JobRow
 
-JobKind = Literal["solver_run", "finance_run", "aps_run"]
+JobKind = Literal["solver_run", "finance_run", "aps_run", "aps_simulation"]
 JobStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
-JOB_KINDS: tuple[str, ...] = ("solver_run", "finance_run", "aps_run")
+JOB_KINDS: tuple[str, ...] = ("solver_run", "finance_run", "aps_run", "aps_simulation")
 #: kind -> the `jobs` column that references its run (exactly one is set, `ck_jobs_one_target`)
 RUN_ID_COLUMN: dict[str, str] = {"solver_run": "solver_run_id", "finance_run": "finance_run_id",
-                                 "aps_run": "aps_run_id"}
+                                 "aps_run": "aps_run_id", "aps_simulation": "aps_simulation_id"}
 TERMINAL_JOB_STATUSES: tuple[str, ...] = ("succeeded", "failed", "cancelled")
 ACTIVE_RUN_STATUSES: tuple[str, ...] = ("queued", "running")
 RUN_TO_JOB_STATUS = {"completed": "succeeded", "failed": "failed", "cancelled": "cancelled"}
@@ -162,6 +162,10 @@ def handler_for(kind: str) -> Handler:
         from ..api.mfg.services import aps as aps_service
 
         return aps_service.run_job
+    if kind == "aps_simulation":                       # M4-DESIGN 8
+        from ..api.mfg.services import simulation as simulation_service
+
+        return simulation_service.run_job
     raise ValueError(f"unknown job kind {kind!r}")
 
 

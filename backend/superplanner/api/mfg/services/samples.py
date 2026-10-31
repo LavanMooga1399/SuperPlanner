@@ -23,7 +23,7 @@ from ...context import AppContext
 from ...db import new_id, utcnow
 from ...errors import ApiError, not_found
 from .. import repo, repo_m2, writer
-from ..db_models_m3 import ALL_MFG_MODELS
+from ..db_models_m4 import ALL_MFG_MODELS
 from .common import audit, plant_today, read_tx, write_tx
 
 RESET_PHRASE = "DELETE ALL MANUFACTURING DATA"
@@ -53,27 +53,47 @@ def list_samples() -> dict[str, Any]:
 
 
 def _sample_progress(s: Session, sample_id: str) -> None:
-    """M3 13: the sample's WO operation progress markers (idempotent)."""
+    """M3 13: the sample's operations marked done when it is loaded (idempotent). M4: they become completed WO
+    operations with one `complete` event each (`details.sample`, applied as is like migrated M3 markers)."""
     from sqlalchemy import select
 
     from ....mfg import samples as sample_data
     from ..db_models_m2 import MfgWorkOrderRow
-    from ..db_models_m3 import MfgWoOpProgressRow
+    from ..db_models_m4 import MfgFloorEventRow
+    from .floor import ensure_rows
 
     prog = sample_data.sample_progress(sample_id)
     if not prog:
         return
-    wos = {w.number: w.id for w in s.execute(select(MfgWorkOrderRow).where(
+    wos = {w.number: w for w in s.execute(select(MfgWorkOrderRow).where(
         MfgWorkOrderRow.number.in_(sorted(prog)))).scalars()}
-    have = {(p.wo_id, p.seq) for p in s.execute(select(MfgWoOpProgressRow)).scalars()}
     now = utcnow()
     for number, seqs in sorted(prog.items()):
-        wid = wos.get(number)
+        w = wos.get(number)
+        if w is None:
+            continue
+        rows = {r.seq: r for r in ensure_rows(s, w)}
         for q in seqs:
-            if wid is None or (wid, q) in have:
+            r = rows.get(q)
+            if r is None or r.status == "completed":
                 continue
-            s.add(MfgWoOpProgressRow(id=new_id("wop_"), wo_id=wid, seq=q, done=True, done_at=now, done_by=None,
-                                     row_version=1, created_at=now, updated_at=now))
+            s.add(MfgFloorEventRow(id=new_id("fev_"), wo_operation_id=r.id, wo_id=w.id, event_type="complete",
+                                   event_at=now, recorded_at=now, line_id=None, operator_ids=[], qty_good=r.qty_planned,
+                                   qty_scrap=0.0, qty_rework=None, rework_to_seq=None, reason_code=None,
+                                   note="Sample progress", client_event_id=None, batch_load_id=None, serials=None,
+                                   corrects_event_id=None, forced=None,
+                                   details={"migrated": True, "sample": True}, actor_id=w.owner_id))
+            s.flush()
+            r.status, r.qty_good, r.actual_end, r.completed_at = "completed", r.qty_planned, now, now
+            r.effects = {"scrap": 0.0}
+    s.flush()
+    from .floor import replay_wo, wo_events, wo_rows, _store_state
+
+    for w in wos.values():
+        rows_ = wo_rows(s, w.id)
+        st = replay_wo(rows_, wo_events(s, w.id))
+        for r in rows_:
+            _store_state(r, st[r.id], now)
     s.flush()
 
 

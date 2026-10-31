@@ -32,6 +32,7 @@ include = ["superplanner*"]
 "superplanner.api.auth" = ["common_passwords.txt"]
 "superplanner.mfg.mrp.fixtures" = ["*.json"]
 "superplanner.mfg.aps.fixtures" = ["*.json"]
+"superplanner.mfg.floor.fixtures" = ["*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

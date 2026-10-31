@@ -20,11 +20,9 @@ from ...errors import ApiError
 from ...schemas import as_utc
 from .. import repo
 from ..db_models import MfgGroupRow, MfgLineRow, MfgOperationRow, MfgOperatorRow, MfgRoutingRow
-from ..db_models_m2 import MfgWorkOrderRow
-from ..db_models_m3 import (MfgApsOpRow, MfgApsRunRow, MfgOperationLineRateRow, MfgOperatorAbsenceRow,
-                            MfgSetupMatrixRow, MfgWoOpProgressRow)
+from ..db_models_m3 import (MfgOperationLineRateRow, MfgOperatorAbsenceRow,
+                            MfgSetupMatrixRow)
 from .common import audit, check_version, ensure_unique, read_tx, touch, unknown_ref, write_tx
-from .m2util import user_names
 
 MAX_LINE_RATES = 20_000
 MAX_SETUP_ROWS = 5_000
@@ -265,93 +263,17 @@ def delete_absence(ctx: AppContext, absence_id: str, if_match: str | None) -> No
         audit(s, "operator_absence", row.id, "delete", {"version": row.row_version})
 
 
-# ---------------------------------------------------------------- WO operations and progress (176-178)
-
-def _routing_of(s: Any, wo: MfgWorkOrderRow) -> str | None:
-    if wo.routing_id:
-        return wo.routing_id
-    from ....mfg.aps.pure import wo_routing_id
-
-    return wo_routing_id(repo.load_dataset(s), wo.item_id, wo.start_date, wo.serial_from, None)
-
-
-def _wo_operations(s: Any, wo: MfgWorkOrderRow) -> dict[str, Any]:
-    rid = _routing_of(s, wo)
-    ops = list(s.execute(select(MfgOperationRow).where(MfgOperationRow.routing_id == rid)
-                         .order_by(MfgOperationRow.seq)).scalars()) if rid else []
-    groups = {g.id: g for g in s.execute(select(MfgGroupRow).where(
-        MfgGroupRow.id.in_({o.group_id for o in ops}))).scalars()} if ops else {}
-    prog = {p.seq: p for p in s.execute(select(MfgWoOpProgressRow).where(MfgWoOpProgressRow.wo_id == wo.id))
-            .scalars()}
-    names = user_names(s, [p.done_by for p in prog.values() if p.done_by])
-    pub = s.execute(select(MfgApsRunRow.id).where(MfgApsRunRow.is_published.is_(True))).scalar()
-    place: dict[int, list[dict[str, Any]]] = {}
-    if pub is not None:
-        rows = list(s.execute(select(MfgApsOpRow).where(MfgApsOpRow.run_id == pub, MfgApsOpRow.order_id == wo.id)
-                              .order_by(MfgApsOpRow.seq, MfgApsOpRow.split_index)).scalars())
-        lines = {r.id: r.code for r in s.execute(select(MfgLineRow).where(
-            MfgLineRow.id.in_({r.line_id for r in rows if r.line_id}))).scalars()} if rows else {}
-        for r in rows:
-            if r.status != "scheduled":
-                continue
-            place.setdefault(r.seq, []).append({
-                "run_id": pub, "op_no": r.op_no, "line": {"id": r.line_id, "code": lines.get(r.line_id, "")},
-                "start": as_utc(r.start_at), "end": as_utc(r.end_at),
-                "split": {"index": r.split_index, "count": r.split_count}})
-    items = []
-    for o in ops:
-        p = prog.get(o.seq)
-        g = groups.get(o.group_id)
-        items.append({
-            "seq": o.seq, "name": o.name, "group": {"id": o.group_id, "code": g.code if g else "",
-                                                    "name": g.name if g else ""},
-            "setup_minutes": o.setup_minutes, "run_minutes": o.run_minutes, "labor": o.labor,
-            "done": bool(p and p.done), "done_at": as_utc(p.done_at) if p and p.done else None,
-            "done_by": ({"id": p.done_by, "code": "", "name": names.get(p.done_by, "")}
-                        if p and p.done and p.done_by else None),
-            "placement": place.get(o.seq, [])})
-    return {"wo": {"id": wo.id, "number": wo.number, "row_version": wo.row_version, "status": wo.status},
-            "items": items}
-
+# ---------------------------------------------------------------- WO operations (176-178): M4 event-backed
 
 def wo_operations(ctx: AppContext, wo_id: str) -> dict[str, Any]:
-    with read_tx(ctx) as s:
-        wo = repo.get_row(s, MfgWorkOrderRow, wo_id, what="Work order")
-        return _wo_operations(s, wo)
+    """M3 #176 extended (M4-DESIGN 11 #206): the WO's operation records (`services.floor`)."""
+    from . import floor
+
+    return floor.wo_operations(ctx, wo_id)
 
 
 def set_done(ctx: AppContext, wo_id: str, seq_s: str | int, done: bool, if_match: str | None) -> dict[str, Any]:
-    from .m2util import actor_id, run_tx
+    """M3 #177/#178 as supervisor shortcuts mapped to floor events (M4-DESIGN 11)."""
+    from . import floor
 
-    def fn(s: Any) -> dict[str, Any]:
-        wo = repo.get_row(s, MfgWorkOrderRow, wo_id, what="Work order", lock=True)
-        if not str(seq_s).isdigit() or len(str(seq_s)) > 9:
-            raise ApiError(404, "NOT_FOUND", f"Operation {seq_s!r} was not found on {wo.number}.", {"id": str(seq_s)})
-        seq = int(seq_s)
-        check_version(wo, if_match)
-        if wo.status not in ("planned", "released", "in_progress", "completed"):
-            raise ApiError(409, "MFG_INVALID_STATE", f"{wo.number} is {wo.status}; operations cannot change.",
-                           {"status": wo.status, "action": "done" if done else "reopen",
-                            "allowed_from": ["planned", "released", "in_progress", "completed"]})
-        rid = _routing_of(s, wo)
-        if rid is None or s.execute(select(MfgOperationRow.id).where(
-                MfgOperationRow.routing_id == rid, MfgOperationRow.seq == seq)).first() is None:
-            raise ApiError(404, "NOT_FOUND", f"Operation {seq} was not found on {wo.number}.", {"id": str(seq)})
-        p = s.execute(select(MfgWoOpProgressRow).where(MfgWoOpProgressRow.wo_id == wo.id,
-                                                       MfgWoOpProgressRow.seq == seq)).scalars().first()
-        now = utcnow()
-        if p is None:
-            p = MfgWoOpProgressRow(id=new_id("wop_"), wo_id=wo.id, seq=seq, done=False, done_at=None, done_by=None,
-                                   row_version=1, created_at=now, updated_at=now)
-            s.add(p)
-        p.done = done
-        p.done_at = now if done else None
-        p.done_by = actor_id() if done else None
-        touch(p, now)
-        touch(wo, now)
-        s.flush()
-        audit(s, "work_order", wo.id, "operation_done" if done else "operation_reopen",
-              {"number": wo.number, "seq": seq, "version": wo.row_version})
-        return _wo_operations(s, wo)
-
-    return run_tx(ctx, fn)
+    return floor.set_done(ctx, wo_id, seq_s, done, if_match)

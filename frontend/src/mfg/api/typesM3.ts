@@ -327,7 +327,7 @@ export interface GanttBar {
   split: { index: number; count: number } | null;
   status_color: string;
   /** M4 (11): execution state of the WO operation, drawn as a thin bar under the planned one */
-  actual?: { status: string; start: IsoDateTime | null; end: IsoDateTime | null } | null;
+  actual?: { status: string; start?: IsoDateTime | null; end?: IsoDateTime | null; actual_start?: IsoDateTime | null; actual_end?: IsoDateTime | null; wo_operation_id?: string } | null;
   /** M4 6.3: the batch load this operation runs in */
   load_no?: number | null;
   moved_by_downtime?: boolean;

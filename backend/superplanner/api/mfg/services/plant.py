@@ -22,6 +22,7 @@ from ...errors import ApiError, validation_details
 from .. import repo
 from ..db_models import (MfgCalendarExceptionRow, MfgGroupRow, MfgItemRow, MfgLineItemRow, MfgLineRow,
                          MfgOperationRow, MfgOperatorRow, MfgPlantRow, MfgShiftAssignmentRow, MfgShiftTemplateRow)
+from ..db_models_m2 import MfgLocationRow
 from .common import (audit, check_limit, check_version, count, ensure_unique, ilike, in_use, read_tx, touch,
                      unknown_ref, write_tx)
 
@@ -65,6 +66,11 @@ def put_plant(ctx: AppContext, inp: PlantInput, if_match: str | None) -> PlantRe
             row.name, row.utc_offset = inp.name, inp.utc_offset
         row.planning_horizon_days, row.currency = inp.planning_horizon_days, inp.currency
         row.attributes = dict(inp.attributes)
+        for f in ("wo_receipt_location_id", "backflush_location_id"):        # M4-DESIGN 3.1
+            lid = getattr(inp, f)
+            if lid is not None and \
+                    s.execute(select(MfgLocationRow.id).where(MfgLocationRow.id == lid)).scalar() is None:
+                raise unknown_ref(["body", f], lid, "Location")
         for k, v in repo.plant_mrp_columns(inp).items():       # M2-DESIGN 3.1
             setattr(row, k, v)
         row.row_version = current + 1

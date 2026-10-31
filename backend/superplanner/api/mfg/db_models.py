@@ -34,7 +34,9 @@ _REL = {"lazy": "raise", "passive_deletes": True}
 
 class MfgPlantRow(OwnedMixin, _Editable, Base):
     __tablename__ = "mfg_plant"
-    __table_args__ = (UniqueConstraint("owner_id", name="uq_mfg_plant_owner"),)
+    __table_args__ = (UniqueConstraint("owner_id", name="uq_mfg_plant_owner"),
+                      Index("ix_mfg_plant_wo_receipt_location", "wo_receipt_location_id"),       # M4
+                      Index("ix_mfg_plant_backflush_location", "backflush_location_id"))
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
@@ -55,10 +57,11 @@ class MfgPlantRow(OwnedMixin, _Editable, Base):
     aps_horizon_days: Mapped[int] = mapped_column(Integer)
     aps_overtime_policy: Mapped[str] = mapped_column(String(8))
     # M4-DESIGN 3.1
-    replan_policy: Mapped[str] = mapped_column(String(16))
-    replan_debounce_minutes: Mapped[int] = mapped_column(Integer)
-    overrun_tolerance_pct: Mapped[float] = mapped_column(Double)
-    adherence_tolerance_minutes: Mapped[int] = mapped_column(Integer)
+    # (Python-side defaults so older ORM writers keep working; no server defaults, M2 9.1)
+    replan_policy: Mapped[str] = mapped_column(String(16), default="notify")
+    replan_debounce_minutes: Mapped[int] = mapped_column(Integer, default=15)
+    overrun_tolerance_pct: Mapped[float] = mapped_column(Double, default=20.0)
+    adherence_tolerance_minutes: Mapped[int] = mapped_column(Integer, default=120)
     wo_receipt_location_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_locations.id", ondelete="SET NULL"),
                                                                nullable=True)
     backflush_location_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_locations.id", ondelete="SET NULL"),
@@ -99,7 +102,7 @@ class MfgItemRow(OwnedMixin, _Editable, Base):
     standard_cost: Mapped[float | None] = mapped_column(Double, nullable=True)
     lot_controlled: Mapped[bool] = mapped_column(Boolean)
     lot_period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    issue_method: Mapped[str] = mapped_column(String(8))                 # M4-DESIGN 3.1
+    issue_method: Mapped[str] = mapped_column(String(16), default="manual")     # M4-DESIGN 3.1 (S16: 16.WP-S)
 
 
 class MfgGroupRow(OwnedMixin, _Editable, Base):
@@ -150,7 +153,8 @@ class MfgShiftTemplateRow(OwnedMixin, _Editable, Base):
 class MfgLineRow(OwnedMixin, _Editable, Base):
     __tablename__ = "mfg_lines"
     __table_args__ = (UniqueConstraint("owner_id", "code", name="uq_mfg_lines_code"),
-                      Index("ix_mfg_lines_group", "group_id"))
+                      Index("ix_mfg_lines_group", "group_id"),
+                      Index("ix_mfg_lines_location", "location_id"))                             # M4
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     group_id: Mapped[str] = mapped_column(ForeignKey("mfg_groups.id", ondelete="RESTRICT"))
@@ -163,8 +167,8 @@ class MfgLineRow(OwnedMixin, _Editable, Base):
     cost_per_hour: Mapped[float] = mapped_column(Double)
     # M4-DESIGN 3.1
     location_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_locations.id", ondelete="SET NULL"), nullable=True)
-    batch_merge: Mapped[bool] = mapped_column(Boolean)
-    batch_wait_minutes: Mapped[int] = mapped_column(Integer)
+    batch_merge: Mapped[bool] = mapped_column(Boolean, default=False)
+    batch_wait_minutes: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean)
 
     item_links: Mapped[list["MfgLineItemRow"]] = relationship(back_populates="line", cascade="all, delete-orphan",
@@ -279,7 +283,7 @@ class MfgOperationRow(OwnedMixin, Base):
     yield_pct: Mapped[float] = mapped_column(Double)
     inspection_gate: Mapped[bool] = mapped_column(Boolean)
     interruptible: Mapped[bool] = mapped_column(Boolean)
-    capture_serial: Mapped[bool] = mapped_column(Boolean)                 # M4-DESIGN 3.1
+    capture_serial: Mapped[bool] = mapped_column(Boolean, default=False)        # M4-DESIGN 3.1
     row_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -346,7 +350,8 @@ class MfgOperatorRow(OwnedMixin, _Editable, Base):
     __tablename__ = "mfg_operators"
     __table_args__ = (UniqueConstraint("owner_id", "code", name="uq_mfg_operators_code"),
                       Index("ix_mfg_operators_template", "shift_template_id"),
-                      Index("ix_mfg_operators_home_group", "home_group_id"))
+                      Index("ix_mfg_operators_home_group", "home_group_id"),
+                      Index("ix_mfg_operators_user", "user_id"))                                 # M4
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     code: Mapped[str] = mapped_column(String(32))

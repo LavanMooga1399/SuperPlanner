@@ -152,11 +152,12 @@ class AuditEventRow(Base):
 class JobRow(OwnedMixin, Base):
     __tablename__ = "jobs"
     __table_args__ = (
-        CheckConstraint("num_nonnulls(solver_run_id, finance_run_id, aps_run_id) = 1", name="ck_jobs_one_target"),
+        CheckConstraint("num_nonnulls(solver_run_id, finance_run_id, aps_run_id, aps_simulation_id) = 1", name="ck_jobs_one_target"),
         Index("ix_jobs_running_lease", "lease_expires_at", **_partial("status = 'running'")),
         Index("uq_jobs_solver_run", "solver_run_id", unique=True, **_partial("solver_run_id IS NOT NULL")),
         Index("uq_jobs_finance_run", "finance_run_id", unique=True, **_partial("finance_run_id IS NOT NULL")),
         Index("uq_jobs_aps_run", "aps_run_id", unique=True, **_partial("aps_run_id IS NOT NULL")),
+        Index("uq_jobs_aps_simulation", "aps_simulation_id", unique=True, **_partial("aps_simulation_id IS NOT NULL")),
         Index("uq_jobs_idempotency", "owner_id", "idempotency_key", unique=True,
               **_partial("idempotency_key IS NOT NULL")),
         Index("ix_jobs_status_finished", "status", "finished_at"),
@@ -170,6 +171,9 @@ class JobRow(OwnedMixin, Base):
                                                        nullable=True)
     #: M3-DESIGN 10: job kind `aps_run` (manufacturing schedule runs)
     aps_run_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_aps_runs.id", ondelete="CASCADE"), nullable=True)
+    #: M4-DESIGN 3.2: job kind `aps_simulation` (risk runs)
+    aps_simulation_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_aps_simulations.id", ondelete="CASCADE"),
+                                                          nullable=True)
     status: Mapped[str] = mapped_column(String(16))
     priority: Mapped[int] = mapped_column(SmallInteger, default=0, server_default=text("0"))
     attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
@@ -216,3 +220,4 @@ from ..finance import db_models as _finance_db_models  # noqa: E402,F401
 from ..mfg import db_models as _mfg_db_models  # noqa: E402,F401
 from ..mfg import db_models_m2 as _mfg_db_models_m2  # noqa: E402,F401
 from ..mfg import db_models_m3 as _mfg_db_models_m3  # noqa: E402,F401
+from ..mfg import db_models_m4 as _mfg_db_models_m4  # noqa: E402,F401

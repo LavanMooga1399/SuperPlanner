@@ -91,6 +91,8 @@ def wo_records(s: Session, wos: list[MfgWorkOrderRow], *, full: bool = True) -> 
                     bom={"id": b.id, "revision": b.revision, "version": b.version} if b else None,
                     routing={"id": r.id, "code": r.code, "version": r.version} if r else None,
                     released_at=as_utc(w.released_at), completed_at=as_utc(w.completed_at),
+                    receipt_location_id=w.receipt_location_id,
+                    released_to_floor_at=as_utc(w.released_to_floor_at), release_override=w.release_override,
                     closed_at=as_utc(w.closed_at), shortage_count=None,
                     components=[{"id": c.id, "item_id": c.item_id, "item": iref(its.get(c.item_id), c.item_id),
                                  "required_qty": r6(c.required_qty), "issued_qty": r6(c.issued_qty),
@@ -187,6 +189,13 @@ def _generated(ds: Any, item_id: str, qty: float, on: date, serial: int | None) 
     return WOR.generate_components(ds, item_id, qty, on=on, serial=serial)
 
 
+def _receipt_loc(s: Session, inp: WorkOrderInput) -> str | None:
+    lid = getattr(inp, "receipt_location_id", None)
+    if lid is not None and s.get(MfgLocationRow, lid) is None:
+        raise unknown_ref(["body", "receipt_location_id"], lid, "Location")
+    return lid
+
+
 def new_wo(s: Session, ds: Any, inp: WorkOrderInput, *, source: str = "manual", status: str = "planned",
            run_no: int | None = None, planned_no: int | None = None, bom_id: str | None = None,
            routing_id: str | None = None, generated: Any = None) -> tuple[MfgWorkOrderRow, list[dict[str, Any]]]:
@@ -231,7 +240,7 @@ def new_wo(s: Session, ds: Any, inp: WorkOrderInput, *, source: str = "manual", 
                         demand_line_id=inp.demand_line_id, source=source, source_run_no=run_no,
                         source_planned_no=planned_no, released_at=now if status == "released" else None,
                         completed_at=None, closed_at=None, note=inp.note, external_ref=inp.external_ref,
-                        row_version=1, created_at=now, updated_at=now)
+                        receipt_location_id=_receipt_loc(s, inp), row_version=1, created_at=now, updated_at=now)
     if start > inp.due_date:
         raise ApiError(422, "VALIDATION_ERROR", "start_date must not be after due_date.",
                        {"errors": [{"loc": ["body", "start_date"], "msg": "after due_date", "type": "value_error"}]})
@@ -313,6 +322,7 @@ def update_wo(ctx: AppContext, wo_id: str, inp: WorkOrderInput, if_match: str | 
             ensure_unique(s, MfgWorkOrderRow, "A work order", {"external_ref": inp.external_ref}, exclude_id=w.id)
         w.qty, w.due_date, w.priority, w.note, w.external_ref = inp.qty, inp.due_date, inp.priority, inp.note, \
             inp.external_ref
+        w.receipt_location_id = _receipt_loc(s, inp)
         if inp.start_date is not None:
             w.start_date = inp.start_date
         if w.start_date > w.due_date:
@@ -409,8 +419,8 @@ def delete_wo(ctx: AppContext, wo_id: str, if_match: str | None) -> None:
     run_tx(ctx, fn)
 
 
-def action(ctx: AppContext, wo_id: str, act: str, if_match: str | None, *, reserve: bool = False
-           ) -> dict[str, Any]:
+def action(ctx: AppContext, wo_id: str, act: str, if_match: str | None, *, reserve: bool = False,
+           override_reason: str | None = None) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
         w = _get(s, wo_id, lock=True)
         check_version(w, if_match)
@@ -428,6 +438,11 @@ def action(ctx: AppContext, wo_id: str, act: str, if_match: str | None, *, reser
             w.status, w.released_at = "released", now
             if reserve:
                 reserved = reserve_in(s, w, comps, None)
+            from .floor import release_to_floor          # M4-DESIGN 4.1
+
+            release_to_floor(s, w, override_reason, now)
+            if w.release_override:
+                extra["override_reason"] = w.release_override
         elif act in ("complete", "cancel"):
             extra["released_qty"] = r6(release_reservations(s, [c.id for c in comps], now))
             w.status = target

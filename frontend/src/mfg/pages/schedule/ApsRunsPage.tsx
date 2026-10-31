@@ -47,6 +47,9 @@ export function ApsRunsPage() {
           <h1>Production schedule</h1>
           <p>Finite-capacity plan of every operation on the lines, shift by shift, for all orders at once. Publish one run as the plant plan.</p>
         </div>
+        <Link className="btn" to={mfgPaths.simulations()} data-testid="aps-risk-link">
+          <Icon name="graph" /> Delivery risk
+        </Link>
         <PermissionGate perm="schedule_run">
           <button type="button" className="btn primary" onClick={() => setForm(true)} disabled={form} data-testid="aps-new-run">
             <Icon name="play" /> New schedule

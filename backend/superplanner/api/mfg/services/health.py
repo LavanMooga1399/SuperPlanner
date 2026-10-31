@@ -67,7 +67,13 @@ def summary(ctx: AppContext) -> dict[str, Any]:
 
         return {"counts": counts, "end_items": [item_ref(repo.to_record(r)) for r in ends],
                 "data_version": plant.data_version, "latest_run": summary_latest(s),
-                "published_schedule": _published(s)}
+                "published_schedule": _published(s), "floor": _floor(s)}
+
+
+def _floor(s: Any) -> dict[str, Any]:
+    from .replan import floor_summary            # M4-DESIGN 11
+
+    return floor_summary(s)
 
 
 def _m2_counts(s: Any) -> dict[str, int]:

@@ -1,112 +1,144 @@
 /**
- * M4 execution and replanning contract (docs/M4-DESIGN.md 3, 4, 5, 7-11), routes #200-226 under `/api/v1/mfg`.
- * Written from the design before the S0 fixture existed (16.WP-U); `contractExamplesM4.ts` holds typed examples.
- * Optional fields are the ones the design leaves open; the UI never relies on them being present.
+ * M4 execution and replanning contract (docs/M4-DESIGN.md 3-11), routes #200-226 under `/api/v1/mfg`.
+ * Aligned to the S0 fixture `backend/superplanner/mfg/floor/fixtures/example_floor.json` and
+ * `superplanner/mfg/model_m4.py` (16.WP-U); `contractExamplesM4.ts` is the typed copy of that fixture.
  */
-import type { EntityId, IsoDate, IsoDateTime, Ref } from "./types";
-import type { OrderRef } from "./typesM3";
+import type { EntityId, IsoDate, IsoDateTime } from "./types";
+
+/** id + code (+ name) reference used throughout the M4 payloads */
+export interface CodeRef {
+  id: EntityId;
+  code: string;
+  name?: string;
+}
+
+export interface ItemBrief {
+  id: EntityId;
+  part_number: string;
+  description?: string;
+  serialized?: boolean;
+}
 
 // ---------------------------------------------------------------- 4.2 operations
 export type WoOpStatus = "pending" | "ready" | "setup" | "running" | "paused" | "completed" | "skipped";
 export const WO_OP_STATUSES: readonly WoOpStatus[] = ["pending", "ready", "setup", "running", "paused", "completed", "skipped"];
 
 export type FloorEventType = "setup_start" | "start" | "pause" | "resume" | "report" | "complete" | "reopen" | "correct" | "skip";
-/** event types only a supervisor (`floor_supervise`) may post */
 export const SUPERVISOR_EVENTS: readonly FloorEventType[] = ["reopen", "correct", "skip"];
 
-/** `mfg_wo_operations` record (#206, #202 `operation`) */
+export interface OpPlacementM4 {
+  run_id: EntityId;
+  op_no: number;
+  line: CodeRef | null;
+  start: IsoDateTime;
+  end: IsoDateTime;
+  split?: { index: number; count: number } | null;
+}
+
+/** `WoOperationRecord` (#206 items, #202 `operation`) */
 export interface WoOperation {
   id: EntityId;
   wo_id: EntityId;
   seq: number;
   name: string;
-  group_id: EntityId | null;
-  group?: Ref | null;
+  group: CodeRef | null;
   status: WoOpStatus;
   qty_planned: number;
   qty_good: number;
   qty_scrap: number;
   qty_rework_out: number;
   qty_rework_in: number;
-  line_id: EntityId | null;
-  line?: Ref | null;
-  setup_minutes_actual: number | null;
-  run_minutes_actual: number | null;
-  labour_minutes: number | null;
+  /** what reached this operation (predecessor good, op 1: WO qty_planned) + rework in */
+  qty_input: number;
+  /** input not yet reported good or scrap */
+  qty_available: number;
+  line: CodeRef | null;
+  setup_minutes_actual: number;
+  run_minutes_actual: number;
+  labour_minutes: number;
   actual_start: IsoDateTime | null;
   actual_end: IsoDateTime | null;
   started_short: boolean;
   source: "release" | "lazy" | "migrated";
-  capture_serial?: boolean;
-  /** available input = predecessor good (op 1: WO qty_planned) + rework_in */
-  available_input?: number;
-  /** published plan for this operation, when any (adherence basis, 6.2) */
-  planned_start?: IsoDateTime | null;
-  planned_end?: IsoDateTime | null;
-  row_version?: number;
+  capture_serial: boolean;
+  last_event_seq: number | null;
+  setup_minutes: number;
+  run_minutes: number;
+  labor: string;
+  done: boolean;
+  done_at: IsoDateTime | null;
+  done_by: CodeRef | null;
+  /** published-schedule placements (empty = not planned) */
+  placement: OpPlacementM4[];
+  row_version: number;
+  created_at?: IsoDateTime;
+  updated_at?: IsoDateTime;
 }
 
-export interface WoRefM4 {
+export interface WoBriefM4 {
   id: EntityId;
   number: string;
-  item: { id: EntityId; part_number: string; description?: string; serialized?: boolean };
+  status?: string;
+  item: ItemBrief;
   qty: number;
-  qty_planned?: number;
   qty_completed?: number;
   qty_scrapped?: number;
-  status: string;
   due_date?: IsoDate | null;
   priority?: number;
   row_version?: number;
+  released_to_floor_at?: IsoDateTime | null;
+  receipt_location_id?: EntityId | null;
 }
 
 // ---------------------------------------------------------------- #201 queue
-export type KitLight = "ok" | "short" | "pending_backflush" | "unknown";
+export type KitLight = "kitted" | "partial" | "short" | "none";
 
 export interface FloorQueueRow {
-  wo_operation_id: EntityId;
-  wo: { id: EntityId; number: string };
+  wo_operation_id: EntityId | null;
+  wo: WoBriefM4;
   seq: number;
   name: string;
-  part_number: string;
-  qty: number;
-  qty_good: number;
-  qty_scrap: number;
   status: WoOpStatus;
-  kit: KitLight;
   planned_start: IsoDateTime | null;
   planned_end: IsoDateTime | null;
-  /** published sequence position on the line (null = not in the published plan) */
-  position: number | null;
-  shift_label?: string | null;
+  /** published-run operation number (sequence on the line); null = not in the published plan */
+  op_no: number | null;
+  qty_planned: number;
+  qty_good: number;
+  kit: KitLight;
+  batch_load_id: EntityId | null;
   next_actions: FloorEventType[];
-  batch_load_id?: EntityId | null;
-  late_minutes?: number;
+}
+
+export interface QueueShift {
+  label: string | null;
+  start: IsoDateTime;
+  end: IsoDateTime;
+  kind: string;
 }
 
 export interface FloorQueueResponse {
-  line: { id: EntityId; code: string; name?: string; batch_merge?: boolean };
+  line: CodeRef & { batch_merge?: boolean };
   date: IsoDate;
   shift: string | null;
-  shifts?: { label: string | null; start: IsoDateTime; end: IsoDateTime; kind: string }[];
-  published_run_id: EntityId | null;
-  /** open downtime on the line, if any */
-  downtime: Downtime | null;
+  run_id: EntityId | null;
+  /** open downtime of the line */
+  down: Downtime | null;
+  shifts: QueueShift[];
   items: FloorQueueRow[];
 }
 
 // ---------------------------------------------------------------- #202 operation screen
 export interface FloorComponent {
-  item_id: EntityId;
-  part_number: string;
-  description?: string;
-  qty_required: number;
-  qty_issued: number;
-  issue_method: "manual" | "backflush";
+  component_id: EntityId;
+  item: ItemBrief;
+  required_qty: number;
+  issued_qty: number;
+  backflush: boolean;
+  backflush_posted: number;
+  backflush_pending: number;
   kit: KitLight;
-  pending_backflush_qty?: number;
-  uom?: string;
-  serialized?: boolean;
+  location: CodeRef | null;
 }
 
 export interface FloorEventRecord {
@@ -114,15 +146,13 @@ export interface FloorEventRecord {
   seq: number;
   wo_operation_id: EntityId;
   wo_id: EntityId;
-  wo_number?: string;
-  op_seq?: number;
+  wo_number: string;
+  op_seq: number;
   event_type: FloorEventType;
   event_at: IsoDateTime;
   recorded_at: IsoDateTime;
-  line_id: EntityId | null;
-  line_code?: string | null;
-  operator_ids: EntityId[];
-  operators?: { id: EntityId; code: string; name?: string }[];
+  line: CodeRef | null;
+  operators: CodeRef[];
   qty_good: number | null;
   qty_scrap: number | null;
   qty_rework: number | null;
@@ -133,25 +163,34 @@ export interface FloorEventRecord {
   batch_load_id: EntityId | null;
   serials: FloorSerials | null;
   corrects_event_id: EntityId | null;
-  corrected_by_event_id?: EntityId | null;
-  actor_id: string;
-  actor_name?: string | null;
+  /** a later `correct` event replaced this one */
+  corrected: boolean;
+  forced: { reason: string } | null;
+  actor: CodeRef | null;
+  details: Record<string, unknown>;
+}
+
+export interface OperationSerialsInfo {
+  /** this operation captures serials of the WO item */
+  capture: boolean;
+  produced: string[];
+  /** serialized components consumed here (child serials may be scanned) */
+  consumable: { item_id: EntityId; part_number: string; serials?: string[] }[];
 }
 
 export interface FloorOperationDetail {
   operation: WoOperation;
-  wo: WoRefM4;
+  wo: WoBriefM4;
   instructions: string;
   components: FloorComponent[];
-  tools: { tool_pool_id: EntityId; code?: string; qty: number }[];
+  tools: { tool_pool: CodeRef; qty: number }[];
+  eligible_lines: (CodeRef & { down?: boolean })[];
   expected_input: number;
   events: FloorEventRecord[];
   allowed_actions: FloorEventType[];
-  /** eligible active lines of the operation's group */
-  lines?: { id: EntityId; code: string; down?: boolean }[];
+  serials: OperationSerialsInfo;
+  /** optional plant reason lists; the UI has defaults (16.WP-U) */
   reason_codes?: ReasonCodes;
-  predecessor?: { seq: number; status: WoOpStatus; qty_good: number } | null;
-  is_last?: boolean;
 }
 
 export interface ReasonCodes {
@@ -190,13 +229,23 @@ export interface FloorEventInput {
 export interface FloorWarning {
   code: string;
   message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface FloorPosting {
+  id: EntityId;
+  number: string;
+  type: string;
+  lines: { item_id: EntityId; location_id: EntityId; qty: number; lot_code?: string | null }[];
 }
 
 export interface FloorEventResult {
-  event?: FloorEventRecord;
+  event: FloorEventRecord;
   operation: WoOperation;
-  wo: WoRefM4;
-  postings: { id: EntityId; number?: string; type: string; qty?: number }[];
+  /** other operations changed by the event (rework re-opens) */
+  operations: WoOperation[];
+  wo: WoBriefM4;
+  postings: FloorPosting[];
   warnings: FloorWarning[];
   triggers: ReplanTrigger[];
 }
@@ -213,28 +262,21 @@ export interface FloorEventQuery {
 }
 
 // ---------------------------------------------------------------- #200 scan
-export type ScanType = "wo" | "wo_operation" | "lot" | "serial" | "location" | "line" | "operator" | "batch_load";
+export type ScanType = "work_order" | "operation" | "lot" | "serial" | "location" | "line" | "operator" | "batch_load";
 
 export interface ScanResult {
   type: ScanType;
   id: EntityId;
   label: string;
-  link: string | null;
-  context?: {
-    wo_id?: EntityId;
-    wo_operation_id?: EntityId;
-    seq?: number;
-    line_id?: EntityId;
-    item_id?: EntityId;
-    operator_code?: string;
-    status?: string;
-  };
+  link: string;
+  context: { wo_id?: EntityId; seq?: number; status?: string; line_id?: EntityId; code?: string; item_id?: EntityId } & Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------- #205 backflush
 export interface BackflushRetryResult {
-  posted: { wo_id: EntityId; item_id: EntityId; qty: number }[];
-  still_pending: { wo_id: EntityId; item_id: EntityId; qty: number; available: number }[];
+  results: { wo_operation_id: EntityId; wo: { id: EntityId; number: string }; component_id: EntityId; item_id: EntityId; part_number: string; qty: number; status: string; posting_id: EntityId | null }[];
+  posted: number;
+  pending: number;
 }
 
 // ---------------------------------------------------------------- #208-210 downtime
@@ -245,53 +287,64 @@ export interface DowntimeInput {
   line_id: EntityId;
   kind: DowntimeKind;
   planned?: boolean;
-  start_at?: IsoDateTime;
+  start_at?: IsoDateTime | null;
   end_at?: IsoDateTime | null;
   expected_end_at?: IsoDateTime | null;
   reason?: string;
   note?: string;
-  client_event_id?: string;
 }
 
+/** `close: true` = closed now */
 export interface DowntimeUpdate {
+  close?: boolean;
   end_at?: IsoDateTime | null;
   expected_end_at?: IsoDateTime | null;
+  kind?: DowntimeKind;
   reason?: string;
   note?: string;
 }
 
 export interface Downtime {
   id: EntityId;
-  line_id: EntityId;
-  line?: Ref | null;
+  row_version: number;
+  line: CodeRef;
   kind: DowntimeKind;
   planned: boolean;
   start_at: IsoDateTime;
   end_at: IsoDateTime | null;
   expected_end_at: IsoDateTime | null;
+  open: boolean;
+  minutes: number | null;
   reason: string;
   note: string;
-  reported_by: string | null;
-  closed_by: string | null;
-  row_version: number;
+  reported_by: CodeRef | null;
+  closed_by: CodeRef | null;
+  triggers?: ReplanTrigger[];
+  created_at?: IsoDateTime;
+  updated_at?: IsoDateTime;
 }
 
 // ---------------------------------------------------------------- #211-213 batch loads
 export interface BatchLoadInput {
   line_id: EntityId;
   members: { wo_operation_id: EntityId; qty: number }[];
+  aps_run_id?: EntityId | null;
 }
 
 export interface BatchLoad {
   id: EntityId;
-  line_id: EntityId;
-  line?: Ref | null;
+  row_version: number;
+  /** `BL:<suffix>` scan code */
+  load_no: string;
+  line: CodeRef;
   status: "open" | "running" | "completed" | "cancelled";
   started_at: IsoDateTime | null;
   ended_at: IsoDateTime | null;
   aps_run_id: EntityId | null;
-  members: { wo_operation_id: EntityId; wo_number?: string; seq?: number; part_number?: string; qty: number }[];
-  row_version: number;
+  units: number;
+  created_at?: IsoDateTime;
+  updated_at?: IsoDateTime;
+  members: { wo_operation_id: EntityId; wo: { id: EntityId; number: string }; seq: number; qty: number }[];
 }
 
 // ---------------------------------------------------------------- #214-215 serials
@@ -299,23 +352,25 @@ export type SerialStatus = "wip" | "in_stock" | "consumed" | "shipped" | "scrapp
 
 export interface UnitSerial {
   id: EntityId;
-  item_id: EntityId;
-  item?: { id: EntityId; part_number: string; description?: string };
+  item: ItemBrief;
   serial: string;
-  wo_id: EntityId | null;
-  wo?: { id: EntityId; number: string } | null;
+  wo: { id: EntityId; number: string } | null;
   status: SerialStatus;
   captured_at: IsoDateTime;
   captured_op_seq: number | null;
   parent_serial_id: EntityId | null;
   consumed_at: IsoDateTime | null;
   consumed_wo_id: EntityId | null;
+  row_version?: number;
+  created_at?: IsoDateTime;
+  updated_at?: IsoDateTime;
 }
 
 export interface UnitSerialDetail extends UnitSerial {
   parent: UnitSerial | null;
   children: UnitSerial[];
-  events?: FloorEventRecord[];
+  /** the parent WO when the parent item is not serialized */
+  consumed_by_wo: { id: EntityId; number: string } | null;
 }
 
 // ---------------------------------------------------------------- #216-221 replan, notifications
@@ -329,17 +384,18 @@ export interface ReplanTrigger {
   severity: Severity;
   ref_type: string;
   ref_id: EntityId;
-  ref_label?: string;
-  link?: string | null;
   detected_at: IsoDateTime;
   dedupe_key: string;
-  details: Record<string, unknown> & { text?: string };
+  details: Record<string, unknown>;
   status: TriggerStatus;
   aps_run_id: EntityId | null;
-  handled_by: string | null;
+  handled_by: CodeRef | null;
   handled_at: IsoDateTime | null;
-  note?: string;
+  /** plain-language sentence */
+  message: string;
 }
+
+export type TriggerPage = { items: ReplanTrigger[]; total: number; limit: number; offset: number; counts?: Partial<Record<TriggerStatus, number>> };
 
 export interface MfgNotification {
   id: EntityId;
@@ -351,43 +407,42 @@ export interface MfgNotification {
   trigger_id: EntityId | null;
   created_at: IsoDateTime;
   acknowledged_at: IsoDateTime | null;
-  acknowledged_by: string | null;
+  acknowledged_by: CodeRef | null;
 }
+
+export type NotificationPage = { items: MfgNotification[]; total: number; limit: number; offset: number; unacked?: number };
 
 export type ReplanPolicy = "notify" | "auto_whatif" | "auto_publish";
 
 // ---------------------------------------------------------------- #222-223 KPIs
-export type KpiKey = "otd" | "wo_on_time" | "utilisation" | "availability" | "performance" | "fpy" | "oee" | "wip" | "setup" | "adherence" | "scrap_rate";
+export type RatioKey = "otd" | "wo_on_time" | "utilisation" | "availability" | "performance" | "fpy" | "oee" | "scrap_rate" | "adherence";
 
-export interface KpiValue {
+export interface KpiRatio {
   value: number | null;
-  num?: number;
-  den?: number;
-  /** extra figures (e.g. wip count/value/age, setup minutes/changeovers/planned) */
-  extra?: Record<string, number | null>;
+  num: number;
+  den: number;
+  unit: string;
 }
 
 export interface KpiResponse {
-  from: IsoDate;
-  to: IsoDate;
-  dim: "plant" | "group" | "line";
-  dim_id: EntityId | null;
-  bucket: "day" | "week";
-  metrics: Partial<Record<KpiKey, KpiValue>>;
-  /** one point per bucket per metric (sparklines, last 8 weeks for the tiles) */
-  series: { bucket_start: IsoDate; metrics: Partial<Record<KpiKey, number | null>> }[];
-  top_scrap: { reason_code: string; label?: string; qty: number; item_family?: string | null; op_name?: string | null }[];
-  top_downtime: { kind: DowntimeKind | string; reason?: string; minutes: number; line_id?: EntityId | null }[];
-  worst_adherence?: { line_id: EntityId; value: number | null; ops: number }[];
-  by_dim?: { dim_id: EntityId; code?: string; metrics: Partial<Record<KpiKey, number | null>> }[];
+  period: { from: IsoDate; to: IsoDate; bucket: "day" | "week"; dim: "plant" | "group" | "line"; dim_id: EntityId | null; time_zone?: string | null };
+  metrics: Partial<Record<RatioKey, KpiRatio>> & {
+    wip?: { count: number; value: number; avg_age_days: number | null };
+    setup?: { actual_minutes: number; planned_minutes: number | null; changeovers: number };
+  };
+  /** per metric, one point per bucket */
+  series: Partial<Record<string, { bucket: IsoDate; value: number | null }[]>>;
+  top_scrap: { reason_code: string; qty: number; item_family: string | null; operation: string | null }[];
+  top_downtime: { reason: string; kind: string; minutes: number; line: CodeRef | null }[];
+  worst_adherence_lines: { line: CodeRef; value: number | null; num: number; den: number }[];
+  by_dim: ({ dim: "group" | "line"; ref: CodeRef } & Partial<Record<RatioKey, number | null>>)[];
 }
 
 export interface AdherenceRow {
   wo_operation_id: EntityId;
   wo: { id: EntityId; number: string };
   seq: number;
-  name: string;
-  line_id: EntityId | null;
+  line: CodeRef | null;
   planned_start: IsoDateTime;
   planned_end: IsoDateTime;
   actual_start: IsoDateTime | null;
@@ -397,6 +452,8 @@ export interface AdherenceRow {
   adherent: boolean;
 }
 
+export type AdherencePage = { items: AdherenceRow[]; total: number; limit: number; offset: number; run_id: EntityId | null; tolerance_minutes: number };
+
 // ---------------------------------------------------------------- #224-226 simulations
 export interface SimulationInput {
   base_run_id: EntityId;
@@ -405,34 +462,42 @@ export interface SimulationInput {
   horizon_days?: number;
 }
 
-export interface SimulationResultLine {
+export interface SimulationDemand {
   demand_line_id: EntityId;
-  order_number: string;
-  line_no: number;
+  /** "DO-KV-003/1" */
+  order: string;
   part_number: string;
   due: IsoDateTime;
   p_on_time: number;
   p50: IsoDateTime | null;
   p90: IsoDateTime | null;
-  /** completion per sample (minutes late, negative = early), for the histogram */
+  /** completion in the unperturbed base plan */
+  base_end: IsoDateTime | null;
+  /** optional (requested, 16.WP-U): minutes late per sample, for the histogram */
   samples_late_minutes?: number[];
 }
 
 export interface Simulation {
   id: EntityId;
+  row_version?: number;
+  created_at: IsoDateTime;
+  updated_at?: IsoDateTime;
   base_run_id: EntityId;
-  base_run?: { id: EntityId; run_no: number; label: string } | null;
   status: "queued" | "running" | "completed" | "failed";
   samples: number;
   params: { seed?: number; horizon_days?: number };
-  progress?: { done: number; total: number } | null;
-  error?: { code: string; message: string } | null;
-  created_at: IsoDateTime;
   results: {
-    demand_lines: SimulationResultLine[];
-    lines: { line_id: EntityId; code?: string; expected_lost_hours: number }[];
-    suppliers: { supplier_id: EntityId; code?: string; name?: string; late_lines: number; share: number }[];
+    samples_done: number;
+    seed: number;
+    demand: SimulationDemand[];
+    lines: { line: CodeRef; expected_lost_hours: number; mtbf_hours: number | null; breakdowns_sampled: number }[];
+    suppliers: { supplier: CodeRef; late_lines: number; mean_delay_days: number; history_receipts: number }[];
   } | null;
+  error: { code: string; message: string } | null;
+  job_id?: string | null;
+  started_at: IsoDateTime | null;
+  finished_at: IsoDateTime | null;
+  duration_ms: number | null;
 }
 
 // ---------------------------------------------------------------- 11 summary, gantt and params additions
@@ -456,13 +521,6 @@ export interface LineBreakdown {
   hours: number;
 }
 
-/** run results gain per-operation actuals (11); drawn under the planned bar */
-export interface OpActual {
-  status: WoOpStatus;
-  start: IsoDateTime | null;
-  end: IsoDateTime | null;
-}
-
 export interface BatchResult {
   load_no: number;
   line_id: EntityId;
@@ -470,8 +528,6 @@ export interface BatchResult {
   end: IsoDateTime;
   members: { op_no: number; qty: number }[];
 }
-
-export type OrderRefM4 = OrderRef;
 
 // ---------------------------------------------------------------- 3.1 master-field additions (intersection types)
 export interface PlantM4Fields {
@@ -509,6 +565,7 @@ export interface WoM4Fields {
 
 /** 409 `WO_KIT_INCOMPLETE` details (4.1) */
 export interface KitShortage {
+  component_id?: EntityId;
   item_id: EntityId;
   part_number: string;
   required: number;

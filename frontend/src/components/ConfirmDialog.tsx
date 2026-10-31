@@ -8,6 +8,8 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   danger?: boolean;
   busy?: boolean;
+  /** disables the confirm button without the busy spinner (e.g. a required reason is empty) */
+  confirmDisabled?: boolean;
   onConfirm(): void;
   onCancel(): void;
 }
@@ -19,6 +21,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   danger,
   busy,
+  confirmDisabled,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -35,7 +38,7 @@ export function ConfirmDialog({
             type="button"
             className={`btn ${danger ? "danger" : "primary"}`}
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             data-autofocus
           >
             {busy ? <span className="spinner" aria-hidden /> : null}

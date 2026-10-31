@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
 import { MfgError } from "../components/Feedback";
+import { NotificationBell } from "../components/NotificationBell";
 import { RoleBadge, WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { mfgPaths } from "../lib/paths";
 import { AccessProvider, useAccess } from "../lib/permissions";
@@ -21,6 +22,13 @@ const SETUP: Section[] = [
   { key: "resources", label: "People & tooling", to: mfgPaths.resources(), icon: "briefcase" },
   { key: "health", label: "Data health", to: mfgPaths.health(), icon: "check" },
   { key: "import", label: "Import / export", to: mfgPaths.importStart(), icon: "upload" },
+];
+
+const EXECUTION: Section[] = [
+  { key: "floor", label: "Shop floor", to: mfgPaths.floorOverview(), icon: "factory" },
+  { key: "replan", label: "Replanning", to: mfgPaths.replan(), icon: "refresh" },
+  { key: "kpis", label: "KPIs", to: mfgPaths.kpis(), icon: "graph" },
+  { key: "serials", label: "Serials", to: mfgPaths.serials(), icon: "list" },
 ];
 
 const PLANNING: Section[] = [
@@ -76,8 +84,10 @@ function MfgNav() {
       <nav className="mfg-nav-groups" aria-label="Manufacturing sections">
         <NavGroup label="Setup" sections={setup} testId="nav-group-setup" />
         <NavGroup label="Planning & stores" sections={PLANNING} testId="nav-group-planning" />
+        <NavGroup label="Execution" sections={EXECUTION} testId="nav-group-execution" />
       </nav>
       <div className="row mfg-nav-side">
+        <NotificationBell />
         <WorkspaceSwitcher />
         <RoleBadge />
       </div>

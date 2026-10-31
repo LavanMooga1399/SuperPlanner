@@ -650,6 +650,8 @@ class WorkOrderInput(MfgModel):
     note: Text500 = ""
     external_ref: ExtRef | None = None
     components: Annotated[list[WoComponentInput], Field(max_length=MAX_WO_COMPONENTS)] | None = None
+    #: M4-DESIGN 3.1: receipt location of the floor's automatic receipts (None = the plant's)
+    receipt_location_id: EntityId | None = None
 
     @model_validator(mode="after")
     def _rules(self) -> "WorkOrderInput":

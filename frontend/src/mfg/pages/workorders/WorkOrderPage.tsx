@@ -22,6 +22,8 @@ import {
 } from "../../api/clientM2";
 import type { ItemRef } from "../../api/types";
 import type { PostingWarning, WorkOrderInput, WorkOrderRecord } from "../../api/typesM2";
+import type { KitShortage } from "../../api/typesM4";
+import { ApiError } from "../../../api/client";
 import { ConflictBanner, MfgError, NotFoundPanel, Spinner } from "../../components/Feedback";
 import { numOrNull, strOrNull, TextField } from "../../components/Field";
 import { ItemPicker } from "../../components/ItemPicker";
@@ -114,6 +116,8 @@ export function WorkOrderPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [dlg, setDlg] = useState<Dlg>(null);
   const [reserveOnRelease, setReserveOnRelease] = useState(true);
+  const [kitBlock, setKitBlock] = useState<KitShortage[] | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
   const kitting = useLoad((signal) => (wo && ["planned", "released", "in_progress"].includes(wo.status) ? getKitting(wo.id, signal) : null), [wo?.id, wo?.row_version]);
   const txns = useLoad((signal) => (wo ? listTransactions({ ref_type: "wo", ref_id: wo.id, limit: 50, offset: 0 }, signal) : null), [wo?.id, wo?.row_version]);
 
@@ -443,13 +447,73 @@ export function WorkOrderPage() {
           onCancel={() => setDlg(null)}
           onConfirm={() => {
             setDlg(null);
-            void guard(() => releaseWorkOrder(wo.id, reserveOnRelease, wo.row_version), "Released to the shop floor.");
+            void guard(async () => {
+              try {
+                return await releaseWorkOrder(wo.id, reserveOnRelease, wo.row_version);
+              } catch (e) {
+                if (e instanceof ApiError && e.code === "WO_KIT_INCOMPLETE") {
+                  const d = e.details as { shortages?: KitShortage[]; items?: KitShortage[] };
+                  setKitBlock(d.shortages ?? d.items ?? []);
+                  return;
+                }
+                throw e;
+              }
+            }, undefined);
           }}
         >
           <p style={{ margin: 0 }}>The work order can then be issued and reported. Its component quantities stay as they are.</p>
           <label className="checkbox" style={{ marginTop: 8 }}>
             <input type="checkbox" checked={reserveOnRelease} onChange={(e) => setReserveOnRelease(e.target.checked)} data-testid="wo-release-reserve" /> Reserve free stock for the components now
           </label>
+        </ConfirmDialog>
+      ) : null}
+      {kitBlock && wo ? (
+        <ConfirmDialog
+          title="Components are short for the first operation"
+          confirmLabel="Release anyway"
+          busy={busy}
+          confirmDisabled={!overrideReason.trim()}
+          onCancel={() => {
+            setKitBlock(null);
+            setOverrideReason("");
+          }}
+          onConfirm={() => {
+            if (!overrideReason.trim()) return;
+            const reason = overrideReason.trim();
+            setKitBlock(null);
+            setOverrideReason("");
+            void guard(() => releaseWorkOrder(wo.id, reserveOnRelease, wo.row_version, reason), "Released to the shop floor despite the shortage.");
+          }}
+        >
+          <div data-testid="wo-kit-incomplete">
+            {kitBlock.length ? (
+              <table className="table" style={{ marginBottom: 8 }}>
+                <thead>
+                  <tr>
+                    <th>Part</th>
+                    <th className="right">Needed</th>
+                    <th className="right">Available</th>
+                    <th className="right">Short</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kitBlock.map((k) => (
+                    <tr key={k.item_id}>
+                      <td className="mono">{k.part_number}</td>
+                      <td className="right">{fmtNum(k.required)}</td>
+                      <td className="right">{fmtNum(k.available)}</td>
+                      <td className="right">{fmtNum(k.short)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+            <p style={{ marginTop: 0 }}>The floor can still start; the shortage is recorded with your reason.</p>
+            <div className="field">
+              <label htmlFor="wo-override">Reason (required)</label>
+              <input id="wo-override" className="input" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} maxLength={200} data-testid="wo-release-override" />
+            </div>
+          </div>
         </ConfirmDialog>
       ) : null}
       {dlg && ["complete", "close", "cancel", "delete", "refresh"].includes(dlg) && wo ? (

@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 # Unused since PostgreSQL-only (row locks + unique indexes); exported for old imports.
 WRITE_LOCK = threading.RLock()
 
-JOB_KINDS = ("solver_run", "finance_run", "aps_run")
+JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation")
 _LIVE: "weakref.WeakSet[AppContext]" = weakref.WeakSet()   # started contexts (test harness: stop leftovers)
 
 

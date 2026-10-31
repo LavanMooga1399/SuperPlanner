@@ -230,8 +230,9 @@ export const updateWorkOrder = (id: string, body: WorkOrderInput, version: numbe
   mfgRequest<WorkOrderRecord>(`/work-orders/${enc(id)}`, { method: "PUT", body, headers: ifMatch(version) });
 export const deleteWorkOrder = (id: string, version: number) =>
   mfgRequest<void>(`/work-orders/${enc(id)}`, { method: "DELETE", headers: ifMatch(version) });
-export const releaseWorkOrder = (id: string, reserve: boolean, version: number) =>
-  act<WorkOrderRecord>(`/work-orders/${enc(id)}/release`, version, { reserve });
+/** M4 4.1: with a first-operation shortage the server answers 409 `WO_KIT_INCOMPLETE` unless `overrideReason` is given. */
+export const releaseWorkOrder = (id: string, reserve: boolean, version: number, overrideReason?: string) =>
+  act<WorkOrderRecord>(`/work-orders/${enc(id)}/release`, version, overrideReason ? { reserve, override_reason: overrideReason } : { reserve });
 export const workOrderAction = (id: string, action: "complete" | "close" | "cancel" | "refresh-components", version: number) =>
   act<WorkOrderRecord>(`/work-orders/${enc(id)}/${action}`, version);
 export const reserveWorkOrder = (id: string, version: number, componentIds: string[] | null = null) =>

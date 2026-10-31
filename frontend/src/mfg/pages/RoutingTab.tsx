@@ -46,7 +46,7 @@ function toHeader(r: RoutingRecord): RHeader {
   return { code: r.code, priority: String(r.priority), revision: r.revision, version: String(r.version), note: r.note };
 }
 
-function opInput(o: OpDraft): OperationInput {
+function opInput(o: OpDraft): OperationInput & { capture_serial?: boolean } {
   const n = (s: string) => numOrNull(s) ?? 0;
   return {
     ...(o.id ? { id: o.id } : {}),
@@ -70,6 +70,7 @@ function opInput(o: OpDraft): OperationInput {
     yield_pct: numOrNull(o.yield_pct) ?? 100,
     inspection_gate: o.inspection_gate,
     interruptible: o.interruptible,
+    ...(o.capture_serial !== undefined ? { capture_serial: o.capture_serial } : {}),
   };
 }
 
