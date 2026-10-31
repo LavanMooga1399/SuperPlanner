@@ -233,14 +233,15 @@ dependency views, what-if/compare, and the deployment setup.
 | **M4 — Execution and replanning** | WO release, shop-floor actuals (barcode-friendly), scrap/rework/yield, event-driven replanning with frozen horizon, KPIs (OTD, utilisation, WIP, setup time) | Closed loop with the shop floor |
 | **M5 — Integration and traceability** | ERP connectors (items, BOMs, stock, POs in; WOs, PRs out), serial/lot genealogy, ECO handling, multi-plant/organisation accounts | Production use alongside HBL's ERP |
 
-**Status (30 October 2026):**
+**Status (31 October 2026):**
 
 | Phase | Status |
 |---|---|
 | M1 | **Built** (`docs/M1-DESIGN.md`, section 17; commit "M1 manufacturing master data complete"). Platform since then: PostgreSQL only, owner/app database roles, accounts mode and audit on every write by default (`docs/ARCHITECTURE.md` 25, `docs/DEPLOY.md`). |
 | M2 | **Built** (`docs/M2-DESIGN.md`, section 22; commit e3b7077): inventory ledger, purchasing with staggered schedule lines, demand orders, plant-level MRP with pegging/exceptions/what-if, firm/release, work orders with kitting, workspaces and roles. |
-| M3 | **Designed, ready to build**: `docs/M3-DESIGN.md`. Dedicated finite-capacity scheduler (`mfg/aps`): construction + CP-SAT LNS, independent validator, material from MRP pegging as a hard constraint, line choice and lot splitting, resumable operations across shifts, sequence-dependent setups, line-specific times, crews with absences, tooling, overtime policy off/suggest/allow, freeze window, publish, drag-and-drop edits as validated child runs, explanations and bottlenecks, Gantt/load/dispatch views, IANA time zones. Cross-order batch merging moved to M4. |
-| M4-M5 | Not started. `plant_id` / multi-plant in M5; serial capture and genealogy in M4/M5. |
+| M3 | **Built** (`docs/M3-DESIGN.md`, section 17; commit f9c4325): finite-capacity scheduler with LNS, validator, material from MRP pegging, overtime policies, freeze/publish, validated edits, Gantt/load/dispatch, IANA time zones. |
+| M4 | **Designed, ready to build**: `docs/M4-DESIGN.md`. WO operations with an append-only floor event log (start/pause/resume/report/complete, good/scrap/rework, operators, line, times), barcode/keyboard-wedge floor screens with offline sync, auto WO receipt and backflush through the ledger, line downtime, oven/rack batching, serial capture with one-level as-built links (genealogy in M5), replan triggers with policy notify (default) / auto what-if / auto-publish, deterministic and sampled risk simulation, KPI dashboard (OTD, utilisation, OEE-lite, WIP, setup, adherence, FPY), operator and supervisor roles. |
+| M5 | Not started: ERP connectors, multi-level serial/lot genealogy, `plant_id` / multi-plant, SSO. |
 
 Each phase follows the same agent-team process used so far (design → plan → build → test → security review →
 fix → verify), with acceptance tests built from a realistic anonymised Kavach-like dataset.
