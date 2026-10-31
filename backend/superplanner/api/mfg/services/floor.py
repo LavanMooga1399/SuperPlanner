@@ -128,9 +128,18 @@ def derive_rows(s: Session, wo: MfgWorkOrderRow, source: str, now: datetime) -> 
 
 def wo_rows(s: Session, wo_id: str, *, lock: bool = False) -> list[MfgWoOperationRow]:
     q = select(MfgWoOperationRow).where(MfgWoOperationRow.wo_id == wo_id).order_by(MfgWoOperationRow.seq)
-    if lock:
-        q = q.with_for_update()
+    if lock:     # fresh state under the lock (a concurrent event may have committed meanwhile)
+        q = q.with_for_update().execution_options(populate_existing=True)
     return list(s.execute(q).scalars())
+
+
+def lock_wo(s: Session, wo_id: str) -> MfgWorkOrderRow:
+    """The WO header FOR UPDATE with its committed state reloaded (review M1: no stale identity-map rows)."""
+    w = s.execute(select(MfgWorkOrderRow).where(MfgWorkOrderRow.id == wo_id).with_for_update()
+                  .execution_options(populate_existing=True)).scalars().first()
+    if w is None:
+        raise not_found("Work order", wo_id)
+    return w
 
 
 def ensure_rows(s: Session, wo: MfgWorkOrderRow) -> list[MfgWoOperationRow]:
@@ -644,16 +653,25 @@ def apply_event(s: Session, inp: FloorEventInput, p: MfgPrincipal | None, *, now
     op_id, load_id = _resolve_target(s, inp)
     if load_id is not None and op_id is None:
         return _apply_load_event(c, inp, load_id)
-    op0 = s.get(MfgWoOperationRow, op_id) if op_id else None
-    if op0 is None:
+    wo_id = s.execute(select(MfgWoOperationRow.wo_id).where(MfgWoOperationRow.id == op_id)).scalar() \
+        if op_id else None
+    if wo_id is None:
         raise not_found("Operation", op_id or "")
-    return _apply_op_event(c, inp, op0.wo_id, op0.id, None)
+    if load_id is not None:                   # an operation event naming a load must be one of its members
+        member = s.execute(select(MfgBatchLoadMemberRow.id).where(MfgBatchLoadMemberRow.load_id == load_id,
+                                                                  MfgBatchLoadMemberRow.wo_operation_id == op_id)
+                           ).first()
+        if member is None:
+            raise ApiError(422, "VALIDATION_ERROR", "batch_load_id must be a load this operation belongs to.",
+                           {"errors": [{"loc": ["body", "batch_load_id"], "msg": "not a member",
+                                        "type": "value_error"}]})
+    return _apply_op_event(c, inp, wo_id, op_id, None)
 
 
 def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load: MfgBatchLoadRow | None,
                     member_qty: float | None = None, first: bool = True) -> dict[str, Any]:
     s = c.s
-    wo = repo.get_row(s, MfgWorkOrderRow, wo_id, what="Work order", lock=True)      # 1. WO header
+    wo = lock_wo(s, wo_id)                                                            # 1. WO header
     if wo.status not in FLOOR_WO_STATUSES:
         raise ApiError(409, "MFG_INVALID_STATE", f"{wo.number} is {wo.status}; release it to the floor first.",
                        {"status": wo.status, "action": "floor_event", "allowed_from": list(FLOOR_WO_STATUSES)})
@@ -886,7 +904,8 @@ LOAD_EVENTS = ("setup_start", "start", "pause", "resume", "complete")
 
 def _apply_load_event(c: _Ctx, inp: FloorEventInput, load_id: str) -> dict[str, Any]:
     s = c.s
-    load = s.get(MfgBatchLoadRow, load_id, with_for_update=True)
+    load = s.execute(select(MfgBatchLoadRow).where(MfgBatchLoadRow.id == load_id).with_for_update()
+                     .execution_options(populate_existing=True)).scalars().first()
     if load is None:
         raise not_found("Batch load", load_id)
     if inp.event_type not in LOAD_EVENTS:
@@ -1392,20 +1411,19 @@ def retry_backflush(ctx: AppContext, wo_id: str | None) -> dict[str, Any]:
     from . import floor_effects
 
     with read_tx(ctx) as s:
-        q = select(MfgWoOperationRow.wo_id).distinct()
+        q = select(MfgWoOperationRow).where(MfgWoOperationRow.status != "pending")
         if wo_id:
             repo.get_row(s, MfgWorkOrderRow, wo_id, what="Work order")
             q = q.where(MfgWoOperationRow.wo_id == wo_id)
-        wo_ids = [w for (w,) in s.execute(q).all()]
+        wo_ids = sorted({r.wo_id for r in s.execute(q).scalars() if floor_effects.pending_of(r)})
 
     def fn(s: Session) -> dict[str, Any]:
         results: list[dict[str, Any]] = []
         for wid in sorted(wo_ids):
-            rows = [r for r in wo_rows(s, wid) if floor_effects.pending_of(r)]
-            if not rows:
-                continue
-            wo = repo.get_row(s, MfgWorkOrderRow, wid, what="Work order", lock=True)
+            wo = lock_wo(s, wid)
             rows = wo_rows(s, wid, lock=True)
+            if not any(floor_effects.pending_of(r) for r in rows):
+                continue
             results.extend(floor_effects.retry_wo(s, wo, rows))
         return {"results": results, "posted": sum(1 for r in results if r["status"] == "posted"),
                 "pending": sum(1 for r in results if r["status"] == "pending")}

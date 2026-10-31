@@ -137,12 +137,22 @@ test.describe("M4 floor journey", () => {
       await wedge(page, `${wo.number}/${second.seq}`);
       await expect(page.getByTestId("floor-op")).toHaveAttribute("data-seq", String(second.seq));
       await page.context().setOffline(true);
+      const queuedAt = Date.now();
       await page.getByTestId("floor-action-start").click();
       await expect(page.getByTestId("floor-sync-pending")).toHaveAttribute("data-count", "1");
+      // stay offline long enough that "sync time" and "queue time" are clearly apart
+      await page.waitForTimeout(4000);
+      const syncFrom = Date.now();
       await page.context().setOffline(false);
       await expect(page.getByTestId("floor-sync-pending")).toHaveCount(0, { timeout: 30_000 });
-      const evs = await mfgJson<{ items: { event_type: string; wo_operation_id: string }[] }>(request, `/floor/events?wo_id=${wo.id}&type=start`);
-      expect(evs.items.filter((e) => e.wo_operation_id === second.id)).toHaveLength(1);
+      const evs = await mfgJson<{ items: { event_type: string; wo_operation_id: string; event_at: string; recorded_at: string }[] }>(request, `/floor/events?wo_id=${wo.id}&type=start`);
+      const mine = evs.items.filter((e) => e.wo_operation_id === second.id);
+      expect(mine).toHaveLength(1);
+      // the stored event time is when the operator pressed Start (queue time), not when it synced
+      const at = Date.parse(mine[0].event_at);
+      expect(Math.abs(at - queuedAt)).toBeLessThan(2000);
+      expect(at).toBeLessThan(syncFrom - 2000);
+      expect(Date.parse(mine[0].recorded_at)).toBeGreaterThanOrEqual(syncFrom - 1000);
       const cur = (await ops(request)).find((x) => x.id === second.id)!;
       await apiEvent(request, second.id, { event_type: "complete", qty_good: cur.qty_available });
       // the remaining middle operations through the API (same engine)

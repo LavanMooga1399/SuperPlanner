@@ -41,4 +41,7 @@ def test_kavach_m4_sample(api):
         time.sleep(0.3)
     sups = x["results"]["suppliers"]
     print("KAVACH M4 suppliers", [(y["supplier"]["code"], y["late_lines"], y["history_receipts"]) for y in sups][:4])
-    assert sups[0]["supplier"]["code"] == "SUP-SEMI-1" and sups[0]["history_receipts"] == 6
+    # pinned (recorded in 16.WP-S): SUP-SEMI-2 holds the open FPGA PO (PO-KV-0101) and, with fewer than 5 own
+    # receipts, draws from the plant-wide history (SUP-SEMI-1's late FPGA receipts) -> the FPGA supplier on top
+    assert sups[0]["supplier"]["code"] == "SUP-SEMI-2" and sups[0]["late_lines"] == 4
+    assert next(y for y in sups if y["supplier"]["code"] == "SUP-SEMI-1")["history_receipts"] == 6

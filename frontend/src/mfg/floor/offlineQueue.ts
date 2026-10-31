@@ -81,9 +81,25 @@ export type SubmitOutcome<T> = { status: "sent"; result: T } | { status: "queued
  * Send now when nothing is waiting and the server answers; keep it for later when the network is down.
  * A server rejection (4xx/5xx with an error envelope) is thrown to the caller, who shows it on the screen.
  */
+/**
+ * The time the action happened is the moment it was created on the device, not the moment it reaches the server.
+ * A queued action therefore carries `event_at` (events) or `end_at` (downtime close) = `created_at`, unless the
+ * operator typed a time. Sent at once, the stamp is left out so the server's "now" applies and a tablet clock a few
+ * seconds fast cannot trip `FLR_TIME_INVALID` (never in the future).
+ */
+function stampForQueue(a: QueuedAction): QueuedAction {
+  if (a.kind === "event" && !a.body.event_at) return { ...a, body: { ...a.body, event_at: a.created_at } };
+  if (a.kind === "downtime_update" && a.body.close && !a.body.end_at) {
+    const { close: _c, ...rest } = a.body;
+    return { ...a, body: { ...rest, end_at: a.created_at } };
+  }
+  if (a.kind === "downtime_open" && !a.body.start_at) return { ...a, body: { ...a.body, start_at: a.created_at } };
+  return a;
+}
+
 async function submit<T>(a: QueuedAction): Promise<SubmitOutcome<T>> {
   if (state.pending.length) {
-    save({ ...state, pending: [...state.pending, a] });
+    save({ ...state, pending: [...state.pending, stampForQueue(a)] });
     void syncNow();
     return { status: "queued" };
   }
@@ -91,7 +107,7 @@ async function submit<T>(a: QueuedAction): Promise<SubmitOutcome<T>> {
     return { status: "sent", result: (await send(a)) as T };
   } catch (e) {
     if (isNetworkError(e)) {
-      save({ ...state, pending: [...state.pending, { ...a, attempts: 1 }] });
+      save({ ...state, pending: [...state.pending, { ...stampForQueue(a), attempts: 1 }] });
       return { status: "queued" };
     }
     throw e;
