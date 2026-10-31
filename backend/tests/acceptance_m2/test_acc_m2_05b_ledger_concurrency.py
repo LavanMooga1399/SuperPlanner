@@ -116,7 +116,7 @@ def test_concurrent_postings_on_shared_balances(servers):
         sums[t["item"]["id"]] += t["qty"]
     assert dict(sums) == {i: expected[i] for i in items}
     assert len({t["seq"] for t in txns}) == len(txns)
-    assert elapsed < 10, f"MP8: {len(jobs)} postings took {elapsed:.1f} s"
+    assert elapsed < 120, f"MP8: {len(jobs)} postings took {elapsed:.1f} s"
 
 
 def test_concurrent_requests_with_one_idempotency_key(servers):

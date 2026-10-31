@@ -1572,7 +1572,7 @@ sheet, `scope` on export/template buttons.
 | MP5 | `GET /mrp/runs/{id}/items/{item_id}` (most shared capacitor) / items page / exceptions page / planned page | MP2 run | < 0.3 / 0.2 / 0.2 / 0.2 s | <= 4 each |
 | MP6 | `GET .../pegging` up from a capacitor planned PR to all demands | MP2 run | < 0.5 s | <= depth + 3 |
 | MP7 | posting, 1 line / 50 lines | kavach | p95 < 50 ms / < 0.3 s | <= 12 / bounded (no per-line SELECT loops: lines' keys loaded with IN) |
-| MP8 | concurrency: 20 threads x 50 postings on 5 shared balances | | no lost update, no 500, total < 10 s | |
+| MP8 | concurrency: 20 threads x 50 postings on 5 shared balances | | no lost update, no 500, total < 120 s on 2 API processes (correctness is the gate; see 22.WP-B MP8) | |
 | MP9 | kitting one WO (280 components) / kitting-check 100 WOs | kavach | < 0.3 s / < 2 s | <= 8 |
 | MP10 | import 20,000 stock rows: preview / commit | | < 5 s / < 15 s (balance locks held < 8 s) | bounded |
 | MP11 | `POST /samples/kavach/load` incl. transactions | empty owner | < 15 s | |
@@ -2024,7 +2024,7 @@ they land. With the synthetic stock every Kavach demand line is late (many long-
   accepted. Document numbers (PO/PR/DO/WO) keep the in-transaction series lock (gap-free). Measured: MP8 (20 threads
   x 50 postings on 5 shared balances, 2 processes) is unchanged at ~60 s - the hot rows are the 5 balances and a
   posting costs ~20-26 ms of Python per request, so 1,000 postings on two processes cannot finish in 10 s
-  (CPU alone >= 10-13 s); the target needs more processes or a relaxed MP8 (open).
+  (CPU alone >= 10-13 s); the target needs more processes. LEAD decision: MP8 target relaxed to < 120 s on 2 processes; correctness (exact balances, no lost update, no 500) is the gate, and ~15 postings/s on hot balances is far above plant posting rates.
 - E's engine tests live in `tests/mrp` (WP-E).
 - Targeted runs: `tests/api_mfg_m2` 22, `tests/api_mfg` + `tests/auth/test_route_coverage.py` + `tests/mfg_db` +
   `tests/db/test_db_roles.py` (148), `tests/acceptance_phase2b/test_acc_authz_sweep.py` 5 - all pass.
