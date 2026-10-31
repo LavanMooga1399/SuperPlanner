@@ -70,7 +70,7 @@ def apply_effects(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], be
                   item: MfgItemRow | None, at: datetime) -> None:
     s = c.s
     last = rows[-1]
-    if ev.event_type not in E.QTY_EVENTS and ev.event_type not in ("correct", "reopen"):
+    if ev.event_type not in E.QTY_EVENTS and ev.event_type not in ("correct", "reopen", "skip"):
         return                       # transitions without quantities have no automatic effects (FP1)
     _scrap(s, wo, rows)
     if ev.event_type in E.QTY_EVENTS or ev.event_type == "correct":
@@ -83,7 +83,7 @@ def apply_effects(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], be
         if eff.get("hold"):
             eff.pop("hold")
             last.effects = eff
-    _receipt(c, wo, last, item, at)
+    _receipt(c, wo, last, item, at, rows)
 
 
 # ---------------------------------------------------------------- scrap
@@ -260,7 +260,8 @@ def _reverse_receipts(c: Any, wo: MfgWorkOrderRow, last: MfgWoOperationRow, at: 
     s.refresh(wo)
 
 
-def _receipt(c: Any, wo: MfgWorkOrderRow, last: MfgWoOperationRow, item: MfgItemRow | None, at: datetime) -> None:
+def _receipt(c: Any, wo: MfgWorkOrderRow, last: MfgWoOperationRow, item: MfgItemRow | None, at: datetime,
+             rows: list[MfgWoOperationRow] | None = None) -> None:
     from .inventory import post_in_session
 
     s = c.s
@@ -269,6 +270,10 @@ def _receipt(c: Any, wo: MfgWorkOrderRow, last: MfgWoOperationRow, item: MfgItem
         return
     received = float(eff.get("received") or 0.0)
     target = round(last.qty_good, 6)
+    if last.status == "skipped" and rows:      # review M4: a skipped last operation passes its input on
+        from .floor import _chain
+
+        target = round(_chain(rows)[last.seq].qty_input, 6)
     if target < received - EPS:
         _reverse_receipts(c, wo, last, at, hold=False)
         eff = _eff(last)

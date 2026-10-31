@@ -28,7 +28,7 @@ FROM: dict[str, tuple[str, ...]] = {
     "resume": ("paused",),
     "report": ("setup", "running", "paused"),
     "complete": ("setup", "running", "paused"),
-    "reopen": ("completed",),
+    "reopen": ("completed", "skipped"),          # reopening a skip reverts it (review M4)
     "skip": ("pending",),
     "correct": ("pending", "setup", "running", "paused", "completed", "skipped"),
 }

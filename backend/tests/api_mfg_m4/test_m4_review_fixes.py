@@ -43,9 +43,9 @@ def test_m4_skipping_the_last_op_receives_the_passed_input_and_reopen_reverses(a
     r = ev(api, o2, "skip", reason_code="NOT_NEEDED")
     assert r["operation"]["status"] == "skipped" and r["wo"]["status"] == "completed"
     assert _on_hand(api, p["fg"]["id"]) == 10
-    ev_id = r["event"]["id"]
-    r = ev(api, o2, "correct", corrects_event_id=ev_id, qty_good=0) if False else None
-    assert r is None
+    r = ev(api, o2, "reopen")
+    assert r["operation"]["status"] == "paused" and r["wo"]["status"] == "in_progress"
+    assert _on_hand(api, p["fg"]["id"]) == 0
 
 
 def test_m11_batch_load_id_of_another_load_is_422(api):
