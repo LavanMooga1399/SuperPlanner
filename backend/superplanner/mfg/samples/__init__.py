@@ -56,7 +56,12 @@ def _master(sample_id: str) -> MfgBundle:
     m2 = importlib.import_module(f".{info.module}_m2", __name__)
     b = m2.master(b)
     m3 = _m3(sample_id)
-    return canonical(m3.master(b) if m3 is not None else b)
+    b = m3.master(b) if m3 is not None else b
+    try:                                    # M4-DESIGN 14: optional `<id>_m4` master flags
+        m4 = importlib.import_module(f".{info.module}_m4", __name__)
+    except ModuleNotFoundError:
+        m4 = None
+    return canonical(m4.master(b) if m4 is not None else b)
 
 
 def _m3(sample_id: str):  # type: ignore[no-untyped-def]

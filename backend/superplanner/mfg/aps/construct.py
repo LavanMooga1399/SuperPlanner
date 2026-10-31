@@ -651,9 +651,13 @@ class Engine:
     def place_op(self, op: Op) -> None:
         r = self.es(op)
         if isinstance(r, Unsched):
-            self.uns[op.key] = r
+            if op.key not in getattr(self, "partial", {}):
+                self.uns[op.key] = r
             return
         es, min_end, why, refs, rel = r
+        if op.key in getattr(self, "partial", {}):
+            self._place_rest(op, es, min_end, why, refs)
+            return
         self.release[op.key] = rel
         if es >= self.m.horizon:
             self.uns[op.key] = Unsched(op, "beyond_horizon", "Cannot start before the horizon end.", refs)
@@ -706,6 +710,22 @@ class Engine:
             self.events.append({"code": "APS_SPLIT", "op": op, "parts": len(parts)})
         self.placed[op.key] = parts
         self.order_seq.append(op.key)
+
+    def _place_rest(self, op: Op, es: int, min_end: int, why: str, refs: list[Any]) -> None:
+        """The unfrozen remainder of a partly frozen split operation: one more part on its eligible lines."""
+        rest = self.partial.pop(op.key)
+        parts = self.placed[op.key]
+        lines = [lid for lid in op.lines if lid in self.m.lines]
+        p, _w = self.best(op, rest, es, min_end, lines) if lines else (None, "no_line")
+        if p is None:
+            return
+        self.commit(p)
+        p.reason, p.reason_refs = why, refs
+        p.part = max(x.part for x in parts) + 1
+        allp = sorted(parts + [p], key=lambda x: x.part)
+        for i, x in enumerate(allp):
+            x.parts = len(allp)
+        self.placed[op.key] = allp
 
     # ------------------------------------------------------------ batching (M4-DESIGN 6.3)
     def _batch_key(self, op: Op) -> tuple[Any, ...] | None:
@@ -917,10 +937,14 @@ class Engine:
         self.place_actuals()
         self.check_hints()
         self.place_moves()
+        # split operations whose published parts straddle the freeze: the frozen parts are fixed, the rest of the
+        # quantity is planned like an operation (M4 fix of the M3 split-freeze gap)
+        self.partial = {k: op.qty - sum(p.qty for p in self.placed.get(k, [])) for k, op in self.ops.items()
+                        if k in self.placed and op.qty - sum(p.qty for p in self.placed[k]) > 1e-9}
         deps: dict[tuple[str, int], set[tuple[str, int]]] = {}
         users: dict[tuple[str, int], list[tuple[str, int]]] = {}
         for op in self.m.ops:
-            if op.key in self.placed:
+            if op.key in self.placed and op.key not in self.partial:
                 continue
             d: set[tuple[str, int]] = set()
             if op.idx > 0:
@@ -933,7 +957,7 @@ class Engine:
             h = self.hints.get(op.key)
             if h is not None and h[1] is not None and h[1] in self.ops:
                 d.add(h[1])
-            d = {x for x in d if x not in self.placed}
+            d = {x for x in d if x not in self.placed or x in self.partial}
             deps[op.key] = d
             for x in d:
                 users.setdefault(x, []).append(op.key)
@@ -947,7 +971,7 @@ class Engine:
         for k, d in deps.items():
             if not d:
                 push(k)
-        done: set[tuple[str, int]] = set(self.placed)
+        done: set[tuple[str, int]] = set(self.placed) - set(self.partial)
         while heap:
             *_x, k = heapq.heappop(heap)
             if k in done:

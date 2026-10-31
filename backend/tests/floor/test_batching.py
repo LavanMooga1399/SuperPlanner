@@ -7,7 +7,7 @@ from superplanner.mfg.aps.engine import schedule
 from superplanner.mfg.aps.model import ApsParams
 from superplanner.mfg.aps.pure import sample_snapshot
 
-P = ApsParams(improve_seconds=0, split=False, include_planned=False, material="ignore")
+P = ApsParams(improve_seconds=0, include_planned=False, material="ignore")
 
 
 def test_t_f11_shared_load_and_wait_limit():

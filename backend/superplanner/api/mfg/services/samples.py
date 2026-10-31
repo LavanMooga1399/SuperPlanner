@@ -169,6 +169,15 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
             plant.data_version -= 1
         if include_transactions:
             _sample_progress(s, sample_id)
+            if sample_id == "kavach":               # M4-DESIGN 14: plant locations + floor history (once)
+                from sqlalchemy import select as _sel
+
+                from ..db_models_m2 import MfgPurchaseDocRow
+                from . import samples_m4
+
+                if s.execute(_sel(MfgPurchaseDocRow.id).where(MfgPurchaseDocRow.number == "PO-KV-H001")).first() \
+                        is None:
+                    samples_m4.apply(s, anchor)
         result = {"counts": plan.result_counts(), "duration_ms": int((time.monotonic() - t0) * 1000),
                   "data_version": plant.data_version}
         audit(s, "plant", plant.id, "sample_load", {"sample_id": sample_id, "replace": replace,

@@ -14,7 +14,7 @@ from superplanner.mfg.aps.engine import schedule
 from superplanner.mfg.aps.model import ApsParams, LineBreakdown, PublishedOp, PublishedView
 from superplanner.mfg.aps.pure import sample_snapshot
 
-P = ApsParams(improve_seconds=0, split=False)   # (frozen split parts: M3 behaviour, not under test here)
+P = ApsParams(improve_seconds=0)
 
 
 @pytest.fixture(scope="module")
@@ -82,3 +82,22 @@ def test_what_if_breakdown_closes_the_line(base):
     end = snap.as_of + timedelta(hours=12)
     assert all(y.start >= end or y.end <= snap.as_of for y in r.operations
                if y.status == "scheduled" and y.line_id == o.line_id)
+
+
+def test_split_parts_straddling_the_freeze_keep_their_quantity(base):
+    """Regression (M3 gap found in M4): a published split operation with only some parts inside the freeze kept
+    just the frozen parts (APS_V_QTY); the rest of the quantity is planned as another part."""
+    snap, res = base
+    pub = _published(res)
+    r = schedule(replace(snap, published=pub), P)
+    assert r.validation.ok, r.validation.violations[:3]
+    freeze = snap.dataset.plant.aps_freeze_hours * 60
+    straddle = [o for o in res.operations if o.status == "scheduled" and o.split.count > 1]
+    hit = 0
+    for o in straddle:
+        mine = [x for x in r.operations if (x.order.id, x.seq) == (o.order.id, o.seq) and x.status == "scheduled"]
+        total = sum(x.qty for x in res.operations if (x.order.id, x.seq) == (o.order.id, o.seq))
+        assert abs(sum(x.qty for x in mine) - total) < 1e-6
+        if any(x.frozen for x in mine) and not all(x.frozen for x in mine):
+            hit += 1
+    assert hit >= 1 and freeze > 0
