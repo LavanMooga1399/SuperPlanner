@@ -266,6 +266,9 @@ class _Planner:
 
     # -------------------------------------------------------- checks
     def whole(self, it: ItemInfo, qty: float, loc: list[Any]) -> None:
+        if 0 < qty and (round(qty, 6) <= 0 or (is_count(it.uom) and round(qty) == 0)):
+            raise _err("INV_FRACTIONAL_QTY", f"{_fmt(qty)} {it.uom} of {it.part_number} is not a postable quantity "
+                       f"(smallest: {'1' if is_count(it.uom) else '0.000001'}).", loc)
         if is_count(it.uom) and abs(qty - round(qty)) > EPS:
             raise _err("INV_FRACTIONAL_QTY", f"{it.part_number} is counted in {it.uom}; use a whole number "
                        f"(not {_fmt(qty)}).", loc)

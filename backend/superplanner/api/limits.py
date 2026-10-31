@@ -1,4 +1,5 @@
-"""Request body guards (ARCHITECTURE 14, Implementation notes; PHASE2B 3.5.7).
+"""Request body guards (ARCHITECTURE 14, Implementation notes; PHASE2B 3.5.7). Also: a NUL character in the path
+answers 404, in the query string 422 (PostgreSQL text cannot hold it; M2 adversarial tests).
 
 A pure ASGI middleware: a declared `Content-Length` over the limit is answered with 413 before the body is
 read; a body without one (chunked) is counted while it streams and the request fails with 413 as soon as it
@@ -74,6 +75,15 @@ class BodySizeLimitMiddleware:
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
+            return
+        # NUL in the path (an id) or in a query value never reaches PostgreSQL: unknown -> 404, query -> 422
+        if "\x00" in scope.get("path", ""):
+            await JSONResponse(envelope("NOT_FOUND", "Not found.", {}), status_code=404)(scope, receive, send)
+            return
+        qs = scope.get("query_string", b"") or b""
+        if b"\x00" in qs or b"%00" in qs.lower():
+            await JSONResponse(envelope("VALIDATION_ERROR", NUL_MESSAGE, {"errors": [
+                {"loc": ["query"], "msg": NUL_MESSAGE, "type": "value_error"}]}), status_code=422)(scope, receive, send)
             return
         limit = self.max_body_bytes
         for name, value in scope.get("headers", []):

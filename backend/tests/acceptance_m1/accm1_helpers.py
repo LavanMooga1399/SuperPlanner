@@ -98,7 +98,8 @@ class Api:
 
     # ------------------------------------------------------------------ conveniences
     def load(self, sample: str, replace: bool = False) -> dict[str, Any]:
-        return self.post(f"/samples/{sample}/load", {"replace": replace}, status=200)
+        # M1 acceptance works on master data; samples load M2 transactions by default since M2-DESIGN 13.1
+        return self.post(f"/samples/{sample}/load", {"replace": replace, "include_transactions": False}, status=200)
 
     def health(self, as_of: str = AS_OF, horizon: int = 90) -> dict[str, Any]:
         return self.get("/health", as_of=as_of, horizon_days=horizon)

@@ -30,6 +30,8 @@ include = ["superplanner*"]
 [tool.setuptools.package-data]
 "superplanner.migrations" = ["script.py.mako"]
 "superplanner.api.auth" = ["common_passwords.txt"]
+"superplanner.mfg.mrp.fixtures" = ["*.json"]
+"superplanner.mfg.aps.fixtures" = ["*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

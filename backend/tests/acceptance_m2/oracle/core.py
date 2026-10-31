@@ -351,7 +351,7 @@ class Oracle:
             if child.make_buy == "phantom":
                 self._explode_phantom(ln.child_id, need_child, on, serial, out, depth=1)
                 continue
-            rounded = ceil_eps(need_child) if is_count(child.uom) else need_child
+            rounded = ceil_eps(need_child) if is_count(child.uom) else round(need_child, 6)   # rounded per child (8.9)
             if ln.alt_group is not None and alts_by_group.get(ln.alt_group):
                 alts = sorted(alts_by_group[ln.alt_group], key=lambda a: a.alt_priority)
                 groups.append(_AltGroup(ln.alt_group, ln, alts, need_child))    # I14: continuous need
@@ -363,9 +363,9 @@ class Oracle:
                     moved_total += moved
                     a_child = self.items[a.child_id]
                     a_need = self.to_alt(moved, ln, a)
-                    out.append((a.child_id, ceil_eps(a_need) if is_count(a_child.uom) else a_need))
+                    out.append((a.child_id, ceil_eps(a_need) if is_count(a_child.uom) else round(a_need, 6)))
                 rest = max(0.0, need_child - moved_total)
-                rounded = ceil_eps(rest) if is_count(child.uom) else rest
+                rounded = ceil_eps(rest) if is_count(child.uom) else round(rest, 6)
             out.append((ln.child_id, rounded))
         return bom, routing, out, groups
 
@@ -385,7 +385,7 @@ class Oracle:
             if child.make_buy == "phantom":
                 self._explode_phantom(ln.child_id, need_child, on, serial, out, depth + 1)
             else:
-                out.append((ln.child_id, ceil_eps(need_child) if is_count(child.uom) else need_child))
+                out.append((ln.child_id, ceil_eps(need_child) if is_count(child.uom) else round(need_child, 6)))
 
     def to_alt(self, prim_qty: float, prim: OBomLine, alt: OBomLine) -> float:
         """8.7: alternate need = moved x alt.qty_per / primary.qty_per x (1 + alt.scrap)/(1 + primary.scrap)."""

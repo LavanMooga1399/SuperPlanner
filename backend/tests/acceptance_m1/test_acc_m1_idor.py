@@ -80,9 +80,14 @@ QUERY = {"/lines/{line_id}/windows": {"from": "2026-11-02", "to": "2026-11-09"},
 
 
 def _mfg_routes(app: Any) -> list[tuple[str, str]]:
+    """The 77 M1 operations (the M2/M3 routes have their own sweeps: acceptance_phase2b authz sweep, M2-DESIGN 19.2,
+    M3-DESIGN 14.1)."""
+    from superplanner.api.mfg import router as m1
+
+    m1_paths = {MFG + r.path[len("/mfg"):] for r in m1.router.routes}
     out = []
     for path, ops in app.openapi()["paths"].items():
-        if path.startswith(MFG + "/"):
+        if path.startswith(MFG + "/") and path in m1_paths:
             for m in sorted(ops):
                 if m.upper() in ("GET", "POST", "PUT", "DELETE"):
                     out.append((m.upper(), path[len(MFG):]))

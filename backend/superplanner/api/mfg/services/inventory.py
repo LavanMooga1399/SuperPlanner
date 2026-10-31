@@ -211,9 +211,7 @@ def _context(s: Session, L: _Loaded, item_ids: set[str], pairs: set[tuple[str, s
         item_ids.add(dl.item_id)
     its = items(s, item_ids)
     locs = locations(s)
-    lot_keys_items = sorted(item_ids)
-    for r in repo_m2.lock_lots(s, [(i, "") for i in lot_keys_items]).values():  # pragma: no cover - empty code
-        L.lots[(r.item_id, r.lot_code)] = r
+    lot_keys_items = sorted(i for i in item_ids if i in its and its[i].lot_controlled)   # no lots, no lot locks
     for chunk_start in range(0, len(lot_keys_items), 2000):
         chunk = lot_keys_items[chunk_start:chunk_start + 2000]
         for r in s.execute(select(MfgLotRow).where(MfgLotRow.item_id.in_(chunk))
@@ -471,7 +469,7 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     _resolve_pairs(inp, L, pairs, s)
     if txn_date is not None:
         inp = inp.model_copy(update={"txn_date": txn_date})
-    number = repo_m2.next_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))
+    number = repo_m2.next_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))   # lock order (5) (4.5)
     ctx = _context(s, L, set(item_ids), pairs, today(s), system=system)
     try:
         plan = INV.plan_posting(inp, ctx)

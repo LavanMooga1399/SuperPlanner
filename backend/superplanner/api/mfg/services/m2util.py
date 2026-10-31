@@ -69,7 +69,11 @@ def is_workspace_owner() -> bool:
 
 
 def plant(s: Session) -> PlantRecord:
-    return repo.plant_or_default(s)
+    """The plant record, read once per session (postings ask several times; MP8)."""
+    p = s.info.get("sp_plant")
+    if p is None:
+        p = s.info["sp_plant"] = repo.plant_or_default(s)
+    return p
 
 
 def today(s: Session) -> date:
@@ -81,12 +85,14 @@ def plant_lock_free(s: Session) -> MfgPlantRow | None:
 
 
 def items(s: Session, ids: Iterable[str]) -> dict[str, MfgItemRow]:
-    out: dict[str, MfgItemRow] = {}
+    """Item rows by id; rows already read in this session are reused (identity map; MP8)."""
+    cache: dict[str, MfgItemRow] = s.info.setdefault("sp_items", {})
     ids = sorted({i for i in ids if i})
-    for k in range(0, len(ids), 2000):
-        for r in s.execute(select(MfgItemRow).where(MfgItemRow.id.in_(ids[k:k + 2000]))).scalars():
-            out[r.id] = r
-    return out
+    missing = [i for i in ids if i not in cache]
+    for k in range(0, len(missing), 2000):
+        for r in s.execute(select(MfgItemRow).where(MfgItemRow.id.in_(missing[k:k + 2000]))).scalars():
+            cache[r.id] = r
+    return {i: cache[i] for i in ids if i in cache}
 
 
 def iref(row: MfgItemRow | None, item_id: str = "") -> ItemRef:
@@ -135,9 +141,15 @@ def user_names(s: Session, ids: Iterable[str]) -> dict[str, str]:
     ids = sorted({i for i in ids if i})
     if not ids:
         return {}
-    with system_scope():
-        rows = s.execute(select(UserRow.id, UserRow.display_name, UserRow.email).where(UserRow.id.in_(ids))).all()
-    return {r[0]: (r[1] or r[2] or ("Local user" if r[0] == "usr_local" else r[0])) for r in rows}
+    cache: dict[str, str] = s.info.setdefault("sp_user_names", {})
+    missing = [i for i in ids if i not in cache]
+    if missing:
+        with system_scope():
+            rows = s.execute(select(UserRow.id, UserRow.display_name, UserRow.email)
+                             .where(UserRow.id.in_(missing))).all()
+        for r in rows:
+            cache[r[0]] = r[1] or r[2] or ("Local user" if r[0] == "usr_local" else r[0])
+    return {i: cache[i] for i in ids if i in cache}
 
 
 def actor_ref(names: dict[str, str], uid: str | None) -> dict[str, Any]:
