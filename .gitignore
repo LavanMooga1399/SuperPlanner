@@ -1,18 +1,25 @@
+
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
 *.db
+*.db-shm
+*.db-wal
+*.db.bak-*
 .pytest_cache/
 node_modules/
 dist/
 .vite/
 test-results/
 playwright-report/
-# local PostgreSQL dev cluster (backend/scripts/pg_dev_cluster.sh) and pg_dump files
+
+# Local PostgreSQL development cluster and dumps
 backend/.pgdata/
 *.dump
-# Phase 2b ops: local compose configuration (copy of .env.example with real values)
+
+# Local environment secrets
 .env
-# local packaging artifacts (pip install / setup.py build)
-backend/build/
+
+# Python packaging artifacts
+build/
 *.egg-info/
