@@ -842,6 +842,13 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
     from . import replan
 
     c.triggers.extend(replan.on_floor_event(s, wo, rows, op, row, after, c.now))
+    if inp.event_type == "complete":                            # M5-DESIGN 4.6
+        from ....integration import outbox
+
+        if outbox.enabled(s):
+            outbox.emit(s, "floor.operation_completed", {
+                "wo": {"id": wo.id, "number": wo.number}, "seq": op.seq, "good": op.qty_good, "scrap": op.qty_scrap,
+                "labour_minutes": op.labour_minutes, "line_id": op.line_id, "event_id": row.id}, wo.number)
     row.details = {**(row.details or {}), "postings": c.postings, "warnings": c.warnings}
     s.flush()
     vb, va = _chain_after(rows, before), _chain_after(rows, after)

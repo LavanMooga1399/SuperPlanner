@@ -11,6 +11,8 @@ import type { ItemM4Fields } from "../api/typesM4";
 import type { AttrValue, Attributes, ItemInput, ItemRecord, MakeBuy } from "../api/types";
 import type { ItemM2Fields, LotRuleM2 } from "../api/typesM2";
 import { ConflictBanner, MfgError, SaveState } from "../components/Feedback";
+import { ErpOwnedBadge, ErpOwnedBanner } from "../components/ErpOwned";
+import { useErpOwnership } from "../lib/erpOwnership";
 import { CheckField, numOr, numOrNull, numText, SelectField, strOrNull, TextField } from "../components/Field";
 import { MAKE_BUY_OPTIONS, useUomOptions } from "../components/NewItemDialog";
 import { PermissionGate } from "../components/PermissionGate";
@@ -145,6 +147,15 @@ function toInput(f: ItemForm): ItemInput & ItemM2Fields & ItemM4Fields {
 
 export function ItemDetailsTab() {
   const { item, setItem } = useItem();
+  const erp = useErpOwnership();
+  const erpLabel = (label: string, field: string) =>
+    erp.ownsField("items", field) ? (
+      <>
+        {label} <ErpOwnedBadge testId={`erp-owned-${field}`} />
+      </>
+    ) : (
+      label
+    );
   const navigate = useNavigate();
   const [form, setForm] = useState<ItemForm>(() => toForm(item));
   const [base, setBase] = useState<ItemRecord>(item);
@@ -228,6 +239,7 @@ export function ItemDetailsTab() {
       data-testid="item-form"
     >
       {conflict ? <ConflictBanner onReload={() => void reloadLatest()} what="this item" /> : null}
+      {erp.owns("items") ? <ErpOwnedBanner entity="Items" /> : null}
       <MfgError error={error} title="Could not save the item" />
       <MfgError error={deleteError} title="The item could not be deleted" />
 
@@ -238,12 +250,12 @@ export function ItemDetailsTab() {
         </div>
         <div className="card-body col">
           <div className="form-grid">
-            <TextField label="Part number" value={form.part_number} onChange={(v) => set("part_number", v)} required maxLength={64} testId="item-part-number" />
-            <TextField label="Revision" value={form.revision} onChange={(v) => set("revision", v)} maxLength={16} />
-            <SelectField label="Make or buy" value={form.make_buy} onChange={(v) => set("make_buy", v)} options={MAKE_BUY_OPTIONS} testId="item-make-buy" />
-            <SelectField label="Unit" value={form.uom} onChange={(v) => set("uom", v)} options={uoms} />
+            <TextField label={erpLabel("Part number", "part_number")} value={form.part_number} onChange={(v) => set("part_number", v)} required maxLength={64} testId="item-part-number" disabled={erp.ownsField("items", "part_number")} />
+            <TextField label={erpLabel("Revision", "revision")} value={form.revision} onChange={(v) => set("revision", v)} maxLength={16} disabled={erp.ownsField("items", "revision")} />
+            <SelectField label={erpLabel("Make or buy", "make_buy")} value={form.make_buy} onChange={(v) => set("make_buy", v)} options={MAKE_BUY_OPTIONS} testId="item-make-buy" disabled={erp.ownsField("items", "make_buy")} />
+            <SelectField label={erpLabel("Unit", "uom")} value={form.uom} onChange={(v) => set("uom", v)} options={uoms} disabled={erp.ownsField("items", "uom")} />
           </div>
-          <TextField label="Description" value={form.description} onChange={(v) => set("description", v)} maxLength={500} testId="item-description" />
+          <TextField label={erpLabel("Description", "description")} value={form.description} onChange={(v) => set("description", v)} maxLength={500} testId="item-description" disabled={erp.ownsField("items", "description")} />
           <div className="form-grid">
             <TextField label="Family" value={form.family} onChange={(v) => set("family", v)} maxLength={32} hint="Groups similar items; lines can be limited to families." />
             <TextField
@@ -261,7 +273,8 @@ export function ItemDetailsTab() {
               }
             />
             <CheckField
-              label="Active"
+              label={erpLabel("Active", "active")}
+              disabled={erp.ownsField("items", "active")}
               checked={form.active}
               onChange={(v) => set("active", v)}
               hint="Inactive items stay in old BOMs but are flagged when used."
@@ -315,7 +328,8 @@ export function ItemDetailsTab() {
           {form.m2 ? (
             <>
               <TextField
-                label="Standard cost"
+                label={erpLabel("Standard cost", "standard_cost")}
+                disabled={erp.ownsField("items", "standard_cost")}
                 type="number"
                 value={form.standard_cost}
                 onChange={(v) => set("standard_cost", v)}
@@ -365,7 +379,8 @@ export function ItemDetailsTab() {
             </div>
             {form.m2 ? (
               <TextField
-                label="External reference"
+                label={erpLabel("External reference", "external_ref")}
+                disabled={erp.ownsField("items", "external_ref")}
                 value={form.external_ref}
                 onChange={(v) => set("external_ref", v)}
                 maxLength={64}

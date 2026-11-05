@@ -11,6 +11,7 @@ import { copyBom, getBom, listItemBoms, releaseBom, updateBom } from "../api/cli
 import type { BomInput, BomRecord } from "../api/types";
 import { BomLinesGrid, blankLine, lineProblems, newKey, type LineDraft } from "../components/BomLinesGrid";
 import { ReleaseDialog } from "../components/DocumentActions";
+import { ErpOwnedNotice } from "../components/ErpOwned";
 import { ConflictBanner, MfgError, NotFoundPanel, SaveState, Spinner } from "../components/Feedback";
 import { numOrNull, TextField } from "../components/Field";
 import { StatusChip } from "../components/StatusChip";
@@ -212,6 +213,7 @@ export function BomEditPage() {
         </Banner>
       ) : null}
       {conflict ? <ConflictBanner onReload={() => void reload()} what="this BOM" /> : null}
+      <ErpOwnedNotice entity="boms" label="BOMs" />
       <MfgError error={error} title="Could not save the BOM" />
 
       <section className="card">

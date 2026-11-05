@@ -14,6 +14,7 @@ from superplanner.api.mfg.db_models import MFG_TABLES
 from superplanner.api.mfg.db_models_m2 import M2_TABLES
 from superplanner.api.mfg.db_models_m3 import M3_TABLES
 from superplanner.api.mfg.db_models_m4 import M4_TABLES
+from superplanner.api.mfg.db_models_m5 import M5_TABLES
 
 NOW = datetime(2026, 10, 1, 8, 0, tzinfo=UTC)
 DATA_TABLES = ("users", "problems", "problem_versions", "finance_plans", "finance_plan_versions", "audit_events")
@@ -92,8 +93,9 @@ def test_upgrade_check_and_downgrade_remove_exactly_the_mfg_tables(empty_url):
     assert migrate.main(["upgrade", "--url", url]) == 0
     assert migrate.main(["check", "--url", url]) == 0
     assert _counts(url) == before and _diffs(url) == []
-    # head: 0006_mfg_m4
-    assert _tables(url) - tables_0002 == set(MFG_TABLES) | set(M2_TABLES) | set(M3_TABLES) | set(M4_TABLES)
+    # head: 0007_m5 (M5 adds platform tables too: identity, organisations, maintenance runs)
+    assert _tables(url) - tables_0002 == set(MFG_TABLES) | set(M2_TABLES) | set(M3_TABLES) | set(M4_TABLES) | \
+        set(M5_TABLES)
     eng = sa.create_engine(url)
     try:
         with eng.begin() as c:                       # some mfg data must not block the downgrade

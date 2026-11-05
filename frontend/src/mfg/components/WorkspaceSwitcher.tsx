@@ -3,6 +3,7 @@
  * workspace; the choice is kept in `sessionStorage` and sent as `X-SP-Workspace` on every mfg call.
  */
 import { Icon } from "../../components/Icon";
+import type { WorkspaceInfo } from "../api/typesM2";
 import { ROLE_LABEL, useAccess } from "../lib/permissions";
 import { currentWorkspace, switchWorkspace } from "../lib/workspace";
 
@@ -22,15 +23,41 @@ export function WorkspaceSwitcher() {
         aria-label="Plant workspace"
         data-testid="workspace-switcher"
       >
-        {workspaces.map((w) => (
-          <option key={w.owner_id} value={w.owner_id}>
-            {w.plant_name || "Plant"}
-            {w.is_owner ? " (mine)" : ` (${w.roles.map((r) => ROLE_LABEL[r]).join(", ")})`}
-          </option>
-        ))}
+        {groupByOrg(workspaces).map(([org, list]) =>
+          org ? (
+            <optgroup key={org} label={org}>
+              {list.map((w) => (
+                <option key={w.owner_id} value={w.owner_id}>
+                  {wsLabel(w)}
+                </option>
+              ))}
+            </optgroup>
+          ) : (
+            list.map((w) => (
+              <option key={w.owner_id} value={w.owner_id}>
+                {wsLabel(w)}
+              </option>
+            ))
+          ),
+        )}
       </select>
     </label>
   );
+}
+
+/** M5: plants of an organisation are grouped under its name; personal plants first. */
+function groupByOrg(ws: WorkspaceInfo[]): [string | null, WorkspaceInfo[]][] {
+  const m = new Map<string | null, WorkspaceInfo[]>();
+  for (const w of ws) {
+    const k = w.org?.name ?? null;
+    m.set(k, [...(m.get(k) ?? []), w]);
+  }
+  return [...m.entries()].sort((a, b) => (a[0] === null ? -1 : b[0] === null ? 1 : a[0].localeCompare(b[0])));
+}
+
+function wsLabel(w: WorkspaceInfo): string {
+  const name = `${w.plant_code ? `${w.plant_code} · ` : ""}${w.plant_name || "Plant"}`;
+  return `${name}${w.is_owner ? " (mine)" : ` (${w.roles.map((r) => ROLE_LABEL[r]).join(", ")})`}`;
 }
 
 export function RoleBadge() {

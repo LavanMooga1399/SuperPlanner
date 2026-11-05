@@ -46,6 +46,8 @@ from .mfg import router as mfg_router
 from .mfg import router_m2 as mfg_router_m2
 from .mfg import router_m3 as mfg_router_m3
 from .mfg import router_m4 as mfg_router_m4
+from ..identity import router as identity_router
+from ..integration import router as integration_router
 from .routes import health, metrics, problems, schedules, solver_runs, templates
 
 API_PREFIX = "/api/v1"
@@ -82,9 +84,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         passwords.warm_dummy_hash(settings.password_hash_profile)   # no cold-start burst of unbounded hashes
     app.include_router(health.router, prefix=API_PREFIX)
     app.include_router(auth_router.router, prefix=API_PREFIX)   # auth routes resolve the session themselves
+    app.include_router(identity_router.auth_router, prefix=API_PREFIX)   # M5 3.1-3.2 (resolves sessions itself)
     protected = (templates.router, problems.router, solver_runs.router, schedules.router, finance_router.router,
                  intake_router.router, mfg_router.router, mfg_router_m2.router,
-                 mfg_router_m3.router, mfg_router_m4.router)
+                 mfg_router_m3.router, mfg_router_m4.router, identity_router.tokens_router,
+                 integration_router.router)
     for r in protected:
         app.include_router(r, prefix=API_PREFIX, dependencies=[Depends(require_user)])
     body_gate.install(app, protected)   # 401/403 before 422 also for unparseable JSON bodies

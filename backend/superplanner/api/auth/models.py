@@ -24,6 +24,8 @@ class UserRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: M5-DESIGN 3.4: person (default) | plant (a plant principal, no login) | service
+    kind: Mapped[str] = mapped_column(String(16), default="person", server_default=text("'person'"))
 
 
 class UserSessionRow(Base):

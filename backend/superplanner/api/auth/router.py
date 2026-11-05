@@ -186,6 +186,10 @@ def sign_in(body: SignInIn, request: Request, response: Response,
             ctx: AppContext = Depends(_public_gate)) -> dict[str, Any]:
     st = ctx.settings
     profile = st.password_hash_profile
+    from ...identity import service as ids
+
+    if ids.sso_required_for(ctx, body.email):           # M5-DESIGN 3.1: passwords disabled for these domains
+        raise ApiError(403, "AUTH_SSO_REQUIRED", "Your organisation signs in with single sign-on.", {})
     _rate(ctx, [(f"signin:ip:{_client_ip(request)}", st.auth_signin_limit_per_ip, ratelimit.SIGNIN_WINDOW),
                 (f"signin:email:{ratelimit.email_key(body.email)}", st.auth_signin_limit_per_email,
                  ratelimit.SIGNIN_WINDOW)])
@@ -212,6 +216,13 @@ def sign_in(body: SignInIn, request: Request, response: Response,
         if new_hash is not None:
             u.password_hash = new_hash
             u.updated_at = now
+        enabled, required = ids.totp_enabled(s, u.id), ids.org_requires_2fa(s, u.id)
+        if enabled or required:                           # M5-DESIGN 3.2: second step (or forced setup)
+            pending = ids.new_pending(ctx, s, u.id)
+            s.commit()
+            raise ApiError(403, "AUTH_2FA_REQUIRED", "Enter the code from your authenticator app." if enabled else
+                           "Your organisation requires two-step sign-in; set it up to continue.",
+                           {"pending_token": pending, "setup_required": not enabled})
         u.last_login_at = now
         v, token = _start_session(ctx, s, u, request, now)
     log.info("auth.signed_in user_id=%s", v.user_id)

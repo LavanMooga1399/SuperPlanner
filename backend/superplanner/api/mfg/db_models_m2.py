@@ -361,6 +361,7 @@ class MfgInvTransactionRow(OwnedMixin, Base):
                                                         nullable=True)
     demand_line_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_demand_lines.id", ondelete="RESTRICT"),
                                                        nullable=True)
+    transfer_line_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # M5-DESIGN 3.5
     actor_id: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

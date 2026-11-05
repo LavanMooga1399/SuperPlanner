@@ -101,8 +101,10 @@ def create_session(s: Session, user: UserRow, settings: Any, request: Request | 
 
 
 def _valid(row: UserSessionRow, user: UserRow, settings: Any, now: datetime) -> bool:
-    if row.revoked_at is not None or user.disabled or user.is_local or not user.password_hash:
+    if row.revoked_at is not None or user.disabled or user.is_local:
         return False
+    if not user.password_hash and getattr(user, "kind", "person") != "person":
+        return False          # plant / service principals never sign in (M5 3.4); SSO persons have no password
     if aware(row.expires_at) <= now:   # type: ignore[operator]
         return False
     if aware(row.last_seen_at) < now - timedelta(days=settings.session_idle_days):   # type: ignore[operator]

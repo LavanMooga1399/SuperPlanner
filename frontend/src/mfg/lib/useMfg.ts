@@ -196,6 +196,15 @@ export function errorText(err: unknown): string {
         if (list) return `${err.message} (still used by ${list})`;
       }
     }
+    // M5 4.4: a local write to fields the ERP owns
+    if (err.code === "INT_ERP_OWNED") {
+      const f = Array.isArray(err.details.fields) ? (err.details.fields as unknown[]).map((x) => String(x).replace(/_/g, " ")) : [];
+      return `This data is maintained in the ERP and cannot be changed here${f.length ? `: ${f.join(", ")}` : ""}. Change it in the ERP; it comes in with the next sync.`;
+    }
+    if (err.code === "ECO_DOC_LOCKED") return "This draft belongs to an engineering change request and can only be edited while that request is a draft.";
+    if (err.code === "ECO_SELF_APPROVAL") return "You submitted this change request, so someone else has to approve it.";
+    if (err.code === "TRF_PLANT_ACCESS") return "You have no role in the other plant of this transfer that allows this.";
+    if (err.code === "TRF_ITEM_UNMATCHED") return `${err.message} The receiving plant needs an item with the same external reference or part number.`;
     if (err.code === "MFG_BOM_CYCLE" && Array.isArray(err.details.cycle)) {
       return `${err.message} (${(err.details.cycle as unknown[]).map(String).join(" -> ")})`;
     }

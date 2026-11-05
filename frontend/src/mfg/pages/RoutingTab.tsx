@@ -26,6 +26,7 @@ import {
 import type { GroupRecord, OperationInput, RoutingInput, RoutingRecord, RoutingSummary, SkillRecord, ToolPoolRecord } from "../api/types";
 import { ReleaseDialog } from "../components/DocumentActions";
 import { EffectivityBadge } from "../components/EffectivityBadge";
+import { ErpOwnedNotice } from "../components/ErpOwned";
 import { ConflictBanner, MfgError, SaveState, Spinner } from "../components/Feedback";
 import { numOrNull, TextField } from "../components/Field";
 import { OperationTimePreview } from "../components/OperationTimePreview";
@@ -442,6 +443,7 @@ function RoutingDocument({
             />
           ) : null}
           {conflict ? <ConflictBanner onReload={() => void reload()} what="this routing" /> : null}
+          <ErpOwnedNotice entity="routings" label="Routings" />
           <MfgError error={error} title="Could not save the routing" />
           {settings ? (
             <div className="form-grid">

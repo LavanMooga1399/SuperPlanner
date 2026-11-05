@@ -139,13 +139,36 @@ async function send(path: string, init: RequestInit): Promise<Response> {
 }
 
 export async function mfgRaw<T>(path: string, opts: MfgRequestOptions = {}): Promise<MfgRawResponse<T>> {
+  return rawAt<T>(M + path, opts);
+}
+
+/**
+ * M5: the same request helper for the other `/api/v1` areas (integration, orgs, tokens, audit): same error envelope,
+ * same workspace header (per-plant areas), no `/mfg` prefix.
+ */
+export async function v1Raw<T>(path: string, opts: MfgRequestOptions = {}): Promise<MfgRawResponse<T>> {
+  return rawAt<T>(path, opts);
+}
+
+export async function v1Request<T>(path: string, opts: MfgRequestOptions = {}): Promise<T> {
+  return (await rawAt<T>(path, opts)).data;
+}
+
+export async function v1Download(path: string, query?: QueryParams, fallbackName = "download"): Promise<DownloadedFile> {
+  const res = await send(path + queryString(query), { method: "GET", headers: { Accept: "*/*", ...workspaceHeaders() } });
+  if (!res.ok) throw await failure(res);
+  const blob = await res.blob();
+  return { blob, filename: filenameFromDisposition(res.headers.get("Content-Disposition"), fallbackName) };
+}
+
+async function rawAt<T>(fullPath: string, opts: MfgRequestOptions): Promise<MfgRawResponse<T>> {
   const headers: Record<string, string> = { Accept: "application/json", ...workspaceHeaders(), ...(opts.headers ?? {}) };
   let body: BodyInit | undefined;
   if (opts.body !== undefined) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(opts.body);
   }
-  const res = await send(M + path + queryString(opts.query), {
+  const res = await send(fullPath + queryString(opts.query), {
     method: opts.method ?? "GET",
     headers,
     body,

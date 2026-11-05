@@ -1,6 +1,6 @@
 /** `/account` (PHASE2B 4.10): who is signed in, and change password. Guarded; single_user redirects to `/`. */
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Navigate } from "react-router";
+import { Link, Navigate } from "react-router";
 import { ApiError } from "../api/client";
 import { Icon } from "../components/Icon";
 import { useAuth } from "./AuthContext";
@@ -83,6 +83,20 @@ export function AccountPage() {
             <dt>Signed in until</dt>
             <dd>{auth.expiresAt ? `${fmtDate(auth.expiresAt)} at the latest` : "-"}</dd>
           </dl>
+        </div>
+      </section>
+      <section className="card auth-card" aria-label="Security">
+        <div className="card-body col" style={{ gap: 8 }}>
+          <h2 style={{ margin: 0 }}>Security</h2>
+          <Link to="/account/security" data-testid="account-to-security">
+            <Icon name="lock" /> Two-step verification{user?.totp_enabled ? " (on)" : ""}
+          </Link>
+          <Link to="/account/tokens" data-testid="account-to-tokens">
+            <Icon name="copy" /> API tokens
+          </Link>
+          <Link to="/orgs">
+            <Icon name="briefcase" /> Organisations and plants
+          </Link>
         </div>
       </section>
 

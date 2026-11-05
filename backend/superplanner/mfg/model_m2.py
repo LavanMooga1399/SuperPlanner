@@ -28,8 +28,10 @@ LotCode = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, 
                                            pattern=r"^[^\x00-\x1f\x7f]+$")]
 SignedQty = Annotated[float, Field(ge=-1_000_000_000, le=1_000_000_000)]
 Priority = Annotated[int, Field(ge=1, le=9)]
-Role = Literal["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor"]   # M4 roles
-ROLES: tuple[str, ...] = ("viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor")
+Role = Literal["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor",
+               "plant_admin"]   # M4, M5 roles
+ROLES: tuple[str, ...] = ("viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor",
+                          "plant_admin")
 LocationKind = Literal["stores", "line_side", "inspection", "quarantine"]
 LOCATION_KINDS: tuple[str, ...] = ("stores", "line_side", "inspection", "quarantine")
 NETTABLE_NOW_KINDS: tuple[str, ...] = ("stores", "line_side")

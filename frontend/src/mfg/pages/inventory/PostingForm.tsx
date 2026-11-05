@@ -5,11 +5,11 @@
  * reuses it (no double posting), any edit creates a new one.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { ApiError } from "../../../api/client";
 import { Banner } from "../../../components/Banner";
 import { Icon } from "../../../components/Icon";
-import { createPosting, listBalances, newIdempotencyKey } from "../../api/clientM2";
+import { createPosting, listBalances, newIdempotencyKey, listLocations } from "../../api/clientM2";
 import type { ItemRef } from "../../api/types";
 import type { BalanceRow, PostingInput, PostingType } from "../../api/typesM2";
 import { MfgError } from "../../components/Feedback";
@@ -333,6 +333,27 @@ export function PostingForm() {
   const [error, setError] = useState<unknown>(null);
   const [touched, setTouched] = useState(false);
   const keyRef = useRef<{ body: string; key: string } | null>(null);
+
+  // M5 4.8: router state `{ prefill }` (reconciliation "review as stock count"): lines with item, location code, lot, qty
+  const routerLoc = useLocation();
+  useEffect(() => {
+    const pf = (routerLoc.state as { prefill?: { reason?: string; note?: string; lines: { item: ItemRef; location_code?: string | null; lot_code?: string | null; qty?: number | null }[] } } | null)?.prefill;
+    if (!pf?.lines?.length) return;
+    let alive = true;
+    listLocations({}).then(
+      (locs) => {
+        if (!alive) return;
+        setLines(pf.lines.map((l) => ({ ...newLine(l.item, locs.items.find((x) => x.code === l.location_code)?.id ?? ""), lot_code: l.lot_code ?? "", qty: l.qty === null || l.qty === undefined ? "" : String(l.qty) })));
+        if (pf.reason) setReason(pf.reason);
+        if (pf.note) setNote(pf.note);
+      },
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // `?item=` preselects the first line's item
   const itemParam = params.get("item");

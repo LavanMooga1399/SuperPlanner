@@ -11,6 +11,7 @@ import { Icon } from "../../../components/Icon";
 import { createDemandOrder, createPosting, deleteDemandOrder, demandAction, getDemandOrder, newIdempotencyKey, updateDemandOrder } from "../../api/clientM2";
 import type { ItemRef } from "../../api/types";
 import { DEMAND_TYPES, type DemandLineInput, type DemandLineRecord, type DemandOrderInput, type DemandOrderRecord, type DemandType } from "../../api/typesM2";
+import { ErpOwnedNotice } from "../../components/ErpOwned";
 import { ConflictBanner, MfgError, NotFoundPanel, Spinner } from "../../components/Feedback";
 import { numOrNull, SelectField, strOrNull, TextField } from "../../components/Field";
 import { ItemPicker } from "../../components/ItemPicker";
@@ -321,6 +322,7 @@ export function DemandPage() {
       </div>
 
       {conflict ? <ConflictBanner onReload={() => void getDemandOrder(orderId).then(reset, setError)} what="this demand order" /> : null}
+      <ErpOwnedNotice entity="demand_orders" label="Demand orders (except priority)" />
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
       {status === "draft" && order ? (
         <Banner tone="warn" title="Draft: not planned yet">

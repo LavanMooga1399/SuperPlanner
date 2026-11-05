@@ -30,6 +30,11 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "floor_supervise",
   "downtime_report",
   "replan_manage",
+  "trace_view",
+  "eco_edit",
+  "eco_approve",
+  "transfer_edit",
+  "integration_admin",
   "owner",
 ];
 
@@ -42,6 +47,7 @@ export const ROLE_LABEL: Record<Role | "owner", string> = {
   approver: "Approver",
   operator: "Operator",
   supervisor: "Supervisor",
+  plant_admin: "Plant admin",
 };
 
 export const ROLE_HELP: Record<Role, string> = {
@@ -52,6 +58,7 @@ export const ROLE_HELP: Record<Role, string> = {
   approver: "Approves or rejects purchase requests.",
   operator: "Shop floor: starts, reports and completes operations, reports downtime. Sees the floor pages and reads the rest. Use it for shared station accounts too.",
   supervisor: "Shop floor lead: everything an operator does plus corrections, reopen and skip of operations.",
+  plant_admin: "Everything in this plant, like its owner: members, integration, API tokens for the plant.",
 };
 
 /** 10.2 matrix: which member roles hold a permission (the owner holds all). */
@@ -74,6 +81,11 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   floor_supervise: ["supervisor"],
   downtime_report: ["operator", "supervisor", "planner"],
   replan_manage: ["planner"],
+  trace_view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin"],
+  eco_edit: ["planner", "plant_admin"],
+  eco_approve: ["approver", "plant_admin"],
+  transfer_edit: ["planner", "store_keeper", "plant_admin"],
+  integration_admin: ["plant_admin"],
   owner: [],
 };
 

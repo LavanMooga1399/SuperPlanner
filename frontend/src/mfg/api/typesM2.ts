@@ -7,8 +7,8 @@
 import type { EntityId, IsoDate, IsoDateTime, ItemRecord, ItemRef, LotRule, MakeBuy, Page, PlantRecord, Ref, Weekday } from "./types";
 
 // ---------------------------------------------------------------- 3 common types
-export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor";
-export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor"];
+export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin";
+export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin"];
 export type LocationKind = "stores" | "line_side" | "inspection" | "quarantine";
 export const LOCATION_KINDS: readonly LocationKind[] = ["stores", "line_side", "inspection", "quarantine"];
 export type LotRuleM2 = LotRule;
@@ -33,6 +33,11 @@ export type Permission =
   | "floor_supervise"
   | "downtime_report"
   | "replan_manage"
+  | "trace_view"
+  | "eco_edit"
+  | "eco_approve"
+  | "transfer_edit"
+  | "integration_admin"
   | "owner";
 
 export interface Actor {
@@ -933,6 +938,9 @@ export interface WorkspaceInfo {
   plant_name: string;
   is_owner: boolean;
   roles: Role[];
+  /** M5 3.4: plants of organisations */
+  plant_code?: string | null;
+  org?: { slug: string; name: string } | null;
 }
 
 export interface ForbiddenDetails {

@@ -36,7 +36,8 @@ AUTH_MODES = ("single_user", "accounts")
 PASSWORD_HASH_PROFILES = ("default", "fast")
 LOG_FORMATS = ("text", "json")
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation")
+JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import", "integration_filedrop",
+             "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill")
 
 
 class ConfigError(ValueError):
@@ -229,6 +230,10 @@ def _worker_embedded() -> int | str | None:
     return v
 
 
+def _csv(name: str) -> list[str]:
+    return [x.strip() for x in (_env(name) or "").split(",") if x.strip()]
+
+
 def _worker_kinds() -> list[str]:
     raw = _env("WORKER_KINDS")
     if raw is None:
@@ -297,6 +302,31 @@ class Settings:
     signup_enabled: bool = field(default_factory=_bool("SIGNUP_ENABLED", True))
     session_max_age_days: int = field(default_factory=_int("SESSION_MAX_AGE_DAYS", 30, 1))
     session_idle_days: int = field(default_factory=_int("SESSION_IDLE_DAYS", 7, 1))
+
+    # --- M5-DESIGN 3 (identity) and 4 (integration)
+    oidc_issuer: str | None = field(default_factory=_str("OIDC_ISSUER"))
+    oidc_client_id: str | None = field(default_factory=_str("OIDC_CLIENT_ID"))
+    oidc_client_secret: str | None = field(default_factory=_str("OIDC_CLIENT_SECRET"))
+    oidc_scopes: str = field(default_factory=lambda: _env("OIDC_SCOPES") or "openid email profile")
+    oidc_allowed_domains: list[str] = field(default_factory=lambda: _csv("OIDC_ALLOWED_DOMAINS"))
+    oidc_required_domains: list[str] = field(default_factory=lambda: _csv("OIDC_REQUIRED_DOMAINS"))
+    oidc_org_slug: str | None = field(default_factory=_str("OIDC_ORG_SLUG"))
+    oidc_label: str = field(default_factory=lambda: _env("OIDC_LABEL") or "Single sign-on")
+    oidc_redirect_url: str | None = field(default_factory=_str("OIDC_REDIRECT_URL"))   # None: PUBLIC_BASE_URL + path
+    sso_session_hours: int = field(default_factory=_int("SSO_SESSION_HOURS", 12, 1))
+    #: Fernet keys (url-safe base64, 32 bytes); SECRETS_KEYS = comma list, the first encrypts (rotation)
+    secrets_keys: list[str] = field(default_factory=lambda: _csv("SECRETS_KEYS") or _csv("SECRETS_KEY"))
+    token_rate_per_minute: int = field(default_factory=_int("TOKEN_RATE_PER_MINUTE", 600, 1))
+    integration_root: str | None = field(default_factory=_str("INTEGRATION_ROOT"))
+    filedrop_poll_seconds: float = field(default_factory=_float("FILEDROP_POLL_SECONDS", 60.0))
+    integration_allow_private_targets: bool = field(default_factory=_bool("INTEGRATION_ALLOW_PRIVATE_TARGETS",
+                                                                          False))
+    archive_dir: str | None = field(default_factory=_str("ARCHIVE_DIR"))
+    retention_enabled: bool = field(default_factory=_bool("RETENTION_ENABLED", True))
+    #: tests only: an `identity.oidc.HttpFetch` replacement (the fake IdP)
+    oidc_http: Callable[..., Any] | None = None
+    #: tests only: an `integration.outbox.Poster` replacement (webhook receiver)
+    webhook_post: Callable[..., Any] | None = None
     cookie_secure: bool | None = field(default_factory=_opt_bool("COOKIE_SECURE"))
     public_base_url: str | None = field(default_factory=_str("PUBLIC_BASE_URL"))
     password_hash_profile: str = field(default_factory=lambda: (_env("PASSWORD_HASH_PROFILE") or "default").lower())
@@ -382,6 +412,16 @@ class Settings:
             raise ConfigError("PASSWORD_HASH_PROFILE=fast is for tests only and is refused outside APP_ENV=development.")
         if self.cookie_secure is None:
             self.cookie_secure = prod
+        # M5-DESIGN 3.1 / 3.2: identity configuration fails at startup
+        oidc = [self.oidc_issuer, self.oidc_client_id, self.oidc_client_secret]
+        if any(oidc) and not all(oidc):
+            raise ConfigError("OIDC needs OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together.")
+        if self.oidc_issuer and not (self.oidc_issuer.startswith("https://") or not prod):
+            raise ConfigError("OIDC_ISSUER must be an https URL.")
+        if self.secrets_keys:
+            from ..identity.crypto import check_keys
+
+            check_keys(self.secrets_keys)
         if prod and not self.cookie_secure:
             raise ConfigError("COOKIE_SECURE=false is only allowed with APP_ENV=development "
                               "(session cookies must not travel over plain http).")

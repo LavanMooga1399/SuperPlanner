@@ -38,6 +38,10 @@ def run_model(kind: str) -> Any:
         from ..api.mfg.db_models_m4 import MfgApsSimulationRow
 
         return MfgApsSimulationRow
+    if kind in RUN_ID_COLUMN and kind not in ("solver_run", "finance_run", "aps_run"):   # M5-DESIGN 10
+        from ..integration.jobs import target_model
+
+        return target_model(kind)
     raise ValueError(f"unknown job kind {kind!r}")
 
 
@@ -101,7 +105,10 @@ def new_job(s: Session, kind: str, run_id: str, owner_id: str, max_attempts: int
     job = JobRow(id=new_id("job_"), kind=kind, solver_run_id=run_id if kind == "solver_run" else None,
                  finance_run_id=run_id if kind == "finance_run" else None,
                  aps_run_id=run_id if kind == "aps_run" else None,
-                 aps_simulation_id=run_id if kind == "aps_simulation" else None, owner_id=owner_id, status="queued",
+                 aps_simulation_id=run_id if kind == "aps_simulation" else None,
+                 **{c: run_id for k, c in RUN_ID_COLUMN.items() if k == kind and c not in (
+                     "solver_run_id", "finance_run_id", "aps_run_id", "aps_simulation_id")}, owner_id=owner_id,
+                         status="queued",
                  priority=0, attempts=0, max_attempts=max_attempts, run_after=now, cancel_requested=False,
                  idempotency_key=idempotency_key, request_hash=request_hash, request_id=request_id,
                  created_at=now, updated_at=now)
@@ -287,7 +294,9 @@ def fail_inline_leftovers(ctx: Any) -> int:
     with system_scope():
         with ctx.db.read() as s:
             rows = s.execute(select(JobRow.id, JobRow.kind, JobRow.solver_run_id, JobRow.finance_run_id,
-                                    JobRow.aps_run_id, JobRow.aps_simulation_id)
+                                    JobRow.aps_run_id, JobRow.aps_simulation_id,
+                                    *[getattr(JobRow, c) for c in sorted(set(RUN_ID_COLUMN.values()) - {
+                                        "solver_run_id", "finance_run_id", "aps_run_id", "aps_simulation_id"})])
                              .where(JobRow.status == "running", JobRow.lease_expires_at.is_(None))).all()
         for row in rows:
             run_id = getattr(row, RUN_ID_COLUMN[row.kind])

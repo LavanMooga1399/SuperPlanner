@@ -84,6 +84,9 @@ def create_item(ctx: AppContext, inp: ItemInput) -> ItemRecord:
             ensure_unique(s, MfgItemRow, "An item", {"external_ref": inp.external_ref})
         check_limit(s, MfgItemRow, L.MAX_ITEMS, "items")
         now = utcnow()
+        from .integration import check_local_item_write          # M5-DESIGN 4.4
+
+        check_local_item_write(s, None, inp)
         row = MfgItemRow(id=new_id("itm_"), row_version=1, created_at=now, updated_at=now)
         _apply(row, inp)
         s.add(row)
@@ -101,6 +104,9 @@ def update_item(ctx: AppContext, item_id: str, inp: ItemInput, if_match: str | N
     with write_tx(ctx) as (s, _plant):
         row = repo.get_row(s, MfgItemRow, item_id, what="Item", lock=True)
         check_version(row, if_match)
+        from .integration import check_local_item_write          # M5-DESIGN 4.4
+
+        check_local_item_write(s, row, inp)
         ensure_unique(s, MfgItemRow, "An item", {"part_number": inp.part_number}, exclude_id=row.id)
         if row.serialized and not inp.serialized:
             _check_no_serial_documents(s, row)

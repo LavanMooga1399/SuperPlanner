@@ -29,6 +29,8 @@ export interface AuthState {
   assumed: boolean;
   /** Set by `signOut` so the guard goes to plain `/sign-in` (no `next` back to the page just left). */
   signedOut: boolean;
+  /** M5 3.2: the organisation requires 2FA and this account has none: the guard sends it to the security page. */
+  totpSetupRequired: boolean;
 }
 
 export interface AuthApi extends AuthState {
@@ -38,6 +40,8 @@ export interface AuthApi extends AuthState {
   changePassword(body: ChangePasswordRequest): Promise<SessionInfo>;
   refresh(): Promise<SessionInfo | null>;
   markExpired(): void;
+  /** M5: adopt a session returned by the second sign-in step (TOTP) or by enabling 2FA. */
+  applySession(info: SessionInfo): void;
 }
 
 const INITIAL: AuthState = {
@@ -50,6 +54,7 @@ const INITIAL: AuthState = {
   expiresAt: null,
   assumed: false,
   signedOut: false,
+  totpSetupRequired: false,
 };
 
 const ASSUMED_SINGLE_USER: AuthState = { ...INITIAL, status: "authenticated", assumed: true };
@@ -69,6 +74,7 @@ function fromSession(info: SessionInfo): AuthState {
     expiresAt: signedIn ? info.expires_at : null,
     assumed: false,
     signedOut: false,
+    totpSetupRequired: signedIn && Boolean(info.totp_setup_required),
   };
 }
 
@@ -176,6 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
+  const applySession = useCallback((info: SessionInfo) => apply(fromSession(info)), [apply]);
+
   const signUp = useCallback(
     async (body: SignUpRequest) => {
       const info = await postSignUp(body);
@@ -209,8 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AuthApi>(
-    () => ({ ...state, signIn, signUp, signOut, changePassword, refresh, markExpired }),
-    [state, signIn, signUp, signOut, changePassword, refresh, markExpired],
+    () => ({ ...state, signIn, signUp, signOut, changePassword, refresh, markExpired, applySession }),
+    [state, signIn, signUp, signOut, changePassword, refresh, markExpired, applySession],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

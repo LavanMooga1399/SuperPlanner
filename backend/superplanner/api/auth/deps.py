@@ -37,6 +37,10 @@ class Principal:
     session_id: str | None        # None in single_user
     csrf_token: str | None
     is_local: bool
+    #: M5-DESIGN 3.3: set for bearer API tokens (scopes cap the permissions in `workspace_owner_id`)
+    token_id: str | None = None
+    scopes: frozenset[str] | None = None
+    workspace_owner_id: str | None = None
 
 
 LOCAL_PRINCIPAL = Principal(LOCAL_USER_ID, None, None, True)
@@ -71,7 +75,10 @@ def resolve_session(ctx: AppContext, token: str | None, *, touch: bool = True) -
 
 async def require_user(request: Request, ctx: AppContext = Depends(get_ctx)) -> Principal:
     settings = ctx.settings
-    if settings.single_user:
+    authz = request.headers.get("authorization") or ""
+    if authz[:7].lower() == "bearer " and not settings.single_user:      # M5-DESIGN 3.3: API tokens, no CSRF
+        principal = await run_in_threadpool(_bearer, ctx, request, authz[7:].strip())
+    elif settings.single_user:
         principal = LOCAL_PRINCIPAL
     else:
         token = sess.read_cookie(request, settings)
@@ -85,6 +92,18 @@ async def require_user(request: Request, ctx: AppContext = Depends(get_ctx)) -> 
     request.state.principal = principal
     bind_owner(principal.user_id)   # lives for the request task
     return principal
+
+
+def _bearer(ctx: AppContext, request: Request, raw: str) -> Principal:
+    from ...identity.service import resolve_bearer
+
+    ip = request.client.host if request.client is not None else None
+    r = resolve_bearer(ctx, raw, ip)
+    from ...identity.ratelimit import token_hit
+
+    token_hit(ctx, r.id)
+    return Principal(r.user_id, None, None, False, token_id=r.id, scopes=frozenset(r.scopes),
+                     workspace_owner_id=r.workspace_owner_id)
 
 
 def principal_user_id(request: Request) -> str | None:

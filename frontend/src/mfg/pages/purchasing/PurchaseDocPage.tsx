@@ -24,6 +24,7 @@ import {
 import type { Ref } from "../../api/types";
 import type { DocType, Permission, PurchaseDocInput, PurchaseDocRecord, PurchaseStatus } from "../../api/typesM2";
 import { DocLinesEditor, linesFromRecord, linesProblems, linesToInput, newDocLine, type LineDraft } from "../../components/DocLinesEditor";
+import { ErpOwnedNotice } from "../../components/ErpOwned";
 import { ConflictBanner, MfgError, NotFoundPanel, Spinner } from "../../components/Feedback";
 import { strOrNull, TextField } from "../../components/Field";
 import { SupplierPicker } from "../../components/PickersM2";
@@ -315,6 +316,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
       </div>
 
       {conflict ? <ConflictBanner onReload={() => void getPurchaseDoc(docType, docId).then(reset, setError)} what={`this ${word}`} /> : null}
+      {docType === "po" ? <ErpOwnedNotice entity="purchase_orders" label="Purchase orders" /> : null}
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
       <MfgError error={error} title="That did not work" />
       {doc?.status === "rejected" && doc.rejected_reason ? (

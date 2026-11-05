@@ -669,6 +669,10 @@ def publish_run(ctx: AppContext, run_id: str, if_match: str | None, confirm_stal
         touch(r)
         s.flush()
         audit(s, "aps_run", r.id, "publish", {"run_no": r.run_no})
+        from ....integration import outbox                      # M5-DESIGN 4.6
+
+        outbox.emit(s, "schedule.published", {"id": r.id, "run_no": r.run_no, "as_of": r.as_of,
+                                              "summary": r.summary}, f"APS-{r.run_no}")
         return run_record(s, r, detail=True)
 
     return run_tx(ctx, fn)

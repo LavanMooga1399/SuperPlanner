@@ -5,6 +5,7 @@
  */
 import { useMemo, useRef, useState } from "react";
 import { Dialog } from "../../components/Dialog";
+import { useErpOwnership } from "../lib/erpOwnership";
 import { Icon } from "../../components/Icon";
 import { createPosting, newIdempotencyKey } from "../api/clientM2";
 import type { PoReceiptLine, PostingRecord, PurchaseDocRecord } from "../api/typesM2";
@@ -53,6 +54,7 @@ function LotCells({ row, onChange }: { row: Row; onChange(p: Partial<Row>): void
 
 export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: PurchaseDocRecord; onClose(): void; onDone(p: PostingRecord): void; scheduleId?: string | null }) {
   const plant = usePlant();
+  const erp = useErpOwnership();
   const locs = useLocations();
   const defaultLoc = locs?.find((l) => l.receipt_default && l.active);
   const [rows, setRows] = useState<Row[]>(() =>
@@ -144,13 +146,27 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
             Cancel
           </button>
-          <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || !lines.length || problems.length > 0} data-testid="receive-submit">
+          <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || !lines.length || problems.length > 0 || erp.goodsReceiptsByErp} data-testid="receive-submit">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Post goods receipt
           </button>
         </>
       }
     >
-      <div className="col" data-testid="receive-dialog">
+      <div className="col" data-testid="receive-dialog" data-receipts-owner={erp.goodsReceiptsByErp ? "erp" : "superplanner"}>
+        {erp.ready && erp.settings?.enabled ? (
+          erp.goodsReceiptsByErp ? (
+            <div className="banner warn" role="note" data-testid="receipts-owner">
+              <Icon name="lock" />
+              <div>
+                <strong>Goods receipts for this plant are booked in the ERP.</strong> They arrive here with the next sync; book the receipt in the ERP instead.
+              </div>
+            </div>
+          ) : (
+            <p className="small muted" style={{ margin: 0 }} data-testid="receipts-owner">
+              <Icon name="info" size={12} /> Receipts are booked here and sent to the ERP.
+            </p>
+          )
+        ) : null}
         {rows.length === 0 ? <p className="muted">Nothing is open on this order.</p> : null}
         <div className="form-grid">
           <div className="field">

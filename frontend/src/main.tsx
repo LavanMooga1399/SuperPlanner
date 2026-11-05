@@ -21,6 +21,9 @@ import { StartPage } from "./landing/StartPage";
 import { AuthRoot } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { SignInPage } from "./auth/SignInPage";
+import { SecurityPage } from "./auth/SecurityPage";
+import { TokensPage } from "./auth/TokensPage";
+import { OrgListPage, OrgPage } from "./orgs/OrgPages";
 import { SignUpPage } from "./auth/SignUpPage";
 import { AccountPage } from "./auth/AccountPage";
 
@@ -36,6 +39,8 @@ const router = createBrowserRouter([
         children: [
           { path: "sign-in", element: <SignInPage /> },
           { path: "sign-up", element: <SignUpPage /> },
+          // M5 3.2: also reached while a sign-in waits for its forced 2FA setup (`?pending=`), so outside the guard
+          { path: "account/security", element: <SecurityPage /> },
           {
             element: <RequireAuth />,
             children: [
@@ -61,6 +66,13 @@ const router = createBrowserRouter([
               { path: "new/:kind/example", element: <ExamplePage /> },
               ...intakeRoutes,
               { path: "account", element: <AccountPage /> },
+              { path: "account/tokens", element: <TokensPage /> },
+              { path: "orgs", element: <OrgListPage /> },
+              { path: "orgs/:org", element: <OrgPage tab="overview" /> },
+              { path: "orgs/:org/plants", element: <OrgPage tab="plants" /> },
+              { path: "orgs/:org/members", element: <OrgPage tab="members" /> },
+              { path: "orgs/:org/publish", element: <OrgPage tab="publish" /> },
+              { path: "orgs/:org/settings", element: <OrgPage tab="settings" /> },
               { path: "*", element: <NotFound /> },
             ],
           },

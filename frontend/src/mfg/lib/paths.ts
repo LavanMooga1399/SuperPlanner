@@ -104,6 +104,19 @@ export const mfgPaths = {
   simulations: () => `${MFG}/schedule/simulations`,
   simulation: (id: string) => `${MFG}/schedule/simulations/${enc(id)}`,
   printTraveller: (woId: string) => `${MFG}/print/traveller/${enc(woId)}`,
+  // ---------------------------------------------------------------- M5
+  integration: (tab?: string) => `${MFG}/integration${tab ? `/${tab}` : ""}`,
+  integrationBatch: (id: string) => `${MFG}/integration/batches/${enc(id)}`,
+  integrationRecon: (id: string) => `${MFG}/integration/reconciliation/${enc(id)}`,
+  trace: (q?: { kind?: string; id?: string; dir?: string; label?: string }) => `${MFG}/trace${queryString(q)}`,
+  traceWhereUsed: (q?: { item?: string; lot?: string; supplier_lot?: string }) => `${MFG}/trace/where-used${queryString(q)}`,
+  recalls: () => `${MFG}/recalls`,
+  recall: (id: string) => `${MFG}/recalls/${enc(id)}`,
+  ecos: () => `${MFG}/eco`,
+  eco: (id: string) => `${MFG}/eco/${enc(id)}`,
+  transfers: () => `${MFG}/transfers`,
+  transfer: (id: string) => `${MFG}/transfers/${enc(id)}`,
+  audit: () => `${MFG}/audit`,
   printLabels: (q: { type: "lot" | "serial" | "badge"; ids?: string; item?: string; codes?: string }) => `${MFG}/print/labels${queryString(q)}`,
 };
 

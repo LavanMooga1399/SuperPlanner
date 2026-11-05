@@ -40,7 +40,9 @@ UPDATE jobs AS j
        lease_expires_at = now() + make_interval(secs => :lease_seconds), heartbeat_at = now(),
        started_at = COALESCE(j.started_at, now()), updated_at = now()
   FROM next WHERE j.id = next.id
-RETURNING j.id, j.kind, j.solver_run_id, j.finance_run_id, j.aps_run_id, j.aps_simulation_id, j.attempts, j.max_attempts, j.request_id, j.owner_id,
+RETURNING j.id, j.kind, j.solver_run_id, j.finance_run_id, j.aps_run_id, j.aps_simulation_id, j.int_inbox_id,
+    j.int_reconciliation_id, j.maintenance_run_id, j.org_publish_id, j.attempts,
+    j.max_attempts, j.request_id, j.owner_id,
           EXTRACT(EPOCH FROM (now() - j.run_after)) AS queue_wait
 """)
 
@@ -54,7 +56,8 @@ RETURNING cancel_requested
 """)
 
 EXPIRED_SQL = text("""
-SELECT id, kind, solver_run_id, finance_run_id, aps_run_id, aps_simulation_id FROM jobs
+SELECT id, kind, solver_run_id, finance_run_id, aps_run_id, aps_simulation_id, int_inbox_id,
+    int_reconciliation_id, maintenance_run_id, org_publish_id FROM jobs
  WHERE status = 'running' AND lease_expires_at < now()
  ORDER BY lease_expires_at LIMIT 100
 """)
@@ -198,6 +201,9 @@ def psycopg_conninfo(url: str) -> str:
 
 # ---------------------------------------------------------------- API-side queue
 
+M5_TARGET_COLUMNS = ("int_inbox_id", "int_reconciliation_id", "maintenance_run_id", "org_publish_id")
+
+
 class PgQueue:
     backend = "queue"
 
@@ -242,7 +248,8 @@ class PgQueue:
             with system_scope(), self.ctx.db.read() as s:
                 job = s.execute(select(JobRow.status, JobRow.lease_token).where(
                     or_(JobRow.solver_run_id == run_id, JobRow.finance_run_id == run_id,
-                        JobRow.aps_run_id == run_id, JobRow.aps_simulation_id == run_id))).first()
+                        JobRow.aps_run_id == run_id, JobRow.aps_simulation_id == run_id,
+                        *[getattr(JobRow, c) == run_id for c in M5_TARGET_COLUMNS]))).first()
                 idle = job is None or job.status in TERMINAL_JOB_STATUSES or (job.status == "queued"
                                                                               and job.lease_token is None)
             if idle and (self.loop is None or not self.loop.holds_run(run_id)):

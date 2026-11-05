@@ -542,6 +542,11 @@ def action(ctx: AppContext, doc_type: str, doc_id: str, act: str, if_match: str 
         s.flush()
         audit(s, "purchase_doc", doc.id, act, {"number": doc.number, "status": doc.status,
                                                **({"reason": reason} if reason else {})})
+        if doc_type == "pr" and act in ("submit", "approve"):   # M5-DESIGN 4.6
+            from ....integration import outbox
+
+            outbox.emit(s, f"purchase_request.{act}ted" if act == "submit" else "purchase_request.approved",
+                        doc_record(s, doc), doc.number)
         return doc_record(s, doc)
 
     return run_tx(ctx, fn)

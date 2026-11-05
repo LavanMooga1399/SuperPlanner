@@ -485,6 +485,10 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     s.add(row)
     s.flush()
     _apply(s, L, plan, row, actor)
+    from ....integration import outbox                          # M5-DESIGN 4.6 (I2: same transaction)
+
+    if outbox.enabled(s):
+        outbox.emit(s, "inventory.posting", posting_record(s, row, plan.warnings), row.number)
     if note_audit:
         audit(s, "posting", row.id, "post", {"number": row.number, "type": row.type, "lines": len(plan.transactions),
                                             **({"idempotency_key": idem} if idem else {})})
@@ -501,6 +505,10 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
                 return _replay(s, found, h), True
 
     def fn(s: Session) -> tuple[dict[str, Any], bool]:
+        if inp.type == "po_receipt":            # M5 14 Q2: ERP-owned goods receipts
+            from .integration import check_local_po_receipt
+
+            check_local_po_receipt(s)
         if inp.type == "wo_receipt":            # M4 review M3: the floor books the output of tracked WOs
             from ..db_models_m4 import MfgFloorEventRow
 

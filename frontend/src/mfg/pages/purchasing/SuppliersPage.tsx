@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { ErpOwnedNotice } from "../../components/ErpOwned";
 import { Icon } from "../../../components/Icon";
 import { createSupplier, deleteItemSupplier, deleteSupplier, getSupplier, listSuppliers, updateSupplier } from "../../api/clientM2";
 import type { ItemSupplierRecord, SupplierInput, SupplierRecord } from "../../api/typesM2";
@@ -167,6 +168,7 @@ export function SupplierPage() {
       <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.suppliers()}>Suppliers</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{s.code}</span>
       </nav>
+      <ErpOwnedNotice entity="suppliers" label="Suppliers (except the preferred flag)" />
       <section className="card">
         <div className="card-header">
           <h2 className="row">

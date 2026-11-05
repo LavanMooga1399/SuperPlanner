@@ -125,6 +125,21 @@ export function AccountMenu() {
             </Link>
           </li>
           <li role="none">
+            <Link role="menuitem" className="account-menu-item" to="/account/security" onClick={() => setOpen(false)} data-testid="account-security">
+              <Icon name="lock" /> Two-step verification
+            </Link>
+          </li>
+          <li role="none">
+            <Link role="menuitem" className="account-menu-item" to="/account/tokens" onClick={() => setOpen(false)} data-testid="account-tokens">
+              <Icon name="copy" /> API tokens
+            </Link>
+          </li>
+          <li role="none">
+            <Link role="menuitem" className="account-menu-item" to="/orgs" onClick={() => setOpen(false)} data-testid="account-orgs">
+              <Icon name="briefcase" /> Organisations
+            </Link>
+          </li>
+          <li role="none">
             <button role="menuitem" type="button" className="account-menu-item" onClick={() => void signOut()} data-testid="sign-out">
               <SignOutIcon /> Sign out
             </button>

@@ -136,7 +136,8 @@ class ScheduleRow(OwnedMixin, Base):
 
 class AuditEventRow(Base):
     __tablename__ = "audit_events"
-    __table_args__ = (Index("ix_audit_entity", "entity_type", "entity_id", "created_at"),)
+    __table_args__ = (Index("ix_audit_entity", "entity_type", "entity_id", "created_at"),
+                      Index("ix_audit_owner_id", "owner_id", "id"))
 
     id: Mapped[int] = mapped_column(BigIntId, primary_key=True, autoincrement=True)
     entity_type: Mapped[str] = mapped_column(String(32))
@@ -145,14 +146,21 @@ class AuditEventRow(Base):
     details: Mapped[dict[str, Any]] = mapped_column(JsonType, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     actor_id: Mapped[str | None] = mapped_column(String(64), nullable=True)   # user id; no FK (survives deletion)
+    #: M5-DESIGN 7: the plant of the event (None for platform events) and the per-owner hash chain
+    owner_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    chain_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 # ---------------------------------------------------------------- jobs (PHASE2B 2.3)
 
+M5_TARGETS = "int_inbox_id, int_reconciliation_id, maintenance_run_id, org_publish_id"
+
+
 class JobRow(OwnedMixin, Base):
     __tablename__ = "jobs"
     __table_args__ = (
-        CheckConstraint("num_nonnulls(solver_run_id, finance_run_id, aps_run_id, aps_simulation_id) = 1", name="ck_jobs_one_target"),
+        CheckConstraint("num_nonnulls(solver_run_id, finance_run_id, aps_run_id, aps_simulation_id, "
+                        + M5_TARGETS + ") = 1", name="ck_jobs_one_target"),
         Index("ix_jobs_running_lease", "lease_expires_at", **_partial("status = 'running'")),
         Index("uq_jobs_solver_run", "solver_run_id", unique=True, **_partial("solver_run_id IS NOT NULL")),
         Index("uq_jobs_finance_run", "finance_run_id", unique=True, **_partial("finance_run_id IS NOT NULL")),
@@ -174,6 +182,14 @@ class JobRow(OwnedMixin, Base):
     #: M4-DESIGN 3.2: job kind `aps_simulation` (risk runs)
     aps_simulation_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_aps_simulations.id", ondelete="CASCADE"),
                                                           nullable=True)
+    #: M5-DESIGN 10: integration / organisation / maintenance job targets
+    int_inbox_id: Mapped[str | None] = mapped_column(ForeignKey("int_inbox.id", ondelete="CASCADE"), nullable=True)
+    int_reconciliation_id: Mapped[str | None] = mapped_column(ForeignKey("int_reconciliations.id",
+                                                              ondelete="CASCADE"), nullable=True)
+    maintenance_run_id: Mapped[str | None] = mapped_column(ForeignKey("maintenance_runs.id", ondelete="CASCADE"),
+                                                           nullable=True)
+    org_publish_id: Mapped[str | None] = mapped_column(ForeignKey("org_publishes.id", ondelete="CASCADE"),
+                                                       nullable=True)
     status: Mapped[str] = mapped_column(String(16))
     priority: Mapped[int] = mapped_column(SmallInteger, default=0, server_default=text("0"))
     attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
@@ -221,3 +237,4 @@ from ..mfg import db_models as _mfg_db_models  # noqa: E402,F401
 from ..mfg import db_models_m2 as _mfg_db_models_m2  # noqa: E402,F401
 from ..mfg import db_models_m3 as _mfg_db_models_m3  # noqa: E402,F401
 from ..mfg import db_models_m4 as _mfg_db_models_m4  # noqa: E402,F401
+from ..mfg import db_models_m5 as _mfg_db_models_m5  # noqa: E402,F401

@@ -258,6 +258,9 @@ def create_wo(ctx: AppContext, inp: WorkOrderInput) -> dict[str, Any]:
         w, warnings = new_wo(s, ds, inp)
         audit(s, "work_order", w.id, "create", {"number": w.number})
         rec = wo_records(s, [w])[0]
+        from ....integration import outbox                      # M5-DESIGN 4.6
+
+        outbox.emit(s, "work_order.created", rec, w.number)
         rec["warnings"] = warnings
         from . import replan              # M4-DESIGN 7 rush_order
 
@@ -489,6 +492,10 @@ def action(ctx: AppContext, wo_id: str, act: str, if_match: str | None, *, reser
         audit(s, "work_order", w.id, act, {"number": w.number, "status": w.status, **extra,
                                            **({"reserved": len(reserved)} if reserved is not None else {})})
         rec = wo_records(s, [w])[0]
+        from ....integration import outbox                      # M5-DESIGN 4.6
+        evt = {"release": "released", "complete": "completed", "close": "closed", "cancel": "cancelled"}.get(act)
+        if evt:
+            outbox.emit(s, f"work_order.{evt}", rec, w.number)
         if act == "release":
             rec["reserved"] = reserved or []
         return rec
