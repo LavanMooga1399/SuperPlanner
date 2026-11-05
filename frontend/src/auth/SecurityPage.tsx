@@ -17,6 +17,7 @@ import { fetchTotpStatus, postLoginTotp, postRecoveryCodes, postTotpDisable, pos
 import { useAuth } from "./AuthContext";
 import { FormError, authFailureText } from "./AuthFields";
 import { safeNext } from "./nextPath";
+import { AuthLoading } from "./SignInPage";
 import "./auth.css";
 
 const groups = (s: string) => s.replace(/\s+/g, "").match(/.{1,4}/g)?.join(" ") ?? s;
@@ -51,6 +52,8 @@ export function SecurityPage() {
     return () => ctl.abort();
   }, [pendingToken, auth.user?.totp_enabled, required]);
 
+  // outside the route guard: wait for the session read before deciding (the initial state looks like single_user)
+  if (auth.status === "loading") return <AuthLoading />;
   if (auth.mode !== "accounts") return <Navigate to="/" replace />;
   if (!pendingToken && auth.status !== "authenticated") return <Navigate to="/sign-in" replace />;
   const sso = Boolean(auth.user?.sso);

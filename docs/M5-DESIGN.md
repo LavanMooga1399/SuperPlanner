@@ -530,3 +530,109 @@ Deviations / interpretations:
     `INT_SCHEMA` "not processed in this build" until their mappers land.
 
 ### 15.WP-U UI
+
+**Built (2026-11-05); types aligned to `integration/fixtures/example_m5.json` and the live S1/S2 routes.**
+
+Screens:
+- **U1 sign-in and identity:**
+  - Sign-in page:
+    - "Sign in with <label>" button when `/auth/config.sso_enabled`; the required domains are named.
+    - The password form is hidden when `password_login` is false.
+    - OIDC callback errors (`?sso_error=`/`?error=`) are shown in plain words.
+    - Second step after the password (403 `AUTH_2FA_REQUIRED` + `pending_token`): a 6-digit code or a recovery code.
+  - `/account/security` (two-step verification):
+    - Turning it on shows the QR code, drawn in the browser by our own encoder (`src/lib/qrcode.ts`, byte mode, level M, v1-20). It is verified by an independent decoder (format bits, Reed-Solomon syndromes, payload) on 5 strings.
+    - The key is also shown as text; the user confirms with a code, and recovery codes are shown once (copy / download / "I saved them").
+    - Once on: new codes, or turn off.
+    - Forced setup (`setup_required`) runs before a session exists, using the `X-SP-Pending-Login` header. It ends with one more code via `/auth/login/totp`; the same 30 s step cannot be used twice.
+    - `totp_setup_required` in a session sends the guard to this page.
+  - `/account/tokens` (personal) and Integration, Plant tokens (plant): guided presets (read only, ERP / middleware, events only), the full scope list behind "Choose permissions", 30/90/180/365 days, the token shown once, revoke.
+  - `/orgs` and `/orgs/:orgId`:
+    - Overview: per-plant OTD/OEE, late demand, open triggers, integration health.
+    - Plants: create, rename, people and roles incl. `plant_admin`, open.
+    - People: add by email, admin/member, remove.
+    - Master data publish.
+    - Settings: name, require 2FA.
+  - The plant switcher groups plants under their organisation when `/workspaces` sends `org`.
+- **U2 integration console** (`/mfg/integration/*`, `integration_admin`):
+  - Overview: failed / waiting deliveries, last data in, file drop, and who owns what.
+  - Settings: on/off, plant code, format (`generic_v1` only, 14 Q1), a system-of-record table per entity, goods receipts booked here or in the ERP (14 Q2), file drop and export.
+  - Webhooks:
+    - The signing secret is generated in the browser and shown once (the API requires one on create).
+    - Edit can rotate the secret; "Send now" calls `/endpoints/{id}/test`.
+    - Address-guard errors are shown.
+  - Deliveries: `pending` with attempts > 0 is shown as "Retrying". Dead and retrying ones can be retried.
+  - Data in: batches, and per-record results with the reason. `INT_UNMAPPED_VALUE` links to Code mappings.
+  - Events out: the pull feed with each event's data.
+  - File drop: the inbox list, recent files, mapping profiles.
+  - Code mappings: `{rows}`.
+  - Reconciliation:
+    - Upload the ERP stock list (CSV `item_ref,location_code,lot_code,qty` or v1 JSON; `ref`/`as_at` are filled in) and send it inline.
+    - Results are listed per entity and kind.
+    - "Review as stock count" opens the count posting form prefilled from router state; nothing is posted until the user confirms.
+- **ERP-owned indicators:**
+  - Item form: the ERP fields (4.4) are disabled with a "From ERP" badge, plus a banner.
+  - BOM, routing, PO, demand and supplier pages: a banner.
+  - The receive dialog says who books goods receipts and disables posting when the ERP does.
+  - 409 `INT_ERP_OWNED` is explained with its fields everywhere (`errorText`).
+  - The indicators read `GET /integration/settings`. When the role cannot read it, nothing is marked and the 409 still explains a refused save.
+- **U3:**
+  - `/mfg/trace`:
+    - Scan or type `S:`/`L:`/WO (resolved by #200, else a serial search).
+    - Backward / forward, depth, include possible.
+    - Tree and layered SVG graph. Exact = solid line, "exact" tag; possible = dashed line with "?", "possible" tag.
+    - Trace again from a node, or start a recall.
+  - `/mfg/trace/where-used`.
+  - `/mfg/recalls` (new from a trace node or lot, list) and `/:id`:
+    - Units by status with precision and path.
+    - Per customer and programme.
+    - Lots on hand, and quarantine to a quarantine location with a confirmation (`inventory`).
+    - Excel and print.
+  - `/mfg/eco` and `/:id`:
+    - Create with effectivity (date / use-up / serial).
+    - Add draft BOM / routing (picker of an item's drafts), with dispositions per document.
+    - Submit; approve (blocked for the submitter unless owner / plant admin); reject with a reason; cancel; implement. `ECO_RELEASE_BLOCKED` issues are listed.
+    - Impact tab: structure delta, open WOs / planned orders, purchases no longer needed, phased-out stock, MRP date moves, and the use-up date with "Take effect on that date".
+- **U4:**
+  - `/mfg/transfers`: outgoing / incoming, create (destination = another plant of the same org from `/workspaces`), open / cancel / close.
+  - Ship and receive post `transfer_ship` / `transfer_receipt` with `transfer_line_id`.
+  - `/mfg/audit`: filters, CSV / JSON-lines export, chain check, and the chain hash per row.
+  - Nav: a new "Control" group (ECO, transfers, integration, audit); "Trace and recall" under Execution.
+
+Interpretations:
+- **Orgs are addressed by id** in the API, and so in the UI routes.
+- **Transfer `direction`** is `out`/`in` in the fixture; the UI accepts both forms.
+- **ID-only payloads:**
+  - ECO items carry only document ids; their labels are loaded per id.
+  - Transfer lines carry `item_id`; part numbers come from the item cache.
+- **Recalls** use the fixture's flat `report` (`units/lots/wos/by_customer/by_program/open_pos`); the counts are computed in the UI.
+- **Shared code changed (additive):**
+  - `mfgRequest` gained `v1Request` / `v1Download` for the non-`/mfg` areas.
+  - `PostingForm` accepts a router-state prefill.
+  - The accounts e2e config sets a test-only `SECRETS_KEY`.
+
+Requested from WP-S (none blocking the screens):
+1. `/workspaces` items with `org {id, slug, name}` and `plant_code`, so the switcher can group by organisation and transfers can pick the destination plant reliably.
+2. A read of the system of record for every role (e.g. in `/mfg/plant` or `/meta`). The ERP-owned indicators currently need `integration_admin`.
+3. `POST /integration/deliveries/{id}/park`, to unblock a FIFO endpoint without deleting it. The UI has only Retry.
+4. `GET /audit/verify` (the `audit-verify` check as an endpoint). The UI explains when it is missing.
+5. `GET /integration/reconciliations/{id}/export` (design 9). The button is hidden until it exists.
+6. Org member disable (design 6: org admins can disable users). `OrgMemberUpdate` takes only `org_role`.
+7. `locked_by_cr_id` on BOM / routing reads, for a "part of ECO-…" notice. `ECO_DOC_LOCKED` is already explained when saving.
+8. Trace, recall, ECO and transfer data are still fixture-backed (S3 / S4).
+
+e2e:
+- `frontend/e2e/m5-integration.spec.ts` (2 tests, main config).
+  - Test 1 covers:
+    - settings and SoR;
+    - the ERP-owned item form plus the API's 409;
+    - an inbound batch with one record rejected for an unmapped unit;
+    - the code mapping, after which the record is accepted;
+    - the webhook private-address guard message;
+    - a reconciliation from an uploaded CSV showing exactly one difference.
+  - Test 2 covers trace tree and graph, recall from a trace node, ECO impact, transfers, and audit rows with a CSV download.
+- `frontend/e2e/accounts/m5-login.spec.ts` (accounts config).
+  - The SSO button follows `/auth/config`.
+  - 2FA enrolment uses the QR code and key; codes are computed in the test (RFC 6238).
+  - Sign-in works with a recovery code; a wrong code shows a message; then a TOTP code signs in.
+  - A personal token is created, shown once, and revoked.
