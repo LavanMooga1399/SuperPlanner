@@ -521,5 +521,12 @@ Deviations / interpretations:
    id order; rows written before 0007 have no hash and are skipped by `verify`. Audit routes allow the plant owner and
    `plant_admin` (tokens need scope `owner`); org-wide audit for org admins is not built yet.
 8. `users.kind` keeps a server default (`users` is a platform table that already uses server defaults).
+9. SSRF: besides the save-time check, the webhook URL is re-checked right before every post (a name that now
+   resolves to a private address is a failed attempt with `INT_URL_NOT_ALLOWED: ...` in `last_error`, nothing is
+   sent, FIFO backoff applies); redirects are never followed (a 3xx is a failed attempt). Residual: the resolve-to-
+   connect window is not pinned (urllib resolves again); acceptable with the re-check, noted for a later pinned
+   connection.
+10. Inbound records of entities other than `item` and `po_receipt` are accepted into the batch but answered
+    `INT_SCHEMA` "not processed in this build" until their mappers land.
 
 ### 15.WP-U UI
