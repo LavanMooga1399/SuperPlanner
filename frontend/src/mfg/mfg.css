@@ -297,3 +297,12 @@ details.card > summary { cursor: pointer; }
 }
 .floor-qrow, .floor-qrow * { text-decoration: none; }
 .floor h1 .mono, .floor .floor-qtitle .mono { font-size: inherit; }
+
+/* M5 trace */
+.trace-tree, .trace-tree ul { list-style: none; margin: 0; padding: 0; }
+.trace-tree ul { margin-left: 18px; padding-left: 10px; border-left: 2px solid var(--border-strong); }
+.trace-node.possible > .trace-row { border-left: 2px dashed var(--warn); padding-left: 6px; margin-left: -12px; }
+.trace-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; }
+.trace-spacer { display: inline-block; width: 28px; }
+.trace-graph svg text { font-family: var(--font); }
+.int-json { max-height: 320px; overflow: auto; background: var(--shade); padding: 10px; border-radius: var(--radius-sm); font-size: 12px; margin: 0; }

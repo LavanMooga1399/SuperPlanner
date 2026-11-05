@@ -75,10 +75,10 @@ export function OrgListPage() {
       {orgs.data && !orgs.data.items.length ? <div className="card card-body muted">You are not in an organisation yet. Your own plant works on its own as before.</div> : null}
       <div className="org-grid">
         {(orgs.data?.items ?? []).map((o) => (
-          <Link key={o.id} to={`/orgs/${encodeURIComponent(o.slug)}`} className="card card-body org-tile" data-testid="org-row" data-slug={o.slug}>
+          <Link key={o.id} to={`/orgs/${encodeURIComponent(o.id)}`} className="card card-body org-tile" data-testid="org-row" data-slug={o.slug}>
             <strong>{o.name}</strong>
             <span className="muted small">
-              {o.plant_count ?? "–"} plants · {o.member_count ?? "–"} people
+              {o.plants ?? "–"} plants · {o.members ?? "–"} people
             </span>
             <span className="row" style={{ gap: 6 }}>
               {o.my_role === "org_admin" ? (
@@ -115,7 +115,7 @@ export function OrgListPage() {
                   setError(null);
                   try {
                     const o = await createOrg({ name: name.trim(), slug: slug.trim() });
-                    navigate(`/orgs/${encodeURIComponent(o.slug)}/plants`);
+                    navigate(`/orgs/${encodeURIComponent(o.id)}/plants`);
                   } catch (e) {
                     setError(e);
                     setBusy(false);
@@ -157,8 +157,8 @@ export function OrgListPage() {
 type Tab = "overview" | "plants" | "members" | "publish" | "settings";
 
 export function OrgPage({ tab }: { tab: Tab }) {
-  const { org: slug = "" } = useParams();
-  const org = useLoad((signal) => getOrg(slug, signal), [slug]);
+  const { org: orgId = "" } = useParams();
+  const org = useLoad((signal) => getOrg(orgId, signal), [orgId]);
   const o = org.data;
   useEffect(() => {
     if (o) document.title = `${o.name} - SuperPlanner`;
@@ -183,7 +183,7 @@ export function OrgPage({ tab }: { tab: Tab }) {
         {tabs
           .filter((t) => admin || !t.admin)
           .map((t) => (
-            <NavLink key={t.key} to={`/orgs/${encodeURIComponent(o.slug)}${t.key === "overview" ? "" : `/${t.key}`}`} end className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={`org-tab-${t.key}`}>
+            <NavLink key={t.key} to={`/orgs/${encodeURIComponent(o.id)}${t.key === "overview" ? "" : `/${t.key}`}`} end className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={`org-tab-${t.key}`}>
               {t.label}
             </NavLink>
           ))}
@@ -198,7 +198,7 @@ export function OrgPage({ tab }: { tab: Tab }) {
 }
 
 function OrgOverviewTab({ org }: { org: Org }) {
-  const ov = useLoad((signal) => getOrgOverview(org.slug, signal), [org.slug]);
+  const ov = useLoad((signal) => getOrgOverview(org.id, signal), [org.id]);
   return (
     <section className="card" data-testid="org-overview">
       <MfgError error={ov.error} onRetry={ov.reload} />
@@ -219,9 +219,9 @@ function OrgOverviewTab({ org }: { org: Org }) {
           </thead>
           <tbody>
             {(ov.data?.plants ?? []).map((p) => (
-              <tr key={p.plant_owner_id} data-testid="org-overview-plant" data-code={p.code}>
+              <tr key={p.plant.owner_id} data-testid="org-overview-plant" data-code={p.plant.code}>
                 <td>
-                  <strong>{p.code}</strong> <span className="muted">{p.name}</span>
+                  <strong>{p.plant.code}</strong> <span className="muted">{p.plant.name ?? ""}</span>
                 </td>
                 {p.visible ? (
                   <>
@@ -229,7 +229,9 @@ function OrgOverviewTab({ org }: { org: Org }) {
                     <td className="right">{pct(p.kpis?.oee)}</td>
                     <td className="right">{pct(p.kpis?.adherence)}</td>
                     <td className="right">
-                      {p.late_demand ? (
+                      {p.late_demand === null || p.late_demand === undefined ? (
+                        "–"
+                      ) : p.late_demand ? (
                         <span className="badge warn">
                           <Icon name="alert" /> {p.late_demand}
                         </span>
@@ -237,7 +239,7 @@ function OrgOverviewTab({ org }: { org: Org }) {
                         "0"
                       )}
                     </td>
-                    <td className="right">{p.open_triggers ?? 0}</td>
+                    <td className="right">{p.open_triggers ?? "–"}</td>
                     <td className="small">
                       {!p.integration?.enabled ? (
                         <span className="faint">not connected</span>
@@ -250,10 +252,10 @@ function OrgOverviewTab({ org }: { org: Org }) {
                           <Icon name="check" /> healthy
                         </span>
                       )}
-                      {p.integration?.last_inbound_at ? <div className="faint">last data in {new Date(p.integration.last_inbound_at).toLocaleString()}</div> : null}
+                      {p.integration?.last_batch_at ? <div className="faint">last data in {new Date(p.integration.last_batch_at).toLocaleString()}</div> : null}
                     </td>
                     <td>
-                      <button type="button" className="btn sm" onClick={() => openPlant(p.plant_owner_id)}>
+                      <button type="button" className="btn sm" onClick={() => openPlant(p.plant.owner_id)}>
                         Open
                       </button>
                     </td>
@@ -273,8 +275,8 @@ function OrgOverviewTab({ org }: { org: Org }) {
 }
 
 function PlantsTab({ org, admin }: { org: Org; admin: boolean }) {
-  const plants = useLoad((signal) => listOrgPlants(org.slug, signal), [org.slug]);
-  const members = useLoad((signal) => (admin ? listOrgMembers(org.slug, signal) : null), [org.slug, admin]);
+  const plants = useLoad((signal) => listOrgPlants(org.id, signal), [org.id]);
+  const members = useLoad((signal) => (admin ? listOrgMembers(org.id, signal) : null), [org.id, admin]);
   const [edit, setEdit] = useState<OrgPlant | "new" | null>(null);
   const [roles, setRoles] = useState<OrgPlant | null>(null);
   return (
@@ -294,7 +296,7 @@ function PlantsTab({ org, admin }: { org: Org; admin: boolean }) {
             <tr key={p.id} data-testid="plant-row" data-code={p.code}>
               <td>
                 <strong className="mono">{p.code}</strong> {p.name}
-                {p.member_count !== undefined ? <div className="faint small">{p.member_count} people</div> : null}
+                {p.my_roles?.length ? <div className="faint small">your roles: {p.my_roles.map((r) => ROLE_LABEL[r as Role] ?? r).join(", ")}</div> : null}
               </td>
               <td className="right">
                 <span className="row" style={{ justifyContent: "flex-end" }}>
@@ -344,8 +346,8 @@ function PlantDialog({ org, plant, onClose, onSaved }: { org: Org; plant: OrgPla
             onClick={async () => {
               setBusy(true);
               try {
-                if (plant) await updateOrgPlant(org.slug, plant.id, { code: code.trim(), name: name.trim() });
-                else await createOrgPlant(org.slug, { code: code.trim(), name: name.trim() });
+                if (plant) await updateOrgPlant(org.id, plant.id, { name: name.trim() });
+                else await createOrgPlant(org.id, { code: code.trim(), name: name.trim() });
                 onSaved();
               } catch (e) {
                 setError(e);
@@ -362,7 +364,7 @@ function PlantDialog({ org, plant, onClose, onSaved }: { org: Org; plant: OrgPla
       <div className="col">
         <div className="field">
           <label htmlFor="pl-code">Code</label>
-          <input id="pl-code" className="input mono" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={16} placeholder="e.g. BLR" data-testid="plant-code" />
+          <input id="pl-code" className="input mono" value={code} disabled={Boolean(plant)} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={16} placeholder="e.g. BLR" data-testid="plant-code" />
         </div>
         <div className="field">
           <label htmlFor="pl-name">Name</label>
@@ -401,7 +403,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
               setBusy(true);
               setError(null);
               try {
-                await grantPlantRoles(org.slug, plant.id, { user_id: userId, roles: [...sel] });
+                await grantPlantRoles(org.id, plant.id, { user_id: userId, roles: [...sel] });
                 setDone(sel.size ? "Roles saved." : "Removed from the plant.");
               } catch (e) {
                 setError(e);
@@ -466,7 +468,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
 }
 
 function MembersTab({ org }: { org: Org }) {
-  const members = useLoad((signal) => listOrgMembers(org.slug, signal), [org.slug]);
+  const members = useLoad((signal) => listOrgMembers(org.id, signal), [org.id]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<OrgRole>("org_member");
   const [busy, setBusy] = useState(false);
@@ -496,7 +498,7 @@ function MembersTab({ org }: { org: Org }) {
           onSubmit={(e) => {
             e.preventDefault();
             void act(async () => {
-              await addOrgMember(org.slug, { email: email.trim(), org_role: role });
+              await addOrgMember(org.id, { email: email.trim(), org_role: role });
               setEmail("");
             });
           }}
@@ -522,7 +524,7 @@ function MembersTab({ org }: { org: Org }) {
       <table className="table">
         <tbody>
           {(members.data?.items ?? []).map((m) => {
-            const disabled = m.disabled ?? m.user.disabled ?? false;
+            const disabled = m.user.disabled ?? false;
             return (
               <tr key={m.id} data-testid="member-row" data-email={m.user.email ?? ""} className={disabled ? "faint" : undefined}>
                 <td>
@@ -530,7 +532,6 @@ function MembersTab({ org }: { org: Org }) {
                   <div className="small muted">{m.user.email}</div>
                 </td>
                 <td className="small">
-                  {m.user.sso_linked ? <span className="badge info">company sign-in</span> : null} {m.user.totp_enabled ? <span className="badge ok"><Icon name="lock" /> 2FA</span> : null}
                   {disabled ? (
                     <span className="badge warn">
                       <Icon name="ban" /> disabled
@@ -539,15 +540,12 @@ function MembersTab({ org }: { org: Org }) {
                   {m.plants?.length ? <div className="faint">{m.plants.map((p) => `${p.code}: ${p.roles.map((r) => ROLE_LABEL[r as Role] ?? r).join(", ")}`).join(" · ")}</div> : null}
                 </td>
                 <td>
-                  <select className="select sm" aria-label={`Role of ${m.user.email}`} value={m.org_role} disabled={busy} onChange={(e) => void act(() => updateOrgMember(org.slug, m.id, { org_role: e.target.value as OrgRole }))}>
+                  <select className="select sm" aria-label={`Role of ${m.user.email}`} value={m.org_role} disabled={busy} onChange={(e) => void act(() => updateOrgMember(org.id, m.id, { org_role: e.target.value as OrgRole }))}>
                     <option value="org_member">Member</option>
                     <option value="org_admin">Admin</option>
                   </select>
                 </td>
                 <td className="right">
-                  <button type="button" className="btn sm ghost" disabled={busy} onClick={() => void act(() => updateOrgMember(org.slug, m.id, { disabled: !disabled }))} data-testid="member-disable">
-                    {disabled ? "Enable" : "Disable"}
-                  </button>
                   <button type="button" className="btn sm ghost" disabled={busy} onClick={() => setRemoving(m)}>
                     Remove
                   </button>
@@ -566,7 +564,7 @@ function MembersTab({ org }: { org: Org }) {
           onConfirm={() => {
             const m = removing;
             setRemoving(null);
-            void act(() => removeOrgMember(org.slug, m.id));
+            void act(() => removeOrgMember(org.id, m.id));
           }}
         >
           <p style={{ margin: 0 }}>They lose access to every plant of {org.name}. Their past work stays recorded under their name.</p>
@@ -577,7 +575,7 @@ function MembersTab({ org }: { org: Org }) {
 }
 
 function PublishTab({ org }: { org: Org }) {
-  const plants = useLoad((signal) => listOrgPlants(org.slug, signal), [org.slug]);
+  const plants = useLoad((signal) => listOrgPlants(org.id, signal), [org.id]);
   const [source, setSource] = useState("");
   const [targets, setTargets] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState<"items" | "master">("items");
@@ -653,7 +651,7 @@ function PublishTab({ org }: { org: Org }) {
               setBusy(true);
               setError(null);
               try {
-                setJob(await publishMaster(org.slug, { source_plant: source, target_plants: [...targets].filter((t) => t !== source), scope, part_number_prefix: prefix.trim() || null }));
+                setJob(await publishMaster(org.id, { source_plant: source, target_plants: [...targets].filter((t) => t !== source), scope, part_number_prefix: prefix.trim() || null }));
               } catch (e) {
                 setError(e);
               } finally {
@@ -668,12 +666,12 @@ function PublishTab({ org }: { org: Org }) {
         {job ? (
           <div data-testid="publish-result" data-status={job.status}>
             {job.status === "queued" || job.status === "running" ? <Banner tone="info" title="Publishing in the background">Each target plant is updated in its own step; the results also appear in each plant's Integration, Batches.</Banner> : null}
-            {job.results.length ? (
+            {job.results && Object.keys(job.results).length ? (
               <table className="table">
                 <tbody>
-                  {job.results.map((r) => (
-                    <tr key={r.plant_owner_id}>
-                      <td className="mono">{r.code ?? code(r.plant_owner_id)}</td>
+                  {Object.entries(job.results).map(([owner, r]) => (
+                    <tr key={owner}>
+                      <td className="mono">{code(owner)}</td>
                       <td>{r.status}</td>
                       <td className="small">{r.counts ? Object.entries(r.counts).map(([k, v]) => `${v} ${k}`).join(" · ") : ""}</td>
                       <td className="small">{r.errors?.map((e) => e.message).join("; ")}</td>
@@ -718,7 +716,7 @@ function SettingsTab({ org, onSaved }: { org: Org; onSaved(o: Org): void }) {
               setBusy(true);
               setError(null);
               try {
-                onSaved(await updateOrg(org.slug, { name: name.trim(), require_2fa: req2fa }, org.row_version));
+                onSaved(await updateOrg(org.id, { name: name.trim(), require_2fa: req2fa }, org.row_version));
                 setSaved(true);
               } catch (e) {
                 setError(e);

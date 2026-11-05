@@ -81,7 +81,8 @@ export function SignInPage() {
   };
 
   if (pending) return <TotpStep pending={pending} onBack={() => setPending(null)} next={next} />;
-  const sso = config?.sso.enabled ? config.sso : null;
+  const sso = config?.sso_enabled ? { label: config.sso_label } : null;
+  const passwordLogin = config?.password_login ?? true;
 
   const signUpTo = next === "/" ? "/sign-up" : `/sign-up?next=${encodeURIComponent(next)}`;
 
@@ -103,6 +104,17 @@ export function SignInPage() {
               </div>
             </>
           ) : null}
+          {sso && config?.sso_required_domains.length ? (
+            <p className="small muted" style={{ margin: "0 0 8px" }}>
+              Accounts at {config.sso_required_domains.map((d) => `@${d}`).join(", ")} sign in with the button above.
+            </p>
+          ) : null}
+          {!passwordLogin ? (
+            <FormError id="signin-error" testId="signin-error">
+              {error}
+            </FormError>
+          ) : null}
+          {passwordLogin ? (
           <form className="auth-form" onSubmit={submit} noValidate aria-describedby={error ? "signin-error" : undefined}>
             <FormError id="signin-error" testId="signin-error">
               {error}
@@ -142,6 +154,7 @@ export function SignInPage() {
               {busy ? "Signing in…" : "Sign in"}
             </button>
           </form>
+          ) : null}
           {auth.signupEnabled ? (
             <p className="auth-switch">
               New here?{" "}

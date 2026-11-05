@@ -13,11 +13,14 @@ export interface UserBrief {
 }
 
 // ---------------------------------------------------------------- 3.1 / 3.2 identity
+/** `GET /auth/config` */
 export interface AuthConfig {
-  auth_mode: "single_user" | "accounts";
-  signup_enabled?: boolean;
-  sso: { enabled: boolean; label?: string | null; required_domains?: string[] };
-  totp: { available: boolean };
+  mode: "single_user" | "accounts";
+  sso_enabled: boolean;
+  sso_label: string;
+  sso_required_domains: string[];
+  /** false: password sign-in is off on this server */
+  password_login: boolean;
 }
 
 /** sign-in answered "second factor needed" (200 with these fields, or 401/403 `AUTH_2FA_REQUIRED` details) */
@@ -68,7 +71,7 @@ export interface TokenCreate {
   name: string;
   scopes: TokenScope[];
   workspace_owner_id?: string | null;
-  expires_in_days?: number;
+  expires_days?: number;
 }
 
 /** the clear-text token is in this response only */
@@ -85,17 +88,18 @@ export interface Org {
   slug: string;
   require_2fa: boolean;
   my_role?: OrgRole | null;
-  plant_count?: number;
-  member_count?: number;
+  plants?: number;
+  members?: number;
   row_version?: number;
+  created_at?: IsoDateTime;
 }
 
 export interface OrgMember {
   id: EntityId;
-  user: UserBrief & { kind?: string; disabled?: boolean; sso_linked?: boolean; totp_enabled?: boolean };
+  user: UserBrief & { disabled?: boolean };
   org_role: OrgRole;
-  disabled?: boolean;
   plants?: { plant_owner_id: string; code: string; roles: (Role | "plant_admin")[] }[];
+  row_version?: number;
 }
 
 export interface OrgPlant {
@@ -103,7 +107,9 @@ export interface OrgPlant {
   code: string;
   name: string;
   plant_owner_id: string;
-  member_count?: number;
+  my_roles?: string[];
+  row_version?: number;
+  created_at?: IsoDateTime;
 }
 
 export interface PlantRoleGrant {
@@ -120,23 +126,23 @@ export interface PublishRequest {
 
 export interface PublishJob {
   id: EntityId;
+  org_id?: EntityId;
   status: "queued" | "running" | "completed" | "failed";
-  results: { plant_owner_id: string; code?: string; status: string; counts?: Record<string, number>; errors?: { message: string }[] }[];
+  /** per target plant owner id */
+  results: Record<string, { status?: string; counts?: Record<string, number>; errors?: { message: string }[] }> | null;
 }
 
 export interface OrgOverviewPlant {
-  plant_owner_id: string;
-  code: string;
-  name: string;
+  plant: { code: string; name?: string; owner_id: string };
   visible: boolean;
   kpis?: { otd?: number | null; oee?: number | null; adherence?: number | null; utilisation?: number | null };
-  late_demand?: number;
-  open_triggers?: number;
-  integration?: { enabled: boolean; dead_deliveries?: number; pending_deliveries?: number; last_inbound_at?: IsoDateTime | null; rejected_last_24h?: number } | null;
+  late_demand?: number | null;
+  open_triggers?: number | null;
+  integration?: { enabled?: boolean; dead_deliveries?: number; pending_deliveries?: number; last_batch_at?: IsoDateTime | null } | null;
 }
 
 export interface OrgOverview {
-  org: Org;
+  org: { id: EntityId; name: string; slug?: string };
   plants: OrgOverviewPlant[];
 }
 
@@ -159,17 +165,20 @@ export const SOR_ENTITIES = [
 ] as const;
 export type SorEntity = (typeof SOR_ENTITIES)[number];
 
+/** `GET/PUT /integration/settings` */
 export interface IntegrationSettings {
   enabled: boolean;
   adapter: string;
+  /** folder name of this plant under the integration volume */
+  plant_code: string;
   sor: Partial<Record<SorEntity, SorValue>>;
   /** 14 Q2: who books goods receipts against POs in this plant */
   goods_receipts_owner: "erp" | "superplanner";
-  /** ERP-owned fields per entity when SoR = erp (4.4), for the read-only indicators */
-  erp_owned_fields?: Partial<Record<SorEntity, string[]>>;
-  filedrop?: { enabled: boolean; plant_code?: string | null; poll_seconds?: number };
-  export?: { enabled: boolean; interval_minutes: number };
+  filedrop_enabled: boolean;
+  export_enabled: boolean;
+  export_interval_minutes: number;
   row_version: number;
+  adapters?: string[];
 }
 
 export interface Endpoint {
@@ -178,21 +187,22 @@ export interface Endpoint {
   url: string;
   event_types: string[];
   active: boolean;
+  /** last event seq handed to this endpoint */
+  cursor: number;
+  secret_set: boolean;
+  pending: number;
+  dead: number;
+  row_version: number;
   created_at?: IsoDateTime;
-  stats?: { pending: number; dead: number; delivered_24h?: number; last_delivered_at?: IsoDateTime | null; last_error?: string | null; blocked?: boolean };
-  row_version?: number;
 }
 
+/** `secret` required on create (the UI generates one and shows it once); omitted on PUT = keep */
 export interface EndpointInput {
   name: string;
   url: string;
   event_types: string[];
   active: boolean;
-}
-
-/** the signing secret is in the create response only */
-export interface EndpointCreated extends Endpoint {
-  secret: string;
+  secret?: string;
 }
 
 export interface ValueMap {
@@ -216,19 +226,19 @@ export interface BatchRecordResult {
 
 export interface Batch {
   id: EntityId;
-  source: "rest" | "filedrop" | "publish" | string;
+  source?: "rest" | "filedrop" | "publish" | string;
   entity: string;
   mode: string;
   idempotency_key?: string | null;
   filename?: string | null;
   status: "queued" | "processing" | "completed" | "partial" | "failed";
-  counts: { created: number; updated: number; unchanged: number; rejected: number; total?: number };
+  counts: { created?: number; updated?: number; unchanged?: number; rejected?: number; total?: number };
   received_at: IsoDateTime;
   finished_at?: IsoDateTime | null;
 }
 
 export interface BatchDetail extends Batch {
-  results: BatchRecordResult[];
+  results: BatchRecordResult[] | null;
 }
 
 export interface OutboxEvent {
@@ -245,64 +255,71 @@ export interface EventPage {
   next_after: number;
 }
 
-export type DeliveryStatus = "pending" | "retrying" | "delivered" | "dead";
+export type DeliveryStatus = "pending" | "delivered" | "dead";
 
 export interface Delivery {
   id: EntityId;
-  endpoint: { id: EntityId; name: string };
+  endpoint_id: EntityId;
   event_seq: number;
-  event_type: string;
+  event_type: string | null;
   status: DeliveryStatus;
   attempts: number;
   next_attempt_at: IsoDateTime | null;
   last_error: string | null;
-  last_status_code?: number | null;
-  delivered_at?: IsoDateTime | null;
-  /** waiting behind an earlier failing event of the same endpoint (FIFO) */
-  blocked_by_seq?: number | null;
+  last_status_code: number | null;
+  delivered_at: IsoDateTime | null;
+  created_at: IsoDateTime;
 }
 
 export interface MappingProfile {
   id: EntityId;
   name: string;
   file_pattern: string;
-  entity: string;
   mapping: Record<string, unknown>;
+  row_version?: number;
 }
 
 export interface FiledropStatus {
   enabled: boolean;
-  plant_code?: string | null;
-  counts: { inbox: number; processing: number; error: number };
-  last_scan_at: IsoDateTime | null;
-  recent: { file: string; status: "archived" | "error" | "processing"; at: IsoDateTime; counts?: Record<string, number>; errors?: number; batch_id?: EntityId | null }[];
+  root: string | null;
+  inbox: { name?: string; file?: string; size?: number; at?: IsoDateTime }[];
+  recent: { file?: string; name?: string; status?: string; at?: IsoDateTime; counts?: Record<string, number>; errors?: number; batch_id?: EntityId | null }[];
+  last_poll_at: IsoDateTime | null;
 }
 
-export type ReconKind = "missing_in_sp" | "missing_in_erp" | "different" | "sor_conflict";
+export type ReconKind = "missing_in_sp" | "missing_in_erp" | "different";
 
+/** stock rows (other entities: fields as sent) */
 export interface ReconRow {
-  entity: string;
-  kind: ReconKind;
-  ref: string;
-  label?: string;
-  item?: ItemRef | null;
-  location_code?: string | null;
-  lot_code?: string | null;
-  qty_sp?: number | null;
-  qty_erp?: number | null;
-  fields?: { field: string; sp: unknown; erp: unknown }[];
+  item?: string;
+  item_ref?: string;
+  location?: string;
+  lot?: string;
+  sp_qty?: number | null;
+  erp_qty?: number | null;
+  delta?: number;
+  [k: string]: unknown;
 }
 
 export interface Reconciliation {
   id: EntityId;
-  status: "queued" | "running" | "completed" | "failed";
   entities: string[];
-  snapshot: "inline" | "file" | "adapter";
+  status: "queued" | "running" | "completed" | "failed";
+  /** per entity */
+  summary: Record<string, Partial<Record<ReconKind | "sor_conflicts", number>>> | null;
+  results: Record<string, Partial<Record<ReconKind | "sor_conflicts", ReconRow[]>>> | null;
   created_at: IsoDateTime;
   finished_at: IsoDateTime | null;
-  summary: Partial<Record<ReconKind, number>> | null;
-  results?: ReconRow[];
-  error?: { message: string } | null;
+}
+
+/** superplanner.v1 stock_snapshot record (4.2) */
+export interface StockSnapshotV1 {
+  ref?: string;
+  item_ref: string;
+  location_code: string;
+  lot_code?: string | null;
+  qty: number;
+  as_at?: IsoDateTime | null;
 }
 
 // ---------------------------------------------------------------- 6 trace
@@ -310,39 +327,35 @@ export type TraceKind = "lot" | "serial" | "wo" | "item_stock" | "transfer" | "d
 export type Precision = "exact" | "possible";
 
 export interface TraceNode {
-  key?: string;
   kind: TraceKind;
   id: EntityId;
-  item: ItemRef | null;
+  item?: ItemRef | null;
   label: string;
-  qty: number | null;
+  qty?: number | null;
   /** precision of the link from the parent node */
   precision: Precision;
-  at: IsoDateTime | null;
-  location?: string | null;
+  at?: IsoDateTime | null;
   status?: string | null;
-  link?: string | null;
+  location?: string | null;
   customer?: string | null;
   plant?: { code: string; visible: boolean } | null;
-  children?: TraceNode[];
-  /** flat form: parent node key (either form is accepted) */
-  parent_key?: string | null;
+  link?: string | null;
   depth?: number;
+  children?: TraceNode[];
 }
 
 export interface TraceResponse {
-  direction: "backward" | "forward";
   root: TraceNode;
-  nodes?: TraceNode[];
+  direction: "backward" | "forward";
+  depth: number;
+  /** number of nodes */
+  nodes: number;
   truncated: boolean;
-  counts?: { nodes: number; exact: number; possible: number };
 }
 
 export interface WhereUsedResponse {
-  item: ItemRef;
-  lots: { id: EntityId; lot_code: string; supplier_lot?: string | null; on_hand?: number }[];
-  uses: TraceNode[];
-  truncated?: boolean;
+  items: TraceNode[];
+  truncated: boolean;
 }
 
 export interface RecallSource {
@@ -352,44 +365,33 @@ export interface RecallSource {
   supplier_lot?: string;
 }
 
-export interface RecallUnit {
-  kind: "serial" | "lot";
-  id: EntityId;
-  label: string;
-  item: ItemRef;
-  status: "in_stock" | "wip" | "shipped" | "consumed" | string;
-  precision: Precision;
-  location?: string | null;
-  wo?: { id: EntityId; number: string; op_seq?: number | null } | null;
-  demand_order?: { id: EntityId; number: string } | null;
-  customer?: string | null;
-  programme?: string | null;
-  shipped_at?: IsoDateTime | null;
-  parent?: { kind: string; id: EntityId; label: string } | null;
-  path: string[];
-  on_hold?: boolean;
-  qty?: number | null;
+export interface RecallReport {
+  units: { serial: string; item: string; status: string; precision: Precision; customer?: string | null; demand_order?: string | null; shipped_on?: IsoDate | null; location?: string | null; wo?: string | null; parent?: string | null; path: string[] }[];
+  lots: { lot_code: string; item: string; on_hand: number; location: string | null; on_hold?: boolean; id?: EntityId }[];
+  wos: { number: string; status: string; id?: EntityId }[];
+  by_customer: { customer: string; units: number; exact?: number; possible?: number }[];
+  by_program: { program: string; units: number }[];
+  open_pos: { number: string; item?: string; qty?: number }[];
 }
 
 export interface Recall {
   id: EntityId;
   number: string;
   name: string;
-  created_at: IsoDateTime;
-  created_by?: UserBrief | null;
   sources: RecallSource[];
   include_possible: boolean;
-  summary: { units: number; lots: number; wos: number; in_stock: number; wip: number; shipped: number; consumed: number; customers: number; exact: number; possible: number };
-  units?: RecallUnit[];
-  by_customer?: { customer: string; programme?: string | null; units: number; exact: number; possible: number }[];
-  quarantine?: { lots: { id: EntityId; lot_code: string; item: ItemRef; on_hand: number; location: string | null; on_hold: boolean }[]; open_pos: { id: EntityId; number: string; item: ItemRef; qty: number }[] };
-  quarantined_at?: IsoDateTime | null;
+  report: RecallReport | null;
+  quarantined_at: IsoDateTime | null;
+  row_version: number;
+  created_at: IsoDateTime;
+  updated_at?: IsoDateTime;
 }
 
 export interface QuarantineResult {
-  postings: { id: EntityId; number?: string }[];
-  lots_on_hold: number;
-  moved: number;
+  postings?: { id: EntityId; number?: string }[];
+  moved?: number;
+  lots_on_hold?: number;
+  [k: string]: unknown;
 }
 
 // ---------------------------------------------------------------- 5 ECO
@@ -399,9 +401,7 @@ export interface CrItem {
   id: EntityId;
   doc_type: "bom" | "routing";
   doc_id: EntityId;
-  doc?: { id: EntityId; item: ItemRef; revision?: string; version?: number; status?: string; label?: string } | null;
   supersedes_doc_id: EntityId | null;
-  supersedes?: { id: EntityId; revision?: string; version?: number; label?: string } | null;
   disposition: { open_wos: "keep" | "refresh_planned" | "flag"; open_pos: "keep" | "flag_cancel"; stock: "use_up" | "scrap" | "rework" };
 }
 
@@ -414,15 +414,15 @@ export interface ChangeRequest {
   source: "manual" | "erp";
   status: CrStatus;
   priority: number;
-  requested_by: UserBrief | null;
-  submitted_by?: UserBrief | null;
-  approved_by: UserBrief | null;
+  requested_by: UserBrief | string | null;
+  approved_by: UserBrief | string | null;
   approved_at: IsoDateTime | null;
   implemented_at: IsoDateTime | null;
   effectivity: { mode: "date" | "serial" | "use_up"; date?: IsoDate | null; serial_from?: number | null };
   note: string;
   items: CrItem[];
   created_at?: IsoDateTime;
+  updated_at?: IsoDateTime;
   row_version: number;
 }
 
@@ -441,15 +441,19 @@ export interface CrItemInput {
   disposition?: Partial<CrItem["disposition"]>;
 }
 
+type DeltaEntry = string | { item: string; qty_before?: number; qty_after?: number; qty?: number };
+
 export interface EcoImpact {
-  computed_at?: IsoDateTime;
-  explosion_delta: { parent: ItemRef; added: { item: ItemRef; qty: number }[]; removed: { item: ItemRef; qty: number }[]; changed: { item: ItemRef; qty_before: number; qty_after: number }[] }[];
-  open_wos: { wo: { id: EntityId; number: string; status: string }; item: ItemRef; differences: string[] }[];
-  planned_orders?: { order: { id: EntityId; number: string }; item: ItemRef; differences: string[] }[];
-  open_pos: { po: { id: EntityId; number: string }; item: ItemRef; qty: number; due?: IsoDate | null }[];
-  phased_out: { item: ItemRef; on_hand: number; on_order: number; value: number | null }[];
-  mrp_delta: { demand_line: string; order?: string; before: IsoDate | null; after: IsoDate | null }[];
-  suggested_use_up_date: IsoDate | null;
+  cr_id: EntityId;
+  effectivity: ChangeRequest["effectivity"];
+  explosion_delta: { parent: string; added: DeltaEntry[]; removed: DeltaEntry[]; changed: DeltaEntry[] }[];
+  open_wos: { number: string; component?: string; qty?: number; id?: EntityId; status?: string }[];
+  planned_orders: { number?: string; item?: string; qty?: number }[];
+  open_purchases: { number: string; item?: string; qty?: number; due?: IsoDate | null }[];
+  phase_out_stock: { item: string; on_hand: number; on_order: number; value: number | null }[];
+  mrp_delta: { demand_line?: string; order?: string; before?: IsoDate | null; after?: IsoDate | null }[];
+  use_up_date: IsoDate | null;
+  computed_ms?: number;
 }
 
 export interface ReleaseIssue {
@@ -464,54 +468,56 @@ export type TransferStatus = "draft" | "open" | "shipped" | "partly_shipped" | "
 export interface PlantRef {
   owner_id: string;
   code: string;
-  name: string;
+  name?: string;
 }
 
 export interface TransferLine {
   id: EntityId;
   line_no: number;
-  item: ItemRef;
+  item_id: EntityId;
   qty: number;
-  qty_shipped: number;
-  qty_received: number;
+  shipped_qty: number;
+  received_qty: number;
   ship_date: IsoDate;
   receive_date: IsoDate;
-  /** destination item matched by external_ref / part number */
-  dest_item?: ItemRef | null;
 }
 
 export interface TransferOrder {
   id: EntityId;
   number: string;
   status: TransferStatus;
-  /** outbound = this plant ships (source); inbound = the mirror in the receiving plant */
-  direction: "outbound" | "inbound";
+  /** out = this plant ships (source); in = the mirror in the receiving plant */
+  direction: "out" | "in" | "outbound" | "inbound";
   source_plant: PlantRef;
   dest_plant: PlantRef;
-  mirror_of?: EntityId | null;
+  mirror_of: EntityId | null;
+  from_location_id: EntityId | null;
+  to_location_id: EntityId | null;
   lines: TransferLine[];
   note: string;
   created_at?: IsoDateTime;
+  updated_at?: IsoDateTime;
   row_version: number;
 }
 
+export const isOutbound = (t: Pick<TransferOrder, "direction">) => t.direction === "out" || t.direction === "outbound";
+
 export interface TransferInput {
   dest_plant_owner_id: string;
-  note: string;
-  lines: { line_no: number; item_id: EntityId; qty: number; ship_date: IsoDate; receive_date: IsoDate }[];
+  note?: string;
+  lines: { line_no?: number; item_id: EntityId; qty: number; ship_date: IsoDate; receive_date: IsoDate }[];
 }
 
 // ---------------------------------------------------------------- 7 audit
 export interface AuditEvent {
-  id: EntityId;
-  seq?: number;
-  at: IsoDateTime;
-  actor: { id: string; name?: string | null; kind?: string | null; token_id?: string | null } | null;
-  action: string;
+  id: number;
   entity_type: string;
   entity_id: string | null;
-  summary?: string | null;
-  details?: Record<string, unknown> | null;
+  action: string;
+  details: Record<string, unknown>;
+  actor_id: string | null;
+  owner_id: string | null;
+  created_at: IsoDateTime;
   chain_hash: string | null;
 }
 
@@ -520,5 +526,3 @@ export interface AuditVerify {
   checked: number;
   first_broken?: { id: EntityId; at: IsoDateTime } | null;
 }
-
-export type { Page as PageM5 } from "./types";

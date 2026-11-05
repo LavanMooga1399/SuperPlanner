@@ -13,7 +13,6 @@ import type {
   Delivery,
   EcoImpact,
   Endpoint,
-  EndpointCreated,
   EndpointInput,
   EventPage,
   FiledropStatus,
@@ -55,13 +54,13 @@ export const getOrg = (org: string, signal?: AbortSignal) => v1Request<Org>(`/or
 export const updateOrg = (org: string, body: { name: string; require_2fa: boolean }, version?: number) =>
   v1Request<Org>(`/orgs/${enc(org)}`, { method: "PUT", body, headers: version !== undefined ? ifMatch(version) : undefined });
 export const listOrgMembers = (org: string, signal?: AbortSignal) => v1Request<{ items: OrgMember[] }>(`/orgs/${enc(org)}/members`, { signal });
-export const addOrgMember = (org: string, body: { email: string; org_role: OrgRole; display_name?: string }) => v1Request<OrgMember>(`/orgs/${enc(org)}/members`, { method: "POST", body });
-export const updateOrgMember = (org: string, id: string, body: { org_role?: OrgRole; disabled?: boolean }) =>
+export const addOrgMember = (org: string, body: { email: string; org_role: OrgRole }) => v1Request<OrgMember>(`/orgs/${enc(org)}/members`, { method: "POST", body });
+export const updateOrgMember = (org: string, id: string, body: { org_role: OrgRole }) =>
   v1Request<OrgMember>(`/orgs/${enc(org)}/members/${enc(id)}`, { method: "PUT", body });
 export const removeOrgMember = (org: string, id: string) => v1Request<void>(`/orgs/${enc(org)}/members/${enc(id)}`, { method: "DELETE" });
 export const listOrgPlants = (org: string, signal?: AbortSignal) => v1Request<{ items: OrgPlant[] }>(`/orgs/${enc(org)}/plants`, { signal });
-export const createOrgPlant = (org: string, body: { code: string; name: string }) => v1Request<OrgPlant>(`/orgs/${enc(org)}/plants`, { method: "POST", body });
-export const updateOrgPlant = (org: string, plant: string, body: { code: string; name: string }) =>
+export const createOrgPlant = (org: string, body: { code: string; name: string; utc_offset?: string; time_zone?: string | null }) => v1Request<OrgPlant>(`/orgs/${enc(org)}/plants`, { method: "POST", body });
+export const updateOrgPlant = (org: string, plant: string, body: { name: string }) =>
   v1Request<OrgPlant>(`/orgs/${enc(org)}/plants/${enc(plant)}`, { method: "PUT", body });
 export const grantPlantRoles = (org: string, plant: string, body: PlantRoleGrant) =>
   v1Request<unknown>(`/orgs/${enc(org)}/plants/${enc(plant)}/roles`, { method: "POST", body });
@@ -71,15 +70,16 @@ export const getOrgOverview = (org: string, signal?: AbortSignal) => v1Request<O
 // ---------------------------------------------------------------- 4 integration (/api/v1/integration)
 const I = "/integration";
 export const getIntegrationSettings = (signal?: AbortSignal) => v1Request<IntegrationSettings>(`${I}/settings`, { signal });
-export const updateIntegrationSettings = (body: Omit<IntegrationSettings, "row_version" | "erp_owned_fields">, version: number) =>
+export const updateIntegrationSettings = (body: Omit<IntegrationSettings, "row_version" | "adapters">, version: number) =>
   v1Request<IntegrationSettings>(`${I}/settings`, { method: "PUT", body, headers: ifMatch(version) });
 export const listEndpoints = (signal?: AbortSignal) => v1Request<{ items: Endpoint[] }>(`${I}/endpoints`, { signal });
-export const createEndpoint = (body: EndpointInput) => v1Request<EndpointCreated>(`${I}/endpoints`, { method: "POST", body });
-export const updateEndpoint = (id: string, body: EndpointInput) => v1Request<Endpoint>(`${I}/endpoints/${enc(id)}`, { method: "PUT", body });
-export const deleteEndpoint = (id: string) => v1Request<void>(`${I}/endpoints/${enc(id)}`, { method: "DELETE" });
-export const testEndpoint = (id: string) => v1Request<{ ok: boolean; status_code?: number | null; error?: string | null; duration_ms?: number }>(`${I}/endpoints/${enc(id)}/test`, { method: "POST", body: {} });
-export const getValueMaps = (signal?: AbortSignal) => v1Request<{ items: ValueMap[] }>(`${I}/value-maps`, { signal });
-export const putValueMaps = (items: ValueMap[]) => v1Request<{ items: ValueMap[] }>(`${I}/value-maps`, { method: "PUT", body: { items } });
+export const createEndpoint = (body: EndpointInput) => v1Request<Endpoint>(`${I}/endpoints`, { method: "POST", body });
+export const updateEndpoint = (id: string, body: EndpointInput, version: number) => v1Request<Endpoint>(`${I}/endpoints/${enc(id)}`, { method: "PUT", body, headers: ifMatch(version) });
+export const deleteEndpoint = (id: string, version: number) => v1Request<void>(`${I}/endpoints/${enc(id)}`, { method: "DELETE", headers: ifMatch(version) });
+/** delivers what is waiting for this endpoint now (no synthetic test event) */
+export const testEndpoint = (id: string) => v1Request<Record<string, unknown>>(`${I}/endpoints/${enc(id)}/test`, { method: "POST", body: {} });
+export const getValueMaps = (signal?: AbortSignal) => v1Request<{ rows: ValueMap[] }>(`${I}/value-maps`, { signal });
+export const putValueMaps = (rows: ValueMap[]) => v1Request<{ rows: ValueMap[] }>(`${I}/value-maps`, { method: "PUT", body: { rows } });
 export const listBatches = (query: { status?: string; source?: string; limit?: number; offset?: number }, signal?: AbortSignal) =>
   v1Request<Page<Batch>>(`${I}/batches`, { query: { ...query }, signal });
 export const getBatch = (id: string, signal?: AbortSignal) => v1Request<BatchDetail>(`${I}/batches/${enc(id)}`, { signal });
@@ -87,11 +87,9 @@ export const listEvents = (query: { after?: number; limit?: number; types?: stri
 export const listDeliveries = (query: { status?: string; endpoint_id?: string; limit?: number; offset?: number }, signal?: AbortSignal) =>
   v1Request<Page<Delivery>>(`${I}/deliveries`, { query: { ...query }, signal });
 export const retryDelivery = (id: string) => v1Request<Delivery>(`${I}/deliveries/${enc(id)}/retry`, { method: "POST", body: {} });
-/** park = stop retrying a failing delivery so later events of the endpoint can flow (requested, 15.WP-U) */
-export const parkDelivery = (id: string) => v1Request<Delivery>(`${I}/deliveries/${enc(id)}/park`, { method: "POST", body: {} });
 export const listMappingProfiles = (signal?: AbortSignal) => v1Request<{ items: MappingProfile[] }>(`${I}/mapping-profiles`, { signal });
 export const getFiledropStatus = (signal?: AbortSignal) => v1Request<FiledropStatus>(`${I}/filedrop/status`, { signal });
-export const startReconciliation = (body: { entities: string[]; snapshot: "inline" | "file" | "adapter"; records?: unknown[] }) =>
+export const startReconciliation = (body: { entities: string[]; snapshot: "inline" | "file" | "adapter"; records?: Record<string, unknown[]> }) =>
   v1Request<Reconciliation>(`${I}/reconciliations`, { method: "POST", body });
 export const listReconciliations = (signal?: AbortSignal) => v1Request<Page<Reconciliation>>(`${I}/reconciliations`, { signal });
 export const getReconciliation = (id: string, signal?: AbortSignal) => v1Request<Reconciliation>(`${I}/reconciliations/${enc(id)}`, { signal });

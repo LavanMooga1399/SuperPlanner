@@ -62,7 +62,7 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
     setBusy(true);
     setError(null);
     try {
-      const t = await createToken({ kind, name: name.trim(), scopes: [...scopes], expires_in_days: days, ...(kind === "personal" ? { workspace_owner_id: workspace || null } : {}) });
+      const t = await createToken({ kind, name: name.trim(), scopes: [...scopes], expires_days: days, ...(kind === "personal" ? { workspace_owner_id: workspace || null } : {}) });
       setCreated(t);
       setCopied(false);
       setName("");

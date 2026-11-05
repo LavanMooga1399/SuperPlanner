@@ -78,8 +78,8 @@ def test_migration_0005_to_0006_and_back(empty_pg_db):
     finally:
         eng.dispose()
     t5 = _tables(url)
-    migrate.run_alembic_upgrade(url)
-    assert migrate.HEAD == "0006_mfg_m4" and migrate.schema_state(url) == "current"
+    migrate.run_alembic_upgrade(url, "0006_mfg_m4")      # (M5 0007_m5 sits on top; head moved)
+    assert migrate.HEAD == "0007_m5" and migrate.schema_state(url) == "behind"
     assert _tables(url) - t5 == set(M4_TABLES) and t5 - _tables(url) == {"mfg_wo_op_progress"}
     eng = sa.create_engine(url)
     try:
@@ -195,12 +195,12 @@ def test_the_26_routes_declare_their_permission():
 def test_roles_and_permissions():
     from superplanner.api.mfg.access import ROLE_PERMISSIONS, roles_allowed
 
-    assert roles_allowed("floor_view") == ["owner", "planner", "purchaser", "store_keeper", "approver", "viewer",
+    assert roles_allowed("floor_view") == ["owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
                                            "operator", "supervisor"]
-    assert set(roles_allowed("floor_report")) == {"owner", "planner", "operator", "supervisor"}
-    assert set(roles_allowed("floor_supervise")) == {"owner", "supervisor"}
-    assert set(roles_allowed("downtime_report")) == {"owner", "planner", "operator", "supervisor"}
-    assert set(roles_allowed("replan_manage")) == {"owner", "planner"}
+    assert set(roles_allowed("floor_report")) == {"owner", "plant_admin", "planner", "operator", "supervisor"}
+    assert set(roles_allowed("floor_supervise")) == {"owner", "plant_admin", "supervisor"}
+    assert set(roles_allowed("downtime_report")) == {"owner", "plant_admin", "planner", "operator", "supervisor"}
+    assert set(roles_allowed("replan_manage")) == {"owner", "plant_admin", "planner"}
     assert "wo_edit" not in ROLE_PERMISSIONS["operator"] and "inventory" not in ROLE_PERMISSIONS["supervisor"]
 
 

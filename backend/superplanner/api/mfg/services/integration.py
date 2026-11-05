@@ -500,13 +500,16 @@ def deliver_now(ctx: AppContext, endpoint_id: str | None = None, post: outbox.Po
         if endpoint_id:
             q = q.where(IntEndpointRow.id == endpoint_id)
         ids = list(s.execute(q).scalars())
+        if endpoint_id and not ids:
+            repo.get_row(s, IntEndpointRow, endpoint_id, what="Endpoint")      # 404 (foreign / unknown / inactive)
     for eid in ids:
         def fn(s: Session) -> dict[str, int]:
             ep = s.get(IntEndpointRow, eid, with_for_update={"skip_locked": True})
             if ep is None:
                 return {}
             secret = crypto.decrypt(ctx.settings.secrets_keys, ep.secret_enc)
-            return outbox.deliver_endpoint(s, ep, secret, _plant_ref(s), post, now)
+            return outbox.deliver_endpoint(s, ep, secret, _plant_ref(s), post, now,
+                                           allow_private=ctx.settings.integration_allow_private_targets)
         for k, v in run_tx(ctx, fn).items():
             totals[k] = totals.get(k, 0) + v
     return totals

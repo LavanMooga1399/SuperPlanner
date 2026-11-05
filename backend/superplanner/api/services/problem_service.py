@@ -30,9 +30,16 @@ MAX_LIST_ITEMS = 500
 # ---------------------------------------------------------------- helpers
 
 def audit(s: Session, entity_type: str, entity_id: str, action: str, details: dict[str, Any] | None = None) -> None:
-    owner = current_actor() or current_owner()     # M2-DESIGN 10.3: the real user in a shared workspace
-    s.add(AuditEventRow(entity_type=entity_type, entity_id=entity_id, action=action, details=details or {},
-                        actor_id=owner if isinstance(owner, str) else None))
+    actor = current_actor() or current_owner()     # M2-DESIGN 10.3: the real user in a shared workspace
+    plant = current_owner()
+    plant = plant if isinstance(plant, str) else None          # system scope (SYSTEM sentinel) -> None
+    row = AuditEventRow(entity_type=entity_type, entity_id=entity_id, action=action, details=details or {},
+                        actor_id=actor if isinstance(actor, str) else None, owner_id=plant,
+                        created_at=datetime.now(UTC))
+    from ..audit_chain import link
+
+    link(s, row)
+    s.add(row)
 
 
 def canonical_hash(doc: dict[str, Any]) -> str:

@@ -18,7 +18,9 @@ OCTET = {"content-type": "application/octet-stream"}
 
 
 EXEMPT = {"downtime.py:create_downtime", "inventory.py:reverse_posting", "floor.py:post_event",
-          "floor.py:ensure_lazy", "kpi.py:_store", "replan.py:_sweep_tx"}
+          "floor.py:ensure_lazy", "kpi.py:_store", "replan.py:_sweep_tx",
+          # M5: the inbound receipt posts through `post_in_session` (audits itself); webhook delivery bookkeeping
+          "integration.py:_po_receipts", "integration.py:deliver_now"}
 
 
 def test_every_mutating_mfg_service_records_an_audit_event():

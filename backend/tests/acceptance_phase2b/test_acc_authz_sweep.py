@@ -21,7 +21,14 @@ from superplanner.api.main import create_app
 PUBLIC = {("GET", "/api/v1/health"), ("GET", "/api/v1/health/live"), ("GET", "/api/v1/health/ready"),
           ("GET", "/api/v1/auth/session"), ("POST", "/api/v1/auth/sign-up"), ("POST", "/api/v1/auth/sign-in"),
           ("POST", "/api/v1/auth/sign-out"), ("POST", "/api/v1/auth/change-password"),
-          ("GET", "/metrics")}   # /metrics: public unless METRICS_TOKEN (B 5.4); checked separately below
+          ("GET", "/metrics"),   # /metrics: public unless METRICS_TOKEN (B 5.4); checked separately below
+          # M5-DESIGN 3: config / OIDC are public; the TOTP steps need a session or a pending login (own checks)
+          ("GET", "/api/v1/auth/config"), ("GET", "/api/v1/auth/oidc/login"), ("GET", "/api/v1/auth/oidc/callback"),
+          ("GET", "/api/v1/auth/totp"), ("POST", "/api/v1/auth/totp/setup"), ("POST", "/api/v1/auth/totp/enable"),
+          ("POST", "/api/v1/auth/totp/disable"), ("POST", "/api/v1/auth/totp/recovery-codes"),
+          ("POST", "/api/v1/auth/login/totp")}
+#: M5 S0: these answer from the contract fixture until their services land (M5-DESIGN 15.WP-S) - no owned ids yet
+S0_FIXTURE_PREFIXES = ("/api/v1/mfg/trace", "/api/v1/mfg/recalls", "/api/v1/mfg/eco", "/api/v1/mfg/transfer-orders")
 PARAM = re.compile(r"\{([a-z_]+)\}")
 
 
@@ -44,10 +51,17 @@ def all_routes(app) -> list[tuple[str, str]]:
     return sorted(set(out))
 
 
+from cryptography.fernet import Fernet  # noqa: E402
+
+SWEEP_KEY = Fernet.generate_key().decode()
+
+
 def acc_app(db_url: str, **kw: Any):
     return create_app(Settings(database_url=db_url, auth_mode="accounts", password_hash_profile="fast",
                                auth_signin_limit_per_ip=1000, auth_signup_limit_per_ip=1000,
-                               auth_signin_limit_per_email=1000, **kw))
+                               auth_signin_limit_per_email=1000, secrets_keys=[SWEEP_KEY],
+                               integration_allow_private_targets=True,
+                               webhook_post=lambda url, body, headers: (200, ""), **kw))
 
 
 def signed_up(app, email: str) -> TestClient:
@@ -286,6 +300,39 @@ def make_mfg_m4_world(c: TestClient, w: dict[str, Any], make_item: dict[str, Any
     w["mfg_bodies"].update({
         "/downtime/{downtime_id}": {"reason": "x"},
     })
+    make_m5_world(c, w)
+
+
+def make_m5_world(c: TestClient, w: dict[str, Any]) -> None:
+    """M5 objects (M5-DESIGN 12.1): integration settings, an endpoint with one delivery, a batch, a reconciliation,
+    an organisation with a member and a plant, an API token."""
+    ids = w["mfg_ids"]
+    I5 = f"{API}/integration"
+
+    def ok(r: Any, code: int = 201) -> Any:
+        assert r.status_code == code, r.text
+        return r.json()
+
+    ok(c.put(f"{I5}/settings", json={"enabled": True, "plant_code": "SW", "sor": {"items": "superplanner"}},
+             headers={"If-Match": '"0"'}), 200)
+    ep = ok(c.post(f"{I5}/endpoints", json={"name": "erp", "url": "https://127.0.0.1/hook", "secret": "s" * 20}))
+    loc = next(x for x in c.get(f"{MFG}/locations").json()["items"] if x["code"] == "STORES")
+    ok(c.post(f"{MFG}/inventory/postings", json={"type": "receipt_misc", "lines": [
+        {"item_id": ids["item_id"], "location_id": loc["id"], "qty": 1}]}))
+    ok(c.post(f"{I5}/endpoints/{ep['id']}/test"), 200)
+    dl = ok(c.get(f"{I5}/deliveries"), 200)["items"][0]
+    b = ok(c.post(f"{I5}/batches", json={"schema": "superplanner.v1", "entity": "purchase_request",
+                                          "records": [{"ref": "x"}]}, headers={"Idempotency-Key": "sw-1"}), 200)
+    rc = ok(c.post(f"{I5}/reconciliations", json={"entities": ["stock"], "records": {"stock": []}}))
+    org = ok(c.post(f"{API}/orgs", json={"name": "SW", "slug": f"sw-{uuid.uuid4().hex[:8]}"}))
+    plant = ok(c.post(f"{API}/orgs/{org['id']}/plants", json={"code": "SW1", "name": "SW plant"}))
+    mem = ok(c.get(f"{API}/orgs/{org['id']}/members"), 200)["items"][0]
+    tok = ok(c.post(f"{API}/tokens", json={"name": "sw", "scopes": ["view"]}))
+    ids.update({"endpoint_id": ep["id"], "delivery_id": dl["id"], "batch_id": b["id"], "rec_id": rc["id"],
+                "org_id": org["id"], "plant": plant["code"], "member_id": mem["id"], "token_id": tok["id"]})
+    w["mfg_bodies"].update({
+        "/integration/endpoints/{endpoint_id}": {"name": "erp", "url": "https://127.0.0.1/hook"},
+    })
 
 
 def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
@@ -352,6 +399,15 @@ def body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
         kw = {"json": {"cutoff": "2026-10-20T08:00:00+05:30", "run": FAST_SOLVER}}
     elif path.endswith("/approve") or path.endswith("/send-to-planner"):
         kw = {"json": {}}
+    m5 = {"/orgs/{org_id}": {"name": "X"}, "/orgs/{org_id}/members": {"email": "nobody@example.com"},
+          "/orgs/{org_id}/members/{member_id}": {"org_role": "org_member"},
+          "/orgs/{org_id}/plants": {"code": "ZZ", "name": "Z"}, "/orgs/{org_id}/plants/{plant}": {"name": "Z"},
+          "/orgs/{org_id}/plants/{plant}/roles": {"user_id": "usr_x", "roles": []},
+          "/orgs/{org_id}/publish": {"source_plant": "usr_x", "target_plants": ["usr_y"]},
+          "/integration/endpoints/{endpoint_id}": {"name": "erp", "url": "https://127.0.0.1/hook"}}
+    rel = path[len(API):]
+    if rel in m5 and method in ("POST", "PUT"):           # M5: valid bodies (a stranger must still get 404)
+        kw = {"json": copy.deepcopy(m5[rel]), "headers": {"If-Match": "1"}}
     return kw
 
 
@@ -424,7 +480,7 @@ def test_other_user_gets_404_for_every_owned_id_and_changes_nothing(db_url, whic
         assert len(routes) >= 25
         leaks = []
         for method, path in routes:
-            if "/templates/" in path or "/mfg/samples/" in path:
+            if "/templates/" in path or "/mfg/samples/" in path or path.startswith(S0_FIXTURE_PREFIXES):
                 continue                                    # template and sample ids are not owned
             kw = body_for(method, path, wa)
             r_foreign = b.request(method, fill(path, ids_a), **copy.deepcopy(kw))
@@ -470,7 +526,8 @@ def test_csrf_and_origin_enforced_on_every_unsafe_route(db_url):
         assert len(unsafe) >= 25
         bad = []
         for method, path in unsafe:
-            url = fill(path, {**ids, "template_id": "manufacturing", "sample_id": "small"})
+            s0 = {k: f"x{k}" for k in ("cr_id", "item_id", "recall_id", "to_id")}     # M5 S0 fixture routes
+            url = fill(path, {**s0, **ids, "template_id": "manufacturing", "sample_id": "small"})
             if "/finance/templates/" in path:
                 url = url.replace("manufacturing", "young_professional")
             kw = body_for(method, path, wa)

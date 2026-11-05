@@ -13,6 +13,7 @@ from superplanner.identity import crypto
 from superplanner.integration import outbox
 
 KEY = crypto.new_key()
+received_status: list[list[int]] = []
 INT = f"{V1}/integration"
 
 
@@ -38,15 +39,38 @@ def _enable(it: Int, **kw):
     return it.req("PUT", "/settings", 200, json=body, headers={"If-Match": f'"{cur["row_version"]}"'}).json()
 
 
+DNS: dict[str, list[str]] = {}
+
+
+def fake_getaddrinfo(host, port, *a, **kw):
+    """Resolver for the SSRF tests: IP literals resolve to themselves, names via `DNS` (no network)."""
+    import ipaddress
+    import socket
+
+    try:
+        addrs = [str(ipaddress.ip_address(host.strip("[]")))]
+    except ValueError:
+        if host not in DNS:
+            raise socket.gaierror(socket.EAI_NONAME, "unknown host") from None
+        addrs = DNS[host]
+    return [(socket.AF_INET6 if ":" in x else socket.AF_INET, socket.SOCK_STREAM, 6, "",
+             (x, port) if ":" not in x else (x, port, 0, 0)) for x in addrs]
+
+
 @pytest.fixture
-def env(db_url):
+def env(db_url, monkeypatch):
+    DNS.clear()
+    DNS["erp.example.com"] = ["93.184.216.34"]
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
     received = []
+    status: list[int] = []
 
     def post(url, body, headers):
         received.append((url, body, headers))
-        return env.status.pop(0) if env.status else 200, ""
+        return status.pop(0) if status else 200, ""
 
-    env.status = []
+    post.status = status  # type: ignore[attr-defined]
+    received_status[:] = [status]
     app = make_app(db_url, secrets_keys=[KEY], webhook_post=post, integration_allow_private_targets=False)
     with TestClient(app) as c:
         yield Int(c), Api(c), app, received
@@ -139,11 +163,8 @@ def test_t_i6_t_i7_webhooks_fifo_backoff_and_signature(env):
     assert bad.json()["error"]["code"] == "INT_URL_NOT_ALLOWED"
     assert it.req("POST", "/endpoints", 422, json={"name": "x", "url": "http://erp.example.com/hook",
                                                    "secret": secret}).json()["error"]["code"] == "INT_URL_NOT_ALLOWED"
-    from unittest import mock
-
-    with mock.patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]):
-        ep = it.req("POST", "/endpoints", 201, json={"name": "erp", "url": "https://erp.example.com/hook",
-                                                     "secret": secret}).json()
+    ep = it.req("POST", "/endpoints", 201, json={"name": "erp", "url": "https://erp.example.com/hook",
+                                                 "secret": secret}).json()
     loc = api.location("ST")
     item = api.item("X1")
     for q in (1, 2):
@@ -151,7 +172,7 @@ def test_t_i6_t_i7_webhooks_fifo_backoff_and_signature(env):
     ctx = app.state.ctx
     from superplanner.api.db.ownership import owner_scope
 
-    env.status[:] = [500, 500, 500]
+    received_status[0][:] = [500, 500, 500]
     t0 = datetime.now(UTC)
     with owner_scope("usr_local"):
         r1 = svc.deliver_now(ctx, now=t0)

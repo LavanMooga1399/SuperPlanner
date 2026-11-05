@@ -83,14 +83,14 @@ export function IntegrationLayout() {
 export function IntegrationOverview() {
   const st = useLoad((signal) => getIntegrationSettings(signal), []);
   const dead = useLoad((signal) => listDeliveries({ status: "dead", limit: 1 }, signal).catch(() => null), []);
-  const waiting = useLoad((signal) => listDeliveries({ status: "retrying", limit: 1 }, signal).catch(() => null), []);
+  const waiting = useLoad((signal) => listDeliveries({ status: "pending", limit: 1 }, signal).catch(() => null), []);
   const batches = useLoad((signal) => listBatches({ limit: 5 }, signal).catch(() => null), []);
   const fd = useLoad((signal) => getFiledropStatus(signal).catch(() => null), []);
   const s = st.data;
   if (st.loading && !s) return <Spinner />;
   if (!s) return <MfgError error={st.error} onRetry={st.reload} />;
   const last = batches.data?.items[0] ?? null;
-  const rejected = (batches.data?.items ?? []).reduce((a, b) => a + b.counts.rejected, 0);
+  const rejected = (batches.data?.items ?? []).reduce((a, b) => a + (b.counts.rejected ?? 0), 0);
   return (
     <div className="col gap-lg" data-testid="int-overview" data-enabled={s.enabled}>
       {!s.enabled ? (
@@ -106,10 +106,10 @@ export function IntegrationOverview() {
           </div>
           <div className="kpi-sub">stopped after 24 h of retries</div>
         </Link>
-        <Link to={`${mfgPaths.integration("deliveries")}?status=retrying`} className="card kpi" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="kpi-label">Retrying</div>
+        <Link to={`${mfgPaths.integration("deliveries")}?status=pending`} className="card kpi" style={{ textDecoration: "none", color: "inherit" }}>
+          <div className="kpi-label">Waiting to send</div>
           <div className="kpi-value">{waiting.data?.total ?? "–"}</div>
-          <div className="kpi-sub">later events of that endpoint wait</div>
+          <div className="kpi-sub">incl. retries; later events of a failing webhook wait</div>
         </Link>
         <Link to={mfgPaths.integration("batches")} className="card kpi" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="kpi-label">Last data in</div>
@@ -121,9 +121,9 @@ export function IntegrationOverview() {
         <Link to={mfgPaths.integration("filedrop")} className="card kpi" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="kpi-label">File drop</div>
           <div className="kpi-value" style={{ fontSize: 18 }}>
-            {!fd.data?.enabled ? "off" : fd.data.counts.error ? `${fd.data.counts.error} files in error` : "ok"}
+            {!fd.data?.enabled ? "off" : fd.data.inbox.length ? `${fd.data.inbox.length} waiting` : "ok"}
           </div>
-          <div className="kpi-sub">{fd.data?.last_scan_at ? `checked ${new Date(fd.data.last_scan_at).toLocaleTimeString()}` : ""}</div>
+          <div className="kpi-sub">{fd.data?.last_poll_at ? `checked ${new Date(fd.data.last_poll_at).toLocaleTimeString()}` : ""}</div>
         </Link>
       </div>
       <section className="card">
@@ -190,7 +190,7 @@ export function IntegrationSettingsTab() {
     setError(null);
     setSaved(false);
     try {
-      const { row_version: _v, erp_owned_fields: _e, ...body } = f;
+      const { row_version: _v, adapters: _a, ...body } = f;
       const next = await updateIntegrationSettings(body, f.row_version);
       setF(next);
       setSaved(true);
@@ -226,9 +226,18 @@ export function IntegrationSettingsTab() {
             </span>
           </label>
           <div className="field" style={{ maxWidth: 320 }}>
+            <label htmlFor="int-code">Plant code for files and events</label>
+            <input id="int-code" className="input mono" value={f.plant_code} disabled={!can} onChange={(e) => setF({ ...f, plant_code: e.target.value.replace(/[^A-Za-z0-9_.-]/g, "") })} maxLength={32} required data-testid="int-plant-code" />
+            <span className="hint">Letters, digits, - _ . : names this plant's folder on the integration volume and appears in every event.</span>
+          </div>
+          <div className="field" style={{ maxWidth: 320 }}>
             <label htmlFor="int-adapter">Format</label>
             <select id="int-adapter" className="select" value={f.adapter} disabled={!can} onChange={(e) => setF({ ...f, adapter: e.target.value })}>
-              <option value="generic_v1">Generic (superplanner.v1): REST, files, webhooks</option>
+              {(f.adapters?.length ? f.adapters : ["generic_v1"]).map((a) => (
+                <option key={a} value={a}>
+                  {a === "generic_v1" ? "Generic (superplanner.v1): REST, files, webhooks" : a}
+                </option>
+              ))}
             </select>
             <span className="hint">ERP-specific formats are added once your ERP is known; your ERP's integration layer can map to this format today.</span>
           </div>
@@ -305,21 +314,21 @@ export function IntegrationSettingsTab() {
         <section className="card">
           <div className="card-body col">
             <label className="checkbox">
-              <input type="checkbox" checked={Boolean(f.filedrop?.enabled)} disabled={!can} onChange={(e) => setF({ ...f, filedrop: { ...(f.filedrop ?? {}), enabled: e.target.checked } })} />
+              <input type="checkbox" checked={f.filedrop_enabled} disabled={!can} onChange={(e) => setF({ ...f, filedrop_enabled: e.target.checked })} />
               <span>
                 <strong>Read files from the inbox folder</strong> <span className="muted small">CSV, Excel or JSON dropped by the ERP (or an SFTP server) are imported with the saved mapping.</span>
               </span>
             </label>
             <label className="checkbox">
-              <input type="checkbox" checked={Boolean(f.export?.enabled)} disabled={!can} onChange={(e) => setF({ ...f, export: { interval_minutes: f.export?.interval_minutes ?? 15, enabled: e.target.checked } })} />
+              <input type="checkbox" checked={f.export_enabled} disabled={!can} onChange={(e) => setF({ ...f, export_enabled: e.target.checked })} />
               <span>
                 <strong>Also write events as files</strong> <span className="muted small">CSV per event type and JSON lines in the outbox folder.</span>
               </span>
             </label>
-            {f.export?.enabled ? (
+            {f.export_enabled ? (
               <div className="field" style={{ maxWidth: 220 }}>
-                <label htmlFor="int-every">Every (minutes)</label>
-                <input id="int-every" className="input" type="number" min={1} value={f.export.interval_minutes} disabled={!can} onChange={(e) => setF({ ...f, export: { enabled: true, interval_minutes: Number(e.target.value) || 15 } })} />
+                <label htmlFor="int-every">Every (minutes, 5-1440)</label>
+                <input id="int-every" className="input" type="number" min={5} max={1440} value={f.export_interval_minutes} disabled={!can} onChange={(e) => setF({ ...f, export_interval_minutes: Number(e.target.value) || 15 })} />
               </div>
             ) : null}
           </div>
@@ -328,7 +337,7 @@ export function IntegrationSettingsTab() {
       <MfgError error={error} />
       {can ? (
         <div className="row">
-          <button type="submit" className="btn primary" disabled={busy} data-testid="int-settings-save">
+          <button type="submit" className="btn primary" disabled={busy || !f.plant_code.trim()} data-testid="int-settings-save">
             <Icon name="save" /> Save
           </button>
           {saved ? (

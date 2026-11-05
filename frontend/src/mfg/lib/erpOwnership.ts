@@ -59,10 +59,10 @@ export function useErpOwnership(): ErpOwnership {
     owns,
     ownsField: (e, f) => {
       if (!owns(e)) return false;
-      const list = s?.erp_owned_fields?.[e] ?? DEFAULT_ERP_FIELDS[e] ?? [];
+      const list = DEFAULT_ERP_FIELDS[e] ?? [];
       if (list.includes(`!${f}`)) return false;
       return list.includes("*") || list.includes(f);
     },
-    goodsReceiptsByErp: Boolean(s?.enabled && (s.goods_receipts_owner === "erp" || s.sor.po_receipts === "erp")),
+    goodsReceiptsByErp: Boolean(s?.enabled && s.goods_receipts_owner === "erp"),
   };
 }

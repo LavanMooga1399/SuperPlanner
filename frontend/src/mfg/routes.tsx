@@ -68,6 +68,13 @@ import { ApsOvertimeTab } from "./pages/schedule/ApsOvertimeTab";
 import { ApsExceptionsTab } from "./pages/schedule/ApsExceptionsTab";
 import { ApsCompareTab } from "./pages/schedule/ApsCompareTab";
 
+import { AuditPage } from "./pages/m5/AuditPage";
+import { EcoListPage, EcoPage } from "./pages/m5/EcoPages";
+import { IntegrationLayout, IntegrationOverview, IntegrationSettingsTab } from "./pages/m5/IntegrationPages";
+import { BatchPage, BatchesTab, DeliveriesTab, EndpointsTab, EventsTab, FiledropTab, PlantTokensTab, ReconciliationPage, ReconciliationTab, ValueMapsTab } from "./pages/m5/IntegrationPages2";
+import { RecallPage, RecallsPage } from "./pages/m5/RecallPages";
+import { TracePage, WhereUsedPage } from "./pages/m5/TracePages";
+import { TransferPage, TransfersPage } from "./pages/m5/TransferPages";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
 import { FloorHome } from "./floor/FloorHome";
@@ -233,6 +240,35 @@ export const mfgRoutes: RouteObject[] = [
       { path: "schedule/simulations/:simulationId", element: <Keyed param="simulationId">{(k) => <SimulationPage key={k} />}</Keyed> },
       { path: "print/traveller/:woId", element: <TravellerPage /> },
       { path: "print/labels", element: <LabelsPage /> },
+      // ---------------------------------------------------------------- M5
+      {
+        path: "integration",
+        element: <IntegrationLayout />,
+        children: [
+          { index: true, element: <IntegrationOverview /> },
+          { path: "settings", element: <IntegrationSettingsTab /> },
+          { path: "endpoints", element: <EndpointsTab /> },
+          { path: "deliveries", element: <DeliveriesTab /> },
+          { path: "batches", element: <BatchesTab /> },
+          { path: "batches/:batchId", element: <BatchPage /> },
+          { path: "events", element: <EventsTab /> },
+          { path: "filedrop", element: <FiledropTab /> },
+          { path: "value-maps", element: <ValueMapsTab /> },
+          { path: "reconciliation", element: <ReconciliationTab /> },
+          { path: "reconciliation/:reconId", element: <ReconciliationPage /> },
+          { path: "tokens", element: <PlantTokensTab /> },
+          { path: "*", element: <MfgNotFound /> },
+        ],
+      },
+      { path: "trace", element: <TracePage /> },
+      { path: "trace/where-used", element: <WhereUsedPage /> },
+      { path: "recalls", element: <RecallsPage /> },
+      { path: "recalls/:recallId", element: <Keyed param="recallId">{(k) => <RecallPage key={k} />}</Keyed> },
+      { path: "eco", element: <EcoListPage /> },
+      { path: "eco/:ecoId", element: <Keyed param="ecoId">{(k) => <EcoPage key={k} />}</Keyed> },
+      { path: "transfers", element: <TransfersPage /> },
+      { path: "transfers/:transferId", element: <Keyed param="transferId">{(k) => <TransferPage key={k} />}</Keyed> },
+      { path: "audit", element: <AuditPage /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

@@ -7,8 +7,8 @@ import { FETCH_CREDENTIALS, authHeaders, onAuthError } from "./authFetch";
 import type { AuthConfig, PendingLogin, RecoveryCodes, TotpSetup, TotpStatus } from "../mfg/api/typesM5";
 import type { ChangePasswordRequest, SessionInfo, SignInRequest, SignUpRequest } from "./types";
 
-async function call<T>(path: string, method: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const headers: Record<string, string> = { Accept: "application/json", ...authHeaders(method) };
+async function call<T>(path: string, method: string, body?: unknown, signal?: AbortSignal, extra?: Record<string, string>): Promise<T> {
+  const headers: Record<string, string> = { Accept: "application/json", ...authHeaders(method), ...(extra ?? {}) };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   let res: Response;
   try {
@@ -46,10 +46,11 @@ export const fetchAuthConfig = (signal?: AbortSignal) => call<AuthConfig>("/conf
 export const oidcLoginUrl = (next: string) => `${API_BASE}/auth/oidc/login?next=${encodeURIComponent(next)}`;
 export const postLoginTotp = (body: { pending_token: string; code?: string; recovery_code?: string }) => call<SessionInfo>("/login/totp", "POST", body);
 export const fetchTotpStatus = (signal?: AbortSignal) => call<TotpStatus>("/totp", "GET", undefined, signal);
-/** `pending_token` when the organisation forces setup during sign-in */
-export const postTotpSetup = (pendingToken?: string) => call<TotpSetup>("/totp/setup", "POST", pendingToken ? { pending_token: pendingToken } : {});
-export const postTotpEnable = (code: string, pendingToken?: string) =>
-  call<RecoveryCodes & Partial<SessionInfo>>("/totp/enable", "POST", pendingToken ? { code, pending_token: pendingToken } : { code });
+/** forced setup during sign-in: the pending login is sent as `X-SP-Pending-Login` instead of a session */
+const PENDING_HEADER = "X-SP-Pending-Login";
+const pendingHeaders = (pendingToken?: string) => (pendingToken ? { [PENDING_HEADER]: pendingToken } : undefined);
+export const postTotpSetup = (pendingToken?: string) => call<TotpSetup>("/totp/setup", "POST", {}, undefined, pendingHeaders(pendingToken));
+export const postTotpEnable = (code: string, pendingToken?: string) => call<RecoveryCodes>("/totp/enable", "POST", { code }, undefined, pendingHeaders(pendingToken));
 export const postTotpDisable = (code: string) => call<void>("/totp/disable", "POST", { code });
 export const postRecoveryCodes = (code: string) => call<RecoveryCodes>("/totp/recovery-codes", "POST", { code });
 
@@ -110,6 +111,8 @@ export function authErrorMessage(err: unknown): string | null {
       return "Enter the code from your authenticator app to finish signing in.";
     case "AUTH_PENDING_EXPIRED":
       return "Signing in took too long. Enter your email and password again.";
+    case "AUTH_2FA_NOT_SET_UP":
+      return "Two-step verification is off for this account.";
     default:
       return null;
   }

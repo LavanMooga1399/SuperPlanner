@@ -48,6 +48,8 @@ from .mfg import router_m3 as mfg_router_m3
 from .mfg import router_m4 as mfg_router_m4
 from ..identity import router as identity_router
 from ..integration import router as integration_router
+from ..orgs import router as orgs_router
+from .mfg import router_m5 as mfg_router_m5
 from .routes import health, metrics, problems, schedules, solver_runs, templates
 
 API_PREFIX = "/api/v1"
@@ -88,7 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     protected = (templates.router, problems.router, solver_runs.router, schedules.router, finance_router.router,
                  intake_router.router, mfg_router.router, mfg_router_m2.router,
                  mfg_router_m3.router, mfg_router_m4.router, identity_router.tokens_router,
-                 integration_router.router)
+                 integration_router.router, orgs_router.router, mfg_router_m5.router, mfg_router_m5.audit_router)
     for r in protected:
         app.include_router(r, prefix=API_PREFIX, dependencies=[Depends(require_user)])
     body_gate.install(app, protected)   # 401/403 before 422 also for unparseable JSON bodies

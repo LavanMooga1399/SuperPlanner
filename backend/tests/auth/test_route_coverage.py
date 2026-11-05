@@ -39,15 +39,15 @@ def test_enumerated_operations_equal_the_access_table(db_url):
     assert protected == PROTECTED | MFG_PROTECTED, {
         "new (add to route_table.py)": sorted(protected - PROTECTED - MFG_PROTECTED),
         "missing": sorted((PROTECTED | MFG_PROTECTED) - protected)}
-    assert len(PROTECTED) == 55   # B 4.8 rows 9-63 (56 pre-2b endpoints = these + GET /health)
+    assert len(PROTECTED) == 55 + 40   # B 4.8 rows 9-63 (+ M5: tokens, integration, orgs, audit)
 
 
 def test_every_mfg_operation_declares_exactly_the_permission_of_the_access_table():
     """M2-DESIGN 10.2: each mfg route has exactly one `require_perm` dependency; route set == table set."""
-    from superplanner.api.mfg import router as m1, router_m2 as m2, router_m3 as m3, router_m4 as m4
+    from superplanner.api.mfg import router as m1, router_m2 as m2, router_m3 as m3, router_m4 as m4, router_m5 as m5
 
     found: dict[tuple[str, str], str] = {}
-    for mod in (m1, m2, m3, m4):
+    for mod in (m1, m2, m3, m4, m5):
         for rt in mod.router.routes:
             perms = [d.dependency.mfg_permission for d in rt.dependencies
                      if hasattr(d.dependency, "mfg_permission")]

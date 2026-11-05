@@ -105,7 +105,9 @@ def test_development_defaults(monkeypatch):
     assert s.cors_origins == list(DEFAULT_CORS_ORIGINS) and s.cors_allow_credentials is True
     assert s.worker_embedded == "auto" and s.embedded_workers == s.run_workers
     assert s.log_format == "text" and s.public_base_url == "http://127.0.0.1:5173"
-    assert s.worker_kinds == ["solver_run", "finance_run", "aps_run", "aps_simulation"]   # default kinds = all (M4)
+    from superplanner.jobs.types import JOB_KINDS
+
+    assert s.worker_kinds == list(JOB_KINDS) and "integration_delivery" in JOB_KINDS   # default kinds = all (M5)
     assert s.schema_url == PG
     s = Settings(database_url=PG, auth_mode="single_user")      # development only
     assert s.single_user

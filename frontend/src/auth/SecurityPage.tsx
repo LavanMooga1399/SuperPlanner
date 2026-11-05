@@ -13,11 +13,10 @@ import { Banner } from "../components/Banner";
 import { Icon } from "../components/Icon";
 import { QrCode } from "../components/QrCode";
 import type { TotpSetup, TotpStatus } from "../mfg/api/typesM5";
-import { fetchTotpStatus, postRecoveryCodes, postTotpDisable, postTotpEnable, postTotpSetup } from "./api";
+import { fetchTotpStatus, postLoginTotp, postRecoveryCodes, postTotpDisable, postTotpEnable, postTotpSetup } from "./api";
 import { useAuth } from "./AuthContext";
 import { FormError, authFailureText } from "./AuthFields";
 import { safeNext } from "./nextPath";
-import type { SessionInfo } from "./types";
 import "./auth.css";
 
 const groups = (s: string) => s.replace(/\s+/g, "").match(/.{1,4}/g)?.join(" ") ?? s;
@@ -35,6 +34,8 @@ export function SecurityPage() {
   const [saved, setSaved] = useState(false);
   const [code, setCode] = useState("");
   const [mode, setMode] = useState<null | "disable" | "recovery">(null);
+  // forced setup during sign-in: after the codes, one more (new) code finishes the sign-in
+  const [finishing, setFinishing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,8 +79,6 @@ export function SecurityPage() {
       setCodes(out.recovery_codes);
       setSetup(null);
       setCode("");
-      // setup forced during sign-in: enabling completes the sign-in (the answer carries the session)
-      if (out.auth_mode && out.authenticated !== undefined) auth.applySession(out as SessionInfo);
       setStatus({ enabled: true, enabled_at: new Date().toISOString(), recovery_codes_left: out.recovery_codes.length, required_by_org: status?.required_by_org ?? required });
     } catch (err) {
       setError(authFailureText(err));
@@ -152,7 +151,41 @@ export function SecurityPage() {
             {error}
           </FormError>
 
-          {codes ? (
+          {finishing && pendingToken ? (
+            <form
+              className="col"
+              style={{ gap: 10 }}
+              data-testid="totp-finish"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const c = code.replace(/\s+/g, "");
+                if (!/^\d{6}$/.test(c)) return setError("Enter the 6-digit code your app shows now.");
+                setBusy(true);
+                setError(null);
+                try {
+                  auth.applySession(await postLoginTotp({ pending_token: pendingToken, code: c }));
+                  navigate(next, { replace: true });
+                } catch (err) {
+                  setError(authFailureText(err));
+                  setCode("");
+                  setBusy(false);
+                }
+              }}
+            >
+              <Banner tone="ok" title="Two-step verification is on">
+                Finish signing in with the next code your app shows (wait for it to change if you just used one).
+              </Banner>
+              <div className="field" style={{ maxWidth: 240 }}>
+                <label htmlFor="totp-finish">Code</label>
+                <input id="totp-finish" className="input auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} autoFocus data-testid="totp-finish-code" />
+              </div>
+              <div>
+                <button type="submit" className="btn primary" disabled={busy} data-testid="totp-finish-submit">
+                  <Icon name="arrow-right" /> Sign in
+                </button>
+              </div>
+            </form>
+          ) : codes ? (
             <div className="col" style={{ gap: 10 }} data-testid="recovery-codes">
               <Banner tone="ok" title={status?.enabled ? "Two-step verification is on" : "New recovery codes"}>
                 Save these recovery codes somewhere safe, away from your phone. Each one signs you in once if you lose the phone. They are shown only now.
@@ -180,7 +213,8 @@ export function SecurityPage() {
                   disabled={!saved}
                   onClick={() => {
                     setCodes(null);
-                    if (required || pendingToken) navigate(next, { replace: true });
+                    if (pendingToken) setFinishing(true);
+                    else if (required) navigate(next, { replace: true });
                   }}
                   data-testid="recovery-done"
                 >

@@ -128,11 +128,20 @@ def check_url(url: str, allow_private: bool) -> None:
                            {"loc": ["body", "url"], "address": str(ip)})
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Redirects are not followed (a 3xx to an internal host would bypass the SSRF guard); a 3xx is a failure."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+        return None
+
+
 def http_post(url: str, body: bytes, headers: dict[str, str]) -> tuple[int, str]:
     req = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": "application/json",
                                                                         **headers})
+    opener = urllib.request.build_opener(_NoRedirect(), urllib.request.HTTPSHandler(
+        context=ssl.create_default_context()))
     try:
-        with urllib.request.urlopen(req, timeout=DELIVERY_TIMEOUT, context=ssl.create_default_context()) as r:  # noqa: S310
+        with opener.open(req, timeout=DELIVERY_TIMEOUT) as r:
             return r.status, ""
     except urllib.error.HTTPError as e:
         return e.code, f"HTTP {e.code}"
@@ -145,9 +154,12 @@ def backoff(attempts: int) -> int:
 
 
 def deliver_endpoint(s: Session, endpoint: Any, secret: str, plant: dict[str, Any], post: Poster,
-                     now: datetime | None = None, max_events: int = 500) -> dict[str, int]:
+                     now: datetime | None = None, max_events: int = 500,
+                     allow_private: bool | None = None) -> dict[str, int]:
     """Deliver due events of one endpoint in seq order (caller holds the endpoint row lock). Stops at the first
-    failure (FIFO). Returns counts."""
+    failure (FIFO). Returns counts. With `allow_private` given, the URL is re-checked right before posting (the
+    host may resolve differently than when the endpoint was saved); a refused URL is a failed attempt, no
+    request is sent."""
     from ..api.mfg.db_models_m5 import IntDeliveryRow, IntOutboxRow
 
     now = now or datetime.now(UTC)
@@ -171,7 +183,13 @@ def deliver_endpoint(s: Session, endpoint: Any, secret: str, plant: dict[str, An
             break
         body = json.dumps(_json(event_view(ev, plant)), separators=(",", ":"), sort_keys=True).encode()
         t = int(now.timestamp())
-        code, err = post(endpoint.url, body, {"SP-Event-Id": str(ev.seq), "SP-Signature": sign(secret, body, t)})
+        try:
+            if allow_private is not None:
+                check_url(endpoint.url, allow_private)
+            code, err = post(endpoint.url, body, {"SP-Event-Id": str(ev.seq),
+                                                  "SP-Signature": sign(secret, body, t)})
+        except ApiError as e:
+            code, err = 0, f"{e.code}: {e.message}"
         d.attempts += 1
         d.last_status_code = code or None
         if 200 <= code < 300:

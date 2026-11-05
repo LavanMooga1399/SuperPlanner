@@ -480,4 +480,46 @@ Decided by LEAD 2026-11-05 (the product owner delegated configuration-type decis
 
 ### 15.WP-S Backend
 
+**S0 frozen (2026-11-05).** Contract: `integration/contract.py` (superplanner.v1 records, batch, event),
+`integration/model.py` (console), `identity/schemas.py`, `orgs/model.py`, `mfg/model_m5.py` (trace, recall, ECO,
+transfers, audit rows). Typed examples: `backend/superplanner/integration/fixtures/example_m5.json` (built and
+validated by `build_example.py`). Migration `0007_m5` = `migrate.HEAD` (up/down tested). All routes of 9 are live
+with their permissions (`tests/auth/route_table.py`: 28 new `/mfg` operations, 40 protected tokens / integration /
+orgs / audit operations, 9 public `/auth` additions); trace / recall / ECO / transfer routes answer from the fixture
+until their services land.
+
+Built for real in this round: identity (OIDC code + PKCE against a fake IdP with real RS256 / ES256 JWKS, TOTP with
+recovery codes and the pending-login step, org-forced 2FA at sign-in, SSO-required domains, API tokens with scopes,
+expiry, revocation, per-token rate limit), organisations (orgs, members, plants with plant principals, plant roles,
+overview, publish record), integration (settings and SoR incl. `goods_receipts_owner`, value maps, mapping profiles,
+inbound batches for `item` and `po_receipt` with idempotency, outbox with emits from WOs / postings / PRs / floor /
+publish, cursor pull, signed webhooks with FIFO backoff and dead state, SSRF guard, stock reconciliation), audit
+hash chain with events / export. Not yet built (fixture-backed): genealogy edges and queries, recalls / quarantine,
+ECO services, transfer orders, file drop worker, publish execution, retention / archive, convert-plant and the
+other `manage.py` commands, scheduled delivery job, DEPLOY.md section 8.
+
+Deviations / interpretations:
+1. Jobs: target columns `int_inbox_id`, `int_reconciliation_id`, `org_publish_id`, `maintenance_run_id`; the
+   duty-style kinds (`integration_filedrop`, `integration_delivery`, `maintenance_retention`, `trace_backfill`)
+   target a `maintenance_runs` row (new platform table, with `org_publishes`) because the job machinery mirrors a
+   run status. New platform table `auth_pending_logins` (the 5-minute TOTP step).
+2. `oidc_states` stores `state_hash` (sha256 of the state) and the PKCE verifier encrypted with a key derived from
+   the raw state, so the database alone reveals neither (no SECRETS_KEY needed for SSO).
+3. 2FA step: `POST /auth/sign-in` answers 403 `AUTH_2FA_REQUIRED` with `details.pending_token` (and
+   `setup_required` when an organisation forces 2FA and the user has none; setup / enable then accept the pending
+   token in `X-SP-Pending-Login`). The M2 `SessionInfo` response stays unchanged.
+4. Sessions of users without a password are valid for `kind = person` (SSO users); plant / service principals can
+   never hold a session.
+5. Per-token rate limit is in-process per API replica (fixed one-minute windows), not in PostgreSQL (AP1 budget).
+6. Integration endpoints use `require_integration(scope)`: sessions need `integration_admin`; tokens need the scope
+   (or `integration_admin`) **and** a holder with `integration_admin` in the plant (403 `TOKEN_SCOPE` /
+   `MFG_FORBIDDEN`). Inbound batches with integration disabled: 409 `INT_DISABLED`. A local write of an ERP-owned
+   field is enforced for items (409 `INT_ERP_OWNED`, incl. creating items while items are ERP-owned) and for PO
+   receipts when `goods_receipts_owner = erp`; the other entities' local guards follow with their inbound mappers.
+   `po_receipts` SoR always follows `goods_receipts_owner`.
+7. Audit: `owner_id` = the bound plant (None for platform events, which share one chain); the chain is per owner by
+   id order; rows written before 0007 have no hash and are skipped by `verify`. Audit routes allow the plant owner and
+   `plant_admin` (tokens need scope `owner`); org-wide audit for org admins is not built yet.
+8. `users.kind` keeps a server default (`users` is a platform table that already uses server defaults).
+
 ### 15.WP-U UI

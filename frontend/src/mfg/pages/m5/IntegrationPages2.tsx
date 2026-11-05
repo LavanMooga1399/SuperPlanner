@@ -6,13 +6,13 @@ import { Banner } from "../../../components/Banner";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { Dialog } from "../../../components/Dialog";
 import { Icon } from "../../../components/Icon";
-import { saveBlob } from "../../api/client";
+import { listItems } from "../../api/client";
 import {
   createEndpoint,
   deleteEndpoint,
-  exportReconciliation,
   getBatch,
   getFiledropStatus,
+  getIntegrationSettings,
   getReconciliation,
   getValueMaps,
   listBatches,
@@ -21,14 +21,13 @@ import {
   listEvents,
   listMappingProfiles,
   listReconciliations,
-  parkDelivery,
   putValueMaps,
   retryDelivery,
   startReconciliation,
   testEndpoint,
   updateEndpoint,
 } from "../../api/clientM5";
-import type { Batch, BatchRecordResult, Delivery, DeliveryStatus, Endpoint, EndpointCreated, ReconKind, ReconRow, ValueMap } from "../../api/typesM5";
+import type { Batch, BatchRecordResult, Delivery, Endpoint, ReconKind, ReconRow, StockSnapshotV1, ValueMap } from "../../api/typesM5";
 import { MfgError, Spinner } from "../../components/Feedback";
 import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
@@ -55,18 +54,26 @@ const EVENT_TYPES = [
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "medium" }) : "");
 
 // ---------------------------------------------------------------- webhooks
+/** 32 random bytes, url-safe base64: the signing secret (shown once; the server stores it encrypted) */
+function newSecret(): string {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 export function EndpointsTab() {
   const can = useCan("integration_admin");
   const eps = useLoad((signal) => listEndpoints(signal), []);
   const [edit, setEdit] = useState<Endpoint | "new" | null>(null);
-  const [created, setCreated] = useState<EndpointCreated | null>(null);
+  const [created, setCreated] = useState<{ name: string; secret: string } | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, string>>({});
   const [del, setDel] = useState<Endpoint | null>(null);
+  const [error, setError] = useState<unknown>(null);
   return (
     <div className="col gap-lg" data-testid="int-endpoints">
       {created ? (
-        <Banner tone="ok" title={`Webhook "${created.name}" added`} testId="endpoint-secret">
+        <Banner tone="ok" title={`Webhook "${created.name}" saved`} testId="endpoint-secret">
           <div className="col" style={{ gap: 6 }}>
             <span>Give this signing secret to the receiving system now; it is not shown again. The receiver checks the SP-Signature header with it.</span>
             <code className="totp-secret">{created.secret}</code>
@@ -90,7 +97,7 @@ export function EndpointsTab() {
             </button>
           ) : null}
         </div>
-        <MfgError error={eps.error} onRetry={eps.reload} />
+        <MfgError error={error ?? eps.error} onRetry={eps.reload} />
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -121,21 +128,20 @@ export function EndpointsTab() {
                   </td>
                   <td className="small">{e.event_types.length ? `${e.event_types.length} types` : "all events"}</td>
                   <td className="small">
-                    {e.stats?.dead ? (
+                    {e.dead ? (
                       <span className="badge danger">
-                        <Icon name="alert" /> {e.stats.dead} failed
+                        <Icon name="alert" /> {e.dead} failed
                       </span>
-                    ) : e.stats?.blocked ? (
+                    ) : e.pending ? (
                       <span className="badge warn">
-                        <Icon name="clock" /> retrying, later events wait
+                        <Icon name="clock" /> {e.pending} waiting
                       </span>
                     ) : (
                       <span className="badge ok">
-                        <Icon name="check" /> ok
+                        <Icon name="check" /> up to date
                       </span>
                     )}
-                    {e.stats?.pending ? <div className="faint">{e.stats.pending} waiting</div> : null}
-                    {e.stats?.last_error ? <div className="faint">{e.stats.last_error}</div> : null}
+                    <div className="faint">sent up to event #{e.cursor}</div>
                     {testResult[e.id] ? <div data-testid="endpoint-test-result">{testResult[e.id]}</div> : null}
                   </td>
                   <td className="right">
@@ -145,20 +151,22 @@ export function EndpointsTab() {
                           type="button"
                           className="btn sm"
                           disabled={testing === e.id}
+                          title="Send what is waiting for this webhook now"
                           onClick={async () => {
                             setTesting(e.id);
                             try {
-                              const r = await testEndpoint(e.id);
-                              setTestResult((x) => ({ ...x, [e.id]: r.ok ? `Test delivered (${r.status_code ?? "2xx"}${r.duration_ms ? `, ${r.duration_ms} ms` : ""})` : `Test failed: ${r.error ?? r.status_code}` }));
+                              await testEndpoint(e.id);
+                              setTestResult((x) => ({ ...x, [e.id]: "Sent; see Deliveries for the answers." }));
+                              eps.reload();
                             } catch (err) {
-                              setTestResult((x) => ({ ...x, [e.id]: `Test failed: ${(err as Error).message}` }));
+                              setTestResult((x) => ({ ...x, [e.id]: `Could not send: ${(err as Error).message}` }));
                             } finally {
                               setTesting(null);
                             }
                           }}
                           data-testid="endpoint-test"
                         >
-                          Send test
+                          Send now
                         </button>
                         <button type="button" className="btn sm ghost" onClick={() => setEdit(e)}>
                           Edit
@@ -179,9 +187,9 @@ export function EndpointsTab() {
         <EndpointDialog
           ep={edit === "new" ? null : edit}
           onClose={() => setEdit(null)}
-          onSaved={(x) => {
+          onSaved={(x, secret) => {
             setEdit(null);
-            if ("secret" in x) setCreated(x as EndpointCreated);
+            if (secret) setCreated({ name: x.name, secret });
             eps.reload();
           }}
         />
@@ -194,7 +202,9 @@ export function EndpointsTab() {
           onCancel={() => setDel(null)}
           onConfirm={async () => {
             try {
-              await deleteEndpoint(del.id);
+              await deleteEndpoint(del.id, del.row_version);
+            } catch (e) {
+              setError(e);
             } finally {
               setDel(null);
               eps.reload();
@@ -208,12 +218,13 @@ export function EndpointsTab() {
   );
 }
 
-function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose(): void; onSaved(x: Endpoint): void }) {
+function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose(): void; onSaved(x: Endpoint, secret: string | null): void }) {
   const [name, setName] = useState(ep?.name ?? "");
   const [url, setUrl] = useState(ep?.url ?? "https://");
   const [all, setAll] = useState(!ep || ep.event_types.length === 0);
   const [types, setTypes] = useState<Set<string>>(new Set(ep?.event_types ?? []));
   const [active, setActive] = useState(ep?.active ?? true);
+  const [rotate, setRotate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const urlOk = /^https:\/\/[^\s/]+/.test(url.trim());
@@ -235,8 +246,9 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
               setBusy(true);
               setError(null);
               try {
-                const body = { name: name.trim(), url: url.trim(), event_types: all ? [] : [...types], active };
-                onSaved(ep ? await updateEndpoint(ep.id, body) : await createEndpoint(body));
+                const secret = !ep || rotate ? newSecret() : null;
+                const body = { name: name.trim(), url: url.trim(), event_types: all ? [] : [...types], active, ...(secret ? { secret } : {}) };
+                onSaved(ep ? await updateEndpoint(ep.id, body, ep.row_version) : await createEndpoint(body), secret);
               } catch (e) {
                 setError(e);
                 setBusy(false);
@@ -286,6 +298,13 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
         <label className="checkbox">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active (off = pause sending; events wait)
         </label>
+        {ep ? (
+          <label className="checkbox">
+            <input type="checkbox" checked={rotate} onChange={(e) => setRotate(e.target.checked)} /> Make a new signing secret (the receiver needs the new one)
+          </label>
+        ) : (
+          <span className="faint small">A signing secret is made for you and shown once after saving.</span>
+        )}
         <MfgError error={error} />
       </div>
     </Dialog>
@@ -293,17 +312,21 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
 }
 
 // ---------------------------------------------------------------- deliveries
-const DELIVERY: Record<DeliveryStatus, { label: string; tone: string; icon: "check" | "clock" | "alert" | "refresh" }> = {
+type DeliveryView = "pending" | "retrying" | "delivered" | "dead";
+const DELIVERY: Record<DeliveryView, { label: string; tone: string; icon: "check" | "clock" | "alert" | "refresh" }> = {
   pending: { label: "Waiting", tone: "info", icon: "clock" },
   retrying: { label: "Retrying", tone: "warn", icon: "refresh" },
   delivered: { label: "Delivered", tone: "ok", icon: "check" },
   dead: { label: "Failed (stopped)", tone: "danger", icon: "alert" },
 };
+const viewOf = (d: Delivery): DeliveryView => (d.status === "pending" && d.attempts > 0 ? "retrying" : d.status);
 
 export function DeliveriesTab() {
   const can = useCan("integration_admin");
   const [params, setParams] = useSearchParams();
   const status = params.get("status") ?? "";
+  const eps = useLoad((signal) => listEndpoints(signal).catch(() => null), []);
+  const epName = (id: string) => eps.data?.items.find((e) => e.id === id)?.name ?? id;
   const data = usePaged<Delivery>((offset, limit, signal) => listDeliveries({ status: status || undefined, limit, offset }, signal), [status]);
   usePolling(data.reload, true, 15000);
   const [busy, setBusy] = useState<string | null>(null);
@@ -323,14 +346,14 @@ export function DeliveriesTab() {
   return (
     <div className="col gap-lg" data-testid="int-deliveries">
       <div className="row wrap" role="group" aria-label="Filter by status">
-        {(["", "dead", "retrying", "pending", "delivered"] as const).map((s) => (
+        {(["", "dead", "pending", "delivered"] as const).map((s) => (
           <button key={s || "all"} type="button" className={`btn sm${status === s ? " primary" : ""}`} aria-pressed={status === s} onClick={() => setSearchParam(setParams, "status", s)}>
-            {s ? DELIVERY[s].label : "All"}
+            {s ? (s === "pending" ? "Waiting or retrying" : DELIVERY[s].label) : "All"}
           </button>
         ))}
       </div>
       <p className="muted small" style={{ margin: 0 }}>
-        Events go to each webhook one at a time, in order. A failing event is retried with growing pauses for up to 24 hours, then stops; events after it wait. Retry it after the receiver is fixed, or park it to let the rest through.
+        Events go to each webhook one at a time, in order. A failing event is retried with growing pauses for up to 24 hours, then stops; events after it wait. Fix the receiver, then retry it.
       </p>
       <MfgError error={error ?? data.error} onRetry={data.reload} />
       <div className="table-wrap card">
@@ -354,19 +377,19 @@ export function DeliveriesTab() {
               </tr>
             ) : null}
             {data.rows.map((d) => {
-              const m = DELIVERY[d.status] ?? DELIVERY.pending;
+              const v = viewOf(d);
+              const m = DELIVERY[v];
               return (
                 <tr key={d.id} data-testid="delivery-row" data-status={d.status}>
                   <td>
-                    <span className="mono">#{d.event_seq}</span> <span className="mono small">{d.event_type}</span>
+                    <span className="mono">#{d.event_seq}</span> <span className="mono small">{d.event_type ?? ""}</span>
                   </td>
-                  <td>{d.endpoint.name}</td>
+                  <td>{epName(d.endpoint_id)}</td>
                   <td>
                     <span className={`badge ${m.tone}`}>
                       <Icon name={m.icon} /> {m.label}
                     </span>
-                    {d.blocked_by_seq ? <div className="small faint">waits for #{d.blocked_by_seq}</div> : null}
-                    {d.status === "retrying" && d.next_attempt_at ? <div className="small faint">next try {when(d.next_attempt_at)}</div> : null}
+                    {v === "retrying" && d.next_attempt_at ? <div className="small faint">next try {when(d.next_attempt_at)}</div> : null}
                     {d.delivered_at ? <div className="small faint">{when(d.delivered_at)}</div> : null}
                   </td>
                   <td>{d.attempts}</td>
@@ -374,17 +397,10 @@ export function DeliveriesTab() {
                     {d.last_status_code ? `HTTP ${d.last_status_code}` : ""} {d.last_error ?? ""}
                   </td>
                   <td className="right">
-                    {can && (d.status === "dead" || d.status === "retrying") ? (
-                      <span className="row" style={{ justifyContent: "flex-end" }}>
-                        <button type="button" className="btn sm" disabled={busy === d.id} onClick={() => void act(d.id, () => retryDelivery(d.id))} data-testid="delivery-retry">
-                          <Icon name="refresh" /> Retry now
-                        </button>
-                        {d.status === "retrying" ? (
-                          <button type="button" className="btn sm ghost" disabled={busy === d.id} onClick={() => void act(d.id, () => parkDelivery(d.id))} data-testid="delivery-park" title="Stop retrying this event so later events are sent">
-                            Park
-                          </button>
-                        ) : null}
-                      </span>
+                    {can && (d.status === "dead" || v === "retrying") ? (
+                      <button type="button" className="btn sm" disabled={busy === d.id} onClick={() => void act(d.id, () => retryDelivery(d.id))} data-testid="delivery-retry">
+                        <Icon name="refresh" /> Retry now
+                      </button>
                     ) : null}
                   </td>
                 </tr>
@@ -447,15 +463,15 @@ export function BatchesTab() {
                   {b.entity} <span className="faint small">{b.mode}</span>
                 </td>
                 <td className="small">
-                  {b.source}
+                  {b.source ?? "REST"}
                   {b.filename ? <div className="mono faint">{b.filename}</div> : null}
                 </td>
                 <td>
                   <span className={`badge ${BATCH_TONE[b.status] ?? "info"}`}>{b.status}</span>
                 </td>
-                <td className="right">{b.counts.created}</td>
-                <td className="right">{b.counts.updated}</td>
-                <td className="right">{b.counts.unchanged}</td>
+                <td className="right">{b.counts.created ?? 0}</td>
+                <td className="right">{b.counts.updated ?? 0}</td>
+                <td className="right">{b.counts.unchanged ?? 0}</td>
                 <td className="right">
                   {b.counts.rejected ? (
                     <span className="badge danger">
@@ -502,14 +518,15 @@ export function BatchPage() {
   const d = b.data;
   if (b.loading && !d) return <Spinner />;
   if (!d) return <MfgError error={b.error} onRetry={b.reload} />;
-  const rows = d.results.filter((r) => !only || r.status === only);
+  const results = d.results ?? [];
+  const rows = results.filter((r) => !only || r.status === only);
   return (
     <div className="col gap-lg" data-testid="batch-page" data-status={d.status}>
       <nav className="breadcrumb" aria-label="Breadcrumb">
         <Link to={mfgPaths.integration("batches")}>Data in</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.received_at)}</span>
       </nav>
       <h2 style={{ margin: 0 }}>
-        {d.entity} from {d.source} <span className={`badge ${BATCH_TONE[d.status] ?? "info"}`}>{d.status}</span>
+        {d.entity} {d.source ? `from ${d.source}` : ""} <span className={`badge ${BATCH_TONE[d.status] ?? "info"}`}>{d.status}</span>
       </h2>
       <span className="muted small">
         {d.idempotency_key ? <>Key <span className="mono">{d.idempotency_key}</span> · </> : null}
@@ -519,7 +536,7 @@ export function BatchPage() {
       <div className="row wrap" role="group" aria-label="Show">
         {(["", "rejected", "created", "updated", "unchanged"] as const).map((s) => (
           <button key={s || "all"} type="button" className={`btn sm${only === s ? " primary" : ""}`} aria-pressed={only === s} onClick={() => setOnly(s)} data-testid={`batch-filter-${s || "all"}`}>
-            {s ? `${s[0].toUpperCase()}${s.slice(1)} (${d.counts[s] ?? 0})` : `All (${d.results.length})`}
+            {s ? `${s[0].toUpperCase()}${s.slice(1)} (${d.counts[s] ?? 0})` : `All (${results.length})`}
           </button>
         ))}
       </div>
@@ -638,35 +655,42 @@ export function EventsTab() {
 // ---------------------------------------------------------------- file drop
 export function FiledropTab() {
   const st = useLoad((signal) => getFiledropStatus(signal), []);
+  const settings = useLoad((signal) => getIntegrationSettings(signal).catch(() => null), []);
   const profiles = useLoad((signal) => listMappingProfiles(signal), []);
   usePolling(st.reload, true, 30000);
   const s = st.data;
+  const code = settings.data?.plant_code || "<plant code>";
   return (
     <div className="col gap-lg" data-testid="int-filedrop">
       <MfgError error={st.error} onRetry={st.reload} />
       {s ? (
         <>
           {!s.enabled ? <Banner tone="info" title="File drop is off">Turn it on under Settings, Files.</Banner> : null}
-          <div className="kpis">
-            <div className="card kpi">
-              <div className="kpi-label">Waiting in the inbox</div>
-              <div className="kpi-value">{s.counts.inbox}</div>
-            </div>
-            <div className="card kpi">
-              <div className="kpi-label">Being read</div>
-              <div className="kpi-value">{s.counts.processing}</div>
-            </div>
-            <div className="card kpi">
-              <div className="kpi-label">In error</div>
-              <div className="kpi-value" style={{ color: s.counts.error ? "var(--danger)" : undefined }}>
-                {s.counts.error}
-              </div>
-            </div>
-          </div>
           <p className="muted small" style={{ margin: 0 }}>
-            Folder <span className="mono">{s.plant_code ?? "<plant code>"}/inbox</span> on the integration volume. Files are read once their size stops changing (or a .done file appears), checked like an import, then moved to archive with a .result.json, or to error with a report.
-            {s.last_scan_at ? ` Last check ${when(s.last_scan_at)}.` : ""}
+            Folder <span className="mono">{s.root ? `${s.root}/` : ""}{code}/inbox</span>. Files are read once their size stops changing (or a .done file appears), checked like an import, then moved to archive with a .result.json, or to error with a report.
+            {s.last_poll_at ? ` Last check ${when(s.last_poll_at)}.` : ""}
           </p>
+          <section className="card">
+            <div className="card-header">
+              <h2>Waiting in the inbox ({s.inbox.length})</h2>
+            </div>
+            <table className="table">
+              <tbody>
+                {s.inbox.length === 0 ? (
+                  <tr>
+                    <td className="muted">Nothing waiting.</td>
+                  </tr>
+                ) : null}
+                {s.inbox.map((f, i) => (
+                  <tr key={i}>
+                    <td className="mono small">{f.name ?? f.file}</td>
+                    <td className="small">{f.size !== undefined ? `${fmtBytes(f.size)}` : ""}</td>
+                    <td className="small">{when(f.at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
           <section className="card">
             <div className="card-header">
               <h2>Recent files</h2>
@@ -678,12 +702,12 @@ export function FiledropTab() {
                     <td className="muted">No files yet.</td>
                   </tr>
                 ) : null}
-                {s.recent.map((r) => (
-                  <tr key={`${r.file}${r.at}`}>
-                    <td className="mono small">{r.file}</td>
+                {s.recent.map((r, i) => (
+                  <tr key={i}>
+                    <td className="mono small">{r.file ?? r.name}</td>
                     <td>
                       <span className={`badge ${r.status === "error" ? "danger" : r.status === "archived" ? "ok" : "info"}`}>
-                        <Icon name={r.status === "error" ? "alert" : r.status === "archived" ? "check" : "clock"} /> {r.status === "archived" ? "imported" : r.status}
+                        <Icon name={r.status === "error" ? "alert" : r.status === "archived" ? "check" : "clock"} /> {r.status === "archived" ? "imported" : r.status ?? ""}
                       </span>
                     </td>
                     <td className="small">{r.counts ? Object.entries(r.counts).map(([k, v]) => `${v} ${k}`).join(" · ") : ""}</td>
@@ -717,7 +741,6 @@ export function FiledropTab() {
               <tr key={p.id}>
                 <td>{p.name}</td>
                 <td className="mono small">{p.file_pattern}</td>
-                <td>{p.entity}</td>
               </tr>
             ))}
           </tbody>
@@ -726,6 +749,8 @@ export function FiledropTab() {
     </div>
   );
 }
+
+const fmtBytes = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n > 1024 ? `${Math.round(n / 1024)} kB` : `${n} B`);
 
 // ---------------------------------------------------------------- code mappings
 const DOMAINS = [
@@ -743,7 +768,7 @@ export function ValueMapsTab() {
   const [error, setError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
-    if (vm.data) setRows(vm.data.items);
+    if (vm.data) setRows(vm.data.rows);
   }, [vm.data]);
   const set = (i: number, patch: Partial<ValueMap>) => {
     setSaved(false);
@@ -809,7 +834,7 @@ export function ValueMapsTab() {
               setError(null);
               try {
                 const out = await putValueMaps(rows.map((r) => ({ ...r, external_value: r.external_value.trim(), internal_value: r.internal_value.trim() })));
-                setRows(out.items);
+                setRows(out.rows);
                 setSaved(true);
               } catch (e) {
                 setError(e);
@@ -833,61 +858,87 @@ export function ValueMapsTab() {
 }
 
 // ---------------------------------------------------------------- reconciliation
-const RECON_ENTITIES = [
-  { key: "stock", label: "Stock" },
-  { key: "purchase_orders", label: "Purchase orders" },
-  { key: "items", label: "Items" },
-];
-const RECON_KIND: Record<ReconKind, string> = { missing_in_sp: "Only in the ERP", missing_in_erp: "Only here", different: "Different", sor_conflict: "Changed on both sides" };
+const RECON_KIND: Record<ReconKind, string> = { missing_in_sp: "Only in the ERP", missing_in_erp: "Only here", different: "Different" };
+
+/** CSV (item_ref,location_code,lot_code,qty) or superplanner.v1 JSON (records or a batch) -> stock snapshot records */
+function parseSnapshot(name: string, text: string): StockSnapshotV1[] {
+  const now = new Date().toISOString();
+  // every v1 record carries a stable `ref` and the time of the snapshot
+  const fill = (r: StockSnapshotV1): StockSnapshotV1 => ({ ...r, ref: r.ref ?? `${r.item_ref}|${r.location_code}|${r.lot_code ?? ""}`, as_at: r.as_at ?? now });
+  return parseRaw(name, text).map(fill);
+}
+
+function parseRaw(name: string, text: string): StockSnapshotV1[] {
+  if (/\.json$/i.test(name) || text.trim().startsWith("{") || text.trim().startsWith("[")) {
+    const j = JSON.parse(text) as unknown;
+    const recs = Array.isArray(j) ? j : ((j as { records?: unknown[] }).records ?? []);
+    return recs as StockSnapshotV1[];
+  }
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  const head = lines[0].split(/[;,\t]/).map((h) => h.trim().toLowerCase());
+  const col = (n: string[]) => head.findIndex((h) => n.includes(h));
+  const ci = col(["item_ref", "item", "part_number", "external_ref"]);
+  const cl = col(["location_code", "location"]);
+  const clot = col(["lot_code", "lot"]);
+  const cq = col(["qty", "quantity", "on_hand"]);
+  if (ci < 0 || cl < 0 || cq < 0) throw new Error("The file needs the columns item_ref, location_code and qty (lot_code optional).");
+  return lines.slice(1).map((l) => {
+    const c = l.split(/[;,\t]/).map((x) => x.trim());
+    return { item_ref: c[ci], location_code: c[cl], lot_code: clot >= 0 ? c[clot] || null : null, qty: Number(c[cq]) };
+  });
+}
 
 export function ReconciliationTab() {
   const can = useCan("integration_admin");
   const navigate = useNavigate();
   const list = useLoad((signal) => listReconciliations(signal), []);
-  usePolling(list.reload, (list.data?.items ?? []).some((r) => r.status === "queued" || r.status === "running"), 3000);
-  const [ents, setEnts] = useState<Set<string>>(new Set(["stock"]));
+  const [records, setRecords] = useState<StockSnapshotV1[] | null>(null);
+  const [file, setFile] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   return (
     <div className="col gap-lg" data-testid="int-recon">
       <section className="card">
         <div className="card-header">
-          <h2>Compare with the ERP</h2>
+          <h2>Compare stock with the ERP</h2>
         </div>
         <div className="card-body col">
           <p className="muted" style={{ margin: 0 }}>
-            Compares the ERP's latest snapshot with this plant: records missing on either side and differences (stock by item, location and lot). Nothing is changed; stock differences can be turned into a count posting after review.
+            Load the ERP's stock list (CSV with item_ref, location_code, lot_code, qty, or superplanner.v1 JSON). It is compared by item, location and lot with this plant. Nothing is changed; differences can be turned into a count posting after review.
           </p>
-          <div className="row wrap">
-            {RECON_ENTITIES.map((e) => (
-              <label key={e.key} className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={ents.has(e.key)}
-                  onChange={() =>
-                    setEnts((s) => {
-                      const n = new Set(s);
-                      if (n.has(e.key)) n.delete(e.key);
-                      else n.add(e.key);
-                      return n;
-                    })
-                  }
-                />
-                {e.label}
-              </label>
-            ))}
+          <div className="field">
+            <label htmlFor="rc-file">ERP stock file</label>
+            <input
+              id="rc-file"
+              type="file"
+              accept=".csv,.txt,.json"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                setError(null);
+                setRecords(null);
+                if (!f) return;
+                try {
+                  setRecords(parseSnapshot(f.name, await f.text()));
+                  setFile(f.name);
+                } catch (err) {
+                  setError(err);
+                }
+              }}
+              data-testid="recon-file"
+            />
+            {records ? <span className="hint">{records.length} stock lines read from {file}.</span> : null}
           </div>
           <MfgError error={error} />
           <div>
             <button
               type="button"
               className="btn primary"
-              disabled={!can || busy || ents.size === 0}
+              disabled={!can || busy || !records?.length}
               onClick={async () => {
                 setBusy(true);
                 setError(null);
                 try {
-                  const r = await startReconciliation({ entities: [...ents], snapshot: "adapter" });
+                  const r = await startReconciliation({ entities: ["stock"], snapshot: "inline", records: { stock: records! } });
                   navigate(mfgPaths.integrationRecon(r.id));
                 } catch (e) {
                   setError(e);
@@ -896,7 +947,7 @@ export function ReconciliationTab() {
               }}
               data-testid="recon-start"
             >
-              <Icon name="compare" /> Compare now
+              <Icon name="compare" /> Compare
             </button>
           </div>
         </div>
@@ -913,7 +964,7 @@ export function ReconciliationTab() {
                 <td>
                   <span className={`badge ${r.status === "completed" ? "ok" : r.status === "failed" ? "danger" : "info"}`}>{r.status}</span>
                 </td>
-                <td className="small">{r.summary ? Object.entries(r.summary).filter(([, n]) => n).map(([k, n]) => `${n} ${RECON_KIND[k as ReconKind]?.toLowerCase() ?? k}`).join(" · ") || "all match" : ""}</td>
+                <td className="small">{summaryText(r.summary)}</td>
               </tr>
             ))}
           </tbody>
@@ -921,6 +972,14 @@ export function ReconciliationTab() {
       </div>
     </div>
   );
+}
+
+function summaryText(sum: Record<string, Partial<Record<string, number>>> | null): string {
+  if (!sum) return "";
+  const parts: string[] = [];
+  for (const [ent, m] of Object.entries(sum))
+    for (const k of Object.keys(RECON_KIND) as ReconKind[]) if (m?.[k]) parts.push(`${ent}: ${m[k]} ${RECON_KIND[k].toLowerCase()}`);
+  return parts.join(" · ") || "everything matches";
 }
 
 export function ReconciliationPage() {
@@ -933,12 +992,16 @@ export function ReconciliationPage() {
   const d = r.data;
   if (r.loading && !d) return <Spinner />;
   if (!d) return <MfgError error={r.error} onRetry={r.reload} />;
-  const rows = (d.results ?? []).filter((x) => !kind || x.kind === kind);
-  const stockDiffs = (d.results ?? []).filter((x) => x.entity === "stock" && x.kind === "different" && x.item);
-  const toCount = () => {
-    // reviewed count posting: the store keeper sees the ERP quantities prefilled in the posting form
+  const rows: (ReconRow & { entity: string; kind: ReconKind })[] = [];
+  for (const [ent, m] of Object.entries(d.results ?? {})) for (const k of Object.keys(RECON_KIND) as ReconKind[]) for (const x of m?.[k] ?? []) rows.push({ ...x, entity: ent, kind: k });
+  const shown = rows.filter((x) => !kind || x.kind === kind);
+  const count = (k: ReconKind) => rows.filter((x) => x.kind === k).length;
+  const stockDiffs = rows.filter((x) => x.entity === "stock" && (x.kind === "different" || x.kind === "missing_in_sp") && x.item && x.erp_qty !== null && x.erp_qty !== undefined);
+  const toCount = async () => {
+    // reviewed count posting: the store keeper sees the ERP quantities prefilled; nothing is posted until confirmed
+    const items = await Promise.all(stockDiffs.map((x) => findItemRef(String(x.item))));
     navigate(mfgPaths.post({ type: "count" }), {
-      state: { prefill: { reason: "ERP_SYNC", note: `Reconciliation ${d.id}`, lines: stockDiffs.map((x: ReconRow) => ({ item: x.item, location_code: x.location_code, lot_code: x.lot_code, qty: x.qty_erp })) } },
+      state: { prefill: { reason: "ERP_SYNC", note: `Reconciliation ${d.id}`, lines: stockDiffs.map((x, i) => ({ item: items[i], location_code: x.location, lot_code: x.lot || null, qty: x.erp_qty })).filter((l) => l.item) } },
     });
   };
   return (
@@ -947,60 +1010,55 @@ export function ReconciliationPage() {
         <Link to={mfgPaths.integration("reconciliation")}>Reconciliation</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.created_at)}</span>
       </nav>
       {d.status === "queued" || d.status === "running" ? <Spinner label="Comparing…" /> : null}
-      {d.status === "failed" ? <Banner tone="danger" title="The comparison failed">{d.error?.message}</Banner> : null}
-      {d.summary ? (
+      {d.status === "failed" ? <Banner tone="danger" title="The comparison failed">Try again; if it keeps failing, check the file.</Banner> : null}
+      {d.status === "completed" ? (
         <div className="row wrap" role="group" aria-label="Show">
           <button type="button" className={`btn sm${!kind ? " primary" : ""}`} aria-pressed={!kind} onClick={() => setKind("")}>
-            All
+            All: {rows.length}
           </button>
           {(Object.keys(RECON_KIND) as ReconKind[]).map((k) => (
-            <button key={k} type="button" className={`btn sm${kind === k ? " primary" : ""}`} aria-pressed={kind === k} onClick={() => setKind(k)} data-testid={`recon-kind-${k}`}>
-              {RECON_KIND[k]}: {d.summary?.[k] ?? 0}
+            <button key={k} type="button" className={`btn sm${kind === k ? " primary" : ""}`} aria-pressed={kind === k} onClick={() => setKind(k)} data-testid={`recon-kind-${k}`} data-count={count(k)}>
+              {RECON_KIND[k]}: {count(k)}
             </button>
           ))}
           <span className="grow" />
-          <button type="button" className="btn sm" onClick={async () => saveBlob(await exportReconciliation(d.id))}>
-            <Icon name="download" /> Excel
-          </button>
           {stockDiffs.length && canCount ? (
-            <button type="button" className="btn sm primary" onClick={toCount} data-testid="recon-to-count" title="Opens a count posting with the ERP quantities for review; nothing is posted until you confirm">
+            <button type="button" className="btn sm primary" onClick={() => void toCount()} data-testid="recon-to-count" title="Opens a count posting with the ERP quantities for review">
               Review as stock count ({stockDiffs.length})
             </button>
           ) : null}
         </div>
       ) : null}
-      {d.summary && !(d.results ?? []).length ? (
-        <Banner tone="ok" title="Everything matches">
+      {d.status === "completed" && !rows.length ? (
+        <Banner tone="ok" title="Everything matches" testId="recon-clean">
           No differences between the ERP and this plant.
         </Banner>
       ) : null}
-      {rows.length ? (
+      {shown.length ? (
         <div className="table-wrap card">
           <table className="table" data-testid="recon-results">
             <thead>
               <tr>
                 <th>Data</th>
-                <th>Record</th>
+                <th>Item</th>
+                <th>Location / lot</th>
                 <th>Finding</th>
-                <th>Here</th>
-                <th>ERP</th>
+                <th className="right">Here</th>
+                <th className="right">ERP</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((x, i) => (
+              {shown.map((x, i) => (
                 <tr key={i} data-testid="recon-row" data-kind={x.kind}>
                   <td>{x.entity}</td>
+                  <td className="mono">{String(x.item ?? x.item_ref ?? "")}</td>
+                  <td className="small">{[x.location, x.lot && `lot ${x.lot}`].filter(Boolean).join(" · ")}</td>
                   <td>
-                    <span className="mono">{x.item?.part_number ?? x.ref}</span>
-                    {x.label ? <div className="small">{x.label}</div> : null}
-                    {x.location_code || x.lot_code ? <div className="small faint">{[x.location_code, x.lot_code && `lot ${x.lot_code}`].filter(Boolean).join(" · ")}</div> : null}
+                    <span className={`badge ${x.kind === "different" ? "warn" : "info"}`}>{RECON_KIND[x.kind]}</span>
+                    {x.delta !== undefined ? <div className="small faint">ERP {x.delta > 0 ? "+" : ""}{x.delta}</div> : null}
                   </td>
-                  <td>
-                    <span className={`badge ${x.kind === "different" ? "warn" : x.kind === "sor_conflict" ? "danger" : "info"}`}>{RECON_KIND[x.kind]}</span>
-                    {x.fields?.length ? <div className="small faint">{x.fields.map((f) => f.field).join(", ")}</div> : null}
-                  </td>
-                  <td className="small">{x.qty_sp ?? (x.fields ? x.fields.map((f) => `${f.field}: ${String(f.sp)}`).join("; ") : "")}</td>
-                  <td className="small">{x.qty_erp ?? (x.fields ? x.fields.map((f) => `${f.field}: ${String(f.erp)}`).join("; ") : "")}</td>
+                  <td className="right">{x.sp_qty ?? ""}</td>
+                  <td className="right">{x.erp_qty ?? ""}</td>
                 </tr>
               ))}
             </tbody>
@@ -1009,6 +1067,11 @@ export function ReconciliationPage() {
       ) : null}
     </div>
   );
+}
+
+async function findItemRef(partNumber: string) {
+  const r = await listItems({ q: partNumber, limit: 5, offset: 0 });
+  return r.items.find((x) => x.part_number === partNumber) ?? null;
 }
 
 export function PlantTokensTab() {

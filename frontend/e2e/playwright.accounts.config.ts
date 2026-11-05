@@ -65,6 +65,8 @@ export default defineConfig({
         CORS_ORIGINS: UI_ORIGIN,
         // Test-only fast argon2 profile (refused outside APP_ENV=development); keeps sign-up/sign-in quick.
         PASSWORD_HASH_PROFILE: "fast",
+        // M5 3.2: TOTP secrets are encrypted at rest; a fixed test-only key (never used outside this e2e run)
+        SECRETS_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
       },
       url: `http://127.0.0.1:${API_PORT}/api/v1/health`,
       reuseExistingServer: false,

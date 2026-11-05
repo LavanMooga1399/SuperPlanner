@@ -29,6 +29,15 @@ const EXECUTION: Section[] = [
   { key: "replan", label: "Replanning", to: mfgPaths.replan(), icon: "refresh" },
   { key: "kpis", label: "KPIs", to: mfgPaths.kpis(), icon: "graph" },
   { key: "serials", label: "Serials", to: mfgPaths.serials(), icon: "list" },
+  { key: "trace", label: "Trace and recall", to: mfgPaths.trace(), icon: "graph" },
+];
+
+/** M5: engineering changes, transfers, integration and audit */
+const CONTROL: Section[] = [
+  { key: "eco", label: "Engineering changes", to: mfgPaths.ecos(), icon: "refresh" },
+  { key: "transfers", label: "Transfers", to: mfgPaths.transfers(), icon: "arrow-right" },
+  { key: "integration", label: "ERP integration", to: mfgPaths.integration(), icon: "upload" },
+  { key: "audit", label: "Audit trail", to: mfgPaths.audit(), icon: "book" },
 ];
 
 const PLANNING: Section[] = [
@@ -85,6 +94,7 @@ function MfgNav() {
         <NavGroup label="Setup" sections={setup} testId="nav-group-setup" />
         <NavGroup label="Planning & stores" sections={PLANNING} testId="nav-group-planning" />
         <NavGroup label="Execution" sections={EXECUTION} testId="nav-group-execution" />
+        <NavGroup label="Control" sections={CONTROL} testId="nav-group-control" />
       </nav>
       <div className="row mfg-nav-side">
         <NotificationBell />
