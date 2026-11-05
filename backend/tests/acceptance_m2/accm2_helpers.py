@@ -349,7 +349,8 @@ def push_plant(api: Api, plant: Any) -> dict[str, Any]:
                                                        for c in w.components]})
         if w.status in ("released", "in_progress"):
             reserve = any(c.id in rsv_by_comp for c in w.components)
-            rec = api.post(f"/work-orders/{rec['id']}/release", {"reserve": reserve}, status=200,
+            rec = api.post(f"/work-orders/{rec['id']}/release",
+                           {"reserve": reserve, "override_reason": "oracle plant: released as given"}, status=200,
                            version=rec["row_version"])
         out["wos"][w.id] = rec
     return out

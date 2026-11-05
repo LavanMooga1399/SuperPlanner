@@ -52,7 +52,7 @@ def _setup(base: str) -> tuple[list[str], str]:
 def _balances(base: str, items: list[str], loc: str) -> dict[str, dict]:
     out = {}
     for i in items:
-        rows = _req(base, "GET", "/inventory/balances", params={"item_id": i, "location_id": loc}).json()["items"]
+        rows = _req(base, "GET", "/inventory/balances", params={"item_id": i, "location_id": loc, "only_nonzero": "false"}).json()["items"]
         assert len(rows) == 1, rows
         out[i] = rows[0]
     return out
