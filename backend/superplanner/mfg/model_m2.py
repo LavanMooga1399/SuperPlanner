@@ -40,9 +40,10 @@ LeadDays = Annotated[int, Field(ge=0, le=730)]
 Currency = _short(8)
 SupplierLot = _short(64)
 PostingType = Literal["receipt_misc", "issue_misc", "adjust", "count", "transfer", "po_receipt", "wo_issue",
-                      "wo_return", "wo_receipt", "ship"]
+                      "wo_return", "wo_receipt", "ship", "transfer_ship", "transfer_receipt"]
 POSTING_TYPES: tuple[str, ...] = ("receipt_misc", "issue_misc", "adjust", "count", "transfer", "po_receipt",
-                                  "wo_issue", "wo_return", "wo_receipt", "ship")
+                                  "wo_issue", "wo_return", "wo_receipt", "ship", "transfer_ship",
+                                  "transfer_receipt")    # M5-DESIGN 3.5: inter-plant transfer orders
 DemandType = Literal["customer", "internal", "spares", "project"]
 DEMAND_TYPES: tuple[str, ...] = ("customer", "internal", "spares", "project")
 PR_STATUSES: tuple[str, ...] = ("draft", "submitted", "approved", "rejected", "ordered", "cancelled")
@@ -334,6 +335,23 @@ class ShipLine(_LineBase):
     qty: Qty
 
 
+class TransferShipLine(_LineBase):
+    """M5-DESIGN 3.5: ship a transfer-order line of the source plant (`item_id` must be the line's item)."""
+    transfer_line_id: EntityId
+    item_id: EntityId
+    location_id: EntityId
+    qty: Qty
+
+
+class TransferReceiptLine(_LineBase):
+    """M5-DESIGN 3.5: receive the mirrored line in the destination plant (lots carried over)."""
+    transfer_line_id: EntityId
+    item_id: EntityId
+    location_id: EntityId
+    qty: Qty
+    expires_on: PlanDate | None = None
+
+
 class _PostingBase(MfgModel):
     txn_date: PlanDate | None = None
     note: Text500 = ""
@@ -394,13 +412,25 @@ class ShipPosting(_PostingBase):
     lines: _lines(ShipLine)
 
 
+class TransferShipPosting(_PostingBase):
+    type: Literal["transfer_ship"]
+    lines: _lines(TransferShipLine)
+
+
+class TransferReceiptPosting(_PostingBase):
+    type: Literal["transfer_receipt"]
+    lines: _lines(TransferReceiptLine)
+
+
 PostingInput = Annotated[ReceiptMiscPosting | IssueMiscPosting | AdjustPosting | CountPosting | TransferPosting
-                         | PoReceiptPosting | WoIssuePosting | WoReturnPosting | WoReceiptPosting | ShipPosting,
+                         | PoReceiptPosting | WoIssuePosting | WoReturnPosting | WoReceiptPosting | ShipPosting
+                         | TransferShipPosting | TransferReceiptPosting,
                          Field(discriminator="type")]
 POSTING_MODELS: dict[str, type[MfgModel]] = {
     "receipt_misc": ReceiptMiscPosting, "issue_misc": IssueMiscPosting, "adjust": AdjustPosting,
     "count": CountPosting, "transfer": TransferPosting, "po_receipt": PoReceiptPosting, "wo_issue": WoIssuePosting,
-    "wo_return": WoReturnPosting, "wo_receipt": WoReceiptPosting, "ship": ShipPosting}
+    "wo_return": WoReturnPosting, "wo_receipt": WoReceiptPosting, "ship": ShipPosting,
+    "transfer_ship": TransferShipPosting, "transfer_receipt": TransferReceiptPosting}
 
 
 # ---------------------------------------------------------------- purchase documents (3.5)

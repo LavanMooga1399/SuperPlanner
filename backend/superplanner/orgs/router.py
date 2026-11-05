@@ -103,3 +103,9 @@ def publish(org_id: str, body: PublishIn, u: str = Depends(person), ctx: AppCont
 @router.get("/{org_id}/overview")
 def overview(org_id: str, u: str = Depends(person), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(svc.overview(ctx, u, org_id))
+
+
+@router.get("/{org_id}/publish/{publish_id}")
+def get_publish(org_id: str, publish_id: str, u: str = Depends(person), ctx: AppContext = Depends(get_ctx)
+                ) -> JSONResponse:
+    return _ok(svc.get_publish(ctx, u, org_id, publish_id))

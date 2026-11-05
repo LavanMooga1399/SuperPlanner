@@ -136,4 +136,15 @@ def workspaces(ctx: AppContext, user_id: str) -> dict[str, Any]:
                        "roles": list(r[1] or [])} for r in rows]
             others.sort(key=lambda w: (w["plant_name"], w["owner_id"]))
             out += others
+        # M5-DESIGN 3.4 (15.WP-S): organisation and plant code of organisation plants (else null / "")
+        from ..db_models_m5 import OrgPlantRow, OrgRow
+
+        orgp = {r[0]: (r[1], r[2], r[3], r[4]) for r in s.execute(
+            select(OrgPlantRow.plant_owner_id, OrgPlantRow.code, OrgRow.id, OrgRow.slug, OrgRow.name)
+            .join(OrgRow, OrgRow.id == OrgPlantRow.org_id)
+            .where(OrgPlantRow.plant_owner_id.in_([w["owner_id"] for w in out]))).all()}
+        for w in out:
+            x = orgp.get(w["owner_id"])
+            w["org"] = {"id": x[1], "slug": x[2], "name": x[3]} if x else None
+            w["plant_code"] = x[0] if x else ""
     return {"items": out}

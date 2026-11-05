@@ -20,6 +20,7 @@ from ..db_models import (MfgGroupRow, MfgItemRow, MfgLineItemRow, MfgLineRow, Mf
                          MfgRoutingRow, MfgSkillRow, MfgToolPoolRow)
 from .boms import (check_ids_kept, check_serial, document_errors, invalid_state, item_for_document, readonly,
                    release_blocked, release_error, write_children)
+from .eco import check_eco_lock, lock_info
 from .common import audit, check_limit, check_version, ensure_unique, jsonable, read_tx, touch, write_tx
 
 OP_FIELDS = ("seq", "name", "description", "group_id", "setup_minutes", "run_minutes", "run_per", "units_per_panel",
@@ -50,7 +51,7 @@ def routing_record(s: Session, row: MfgRoutingRow) -> RoutingRecord:
             repo.to_record(t, tool_pool=ref(pools[t.tool_pool_id]) if t.tool_pool_id in pools else None))
     recs = [repo.to_record(o, tools=by_op.get(o.id, []), group=ref(groups[o.group_id]) if o.group_id in groups
                            else None, skill=ref(skills[o.skill_id]) if o.skill_id in skills else None) for o in ops]
-    return repo.to_record(row, operations=recs, item=item_ref(repo.to_record(item)))
+    return repo.to_record(row, operations=recs, item=item_ref(repo.to_record(item)), **lock_info(s, row))
 
 
 def get_routing(ctx: AppContext, routing_id: str) -> RoutingRecord:
@@ -118,6 +119,9 @@ def _limits(s: Session, new_ops: int, new_doc: bool) -> None:
 
 def create_routing(ctx: AppContext, inp: RoutingInput) -> RoutingRecord:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "routings")
         item = item_for_document(s, inp.item_id, routing=True)
         check_serial(item, inp.serial_from)
         check_ids_kept([o.id for o in inp.operations], set(), "operations")
@@ -142,10 +146,14 @@ def update_routing(ctx: AppContext, routing_id: str, inp: RoutingInput, if_match
     from ...errors import ApiError
 
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "routings")
         row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
         check_version(row, if_match)
         if row.status != "draft":
             raise readonly(row.status, "routing")
+        check_eco_lock(s, row, "edit")
         if inp.item_id != row.item_id:
             raise ApiError(422, "VALIDATION_ERROR", "The item of a routing cannot be changed.",
                            {"errors": [{"loc": ["body", "item_id"], "msg": "must equal the stored item_id",
@@ -173,10 +181,14 @@ def update_routing(ctx: AppContext, routing_id: str, inp: RoutingInput, if_match
 
 def delete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "routings")
         row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
         check_version(row, if_match)
         if row.status == "released":
             raise readonly(row.status, "routing")
+        check_eco_lock(s, row, "delete")
         op_ids = select(MfgOperationRow.id).where(MfgOperationRow.routing_id == row.id)
         s.execute(delete(MfgOperationToolRow).where(MfgOperationToolRow.operation_id.in_(op_ids))
                   .execution_options(synchronize_session=False))
@@ -188,36 +200,50 @@ def delete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> No
 
 
 def release_routing(ctx: AppContext, routing_id: str, effective_from: date | None, supersede: bool,
-                    if_match: str | None) -> dict[str, Any]:
+                  if_match: str | None) -> dict[str, Any]:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "routings")
         row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
         check_version(row, if_match)
-        if row.status != "draft":
-            raise invalid_state(row.status, "released", "routing")
-        ds = repo.load_dataset(s)
-        try:
-            issues, superseded = routing_release_issues(ds, row.id, effective_from, supersede)
-        except ReleaseError as exc:
-            raise release_error(exc) from None
-        if issues:
-            raise release_blocked(issues, "routing")
-        now = utcnow()
-        if effective_from is not None:
-            row.effective_from = effective_from
-        row.status, row.released_at = "released", now
-        touch(row, now)
-        for sup in superseded:
-            other = repo.get_row(s, MfgRoutingRow, sup["id"], what="Routing", lock=True)
-            other.effective_to = sup["effective_to"]
-            touch(other, now)
-        s.flush()
-        audit(s, "routing", row.id, "release", {"version": row.row_version,
-                                                "superseded": [x["id"] for x in superseded]})
+        check_eco_lock(s, row, "release")
+        superseded = release_in_session(s, row, effective_from, supersede)
         return {"routing": routing_record(s, row), "superseded": superseded}
+
+
+def release_in_session(s: Session, row: MfgRoutingRow, effective_from: date | None, supersede: bool,
+                       ds: Any = None) -> list[dict[str, Any]]:
+    """Release one draft in the caller's transaction (also ECO implement and ERP inbound, M5-DESIGN 5)."""
+    if row.status != "draft":
+        raise invalid_state(row.status, "released", "routing")
+    ds = ds if ds is not None else repo.load_dataset(s)
+    try:
+        issues, superseded = routing_release_issues(ds, row.id, effective_from, supersede)
+    except ReleaseError as exc:
+        raise release_error(exc) from None
+    if issues:
+        raise release_blocked(issues, "routing")
+    now = utcnow()
+    if effective_from is not None:
+        row.effective_from = effective_from
+    row.status, row.released_at = "released", now
+    touch(row, now)
+    for sup in superseded:
+        other = repo.get_row(s, MfgRoutingRow, sup["id"], what="Routing", lock=True)
+        other.effective_to = sup["effective_to"]
+        touch(other, now)
+    s.flush()
+    audit(s, "routing", row.id, "release", {"version": row.row_version,
+                                         "superseded": [x["id"] for x in superseded]})
+    return superseded
 
 
 def obsolete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> RoutingRecord:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "routings")
         row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
         check_version(row, if_match)
         if row.status != "released":
@@ -233,6 +259,9 @@ def obsolete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> 
 def copy_routing(ctx: AppContext, routing_id: str, revision: str | None, code: str | None, if_match: str | None
                  ) -> RoutingRecord:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "routings")
         src = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
         check_version(src, if_match)
         item_for_document(s, src.item_id, routing=True)

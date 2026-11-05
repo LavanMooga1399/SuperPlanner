@@ -9,7 +9,7 @@ from fastapi import APIRouter, Body, Depends, Header, Query
 from fastapi.responses import JSONResponse, Response
 
 from ..api.context import AppContext, get_ctx
-from ..api.mfg.access import require_integration
+from ..api.mfg.access import mfg_principal, require_integration
 from ..api.mfg.router_m2 import Id, Limit, Offset, _if_match, _ok
 from ..api.mfg.services import integration as svc
 from .model import EndpointIn, MappingProfileIn, ReconciliationIn, SettingsIn, ValueMapsIn
@@ -96,7 +96,7 @@ def pull_events(after: int = Query(default=0, ge=0), limit: int = Query(default=
 
 
 @router.get("/deliveries", dependencies=ADMIN)
-def list_deliveries(status: str | None = Query(default=None, pattern="^(pending|delivered|dead)$"),
+def list_deliveries(status: str | None = Query(default=None, pattern="^(pending|delivered|dead|parked|retry)$"),
                     endpoint_id: str | None = Id(), limit: int = Limit(), offset: int = Offset(),
                     ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(svc.list_deliveries(ctx, status, endpoint_id, limit, offset))
@@ -136,3 +136,33 @@ def list_reconciliations(limit: int = Limit(), offset: int = Offset(),
 @router.get("/reconciliations/{rec_id}", dependencies=ADMIN)
 def get_reconciliation(rec_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(svc.get_reconciliation(ctx, rec_id))
+
+
+@router.get("/reconciliations/{rec_id}/export", dependencies=ADMIN)
+def export_reconciliation(rec_id: str, format: str = Query(default="xlsx", pattern="^(xlsx|csv)$"),  # noqa: A002
+                          ctx: AppContext = Depends(get_ctx)) -> Response:
+    data, media, name = svc.export_reconciliation(ctx, rec_id, format)
+    return Response(data, media_type=media, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.post("/reconciliations/{rec_id}/post-counts", dependencies=ADMIN)
+def post_counts(rec_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    """4.8: the reviewed follow-up - one `count` posting setting the differing balances to the ERP quantities."""
+    return _ok(svc.post_stock_counts(ctx, rec_id, reason="ERP_RECON"))
+
+
+@router.post("/deliveries/{delivery_id}/park", dependencies=ADMIN)
+def park_delivery(delivery_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    """Skip a blocking event for its endpoint (FIFO continues with the next one); `retry` un-parks it."""
+    return _ok(svc.park_delivery(ctx, delivery_id))
+
+
+@router.post("/deliveries/{delivery_id}/unpark", dependencies=ADMIN)
+def unpark_delivery(delivery_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    return _ok(svc.retry_delivery(ctx, delivery_id))
+
+
+@router.get("/ownership")
+def ownership(p: Any = Depends(mfg_principal), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    """Read-only system of record for every plant role (ERP-owned indicators, 4.4)."""
+    return _ok(svc.ownership(ctx))

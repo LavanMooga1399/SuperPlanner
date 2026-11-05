@@ -322,6 +322,9 @@ class BomRecord(BomInput, _Stamped):
     released_at: datetime | None = None
     obsoleted_at: datetime | None = None
     item: ItemRef
+    #: M5-DESIGN 5: the change request that holds this draft (`{id, number, status}`), else None
+    locked_by_cr_id: str | None = None
+    locked_by_cr: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------- routing (3.6)
@@ -406,6 +409,9 @@ class RoutingRecord(RoutingInput, _Stamped):
     released_at: datetime | None = None
     obsoleted_at: datetime | None = None
     item: ItemRef
+    #: M5-DESIGN 5: the change request that holds this draft (`{id, number, status}`), else None
+    locked_by_cr_id: str | None = None
+    locked_by_cr: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------- groups and lines (3.7)

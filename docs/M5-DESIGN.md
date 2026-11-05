@@ -494,9 +494,15 @@ expiry, revocation, per-token rate limit), organisations (orgs, members, plants 
 overview, publish record), integration (settings and SoR incl. `goods_receipts_owner`, value maps, mapping profiles,
 inbound batches for `item` and `po_receipt` with idempotency, outbox with emits from WOs / postings / PRs / floor /
 publish, cursor pull, signed webhooks with FIFO backoff and dead state, SSRF guard, stock reconciliation), audit
-hash chain with events / export. Not yet built (fixture-backed): genealogy edges and queries, recalls / quarantine,
-ECO services, transfer orders, file drop worker, publish execution, retention / archive, convert-plant and the
-other `manage.py` commands, scheduled delivery job, DEPLOY.md section 8.
+hash chain with events / export.
+
+**Round 2 (S2-S4, 2026-11-05): no route answers from the fixture any more.** Built: inbound mappers for every v1
+entity with field-level SoR on both sides, file drop worker, scheduler and the delivery / export / retention jobs,
+pinned webhook connections, genealogy (writers in the posting / floor transactions, backfill, traces, where-used,
+recalls, quarantine), ECO services, transfer orders (`transfer_ship` / `transfer_receipt` postings, MRP demand /
+supply), master-data publish execution, `convert-plant`, retention / archive, `audit-verify` (CLI + endpoint),
+DEPLOY.md section 13 (HA notes; the design's "section 8" - DEPLOY.md already had a section 8, Backups). The
+example fixture stays the UI's typed contract example; live shapes are supersets (additive keys listed below).
 
 Deviations / interpretations:
 1. Jobs: target columns `int_inbox_id`, `int_reconciliation_id`, `org_publish_id`, `maintenance_run_id`; the
@@ -513,21 +519,169 @@ Deviations / interpretations:
 5. Per-token rate limit is in-process per API replica (fixed one-minute windows), not in PostgreSQL (AP1 budget).
 6. Integration endpoints use `require_integration(scope)`: sessions need `integration_admin`; tokens need the scope
    (or `integration_admin`) **and** a holder with `integration_admin` in the plant (403 `TOKEN_SCOPE` /
-   `MFG_FORBIDDEN`). Inbound batches with integration disabled: 409 `INT_DISABLED`. A local write of an ERP-owned
-   field is enforced for items (409 `INT_ERP_OWNED`, incl. creating items while items are ERP-owned) and for PO
-   receipts when `goods_receipts_owner = erp`; the other entities' local guards follow with their inbound mappers.
-   `po_receipts` SoR always follows `goods_receipts_owner`.
+   `MFG_FORBIDDEN`). Inbound batches with integration disabled: 409 `INT_DISABLED`. Local writes of ERP-owned data
+   -> 409 `INT_ERP_OWNED` (`details.fields`, `details.entity`; `["document"]` = the whole document): items (ERP
+   fields, incl. creating items), BOMs and routings (create / update / copy / release / obsolete / delete),
+   suppliers (all), item-suppliers (all fields except `preferred`), purchase orders (create / update / delete /
+   status actions / PR -> PO conversion; PRs stay local), demand orders (create / delete / actions; updates that
+   change anything but the header / line priorities), work orders (when their SoR is set to `erp`), PO receipts
+   (`goods_receipts_owner = erp`; `po_receipts` SoR always follows it). `shared` SoR passes local writes (last writer
+   wins); the "changed on both sides" conflict log of 4.4 is not built (reconciliation reports `sor_conflicts` for
+   SuperPlanner-owned entities only).
 7. Audit: `owner_id` = the bound plant (None for platform events, which share one chain); the chain is per owner by
    id order; rows written before 0007 have no hash and are skipped by `verify`. Audit routes allow the plant owner and
    `plant_admin` (tokens need scope `owner`); org-wide audit for org admins is not built yet.
 8. `users.kind` keeps a server default (`users` is a platform table that already uses server defaults).
-9. SSRF: besides the save-time check, the webhook URL is re-checked right before every post (a name that now
-   resolves to a private address is a failed attempt with `INT_URL_NOT_ALLOWED: ...` in `last_error`, nothing is
-   sent, FIFO backoff applies); redirects are never followed (a 3xx is a failed attempt). Residual: the resolve-to-
-   connect window is not pinned (urllib resolves again); acceptable with the re-check, noted for a later pinned
-   connection.
-10. Inbound records of entities other than `item` and `po_receipt` are accepted into the batch but answered
-    `INT_SCHEMA` "not processed in this build" until their mappers land.
+9. SSRF: the URL is checked when saved and again right before every post; the post then connects to exactly the
+   checked address (`outbox.pinned_post`: a socket to the IP literal, no second DNS lookup, TLS with SNI and
+   certificate verification for the URL's host name), so the DNS-rebinding window is closed. Redirects are never
+   followed (a 3xx is a failed attempt); HTTP proxies are not used for webhooks (DEPLOY 13). A refused or failing
+   post is a failed attempt with `last_error`, FIFO backoff applies.
+10. Inbound processing (`integration/inbound.py`): `supplier`, `item_supplier`, `purchase_order`, `demand_order`,
+    `work_order` map to the M1 bundle sheets and go through `plan_import` + `writer.apply` in chunks of 2,000
+    records per transaction; every bundle row carries a `Source` naming its record, so a plan row error rejects
+    exactly that record (`INT_SCHEMA` with the plan errors in `details`) and the chunk is re-planned without it.
+    Unknown references -> `INT_UNMAPPED_VALUE` (`field`, `value`). Status: `created` (natural key new), `updated`
+    (the plan changed the document or a child), `unchanged`. `mode: replace_children` = M1 `replace_children`;
+    `delete` is refused per record (`INT_SCHEMA`; deactivate / close instead). v1 demand types map to M2 ones
+    (`forecast`/`safety` -> `internal`, `program` -> `project`); inbound demand orders are `open`.
+    SuperPlanner-owned fields are written on create only (item-supplier `preferred`, line `priority`; item planning
+    fields as before).
+11. ERP BOMs / routings: one transaction per record. The same structure as the current released document (or as
+    the given `version`) -> `unchanged`; else a new draft version (next number unless `version` is given) is
+    written through the import plan and released by an auto-approved ECO (`source erp`, kind `ecn`, approver
+    `erp`) with supersede at `effective_from` (BOMs; routings and BOMs without a date: plant today when a
+    previous version exists, else no supersede). The record result carries `eco {id, number}`. A release failure
+    rejects the record (`ECO_RELEASE_BLOCKED` with `issues`), nothing of it stays. `status: obsolete` obsoletes the
+    released version; `draft` only writes the draft. Routing `group_code`s must exist in the plant. Contract
+    additions (optional, found with the Kavach master in IP1): `routing.priority` (alternate routings) and
+    `operation.units_per_panel` (`run_per: panel`).
+12. Stock snapshots (`stock_snapshot` records, stock files): with stock SoR `superplanner` -> one reconciliation
+    run (records answered `unchanged` with `id` = reconciliation id); with `erp` -> the reconciliation plus one
+    `count` posting reason `ERP_SYNC` (records whose balance changed -> `updated`). New `POST
+    /integration/reconciliations/{id}/post-counts` (reason `ERP_RECON`) is the reviewed follow-up of 4.8.
+    Reconciliation also covers `items` (ERP fields) and `purchase_orders` (schedule qty / dates / received qty,
+    status). Snapshot `file` reads `{entity: [records]}` JSON from the plant inbox; `adapter` asks the adapter
+    (`generic_v1` has none -> 422). Reconciliations run synchronously (the `integration_reconcile` job handler
+    exists for queued rows but the API does not queue).
+13. Batches > 500 records -> 202 with the batch (`status queued`), job `integration_import`; `GET /batches/{id}`
+    shows the results when done.
+14. File drop (`integration/filedrop.py`): complete = `<name>.done` marker or size + mtime unchanged since the
+    previous poll (kept in the last run's `results.seen`). `.json` -> adapter `inbound` -> the REST path
+    (`int_inbox.source = filedrop`, idempotency key from the file hash); `.csv/.xlsx/.zip` -> M1 reader + the first
+    mapping profile whose `file_pattern` (fnmatch, case-insensitive) matches (profile `mapping` = M1 mapping JSON,
+    or the shorthand `{target, columns, options}` applied to every sheet; no profile -> the M1 suggestion), planned
+    and committed with zero row errors in one transaction under the plant lock. Sheets of SuperPlanner-owned
+    entities fail the file (`INT_SOR_CONFLICT`); stock sheets reconcile unless stock SoR is `erp`. Bad files ->
+    `error/` + `.result.json` + notification `INTEGRATION_FILE_ERROR`. BOM / routing sheets in files are imported
+    as M1 does (no ERP ECO; use v1 JSON for that).
+15. Scheduling (`integration/scheduler.py`, started by every worker that runs a duty kind): every
+    `INTEGRATION_DELIVERY_POLL_SECONDS` (new, default 2 s; IP4) deliveries, every `FILEDROP_POLL_SECONDS` also file
+    drop and the daily `maintenance_retention`; one scheduler at a time (`pg_try_advisory_xact_lock`), one active
+    run per kind and plant. `integration_delivery` delivers due events of all endpoints (up to 10,000 per run) and
+    writes the periodic file export (`outbox/events-<stamp>-<from>-<to>.jsonl` plus one CSV per event type, temp
+    name + rename; `export_cursor`, last export time kept in `int_settings.sor["_exported_at"]`).
+16. Deliveries: new `POST /integration/deliveries/{id}/park` (status `parked`: the endpoint cursor moves past it,
+    FIFO continues) and `/unpark` (= `retry`; a parked event behind the cursor becomes `retry` and is sent once on
+    the next run, out of order; failing again parks it). Delivery statuses gain `parked`, `retry`.
+17. `GET /integration/ownership` (any plant role, new): `{enabled, sor, goods_receipts_owner, erp_fields}` for the
+    ERP-owned indicators (WP-U request 2). `GET /integration/reconciliations/{id}/export?format=xlsx|csv` (xlsx: a
+    summary sheet plus one sheet per entity x kind).
+18. Genealogy (`services/trace.py`, `mfg/trace/query.py`): node ids - lot / serial / WO / demand line row ids,
+    `item_stock` = the non-lot balance row id (the design's `(item, location)`), `transfer` = the source transfer
+    line id (one node id in both plants; edges carry `plant_owner_id` of the other plant). Edges in material-flow
+    direction; `source_key` = `<posting>:<txn>` / `ser:<serial>:p|c|pp` (idempotent writers and backfill).
+    Reversals and WO returns write negative-quantity edges; a pair whose net quantity is <= 0 is not shown.
+    Non-lot WO receipts are `WO -> item_stock (possible)`, so forward traces reach shipments of untracked stock.
+    Precision is per link (relative to the parent node): lot / stock -> WO -> serial, serial -> WO -> lot / stock
+    and serial -> WO -> another serial are `possible`; a child -> parent serial link is `exact`. Recall units carry
+    the cumulative precision of their path. Traversal is a per-level indexed walk (one query per level and plant),
+    not a recursive CTE (same result; precision and cross-plant visibility are applied per step). Cross-plant
+    transfer nodes continue in the other plant when the user is its owner or an active member, else a node
+    `{kind: transfer, label: "in plant X, not visible", plant: {visible: false}}`.
+19. Trace responses: root `qty` 1 for serials / the WO qty; `where-used` returns every forward node (`depth`,
+    `status`, `link`, cumulative `precision`) plus `lots` (the matching lot ids). Recall `report` (additive keys):
+    `units[{serial_id, serial, item, status, precision, customer, demand_order, shipped_on, plant, path}]`,
+    `lots[{lot_id, lot_code, supplier_lot, item, item_id, on_hand, location, location_id, location_kind, hold,
+    precision}]`, `wos`, `shipments[{demand_line_id, demand_order, customer, program, qty, precision, shipped_on,
+    item, path}]`, `by_customer[{customer, units, shipments, qty}]`, `by_program`, `open_pos`, `counts`,
+    `truncated`, `computed_ms`. A unit's customer comes from shipments downstream of it; M2 shipments carry no
+    serials, so units shipped from untracked stock reach their shipments only as `possible` links through the WO's
+    receipt stock. `GET /recalls/{id}/export` = xlsx (`?format=json`: the report). Quarantine: one `transfer`
+    posting (reason `RECALL`) per affected lot balance outside quarantine locations, then the lots on hold; body
+    `{location_id?, lot_ids?, note}` (`lot_ids` new, as the UI sends it); serialized units without lots are not
+    moved. Recall numbers: series `RCL-`.
+20. ECO (`services/eco.py`): the lock stays on released documents after implementation (they name their CR); lock
+    checks (409 `ECO_DOC_LOCKED`) on BOM / routing update (only while the CR is a draft), release and delete.
+    BOM / routing records gain `locked_by_cr_id` and `locked_by_cr {id, number, status}` (WP-U request 7). CR
+    records gain `submitted_by`. Supersede follows M1: the old document's `effective_to` = the new
+    `effective_from` (exclusive end). Serial effectivity sets the draft's `serial_from` and closes an open range
+    of the superseded document at `serial_from - 1`. Dispositions flag through M4 notifications
+    (`ECO_WO_DIFFERS` for open WOs due on/after the effectivity whose components differ, `ECO_PO_NOT_NEEDED` per
+    open PO line of a removed component), not APS replan triggers; `refresh_planned` regenerates the components of
+    planned WOs without issues (`workorders.regenerate_components`). Impact: the MRP what-if runs two in-memory
+    MRP runs (current vs drafts released at the effectivity) and lists demand lines whose projected date moves;
+    the use-up date is computed from the current-state run (not the stored live run): the first date the
+    phased-out components' projected existing balance reaches zero (earliest over the removed / changed components).
+21. Transfers (`services/transfers.py`, `mfg/transfers.py`): new posting types `transfer_ship` / `transfer_receipt`
+    (lines `{transfer_line_id, item_id, location_id, qty, lot_code, expires_on?}` - as the UI sends them; added to
+    the M2 posting union and planner, txn `transfer_line_id` set). Receipts only up to what is in transit per lot
+    (409 `TRF_OVER_QUANTITY`, also over-shipping); expiry and supplier lot carried over. Transfer postings cannot
+    be reversed (409; correct in both plants). Create needs `transfer_edit` in the source and membership in the
+    destination (403 `TRF_PLANT_ACCESS`); the destination location is `to_location_code` or its receipt default.
+    Statuses derived from the lines (`shipped` partly or fully, `received` when all received); `close` from
+    `shipped`/`received`, `cancel` only before shipping; edit/delete only as draft in the source. MRP: open source
+    lines are demand type `transfer` (priority 5, customer = destination plant code), open destination lines
+    supply typed like PO schedules (`ScheduleSnap` doc type `po`, number `TO-...`; MRP actions on them are not
+    meaningful). Lines carry `mirror_line_id`, `in_transit[{lot_code, qty, expires_on, supplier_lot, posting}]`.
+    Outbox `transfer_order.shipped|received` in the acting plant. Number series `TO-` shared by both plants.
+22. Publish: `POST /orgs/{org}/publish` resolves plants by id / owner id / code, enqueues `org_publish`; new
+    `GET /orgs/{org}/publish/{id}` returns the run with per-target `{ok, counts, skipped, row_errors}`. Bundle =
+    the source master (`scope items`: items only; `part_number_prefix` filters items and their documents /
+    supplier links; no plant sheet), imported with `release=True`. Targets with ERP-owned entities skip those
+    sheets, and items are published without their ERP fields. Released documents that differ in a target are
+    row errors (M1 rule), the target result is `ok: false`.
+23. `convert-plant --from-user EMAIL --org SLUG --code C [--name] [--dry-run]` (`orgs.service.convert_plant`): new
+    plant principal + `org_plants` row; every `mfg_*` / `int_*` owned row moves (members included); audit rows stay
+    on the old owner (their chain hashes include the owner); the person becomes `plant_admin` and an org member.
+24. Org admins: `PUT /orgs/{org}/members/{id}` accepts `{org_role?, disabled?}` (`disabled` disables / enables the
+    account and revokes its sessions; not oneself) (WP-U request 6). `/workspaces` items gain `org {id, slug, name}`
+    or null and `plant_code` (WP-U request 1).
+25. Retention / archive (`services/maintenance.py`, `manage.py archive`): classes `ledger, floor_events,
+    trace_edges, serials, lots, audit` (export only) and `notifications, replan_triggers (handled/ignored),
+    outbox, inbox_payloads (payload column nulled), kpi_daily` (purgeable after 180 / 180 / 90 / 30 / 1095 days).
+    Outbox rows are purged only up to the lowest active endpoint cursor (and the export cursor), then
+    `_purged_through` drives 410 `INT_CURSOR_EXPIRED`. Files `ARCHIVE_DIR/<owner>/<class>/<yyyy-mm>[.n].jsonl.gz`,
+    one `manifest-<stamp>.json` per run (rows, files, sha256, purged). MRP / APS run archiving before their own
+    retention deletes and the "inbox payloads / import staging" M1 24 h purge are unchanged (not archived).
+    `maintenance_retention` runs per plant daily (job owner = the plant).
+26. Audit: `GET /audit/verify` (owner / plant_admin) -> `{ok, checked, first_broken: {id, at} | null}` (WP-U
+    request 4); `manage.py audit-verify [--owner]` checks every chain (exit 1 on a break). Org-wide audit for org
+    admins is still not built.
+27. `manage.py trace-backfill [--owner]` (idempotent); job kind `trace_backfill` exists (maintenance run) but no
+    route enqueues it. The Kavach M4 sample issues no lots to its history WOs (backflush effects are cleared
+    without postings), so its serial traces reach WOs and receipts but not supplier lots: acceptance 3 needs the
+    sample to post component issues (a sample change with new pinned hashes; left to LEAD).
+28. Performance changes: `repo_m2.lock_or_create_balances` creates many new balances (> 20) with one
+    `INSERT .. ON CONFLICT DO NOTHING` per chunk instead of one savepoint each (IP5); trace writers skip posting
+    types without edges.
+29. Not built: the org overview KPIs (placeholders as in S1), `shared` SoR conflict log, specific ERP adapters
+    (generic_v1 only, 14 Q1).
+
+Performance (local PostgreSQL 16, development machine, `tests/integration_m5/test_m5_perf_s3.py -m slow`):
+| # | Measured | Target |
+|---|---|---|
+| IP1 | 10,000 items (5,000 unchanged) 11.8 s (a batch > 500 -> job); full Kavach master as v1 batches: 1,200 items 2.1 s + 64 BOMs 21.5 s + 61 routings 24.9 s = 48.5 s (every document released through an ERP ECO, one transaction each) | < 30 s / < 60 s |
+| IP2 | repeated: posting median 20.8 ms off vs 24.5 / 23.0 ms on -> +2.9 ms (the cost is building the posting record for the event; the earlier S2 figure was +4.85 ms before the trace writers skipped edge-less postings) | < 3 ms (at the limit) |
+| IP4 | 1,000 events at 100/s to a healthy in-process endpoint, scheduler every 2 s: p95 event -> delivery 1.29 s, max 1.37 s | p95 < 5 s |
+| IP5 | 20,000-row stock file (stock SoR erp -> 40 `count` postings): picked up at the 2nd poll, committed in 19.0 s (38.6 s before the bulk balance insert of item 28) | <= 2 polls, < 20 s (at the limit) |
+| TP1 | backward trace of a synthetic unit with 1,382 nodes: 78 ms (median of 3: 88 ms) | < 1 s |
+| TP2 | forward trace of a supplier lot in 20 WOs x 100 units (2,021 nodes) 108 ms; recall report of the 2,000 units 155 ms | < 3 s / < 5 s |
+| AP2 | 1,000,002 audit rows (209 MB JSONL) streamed in 45.4 s; the server pages 5,000 rows per query (constant memory); the 398 MB RSS growth measured is the in-process TestClient buffering the body, not the generator | < 60 s, constant memory |
+| BF1 | Kavach M4 sample: 21 postings with edges + 35 serials -> 40 edges in 0.03 s (the sample has no lot issues, item 27) | < 60 s |
+| EP1 | ECO impact on KV-PCB-CPU (draft with one component removed, one qty changed) incl. two in-memory MRP runs: 1.51 s | < 10 s |
+
+IP3 / AP1 as measured in S2 (`test_m5_perf.py`).
 
 ### 15.WP-U UI
 

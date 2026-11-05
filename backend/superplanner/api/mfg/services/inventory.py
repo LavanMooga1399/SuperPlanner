@@ -356,7 +356,8 @@ def _apply(s: Session, L: _Loaded, plan: INV.PostingPlan, posting: MfgInvPosting
             lot_id=lot_ids.get((t.item_id, t.lot_code)) if t.lot_code else None, qty=t.qty,
             balance_after=b.qty_on_hand, unit_cost=t.unit_cost, scrap_qty=t.scrap_qty, schedule_id=t.schedule_id,
             wo_id=t.wo_id,
-            wo_component_id=t.wo_component_id, demand_line_id=t.demand_line_id, actor_id=actor, created_at=now))
+            wo_component_id=t.wo_component_id, demand_line_id=t.demand_line_id,
+            transfer_line_id=getattr(t, "transfer_line_id", None), actor_id=actor, created_at=now))
     # reservations first (a released reservation lowers qty_reserved before the on-hand check of the row)
     by_id = {b.id: b for b in L.balances.values()}
     for rid, q in sorted(plan.reservation_qty.items()):
@@ -464,6 +465,11 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
                     ) -> tuple[MfgInvPostingRow, list[dict[str, Any]]]:
     """Plan and apply one posting in the caller's transaction (also used by imports and sample loads, `system`:
     no date/reason limits). Raises `ApiError` on rule errors."""
+    trf = None
+    if inp.type in ("transfer_ship", "transfer_receipt"):      # M5-DESIGN 3.5
+        from . import transfers as trf
+
+        inp = trf.before_post(s, inp)
     item_ids, pairs, _locs, sids, dids, cids, wids = _refs_of(inp)
     L = _lock_documents(s, sids, dids, cids, wids)
     _resolve_pairs(inp, L, pairs, s)
@@ -485,6 +491,11 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     s.add(row)
     s.flush()
     _apply(s, L, plan, row, actor)
+    from . import trace as _trace                               # M5-DESIGN 6.1 (same transaction)
+
+    if trf is not None:
+        trf.after_post(s, row, plan)
+    _trace.write_posting_edges(s, row)
     from ....integration import outbox                          # M5-DESIGN 4.6 (I2: same transaction)
 
     if outbox.enabled(s):
@@ -551,6 +562,10 @@ def reverse_posting(ctx: AppContext, posting_id: str, note: str) -> dict[str, An
 def reverse_in_session(s: Session, posting_id: str, note: str, *, txn_date: date | None = None) -> MfgInvPostingRow:
     """Reverse one posting in the caller's transaction (M2 4.2; also M4 floor reopen / corrections)."""
     orig = repo.get_row(s, MfgInvPostingRow, posting_id, what="Posting", lock=True)
+    if orig.type in ("transfer_ship", "transfer_receipt"):
+        raise ApiError(409, "MFG_INVALID_STATE", "Transfer shipments and receipts cannot be reversed; post a "
+                       "correction in both plants instead.", {"status": orig.type, "action": "reverse",
+                                                               "allowed_from": []})
     if orig.reversal_of_id is not None:
         raise ApiError(409, "MFG_INVALID_STATE", "A reversal cannot be reversed; post a new transaction instead.",
                        {"status": "reversal", "action": "reverse", "allowed_from": []})
@@ -584,6 +599,9 @@ def reverse_in_session(s: Session, posting_id: str, note: str, *, txn_date: date
     s.add(row)
     s.flush()
     _apply_reversal(s, L, plan, row, actor)
+    from . import trace as _trace
+
+    _trace.write_posting_edges(s, row)
     audit(s, "posting", row.id, "reverse", {"number": row.number, "reversal_of": orig.number})
     return row
 

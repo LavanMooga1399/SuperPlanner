@@ -252,8 +252,40 @@ def new_wo(s: Session, ds: Any, inp: WorkOrderInput, *, source: str = "manual", 
     return w, warnings
 
 
+def regenerate_components(s: Session, w: MfgWorkOrderRow) -> None:
+    """M5-DESIGN 5 disposition `refresh_planned`: replace the components of a planned WO (nothing issued) with the
+    explosion of the BOM effective at its start date."""
+    from .. import repo
+
+    if w.status != "planned":
+        return
+    old = list(s.execute(select(MfgWoComponentRow).where(MfgWoComponentRow.wo_id == w.id)).scalars())
+    if any(c.issued_qty > 1e-9 for c in old):
+        return
+    from .inventory import release_reservations
+
+    release_reservations(s, [c.id for c in old], utcnow())
+    for c in old:
+        s.delete(c)
+    s.flush()
+    ds = repo.load_dataset(s)
+    expl = _generated(ds, w.item_id, w.qty, w.start_date, w.serial_from)
+    now = utcnow()
+    w.bom_id = expl.bom_id
+    s.add_all([MfgWoComponentRow(id=new_id("woc_"), wo_id=w.id, issued_qty=0.0, row_version=1, created_at=now,
+                                 updated_at=now, item_id=c.item_id, required_qty=c.qty, operation_seq=c.operation_seq,
+                                 find_number=c.find_number, alt_group=c.alt_group, bom_line_id=c.bom_line_id, note="")
+               for c in expl.components])
+    w.row_version += 1
+    w.updated_at = now
+    s.flush()
+
+
 def create_wo(ctx: AppContext, inp: WorkOrderInput) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        from .integration import check_local_write
+
+        check_local_write(s, "work_orders")
         ds = repo.load_dataset(s)
         w, warnings = new_wo(s, ds, inp)
         audit(s, "work_order", w.id, "create", {"number": w.number})
@@ -308,6 +340,9 @@ def _has_txn(s: Session, wo_id: str) -> bool:
 
 def update_wo(ctx: AppContext, wo_id: str, inp: WorkOrderInput, if_match: str | None) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        from .integration import check_local_write
+
+        check_local_write(s, "work_orders")
         w = _get(s, wo_id, lock=True)
         check_version(w, if_match)
         old = {c.id: c for c in repo_m2.lock_children_of(s, MfgWoComponentRow, "wo_id", [w.id])}
@@ -425,6 +460,9 @@ def _trim_reservations(s: Session, wo_id: str, now: Any) -> None:
 
 def delete_wo(ctx: AppContext, wo_id: str, if_match: str | None) -> None:
     def fn(s: Session) -> None:
+        from .integration import check_local_write
+
+        check_local_write(s, "work_orders")
         w = _get(s, wo_id, lock=True)
         check_version(w, if_match)
         try:

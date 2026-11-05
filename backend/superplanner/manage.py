@@ -13,6 +13,15 @@
                                                           the user E (default: the local user); same path and audit
                                                           event as POST /api/v1/mfg/samples/{id}/load
 
+    trace-backfill [--owner ID]                           M5: rebuild genealogy edges from the ledger and serials
+                                                          (idempotent; every plant by default)
+    audit-verify [--owner ID]                             M5: check the audit hash chains; exit 1 on a broken link
+    archive --before YYYY-MM-DD [--classes a,b] [--owner ID] [--purge]
+                                                          M5: export to ARCHIVE_DIR (JSONL.gz + manifest); --purge
+                                                          deletes only the purgeable classes afterwards
+    convert-plant --from-user EMAIL --org SLUG --code C [--name N] [--dry-run]
+                                                          M5: move a personal plant into an organisation
+
 Uses `DATABASE_URL` (or `--url`) and runs in system scope. Like the API it refuses to run unless the schema is at
 head (`migrate.ensure_schema`; AUTO_MIGRATE=true upgrades first). Exit codes: 0 ok, 1 command error (unknown user, weak password, email
 taken), 2 configuration error, 3 schema error.
@@ -233,6 +242,79 @@ def cmd_load_sample(db: Database, settings: Settings, args: argparse.Namespace, 
           f"health {'ok' if res['health']['ok'] else 'has findings'}", file=out)
 
 
+def _owners(s: Any, owner: str | None) -> list[str]:
+    from .api.mfg.db_models import MfgPlantRow
+
+    if owner:
+        return [owner]
+    return sorted(set(s.execute(select(MfgPlantRow.owner_id)).scalars()))
+
+
+def cmd_trace_backfill(db: Database, args: argparse.Namespace, out: TextIO) -> None:
+    from .api.mfg.services.trace import backfill
+
+    with db.write() as s:
+        r = backfill(s, args.owner)
+    print(f"trace backfill: {r['postings']} posting(s), {r['serials']} serial(s), {r['edges_added']} edge(s) added "
+          f"in {r['duration_ms']} ms", file=out)
+
+
+def cmd_audit_verify(db: Database, args: argparse.Namespace, out: TextIO) -> None:
+    from .api.audit_chain import verify
+    from .api.db.models import AuditEventRow
+
+    bad = []
+    with db.read() as s:
+        owners = [args.owner] if args.owner else [None] + sorted(
+            {o for o in s.execute(select(AuditEventRow.owner_id).distinct()).scalars() if o})
+        for o in owners:
+            r = verify(s, o)
+            label = o or "(platform)"
+            if r["ok"]:
+                print(f"{label}: ok, {r['checked']} row(s)", file=out)
+            else:
+                print(f"{label}: BROKEN at audit row {r['first_broken_id']} after {r['checked']} good row(s)", file=out)
+                bad.append(label)
+    if bad:
+        raise CommandError(f"audit chain broken for {', '.join(bad)}")
+
+
+def cmd_archive(db: Database, settings: Settings, args: argparse.Namespace, out: TextIO) -> None:
+    from .api.mfg.services import maintenance as M
+
+    before = datetime.combine(datetime.strptime(args.before, "%Y-%m-%d").date(), datetime.min.time(), UTC)
+    classes = [c.strip() for c in (args.classes or ",".join(M.CLASSES)).split(",") if c.strip()]
+    bad = [c for c in classes if c not in M.CLASSES]
+    if bad:
+        raise CommandError(f"unknown class(es) {', '.join(bad)} (choose from {', '.join(M.CLASSES)})")
+    if not settings.archive_dir and not args.purge:
+        raise CommandError("ARCHIVE_DIR is not set")
+    with db.write() as s:
+        for o in _owners(s, args.owner):
+            m = M.archive(s, o, before, classes, settings.archive_dir, purge=bool(args.purge))
+            for c, info in m["classes"].items():
+                print(f"{o} {c}: {info['rows']} archived in {len(info['files'])} file(s), {info['purged']} purged",
+                      file=out)
+
+
+def cmd_convert_plant(db: Database, args: argparse.Namespace, out: TextIO) -> None:
+    from .api.errors import ApiError
+    from .orgs.service import convert_plant
+
+    with db.read() as s:
+        uid = _user_by_email(s, args.from_user).id
+    try:
+        r = convert_plant(db, uid, args.org, args.code, args.name, dry_run=bool(args.dry_run))
+    except ApiError as e:
+        raise CommandError(e.message) from None
+    moved = sum(r["rows"].values())
+    print(f"{'would move' if args.dry_run else 'moved'} {moved} row(s) of {args.from_user} to plant {args.code} "
+          f"({r['plant_owner_id']}); {args.from_user} is plant_admin", file=out)
+    for k, v in sorted(r["rows"].items()):
+        if v:
+            print(f"  {k}: {v}", file=out)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m superplanner.manage", description="SuperPlanner admin commands")
     p.add_argument("--url", help="database URL (default: DATABASE_URL)")
@@ -256,6 +338,21 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--sample", default="kavach")
     c.add_argument("--email", help="owner of the data (default: the local user, AUTH_MODE=single_user)")
     c.add_argument("--replace", action="store_true", help="delete this user's manufacturing data first")
+    c = sub.add_parser("trace-backfill")
+    c.add_argument("--owner", help="plant owner id (default: every plant)")
+    c = sub.add_parser("audit-verify")
+    c.add_argument("--owner", help="workspace owner id (default: every chain)")
+    c = sub.add_parser("archive")
+    c.add_argument("--before", required=True, help="YYYY-MM-DD (rows created before this date)")
+    c.add_argument("--classes", help="comma list (default: every class)")
+    c.add_argument("--owner", help="plant owner id (default: every plant)")
+    c.add_argument("--purge", action="store_true", help="delete the purgeable classes after archiving")
+    c = sub.add_parser("convert-plant")
+    c.add_argument("--from-user", required=True, help="email of the person whose plant moves")
+    c.add_argument("--org", required=True, help="organisation slug")
+    c.add_argument("--code", required=True, help="plant code in the organisation")
+    c.add_argument("--name")
+    c.add_argument("--dry-run", action="store_true")
     return p
 
 
@@ -285,6 +382,14 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
                 cmd_list_users(db, out)
             elif cmd == "load-sample":
                 cmd_load_sample(db, settings, args, out)
+            elif cmd == "trace-backfill":
+                cmd_trace_backfill(db, args, out)
+            elif cmd == "audit-verify":
+                cmd_audit_verify(db, args, out)
+            elif cmd == "archive":
+                cmd_archive(db, settings, args, out)
+            elif cmd == "convert-plant":
+                cmd_convert_plant(db, args, out)
             else:
                 cmd_prune(db, out, settings)
         return 0

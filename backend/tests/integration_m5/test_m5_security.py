@@ -98,32 +98,11 @@ def test_ssrf_recheck_at_delivery_dns_rebinding(db_url, dns):
             r = svc.deliver_now(app.state.ctx, ep["id"], post, now=t0 + timedelta(seconds=31))
         assert r["delivered"] == 1 and sent == ["https://erp.example.com/hook"]
 
-def test_http_post_does_not_follow_redirects():
-    hits: list[str] = []
-
-    class H(http.server.BaseHTTPRequestHandler):
-        def do_POST(self):  # noqa: N802
-            hits.append(self.path)
-            self.rfile.read(int(self.headers.get("Content-Length") or 0))
-            if self.path == "/hook":
-                self.send_response(307)
-                self.send_header("Location", "/internal-admin")
-            else:
-                self.send_response(200)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-
-        def log_message(self, *a):
-            pass
-
-    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
-    th = threading.Thread(target=srv.serve_forever, daemon=True)
-    th.start()
-    try:
-        code, err = outbox.http_post(f"http://127.0.0.1:{srv.server_port}/hook", b"{}", {})
-    finally:
-        srv.shutdown()
-    assert code == 307 and hits == ["/hook"]       # failure, retried later; the redirect target is never hit
+def test_http_post_refuses_plain_http():
+    """Redirect handling is covered with a TLS receiver in test_ssrf_pinning (the poster is https-only)."""
+    with pytest.raises(ApiError) as e:
+        outbox.http_post("http://127.0.0.1:9/hook", b"{}", {})
+    assert e.value.code == "INT_URL_NOT_ALLOWED"
 
 
 # ---------------------------------------------------------------- API token workspace isolation

@@ -29,7 +29,8 @@ from .db_models_m2 import (MfgDemandLineRow, MfgDemandOrderRow, MfgInvBalanceRow
                            MfgPurchaseDocRow, MfgPurchaseLineRow, MfgPurchaseScheduleRow, MfgSupplierRow,
                            MfgWoComponentRow, MfgWorkOrderRow)
 
-SERIES_PREFIX = {"PO": "PO-", "PR": "PR-", "DO": "DO-", "WO": "WO-", "TXN": "TXN-"}
+SERIES_PREFIX = {"PO": "PO-", "PR": "PR-", "DO": "DO-", "WO": "WO-", "TXN": "TXN-",
+                 "RCL": "RCL-", "ECO": "ECO-", "TO": "TO-"}   # M5-DESIGN 5, 6.3, 3.5
 SERIES_WIDTH = 6
 
 
@@ -175,7 +176,13 @@ def load_mrp_snapshot(s: Session, as_of: date) -> Any:
 
     ds = load_dataset(s)
     ds.txn = load_txn(s, open_only=True)
-    return MrpSnapshot(as_of=as_of, dataset=ds, **mrp_inputs(ds, as_of))
+    snap = MrpSnapshot(as_of=as_of, dataset=ds, **mrp_inputs(ds, as_of))
+    from .services.transfers import mrp_rows                   # M5-DESIGN 3.5: transfer demand / supply
+
+    dem, sup = mrp_rows(s)
+    snap.demand.extend(dem)
+    snap.schedules.extend(sup)
+    return snap
 
 
 #: tables whose row count is part of the staleness token (m6: deletes do not move a max(updated_at))
@@ -366,6 +373,24 @@ def lock_or_create_balances(s: Session, keys: Iterable[tuple[str, str, str]], lo
     ks = sorted(set(keys))
     found = lock_balances(s, ks)
     now = utcnow()
+    missing = [k for k in ks if k not in found]
+    from ..db.ownership import SYSTEM, current_owner
+
+    owner = current_owner()
+    if len(missing) > 20 and isinstance(owner, str) and owner != SYSTEM and \
+            s.get_bind().dialect.name == "postgresql":
+        # M5 IP5 (15.WP-S): many new balances (imports, file drops) in one statement instead of one savepoint each;
+        # a concurrent creator of the same key wins the conflict and its row is locked below
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        tbl = MfgInvBalanceRow.__table__
+        for c in _chunks(missing):
+            s.execute(pg_insert(tbl).values([
+                {"id": new_id("bal_"), "owner_id": owner, "item_id": k[0], "location_id": k[1],
+                 "lot_id": lot_ids.get((k[0], k[2])) if k[2] else None, "lot_key": k[2], "qty_on_hand": 0.0,
+                 "qty_reserved": 0.0, "last_receipt_on": None, "updated_at": now} for k in c])
+                .on_conflict_do_nothing(constraint="uq_mfg_inv_balances_key"))
+        found.update(lock_balances(s, missing))
     for key in ks:
         if key in found:
             continue

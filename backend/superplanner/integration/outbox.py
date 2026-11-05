@@ -15,11 +15,10 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import http.client
 import socket
 import ssl
 import time
-import urllib.error
-import urllib.request
 from datetime import UTC, datetime, timedelta
 from typing import Any, Callable
 from urllib.parse import urlparse
@@ -104,49 +103,96 @@ def verify_signature(secret: str, body: bytes, header: str, tolerance: int = 300
     return hmac.compare_digest(sign(secret, body, t).split("v1=", 1)[1], parts.get("v1", ""))
 
 
-def check_url(url: str, allow_private: bool) -> None:
-    """422 `INT_URL_NOT_ALLOWED`: https only, and every resolved address public unless private targets are
-    allowed."""
+def _bad_ip(ip: Any) -> bool:
+    return bool(ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or
+                ip.is_unspecified or (ip.version == 6 and ip.ipv4_mapped is not None and
+                                      (ip.ipv4_mapped.is_private or ip.ipv4_mapped.is_loopback or
+                                       ip.ipv4_mapped.is_link_local or ip.ipv4_mapped.is_unspecified)))
+
+
+def resolve_checked(url: str, allow_private: bool) -> tuple[str, int, list[str]]:
+    """(host, port, addresses) of an https URL; 422 `INT_URL_NOT_ALLOWED` unless https without credentials and,
+    unless private targets are allowed, every resolved address public."""
     u = urlparse(url)
     if u.scheme != "https" or not u.hostname or u.username or u.password:
         raise ApiError(422, "INT_URL_NOT_ALLOWED", "Webhook URLs must be https without credentials.",
                        {"loc": ["body", "url"]})
-    if allow_private:
-        return
+    port = u.port or 443
     try:
-        infos = socket.getaddrinfo(u.hostname, u.port or 443, proto=socket.IPPROTO_TCP)
+        infos = socket.getaddrinfo(u.hostname, port, proto=socket.IPPROTO_TCP)
     except socket.gaierror:
         raise ApiError(422, "INT_URL_NOT_ALLOWED", "The webhook host cannot be resolved.",
                        {"loc": ["body", "url"]}) from None
+    addrs: list[str] = []
     for info in infos:
-        ip = ipaddress.ip_address(info[4][0].split("%")[0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or \
-                ip.is_unspecified or (ip.version == 6 and ip.ipv4_mapped is not None and
-                                      (ip.ipv4_mapped.is_private or ip.ipv4_mapped.is_loopback)):
+        a = info[4][0].split("%")[0]
+        ip = ipaddress.ip_address(a)
+        if not allow_private and _bad_ip(ip):
             raise ApiError(422, "INT_URL_NOT_ALLOWED", "Webhook URLs must not point to private or local addresses "
                            "(set INTEGRATION_ALLOW_PRIVATE_TARGETS for ERP middleware on the LAN).",
                            {"loc": ["body", "url"], "address": str(ip)})
+        if a not in addrs:
+            addrs.append(a)
+    if not addrs:
+        raise ApiError(422, "INT_URL_NOT_ALLOWED", "The webhook host cannot be resolved.", {"loc": ["body", "url"]})
+    return u.hostname, port, addrs
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Redirects are not followed (a 3xx to an internal host would bypass the SSRF guard); a 3xx is a failure."""
+def check_url(url: str, allow_private: bool) -> None:
+    """422 `INT_URL_NOT_ALLOWED`: https only, and every resolved address public unless private targets are
+    allowed."""
+    resolve_checked(url, allow_private)
 
-    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
-        return None
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """Connects to exactly the address that passed the SSRF check (no second DNS lookup: closes the rebinding
+    window), while TLS still uses the URL's host name for SNI and certificate verification."""
+
+    def __init__(self, host: str, ip: str, port: int, timeout: float, context: ssl.SSLContext):
+        super().__init__(host, port=port, timeout=timeout, context=context)
+        self._pinned_ip = ip
+
+    def connect(self) -> None:
+        ip = ipaddress.ip_address(self._pinned_ip)        # a literal: no resolver involved at all
+        sock = socket.socket(socket.AF_INET6 if ip.version == 6 else socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(self.timeout)
+        try:
+            sock.connect((str(ip), self.port))
+        except OSError:
+            sock.close()
+            raise
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+def pinned_post(url: str, body: bytes, headers: dict[str, str], *, allow_private: bool,
+                context: ssl.SSLContext | None = None) -> tuple[int, str]:
+    """POST to the validated address; redirects are never followed (a 3xx is a failed attempt); HTTP proxies are
+    not used for webhooks (the pinned address is the target)."""
+    host, port, addrs = resolve_checked(url, allow_private)
+    u = urlparse(url)
+    path = (u.path or "/") + (f"?{u.query}" if u.query else "")
+    ctx = context or ssl.create_default_context()
+    last = ""
+    for ip in addrs[:3]:
+        conn = _PinnedHTTPSConnection(host, ip, port, DELIVERY_TIMEOUT, ctx)
+        try:
+            conn.request("POST", path, body=body, headers={"Content-Type": "application/json", "Host": host if
+                                                           port == 443 else f"{host}:{port}", **headers})
+            r = conn.getresponse()
+            r.read(65536)
+            return r.status, "" if 200 <= r.status < 300 else f"HTTP {r.status}"
+        except ssl.SSLError as e:
+            return 0, f"SSLError: {e.reason or e}"[:200]
+        except OSError as e:
+            last = e.__class__.__name__
+        finally:
+            conn.close()
+    return 0, last or "connection failed"
 
 
 def http_post(url: str, body: bytes, headers: dict[str, str]) -> tuple[int, str]:
-    req = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": "application/json",
-                                                                        **headers})
-    opener = urllib.request.build_opener(_NoRedirect(), urllib.request.HTTPSHandler(
-        context=ssl.create_default_context()))
-    try:
-        with opener.open(req, timeout=DELIVERY_TIMEOUT) as r:
-            return r.status, ""
-    except urllib.error.HTTPError as e:
-        return e.code, f"HTTP {e.code}"
-    except Exception as e:                 # network errors are retried
-        return 0, e.__class__.__name__
+    """Default poster (private targets refused); see `pinned_post`."""
+    return pinned_post(url, body, headers, allow_private=False)
 
 
 def backoff(attempts: int) -> int:
@@ -164,6 +210,30 @@ def deliver_endpoint(s: Session, endpoint: Any, secret: str, plant: dict[str, An
 
     now = now or datetime.now(UTC)
     out = {"delivered": 0, "failed": 0, "dead": 0}
+    # un-parked events behind the cursor are sent first (once; a failure parks them again)
+    for d in list(s.execute(select(IntDeliveryRow).where(IntDeliveryRow.endpoint_id == endpoint.id,
+                                                         IntDeliveryRow.status == "retry")
+                            .order_by(IntDeliveryRow.event_seq)).scalars()):
+        ev = s.execute(select(IntOutboxRow).where(IntOutboxRow.seq == d.event_seq)).scalars().first()
+        if ev is None:
+            d.status = "parked"
+            continue
+        body = json.dumps(_json(event_view(ev, plant)), separators=(",", ":"), sort_keys=True).encode()
+        try:
+            if allow_private is not None:
+                check_url(endpoint.url, allow_private)
+            code, err = post(endpoint.url, body, {"SP-Event-Id": str(ev.seq),
+                                                  "SP-Signature": sign(secret, body, int(now.timestamp()))})
+        except ApiError as e:
+            code, err = 0, f"{e.code}: {e.message}"
+        d.attempts += 1
+        d.last_status_code = code or None
+        if 200 <= code < 300:
+            d.status, d.delivered_at, d.last_error = "delivered", now, None
+            out["delivered"] += 1
+        else:
+            d.status, d.last_error = "parked", (err or f"HTTP {code}")[:500]
+            out["failed"] += 1
     q = select(IntOutboxRow).where(IntOutboxRow.seq > endpoint.cursor).order_by(IntOutboxRow.seq).limit(max_events)
     if endpoint.event_types:
         q = q.where(IntOutboxRow.type.in_(list(endpoint.event_types)))

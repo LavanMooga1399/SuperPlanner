@@ -422,6 +422,10 @@ def _header(s: Session, doc_type: str, doc: MfgPurchaseDocRow, inp: PurchaseDocI
 
 def create_doc(ctx: AppContext, doc_type: str, inp: PurchaseDocInput, *, source: str = "manual") -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        if doc_type == "po":
+            from .integration import check_local_write
+
+            check_local_write(s, "purchase_orders")
         its = _item_rows(s, inp)
         sup = _supplier(s, doc_type, inp)
         if inp.number is not None:
@@ -450,6 +454,10 @@ def create_doc(ctx: AppContext, doc_type: str, inp: PurchaseDocInput, *, source:
 def update_doc(ctx: AppContext, doc_type: str, doc_id: str, inp: PurchaseDocInput, if_match: str | None
                ) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        if doc_type == "po":
+            from .integration import check_local_write
+
+            check_local_write(s, "purchase_orders")
         doc = _get(s, doc_type, doc_id, lock=True)
         check_version(doc, if_match)
         try:
@@ -475,6 +483,10 @@ def update_doc(ctx: AppContext, doc_type: str, doc_id: str, inp: PurchaseDocInpu
 
 def delete_doc(ctx: AppContext, doc_type: str, doc_id: str, if_match: str | None) -> None:
     def fn(s: Session) -> None:
+        if doc_type == "po":
+            from .integration import check_local_write
+
+            check_local_write(s, "purchase_orders")
         doc = _get(s, doc_type, doc_id, lock=True)
         check_version(doc, if_match)
         sids = [r[0] for r in s.execute(select(MfgPurchaseScheduleRow.id).join(
@@ -497,6 +509,10 @@ def delete_doc(ctx: AppContext, doc_type: str, doc_id: str, if_match: str | None
 def action(ctx: AppContext, doc_type: str, doc_id: str, act: str, if_match: str | None,
            reason: str | None = None) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        if doc_type == "po":
+            from .integration import check_local_write
+
+            check_local_write(s, "purchase_orders")
         doc = _get(s, doc_type, doc_id, lock=True)
         check_version(doc, if_match)
         now = datetime.now(UTC)
@@ -584,6 +600,9 @@ def convert_pr(ctx: AppContext, pr_id: str, body: Any, if_match: str | None, ide
                 return out, True
 
     def fn(s: Session) -> tuple[dict[str, Any], bool]:
+        from .integration import check_local_write
+
+        check_local_write(s, "purchase_orders")
         pr = _get(s, "pr", pr_id, lock=True)
         if idem:  # re-checked under the PR lock and before If-Match: a concurrent retry replays (C17)
             out = _convert_replay(s, idem, h)

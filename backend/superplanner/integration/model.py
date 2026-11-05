@@ -92,7 +92,7 @@ class DeliveryRecord(BaseModel):
     endpoint_id: str
     event_seq: int
     event_type: str | None = None
-    status: Literal["pending", "delivered", "dead"]
+    status: Literal["pending", "delivered", "dead", "parked", "retry"]   # parked: skipped by FIFO; retry: un-parked
     attempts: int
     next_attempt_at: datetime | None = None
     last_error: str | None = None

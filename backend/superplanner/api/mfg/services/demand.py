@@ -193,6 +193,9 @@ def _write_lines(s: Session, o: MfgDemandOrderRow, inp: DemandOrderInput, creati
 
 def create_order(ctx: AppContext, inp: DemandOrderInput) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        from .integration import check_local_write
+
+        check_local_write(s, "demand_orders")
         _validate(s, inp)
         if inp.number is not None:
             ensure_unique(s, MfgDemandOrderRow, "A demand order", {"number": inp.number})
@@ -241,6 +244,10 @@ def update_order(ctx: AppContext, order_id: str, inp: DemandOrderInput, if_match
             DEM.check_editable(o.status)
         except RuleError as e:
             raise rule_error(e) from None
+        from .integration import check_local_write
+
+        if _erp_fields_changed(s, o, inp):                 # 4.4: everything but priorities is ERP-owned
+            check_local_write(s, "demand_orders", _erp_fields_changed(s, o, inp))
         _validate(s, inp)
         if inp.number is not None and inp.number != o.number:
             ensure_unique(s, MfgDemandOrderRow, "A demand order", {"number": inp.number}, exclude_id=o.id)
@@ -264,6 +271,25 @@ def update_order(ctx: AppContext, order_id: str, inp: DemandOrderInput, if_match
     return _after_rush(ctx, run_tx(ctx, fn))
 
 
+def _erp_fields_changed(s: Session, o: MfgDemandOrderRow, inp: DemandOrderInput) -> list[str]:
+    out = [f for f, a, b in (("number", o.number, inp.number if inp.number is not None else o.number),
+                             ("demand_type", o.demand_type, inp.demand_type), ("customer", o.customer, inp.customer),
+                             ("program", o.program, inp.program), ("note", o.note, inp.note),
+                             ("external_ref", o.external_ref, inp.external_ref)) if a != b]
+    old = {ln.line_no: ln for ln in s.execute(select(MfgDemandLineRow).where(MfgDemandLineRow.order_id == o.id))
+           .scalars()}
+    new_lines = list(inp.lines or [])
+    for i, ln in enumerate(new_lines):
+        no = getattr(ln, "line_no", None) or (i + 1)
+        x = old.pop(no, None)
+        if x is None or x.item_id != ln.item_id or abs(x.qty - ln.qty) > 1e-9 or x.due_date != ln.due_date:
+            out.append("lines")
+            break
+    if old and "lines" not in out:
+        out.append("lines")
+    return out
+
+
 def _shipped(s: Session, order_id: str) -> bool:
     return bool(s.execute(select(func.count()).select_from(MfgDemandLineRow).where(
         MfgDemandLineRow.order_id == order_id, MfgDemandLineRow.shipped_qty > EPS)).scalar())
@@ -271,6 +297,9 @@ def _shipped(s: Session, order_id: str) -> bool:
 
 def delete_order(ctx: AppContext, order_id: str, if_match: str | None) -> None:
     def fn(s: Session) -> None:
+        from .integration import check_local_write
+
+        check_local_write(s, "demand_orders")
         o = repo.get_row(s, MfgDemandOrderRow, order_id, what=WHAT, lock=True)
         check_version(o, if_match)
         try:
@@ -286,6 +315,9 @@ def delete_order(ctx: AppContext, order_id: str, if_match: str | None) -> None:
 
 def action(ctx: AppContext, order_id: str, act: str, if_match: str | None) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        from .integration import check_local_write
+
+        check_local_write(s, "demand_orders")
         o = repo.get_row(s, MfgDemandOrderRow, order_id, what=WHAT, lock=True)
         check_version(o, if_match)
         try:

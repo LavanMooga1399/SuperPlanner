@@ -296,6 +296,9 @@ finance runs): about 117 runs/min. With one worker SIGKILLed after 5 jobs: about
 
 ## 8. Backups and restore
 
+For production with M5 (integration, traceability, multi-plant) use point-in-time recovery as well; see section 13
+(high availability). The dump-only procedure below stays valid for small single-host installations.
+
 Backups use `pg_dump` in custom format (`-Fc`: compressed, restorable selectively and in parallel). Run them as
 the owner role (or a superuser); schedule them (e.g. daily from cron) and copy the files off the host.
 
@@ -447,7 +450,77 @@ old rate-limit buckets every 10 minutes. To run it by hand:
 | Live progress (SSE) arrives in bursts or not at all | A proxy is buffering. Our nginx sets `proxy_buffering off` and a 1 h read timeout. Do the same on your outer proxy (e.g. `X-Accel-Buffering: no`, disabled response buffering, idle timeout of at least 60 s). |
 | `413 PAYLOAD_TOO_LARGE` | Body larger than `MAX_BODY_BYTES` (5 MiB). |
 
-## 13. Changelog
+## 13. High availability, integration volume and M5 operations (M5-DESIGN 8)
+
+**Stateless API, horizontal workers.** API replicas keep no state of their own: sessions, CSRF tokens, the
+PostgreSQL-backed rate limits, job leases and the integration outbox live in the database. Put any number of
+replicas behind the load balancer (sticky sessions are not needed; SSE works across replicas). The only in-process
+state is the per-token API rate limit (600 requests/min per replica, M5-DESIGN 15.WP-S item 5): with N replicas a
+token can reach N x 600/min. Workers scale horizontally (section 7).
+
+**Singleton duties are safe on any number of workers.** The scheduled duties of M5 run as jobs:
+`integration_filedrop` (one scan per plant every `FILEDROP_POLL_SECONDS`, default 60), `integration_delivery`
+(webhooks per endpoint in FIFO order, plus the periodic file export), `maintenance_retention` (once a day per plant
+when `RETENTION_ENABLED=true`). Every worker that runs one of these kinds also runs the scheduler, but scheduling
+holds a PostgreSQL advisory lock (only one worker schedules at a time) and never enqueues a second run of a kind for
+a plant while one is queued or running. Deliveries take the endpoint row lock with `SKIP LOCKED`. To keep the
+scheduler on dedicated workers, give the other workers a `WORKER_KINDS` list without those three kinds.
+
+**PostgreSQL HA.** Use a managed PostgreSQL with automatic fail-over, or Patroni with one synchronous replica
+(`synchronous_mode: true`) behind a virtual IP / HAProxy that always points at the leader. Point `DATABASE_URL` at
+that address; the pool reconnects after a fail-over (in-flight requests fail with 503 and are retried by clients;
+jobs are re-leased by the reaper). Read replicas are not used by the application.
+
+**Backups with point-in-time recovery.** Replace dump-only backups by base backups plus continuous WAL archiving
+(`archive_mode=on`, `archive_command` to object storage, or pgBackRest / WAL-G; managed services do this for you).
+Keep the nightly `pg_dump` of section 8 as a logical second copy. Example targets to document with the customer:
+**RPO 5 minutes** (WAL shipped at least every 5 minutes, `archive_timeout = 300`), **RTO 30 minutes** (promote the
+synchronous replica; a full PITR restore of a 50 GB cluster takes longer - test it twice a year). Traceability data
+(ledger, floor events, genealogy, audit) is kept indefinitely, so the database grows; use `manage.py archive` for
+off-line copies (below), not deletes.
+
+**Rolling upgrades.** Migrations follow expand -> deploy -> contract: an upgrade first applies additive migrations
+(new tables, nullable columns, new job kinds; 0007 is additive only), then replaces API and worker replicas one at a
+time, and only a later release removes old columns. Run `docker compose run --rm migrate` before rolling the new
+image; both versions work against the expanded schema in between. After the 0006 -> 0007 upgrade run
+`python -m superplanner.manage trace-backfill` once (idempotent) to build the genealogy of the existing history,
+then `python -m superplanner.manage audit-verify`.
+
+**Integration volume.** `INTEGRATION_ROOT` holds `<plant code>/{inbox,processing,archive,error,outbox}`. Either
+share it between all workers (NFS / EFS / SMB with POSIX rename semantics), or mount it only on the workers that run
+`integration_filedrop` and `integration_delivery` (`WORKER_KINDS`). SFTP is provided by the infrastructure writing
+into `inbox/` (write to a temporary name or add a `<name>.done` marker when complete; otherwise a file is picked up
+once its size is unchanged for two polls). Exported event files appear atomically in `outbox/` (written to a hidden
+temporary name, then renamed). Back up `archive/` and `error/` with the other files of the plant.
+
+**Webhooks and the address guard.** Webhook URLs must be https; private, loopback and link-local addresses are
+refused unless `INTEGRATION_ALLOW_PRIVATE_TARGETS=true` (ERP middleware on the LAN). The worker connects to exactly
+the address that passed the check (no second DNS lookup) and verifies the certificate against the URL's host name;
+redirects are not followed and HTTP proxies are not used for webhook calls - allow outbound 443 from the workers to
+the ERP endpoints directly.
+
+**Secrets.** `SECRETS_KEY` (Fernet; required for TOTP and webhook secrets) and the OIDC client secret come from the
+environment or the secret store, never from files in the image. Rotation of `SECRETS_KEY`: set
+`SECRETS_KEYS=<new>,<old>` (the first key encrypts, all keys decrypt) on every API replica and worker, roll them,
+then re-save each webhook endpoint secret (or let users re-enrol TOTP) and finally drop the old key from the list.
+`OIDC_CLIENT_SECRET` rotation: add the new secret at the IdP, deploy it, then revoke the old one.
+
+**Retention and archive.** The nightly retention purges only derived data (notifications and handled replan
+triggers after 180 days, outbox events delivered to every endpoint after 90 days - pull cursors older than that get
+410 `INT_CURSOR_EXPIRED` -, inbox payloads after 30 days, the KPI cache after 3 years). With `ARCHIVE_DIR` set it
+first writes `ARCHIVE_DIR/<owner>/<class>/<yyyy-mm>.jsonl.gz` and a `manifest-*.json` with row counts and SHA-256
+per file. For off-line copies of the indefinite classes run, for example,
+`python -m superplanner.manage archive --before 2027-01-01 --classes ledger,floor_events,trace_edges,audit`
+(nothing is deleted without `--purge`, and `--purge` never deletes those classes).
+
+**Audit chain.** `python -m superplanner.manage audit-verify` (exit 1 on a broken link; the API offers the same as
+`GET /api/v1/audit/verify` per plant). Run it after restores and upgrades.
+
+**Converting a personal plant.** `python -m superplanner.manage convert-plant --from-user owner@example.com --org
+hbl --code HYD` moves a personal workspace into an organisation in one transaction (members are kept, the person
+becomes `plant_admin`). Use `--dry-run` first and take a backup.
+
+## 14. Changelog
 
 - **PostgreSQL-only release.** SQLite support was removed: `DATABASE_URL` is required and must be PostgreSQL, the
   schema is created only by `python -m superplanner.migrate upgrade` (no automatic creation or file backups at

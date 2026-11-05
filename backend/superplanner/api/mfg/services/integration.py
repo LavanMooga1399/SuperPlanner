@@ -121,6 +121,15 @@ def check_local_item_write(s: Session, before: Any | None, after: Any) -> None:
         raise ApiError(409, "INT_ERP_OWNED", "These item fields are maintained in the ERP.", {"fields": changed})
 
 
+def check_local_write(s: Session, entity: str, fields: list[str] | None = None) -> None:
+    """4.4: 409 `INT_ERP_OWNED` for a local write of an ERP-owned entity (`fields`: the ERP-owned fields touched;
+    None = the whole document). Inbound writes, integration off and `shared` SoR pass."""
+    if s.info.get("sp_inbound") or sor_of(s, entity) != "erp":
+        return
+    raise ApiError(409, "INT_ERP_OWNED", f"{entity.replace('_', ' ').capitalize()} are maintained in the ERP for "
+                   "this plant.", {"fields": fields or ["document"], "entity": entity})
+
+
 def check_local_po_receipt(s: Session) -> None:
     """14 Q2: with goods receipts owned by the ERP, PO receipts come in through integration only."""
     st = settings_row(s)
@@ -172,7 +181,8 @@ def batch_record(r: IntInboxRow, with_results: bool = True) -> dict[str, Any]:
             "finished_at": as_utc(r.finished_at)}
 
 
-def post_batch(ctx: AppContext, body: dict[str, Any], key: str | None) -> tuple[dict[str, Any], bool, int]:
+def post_batch(ctx: AppContext, body: dict[str, Any], key: str | None, source: str = "rest"
+               ) -> tuple[dict[str, Any], bool, int]:
     """-> (batch, replayed, http status)."""
     if not key:
         raise ApiError(422, "VALIDATION_ERROR", "The Idempotency-Key header is required.",
@@ -196,7 +206,7 @@ def post_batch(ctx: AppContext, body: dict[str, Any], key: str | None) -> tuple[
     now = utcnow()
 
     def create(s: Session) -> str:
-        row = IntInboxRow(id=new_id("inb_"), source="rest", idempotency_key=key, entity=batch.entity, mode=batch.mode,
+        row = IntInboxRow(id=new_id("inb_"), source=source, idempotency_key=key, entity=batch.entity, mode=batch.mode,
                           status="running", counts={}, results=None, payload=body, payload_hash=h,
                           actor_id=actor_id(), received_at=now, finished_at=None)
         try:
@@ -208,6 +218,26 @@ def post_batch(ctx: AppContext, body: dict[str, Any], key: str | None) -> tuple[
                 from None
         return row.id
 
+    if len(batch.records) > C.SYNC_LIMIT:                    # 4.3: 202 + job kind integration_import
+        def queue(s: Session) -> tuple[dict[str, Any], Any]:
+            from ...db.ownership import current_owner
+
+            row = IntInboxRow(id=new_id("inb_"), source=source, idempotency_key=key, entity=batch.entity,
+                              mode=batch.mode, status="queued", counts={}, results=None, payload=body,
+                              payload_hash=h, actor_id=actor_id(), received_at=now, finished_at=None)
+            try:
+                with s.begin_nested():
+                    s.add(row)
+                    s.flush()
+            except IntegrityError:
+                raise ApiError(409, "INT_IDEMPOTENCY_CONFLICT", "This Idempotency-Key is being processed.", {}) \
+                    from None
+            job = ctx.jobs.enqueue(s, "integration_import", row.id, str(current_owner()))
+            return batch_record(row), job
+
+        rec, job = run_tx(ctx, queue)
+        ctx.jobs.dispatch(job)
+        return rec, False, 202
     bid = run_tx(ctx, create)
     results = process(ctx, batch)
     counts: dict[str, int] = {}
@@ -241,29 +271,36 @@ def _rejected(ref: str, code: str, msg: str, **details: Any) -> dict[str, Any]:
     return {"ref": ref, "status": "rejected", "id": None, "errors": [{"code": code, "message": msg, **details}]}
 
 
+SOR_KEY = {"item": "items", "supplier": "suppliers", "purchase_request": "purchase_requests",
+           "work_order": "work_orders", "po_receipt": "po_receipts", "bom": "boms", "routing": "routings",
+           "purchase_order": "purchase_orders", "demand_order": "demand_orders", "item_supplier": "item_suppliers",
+           "stock_snapshot": "stock"}
+
+
 def process(ctx: AppContext, batch: C.V1Batch) -> list[dict[str, Any]]:
+    from ....integration import inbound
+
     ent = batch.entity
     with read_tx(ctx) as s:
-        sor_key = {"item": "items", "supplier": "suppliers", "purchase_request": "purchase_requests",
-                   "work_order": "work_orders", "po_receipt": "po_receipts", "bom": "boms", "routing": "routings",
-                   "purchase_order": "purchase_orders", "demand_order": "demand_orders",
-                   "item_supplier": "item_suppliers", "stock_snapshot": "stock"}[ent]
+        sor_key = SOR_KEY[ent]
         sor = sor_of(s, sor_key)
         maps = _maps(s)
-    out: list[dict[str, Any]] = []
-    for raw in batch.records:
-        ref = str(raw.get("ref", ""))[:64] if isinstance(raw, dict) else ""
-        if ent in SP_OWNED_ENTITIES or (sor == "superplanner" and ent not in ("stock_snapshot",)):
-            out.append(_rejected(ref, "INT_SOR_CONFLICT", f"{sor_key.replace('_', ' ')} are maintained in "
-                                 "SuperPlanner for this plant."))
-    if out:
-        return out
+    if ent == "purchase_request" or (sor == "superplanner" and ent not in ("stock_snapshot", "po_receipt")):
+        return [_rejected(str(r.get("ref", ""))[:64] if isinstance(r, dict) else "", "INT_SOR_CONFLICT",
+                          f"{sor_key.replace('_', ' ')} are maintained in SuperPlanner for this plant.")
+                for r in batch.records]
+    if batch.mode == "delete" and ent not in ("bom", "routing"):
+        return [_rejected(str(r.get("ref", ""))[:64], "INT_SCHEMA", "Delete is not supported over the API; "
+                          "deactivate or close the record instead.") for r in batch.records]
     if ent == "item":
         return _items(ctx, batch, maps, sor)
     if ent == "po_receipt":
         return _po_receipts(ctx, batch, maps)
-    return [_rejected(str(r.get("ref", ""))[:64], "INT_SCHEMA", f"{ent} records are not processed in this build.")
-            for r in batch.records]
+    if ent in ("bom", "routing"):
+        return inbound.documents(ctx, batch, maps)
+    if ent == "stock_snapshot":
+        return inbound.stock(ctx, batch, maps, sor)
+    return inbound.via_bundle(ctx, batch, maps)
 
 
 def _items(ctx: AppContext, batch: C.V1Batch, maps: dict[tuple[str, str], str], sor: str) -> list[dict[str, Any]]:
@@ -493,7 +530,9 @@ def delete_endpoint(ctx: AppContext, endpoint_id: str, if_match: str | None) -> 
 def deliver_now(ctx: AppContext, endpoint_id: str | None = None, post: outbox.Poster | None = None,
                 now: datetime | None = None) -> dict[str, int]:
     """Deliver due events (per endpoint FIFO under the endpoint row lock). Used by the delivery job and tests."""
-    post = post or getattr(ctx.settings, "webhook_post", None) or outbox.http_post
+    allow = bool(ctx.settings.integration_allow_private_targets)
+    post = post or getattr(ctx.settings, "webhook_post", None) or (
+        lambda u, b, h: outbox.pinned_post(u, b, h, allow_private=allow))
     totals = {"delivered": 0, "failed": 0, "dead": 0}
     with read_tx(ctx) as s:
         q = select(IntEndpointRow.id).where(IntEndpointRow.active.is_(True))
@@ -515,8 +554,82 @@ def deliver_now(ctx: AppContext, endpoint_id: str | None = None, post: outbox.Po
     return totals
 
 
-def deliver_all_job(ctx: Any, run_id: str, lease: Any) -> None:  # pragma: no cover - scheduling (S2)
-    raise NotImplementedError
+def deliver_all_job(ctx: Any, run_id: str, lease: Any) -> None:
+    """`integration_delivery` (scheduled, 4.6): deliver due webhook events of every endpoint of the plant (FIFO,
+    per-endpoint row lock with SKIP LOCKED), then the periodic file export when it is due."""
+    from ....integration.jobs import run_duty
+
+    def fn(info: dict[str, Any]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for _ in range(20):                         # up to 20 x 500 events per run
+            r = deliver_now(ctx)
+            for k, v in r.items():
+                out[k] = out.get(k, 0) + v
+            if r.get("delivered", 0) < 1 or r.get("failed") or r.get("dead"):
+                break
+        out["export"] = export_events(ctx)
+        return out
+
+    run_duty(ctx, run_id, lease, fn)
+
+
+def export_events(ctx: Any, now: datetime | None = None, force: bool = False) -> dict[str, Any] | None:
+    """4.6 file export: new events since `export_cursor` as one CSV per type plus a JSONL file in
+    `INTEGRATION_ROOT/<code>/outbox/` (written to a temp name, then renamed: consumers never see partial files)."""
+    import csv
+    import io
+    import os
+    from pathlib import Path
+
+    from ....integration.scheduler import export_is_due
+
+    now = now or datetime.now(UTC)
+    root = ctx.settings.integration_root
+
+    def fn(s: Session) -> dict[str, Any] | None:
+        st = s.execute(select(IntSettingsRow).with_for_update()).scalars().first()
+        if st is None or not root or not st.plant_code:
+            return None
+        top = int(s.execute(select(func.max(IntOutboxRow.seq))).scalar() or 0)
+        if not force and not export_is_due(st, top, now, ctx.settings):
+            return None
+        rows = list(s.execute(select(IntOutboxRow).where(IntOutboxRow.seq > st.export_cursor)
+                              .order_by(IntOutboxRow.seq).limit(100_000)).scalars())
+        if not rows:
+            return None
+        out_dir = Path(root) / st.plant_code / "outbox"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        stamp = now.strftime("%Y%m%dT%H%M%SZ")
+        plant = {"code": st.plant_code, "owner_id": st.owner_id}
+        files = []
+        by_type: dict[str, list[Any]] = {}
+        jl = io.StringIO()
+        for r in rows:
+            ev = outbox._json(outbox.event_view(r, plant))
+            jl.write(json.dumps(ev, sort_keys=True, separators=(",", ":")) + "\n")
+            by_type.setdefault(r.type, []).append(ev)
+        name = f"events-{stamp}-{rows[0].seq}-{rows[-1].seq}"
+        payloads = {f"{name}.jsonl": jl.getvalue()}
+        for typ, evs in by_type.items():
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(["id", "type", "occurred_at", "actor", "entity_ref", "data"])
+            for e in evs:
+                w.writerow([e["id"], e["type"], e["occurred_at"], e["actor"], "", json.dumps(e["data"],
+                                                                                        sort_keys=True)])
+            payloads[f"{name}-{typ.replace('.', '_')}.csv"] = buf.getvalue()
+        for fname, body in payloads.items():
+            tmp = out_dir / f".{fname}.tmp"
+            tmp.write_text(body)
+            os.replace(tmp, out_dir / fname)
+            files.append(fname)
+        st.export_cursor = int(rows[-1].seq)
+        st.sor = {**(st.sor or {}), "_exported_at": now.isoformat()}
+        s.flush()
+        audit(s, "integration_export", st.id, "export", {"events": len(rows), "files": len(files)})
+        return {"events": len(rows), "files": files, "cursor": int(rows[-1].seq)}
+
+    return run_tx(ctx, fn)
 
 
 def delivery_record(r: IntDeliveryRow, type_: str | None) -> dict[str, Any]:
@@ -547,11 +660,49 @@ def retry_delivery(ctx: AppContext, delivery_id: str) -> dict[str, Any]:
         if d.status == "delivered":
             raise ApiError(409, "MFG_INVALID_STATE", "This event was delivered.", {"status": d.status})
         d.status, d.next_attempt_at, d.created_at = "pending", utcnow(), utcnow()   # a fresh 24 h window
+        if d.status == "pending":
+            ep = s.get(IntEndpointRow, d.endpoint_id, with_for_update=True)
+            if ep is not None and ep.cursor >= d.event_seq:         # un-park: send it on the next run
+                d.status = "retry"
         s.flush()
         audit(s, "integration_delivery", d.id, "retry", {"event_seq": int(d.event_seq)})
         return delivery_record(d, None)
 
     return run_tx(ctx, fn)
+
+
+def park_delivery(ctx: AppContext, delivery_id: str) -> dict[str, Any]:
+    """Park a pending / dead delivery: its endpoint's FIFO moves past it (the cursor skips the event); the event
+    stays retryable (`retry` / `unpark` sends it on the next run, out of order)."""
+    def fn(s: Session) -> dict[str, Any]:
+        d = repo.get_row(s, IntDeliveryRow, delivery_id, what="Delivery", lock=True)
+        if d.status == "delivered":
+            raise ApiError(409, "MFG_INVALID_STATE", "This event was delivered.", {"status": d.status})
+        ep = s.get(IntEndpointRow, d.endpoint_id, with_for_update=True)
+        d.status, d.next_attempt_at = "parked", None
+        if ep is not None and ep.cursor < d.event_seq:
+            ep.cursor = int(d.event_seq)
+        s.flush()
+        audit(s, "integration_delivery", d.id, "park", {"event_seq": int(d.event_seq)})
+        return delivery_record(d, None)
+
+    return run_tx(ctx, fn)
+
+
+def ownership(ctx: AppContext) -> dict[str, Any]:
+    """4.4 for every role: SoR per entity, the ERP-owned fields of each, who books goods receipts."""
+    from ....integration.model import SOR_DEFAULTS
+
+    owned = {"items": list(ITEM_ERP_FIELDS), "boms": ["document"], "routings": ["document"],
+             "suppliers": ["document"], "item_suppliers": ["all except preferred"],
+             "purchase_orders": ["header", "lines", "schedules"], "demand_orders": ["all except priority"],
+             "work_orders": ["document"], "po_receipts": ["posting"]}
+    with read_tx(ctx) as s:
+        st = settings_row(s)
+        on = bool(st and st.enabled)
+        sor = {k: (sor_of(s, k) if on else "superplanner") for k in SOR_DEFAULTS}
+    return {"enabled": on, "sor": sor, "goods_receipts_owner": st.goods_receipts_owner if st else "superplanner",
+            "erp_fields": {k: v for k, v in owned.items() if sor.get(k) == "erp"}}
 
 
 def pull_events(ctx: AppContext, after: int, limit: int, types: list[str] | None) -> dict[str, Any]:
@@ -581,60 +732,70 @@ def create_profile(ctx: AppContext, inp: Any) -> dict[str, Any]:
 
 
 def filedrop_status(ctx: AppContext) -> dict[str, Any]:
-    with read_tx(ctx) as s:
+    from ....integration import filedrop
+    from ..db_models_m5 import MaintenanceRunRow
+    from ...db.ownership import current_owner, system_scope
+
+    owner = current_owner()
+    with system_scope(), ctx.db.read() as s:
+        last = s.execute(select(MaintenanceRunRow).where(
+            MaintenanceRunRow.kind == "integration_filedrop", MaintenanceRunRow.owner_scope_id == owner,
+            MaintenanceRunRow.status == "completed").order_by(MaintenanceRunRow.created_at.desc()).limit(1)
+        ).scalars().first()
+        res = dict(last.results or {}) if last else None
+    return filedrop.status(ctx, res)
+
+
+def _snapshot_records(ctx: AppContext, s: Session, inp: Any) -> dict[str, list[dict[str, Any]]]:
+    """4.8 snapshot sources: inline records, a JSON file in the plant's inbox (`{entity: [records]}`), or the
+    adapter's `snapshot` (generic_v1 has none -> 422)."""
+    if inp.snapshot == "inline":
+        return dict(inp.records or {})
+    if inp.snapshot == "file":
+        import pathlib
+
         st = settings_row(s)
-    return {"enabled": bool(st and st.filedrop_enabled), "root": ctx.settings.integration_root, "inbox": [],
-            "recent": [], "last_poll_at": None}
+        root = ctx.settings.integration_root
+        name = pathlib.PurePath(inp.file_name or "").name
+        if not root or st is None or not name:
+            raise ApiError(422, "VALIDATION_ERROR", "A file snapshot needs INTEGRATION_ROOT, a plant code and "
+                           "file_name.", {})
+        f = pathlib.Path(root) / st.plant_code / "inbox" / name
+        if not f.is_file():
+            raise ApiError(422, "VALIDATION_ERROR", f"{name} is not in the plant's inbox.", {})
+        data = json.loads(f.read_bytes()[:50_000_000])
+        return {k: list(v) for k, v in (data.get("records", data) or {}).items() if isinstance(v, list)}
+    from ....integration.adapters import registry
+
+    ad = registry.get((settings_row(s).adapter if settings_row(s) else "generic_v1"))
+    out = {}
+    for e in inp.entities:
+        snap = ad.snapshot(e)
+        if snap is None:
+            raise ApiError(422, "VALIDATION_ERROR", f"The {ad.name} adapter cannot pull a {e} snapshot.", {})
+        out[e] = [x.model_dump(mode="json") if hasattr(x, "model_dump") else x for x in snap]
+    return out
 
 
 def reconcile(ctx: AppContext, inp: Any) -> dict[str, Any]:
-    """4.8, inline snapshots of stock (item x location x lot, tolerance 1e-6): `different` / `missing_in_sp` /
-    `missing_in_erp`; never posts (counts are reviewed by a store keeper unless stock SoR is `erp`)."""
-    from ..db_models import MfgItemRow
-    from ..db_models_m2 import MfgInvBalanceRow, MfgLocationRow, MfgLotRow
-
+    """4.8: compare an ERP snapshot with SuperPlanner per record: `different` / `missing_in_sp` / `missing_in_erp`
+    (stock by item x location x lot, tolerance 1e-6) and `sor_conflicts` (records of a SuperPlanner-owned entity, or
+    of a `shared` entity changed on both sides). Never posts (`post_stock_counts` is the reviewed follow-up)."""
     summary: dict[str, Any] = {}
     results: dict[str, Any] = {}
     with read_tx(ctx) as s:
         maps = _maps(s)
-        if "stock" in inp.entities:
-            items = {i.id: i for i in s.execute(select(MfgItemRow)).scalars()}
-            refs = {(i.external_ref or i.part_number): i.id for i in items.values()}
-            locs = {x.id: x.code for x in s.execute(select(MfgLocationRow)).scalars()}
-            lots = {x.id: x.lot_code for x in s.execute(select(MfgLotRow)).scalars()}
-            sp: dict[tuple[str, str, str], float] = {}
-            for b in s.execute(select(MfgInvBalanceRow)).scalars():
-                k = (b.item_id, locs.get(b.location_id, ""), lots.get(b.lot_id, "") if b.lot_id else "")
-                sp[k] = sp.get(k, 0.0) + float(b.qty_on_hand)
-            erp: dict[tuple[str, str, str], float] = {}
-            unknown = []
-            for raw in inp.records.get("stock", []):
-                rec = C.StockSnapshotV1.model_validate(raw)
-                iid = refs.get(rec.item_ref)
-                if iid is None:
-                    unknown.append(rec.item_ref)
-                    continue
-                loc = maps.get(("location", rec.location_code.upper()), rec.location_code)
-                k = (iid, loc, rec.lot_code or "")
-                erp[k] = erp.get(k, 0.0) + rec.qty
-            diff, miss_sp, miss_erp = [], [], []
-            for k in sorted(set(sp) | set(erp)):
-                a, b = sp.get(k), erp.get(k)
-                row = {"item": items[k[0]].part_number if k[0] in items else k[0], "location": k[1], "lot": k[2],
-                       "sp_qty": a, "erp_qty": b}
-                if a is None:
-                    miss_sp.append(row)
-                    continue
-                if b is None:
-                    if abs(a or 0) > 1e-6:
-                        miss_erp.append(row)
-                    continue
-                if abs(a - b) > 1e-6:
-                    diff.append({**row, "delta": round(b - a, 6)})
-            results["stock"] = {"different": diff, "missing_in_sp": miss_sp + [{"item_ref": u} for u in unknown],
-                                "missing_in_erp": miss_erp}
-            summary["stock"] = {"different": len(diff), "missing_in_sp": len(miss_sp) + len(unknown),
-                                "missing_in_erp": len(miss_erp), "sor_conflicts": 0}
+        records = _snapshot_records(ctx, s, inp)
+        for ent in inp.entities:
+            fn = {"stock": _rec_stock, "items": _rec_items, "purchase_orders": _rec_pos}[ent]
+            res = fn(s, records.get(ent, []) or records.get({"items": "item", "purchase_orders": "purchase_order",
+                                                              "stock": "stock_snapshot"}[ent], []), maps)
+            sor = sor_of(s, ent)
+            res["sor_conflicts"] = ([{"entity": ent, "message": f"{ent} are maintained in SuperPlanner; the ERP "
+                                      "snapshot is informational."}] if sor == "superplanner" and ent != "stock"
+                                    else [])
+            results[ent] = res
+            summary[ent] = {k: len(v) for k, v in res.items()}
     now = utcnow()
 
     def fn(s: Session) -> dict[str, Any]:
@@ -646,6 +807,198 @@ def reconcile(ctx: AppContext, inp: Any) -> dict[str, Any]:
         return reconciliation_record(r)
 
     return run_tx(ctx, fn)
+
+
+def _rec_stock(s: Session, raw_records: list[dict[str, Any]], maps: dict[tuple[str, str], str]) -> dict[str, Any]:
+    from ..db_models import MfgItemRow
+    from ..db_models_m2 import MfgInvBalanceRow, MfgLocationRow, MfgLotRow
+
+    items = {i.id: i for i in s.execute(select(MfgItemRow)).scalars()}
+    refs: dict[str, str] = {}
+    for i in items.values():
+        refs.setdefault(i.part_number, i.id)
+        if i.external_ref:
+            refs[i.external_ref] = i.id
+    locs = {x.id: x.code for x in s.execute(select(MfgLocationRow)).scalars()}
+    loc_ids = {v: k for k, v in locs.items()}
+    lots = {x.id: x.lot_code for x in s.execute(select(MfgLotRow)).scalars()}
+    sp: dict[tuple[str, str, str], float] = {}
+    for b in s.execute(select(MfgInvBalanceRow)).scalars():
+        k = (b.item_id, locs.get(b.location_id, ""), lots.get(b.lot_id, "") if b.lot_id else "")
+        sp[k] = sp.get(k, 0.0) + float(b.qty_on_hand)
+    erp: dict[tuple[str, str, str], float] = {}
+    unknown = []
+    for raw in raw_records:
+        rec = C.StockSnapshotV1.model_validate(raw)
+        iid = refs.get(rec.item_ref)
+        if iid is None:
+            unknown.append({"item_ref": rec.item_ref, "location": rec.location_code, "lot": rec.lot_code or "",
+                            "erp_qty": rec.qty, "sp_qty": None})
+            continue
+        loc = maps.get(("location", rec.location_code.upper()), rec.location_code)
+        k = (iid, loc, rec.lot_code or "")
+        erp[k] = erp.get(k, 0.0) + rec.qty
+    diff, miss_sp, miss_erp = [], [], []
+    for k in sorted(set(sp) | set(erp)):
+        a, b = sp.get(k), erp.get(k)
+        it = items.get(k[0])
+        row = {"item": it.part_number if it else k[0], "item_id": k[0],
+               "item_ref": (it.external_ref or it.part_number) if it else k[0], "location": k[1],
+               "location_id": loc_ids.get(k[1]), "lot": k[2], "sp_qty": a, "erp_qty": b}
+        if a is None:
+            miss_sp.append(row)
+            continue
+        if b is None:
+            if abs(a or 0) > 1e-6:
+                miss_erp.append(row)
+            continue
+        if abs(a - b) > 1e-6:
+            diff.append({**row, "delta": round(b - a, 6)})
+    return {"different": diff, "missing_in_sp": miss_sp + unknown, "missing_in_erp": miss_erp}
+
+
+def _rec_items(s: Session, raw_records: list[dict[str, Any]], maps: dict[tuple[str, str], str]) -> dict[str, Any]:
+    from ..db_models import MfgItemRow
+
+    items = list(s.execute(select(MfgItemRow)).scalars())
+    by = {}
+    for i in items:
+        by.setdefault(i.part_number, i)
+        if i.external_ref:
+            by[f"ref:{i.external_ref}"] = i
+    seen, diff, miss_sp = set(), [], []
+    for raw in raw_records:
+        rec = C.ItemV1.model_validate(raw)
+        it = by.get(f"ref:{rec.ref}") or by.get(rec.part_number)
+        if it is None:
+            miss_sp.append({"ref": rec.ref, "part_number": rec.part_number})
+            continue
+        seen.add(it.id)
+        uom = maps.get(("uom", rec.uom.upper()), rec.uom)
+        fields = {f: (getattr(it, f), v) for f, v in (("part_number", rec.part_number), ("revision", rec.revision),
+                                                       ("description", rec.description), ("uom", uom),
+                                                       ("make_buy", rec.make_buy), ("active", rec.active),
+                                                       ("standard_cost", rec.standard_cost))
+                  if v is not None and getattr(it, f) != v}
+        if fields:
+            diff.append({"ref": rec.ref, "part_number": it.part_number, "item_id": it.id,
+                         "fields": {k: {"sp": a, "erp": b} for k, (a, b) in fields.items()}})
+    miss_erp = [{"ref": i.external_ref, "part_number": i.part_number, "item_id": i.id} for i in items
+                if i.external_ref and i.id not in seen] if raw_records else []
+    return {"different": diff, "missing_in_sp": miss_sp, "missing_in_erp": miss_erp}
+
+
+def _rec_pos(s: Session, raw_records: list[dict[str, Any]], maps: dict[tuple[str, str], str]) -> dict[str, Any]:
+    from ..db_models_m2 import MfgPurchaseDocRow, MfgPurchaseLineRow, MfgPurchaseScheduleRow
+
+    docs = {d.number: d for d in s.execute(select(MfgPurchaseDocRow).where(MfgPurchaseDocRow.doc_type == "po"))
+            .scalars()}
+    seen, diff, miss_sp = set(), [], []
+    for raw in raw_records:
+        rec = C.PurchaseOrderV1.model_validate(raw)
+        d = docs.get(rec.number)
+        if d is None:
+            miss_sp.append({"ref": rec.ref, "number": rec.number})
+            continue
+        seen.add(d.number)
+        sched = {(ln.line_no, sc.seq): sc for ln, sc in s.execute(select(MfgPurchaseLineRow, MfgPurchaseScheduleRow)
+                                                                  .join(MfgPurchaseScheduleRow,
+                                                                        MfgPurchaseScheduleRow.line_id ==
+                                                                        MfgPurchaseLineRow.id)
+                                                                  .where(MfgPurchaseLineRow.doc_id == d.id)).all()}
+        out = []
+        for ln in rec.lines:
+            for sc in ln.schedules:
+                x = sched.pop((ln.line_no, sc.seq), None)
+                if x is None:
+                    out.append({"line_no": ln.line_no, "seq": sc.seq, "issue": "missing_in_sp"})
+                    continue
+                f = {}
+                if abs(x.qty - sc.qty) > 1e-6:
+                    f["qty"] = {"sp": x.qty, "erp": sc.qty}
+                if sc.received_qty is not None and abs(x.received_qty - sc.received_qty) > 1e-6:
+                    f["received_qty"] = {"sp": x.received_qty, "erp": sc.received_qty}
+                if x.requested_date != sc.requested_date:
+                    f["requested_date"] = {"sp": x.requested_date.isoformat(), "erp": sc.requested_date.isoformat()}
+                if f:
+                    out.append({"line_no": ln.line_no, "seq": sc.seq, "fields": f})
+        out += [{"line_no": k[0], "seq": k[1], "issue": "missing_in_erp"} for k in sorted(sched)]
+        if out or (rec.status != d.status and not (rec.status == "open" and d.status in
+                                                   ("partially_received", "received"))):
+            diff.append({"number": rec.number, "status": {"sp": d.status, "erp": rec.status}, "schedules": out})
+    miss_erp = [{"number": n} for n, d in sorted(docs.items()) if n not in seen and d.external_ref] \
+        if raw_records else []
+    return {"different": diff, "missing_in_sp": miss_sp, "missing_in_erp": miss_erp}
+
+
+def post_stock_counts(ctx: AppContext, rec_id: str, *, reason: str = "ERP_SYNC", system: bool = False
+                      ) -> dict[str, Any]:
+    """Turn a stock reconciliation's differences into one `count` posting (items set to the ERP quantity). Used
+    automatically only when stock SoR is `erp` (4.8)."""
+    from ....mfg.model_m2 import CountLine, CountPosting
+    from .inventory import post_in_session, posting_record
+
+    def fn(s: Session) -> dict[str, Any]:
+        r = repo.get_row(s, IntReconciliationRow, rec_id, what="Reconciliation", lock=True)
+        res = (r.results or {}).get("stock") or {}
+        rows = [x for x in res.get("different", []) + res.get("missing_in_sp", []) + res.get("missing_in_erp", [])
+                if x.get("item_id") and x.get("location_id")]
+        if not rows:
+            return {"posting": None, "lines": []}
+        lines = [CountLine.model_construct(item_id=x["item_id"], location_id=x["location_id"],
+                                           counted_qty=float(x.get("erp_qty") or 0.0), lot_code=x["lot"] or None,
+                                           expires_on=None) for x in rows]
+        s.info["sp_inbound"] = True
+        row, w = post_in_session(s, CountPosting.model_construct(type="count", txn_date=None,
+                                                                 note=f"ERP stock sync {r.id}", reason_code=reason,
+                                                                 lines=lines), system=system)
+        r.snapshot = {**(r.snapshot or {}), "posting_id": row.id}
+        s.flush()
+        audit(s, "integration_reconciliation", r.id, "post_counts", {"posting": row.number, "lines": len(rows),
+                                                                     "reason": reason})
+        return {"posting": posting_record(s, row, w), "lines": rows}
+
+    return run_tx(ctx, fn, lock=True)
+
+
+def export_reconciliation(ctx: AppContext, rec_id: str, fmt: str) -> tuple[bytes, str, str]:
+    """xlsx (one sheet per entity x kind) or CSV (entity, kind, data as JSON) of a reconciliation (4.8)."""
+    import csv
+    import io
+
+    rec = get_reconciliation(ctx, rec_id)
+    rows = [(ent, kind, x) for ent, res in (rec["results"] or {}).items() for kind, items in res.items()
+            for x in items]
+    if fmt == "csv":
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["entity", "kind", "item", "location", "lot", "sp_qty", "erp_qty", "delta", "details"])
+        for ent, kind, x in rows:
+            w.writerow([ent, kind, x.get("item") or x.get("part_number") or x.get("number") or x.get("item_ref"),
+                        x.get("location"), x.get("lot"), x.get("sp_qty"), x.get("erp_qty"), x.get("delta"),
+                        json.dumps(x, sort_keys=True, default=str)])
+        return buf.getvalue().encode(), "text/csv", f"reconciliation-{rec_id}.csv"
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    wb.remove(wb.active)
+    ws = wb.create_sheet("summary")
+    ws.append(["entity", "kind", "count"])
+    for ent, sm in (rec["summary"] or {}).items():
+        for k, v in sm.items():
+            ws.append([ent, k, v])
+    for ent, res in (rec["results"] or {}).items():
+        for kind, items in res.items():
+            sh = wb.create_sheet(f"{ent}_{kind}"[:31])
+            cols = sorted({k for x in items for k in x}) or ["(none)"]
+            sh.append(cols)
+            for x in items:
+                sh.append([json.dumps(x[c], default=str) if isinstance(x.get(c), (dict, list)) else x.get(c)
+                           for c in cols])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", \
+        f"reconciliation-{rec_id}.xlsx"
 
 
 def reconciliation_record(r: IntReconciliationRow) -> dict[str, Any]:

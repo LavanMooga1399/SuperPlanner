@@ -353,12 +353,15 @@ def _serials(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], op: Mfg
                     c.warnings.append({"code": "FLR_SERIAL_OUT_OF_RANGE",
                                        "message": f"{len(out)} serial(s) are outside {wo.number}'s unit range "
                                                   f"{wo.serial_from}-{wo.serial_to}.", "details": {"serials": out}})
-            for p in produced:
-                s.add(MfgUnitSerialRow(id=new_id("ser_"), item_id=wo.item_id, serial=p, wo_id=wo.id, status="wip",
-                                       captured_at=at, captured_op_seq=op.seq, parent_serial_id=None,
-                                       consumed_at=None, consumed_wo_id=None, event_id=ev.id, row_version=1,
-                                       created_at=c.now, updated_at=c.now))
+            made = [MfgUnitSerialRow(id=new_id("ser_"), item_id=wo.item_id, serial=p, wo_id=wo.id, status="wip",
+                                     captured_at=at, captured_op_seq=op.seq, parent_serial_id=None,
+                                     consumed_at=None, consumed_wo_id=None, event_id=ev.id, row_version=1,
+                                     created_at=c.now, updated_at=c.now) for p in produced]
+            s.add_all(made)
             s.flush()
+            from .trace import write_serial_edges          # M5-DESIGN 6.1 (WO -> serial, same transaction)
+
+            write_serial_edges(s, made)
     elif produced:
         raise ApiError(422, "VALIDATION_ERROR", "This operation does not capture serials.",
                        {"errors": [{"loc": ["body", "serials", "produced"], "msg": "no serial capture here",
@@ -377,6 +380,7 @@ def _consume(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], op: Mfg
     if produced:
         parent = s.execute(select(MfgUnitSerialRow).where(MfgUnitSerialRow.item_id == wo.item_id,
                                                           MfgUnitSerialRow.serial == produced[0])).scalars().first()
+    done: list[MfgUnitSerialRow] = []
     for i, x in enumerate(consumed):
         if x.item_id not in allowed:
             raise ApiError(422, "FLR_SERIAL_NOT_AVAILABLE", "That item is not a component of this operation.",
@@ -393,7 +397,11 @@ def _consume(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], op: Mfg
         u.parent_serial_id = parent.id if parent is not None else None
         u.row_version += 1
         u.updated_at = c.now
+        done.append(u)
     s.flush()
+    from .trace import write_serial_edges                  # M5-DESIGN 6.1 (child -> WO / parent serial)
+
+    write_serial_edges(s, done)
 
 
 __all__ = ["apply_effects", "captures_serials", "pending_of", "retry_wo"]

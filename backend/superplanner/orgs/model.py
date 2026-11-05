@@ -47,7 +47,9 @@ class OrgMemberIn(_In):
 
 
 class OrgMemberUpdate(_In):
-    org_role: Literal["org_admin", "org_member"]
+    org_role: Literal["org_admin", "org_member"] | None = None
+    #: 15.WP-S: org admins disable / enable the member's account (sessions and API tokens stop working)
+    disabled: bool | None = None
 
 
 class OrgMemberRecord(BaseModel):

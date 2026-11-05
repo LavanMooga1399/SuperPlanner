@@ -319,6 +319,9 @@ class Settings:
     token_rate_per_minute: int = field(default_factory=_int("TOKEN_RATE_PER_MINUTE", 600, 1))
     integration_root: str | None = field(default_factory=_str("INTEGRATION_ROOT"))
     filedrop_poll_seconds: float = field(default_factory=_float("FILEDROP_POLL_SECONDS", 60.0))
+    #: 15.WP-S: how often workers check for undelivered webhook events (IP4: p95 event -> delivery < 5 s)
+    integration_delivery_poll_seconds: float = field(default_factory=_float("INTEGRATION_DELIVERY_POLL_SECONDS",
+                                                                            2.0))
     integration_allow_private_targets: bool = field(default_factory=_bool("INTEGRATION_ALLOW_PRIVATE_TARGETS",
                                                                           False))
     archive_dir: str | None = field(default_factory=_str("ARCHIVE_DIR"))

@@ -73,6 +73,9 @@ def _sup_unique(s: Any, inp: SupplierInput, exclude: str | None = None) -> None:
 
 def create_supplier(ctx: AppContext, inp: SupplierInput) -> SupplierRecord:
     with write_tx(ctx) as (s, _plant):
+        from .integration import check_local_write
+
+        check_local_write(s, "suppliers")
         _sup_unique(s, inp)
         check_limit(s, MfgSupplierRow, L.MAX_SUPPLIERS, "suppliers")
         now = utcnow()
@@ -86,6 +89,9 @@ def create_supplier(ctx: AppContext, inp: SupplierInput) -> SupplierRecord:
 
 def update_supplier(ctx: AppContext, supplier_id: str, inp: SupplierInput, if_match: str | None) -> SupplierRecord:
     with write_tx(ctx) as (s, _plant):
+        from .integration import check_local_write
+
+        check_local_write(s, "suppliers")
         row = repo.get_row(s, MfgSupplierRow, supplier_id, what="Supplier", lock=True)
         check_version(row, if_match)
         _sup_unique(s, inp, row.id)
@@ -99,6 +105,9 @@ def update_supplier(ctx: AppContext, supplier_id: str, inp: SupplierInput, if_ma
 
 def delete_supplier(ctx: AppContext, supplier_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _plant):
+        from .integration import check_local_write
+
+        check_local_write(s, "suppliers")
         row = repo.get_row(s, MfgSupplierRow, supplier_id, what="Supplier", lock=True)
         check_version(row, if_match)
         refs = {"purchase_documents": count(s, MfgPurchaseDocRow, MfgPurchaseDocRow.supplier_id == row.id)}
@@ -152,6 +161,9 @@ def _clear_preferred(s: Any, item_id: str, keep: str) -> None:
 
 def create_item_supplier(ctx: AppContext, inp: ItemSupplierInput) -> ItemSupplierRecord:
     with write_tx(ctx) as (s, _plant):
+        from .integration import check_local_write
+
+        check_local_write(s, "item_suppliers")
         item, sup = _check_isu(s, inp)
         ensure_unique(s, MfgItemSupplierRow, "This supplier link",
                       {"item_id": inp.item_id, "supplier_id": inp.supplier_id})
@@ -175,6 +187,12 @@ def update_item_supplier(ctx: AppContext, isu_id: str, inp: ItemSupplierInput, i
         if inp.item_id != row.item_id or inp.supplier_id != row.supplier_id:
             raise validation(["body", "item_id" if inp.item_id != row.item_id else "supplier_id"],
                              "item_id and supplier_id cannot change.")
+        from .integration import check_local_write
+
+        changed = [f for f in ISU_FIELDS if f not in ("preferred", "item_id", "supplier_id")
+                   and getattr(row, f) != getattr(inp, f)]
+        if changed:
+            check_local_write(s, "item_suppliers", changed)
         item, sup = _check_isu(s, inp)
         for f in ISU_FIELDS:
             setattr(row, f, getattr(inp, f))
@@ -188,6 +206,9 @@ def update_item_supplier(ctx: AppContext, isu_id: str, inp: ItemSupplierInput, i
 
 def delete_item_supplier(ctx: AppContext, isu_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _plant):
+        from .integration import check_local_write
+
+        check_local_write(s, "item_suppliers")
         row = repo.get_row(s, MfgItemSupplierRow, isu_id, what="Item supplier", lock=True)
         check_version(row, if_match)
         s.delete(row)

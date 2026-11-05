@@ -79,6 +79,7 @@ class RecallRecord(MfgModel):
 
 class QuarantineInput(MfgModel):
     location_id: EntityId | None = None         # None: the plant's quarantine location (M2 kind quarantine)
+    lot_ids: Annotated[list[EntityId], Field(max_length=5000)] | None = None   # None: every affected lot
     note: Annotated[str, StringConstraints(max_length=500)] = ""
 
 

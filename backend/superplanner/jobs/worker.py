@@ -170,7 +170,34 @@ class WorkerLoop:
         self._hb_thread.start()
         self._claim_loop()
 
+    def _start_scheduler(self) -> None:
+        """M5-DESIGN 4.5 / 4.6 / 7: a worker that runs a scheduled duty kind also enqueues due duties every
+        `FILEDROP_POLL_SECONDS` (integration.scheduler; one scheduler at a time by advisory lock)."""
+        duties = {"integration_filedrop", "integration_delivery", "maintenance_retention"}
+        if self.once or not duties & set(self.kinds) or getattr(self.settings, "scheduler_disabled", False):
+            return
+
+        def loop() -> None:
+            from ..integration import scheduler
+
+            full = max(5.0, float(getattr(self.settings, "filedrop_poll_seconds", 60.0)))
+            fast = max(0.5, min(full, float(getattr(self.settings, "integration_delivery_poll_seconds", 2.0))))
+            last_full = 0.0
+            while not self._stopping.wait(fast):
+                try:
+                    now = time.monotonic()
+                    if now - last_full >= full:       # file drop, retention and deliveries
+                        last_full = now
+                        scheduler.tick(self.ctx)
+                    else:                             # webhooks / export only (IP4 latency)
+                        scheduler.tick(self.ctx, duties={"integration_delivery"})
+                except Exception as exc:          # never kills the worker
+                    log.warning("scheduler tick failed: %s", exc)
+
+        threading.Thread(target=loop, name="sp-scheduler", daemon=True).start()
+
     def _startup(self) -> None:
+        self._start_scheduler()
         job_metrics.slots(self.concurrency, 0)
         self._upsert_worker(force=True)
         with contextlib.suppress(Exception):

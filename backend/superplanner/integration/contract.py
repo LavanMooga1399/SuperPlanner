@@ -82,6 +82,7 @@ class OperationV1(V1):
     run_minutes: Annotated[float, Field(ge=0)] = 0
     run_per: Literal["unit", "panel", "batch"] = "unit"
     units_per_batch: Annotated[int, Field(ge=1)] | None = None
+    units_per_panel: Annotated[int, Field(ge=1)] | None = None      # 15.WP-S (additive): run_per panel
     labor: Literal["attended", "unattended"] = "attended"
     crew_size: Annotated[int, Field(ge=0, le=50)] = 1
 
@@ -92,6 +93,7 @@ class RoutingV1(V1):
     code: Code = "STD"
     revision: Annotated[str, StringConstraints(max_length=16)] | None = None
     version: Annotated[int, Field(ge=1)] | None = None
+    priority: Annotated[int, Field(ge=1, le=9)] | None = None       # 15.WP-S (additive): alternate routings
     status: Literal["draft", "released", "obsolete"] = "released"
     operations: list[OperationV1] = Field(default_factory=list)
 

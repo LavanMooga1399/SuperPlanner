@@ -137,9 +137,24 @@ def update_member(ctx: AppContext, user_id: str, org_id: str, member_id: str, in
     with system_scope(), ctx.db.write() as s:
         _org(s, org_id, user_id, admin=True)
         m = _member(s, org_id, member_id)
-        if m.org_role == "org_admin" and inp.org_role != "org_admin" and _admins(s, org_id) <= 1:
+        role = inp.org_role or m.org_role
+        if m.org_role == "org_admin" and role != "org_admin" and _admins(s, org_id) <= 1:
             raise ApiError(409, "ORG_LAST_ADMIN", "An organisation keeps at least one admin.", {})
-        m.org_role, m.row_version = inp.org_role, m.row_version + 1
+        m.org_role, m.row_version = role, m.row_version + 1
+        if inp.disabled is not None:
+            if m.user_id == user_id:
+                raise ApiError(422, "VALIDATION_ERROR", "You cannot disable your own account.", {})
+            from ..api.auth import sessions as sess
+
+            u = s.get(UserRow, m.user_id)
+            if u is not None and u.disabled != inp.disabled:
+                now = utcnow()
+                u.disabled, u.updated_at = inp.disabled, now
+                if inp.disabled:
+                    sess.revoke_all(s, u.id, now=now)
+                from ..api.mfg.services.common import audit
+
+                audit(s, "user", u.id, "disable" if inp.disabled else "enable", {"org_id": org_id})
         s.flush()
         return member_record(s, m, s.get(UserRow, m.user_id))
 
@@ -259,23 +274,188 @@ def overview(ctx: AppContext, user_id: str, org_id: str) -> dict[str, Any]:
         return {"org": {"id": o.id, "name": o.name, "slug": o.slug}, "plants": out}
 
 
+def publish_record(r: OrgPublishRow) -> dict[str, Any]:
+    return {"id": r.id, "org_id": r.org_id, "source_owner_id": r.source_owner_id,
+            "target_owner_ids": r.target_owner_ids, "scope": r.scope, "part_number_prefix": r.part_number_prefix,
+            "status": r.status, "results": r.results, "created_at": as_utc(r.created_at),
+            "finished_at": as_utc(r.finished_at)}
+
+
 def publish(ctx: AppContext, user_id: str, org_id: str, inp: Any) -> dict[str, Any]:
-    """Recorded as a publish run (job kind `org_publish`); S0: queued, executed in S1/S4 (15.WP-S)."""
+    """3.4 master-data publish: a run (job kind `org_publish`) exporting the source bundle and importing it into
+    every target plant (per-plant results; ERP-owned entities of a target follow 4.4)."""
     now = utcnow()
     with system_scope(), ctx.db.write() as s:
         _org(s, org_id, user_id, admin=True)
-        for x in [inp.source_plant, *inp.target_plants]:
-            _plant(s, org_id, x)
-        r = OrgPublishRow(id=new_id("opb_"), org_id=org_id, source_owner_id=inp.source_plant,
-                          target_owner_ids=list(inp.target_plants), scope=inp.scope,
-                          part_number_prefix=inp.part_number_prefix, status="queued", results=None, actor_id=user_id,
-                          created_at=now, finished_at=None)
+        src = _plant(s, org_id, inp.source_plant).plant_owner_id
+        targets = []
+        for x in inp.target_plants:
+            t = _plant(s, org_id, x).plant_owner_id
+            if t != src and t not in targets:
+                targets.append(t)
+        if not targets:
+            raise ApiError(422, "VALIDATION_ERROR", "Choose at least one target plant other than the source.", {})
+        r = OrgPublishRow(id=new_id("opb_"), org_id=org_id, source_owner_id=src, target_owner_ids=targets,
+                          scope=inp.scope, part_number_prefix=inp.part_number_prefix, status="queued", results=None,
+                          actor_id=user_id, created_at=now, finished_at=None)
         s.add(r)
         s.flush()
-        return {"id": r.id, "org_id": org_id, "source_owner_id": r.source_owner_id,
-                "target_owner_ids": r.target_owner_ids, "scope": r.scope, "part_number_prefix": r.part_number_prefix,
-                "status": r.status, "results": None, "created_at": as_utc(now), "finished_at": None}
+        job = ctx.jobs.enqueue(s, "org_publish", r.id, src)
+        rec = publish_record(r)
+    ctx.jobs.dispatch(job)
+    return rec
 
 
-def run_publish_job(ctx: Any, run_id: str, lease: Any) -> None:  # pragma: no cover - S1 publish execution
-    raise NotImplementedError
+def publish_bundle(ds: Any, scope: str, prefix: str | None) -> dict[str, list[dict[str, Any]]]:
+    from ..mfg.bundle import M2_MASTER_SHEETS, dataset_to_bundle
+
+    b = dataset_to_bundle(ds, "master")
+    b.pop("plant", None)
+    if scope == "items":
+        b = {"items": b.get("items", [])}
+    if prefix:
+        keep = {r["part_number"] for r in b.get("items", []) if str(r["part_number"]).startswith(prefix)}
+        for name, rows in list(b.items()):
+            col = next((c for c in ("part_number", "parent_part_number") if rows and c in rows[0]), None)
+            if col is not None:
+                b[name] = [r for r in rows if r[col] in keep]
+            elif name not in M2_MASTER_SHEETS and name != "items":
+                pass
+    return b
+
+
+ERP_SHEETS = {"items": "items", "boms": "boms", "bom_lines": "boms", "routings": "routings",
+              "operations": "routings", "suppliers": "suppliers", "item_suppliers": "item_suppliers"}
+ITEM_ERP_COLUMNS = ("revision", "description", "uom", "make_buy", "active", "external_ref", "standard_cost")
+
+
+def publish_into(ctx: Any, target: str, bundle: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    """Import `bundle` into the target plant (its own transaction, plant lock, audit); sheets of ERP-owned
+    entities are skipped, ERP-owned item fields are not published."""
+    from ..api.mfg import repo, repo_m2, writer
+    from ..api.mfg.services import integration as isvc
+    from ..api.mfg.services.common import audit, write_tx
+    from ..mfg.io.plan import ImportOptions, plan_import
+
+    with owner_scope(target):
+        with write_tx(ctx) as (s, plant):
+            if plant is None:
+                plant = repo.plant_row_unlocked(s)
+            b = {k: list(v) for k, v in bundle.items()}
+            skipped = []
+            for sheet, ent in ERP_SHEETS.items():
+                if b.get(sheet) and isvc.sor_of(s, ent) == "erp":
+                    if sheet == "items":
+                        b["items"] = [{k: v for k, v in r.items() if k not in ITEM_ERP_COLUMNS} for r in b["items"]]
+                        skipped.append("items:erp_fields")
+                    else:
+                        b[sheet] = []
+                        skipped.append(sheet)
+            plan = plan_import(b, repo_m2.load_import_dataset(s, with_txn=False), ImportOptions(release=True),
+                               id_factory=new_id)
+            if not plan.ok:
+                return {"ok": False, "error_count": len(plan.row_errors), "row_errors": plan.row_errors[:50],
+                        "skipped": skipped}
+            if plan.has_writes():
+                writer.apply(s, plan, plant)
+            else:
+                plant.data_version -= 1
+            counts = {k: v for k, v in plan.result_counts().items() if any(v.values())}
+            audit(s, "org_publish", None, "import", {"counts": counts})
+            return {"ok": True, "counts": counts, "skipped": skipped}
+
+
+def run_publish_job(ctx: Any, run_id: str, lease: Any) -> None:
+    from ..api.mfg import repo
+    from ..jobs.types import LeaseLost
+
+    with ctx.write_guard(), ctx.db.write() as s:
+        r = s.get(OrgPublishRow, run_id, with_for_update=True)
+        if r is None:
+            raise LeaseLost(f"publish {run_id} is gone")
+        lease.fence(s)
+        r.status = "running"
+        src, targets, scope, prefix = r.source_owner_id, list(r.target_owner_ids), r.scope, r.part_number_prefix
+    results: dict[str, Any] = {}
+    status, err = "completed", None
+    try:
+        with owner_scope(src), ctx.db.read() as s:
+            bundle = publish_bundle(repo.load_dataset(s), scope, prefix)
+        for t in targets:
+            try:
+                results[t] = publish_into(ctx, t, bundle)
+            except ApiError as e:
+                results[t] = {"ok": False, "error": {"code": e.code, "message": e.message}}
+        if any(not x.get("ok") for x in results.values()):
+            status = "failed" if all(not x.get("ok") for x in results.values()) else "completed"
+    except Exception as exc:
+        status, err = "failed", str(exc)[:500]
+        results["error"] = err
+    with ctx.write_guard(), ctx.db.write() as s:
+        r = s.get(OrgPublishRow, run_id, with_for_update=True)
+        if r is None:
+            raise LeaseLost(f"publish {run_id} is gone")
+        r.status, r.results, r.finished_at = status, results, utcnow()
+        lease.finish(s, "succeeded" if status == "completed" else "failed", err)
+
+
+def get_publish(ctx: AppContext, user_id: str, org_id: str, publish_id: str) -> dict[str, Any]:
+    with system_scope(), ctx.db.read() as s:
+        _org(s, org_id, user_id, admin=True)
+        r = s.get(OrgPublishRow, publish_id) if len(publish_id) <= 64 else None
+        if r is None or r.org_id != org_id:
+            raise ApiError(404, "NOT_FOUND", "Publish run not found.", {"id": publish_id[:64]})
+        return publish_record(r)
+
+
+# ---------------------------------------------------------------- convert-plant (3.4, T-O2)
+
+def convert_plant(db: Any, person_id: str, org_slug: str, code: str, name: str | None = None,
+                  dry_run: bool = False) -> dict[str, Any]:
+    """Move a personal plant (every owned row of `person_id` except the audit chain) to a new plant principal of
+    organisation `org_slug`; members kept; the person becomes `plant_admin` (and an org member). One transaction.
+    The old workspace id then has no data (other members get 404 there)."""
+    import sqlalchemy as sa
+
+    from ..api.db import load_all_models
+
+    md = load_all_models()
+    now = utcnow()
+    with system_scope(), db.write() as s:
+        org = s.execute(select(OrgRow).where(OrgRow.slug == org_slug)).scalars().first()
+        if org is None:
+            raise ApiError(404, "NOT_FOUND", f"No organisation {org_slug!r}.", {})
+        person = s.get(UserRow, person_id)
+        if person is None or person.kind != "person":
+            raise ApiError(404, "NOT_FOUND", "No such person.", {})
+        if s.execute(select(OrgPlantRow.id).where(OrgPlantRow.org_id == org.id, OrgPlantRow.code == code)).first():
+            raise ApiError(409, "MFG_DUPLICATE_KEY", f"Plant {code!r} exists.", {})
+        principal = UserRow(id=new_id("usr_"), email=None, display_name=f"Plant {code}"[:100], password_hash=None,
+                            is_local=False, disabled=False, created_at=now, updated_at=now, kind="plant")
+        s.add(principal)
+        s.flush()
+        counts: dict[str, int] = {}
+        skip = {"audit_events", "jobs", "sessions", "api_tokens"}
+        for t in md.sorted_tables:
+            if "owner_id" not in t.c or t.name in skip or not (t.name.startswith(("mfg_", "int_"))):
+                continue
+            res = s.execute(sa.update(t).where(t.c.owner_id == person_id).values(owner_id=principal.id))
+            counts[t.name] = int(res.rowcount or 0)
+        plant_name = name
+        if plant_name is None:
+            from ..api.mfg.db_models import MfgPlantRow
+
+            plant_name = s.execute(select(MfgPlantRow.name).where(MfgPlantRow.owner_id == principal.id)).scalar() \
+                or code
+        s.add(OrgPlantRow(id=new_id("orp_"), org_id=org.id, plant_owner_id=principal.id, code=code,
+                          name=plant_name, created_at=now, row_version=1))
+        s.add(MfgPlantMemberRow(id=new_id("mbr_"), owner_id=principal.id, user_id=person_id, roles=["plant_admin"],
+                                active=True, invited_by=person_id, row_version=1, created_at=now, updated_at=now))
+        if _role(s, org.id, person_id) is None:
+            s.add(OrgMemberRow(id=new_id("orm_"), org_id=org.id, user_id=person_id, org_role="org_member",
+                               created_at=now, row_version=1))
+        s.flush()
+        if dry_run:
+            s.rollback()
+        return {"plant_owner_id": principal.id, "org_id": org.id, "code": code, "rows": counts,
+                "dry_run": dry_run}

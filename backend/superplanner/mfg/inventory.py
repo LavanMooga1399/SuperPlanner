@@ -24,7 +24,7 @@ from .units import is_count
 
 BalKey = tuple[str, str, str]          # (item_id, location_id, lot_key)
 #: transactions that set `last_receipt_on` when positive (4.3)
-RECEIPT_TYPES = ("receipt_misc", "po_receipt", "wo_receipt", "transfer", "adjust")
+RECEIPT_TYPES = ("receipt_misc", "po_receipt", "wo_receipt", "transfer", "adjust", "transfer_receipt")
 INBOUND_FIELDS = {"receipt_misc": "location_id", "adjust": "location_id", "count": "location_id",
                   "po_receipt": "location_id", "wo_return": "location_id", "wo_receipt": "location_id"}
 
@@ -177,6 +177,7 @@ class TxnPlan:
     demand_line_id: str | None = None
     set_last_receipt: date | None = None     # value for last_receipt_on (receipts / transfer in)
     scrap_qty: float | None = None           # wo_receipt: scrap recorded with the line (signed on reversals)
+    transfer_line_id: str | None = None      # M5 transfer_ship / transfer_receipt
 
     @property
     def key(self) -> BalKey:
@@ -617,6 +618,24 @@ class _Planner:
         self.plan.wo_touched.add(w.id)
         if self.completed[w.id] >= w.qty - EPS:
             self.release_reservations({c.id for c in self.ctx.components.values() if c.wo_id == w.id})
+
+    def _transfer_ship(self, i: int, ln: Any) -> None:
+        """M5-DESIGN 3.5 (open quantity of the line is checked by the service, which owns the transfer order)."""
+        it = self.item(ln.item_id, ["body", "lines", i, "item_id"])
+        lc = self.location(ln.location_id, ["body", "lines", i, "location_id"], inbound=False)
+        self.whole(it, ln.qty, ["body", "lines", i, "qty"])
+        self.lot_rules(it, ln.lot_code, ["body", "lines", i, "lot_code"], required=False)
+        self.outbound(i + 1, "transfer_ship", it, lc, ln.lot_code, ln.qty, idx=i, unit_cost=it.standard_cost,
+                      transfer_line_id=ln.transfer_line_id)
+
+    def _transfer_receipt(self, i: int, ln: Any) -> None:
+        it = self.item(ln.item_id, ["body", "lines", i, "item_id"])
+        lc = self.location(ln.location_id, ["body", "lines", i, "location_id"], inbound=True)
+        self.whole(it, ln.qty, ["body", "lines", i, "qty"])
+        self.lot_rules(it, ln.lot_code, ["body", "lines", i, "lot_code"], required=True)
+        self.ensure_lot(it, ln.lot_code, getattr(ln, "expires_on", None), getattr(ln, "supplier_lot", "") or "")
+        self.inbound(i + 1, "transfer_receipt", it, lc, ln.lot_code, ln.qty, self.d, unit_cost=it.standard_cost,
+                     transfer_line_id=ln.transfer_line_id)
 
     def _ship(self, i: int, ln: Any) -> None:
         dl = self.ctx.demand_lines.get(ln.demand_line_id)

@@ -23,6 +23,7 @@ from ...db import new_id, utcnow
 from ...errors import ApiError
 from .. import repo
 from ..db_models import MfgBomLineRow, MfgBomRow, MfgItemRow
+from .eco import check_eco_lock, lock_info
 from .common import (audit, check_limit, check_version, ensure_unique, jsonable, plant_today, read_tx, touch,
                      unknown_ref, write_tx)
 
@@ -124,7 +125,7 @@ def bom_record(s: Session, row: MfgBomRow) -> BomRecord:
 
     recs = [repo.to_record(ln, child=item_ref(items[ln.child_item_id])) for ln in lines if ln.child_item_id in items]
     recs.sort(key=line_sort_key)
-    return repo.to_record(row, lines=recs, item=item_ref(items[row.item_id]))
+    return repo.to_record(row, lines=recs, item=item_ref(items[row.item_id]), **lock_info(s, row))
 
 
 def get_bom(ctx: AppContext, bom_id: str) -> BomRecord:
@@ -240,6 +241,9 @@ def _limits(s: Session, new_lines: int, new_doc: bool) -> None:
 
 def create_bom(ctx: AppContext, inp: BomInput) -> BomRecord:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "boms")
         item = item_for_document(s, inp.item_id, routing=False)
         check_serial(item, inp.serial_from)
         check_ids_kept([ln.id for ln in inp.lines], set(), "lines")
@@ -263,10 +267,14 @@ def create_bom(ctx: AppContext, inp: BomInput) -> BomRecord:
 
 def update_bom(ctx: AppContext, bom_id: str, inp: BomInput, if_match: str | None) -> BomRecord:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "boms")
         row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
         check_version(row, if_match)
         if row.status != "draft":
             raise readonly(row.status, "BOM")
+        check_eco_lock(s, row, "edit")
         if inp.item_id != row.item_id:
             raise ApiError(422, "VALIDATION_ERROR", "The item of a BOM cannot be changed.",
                            {"errors": [{"loc": ["body", "item_id"], "msg": "must equal the stored item_id",
@@ -295,10 +303,14 @@ def update_bom(ctx: AppContext, bom_id: str, inp: BomInput, if_match: str | None
 
 def delete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "boms")
         row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
         check_version(row, if_match)
         if row.status == "released":
             raise readonly(row.status, "BOM")
+        check_eco_lock(s, row, "delete")
         s.execute(delete(MfgBomLineRow).where(MfgBomLineRow.bom_id == row.id)
                   .execution_options(synchronize_session=False))
         s.execute(delete(MfgBomRow).where(MfgBomRow.id == row.id).execution_options(synchronize_session=False))
@@ -306,37 +318,51 @@ def delete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> None:
         audit(s, "bom", bom_id, "delete", {"version": row.row_version})
 
 
-def release_bom(ctx: AppContext, bom_id: str, effective_from: date | None, supersede: bool, if_match: str | None
-                ) -> dict[str, Any]:
+def release_bom(ctx: AppContext, bom_id: str, effective_from: date | None, supersede: bool,
+                if_match: str | None) -> dict[str, Any]:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "boms")
         row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
         check_version(row, if_match)
-        if row.status != "draft":
-            raise invalid_state(row.status, "released", "BOM")
-        ds = repo.load_dataset(s)
-        try:
-            issues, superseded = bom_release_issues(ds, row.id, effective_from, supersede)
-        except ReleaseError as exc:
-            raise release_error(exc) from None
-        if issues:
-            raise release_blocked(issues, "BOM")
-        now = utcnow()
-        if effective_from is not None:
-            row.effective_from = effective_from
-        row.status, row.released_at = "released", now
-        touch(row, now)
-        for sup in superseded:
-            other = repo.get_row(s, MfgBomRow, sup["id"], what="BOM", lock=True)
-            other.effective_to = sup["effective_to"]
-            touch(other, now)
-        s.flush()
-        audit(s, "bom", row.id, "release", {"version": row.row_version,
-                                            "superseded": [x["id"] for x in superseded]})
+        check_eco_lock(s, row, "release")
+        superseded = release_in_session(s, row, effective_from, supersede)
         return {"bom": bom_record(s, row), "superseded": superseded}
+
+
+def release_in_session(s: Session, row: MfgBomRow, effective_from: date | None, supersede: bool,
+                       ds: Any = None) -> list[dict[str, Any]]:
+    """Release one draft in the caller's transaction (also ECO implement and ERP inbound, M5-DESIGN 5)."""
+    if row.status != "draft":
+        raise invalid_state(row.status, "released", "BOM")
+    ds = ds if ds is not None else repo.load_dataset(s)
+    try:
+        issues, superseded = bom_release_issues(ds, row.id, effective_from, supersede)
+    except ReleaseError as exc:
+        raise release_error(exc) from None
+    if issues:
+        raise release_blocked(issues, "BOM")
+    now = utcnow()
+    if effective_from is not None:
+        row.effective_from = effective_from
+    row.status, row.released_at = "released", now
+    touch(row, now)
+    for sup in superseded:
+        other = repo.get_row(s, MfgBomRow, sup["id"], what="BOM", lock=True)
+        other.effective_to = sup["effective_to"]
+        touch(other, now)
+    s.flush()
+    audit(s, "bom", row.id, "release", {"version": row.row_version,
+                                         "superseded": [x["id"] for x in superseded]})
+    return superseded
 
 
 def obsolete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> BomRecord:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "boms")
         row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
         check_version(row, if_match)
         if row.status != "released":
@@ -351,6 +377,9 @@ def obsolete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> BomRecor
 
 def copy_bom(ctx: AppContext, bom_id: str, revision: str | None, if_match: str | None) -> BomRecord:
     with write_tx(ctx) as (s, _):
+        from .integration import check_local_write
+
+        check_local_write(s, "boms")
         src = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
         check_version(src, if_match)
         item_for_document(s, src.item_id, routing=False)
