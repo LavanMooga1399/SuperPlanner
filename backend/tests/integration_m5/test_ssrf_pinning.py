@@ -100,3 +100,91 @@ def test_redirects_are_not_followed(server, monkeypatch):
     code, err = outbox.pinned_post(f"https://hooks.example.test:{port}/redirect", b"{}", {}, allow_private=True,
                                    context=ssl.create_default_context(cafile=ca))
     assert code == 307 and err == "HTTP 307" and len(hits) == 1       # the redirect target is never requested
+
+
+@pytest.fixture
+def connect_proxy():
+    """A minimal HTTP CONNECT proxy recording the tunnel targets (and the Proxy-Authorization header)."""
+    seen: list[tuple[str, str | None]] = []
+    lsock = socket.socket()
+    lsock.bind(("127.0.0.1", 0))
+    lsock.listen(5)
+    stop = threading.Event()
+
+    def pipe(a, b):
+        try:
+            while True:
+                d = a.recv(65536)
+                if not d:
+                    break
+                b.sendall(d)
+        except OSError:
+            pass
+        finally:
+            for x in (a, b):
+                try:
+                    x.close()
+                except OSError:
+                    pass
+
+    def serve():
+        lsock.settimeout(0.2)
+        while not stop.is_set():
+            try:
+                c, _ = lsock.accept()
+            except OSError:
+                continue
+            head = b""
+            while b"\r\n\r\n" not in head:
+                head += c.recv(4096)
+            lines = head.decode().split("\r\n")
+            target = lines[0].split(" ")[1]
+            auth = next((x.split(": ", 1)[1] for x in lines if x.lower().startswith("proxy-authorization")), None)
+            seen.append((target, auth))
+            if target.startswith("10."):
+                c.sendall(b"HTTP/1.1 403 Forbidden\r\n\r\n")
+                c.close()
+                continue
+            h, p = target.rsplit(":", 1)
+            up = socket.create_connection((h.strip("[]"), int(p)))
+            c.sendall(b"HTTP/1.1 200 Connection established\r\n\r\n")
+            threading.Thread(target=pipe, args=(c, up), daemon=True).start()
+            threading.Thread(target=pipe, args=(up, c), daemon=True).start()
+
+    th = threading.Thread(target=serve, daemon=True)
+    th.start()
+    yield lsock.getsockname()[1], seen
+    stop.set()
+    lsock.close()
+
+
+def test_delivery_through_https_proxy_tunnels_to_the_checked_address(server, connect_proxy, monkeypatch):
+    port, ca, hits = server
+    pport, seen = connect_proxy
+    monkeypatch.setattr("socket.getaddrinfo", lambda h, p, *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "",
+                                                                       ("127.0.0.1", p))])
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    ctx = ssl.create_default_context(cafile=ca)
+    px = outbox.proxy_config(f"http://u:p%40ss@127.0.0.1:{pport}")
+    code, err = outbox.pinned_post(f"https://hooks.example.test:{port}/in", b"{}", {}, allow_private=True,
+                                   context=ctx, proxy=px)
+    assert (code, err) == (204, "") and seen[0][0] == f"127.0.0.1:{port}"       # CONNECT to the pinned IP
+    import base64
+
+    assert base64.b64decode(seen[0][1].split(" ", 1)[1]).decode() == "u:p@ss"
+    # host mode: the proxy gets the name; TLS still verifies it
+    px_host = outbox.proxy_config(f"http://127.0.0.1:{pport}", connect_by="host")
+    # the SSRF check still runs on the target before any proxy connection
+    with pytest.raises(ApiError):
+        outbox.pinned_post(f"https://hooks.example.test:{port}/in", b"{}", {}, allow_private=False, context=ctx,
+                           proxy=px_host)
+    assert len(seen) == 1
+    # a refusing proxy is a failed attempt
+    monkeypatch.setattr("socket.getaddrinfo", lambda h, p, *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "",
+                                                                       ("127.0.0.1" if h == "127.0.0.1" else
+                                                                        "10.9.9.9", p))])
+    code, err = outbox.pinned_post(f"https://hooks.example.test:{port}/in", b"{}", {}, allow_private=True,
+                                   context=ctx, proxy=px)
+    assert code == 0 and "403" in err
+    assert outbox.proxy_config("direct") is None and outbox.proxy_config(None) is None

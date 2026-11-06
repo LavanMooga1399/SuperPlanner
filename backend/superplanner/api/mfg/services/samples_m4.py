@@ -156,6 +156,34 @@ def _po_history(s: Session, locs: dict[str, Any], days: list[date], tz: Any) -> 
     return n
 
 
+def _issue_lots(s: Session, w: MfgWorkOrderRow, locs: dict[str, Any], d: date, k: int) -> None:
+    """M5 genealogy: the lot-controlled components of a history WO arrive as a supplier lot (`receipt_misc`) and are
+    issued to the WO (`wo_issue`) the same day - net-zero stock, but the serials' traces reach supplier lots."""
+    from ....mfg.model_m2 import ReceiptMiscLine, ReceiptMiscPosting, WoIssueLine, WoIssuePosting
+    from ..db_models_m2 import MfgWoComponentRow
+    from .inventory import post_in_session
+
+    loc = next((x for x in locs.values() if x.receipt_default), locs["GOODS-IN"])
+    comps = list(s.execute(select(MfgWoComponentRow, MfgItemRow).join(MfgItemRow, MfgItemRow.id ==
+                                                                      MfgWoComponentRow.item_id)
+                           .where(MfgWoComponentRow.wo_id == w.id, MfgItemRow.lot_controlled.is_(True))
+                           .order_by(MfgItemRow.part_number)).all())
+    for c, it in comps:
+        qty = float(c.required_qty)
+        if qty <= 1e-9:
+            continue
+        code = f"H{k + 1:02d}-{it.part_number.removeprefix('KV-')}"[:64]
+        post_in_session(s, ReceiptMiscPosting.model_construct(
+            type="receipt_misc", txn_date=None, note="History supplier lot (sample)", reason_code="SAMPLE",
+            lines=[ReceiptMiscLine.model_construct(item_id=it.id, location_id=loc.id, qty=qty, lot_code=code,
+                                                   expires_on=None, supplier_lot=f"SUP-{code}", unit_cost=None)]),
+            system=True, txn_date=d, note_audit=False)
+        post_in_session(s, WoIssuePosting.model_construct(
+            type="wo_issue", txn_date=None, note="History issue (sample)", reason_code=None,
+            lines=[WoIssueLine.model_construct(wo_component_id=c.id, location_id=loc.id, qty=qty, lot_code=code,
+                                               over_issue=False)]), system=True, txn_date=d, note_audit=False)
+
+
 def _wo_history(s: Session, locs: dict[str, Any], lines: dict[str, Any], days: list[date], tz: Any) -> int:
     from ... import db as _db  # noqa: F401
     from .. import repo
@@ -175,6 +203,7 @@ def _wo_history(s: Session, locs: dict[str, Any], lines: dict[str, Any], days: l
                                              priority=4, note="History (M4 sample)"))
         w.status, w.released_at = "released", _at(d0, 6, 0, tz)
         release_to_floor(s, w, "Sample history", _at(d0, 6, 0, tz))
+        _issue_lots(s, w, locs, d0, k)
         t = _at(d0, 8, 0, tz)
         for r in wo_rows(s, w.id):
             el = eligible_lines(s, r.group_id, it)

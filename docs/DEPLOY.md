@@ -494,10 +494,18 @@ once its size is unchanged for two polls). Exported event files appear atomicall
 temporary name, then renamed). Back up `archive/` and `error/` with the other files of the plant.
 
 **Webhooks and the address guard.** Webhook URLs must be https; private, loopback and link-local addresses are
-refused unless `INTEGRATION_ALLOW_PRIVATE_TARGETS=true` (ERP middleware on the LAN). The worker connects to exactly
-the address that passed the check (no second DNS lookup) and verifies the certificate against the URL's host name;
-redirects are not followed and HTTP proxies are not used for webhook calls - allow outbound 443 from the workers to
-the ERP endpoints directly.
+refused unless `INTEGRATION_ALLOW_PRIVATE_TARGETS=true` (ERP middleware on the LAN). The worker resolves the
+target once, checks every address, and then talks to exactly the checked address while verifying the certificate
+against the URL's host name; redirects are not followed.
+
+- **Direct** (default when no proxy is configured): the worker connects to the target on 443.
+- **Through an HTTP proxy**: set `WEBHOOK_PROXY=http://[user:pass@]proxy:3128` (otherwise `HTTPS_PROXY` /
+  `https_proxy` are used; `WEBHOOK_PROXY=direct` forces direct). The worker opens a `CONNECT` tunnel to the
+  *checked IP address* and runs TLS to the target inside it, so the proxy cannot re-resolve the name. Proxies that
+  only tunnel to host names: `WEBHOOK_PROXY_CONNECT=host` (the address check of the target still runs, but the
+  proxy resolves the name itself - restrict the proxy's own egress then). Hosts in `NO_PROXY` go direct. A refused
+  `CONNECT` is a failed attempt (`last_error`), retried with the usual backoff. The proxy address itself is not
+  subject to the address guard.
 
 **Secrets.** `SECRETS_KEY` (Fernet; required for TOTP and webhook secrets) and the OIDC client secret come from the
 environment or the secret store, never from files in the image. Rotation of `SECRETS_KEY`: set

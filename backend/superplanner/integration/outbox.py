@@ -144,37 +144,97 @@ def check_url(url: str, allow_private: bool) -> None:
     resolve_checked(url, allow_private)
 
 
+class ProxyError(OSError):
+    """The HTTPS proxy refused or failed the CONNECT (a failed delivery attempt)."""
+
+
 class _PinnedHTTPSConnection(http.client.HTTPSConnection):
     """Connects to exactly the address that passed the SSRF check (no second DNS lookup: closes the rebinding
-    window), while TLS still uses the URL's host name for SNI and certificate verification."""
+    window), while TLS still uses the URL's host name for SNI and certificate verification. With a proxy, the
+    tunnel is `CONNECT <checked ip>:<port>` (`connect_by = "ip"`, default) so the proxy cannot resolve the name to
+    another address; `connect_by = "host"` sends the host name instead (for proxies that only tunnel to names -
+    then the proxy resolves it; the SSRF check of the target still ran)."""
 
-    def __init__(self, host: str, ip: str, port: int, timeout: float, context: ssl.SSLContext):
+    def __init__(self, host: str, ip: str, port: int, timeout: float, context: ssl.SSLContext,
+                 proxy: dict[str, Any] | None = None):
         super().__init__(host, port=port, timeout=timeout, context=context)
         self._pinned_ip = ip
+        self._proxy = proxy
 
-    def connect(self) -> None:
-        ip = ipaddress.ip_address(self._pinned_ip)        # a literal: no resolver involved at all
-        sock = socket.socket(socket.AF_INET6 if ip.version == 6 else socket.AF_INET, socket.SOCK_STREAM)
+    def _socket_to(self, ip: str, port: int) -> socket.socket:
+        a = ipaddress.ip_address(ip)                      # a literal: no resolver involved at all
+        sock = socket.socket(socket.AF_INET6 if a.version == 6 else socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.timeout)
         try:
-            sock.connect((str(ip), self.port))
+            sock.connect((str(a), port))
         except OSError:
             sock.close()
             raise
+        return sock
+
+    def connect(self) -> None:
+        if self._proxy is None:
+            sock = self._socket_to(self._pinned_ip, self.port)
+        else:
+            px = self._proxy
+            sock = socket.create_connection((px["host"], px["port"]), self.timeout)   # the proxy's own name
+            target = self._pinned_ip if px.get("connect_by", "ip") == "ip" else self.host
+            hp = f"[{target}]:{self.port}" if ":" in target else f"{target}:{self.port}"
+            req = f"CONNECT {hp} HTTP/1.1\r\nHost: {hp}\r\n"
+            if px.get("auth"):
+                req += f"Proxy-Authorization: Basic {px['auth']}\r\n"
+            sock.sendall((req + "\r\n").encode("ascii"))
+            resp = b""
+            while b"\r\n\r\n" not in resp and len(resp) < 16384:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                resp += chunk
+            line = resp.split(b"\r\n", 1)[0].decode("latin-1", "replace")
+            parts = line.split(" ", 2)
+            if len(parts) < 2 or not parts[1].isdigit() or not 200 <= int(parts[1]) < 300:
+                sock.close()
+                raise ProxyError(f"proxy CONNECT refused: {line[:100]}")
         self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
 
 
+def proxy_config(url: str | None, connect_by: str = "ip") -> dict[str, Any] | None:
+    """`http://[user:pass@]host:port` -> proxy dict, or None (direct)."""
+    if not url or url.strip().lower() in ("direct", "none", "off"):
+        return None
+    import base64
+    from urllib.parse import unquote
+
+    u = urlparse(url if "://" in url else f"http://{url}")
+    if u.scheme != "http" or not u.hostname:
+        raise ValueError("the webhook proxy must be an http:// proxy URL (CONNECT tunnels the TLS connection)")
+    auth = base64.b64encode(f"{unquote(u.username)}:{unquote(u.password or '')}".encode()).decode() \
+        if u.username else None
+    return {"host": u.hostname, "port": u.port or 3128, "auth": auth, "connect_by": connect_by}
+
+
+def _bypass(host: str) -> bool:
+    from urllib.request import proxy_bypass_environment
+
+    try:
+        return bool(proxy_bypass_environment(host))
+    except Exception:                                  # pragma: no cover - malformed NO_PROXY
+        return False
+
+
 def pinned_post(url: str, body: bytes, headers: dict[str, str], *, allow_private: bool,
-                context: ssl.SSLContext | None = None) -> tuple[int, str]:
-    """POST to the validated address; redirects are never followed (a 3xx is a failed attempt); HTTP proxies are
-    not used for webhooks (the pinned address is the target)."""
+                context: ssl.SSLContext | None = None, proxy: dict[str, Any] | None = None) -> tuple[int, str]:
+    """POST to the validated address (directly, or through `proxy` by CONNECT); redirects are never followed (a
+    3xx is a failed attempt). Hosts matched by NO_PROXY go direct."""
     host, port, addrs = resolve_checked(url, allow_private)
+    if proxy is not None and _bypass(host):
+        proxy = None
     u = urlparse(url)
     path = (u.path or "/") + (f"?{u.query}" if u.query else "")
     ctx = context or ssl.create_default_context()
     last = ""
     for ip in addrs[:3]:
-        conn = _PinnedHTTPSConnection(host, ip, port, DELIVERY_TIMEOUT, ctx)
+        conn = _PinnedHTTPSConnection(host, ip, port, DELIVERY_TIMEOUT, ctx, proxy)
         try:
             conn.request("POST", path, body=body, headers={"Content-Type": "application/json", "Host": host if
                                                            port == 443 else f"{host}:{port}", **headers})
@@ -183,6 +243,8 @@ def pinned_post(url: str, body: bytes, headers: dict[str, str], *, allow_private
             return r.status, "" if 200 <= r.status < 300 else f"HTTP {r.status}"
         except ssl.SSLError as e:
             return 0, f"SSLError: {e.reason or e}"[:200]
+        except ProxyError as e:
+            return 0, str(e)[:200]
         except OSError as e:
             last = e.__class__.__name__
         finally:

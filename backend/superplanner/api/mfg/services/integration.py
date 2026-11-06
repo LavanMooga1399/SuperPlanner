@@ -531,8 +531,15 @@ def deliver_now(ctx: AppContext, endpoint_id: str | None = None, post: outbox.Po
                 now: datetime | None = None) -> dict[str, int]:
     """Deliver due events (per endpoint FIFO under the endpoint row lock). Used by the delivery job and tests."""
     allow = bool(ctx.settings.integration_allow_private_targets)
-    post = post or getattr(ctx.settings, "webhook_post", None) or (
-        lambda u, b, h: outbox.pinned_post(u, b, h, allow_private=allow))
+    def default_post(u: str, b: bytes, h: dict[str, str]) -> tuple[int, str]:
+        try:
+            proxy = outbox.proxy_config(getattr(ctx.settings, "webhook_proxy", None),
+                                        getattr(ctx.settings, "webhook_proxy_connect", "ip"))
+        except ValueError as e:                    # a failed attempt, visible in last_error
+            return 0, f"WEBHOOK_PROXY: {e}"[:200]
+        return outbox.pinned_post(u, b, h, allow_private=allow, proxy=proxy)
+
+    post = post or getattr(ctx.settings, "webhook_post", None) or default_post
     totals = {"delivered": 0, "failed": 0, "dead": 0}
     with read_tx(ctx) as s:
         q = select(IntEndpointRow.id).where(IntEndpointRow.active.is_(True))
