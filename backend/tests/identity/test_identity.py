@@ -239,3 +239,17 @@ def test_m6_password_blocked_for_sso_domains_and_link_clears_password(db_url):
                                         "u.email = 'zoe@corp.example' AND s.revoked_at IS NULL")).scalar()
         eng.dispose()
         assert pw is None and live == 1                             # only the new SSO session
+
+
+def test_oidc_state_is_bound_to_the_browser(db_url):
+    idp = FakeIdp()
+    app = _oidc_app(db_url, idp)
+    with TestClient(app) as c:
+        r = c.get(f"{V1}/auth/oidc/login", params={"next": "/mfg"}, follow_redirects=False)
+        assert "sp_oidc=" in r.headers["set-cookie"] and "HttpOnly" in r.headers["set-cookie"]
+        code, state = idp.authorize(r.headers["location"])
+        other = TestClient(app)                                     # a victim's browser gets the attacker's link
+        x = other.get(f"{V1}/auth/oidc/callback", params={"code": code, "state": state}, follow_redirects=False)
+        assert x.status_code == 400 and x.json()["error"]["code"] == "AUTH_SSO_STATE"
+        ok = c.get(f"{V1}/auth/oidc/callback", params={"code": code, "state": state}, follow_redirects=False)
+        assert ok.status_code == 302

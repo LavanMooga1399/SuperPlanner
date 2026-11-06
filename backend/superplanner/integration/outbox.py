@@ -103,11 +103,34 @@ def verify_signature(secret: str, body: bytes, header: str, tolerance: int = 300
     return hmac.compare_digest(sign(secret, body, t).split("v1=", 1)[1], parts.get("v1", ""))
 
 
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+_NAT64_LOCAL = ipaddress.ip_network("64:ff9b:1::/48")
+
+
+def _embedded_v4(ip: Any) -> list[Any]:
+    """IPv4 addresses carried inside an IPv6 one: v4-mapped, NAT64 (64:ff9b::/96), 6to4 (2002::/16), Teredo."""
+    if ip.version != 6:
+        return []
+    out = []
+    if ip.ipv4_mapped is not None:
+        out.append(ip.ipv4_mapped)
+    if ip in _NAT64:
+        out.append(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF))
+    if ip.sixtofour is not None:
+        out.append(ip.sixtofour)
+    if ip.teredo is not None:
+        out.extend(ip.teredo)
+    return out
+
+
 def _bad_ip(ip: Any) -> bool:
-    return bool(ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or
-                ip.is_unspecified or (ip.version == 6 and ip.ipv4_mapped is not None and
-                                      (ip.ipv4_mapped.is_private or ip.ipv4_mapped.is_loopback or
-                                       ip.ipv4_mapped.is_link_local or ip.ipv4_mapped.is_unspecified)))
+    """Anything that is not a global unicast address (blocks private, loopback, link-local, CGNAT 100.64/10,
+    documentation, benchmarking, multicast, reserved), also when embedded in IPv6 (15.WP-S minor 2)."""
+    if ip.version == 6 and ip in _NAT64_LOCAL:
+        return True
+    if not ip.is_global or ip.is_multicast:
+        return True
+    return any(_bad_ip(x) for x in _embedded_v4(ip))
 
 
 def resolve_checked(url: str, allow_private: bool) -> tuple[str, int, list[str]]:

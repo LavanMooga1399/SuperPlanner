@@ -59,7 +59,11 @@ def auth_config(ctx: AppContext = Depends(get_ctx)) -> dict[str, Any]:
 def oidc_login(next: str | None = Query(default=None, max_length=500),  # noqa: A002
                ctx: AppContext = Depends(get_ctx)) -> Response:
     _accounts(ctx)
-    return RedirectResponse(ids.oidc_login(ctx, next), status_code=302)
+    url, binding = ids.oidc_login(ctx, next)
+    resp = RedirectResponse(url, status_code=302)
+    resp.set_cookie(ids.OIDC_COOKIE, binding, max_age=ids.STATE_MINUTES * 60, httponly=True, samesite="lax",
+                    secure=bool(ctx.settings.cookie_secure), path="/api/v1/auth/oidc")
+    return resp
 
 
 @auth_router.get("/oidc/callback")
@@ -71,6 +75,7 @@ def oidc_callback(request: Request, code: str | None = Query(default=None, max_l
     v, token, nxt = ids.oidc_callback(ctx, request, code, state, error)
     resp = RedirectResponse(nxt, status_code=302)
     sess.set_session_cookie(resp, ctx.settings, token, v.expires_at)
+    resp.delete_cookie(ids.OIDC_COOKIE, path="/api/v1/auth/oidc")
     return resp
 
 

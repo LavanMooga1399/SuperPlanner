@@ -188,3 +188,13 @@ def test_delivery_through_https_proxy_tunnels_to_the_checked_address(server, con
                                    context=ctx, proxy=px)
     assert code == 0 and "403" in err
     assert outbox.proxy_config("direct") is None and outbox.proxy_config(None) is None
+
+
+@pytest.mark.parametrize("addr", ["100.64.1.1", "192.0.2.1", "198.18.0.1", "169.254.169.254", "::ffff:10.0.0.1",
+                                  "64:ff9b::a00:1", "2002:a00:1::1", "64:ff9b:1::1", "fd00::1", "::1"])
+def test_non_global_addresses_are_refused(addr, monkeypatch):
+    import ipaddress as ia
+
+    assert outbox._bad_ip(ia.ip_address(addr))
+    assert not outbox._bad_ip(ia.ip_address("93.184.216.34"))
+    assert not outbox._bad_ip(ia.ip_address("64:ff9b::5db8:d822"))      # NAT64 of a public address

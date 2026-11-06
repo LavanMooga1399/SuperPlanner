@@ -107,7 +107,8 @@ def safe_next(nxt: str | None) -> str:
     return nxt[:500]
 
 
-def oidc_login(ctx: AppContext, nxt: str | None) -> str:
+def oidc_login(ctx: AppContext, nxt: str | None) -> tuple[str, str]:
+    """-> (authorize URL, browser binding = sha256 of the state for the `sp_oidc` cookie, 15.WP-S minor 1)."""
     if not sso_enabled(ctx):
         raise ApiError(404, "NOT_FOUND", "Single sign-on is not configured.", {})
     st = ctx.settings
@@ -123,7 +124,8 @@ def oidc_login(ctx: AppContext, nxt: str | None) -> str:
         s.query(OidcStateRow).filter(OidcStateRow.expires_at < now).delete(synchronize_session=False)
         s.add(OidcStateRow(state_hash=_h(state), nonce=nonce, verifier_enc=stored, next_url=safe_next(nxt),
                            expires_at=now + timedelta(minutes=STATE_MINUTES)))
-    return oidc.authorize_url(doc, st.oidc_client_id, _redirect_uri(ctx), st.oidc_scopes, state, nonce, challenge)
+    return (oidc.authorize_url(doc, st.oidc_client_id, _redirect_uri(ctx), st.oidc_scopes, state, nonce, challenge),
+            _h(state))
 
 
 def _take_state(ctx: AppContext, state: str) -> OidcStateRow:
@@ -140,13 +142,21 @@ def _take_state(ctx: AppContext, state: str) -> OidcStateRow:
     return row
 
 
+OIDC_COOKIE = "sp_oidc"
+
+
 def oidc_callback(ctx: AppContext, request: Any, code: str | None, state: str | None, error: str | None
                   ) -> tuple[sess.SessionView, str, str]:
-    """-> (session view, cookie token, next url)."""
+    """-> (session view, cookie token, next url). The state must belong to this browser (`sp_oidc` cookie)."""
     if not sso_enabled(ctx):
         raise ApiError(404, "NOT_FOUND", "Single sign-on is not configured.", {})
     if not state or len(state) > 200:
         raise ApiError(400, "AUTH_SSO_STATE", "The sign-in response has no valid state.", {})
+    import hmac as _hmac
+
+    bound = request.cookies.get(OIDC_COOKIE) or ""
+    if not _hmac.compare_digest(bound, _h(state)):
+        raise ApiError(400, "AUTH_SSO_STATE", "This sign-in was started in another browser; start again.", {})
     row = _take_state(ctx, state)
     if error or not code:
         raise ApiError(401, "AUTH_SSO_FAILED", "The provider did not sign you in.", {"error": (error or "")[:100]})
