@@ -933,14 +933,15 @@ def exceptions(ctx: AppContext, run_id: str, *, code: list[str] | None, severity
         r = _completed(s, run_id)
         allx = list(s.execute(select(MfgApsExceptionRow).where(MfgApsExceptionRow.run_id == r.id)
                               .order_by(MfgApsExceptionRow.ex_no)).scalars())
-    counts = {"by_severity": {k: 0 for k in ("critical", "warning", "info")}, "by_code": {}}
-    for x in allx:
-        counts["by_severity"][x.severity] = counts["by_severity"].get(x.severity, 0) + 1
-        counts["by_code"][x.code] = counts["by_code"].get(x.code, 0) + 1
-    sel = [x for x in allx if (not code or x.code in code) and (not severity or x.severity in severity) and
-           (order_id is None or (x.order_ref or {}).get("id") == order_id) and
-           (not q or q.lower() in x.message.lower())]
-    out = page([aps_store.exception_view(x) for x in sel[offset:offset + limit]], len(sel), limit, offset)
+        # the rows are read inside the session: a read session rolls back on exit, which expires them
+        counts = {"by_severity": {k: 0 for k in ("critical", "warning", "info")}, "by_code": {}}
+        for x in allx:
+            counts["by_severity"][x.severity] = counts["by_severity"].get(x.severity, 0) + 1
+            counts["by_code"][x.code] = counts["by_code"].get(x.code, 0) + 1
+        sel = [x for x in allx if (not code or x.code in code) and (not severity or x.severity in severity) and
+               (order_id is None or (x.order_ref or {}).get("id") == order_id) and
+               (not q or q.lower() in x.message.lower())]
+        out = page([aps_store.exception_view(x) for x in sel[offset:offset + limit]], len(sel), limit, offset)
     out["counts"] = counts
     return out
 
