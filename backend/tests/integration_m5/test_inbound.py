@@ -173,3 +173,22 @@ def test_m1_import_obeys_sor_and_eco_locks(env):  # noqa: F811
     assert r.status_code == 200, r.text
     api.err("DELETE", f"/items/{item['id']}", 409, "INT_ERP_OWNED",
             headers={"If-Match": f'"{api.by_pn("R-10K")["row_version"]}"'})
+
+
+def test_failed_batch_is_recorded_and_retryable(env, monkeypatch):  # noqa: F811
+    from superplanner.api.mfg.services import integration as svc
+
+    it, _api, _app, _r = env
+    _enable(it)
+    real = svc.process
+    monkeypatch.setattr(svc, "process", lambda ctx, b: (_ for _ in ()).throw(RuntimeError("boom")))
+    import pytest
+
+    with pytest.raises(RuntimeError):                                       # TestClient re-raises the 500
+        it.c.post("/api/v1/integration/batches", json={"schema": "superplanner.v1", "entity": "item",
+                                                       "records": ITEMS[:1]}, headers={"Idempotency-Key": "f1"})
+    b = it.req("GET", "/batches", 200).json()["items"][0]
+    assert b["status"] == "failed"
+    monkeypatch.setattr(svc, "process", real)
+    out = it.batch("item", ITEMS[:1], "f1")                                  # same key, same body: runs again
+    assert out["status"] == "completed" and out["results"][0]["status"] == "created"

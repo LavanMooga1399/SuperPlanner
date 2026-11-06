@@ -312,10 +312,22 @@ def post_batch(ctx: AppContext, body: dict[str, Any], key: str | None, source: s
             if found.payload_hash != h:
                 raise ApiError(409, "INT_IDEMPOTENCY_CONFLICT", "This Idempotency-Key was used for another batch.",
                                {"batch_id": found.id})
-            return batch_record(found), True, 200
+            stale = found.status == "running" and _aware_dt(found.received_at) < utcnow() - STALE_BATCH
+            if found.status != "failed" and not stale:
+                return batch_record(found), True, 200
+            retry_id = found.id                    # 15.WP-S minor 4: a failed / abandoned batch runs again
+        else:
+            retry_id = None
     now = utcnow()
 
     def create(s: Session) -> str:
+        if retry_id is not None:
+            r = s.get(IntInboxRow, retry_id, with_for_update=True)
+            if r.status not in ("failed", "running"):
+                raise ApiError(409, "INT_IDEMPOTENCY_CONFLICT", "This Idempotency-Key is being processed.", {})
+            r.status, r.results, r.counts, r.received_at, r.finished_at = "running", None, {}, now, None
+            s.flush()
+            return r.id
         row = IntInboxRow(id=new_id("inb_"), source=source, idempotency_key=key, entity=batch.entity, mode=batch.mode,
                           status="running", counts={}, results=None, payload=body, payload_hash=h,
                           actor_id=actor_id(), received_at=now, finished_at=None)
@@ -349,7 +361,17 @@ def post_batch(ctx: AppContext, body: dict[str, Any], key: str | None, source: s
         ctx.jobs.dispatch(job)
         return rec, False, 202
     bid = run_tx(ctx, create)
-    results = process(ctx, batch)
+    try:
+        results = process(ctx, batch)
+    except BaseException as exc:                     # recorded, so the key can be retried
+        def fail(s: Session) -> None:
+            row = s.get(IntInboxRow, bid, with_for_update=True)
+            if row is not None:
+                row.status, row.finished_at = "failed", utcnow()
+                row.results = [{"ref": "", "status": "rejected", "id": None, "errors": [
+                    {"code": getattr(exc, "code", "INT_FAILED"), "message": str(exc)[:300]}]}]
+        run_tx(ctx, fail)
+        raise
     counts: dict[str, int] = {}
     for r in results:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
@@ -362,6 +384,13 @@ def post_batch(ctx: AppContext, body: dict[str, Any], key: str | None, source: s
         return batch_record(row)
 
     return run_tx(ctx, finish), False, 200
+
+
+STALE_BATCH = __import__("datetime").timedelta(minutes=15)
+
+
+def _aware_dt(d: datetime) -> datetime:
+    return d if d.tzinfo else d.replace(tzinfo=UTC)
 
 
 def get_batch(ctx: AppContext, batch_id: str) -> dict[str, Any]:
@@ -662,17 +691,61 @@ def deliver_now(ctx: AppContext, endpoint_id: str | None = None, post: outbox.Po
         ids = list(s.execute(q).scalars())
         if endpoint_id and not ids:
             repo.get_row(s, IntEndpointRow, endpoint_id, what="Endpoint")      # 404 (foreign / unknown / inactive)
+    allow_chk = ctx.settings.integration_allow_private_targets
     for eid in ids:
-        def fn(s: Session) -> dict[str, int]:
-            ep = s.get(IntEndpointRow, eid, with_for_update={"skip_locked": True})
-            if ep is None:
-                return {}
-            secret = crypto.decrypt(ctx.settings.secrets_keys, ep.secret_enc)
-            return outbox.deliver_endpoint(s, ep, secret, _plant_ref(s), post, now,
-                                           allow_private=ctx.settings.integration_allow_private_targets)
-        for k, v in run_tx(ctx, fn).items():
+        r = _deliver_endpoint(ctx, eid, post, now, allow_chk)
+        for k, v in r.items():
             totals[k] = totals.get(k, 0) + v
     return totals
+
+
+def _deliver_endpoint(ctx: AppContext, eid: str, post: Any, now: datetime | None, allow: bool,
+                      max_events: int = 500) -> dict[str, int]:
+    """One endpoint, FIFO: a session advisory lock (on its own connection) keeps one deliverer per endpoint while
+    every step runs in its own short transaction and the HTTP call runs outside any transaction (minor 3)."""
+    from sqlalchemy import text
+
+    out = {"delivered": 0, "failed": 0, "dead": 0}
+    with ctx.db.engine.connect() as lc:
+        got = lc.execute(text("SELECT pg_try_advisory_lock(hashtext(:k))"), {"k": "sp-deliver:" + eid}).scalar()
+        lc.commit()
+        if not got:
+            return out
+        try:
+            with read_tx(ctx) as s:
+                ep = s.get(IntEndpointRow, eid)
+                if ep is None or not ep.active:
+                    return out
+                url, secret = ep.url, crypto.decrypt(ctx.settings.secrets_keys, ep.secret_enc)
+                plant = _plant_ref(s)
+            for _ in range(max_events):
+                t = now or datetime.now(UTC)
+
+                def prep(s: Session) -> dict[str, Any] | None:
+                    ep2 = s.get(IntEndpointRow, eid)
+                    return outbox.next_step(s, ep2, plant, t) if ep2 is not None else None
+
+                step = run_tx(ctx, prep)
+                if step is None:
+                    break
+                if step.get("stop") == "dead":
+                    out["dead"] += 1
+                    break
+                code, err = outbox.send(step, url, secret, post, allow)
+
+                def rec(s: Session) -> str:
+                    ep2 = s.get(IntEndpointRow, eid, with_for_update=True)
+                    return outbox.record_step(s, ep2, step, code, err, now or datetime.now(UTC)) \
+                        if ep2 is not None else "failed"
+
+                res = run_tx(ctx, rec)
+                out[res] = out.get(res, 0) + 1
+                if res != "delivered" and step["kind"] == "fifo":
+                    break                                  # FIFO: a failure blocks the later events
+        finally:
+            lc.execute(text("SELECT pg_advisory_unlock(hashtext(:k))"), {"k": "sp-deliver:" + eid})
+            lc.commit()
+    return out
 
 
 def deliver_all_job(ctx: Any, run_id: str, lease: Any) -> None:
@@ -882,9 +955,11 @@ def _snapshot_records(ctx: AppContext, s: Session, inp: Any) -> dict[str, list[d
             raise ApiError(422, "VALIDATION_ERROR", "A file snapshot needs INTEGRATION_ROOT, a plant code and "
                            "file_name.", {})
         f = pathlib.Path(root) / st.plant_code / "inbox" / name
-        if not f.is_file():
+        if f.is_symlink() or not f.is_file():
             raise ApiError(422, "VALIDATION_ERROR", f"{name} is not in the plant's inbox.", {})
-        data = json.loads(f.read_bytes()[:50_000_000])
+        if f.stat().st_size > 50_000_000:          # checked before reading (15.WP-S minor 5)
+            raise ApiError(422, "MFG_IMPORT_TOO_LARGE", "The snapshot file is larger than 50 MB.", {})
+        data = json.loads(f.read_bytes())
         return {k: list(v) for k, v in (data.get("records", data) or {}).items() if isinstance(v, list)}
     from ....integration.adapters import registry
 

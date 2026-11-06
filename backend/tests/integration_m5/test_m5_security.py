@@ -164,3 +164,41 @@ def test_token_is_pinned_to_its_workspace(db_url):
         # the token list is per user: A cannot see or revoke U's tokens
         assert all(t["id"] != ta["id"] for t in a.get(f"{V1}/tokens").json()["items"])
         assert a.delete(f"{V1}/tokens/{ta['id']}").status_code == 404
+
+
+def test_delivery_commits_per_event_and_holds_no_lock_during_http(db_url, monkeypatch):
+    import time as _t
+
+    import sqlalchemy as sa
+
+    from apimfgm2_helpers import Api, make_app
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.api.mfg.services import integration as svc
+
+    DNS.clear()
+    DNS["erp.example.com"] = ["93.184.216.34"]
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
+    seen = []
+    eng = sa.create_engine(db_url)
+
+    def post(url, body, headers):
+        with eng.begin() as conn:                     # NOWAIT: fails if the endpoint row were locked
+            cur = conn.execute(sa.text("SELECT cursor FROM int_endpoints FOR UPDATE NOWAIT")).scalar()
+        seen.append((int(headers["SP-Event-Id"]), cur, int(headers["SP-Signature"].split(",")[0][2:])))
+        _t.sleep(1.1)
+        return 200, ""
+
+    app = make_app(db_url, secrets_keys=[KEY], webhook_post=post)
+    with TestClient(app) as c:
+        it, api = Int(c), Api(c)
+        _enable(it, sor={"items": "superplanner"})
+        it.req("POST", "/endpoints", 201, json={"name": "e", "url": "https://erp.example.com/h", "secret": "s" * 20})
+        loc, item = api.location("ST"), api.item("X")
+        api.receive(item["id"], loc["id"], 1)
+        api.receive(item["id"], loc["id"], 2)
+        with owner_scope("usr_local"):
+            assert svc.deliver_now(app.state.ctx)["delivered"] == 2
+    eng.dispose()
+    (s1, c1, t1), (s2, c2, t2) = seen
+    assert c2 == s1 and c1 < s1           # event 1 was committed before event 2 was posted
+    assert t2 > t1                        # each post signed with its own (current) time

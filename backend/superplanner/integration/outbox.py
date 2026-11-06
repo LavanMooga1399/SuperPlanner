@@ -284,84 +284,90 @@ def backoff(attempts: int) -> int:
     return min(BACKOFF_MAX, BACKOFF_FIRST * (2 ** max(0, attempts - 1)))
 
 
-def deliver_endpoint(s: Session, endpoint: Any, secret: str, plant: dict[str, Any], post: Poster,
-                     now: datetime | None = None, max_events: int = 500,
-                     allow_private: bool | None = None) -> dict[str, int]:
-    """Deliver due events of one endpoint in seq order (caller holds the endpoint row lock). Stops at the first
-    failure (FIFO). Returns counts. With `allow_private` given, the URL is re-checked right before posting (the
-    host may resolve differently than when the endpoint was saved); a refused URL is a failed attempt, no
-    request is sent."""
+def next_step(s: Session, endpoint: Any, plant: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+    """The next delivery of one endpoint, in a short transaction (15.WP-S minor 3: no row lock or transaction
+    is held across the HTTP call): an un-parked (`retry`) event first, else the next event after the cursor
+    (FIFO). None = nothing due; `{"stop": "dead"}` = blocked by a dead event."""
     from ..api.mfg.db_models_m5 import IntDeliveryRow, IntOutboxRow
 
-    now = now or datetime.now(UTC)
-    out = {"delivered": 0, "failed": 0, "dead": 0}
-    # un-parked events behind the cursor are sent first (once; a failure parks them again)
-    for d in list(s.execute(select(IntDeliveryRow).where(IntDeliveryRow.endpoint_id == endpoint.id,
-                                                         IntDeliveryRow.status == "retry")
-                            .order_by(IntDeliveryRow.event_seq)).scalars()):
+    d = s.execute(select(IntDeliveryRow).where(IntDeliveryRow.endpoint_id == endpoint.id,
+                                               IntDeliveryRow.status == "retry")
+                  .order_by(IntDeliveryRow.event_seq).limit(1)).scalars().first()
+    if d is not None:
         ev = s.execute(select(IntOutboxRow).where(IntOutboxRow.seq == d.event_seq)).scalars().first()
         if ev is None:
             d.status = "parked"
-            continue
-        body = json.dumps(_json(event_view(ev, plant)), separators=(",", ":"), sort_keys=True).encode()
-        try:
-            if allow_private is not None:
-                check_url(endpoint.url, allow_private)
-            code, err = post(endpoint.url, body, {"SP-Event-Id": str(ev.seq),
-                                                  "SP-Signature": sign(secret, body, int(now.timestamp()))})
-        except ApiError as e:
-            code, err = 0, f"{e.code}: {e.message}"
-        d.attempts += 1
-        d.last_status_code = code or None
-        if 200 <= code < 300:
-            d.status, d.delivered_at, d.last_error = "delivered", now, None
-            out["delivered"] += 1
-        else:
-            d.status, d.last_error = "parked", (err or f"HTTP {code}")[:500]
-            out["failed"] += 1
-    q = select(IntOutboxRow).where(IntOutboxRow.seq > endpoint.cursor).order_by(IntOutboxRow.seq).limit(max_events)
+            s.flush()
+            return next_step(s, endpoint, plant, now)
+        return {"kind": "retry", "delivery_id": d.id, "seq": int(ev.seq), "body": _body(ev, plant)}
+    q = select(IntOutboxRow).where(IntOutboxRow.seq > endpoint.cursor).order_by(IntOutboxRow.seq).limit(1)
     if endpoint.event_types:
         q = q.where(IntOutboxRow.type.in_(list(endpoint.event_types)))
-    for ev in s.execute(q).scalars():
-        d = s.execute(select(IntDeliveryRow).where(IntDeliveryRow.endpoint_id == endpoint.id,
-                                                   IntDeliveryRow.event_seq == ev.seq)).scalars().first()
-        if d is None:
-            d = IntDeliveryRow(id=new_id("dlv_"), endpoint_id=endpoint.id, event_seq=int(ev.seq), status="pending",
-                               attempts=0, next_attempt_at=now, last_error=None, last_status_code=None,
-                               delivered_at=None, created_at=now)
-            s.add(d)
-            s.flush()
-        if d.status == "dead":
-            out["dead"] += 1
-            break                                   # FIFO: a dead event blocks until retried
-        if d.next_attempt_at is not None and _aware(d.next_attempt_at) > now:
-            break
-        body = json.dumps(_json(event_view(ev, plant)), separators=(",", ":"), sort_keys=True).encode()
-        t = int(now.timestamp())
-        try:
-            if allow_private is not None:
-                check_url(endpoint.url, allow_private)
-            code, err = post(endpoint.url, body, {"SP-Event-Id": str(ev.seq),
-                                                  "SP-Signature": sign(secret, body, t)})
-        except ApiError as e:
-            code, err = 0, f"{e.code}: {e.message}"
-        d.attempts += 1
-        d.last_status_code = code or None
-        if 200 <= code < 300:
-            d.status, d.delivered_at, d.next_attempt_at, d.last_error = "delivered", now, None, None
-            endpoint.cursor = int(ev.seq)
-            out["delivered"] += 1
-            continue
-        d.last_error = (err or f"HTTP {code}")[:500]
-        if now - _aware(d.created_at) >= DEAD_AFTER:
-            d.status, d.next_attempt_at = "dead", None
-            out["dead"] += 1
+    ev = s.execute(q).scalars().first()
+    if ev is None:
+        return None
+    d = s.execute(select(IntDeliveryRow).where(IntDeliveryRow.endpoint_id == endpoint.id,
+                                               IntDeliveryRow.event_seq == ev.seq)).scalars().first()
+    if d is None:
+        d = IntDeliveryRow(id=new_id("dlv_"), endpoint_id=endpoint.id, event_seq=int(ev.seq), status="pending",
+                           attempts=0, next_attempt_at=now, last_error=None, last_status_code=None,
+                           delivered_at=None, created_at=now)
+        s.add(d)
+        s.flush()
+    if d.status == "dead":
+        return {"stop": "dead"}
+    if d.next_attempt_at is not None and _aware(d.next_attempt_at) > now:
+        return None
+    return {"kind": "fifo", "delivery_id": d.id, "seq": int(ev.seq), "body": _body(ev, plant)}
+
+
+def _body(ev: Any, plant: dict[str, Any]) -> bytes:
+    return json.dumps(_json(event_view(ev, plant)), separators=(",", ":"), sort_keys=True).encode()
+
+
+def send(step: dict[str, Any], url: str, secret: str, post: Poster, allow_private: bool | None) -> tuple[int, str]:
+    """The HTTP call, outside any transaction; signed with the current time (minor 3)."""
+    body = step["body"]
+    try:
+        if allow_private is not None:
+            check_url(url, allow_private)
+        return post(url, body, {"SP-Event-Id": str(step["seq"]), "SP-Signature": sign(secret, body,
+                                                                                    int(time.time()))})
+    except ApiError as e:
+        return 0, f"{e.code}: {e.message}"
+
+
+def record_step(s: Session, endpoint: Any, step: dict[str, Any], code: int, err: str, now: datetime) -> str:
+    """Store the attempt (short transaction) -> delivered | failed | dead."""
+    from ..api.mfg.db_models_m5 import IntDeliveryRow
+
+    d = s.get(IntDeliveryRow, step["delivery_id"], with_for_update=True)
+    if d is None:                                  # deleted meanwhile (endpoint removed)
+        return "failed"
+    d.attempts += 1
+    d.last_status_code = code or None
+    ok = 200 <= code < 300
+    if step["kind"] == "retry":
+        if ok:
+            d.status, d.delivered_at, d.last_error = "delivered", now, None
         else:
-            d.next_attempt_at = now + timedelta(seconds=backoff(d.attempts))
-            out["failed"] += 1
-        break
+            d.status, d.last_error = "parked", (err or f"HTTP {code}")[:500]
+        s.flush()
+        return "delivered" if ok else "failed"
+    if ok:
+        d.status, d.delivered_at, d.next_attempt_at, d.last_error = "delivered", now, None, None
+        if endpoint.cursor < step["seq"]:
+            endpoint.cursor = int(step["seq"])
+        s.flush()
+        return "delivered"
+    d.last_error = (err or f"HTTP {code}")[:500]
+    if now - _aware(d.created_at) >= DEAD_AFTER:
+        d.status, d.next_attempt_at = "dead", None
+        s.flush()
+        return "dead"
+    d.next_attempt_at = now + timedelta(seconds=backoff(d.attempts))
     s.flush()
-    return out
+    return "failed"
 
 
 def _aware(d: datetime) -> datetime:
@@ -380,4 +386,4 @@ def run_delivery_job(ctx: Any, run_id: str, lease: Any) -> None:  # pragma: no c
     deliver_all_job(ctx, run_id, lease)
 
 
-__all__ = ["backoff", "check_url", "deliver_endpoint", "emit", "enabled", "events", "sign", "verify_signature"]
+__all__ = ["backoff", "check_url", "next_step", "record_step", "send", "emit", "enabled", "events", "sign", "verify_signature"]

@@ -127,3 +127,26 @@ def test_dropped_bom_file_goes_through_an_erp_eco(db_url, tmp_path):
         assert again["documents"]["bom"][0]["status"] == "unchanged"
         eco = api.get("/eco")["items"]
         assert [(e["source"], e["status"]) for e in eco] == [("erp", "implemented")]
+
+
+def test_symlinks_and_oversized_files_are_refused(db_url, tmp_path):
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.integration import filedrop
+
+    secret = tmp_path / "secret.txt"
+    secret.write_text("part_number,make_buy\nLEAK,buy\n")
+    base = filedrop.plant_dir(str(tmp_path / "root"), "P1")
+    link = base / "inbox" / "items_link.csv"
+    link.symlink_to(secret)
+    assert filedrop.complete_files(base, {"items_link.csv": [1.0, 1.0]})[0] == []      # never picked up
+    app = make_app(db_url)
+    with TestClient(app):
+        with owner_scope("usr_local"):
+            r = filedrop.process_file(app.state.ctx, link)
+        assert r["ok"] is False and r["error"]["code"] == "INT_FILE_FAILED"
+        big = base / "inbox" / "big.csv"
+        with open(big, "wb") as f:
+            f.truncate(filedrop.MAX_FILE_BYTES + 1)                                   # sparse: no read needed
+        with owner_scope("usr_local"):
+            r = filedrop.process_file(app.state.ctx, big)
+        assert r["error"]["code"] == "MFG_IMPORT_TOO_LARGE" and "sha256" not in r

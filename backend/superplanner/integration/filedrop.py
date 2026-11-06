@@ -59,7 +59,8 @@ def plant_dir(root: str, code: str) -> Path:
 def _inbox_files(base: Path) -> list[Path]:
     out = []
     for p in sorted((base / "inbox").iterdir()):
-        if not p.is_file() or p.name.startswith(".") or p.name.endswith((".done", ".part", ".tmp")):
+        if p.is_symlink() or not p.is_file() or p.name.startswith(".") or \
+                p.name.endswith((".done", ".part", ".tmp")):    # symlinks are never followed (minor 5)
             continue
         out.append(p)
     return out
@@ -107,12 +108,20 @@ def process_file(ctx: Any, path: Path) -> dict[str, Any]:
     from ..api.errors import ApiError
 
     t0 = time.monotonic()
-    data = path.read_bytes()
-    out: dict[str, Any] = {"file": path.name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-                           "started_at": datetime.now(UTC).isoformat()}
+    out: dict[str, Any] = {"file": path.name, "started_at": datetime.now(UTC).isoformat()}
     try:
+        st_ = path.lstat()                         # size check before reading; symlinks refused (minor 5)
+        import stat as _stat
+
+        if not _stat.S_ISREG(st_.st_mode):
+            raise ApiError(422, "INT_FILE_FAILED", "Only regular files are processed (no symlinks).", {})
+        if st_.st_size > MAX_FILE_BYTES:
+            raise ApiError(422, "MFG_IMPORT_TOO_LARGE", "The file is larger than 50 MB.", {"bytes": st_.st_size})
+        with open(path, "rb", opener=lambda p_, f: os.open(p_, f | getattr(os, "O_NOFOLLOW", 0))) as fh:
+            data = fh.read(MAX_FILE_BYTES + 1)
         if len(data) > MAX_FILE_BYTES:
             raise ApiError(422, "MFG_IMPORT_TOO_LARGE", "The file is larger than 50 MB.", {})
+        out.update({"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
         if path.suffix.lower() == ".json":
             out.update(_json_file(ctx, data, path.name, out["sha256"]))
         else:
