@@ -50,6 +50,7 @@ export const revokeToken = (id: string) => v1Request<void>(`/tokens/${enc(id)}`,
 // ---------------------------------------------------------------- 3.4 orgs (/api/v1/orgs)
 export const listOrgs = (signal?: AbortSignal) => v1Request<{ items: Org[] }>("/orgs", { signal });
 export const createOrg = (body: { name: string; slug: string }) => v1Request<Org>("/orgs", { method: "POST", body });
+export const acceptOrgInvite = (org: string) => v1Request<Org>(`/orgs/${enc(org)}/accept`, { method: "POST", body: {} });
 export const getOrg = (org: string, signal?: AbortSignal) => v1Request<Org>(`/orgs/${enc(org)}`, { signal });
 export const updateOrg = (org: string, body: { name: string; require_2fa: boolean }, version?: number) =>
   v1Request<Org>(`/orgs/${enc(org)}`, { method: "PUT", body, headers: version !== undefined ? ifMatch(version) : undefined });

@@ -7,12 +7,14 @@
  */
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate, useParams } from "react-router";
+import { ApiError } from "../api/client";
 import { Banner } from "../components/Banner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Dialog } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import {
   addOrgMember,
+  acceptOrgInvite,
   createOrg,
   createOrgPlant,
   getOrg,
@@ -73,8 +75,36 @@ export function OrgListPage() {
       <MfgError error={orgs.error} onRetry={orgs.reload} />
       {orgs.loading && !orgs.data ? <Spinner /> : null}
       {orgs.data && !orgs.data.items.length ? <div className="card card-body muted">You are not in an organisation yet. Your own plant works on its own as before.</div> : null}
+      {(orgs.data?.items ?? []).filter((o) => o.invited).map((o) => (
+        <div key={`inv-${o.id}`} className="card card-body row wrap" style={{ justifyContent: "space-between" }} data-testid="org-invite">
+          <span>
+            <strong>{o.name}</strong> invited you. Until you accept, it has no access to your account and no roles for you.
+          </span>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await acceptOrgInvite(o.id);
+                orgs.reload();
+              } catch (e) {
+                setError(e);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            data-testid="org-accept"
+          >
+            Accept invitation
+          </button>
+        </div>
+      ))}
+      {!creating ? <MfgError error={error} /> : null}
       <div className="org-grid">
-        {(orgs.data?.items ?? []).map((o) => (
+        {(orgs.data?.items ?? []).filter((o) => !o.invited).map((o) => (
           <Link key={o.id} to={`/orgs/${encodeURIComponent(o.id)}`} className="card card-body org-tile" data-testid="org-row" data-slug={o.slug}>
             <strong>{o.name}</strong>
             <span className="muted small">
@@ -146,7 +176,14 @@ export function OrgListPage() {
               <label htmlFor="org-slug">Short name (in links)</label>
               <input id="org-slug" className="input mono" value={slug} onChange={(e) => setSlug(autoSlug(e.target.value))} />
             </div>
-            <MfgError error={error} />
+            {error instanceof ApiError && error.code === "ORG_CREATE_DISABLED" ? (
+              <p className="muted" data-testid="org-create-disabled">
+                On this installation organisations are created by the system operator
+                (<code>manage.py create-org</code>). Ask them to create it and add you as its admin.
+              </p>
+            ) : (
+              <MfgError error={error} />
+            )}
           </div>
         </Dialog>
       ) : null}

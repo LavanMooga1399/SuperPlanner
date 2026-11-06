@@ -88,6 +88,8 @@ export interface Org {
   slug: string;
   require_2fa: boolean;
   my_role?: OrgRole | null;
+  /** True until the user accepts the invitation (operator-run deployments, ORG_SELF_SERVICE=false). */
+  invited?: boolean;
   plants?: number;
   members?: number;
   row_version?: number;
