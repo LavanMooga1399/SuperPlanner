@@ -340,11 +340,11 @@ def _has_txn(s: Session, wo_id: str) -> bool:
 
 def update_wo(ctx: AppContext, wo_id: str, inp: WorkOrderInput, if_match: str | None) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        w = _get(s, wo_id, lock=True)
+        check_version(w, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "work_orders")
-        w = _get(s, wo_id, lock=True)
-        check_version(w, if_match)
         old = {c.id: c for c in repo_m2.lock_children_of(s, MfgWoComponentRow, "wo_id", [w.id])}
         comps_chk = []
         if inp.components is not None:
@@ -460,11 +460,11 @@ def _trim_reservations(s: Session, wo_id: str, now: Any) -> None:
 
 def delete_wo(ctx: AppContext, wo_id: str, if_match: str | None) -> None:
     def fn(s: Session) -> None:
+        w = _get(s, wo_id, lock=True)
+        check_version(w, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "work_orders")
-        w = _get(s, wo_id, lock=True)
-        check_version(w, if_match)
         try:
             WOR.check_deletable(w.status, _has_txn(s, w.id))
         except RuleError as e:

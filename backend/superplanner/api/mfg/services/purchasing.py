@@ -454,12 +454,12 @@ def create_doc(ctx: AppContext, doc_type: str, inp: PurchaseDocInput, *, source:
 def update_doc(ctx: AppContext, doc_type: str, doc_id: str, inp: PurchaseDocInput, if_match: str | None
                ) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        doc = _get(s, doc_type, doc_id, lock=True)
+        check_version(doc, if_match)
         if doc_type == "po":
             from .integration import check_local_write
 
             check_local_write(s, "purchase_orders")
-        doc = _get(s, doc_type, doc_id, lock=True)
-        check_version(doc, if_match)
         try:
             PUR.check_editable(doc_type, doc.status)
         except RuleError as e:
@@ -483,12 +483,12 @@ def update_doc(ctx: AppContext, doc_type: str, doc_id: str, inp: PurchaseDocInpu
 
 def delete_doc(ctx: AppContext, doc_type: str, doc_id: str, if_match: str | None) -> None:
     def fn(s: Session) -> None:
+        doc = _get(s, doc_type, doc_id, lock=True)
+        check_version(doc, if_match)
         if doc_type == "po":
             from .integration import check_local_write
 
             check_local_write(s, "purchase_orders")
-        doc = _get(s, doc_type, doc_id, lock=True)
-        check_version(doc, if_match)
         sids = [r[0] for r in s.execute(select(MfgPurchaseScheduleRow.id).join(
             MfgPurchaseLineRow, MfgPurchaseLineRow.id == MfgPurchaseScheduleRow.line_id).where(
             MfgPurchaseLineRow.doc_id == doc.id)).all()]
@@ -509,12 +509,12 @@ def delete_doc(ctx: AppContext, doc_type: str, doc_id: str, if_match: str | None
 def action(ctx: AppContext, doc_type: str, doc_id: str, act: str, if_match: str | None,
            reason: str | None = None) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        doc = _get(s, doc_type, doc_id, lock=True)
+        check_version(doc, if_match)
         if doc_type == "po":
             from .integration import check_local_write
 
             check_local_write(s, "purchase_orders")
-        doc = _get(s, doc_type, doc_id, lock=True)
-        check_version(doc, if_match)
         now = datetime.now(UTC)
         actor = actor_id()
         try:
@@ -600,15 +600,15 @@ def convert_pr(ctx: AppContext, pr_id: str, body: Any, if_match: str | None, ide
                 return out, True
 
     def fn(s: Session) -> tuple[dict[str, Any], bool]:
-        from .integration import check_local_write
-
-        check_local_write(s, "purchase_orders")
         pr = _get(s, "pr", pr_id, lock=True)
         if idem:  # re-checked under the PR lock and before If-Match: a concurrent retry replays (C17)
             out = _convert_replay(s, idem, h)
             if out is not None:
                 return out, True
         check_version(pr, if_match)
+        from .integration import check_local_write
+
+        check_local_write(s, "purchase_orders")
         try:
             PUR.check_action("pr", pr.status, "convert")
         except RuleError as e:

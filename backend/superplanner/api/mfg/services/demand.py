@@ -297,11 +297,11 @@ def _shipped(s: Session, order_id: str) -> bool:
 
 def delete_order(ctx: AppContext, order_id: str, if_match: str | None) -> None:
     def fn(s: Session) -> None:
+        o = repo.get_row(s, MfgDemandOrderRow, order_id, what=WHAT, lock=True)
+        check_version(o, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "demand_orders")
-        o = repo.get_row(s, MfgDemandOrderRow, order_id, what=WHAT, lock=True)
-        check_version(o, if_match)
         try:
             DEM.check_deletable(o.status, _shipped(s, o.id))
         except RuleError as e:
@@ -315,11 +315,11 @@ def delete_order(ctx: AppContext, order_id: str, if_match: str | None) -> None:
 
 def action(ctx: AppContext, order_id: str, act: str, if_match: str | None) -> dict[str, Any]:
     def fn(s: Session) -> dict[str, Any]:
+        o = repo.get_row(s, MfgDemandOrderRow, order_id, what=WHAT, lock=True)
+        check_version(o, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "demand_orders")
-        o = repo.get_row(s, MfgDemandOrderRow, order_id, what=WHAT, lock=True)
-        check_version(o, if_match)
         try:
             o.status = DEM.check_action(o.status, act, has_shipments=_shipped(s, o.id))
         except RuleError as e:

@@ -89,11 +89,11 @@ def create_supplier(ctx: AppContext, inp: SupplierInput) -> SupplierRecord:
 
 def update_supplier(ctx: AppContext, supplier_id: str, inp: SupplierInput, if_match: str | None) -> SupplierRecord:
     with write_tx(ctx) as (s, _plant):
+        row = repo.get_row(s, MfgSupplierRow, supplier_id, what="Supplier", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "suppliers")
-        row = repo.get_row(s, MfgSupplierRow, supplier_id, what="Supplier", lock=True)
-        check_version(row, if_match)
         _sup_unique(s, inp, row.id)
         for f in SUP_FIELDS:
             setattr(row, f, getattr(inp, f))
@@ -105,11 +105,11 @@ def update_supplier(ctx: AppContext, supplier_id: str, inp: SupplierInput, if_ma
 
 def delete_supplier(ctx: AppContext, supplier_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _plant):
+        row = repo.get_row(s, MfgSupplierRow, supplier_id, what="Supplier", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "suppliers")
-        row = repo.get_row(s, MfgSupplierRow, supplier_id, what="Supplier", lock=True)
-        check_version(row, if_match)
         refs = {"purchase_documents": count(s, MfgPurchaseDocRow, MfgPurchaseDocRow.supplier_id == row.id)}
         if any(refs.values()):
             raise in_use(f"Supplier {row.code}", refs)
@@ -206,11 +206,11 @@ def update_item_supplier(ctx: AppContext, isu_id: str, inp: ItemSupplierInput, i
 
 def delete_item_supplier(ctx: AppContext, isu_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _plant):
+        row = repo.get_row(s, MfgItemSupplierRow, isu_id, what="Item supplier", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "item_suppliers")
-        row = repo.get_row(s, MfgItemSupplierRow, isu_id, what="Item supplier", lock=True)
-        check_version(row, if_match)
         s.delete(row)
         s.flush()
         audit(s, "item_supplier", row.id, "delete", {"version": row.row_version})

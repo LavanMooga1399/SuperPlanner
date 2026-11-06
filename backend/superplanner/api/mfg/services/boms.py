@@ -267,11 +267,11 @@ def create_bom(ctx: AppContext, inp: BomInput) -> BomRecord:
 
 def update_bom(ctx: AppContext, bom_id: str, inp: BomInput, if_match: str | None) -> BomRecord:
     with write_tx(ctx) as (s, _):
+        row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "boms")
-        row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
-        check_version(row, if_match)
         if row.status != "draft":
             raise readonly(row.status, "BOM")
         check_eco_lock(s, row, "edit")
@@ -303,11 +303,11 @@ def update_bom(ctx: AppContext, bom_id: str, inp: BomInput, if_match: str | None
 
 def delete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _):
+        row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "boms")
-        row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
-        check_version(row, if_match)
         if row.status == "released":
             raise readonly(row.status, "BOM")
         check_eco_lock(s, row, "delete")
@@ -321,11 +321,11 @@ def delete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> None:
 def release_bom(ctx: AppContext, bom_id: str, effective_from: date | None, supersede: bool,
                 if_match: str | None) -> dict[str, Any]:
     with write_tx(ctx) as (s, _):
+        row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "boms")
-        row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
-        check_version(row, if_match)
         check_eco_lock(s, row, "release")
         superseded = release_in_session(s, row, effective_from, supersede)
         return {"bom": bom_record(s, row), "superseded": superseded}
@@ -360,11 +360,11 @@ def release_in_session(s: Session, row: MfgBomRow, effective_from: date | None, 
 
 def obsolete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> BomRecord:
     with write_tx(ctx) as (s, _):
+        row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "boms")
-        row = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
-        check_version(row, if_match)
         if row.status != "released":
             raise invalid_state(row.status, "made obsolete", "BOM")
         now = utcnow()
@@ -377,11 +377,11 @@ def obsolete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> BomRecor
 
 def copy_bom(ctx: AppContext, bom_id: str, revision: str | None, if_match: str | None) -> BomRecord:
     with write_tx(ctx) as (s, _):
+        src = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
+        check_version(src, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "boms")
-        src = repo.get_row(s, MfgBomRow, bom_id, what="BOM", lock=True)
-        check_version(src, if_match)
         item_for_document(s, src.item_id, routing=False)
         rev = revision or src.revision
         lines = list(s.execute(select(MfgBomLineRow).where(MfgBomLineRow.bom_id == src.id)).scalars())

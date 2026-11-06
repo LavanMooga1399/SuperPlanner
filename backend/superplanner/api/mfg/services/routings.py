@@ -146,11 +146,11 @@ def update_routing(ctx: AppContext, routing_id: str, inp: RoutingInput, if_match
     from ...errors import ApiError
 
     with write_tx(ctx) as (s, _):
+        row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "routings")
-        row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
-        check_version(row, if_match)
         if row.status != "draft":
             raise readonly(row.status, "routing")
         check_eco_lock(s, row, "edit")
@@ -181,11 +181,11 @@ def update_routing(ctx: AppContext, routing_id: str, inp: RoutingInput, if_match
 
 def delete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _):
+        row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "routings")
-        row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
-        check_version(row, if_match)
         if row.status == "released":
             raise readonly(row.status, "routing")
         check_eco_lock(s, row, "delete")
@@ -202,11 +202,11 @@ def delete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> No
 def release_routing(ctx: AppContext, routing_id: str, effective_from: date | None, supersede: bool,
                   if_match: str | None) -> dict[str, Any]:
     with write_tx(ctx) as (s, _):
+        row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "routings")
-        row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
-        check_version(row, if_match)
         check_eco_lock(s, row, "release")
         superseded = release_in_session(s, row, effective_from, supersede)
         return {"routing": routing_record(s, row), "superseded": superseded}
@@ -241,11 +241,11 @@ def release_in_session(s: Session, row: MfgRoutingRow, effective_from: date | No
 
 def obsolete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> RoutingRecord:
     with write_tx(ctx) as (s, _):
+        row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
+        check_version(row, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "routings")
-        row = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
-        check_version(row, if_match)
         if row.status != "released":
             raise invalid_state(row.status, "made obsolete", "routing")
         now = utcnow()
@@ -259,11 +259,11 @@ def obsolete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> 
 def copy_routing(ctx: AppContext, routing_id: str, revision: str | None, code: str | None, if_match: str | None
                  ) -> RoutingRecord:
     with write_tx(ctx) as (s, _):
+        src = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
+        check_version(src, if_match)
         from .integration import check_local_write
 
         check_local_write(s, "routings")
-        src = repo.get_row(s, MfgRoutingRow, routing_id, what="Routing", lock=True)
-        check_version(src, if_match)
         item_for_document(s, src.item_id, routing=True)
         rev, cd = revision or src.revision, code or src.code
         ops = list(s.execute(select(MfgOperationRow).where(MfgOperationRow.routing_id == src.id)).scalars())
