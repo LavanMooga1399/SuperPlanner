@@ -57,7 +57,7 @@ SWEEP_KEY = Fernet.generate_key().decode()
 
 
 def acc_app(db_url: str, **kw: Any):
-    return create_app(Settings(database_url=db_url, auth_mode="accounts", password_hash_profile="fast",
+    return create_app(Settings(database_url=db_url, auth_mode="accounts", password_hash_profile="fast", org_self_service=True,
                                auth_signin_limit_per_ip=1000, auth_signup_limit_per_ip=1000,
                                auth_signin_limit_per_email=1000, secrets_keys=[SWEEP_KEY],
                                integration_allow_private_targets=True,
@@ -313,7 +313,7 @@ def make_m5_world(c: TestClient, w: dict[str, Any]) -> None:
         assert r.status_code == code, r.text
         return r.json()
 
-    ok(c.put(f"{I5}/settings", json={"enabled": True, "plant_code": "SW", "sor": {"items": "superplanner"}},
+    ok(c.put(f"{I5}/settings", json={"enabled": True, "plant_code": f"SW{uuid.uuid4().hex[:6].upper()}", "sor": {"items": "superplanner"}},
              headers={"If-Match": '"0"'}), 200)
     ep = ok(c.post(f"{I5}/endpoints", json={"name": "erp", "url": "https://127.0.0.1/hook", "secret": "s" * 20}))
     loc = next(x for x in c.get(f"{MFG}/locations").json()["items"] if x["code"] == "STORES")
@@ -329,7 +329,8 @@ def make_m5_world(c: TestClient, w: dict[str, Any]) -> None:
     mem = ok(c.get(f"{API}/orgs/{org['id']}/members"), 200)["items"][0]
     tok = ok(c.post(f"{API}/tokens", json={"name": "sw", "scopes": ["view"]}))
     ids.update({"endpoint_id": ep["id"], "delivery_id": dl["id"], "batch_id": b["id"], "rec_id": rc["id"],
-                "org_id": org["id"], "plant": plant["code"], "member_id": mem["id"], "token_id": tok["id"]})
+                "org_id": org["id"], "plant": plant["code"], "member_id": mem["id"], "token_id": tok["id"],
+                "publish_id": f"pub_{uuid.uuid4().hex}"})   # unknown id: the sweep only needs 404 for user B
     w["mfg_bodies"].update({
         "/integration/endpoints/{endpoint_id}": {"name": "erp", "url": "https://127.0.0.1/hook"},
     })
