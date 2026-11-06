@@ -8,7 +8,7 @@ from apimfgm2_helpers import MFG, V1, Api, acc_app, sign_up
 
 
 def test_t_o1_user_across_two_plants_isolated(db_url):
-    app = acc_app(db_url)
+    app = acc_app(db_url, org_self_service=True)
     with TestClient(app):
         admin = sign_up(app, "admin@hbl.example")
         org = admin.post(f"{V1}/orgs", json={"name": "HBL", "slug": "hbl"}).json()
@@ -56,7 +56,7 @@ def test_t_o1_user_across_two_plants_isolated(db_url):
 
 
 def test_plant_codes_are_unique_across_plants(db_url):
-    app = acc_app(db_url)
+    app = acc_app(db_url, org_self_service=True)
     with TestClient(app):
         admin = sign_up(app, "pc@hbl.example")
         org = admin.post(f"{V1}/orgs", json={"name": "HBL", "slug": "hbl-pc"}).json()
@@ -72,7 +72,7 @@ def test_plant_codes_are_unique_across_plants(db_url):
 
 
 def test_plant_tokens_need_a_plant_and_follow_their_creator(db_url):
-    app = acc_app(db_url)
+    app = acc_app(db_url, org_self_service=True)
     with TestClient(app):
         admin = sign_up(app, "t1@hbl.example")
         org = admin.post(f"{V1}/orgs", json={"name": "HBL", "slug": "hbl-tok"}).json()
@@ -106,7 +106,7 @@ def test_orgs_manage_only_their_own_users(db_url):
     from superplanner.api.db.ownership import system_scope
     from superplanner.identity.service import org_requires_2fa
 
-    app = acc_app(db_url)
+    app = acc_app(db_url, org_self_service=True)
     with TestClient(app):
         a = sign_up(app, "a@one.example")
         b = sign_up(app, "b@two.example")
@@ -124,3 +124,35 @@ def test_orgs_manage_only_their_own_users(db_url):
         with system_scope(), app.state.ctx.db.read() as s:
             assert org_requires_2fa(s, vid) is True           # now its only organisation
         assert b.put(f"{V1}/orgs/{ob['id']}/members/{mb['id']}", json={"disabled": True}).status_code == 200
+
+
+def test_operator_created_orgs_and_invitations(db_url):
+    import io
+
+    from superplanner import manage
+
+    app = acc_app(db_url)                                       # ORG_SELF_SERVICE=false (default)
+    with TestClient(app):
+        admin = sign_up(app, "op-admin@hbl.example")
+        r = admin.post(f"{V1}/orgs", json={"name": "HBL", "slug": "hbl-op"})
+        assert r.status_code == 403 and r.json()["error"]["code"] == "ORG_CREATE_DISABLED"
+        out = io.StringIO()
+        assert manage.main(["--url", db_url, "create-org", "--name", "HBL", "--slug", "hbl-op",
+                            "--admin-email", "op-admin@hbl.example"], out=out, err=out) == 0, out.getvalue()
+        org = admin.get(f"{V1}/orgs").json()["items"][0]
+        other = sign_up(app, "elsewhere@x.example")
+        assert manage.main(["--url", db_url, "create-org", "--name", "Other", "--slug", "other-op",
+                            "--admin-email", "elsewhere@x.example"], out=io.StringIO(), err=io.StringIO()) == 0
+        e = admin.post(f"{V1}/orgs/{org['id']}/members", json={"email": "elsewhere@x.example"})
+        assert e.status_code == 409 and e.json()["error"]["code"] == "ORG_USER_IN_OTHER_ORG"
+        new = sign_up(app, "new@hbl.example")
+        m = admin.post(f"{V1}/orgs/{org['id']}/members", json={"email": "new@hbl.example"}).json()
+        assert m["invited"] is True
+        r = admin.put(f"{V1}/orgs/{org['id']}/members/{m['id']}", json={"disabled": True})
+        assert r.status_code == 403 and r.json()["error"]["code"] == "ORG_USER_NOT_MANAGED"   # not accepted yet
+        assert new.get(f"{V1}/orgs/{org['id']}").status_code == 404                         # no rights yet
+        acc = new.post(f"{V1}/orgs/{org['id']}/accept")
+        assert acc.status_code == 200 and acc.json()["invited"] is False
+        assert new.get(f"{V1}/orgs/{org['id']}").status_code == 200
+        assert admin.put(f"{V1}/orgs/{org['id']}/members/{m['id']}", json={"disabled": True}).status_code == 200
+        assert other.post(f"{V1}/orgs/{org['id']}/accept").status_code == 404               # not invited

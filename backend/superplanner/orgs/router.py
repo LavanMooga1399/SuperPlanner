@@ -109,3 +109,9 @@ def overview(org_id: str, u: str = Depends(person), ctx: AppContext = Depends(ge
 def get_publish(org_id: str, publish_id: str, u: str = Depends(person), ctx: AppContext = Depends(get_ctx)
                 ) -> JSONResponse:
     return _ok(svc.get_publish(ctx, u, org_id, publish_id))
+
+
+@router.post("/{org_id}/accept")
+def accept(org_id: str, u: str = Depends(person), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    """An invited member accepts the organisation's invitation."""
+    return _ok(svc.accept(ctx, u, org_id))

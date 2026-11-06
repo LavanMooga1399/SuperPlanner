@@ -40,7 +40,7 @@ def test_t_r1_chain_detects_a_changed_row_and_export(db_url):
 def test_org_wide_audit_for_org_admins(db_url):
     from apimfgm2_helpers import acc_app, sign_up
 
-    app = acc_app(db_url)
+    app = acc_app(db_url, org_self_service=True)
     with TestClient(app):
         admin = sign_up(app, "admin@o.example")
         org = admin.post(f"{V1}/orgs", json={"name": "Org O", "slug": "org-o"}).json()

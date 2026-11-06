@@ -19,6 +19,8 @@
     archive --before YYYY-MM-DD [--classes a,b] [--owner ID] [--purge]
                                                           M5: export to ARCHIVE_DIR (JSONL.gz + manifest); --purge
                                                           deletes only the purgeable classes afterwards
+    create-org --name N --slug S --admin-email E          M5: create an organisation (ORG_SELF_SERVICE=false: the
+                                                          only way); E becomes its org admin
     convert-plant --from-user EMAIL --org SLUG --code C [--name N] [--dry-run]
                                                           M5: move a personal plant into an organisation
 
@@ -299,6 +301,25 @@ def cmd_archive(db: Database, settings: Settings, args: argparse.Namespace, out:
                       file=out)
 
 
+def cmd_create_org(db: Database, settings: Settings, args: argparse.Namespace, out: TextIO) -> None:
+    from types import SimpleNamespace
+
+    from .api.errors import ApiError
+    from .orgs.model import OrgIn
+    from .orgs.service import create_org
+
+    with db.read() as s:
+        uid = _user_by_email(s, args.admin_email).id
+    try:
+        inp = OrgIn(name=args.name, slug=args.slug)
+        r = create_org(SimpleNamespace(settings=settings, db=db), uid, inp, operator=True)
+    except ApiError as e:
+        raise CommandError(e.message) from None
+    except ValueError as e:
+        raise CommandError(str(e).splitlines()[0]) from None
+    print(f"created organisation {r['slug']} ({r['id']}); org admin {args.admin_email}", file=out)
+
+
 def cmd_convert_plant(db: Database, args: argparse.Namespace, out: TextIO) -> None:
     from .api.errors import ApiError
     from .orgs.service import convert_plant
@@ -349,6 +370,10 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--classes", help="comma list (default: every class)")
     c.add_argument("--owner", help="plant owner id (default: every plant)")
     c.add_argument("--purge", action="store_true", help="delete the purgeable classes after archiving")
+    c = sub.add_parser("create-org")
+    c.add_argument("--name", required=True)
+    c.add_argument("--slug", required=True)
+    c.add_argument("--admin-email", required=True)
     c = sub.add_parser("convert-plant")
     c.add_argument("--from-user", required=True, help="email of the person whose plant moves")
     c.add_argument("--org", required=True, help="organisation slug")
@@ -390,6 +415,8 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
                 cmd_audit_verify(db, args, out)
             elif cmd == "archive":
                 cmd_archive(db, settings, args, out)
+            elif cmd == "create-org":
+                cmd_create_org(db, settings, args, out)
             elif cmd == "convert-plant":
                 cmd_convert_plant(db, args, out)
             else:

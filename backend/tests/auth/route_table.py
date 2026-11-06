@@ -586,6 +586,7 @@ PROTECTED_M5 = frozenset({
     ("POST", "/integration/reconciliations"),
     ("POST", "/integration/reconciliations/{rec_id}/post-counts"),
     ("POST", "/orgs"),
+    ("POST", "/orgs/{org_id}/accept"),
     ("POST", "/orgs/{org_id}/members"),
     ("POST", "/orgs/{org_id}/plants"),
     ("POST", "/orgs/{org_id}/plants/{plant}/roles"),

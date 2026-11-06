@@ -165,6 +165,7 @@ def upgrade() -> None:
         sa.Column('user_id', sa.String(64),
                   sa.ForeignKey('users.id', ondelete='CASCADE', name='fk_org_members_user_id_users'), nullable=False),
         sa.Column('org_role', sa.String(16), nullable=False),
+        sa.Column('accepted_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('row_version', sa.Integer(), nullable=False),
         sa.UniqueConstraint('org_id', 'user_id', name='uq_org_members_user'),

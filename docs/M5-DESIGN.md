@@ -708,6 +708,13 @@ Deviations / interpretations:
   (no password, an SSO identity). Disable / enable of non-managed members -> 403 `ORG_USER_NOT_MANAGED`; org
   `require_2fa` applies to managed users only. Residual (for LEAD): anybody may still create an organisation and
   add an organisation-less user, which then "manages" that user; restricting org creation is a product decision.
+  **Decided (LEAD):** `ORG_SELF_SERVICE` (default false). False: `POST /orgs` -> 403 `ORG_CREATE_DISABLED`,
+  organisations come from `manage.py create-org --name --slug --admin-email`; `add_member` accepts only users with no
+  other organisation (409 `ORG_USER_IN_OTHER_ORG`) and records them as invited (`org_members.accepted_at` null;
+  member and org list records gain `invited`, `accepted_at`); an invitation grants no org rights, no plant roles
+  and no management until the user calls `POST /orgs/{id}/accept`. Creators, `convert-plant` and SSO JIT members
+  (`OIDC_ORG_SLUG`) are accepted at once. True: as before (members accepted when added). The UI's "create
+  organisation" is refused by default (WP-U: show an operator note; add an "accept" action for `invited`).
 - M4 M1 import commit (`integration.check_import_plan`): sheets of ERP-owned entities -> 409 `INT_ERP_OWNED`
   (purchase sheets: PO rows only); items while ERP-owned: no new items, no ERP-field change (planning fields
   import); BOM / routing rows of a document held by a submitted / approved CR -> 409 `ECO_DOC_LOCKED`.

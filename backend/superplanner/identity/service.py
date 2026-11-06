@@ -224,6 +224,7 @@ def _link_or_create(ctx: AppContext, claims: dict[str, Any]) -> str:
                 org = s.execute(select(OrgRow).where(OrgRow.slug == st.oidc_org_slug)).scalars().first()
                 if org is not None:
                     s.add(OrgMemberRow(id=new_id("orm_"), org_id=org.id, user_id=user.id, org_role="org_member",
+                                       accepted_at=now,
                                        created_at=now, row_version=1))
         s.add(UserIdentityRow(id=new_id("uid_"), issuer=iss, sub=sub, user_id=user.id, email=email, created_at=now,
                               last_login_at=now))
@@ -245,8 +246,10 @@ def managed_by(s: Any, org: Any, user_id: str, oidc_org_slug: str | None = None)
     """15.WP-S (security review M3): an organisation manages a user it JIT-created through SSO
     (`OIDC_ORG_SLUG`, no password, an SSO identity) or whose only organisation it is; only then may it disable /
     enable the account or force 2FA on it."""
-    orgs = set(s.execute(select(OrgMemberRow.org_id).where(OrgMemberRow.user_id == user_id)).scalars())
-    if org.id not in orgs:
+    rows = dict(s.execute(select(OrgMemberRow.org_id, OrgMemberRow.accepted_at)
+                          .where(OrgMemberRow.user_id == user_id)).all())
+    orgs = set(rows)
+    if org.id not in orgs or rows[org.id] is None:          # an invitation not yet accepted manages nothing
         return False
     if orgs == {org.id}:
         return True

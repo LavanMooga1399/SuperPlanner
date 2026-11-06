@@ -16,7 +16,7 @@ def _two_plants(app):
 
 
 def test_t_o3_transfer_end_to_end(db_url):
-    app = acc_app(db_url)
+    app = acc_app(db_url, org_self_service=True)
     with TestClient(app):
         admin, _org, pa, pb, a, b = _two_plants(app)
         sa, sb = pa.location("ST"), pb.location("ST", receipt_default=True)

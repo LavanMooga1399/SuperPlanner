@@ -18,9 +18,12 @@ from ..api.mfg.db_models_m5 import OrgMemberRow, OrgPlantRow, OrgPublishRow, Org
 from ..api.schemas import as_utc
 
 
-def _role(s: Any, org_id: str, user_id: str) -> str | None:
-    return s.execute(select(OrgMemberRow.org_role).where(OrgMemberRow.org_id == org_id,
-                                                         OrgMemberRow.user_id == user_id)).scalar()
+def _role(s: Any, org_id: str, user_id: str, *, accepted_only: bool = True) -> str | None:
+    """The caller's org role; an invitation not yet accepted grants nothing (15.WP-S)."""
+    q = select(OrgMemberRow.org_role).where(OrgMemberRow.org_id == org_id, OrgMemberRow.user_id == user_id)
+    if accepted_only:
+        q = q.where(OrgMemberRow.accepted_at.is_not(None))
+    return s.execute(q).scalar()
 
 
 def _org(s: Any, org_id: str, user_id: str, *, admin: bool) -> tuple[OrgRow, str]:
@@ -44,12 +47,16 @@ def org_record(s: Any, o: OrgRow, role: str | None) -> dict[str, Any]:
 
 def list_orgs(ctx: AppContext, user_id: str) -> dict[str, Any]:
     with system_scope(), ctx.db.read() as s:
-        rows = s.execute(select(OrgRow, OrgMemberRow.org_role).join(OrgMemberRow, OrgMemberRow.org_id == OrgRow.id)
-                         .where(OrgMemberRow.user_id == user_id).order_by(OrgRow.name)).all()
-        return {"items": [org_record(s, o, r) for o, r in rows]}
+        rows = s.execute(select(OrgRow, OrgMemberRow.org_role, OrgMemberRow.accepted_at).join(
+            OrgMemberRow, OrgMemberRow.org_id == OrgRow.id).where(OrgMemberRow.user_id == user_id)
+            .order_by(OrgRow.name)).all()
+        return {"items": [{**org_record(s, o, r), "invited": a is None} for o, r, a in rows]}
 
 
-def create_org(ctx: AppContext, user_id: str, inp: Any) -> dict[str, Any]:
+def create_org(ctx: AppContext, user_id: str, inp: Any, *, operator: bool = False) -> dict[str, Any]:
+    """`ORG_SELF_SERVICE=false` (default): only operators (`manage.py create-org`) create organisations."""
+    if not operator and not ctx.settings.org_self_service:
+        raise ApiError(403, "ORG_CREATE_DISABLED", "Organisations are created by the operator of this server.", {})
     now = utcnow()
     with system_scope(), ctx.db.write() as s:
         if s.execute(select(OrgRow.id).where(OrgRow.slug == inp.slug)).first():
@@ -59,7 +66,8 @@ def create_org(ctx: AppContext, user_id: str, inp: Any) -> dict[str, Any]:
                    updated_at=now, row_version=1)
         s.add(o)
         s.flush()
-        s.add(OrgMemberRow(id=new_id("orm_"), org_id=o.id, user_id=user_id, org_role="org_admin", created_at=now,
+        s.add(OrgMemberRow(id=new_id("orm_"), org_id=o.id, user_id=user_id, org_role="org_admin", accepted_at=now,
+                           created_at=now,
                            row_version=1))
         s.flush()
         return org_record(s, o, "org_admin")
@@ -98,7 +106,8 @@ def _member_plants(s: Any, org_id: str, user_id: str) -> list[dict[str, Any]]:
 def member_record(s: Any, m: OrgMemberRow, u: UserRow | None) -> dict[str, Any]:
     return {"id": m.id, "user": {"id": m.user_id, "email": u.email if u else None,
                                  "display_name": u.display_name if u else None, "disabled": bool(u and u.disabled)},
-            "org_role": m.org_role, "plants": _member_plants(s, m.org_id, m.user_id), "row_version": m.row_version,
+            "org_role": m.org_role, "invited": m.accepted_at is None, "accepted_at": as_utc(m.accepted_at),
+            "plants": _member_plants(s, m.org_id, m.user_id), "row_version": m.row_version,
             "created_at": as_utc(m.created_at)}
 
 
@@ -117,13 +126,32 @@ def add_member(ctx: AppContext, user_id: str, org_id: str, inp: Any) -> dict[str
         u = s.execute(select(UserRow).where(UserRow.email == email)).scalars().first()
         if u is None or u.disabled or u.kind != "person":
             raise ApiError(422, "MBR_USER_NOT_FOUND", f"No active account uses {email!r}.", {"loc": ["body", "email"]})
-        if _role(s, org_id, u.id) is not None:
+        if _role(s, org_id, u.id, accepted_only=False) is not None:
             raise ApiError(409, "MFG_DUPLICATE_KEY", f"{email} is already a member.", {"key": {"email": email}})
-        m = OrgMemberRow(id=new_id("orm_"), org_id=org_id, user_id=u.id, org_role=inp.org_role, created_at=utcnow(),
+        accepted = utcnow() if ctx.settings.org_self_service else None
+        if not ctx.settings.org_self_service and s.execute(select(OrgMemberRow.id).where(
+                OrgMemberRow.user_id == u.id)).first() is not None:
+            raise ApiError(409, "ORG_USER_IN_OTHER_ORG", f"{email} belongs to another organisation.",
+                           {"loc": ["body", "email"]})
+        m = OrgMemberRow(id=new_id("orm_"), org_id=org_id, user_id=u.id, org_role=inp.org_role, accepted_at=accepted,
+                         created_at=utcnow(),
                          row_version=1)
         s.add(m)
         s.flush()
         return member_record(s, m, u)
+
+
+def accept(ctx: AppContext, user_id: str, org_id: str) -> dict[str, Any]:
+    """The invited user accepts the membership (15.WP-S: then the organisation manages the account)."""
+    with system_scope(), ctx.db.write() as s:
+        m = s.execute(select(OrgMemberRow).where(OrgMemberRow.org_id == org_id, OrgMemberRow.user_id == user_id)
+                      .with_for_update()).scalars().first()
+        if m is None:
+            raise ApiError(404, "NOT_FOUND", "Organisation not found.", {"id": org_id[:64]})
+        if m.accepted_at is None:
+            m.accepted_at, m.row_version = utcnow(), m.row_version + 1
+        s.flush()
+        return member_record(s, m, s.get(UserRow, user_id))
 
 
 def _member(s: Any, org_id: str, member_id: str) -> OrgMemberRow:
@@ -504,8 +532,9 @@ def convert_plant(db: Any, person_id: str, org_slug: str, code: str, name: str |
                           name=plant_name, created_at=now, row_version=1))
         s.add(MfgPlantMemberRow(id=new_id("mbr_"), owner_id=principal.id, user_id=person_id, roles=["plant_admin"],
                                 active=True, invited_by=person_id, row_version=1, created_at=now, updated_at=now))
-        if _role(s, org.id, person_id) is None:
+        if _role(s, org.id, person_id, accepted_only=False) is None:
             s.add(OrgMemberRow(id=new_id("orm_"), org_id=org.id, user_id=person_id, org_role="org_member",
+                               accepted_at=now,
                                created_at=now, row_version=1))
         s.flush()
         if dry_run:

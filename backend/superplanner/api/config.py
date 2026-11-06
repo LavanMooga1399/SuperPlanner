@@ -322,6 +322,8 @@ class Settings:
     #: 15.WP-S: how often workers check for undelivered webhook events (IP4: p95 event -> delivery < 5 s)
     integration_delivery_poll_seconds: float = field(default_factory=_float("INTEGRATION_DELIVERY_POLL_SECONDS",
                                                                             2.0))
+    #: 15.WP-S: people may create organisations themselves (else operators: `manage.py create-org`)
+    org_self_service: bool = field(default_factory=_bool("ORG_SELF_SERVICE", False))
     #: 15.WP-S: webhook deliveries through an HTTP CONNECT proxy (`WEBHOOK_PROXY`, else HTTPS_PROXY / https_proxy;
     #: `direct` = never); `WEBHOOK_PROXY_CONNECT=ip|host` (ip: tunnel to the checked address)
     webhook_proxy: str | None = field(default_factory=lambda: _env("WEBHOOK_PROXY") or _env("HTTPS_PROXY")

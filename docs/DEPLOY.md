@@ -524,6 +524,14 @@ per file. For off-line copies of the indefinite classes run, for example,
 **Audit chain.** `python -m superplanner.manage audit-verify` (exit 1 on a broken link; the API offers the same as
 `GET /api/v1/audit/verify` per plant). Run it after restores and upgrades.
 
+**Organisations (who may create them).** `ORG_SELF_SERVICE=false` (default): `POST /api/v1/orgs` answers 403
+`ORG_CREATE_DISABLED`; the operator creates organisations with
+`python -m superplanner.manage create-org --name "HBL" --slug hbl --admin-email it-admin@hbl.example` (the account
+must exist; it becomes the org admin). Org admins then add people who belong to no other organisation; those are
+*invited* until they sign in and accept (`POST /api/v1/orgs/{id}/accept`) - only then can the organisation disable
+their account or force 2FA on it. Users created by SSO with `OIDC_ORG_SLUG` join that organisation directly.
+`ORG_SELF_SERVICE=true` restores self-service organisations (any user may create one and add members at once).
+
 **Converting a personal plant.** `python -m superplanner.manage convert-plant --from-user owner@example.com --org
 hbl --code HYD` moves a personal workspace into an organisation in one transaction (members are kept, the person
 becomes `plant_admin`). Use `--dry-run` first and take a backup.

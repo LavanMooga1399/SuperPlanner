@@ -122,6 +122,8 @@ class OrgMemberRow(Base):
     org_id: Mapped[str] = mapped_column(ForeignKey("orgs.id", ondelete="CASCADE"))
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     org_role: Mapped[str] = _s(16)                              # org_admin | org_member
+    #: 15.WP-S: None = invited, not yet accepted (ORG_SELF_SERVICE=false); the org manages the user only after
+    accepted_at: Mapped[datetime | None] = _dt()
     created_at: Mapped[datetime] = _dt(False)
     row_version: Mapped[int] = mapped_column(Integer)
 

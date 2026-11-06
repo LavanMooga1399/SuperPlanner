@@ -39,7 +39,7 @@ def test_enumerated_operations_equal_the_access_table(db_url):
     assert protected == PROTECTED | MFG_PROTECTED, {
         "new (add to route_table.py)": sorted(protected - PROTECTED - MFG_PROTECTED),
         "missing": sorted((PROTECTED | MFG_PROTECTED) - protected)}
-    assert len(PROTECTED) == 55 + 47   # B 4.8 rows 9-63 (+ M5: tokens, integration, orgs, audit; 15.WP-S +7)
+    assert len(PROTECTED) == 55 + 48   # B 4.8 rows 9-63 (+ M5: tokens, integration, orgs, audit; 15.WP-S +8)
 
 
 def test_every_mfg_operation_declares_exactly_the_permission_of_the_access_table():

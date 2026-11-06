@@ -85,7 +85,7 @@ def _wait_publish(admin, org_id, pid):
 
 
 def test_t_o2_convert_plant_publish_and_member_disable(db_url):
-    app = acc_app(db_url)
+    app = acc_app(db_url, org_self_service=True)
     with TestClient(app):
         person = sign_up(app, "kavach@hbl.example")
         pid = person.get(f"{V1}/auth/session").json()["user"]["id"]
