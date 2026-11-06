@@ -370,11 +370,26 @@ def token_record(r: ApiTokenRow) -> dict[str, Any]:
             "revoked_at": _aware(r.revoked_at)}
 
 
+def _admin_plants(s: Any, user_id: str) -> set[str]:
+    """Plant workspaces where `user_id` is an active `plant_admin` (and not disabled)."""
+    from ..api.mfg.db_models_m2 import MfgPlantMemberRow
+
+    u = s.get(UserRow, user_id)
+    if u is None or u.disabled:
+        return set()
+    return {o for o, roles in s.execute(select(MfgPlantMemberRow.owner_id, MfgPlantMemberRow.roles).where(
+        MfgPlantMemberRow.user_id == user_id, MfgPlantMemberRow.active.is_(True))).all()
+        if "plant_admin" in (roles or [])}
+
+
 def list_tokens(ctx: AppContext, user_id: str) -> dict[str, Any]:
+    """Own personal tokens and the plant tokens of every plant the caller administers (15.WP-S M2)."""
     with system_scope(), ctx.db.read() as s:
-        rows = list(s.execute(select(ApiTokenRow).where((ApiTokenRow.created_by == user_id) |
-                                                        (ApiTokenRow.user_id == user_id))
-                              .order_by(ApiTokenRow.created_at.desc())).scalars())
+        plants = _admin_plants(s, user_id)
+        cond = (ApiTokenRow.created_by == user_id) | (ApiTokenRow.user_id == user_id)
+        if plants:
+            cond = cond | ((ApiTokenRow.kind == "plant") & ApiTokenRow.workspace_owner_id.in_(sorted(plants)))
+        rows = list(s.execute(select(ApiTokenRow).where(cond).order_by(ApiTokenRow.created_at.desc())).scalars())
         return {"items": [token_record(r) for r in rows]}
 
 
@@ -396,7 +411,10 @@ def create_token(ctx: AppContext, user_id: str, inp: Any) -> dict[str, Any]:
 
     if inp.kind == "plant":
         roles = _membership(ctx, ws, user_id) if ws != user_id else None
-        if ws == user_id or not roles or "plant_admin" not in roles:
+        with system_scope(), ctx.db.read() as s:
+            wu = s.get(UserRow, ws)
+            is_plant = wu is not None and wu.kind == "plant"
+        if ws == user_id or not roles or "plant_admin" not in roles or not is_plant:
             raise ApiError(403, "MFG_FORBIDDEN", "Plant tokens are created by a plant admin of that plant.",
                            {"permission": "plant_admin"})
         holder = ws                                   # the plant principal
@@ -419,7 +437,8 @@ def create_token(ctx: AppContext, user_id: str, inp: Any) -> dict[str, Any]:
 def revoke_token(ctx: AppContext, user_id: str, token_id: str) -> None:
     with system_scope(), ctx.db.write() as s:
         r = s.get(ApiTokenRow, token_id) if len(token_id) <= 64 else None
-        if r is None or user_id not in (r.created_by, r.user_id):
+        if r is None or (user_id not in (r.created_by, r.user_id) and not (
+                r.kind == "plant" and r.workspace_owner_id in _admin_plants(s, user_id))):
             raise ApiError(404, "NOT_FOUND", "Token not found.", {"id": token_id[:64]})
         if r.revoked_at is None:
             r.revoked_at = _now()
@@ -435,6 +454,9 @@ def resolve_bearer(ctx: AppContext, raw: str, ip: str | None) -> ApiTokenRow:
         r = s.execute(select(ApiTokenRow).where(ApiTokenRow.token_hash == h)).scalars().first()
         u = s.get(UserRow, r.user_id) if r is not None else None
         if r is None or r.revoked_at is not None or u is None or u.disabled:
+            raise ApiError(401, "AUTH_TOKEN_INVALID", "The API token is not valid.", {})
+        if r.kind == "plant" and r.workspace_owner_id not in _admin_plants(s, r.created_by):
+            # the creator lost plant_admin or was disabled: the plant token stops working (15.WP-S M2)
             raise ApiError(401, "AUTH_TOKEN_INVALID", "The API token is not valid.", {})
         if _aware(r.expires_at) <= now:
             raise ApiError(401, "AUTH_TOKEN_EXPIRED", "The API token has expired.", {})

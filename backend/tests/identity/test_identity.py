@@ -182,6 +182,9 @@ def test_t_a3_tokens_scopes_revocation_expiry_and_hashing(db_url):
         e = b.post(f"{V1}/mfg/items", json={"part_number": "X1", "make_buy": "buy"})
         assert e.status_code == 403 and e.json()["error"]["code"] == "TOKEN_SCOPE"
         assert b.get(f"{V1}/tokens").status_code == 403                          # tokens cannot mint tokens
+        for path in ("/problems", "/templates", "/finance/plans"):         # outside the token surface (15.WP-S M1)
+            x = b.get(f"{V1}{path}")
+            assert x.status_code == 403 and x.json()["error"]["code"] == "TOKEN_SCOPE", path
         w = b.get(f"{V1}/mfg/items", headers={"X-SP-Workspace": "usr_other"})
         assert w.status_code == 404
         bad = TestClient(app)

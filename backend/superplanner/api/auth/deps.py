@@ -77,6 +77,11 @@ async def require_user(request: Request, ctx: AppContext = Depends(get_ctx)) -> 
     settings = ctx.settings
     authz = request.headers.get("authorization") or ""
     if authz[:7].lower() == "bearer " and not settings.single_user:      # M5-DESIGN 3.3: API tokens, no CSRF
+        if not _token_surface(request.url.path):
+            from ..errors import ApiError
+
+            raise ApiError(403, "TOKEN_SCOPE", "API tokens can be used for the manufacturing, integration and audit "
+                           "APIs only.", {"permission": "session"})
         principal = await run_in_threadpool(_bearer, ctx, request, authz[7:].strip())
     elif settings.single_user:
         principal = LOCAL_PRINCIPAL
@@ -92,6 +97,14 @@ async def require_user(request: Request, ctx: AppContext = Depends(get_ctx)) -> 
     request.state.principal = principal
     bind_owner(principal.user_id)   # lives for the request task
     return principal
+
+
+#: 15.WP-S (security review M1): the routers that honour token scopes and the token's workspace binding
+TOKEN_SURFACE = ("/api/v1/mfg/", "/api/v1/integration/", "/api/v1/audit/")
+
+
+def _token_surface(path: str) -> bool:
+    return any(path.startswith(p) for p in TOKEN_SURFACE)
 
 
 def _bearer(ctx: AppContext, request: Request, raw: str) -> Principal:

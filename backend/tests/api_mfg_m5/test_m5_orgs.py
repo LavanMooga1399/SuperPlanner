@@ -69,3 +69,34 @@ def test_plant_codes_are_unique_across_plants(db_url):
         r = admin.put(f"{V1}/integration/settings", json={**body, "plant_code": "hbl1"},
                       headers={"If-Match": '"0"', "X-SP-Workspace": b["plant_owner_id"]})
         assert r.status_code == 409 and r.json()["error"]["code"] == "INT_PLANT_CODE_TAKEN"
+
+
+def test_plant_tokens_need_a_plant_and_follow_their_creator(db_url):
+    app = acc_app(db_url)
+    with TestClient(app):
+        admin = sign_up(app, "t1@hbl.example")
+        org = admin.post(f"{V1}/orgs", json={"name": "HBL", "slug": "hbl-tok"}).json()
+        a = admin.post(f"{V1}/orgs/{org['id']}/plants", json={"code": "HYD", "name": "H"}).json()
+        pa = a["plant_owner_id"]
+        # a personal workspace is not a plant
+        person = sign_up(app, "t2@hbl.example")
+        pid = person.get(f"{V1}/auth/session").json()["user"]["id"]
+        Api(person).post("/members", {"email": "t1@hbl.example", "roles": ["plant_admin"]})
+        r = admin.post(f"{V1}/tokens", json={"name": "x", "kind": "plant", "scopes": ["view"],
+                                             "workspace_owner_id": pid})
+        assert r.status_code == 403
+        tok = admin.post(f"{V1}/tokens", json={"name": "p", "kind": "plant", "scopes": ["view"],
+                                               "workspace_owner_id": pa}).json()
+        other = sign_up(app, "t3@hbl.example")
+        oid = other.get(f"{V1}/auth/session").json()["user"]["id"]
+        admin.post(f"{V1}/orgs/{org['id']}/members", json={"email": "t3@hbl.example", "org_role": "org_admin"})
+        admin.post(f"{V1}/orgs/{org['id']}/plants/HYD/roles", json={"user_id": oid, "roles": ["plant_admin"]})
+        assert tok["id"] in {x["id"] for x in other.get(f"{V1}/tokens").json()["items"]}   # co-admin sees it
+        b = TestClient(app)
+        b.headers["Authorization"] = f"Bearer {tok['token']}"
+        assert b.get(f"{MFG}/items").status_code == 200
+        uid = admin.get(f"{V1}/auth/session").json()["user"]["id"]
+        r = other.post(f"{V1}/orgs/{org['id']}/plants/HYD/roles", json={"user_id": uid, "roles": ["viewer"]})
+        assert r.status_code == 200, r.text
+        assert b.get(f"{MFG}/items").status_code == 401                       # creator lost plant_admin
+        assert other.delete(f"{V1}/tokens/{tok['id']}").status_code == 204    # any plant_admin can revoke
