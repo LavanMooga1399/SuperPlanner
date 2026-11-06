@@ -20,14 +20,14 @@ export function workspaceHeaders(): Record<string, string> {
 }
 
 /** `ownerId` null (or the caller's own id) = own workspace. Reloads the Manufacturing overview. */
-export function switchWorkspace(ownerId: string | null, ownId?: string | null): void {
+export function switchWorkspace(ownerId: string | null, ownId?: string | null, to = "/mfg"): void {
   try {
     if (!ownerId || ownerId === ownId) sessionStorage.removeItem(KEY);
     else sessionStorage.setItem(KEY, ownerId);
   } catch {
     /* storage disabled: stays in the own workspace */
   }
-  window.location.assign("/mfg");
+  window.location.assign(to);
 }
 
 /** A stored workspace that the server no longer knows (membership removed): fall back to the own one. */

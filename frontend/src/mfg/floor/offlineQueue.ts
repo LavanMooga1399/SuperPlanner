@@ -5,17 +5,22 @@
  * `Idempotent-Replay`). While anything is waiting, new actions queue behind it so the order on the floor is kept.
  * An action the server rejects (4xx) moves to "needs attention" with the server's message; it is never retried
  * automatically (it would fail the same way) and the operator can discard it or retry it after fixing the cause.
+ * M6 2: the mobile pages queue downtime acknowledgements and notification acks here too (both idempotent on the
+ * server; the queued action id is the idempotency key).
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { ApiError, isNetworkError } from "../../api/client";
-import { createDowntime, postFloorEvent, updateDowntime } from "../api/clientM4";
+import { ackNotification, createDowntime, postFloorEvent, updateDowntime } from "../api/clientM4";
+import { acknowledgeDowntime } from "../api/clientM6";
 import type { DowntimeInput, DowntimeUpdate, FloorEventInput, FloorEventResult } from "../api/typesM4";
 import { currentWorkspace } from "../lib/workspace";
 
 export type QueuedAction =
   | { kind: "event"; id: string; body: FloorEventInput; label: string; created_at: string; attempts: number; error?: QueuedError | null }
   | { kind: "downtime_open"; id: string; body: DowntimeInput; label: string; created_at: string; attempts: number; error?: QueuedError | null }
-  | { kind: "downtime_update"; id: string; downtimeId: string; version: number; body: DowntimeUpdate; label: string; created_at: string; attempts: number; error?: QueuedError | null };
+  | { kind: "downtime_update"; id: string; downtimeId: string; version: number; body: DowntimeUpdate; label: string; created_at: string; attempts: number; error?: QueuedError | null }
+  | { kind: "downtime_ack"; id: string; downtimeId: string; label: string; created_at: string; attempts: number; error?: QueuedError | null }
+  | { kind: "notification_ack"; id: string; notificationId: string; label: string; created_at: string; attempts: number; error?: QueuedError | null };
 
 export interface QueuedError {
   status: number;
@@ -72,6 +77,8 @@ function toQueuedError(e: unknown): QueuedError {
 async function send(a: QueuedAction): Promise<unknown> {
   if (a.kind === "event") return postFloorEvent(a.body);
   if (a.kind === "downtime_open") return createDowntime(a.body, a.id);
+  if (a.kind === "downtime_ack") return acknowledgeDowntime(a.downtimeId, a.id);
+  if (a.kind === "notification_ack") return ackNotification(a.notificationId);
   return updateDowntime(a.downtimeId, a.body, a.version);
 }
 
@@ -124,6 +131,26 @@ export function submitDowntimeOpen(body: DowntimeInput, label: string) {
 
 export function submitDowntimeUpdate(downtimeId: string, version: number, body: DowntimeUpdate, label: string) {
   return submit({ kind: "downtime_update", id: newClientEventId(), downtimeId, version, body, label, created_at: new Date().toISOString(), attempts: 0 });
+}
+
+/** M6 2: "I have seen it" on a downtime (who saw it); queued while offline. */
+export function submitDowntimeAck(downtimeId: string, label: string) {
+  return submit({ kind: "downtime_ack", id: newClientEventId(), downtimeId, label, created_at: new Date().toISOString(), attempts: 0 });
+}
+
+/** M6 2: acknowledge an alert (M4 notification); queued while offline. */
+export function submitNotificationAck(notificationId: string, label: string) {
+  return submit({ kind: "notification_ack", id: newClientEventId(), notificationId, label, created_at: new Date().toISOString(), attempts: 0 });
+}
+
+/** Waiting actions of a kind (the mobile pages show "acknowledged, waiting to sync"). */
+export function pendingIds(kind: "downtime_ack" | "notification_ack"): Set<string> {
+  const out = new Set<string>();
+  for (const a of state.pending) {
+    if (a.kind === "downtime_ack" && kind === "downtime_ack") out.add(a.downtimeId);
+    if (a.kind === "notification_ack" && kind === "notification_ack") out.add(a.notificationId);
+  }
+  return out;
 }
 
 let running: Promise<void> | null = null;

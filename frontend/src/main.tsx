@@ -26,6 +26,8 @@ import { TokensPage } from "./auth/TokensPage";
 import { OrgListPage, OrgPage } from "./orgs/OrgPages";
 import { SignUpPage } from "./auth/SignUpPage";
 import { AccountPage } from "./auth/AccountPage";
+import { registerServiceWorker } from "./pwa/pwa";
+import { mobileRoutes } from "./mfg/mobile/routes";
 
 // PHASE2B 4.10: the auth provider wraps everything (it needs the router); sign-in/sign-up sit outside the
 // guard; every existing page is inside it. In single_user mode the guard renders the pages as before.
@@ -33,6 +35,8 @@ const router = createBrowserRouter([
   {
     element: <AuthRoot />,
     children: [
+      // M6 2: the phone app (`/m`), its own shell without the desktop top bar
+      ...mobileRoutes,
       {
         path: "/",
         element: <App />,
@@ -82,6 +86,10 @@ const router = createBrowserRouter([
     ],
   },
 ]);
+
+// M6 2: the app shell is cached by the service worker in production builds; the dev server registers it only from
+// the mobile pages (`/m`), so the desktop e2e specs keep plain network routing.
+if (import.meta.env.PROD) window.addEventListener("load", () => void registerServiceWorker());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
