@@ -44,6 +44,19 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ.update(SESSION_ENV)
 
 
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """`slow` benchmarks are opt-in: without a `-m` expression they are deselected (`pytest -m slow` runs them,
+    `pytest -m "slow or not slow"` runs everything)."""
+    if config.option.markexpr:
+        return
+    keep, drop = [], []
+    for it in items:
+        (drop if it.get_closest_marker("slow") else keep).append(it)
+    if drop:
+        config.hook.pytest_deselected(items=drop)
+        items[:] = keep
+
+
 def pytest_report_header(config: pytest.Config) -> str:
     return f"superplanner test database: postgres ({_pg_admin_url_display()})"
 

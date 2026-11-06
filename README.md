@@ -114,11 +114,15 @@ The backend tests run against PostgreSQL only; the local test cluster (127.0.0.1
 
 ```bash
 cd backend && scripts/pg_dev_cluster.sh init   # once (Linux; PostgreSQL 16 server binaries)
-cd backend && .venv/bin/pytest -q              # engine, API, database and integration tests
+cd backend && .venv/bin/pytest -q              # engine, API, database and integration tests (no benchmarks)
+cd backend && .venv/bin/pytest -q -m slow      # the `slow` benchmarks only (performance targets)
 cd frontend && npm run build                   # type-check + production build
 cd frontend && npm run e2e                     # Playwright end-to-end: fresh PostgreSQL database per run
 cd frontend && npm run e2e:accounts            # Playwright, accounts mode
 ```
+
+Tests marked `slow` (benchmarks, e.g. `tests/integration_m5/test_m5_perf*.py`) are deselected unless a `-m`
+expression is given; `-m "slow or not slow"` runs everything.
 
 Other servers: `SP_TEST_PG_URL` (a role with CREATEDB) for pytest and `SP_E2E_PG_URL` for the e2e runs;
 `SP_TEST_PG_SUPERUSER_URL` enables the least-privilege role tests (default: user `postgres` on the test cluster).
