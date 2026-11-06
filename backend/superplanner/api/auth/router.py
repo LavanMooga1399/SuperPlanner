@@ -152,6 +152,10 @@ def sign_up(body: SignUpIn, request: Request, response: Response,
     if not st.signup_enabled:
         raise ApiError(403, "SIGNUP_DISABLED", "Sign-up is disabled on this server. Ask an administrator.")
     _rate(ctx, [(f"signup:ip:{_client_ip(request)}", st.auth_signup_limit_per_ip, ratelimit.SIGNUP_WINDOW)])
+    from ...identity import service as ids
+
+    if ids.password_blocked_for(ctx, body.email):       # 15.WP-S M6: SSO domains sign up through SSO
+        raise ApiError(403, "AUTH_SSO_REQUIRED", "Your organisation signs in with single sign-on.", {})
     reasons = passwords.policy_reasons(body.password, body.email)
     if reasons:
         raise weak_password(reasons)
@@ -188,7 +192,7 @@ def sign_in(body: SignInIn, request: Request, response: Response,
     profile = st.password_hash_profile
     from ...identity import service as ids
 
-    if ids.sso_required_for(ctx, body.email):           # M5-DESIGN 3.1: passwords disabled for these domains
+    if ids.password_blocked_for(ctx, body.email):       # M5-DESIGN 3.1 / 15.WP-S M6: SSO domains
         raise ApiError(403, "AUTH_SSO_REQUIRED", "Your organisation signs in with single sign-on.", {})
     _rate(ctx, [(f"signin:ip:{_client_ip(request)}", st.auth_signin_limit_per_ip, ratelimit.SIGNIN_WINDOW),
                 (f"signin:email:{ratelimit.email_key(body.email)}", st.auth_signin_limit_per_email,

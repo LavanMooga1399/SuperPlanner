@@ -60,6 +60,14 @@ def sso_required_for(ctx: AppContext, email: str | None) -> bool:
     return sso_enabled(ctx) and _domain(email) in {d.lower() for d in ctx.settings.oidc_required_domains}
 
 
+def password_blocked_for(ctx: AppContext, email: str | None) -> bool:
+    """15.WP-S (security review M6): no password sign-up / sign-in for SSO domains (required or allowed), so a
+    password account cannot be pre-registered for a domain whose users SSO links by email."""
+    st = ctx.settings
+    doms = {d.lower() for d in list(st.oidc_required_domains) + list(st.oidc_allowed_domains)}
+    return sso_enabled(ctx) and _domain(email) in doms
+
+
 def config(ctx: AppContext) -> dict[str, Any]:
     st = ctx.settings
     return {"mode": "single_user" if st.single_user else "accounts", "sso_enabled": sso_enabled(ctx),
@@ -188,6 +196,10 @@ def _link_or_create(ctx: AppContext, claims: dict[str, Any]) -> str:
             user = s.execute(select(UserRow).where(UserRow.email == email)).scalars().first()
             if user is not None and (user.is_local or user.kind != "person"):
                 user = None
+            if user is not None and user.password_hash:   # first SSO link to a password account (M6)
+                user.password_hash = None
+                user.updated_at = now
+                sess.revoke_all(s, user.id, now=now)
         if user is None:
             allowed = {d.lower() for d in st.oidc_allowed_domains}
             if not (email and verified and _domain(email) in allowed):

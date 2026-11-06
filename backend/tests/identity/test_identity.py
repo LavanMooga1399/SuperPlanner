@@ -219,3 +219,23 @@ def test_secrets_key_rotation_and_config_checks():
         Settings(database_url="postgresql://x/y", secrets_keys=["not-a-key"])
     with pytest.raises(ConfigError):
         Settings(database_url="postgresql://x/y", oidc_issuer="https://i", oidc_client_id="c")
+
+
+def test_m6_password_blocked_for_sso_domains_and_link_clears_password(db_url):
+    pre = acc_app(db_url)
+    with TestClient(pre):
+        old = sign_up(pre, "zoe@corp.example")                     # before SSO was configured
+    idp = FakeIdp()
+    app = _oidc_app(db_url, idp)
+    with TestClient(app) as c:
+        r = TestClient(app).post(f"{V1}/auth/sign-up", json={"email": "new@corp.example", "password": "x" * 14})
+        assert r.status_code == 403 and r.json()["error"]["code"] == "AUTH_SSO_REQUIRED"
+        assert _login(c, idp, email="zoe@corp.example", sub="sub-zoe").status_code == 302
+        assert c.get(f"{V1}/auth/session").json()["user"]["email"] == "zoe@corp.example"
+        eng = sa.create_engine(db_url)
+        with eng.connect() as conn:
+            pw = conn.execute(sa.text("SELECT password_hash FROM users WHERE email = 'zoe@corp.example'")).scalar()
+            live = conn.execute(sa.text("SELECT count(*) FROM user_sessions s JOIN users u ON u.id = s.user_id WHERE "
+                                        "u.email = 'zoe@corp.example' AND s.revoked_at IS NULL")).scalar()
+        eng.dispose()
+        assert pw is None and live == 1                             # only the new SSO session
