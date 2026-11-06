@@ -100,3 +100,27 @@ def test_plant_tokens_need_a_plant_and_follow_their_creator(db_url):
         assert r.status_code == 200, r.text
         assert b.get(f"{MFG}/items").status_code == 401                       # creator lost plant_admin
         assert other.delete(f"{V1}/tokens/{tok['id']}").status_code == 204    # any plant_admin can revoke
+
+
+def test_orgs_manage_only_their_own_users(db_url):
+    from superplanner.api.db.ownership import system_scope
+    from superplanner.identity.service import org_requires_2fa
+
+    app = acc_app(db_url)
+    with TestClient(app):
+        a = sign_up(app, "a@one.example")
+        b = sign_up(app, "b@two.example")
+        sign_up(app, "victim@x.example")
+        oa = a.post(f"{V1}/orgs", json={"name": "One", "slug": "org-one"}).json()
+        ob = b.post(f"{V1}/orgs", json={"name": "Two", "slug": "org-two", "require_2fa": True}).json()
+        ma = a.post(f"{V1}/orgs/{oa['id']}/members", json={"email": "victim@x.example"}).json()
+        mb = b.post(f"{V1}/orgs/{ob['id']}/members", json={"email": "victim@x.example"}).json()
+        r = b.put(f"{V1}/orgs/{ob['id']}/members/{mb['id']}", json={"disabled": True})
+        assert r.status_code == 403 and r.json()["error"]["code"] == "ORG_USER_NOT_MANAGED"
+        vid = ma["user"]["id"]
+        with system_scope(), app.state.ctx.db.read() as s:
+            assert org_requires_2fa(s, vid) is False          # org Two does not manage the victim
+        a.delete(f"{V1}/orgs/{oa['id']}/members/{ma['id']}")
+        with system_scope(), app.state.ctx.db.read() as s:
+            assert org_requires_2fa(s, vid) is True           # now its only organisation
+        assert b.put(f"{V1}/orgs/{ob['id']}/members/{mb['id']}", json={"disabled": True}).status_code == 200

@@ -219,9 +219,30 @@ def totp_enabled(s: Any, user_id: str) -> bool:
     return r is not None and r.enabled_at is not None
 
 
-def org_requires_2fa(s: Any, user_id: str) -> bool:
-    return s.execute(select(func.count()).select_from(OrgMemberRow).join(OrgRow, OrgRow.id == OrgMemberRow.org_id)
-                     .where(OrgMemberRow.user_id == user_id, OrgRow.require_2fa.is_(True))).scalar() > 0
+def managed_by(s: Any, org: Any, user_id: str, oidc_org_slug: str | None = None) -> bool:
+    """15.WP-S (security review M3): an organisation manages a user it JIT-created through SSO
+    (`OIDC_ORG_SLUG`, no password, an SSO identity) or whose only organisation it is; only then may it disable /
+    enable the account or force 2FA on it."""
+    orgs = set(s.execute(select(OrgMemberRow.org_id).where(OrgMemberRow.user_id == user_id)).scalars())
+    if org.id not in orgs:
+        return False
+    if orgs == {org.id}:
+        return True
+    if oidc_org_slug and org.slug == oidc_org_slug:
+        u = s.get(UserRow, user_id)
+        has_ident = s.execute(select(UserIdentityRow.id).where(UserIdentityRow.user_id == user_id)).first()
+        return bool(u is not None and u.password_hash is None and has_ident)
+    return False
+
+
+def org_requires_2fa(s: Any, user_id: str, oidc_org_slug: str | None = None) -> bool:
+    """2FA is forced by an organisation with `require_2fa` that manages the user (`managed_by`)."""
+    for o in s.execute(select(OrgRow).join(OrgMemberRow, OrgMemberRow.org_id == OrgRow.id).where(
+            OrgMemberRow.user_id == user_id, OrgRow.require_2fa.is_(True))).scalars():
+        if managed_by(s, o, user_id, oidc_org_slug):
+            return True
+    return False
+
 
 
 def totp_status(ctx: AppContext, user_id: str) -> dict[str, Any]:
@@ -229,7 +250,7 @@ def totp_status(ctx: AppContext, user_id: str) -> dict[str, Any]:
         r = totp_row(s, user_id)
         return {"enabled": bool(r and r.enabled_at), "enabled_at": _aware(r.enabled_at) if r else None,
                 "recovery_codes_left": len(r.recovery_hashes or []) if r and r.enabled_at else 0,
-                "required_by_org": org_requires_2fa(s, user_id)}
+                "required_by_org": org_requires_2fa(s, user_id, ctx.settings.oidc_org_slug)}
 
 
 def totp_setup(ctx: AppContext, user_id: str) -> dict[str, Any]:
@@ -285,7 +306,7 @@ def totp_disable(ctx: AppContext, user_id: str, code: str) -> None:
         r = s.get(UserTotpRow, user_id, with_for_update=True)
         if r is None or r.enabled_at is None:
             raise ApiError(409, "AUTH_2FA_NOT_SET_UP", "Two-step sign-in is off.", {})
-        if org_requires_2fa(s, user_id):
+        if org_requires_2fa(s, user_id, ctx.settings.oidc_org_slug):
             raise ApiError(409, "AUTH_2FA_REQUIRED", "Your organisation requires two-step sign-in.", {})
         if not _check_code(ctx, s, r, code):
             raise ApiError(422, "AUTH_TOTP_INVALID", "That code is not valid.", {"loc": ["body", "code"]})

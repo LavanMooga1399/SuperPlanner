@@ -182,6 +182,9 @@ def delete_item(ctx: AppContext, item_id: str, if_match: str | None) -> None:
     with write_tx(ctx) as (s, _plant):
         row = repo.get_row(s, MfgItemRow, item_id, what="Item", lock=True)
         check_version(row, if_match)
+        from .integration import check_local_write                # M5-DESIGN 4.4 (15.WP-S M4)
+
+        check_local_write(s, "items", ["document"])
         refs = {"bom_lines": count(s, MfgBomLineRow, MfgBomLineRow.child_item_id == row.id),
                 "boms": count(s, MfgBomRow, MfgBomRow.item_id == row.id),
                 "routings": count(s, MfgRoutingRow, MfgRoutingRow.item_id == row.id), **_m2_refs(s, row.id)}

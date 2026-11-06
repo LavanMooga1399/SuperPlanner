@@ -292,6 +292,9 @@ def commit(ctx: AppContext, import_id: str, if_match: str | None, perms: frozens
         _check_pr_self_approval(s, bundle, perms)
         if not master or (plant.id, plant.data_version - 1) != key or any(bundle.get(n) for n in TXN_SHEETS):
             plan, map_errors, warnings = _plan(staged, mapping, repo_m2.load_import_dataset(s))
+        from .integration import check_import_plan          # 4.4 / 5 (15.WP-S M4)
+
+        check_import_plan(s, bundle, plan)
         errors = map_errors + plan.row_errors
         if errors:
             raise ApiError(409, "MFG_IMPORT_HAS_ERRORS",

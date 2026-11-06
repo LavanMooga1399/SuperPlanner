@@ -180,6 +180,66 @@ def shared_conflicts(s: Session, entities: tuple[str, ...]) -> list[dict[str, An
         .order_by(IntSyncStateRow.conflict_at.desc()).limit(1000)).scalars()]
 
 
+IMPORT_SHEET_SOR = {"boms": "boms", "bom_lines": "boms", "routings": "routings", "operations": "routings",
+                    "suppliers": "suppliers", "item_suppliers": "item_suppliers", "purchase_docs": "purchase_orders",
+                    "purchase_lines": "purchase_orders", "purchase_schedules": "purchase_orders",
+                    "demand_orders": "demand_orders", "demand_lines": "demand_orders", "work_orders": "work_orders",
+                    "wo_components": "work_orders"}
+
+
+def check_import_plan(s: Session, bundle: dict[str, Any], plan: Any) -> None:
+    """15.WP-S (security review M4): the M1 import wizard obeys the system of record and ECO locks like the UI.
+    - sheets of ERP-owned entities -> 409 `INT_ERP_OWNED` (POs only for PO rows; items see below);
+    - items while ERP-owned: no new items and no change of an ERP-owned field (planning fields import fine);
+    - BOM / routing rows of a document held by an open change request -> 409 `ECO_DOC_LOCKED`."""
+    from ..db_models import MfgBomLineRow, MfgBomRow, MfgOperationRow, MfgRoutingRow
+    from ..db_models_m5 import MfgChangeRequestRow
+
+    for sheet, ent in IMPORT_SHEET_SOR.items():
+        rows = bundle.get(sheet) or []
+        if sheet.startswith("purchase_"):
+            rows = [r for r in rows if str(r.get("doc_type") or "").strip() == "po"]
+        if rows:
+            check_local_write(s, ent, [sheet])
+    if sor_of(s, "items") == "erp":
+        bad: set[str] = set()
+        for c in plan.changes:
+            if c.table != "items":
+                continue
+            if c.action == "create":
+                bad.add("part_number")
+            elif c.action == "update":
+                bad |= {f for f in c.values if f in ITEM_ERP_FIELDS}
+        if bad:
+            raise ApiError(409, "INT_ERP_OWNED", "These item fields are maintained in the ERP.",
+                           {"fields": sorted(bad), "entity": "items", "sheet": "items"})
+    docs: dict[str, set[str]] = {"boms": set(), "routings": set()}
+    lines: dict[str, set[str]] = {"bom_lines": set(), "operations": set()}
+    for c in plan.changes:
+        if c.table in docs and c.action != "create":
+            docs[c.table].add(c.id)
+        elif c.table in lines:
+            parent = c.values.get("bom_id" if c.table == "bom_lines" else "routing_id")
+            if parent:
+                docs["boms" if c.table == "bom_lines" else "routings"].add(parent)
+            elif isinstance(c.id, str):
+                lines[c.table].add(c.id)
+    if lines["bom_lines"]:
+        docs["boms"] |= set(s.execute(select(MfgBomLineRow.bom_id).where(
+            MfgBomLineRow.id.in_(sorted(lines["bom_lines"])))).scalars())
+    if lines["operations"]:
+        docs["routings"] |= set(s.execute(select(MfgOperationRow.routing_id).where(
+            MfgOperationRow.id.in_(sorted(lines["operations"])))).scalars())
+    for table, model in (("boms", MfgBomRow), ("routings", MfgRoutingRow)):
+        if not docs[table]:
+            continue
+        for d, cr in s.execute(select(model, MfgChangeRequestRow).join(
+                MfgChangeRequestRow, MfgChangeRequestRow.id == model.locked_by_cr_id).where(
+                model.id.in_(sorted(docs[table])), MfgChangeRequestRow.status.in_(("submitted", "approved")))).all():
+            raise ApiError(409, "ECO_DOC_LOCKED", f"A document in the file is part of {cr.number} ({cr.status}).",
+                           {"cr_id": cr.id, "number": cr.number, "doc_id": d.id, "sheet": table})
+
+
 def check_local_po_receipt(s: Session) -> None:
     """14 Q2: with goods receipts owned by the ERP, PO receipts come in through integration only."""
     st = settings_row(s)

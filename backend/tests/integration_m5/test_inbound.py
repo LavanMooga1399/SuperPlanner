@@ -149,3 +149,27 @@ def test_shared_sor_logs_conflicts(env):  # noqa: F811
     rec = it.req("POST", "/reconciliations", 201, json={"entities": ["items"], "records": {"items": []}}).json()
     conf = rec["results"]["items"]["sor_conflicts"]
     assert len(conf) == 1 and conf[0]["ref"] == "ERP-1" and conf[0]["entity"] == "items"
+
+
+def test_m1_import_obeys_sor_and_eco_locks(env):  # noqa: F811
+    it, api, _app, _r = env
+    _enable(it)
+
+    def imp(data: bytes, name: str):
+        r = api.req("POST", "/imports", 201, params={"filename": name}, content=data,
+                    headers={"content-type": "application/octet-stream"}).json()
+        m = {"sheets": {s["name"]: s["suggested"] for s in r["sheets"]}, "options": {}}
+        p = api.put(f"/imports/{r['id']}/mapping", m, r["row_version"])
+        return api.req("POST", f"/imports/{r['id']}/commit", None, json={},
+                       headers={"If-Match": f'"{p["row_version"]}"'})
+
+    r = imp(b"part_number,make_buy\nNEW-1,buy\n", "items.csv")
+    assert r.status_code == 409 and r.json()["error"]["details"]["fields"] == ["part_number"]
+    r = imp(b"code,name\nS1,Sup\n", "suppliers.csv")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "INT_ERP_OWNED"
+    it.batch("item", ITEMS[:1], "lk")
+    item = api.by_pn("R-10K")
+    r = imp(b"part_number,safety_stock\nR-10K,5\n", "items.csv")          # planning fields import fine
+    assert r.status_code == 200, r.text
+    api.err("DELETE", f"/items/{item['id']}", 409, "INT_ERP_OWNED",
+            headers={"If-Match": f'"{api.by_pn("R-10K")["row_version"]}"'})

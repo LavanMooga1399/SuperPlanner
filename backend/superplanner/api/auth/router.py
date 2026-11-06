@@ -216,7 +216,7 @@ def sign_in(body: SignInIn, request: Request, response: Response,
         if new_hash is not None:
             u.password_hash = new_hash
             u.updated_at = now
-        enabled, required = ids.totp_enabled(s, u.id), ids.org_requires_2fa(s, u.id)
+        enabled, required = ids.totp_enabled(s, u.id), ids.org_requires_2fa(s, u.id, ctx.settings.oidc_org_slug)
         if enabled or required:                           # M5-DESIGN 3.2: second step (or forced setup)
             pending = ids.new_pending(ctx, s, u.id)
             s.commit()

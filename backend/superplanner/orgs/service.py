@@ -144,6 +144,12 @@ def update_member(ctx: AppContext, user_id: str, org_id: str, member_id: str, in
         if inp.disabled is not None:
             if m.user_id == user_id:
                 raise ApiError(422, "VALIDATION_ERROR", "You cannot disable your own account.", {})
+            from ..identity.service import managed_by
+
+            o = s.get(OrgRow, org_id)
+            if not managed_by(s, o, m.user_id, ctx.settings.oidc_org_slug):
+                raise ApiError(403, "ORG_USER_NOT_MANAGED", "This account also belongs to other organisations; "
+                               "only an organisation that manages it can disable it.", {"user_id": m.user_id})
             from ..api.auth import sessions as sess
 
             u = s.get(UserRow, m.user_id)

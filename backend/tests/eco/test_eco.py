@@ -100,3 +100,19 @@ def test_t_e2_release_blocked_nothing_released(api):
     assert api.get(f"/eco/{cr['id']}")["status"] == "approved"
     cr = api.post(f"/eco/{cr['id']}/cancel", {}, status=200, version=cr["row_version"])
     assert api.get(f"/boms/{d['draft']['id']}")["locked_by_cr_id"] is None
+
+
+def test_m1_import_refuses_rows_of_a_locked_draft(api):
+    d = _plant(api)
+    cr = api.post("/eco", {"title": "Lock", "effectivity": {"mode": "date", "date": "2027-01-01"}})
+    cr = api.post(f"/eco/{cr['id']}/items", {"doc_type": "bom", "doc_id": d["draft"]["id"]})
+    cr = api.post(f"/eco/{cr['id']}/submit", {}, status=200, version=cr["row_version"])
+    data = (f"parent_part_number,revision,version,find_number,child_part_number,qty_per\n"
+            f"PCB,{d['draft']['revision']},{d['draft']['version']},1,CAP-B,3\n").encode()
+    r = api.req("POST", "/imports", 201, params={"filename": "bom_lines.csv"}, content=data,
+                headers={"content-type": "application/octet-stream"}).json()
+    m = {"sheets": {s["name"]: s["suggested"] for s in r["sheets"]}, "options": {}}
+    p = api.put(f"/imports/{r['id']}/mapping", m, r["row_version"])
+    e = api.err("POST", f"/imports/{r['id']}/commit", 409, "ECO_DOC_LOCKED", json={},
+                headers={"If-Match": f'"{p["row_version"]}"'})
+    assert e["details"]["number"] == cr["number"]
