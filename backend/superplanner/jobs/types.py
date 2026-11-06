@@ -25,11 +25,13 @@ if TYPE_CHECKING:  # pragma: no cover
 
 JobKind = Literal["solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import",
     "integration_filedrop", "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention",
-    "trace_backfill"]
+    "trace_backfill", "push_delivery", "digest_send", "inventory_snapshot"]
 JobStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 JOB_KINDS: tuple[str, ...] = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import",
                               "integration_filedrop", "integration_delivery", "integration_reconcile", "org_publish",
-                              "maintenance_retention", "trace_backfill")
+                              "maintenance_retention", "trace_backfill",
+                              # M6-DESIGN 6
+                              "push_delivery", "digest_send", "inventory_snapshot")
 #: kind -> the `jobs` column that references its run (exactly one is set, `ck_jobs_one_target`)
 RUN_ID_COLUMN: dict[str, str] = {"solver_run": "solver_run_id", "finance_run": "finance_run_id",
                                  "aps_run": "aps_run_id", "aps_simulation": "aps_simulation_id",
@@ -41,9 +43,15 @@ RUN_ID_COLUMN: dict[str, str] = {"solver_run": "solver_run_id", "finance_run": "
                                  "org_publish": "org_publish_id",
                                  "maintenance_retention": "maintenance_run_id",
                                  "trace_backfill": "maintenance_run_id",
+                                 # M6-DESIGN 6 (duty runs)
+                                 "push_delivery": "maintenance_run_id",
+                                 "digest_send": "maintenance_run_id",
+                                 "inventory_snapshot": "maintenance_run_id",
                                  }
 M5_KINDS: tuple[str, ...] = ("integration_import", "integration_filedrop", "integration_delivery",
-                             "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill")
+                             "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill",
+                             # M6-DESIGN 6: duty runs handled through integration.jobs as well
+                             "push_delivery", "digest_send", "inventory_snapshot")
 TERMINAL_JOB_STATUSES: tuple[str, ...] = ("succeeded", "failed", "cancelled")
 ACTIVE_RUN_STATUSES: tuple[str, ...] = ("queued", "running")
 RUN_TO_JOB_STATUS = {"completed": "succeeded", "failed": "failed", "cancelled": "cancelled"}

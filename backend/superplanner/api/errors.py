@@ -103,6 +103,33 @@ def install_handlers(app: FastAPI) -> None:
         return JSONResponse(envelope(code, message), status_code=exc.status_code,
                             headers=getattr(exc, "headers", None))
 
+    from sqlalchemy.exc import DBAPIError
+
+    @app.exception_handler(DBAPIError)
+    async def _db_error(request: Request, exc: DBAPIError) -> JSONResponse:
+        """M6-DESIGN 4.2 item 2: connection loss / demoted primary / shutdown -> 503 DB_UNAVAILABLE (never 500)."""
+        from .ha import RETRY_AFTER_SECONDS, classify
+
+        reason = classify(exc)
+        if reason is None:
+            log.exception("unhandled error", exc_info=exc)
+            return JSONResponse(envelope("INTERNAL_ERROR", "An unexpected server error occurred."), status_code=500)
+        ctx = getattr(request.app.state, "ctx", None)
+        if ctx is not None:
+            from fastapi.concurrency import run_in_threadpool
+
+            await run_in_threadpool(ctx.db.invalidate)
+        try:
+            from ..obs.http_metrics import DB_UNAVAILABLE
+
+            DB_UNAVAILABLE.labels(reason=reason).inc()
+        except Exception:  # pragma: no cover
+            pass
+        log.warning("database unavailable (%s): answered 503", reason)
+        return JSONResponse(envelope("DB_UNAVAILABLE", "The database is switching over; try again in a few seconds.",
+                                     {"retry_after": RETRY_AFTER_SECONDS, "reason": reason}), status_code=503,
+                            headers={"Retry-After": str(RETRY_AFTER_SECONDS)})
+
     @app.exception_handler(Exception)
     async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
         log.exception("unhandled error", exc_info=exc)

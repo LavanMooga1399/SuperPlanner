@@ -1,70 +1,79 @@
 /**
- * `/m/approvals` (M6 2, M5 `/mfg/approvals`): what waits for this user's decision.
- * - Purchase request: approve / reject with a reason (M2, If-Match).
- * - Engineering change: approve / reject with a note (M5, If-Match).
- * - Schedule proposal: compare with the published schedule (key figures), then publish (M3/M4, If-Match; a
- *   stale-basis answer asks again).
- * - Suggested overtime: accept = a new schedule from that run with these shifts opened (`copy_of` + `open_shifts`).
+ * `/m/approvals` (M6 2, M5 `/mfg/approvals`): what waits for this user's decision - purchase requests (M2),
+ * engineering changes (M5), schedule proposals (M3/M4) and suggested overtime (M3). Each item carries the exact
+ * requests of its actions (`actions: [{label, method, path, body}]`); the app sends them as the user (session,
+ * CSRF, workspace header) with If-Match = the item's `row_version`. An action whose body has an empty `reason` /
+ * `note` asks for it first. A schedule proposal can be compared with the published schedule before publishing; a
+ * stale-basis answer (409 `APS_RUN_STALE_BASIS`) asks once more and then sends `confirm_stale_basis`.
  * Approvals need the network (fresh data, If-Match); offline the buttons are disabled with the reason.
  */
 import { useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "../../api/client";
 import { Icon, type IconName } from "../../components/Icon";
-import { purchaseAction } from "../api/clientM2";
-import { compareApsRuns, publishApsRun, rerunWithOpenShifts } from "../api/clientM3";
-import { ecoAction } from "../api/clientM5";
-import { listApprovals } from "../api/clientM6";
+import { compareApsRuns, getPublishedRun } from "../api/clientM3";
+import { listApprovals, requestPath, runApprovalAction } from "../api/clientM6";
 import type { Permission } from "../api/typesM2";
-import type { ApprovalItem, ApprovalKind } from "../api/typesM6";
+import type { ApprovalAction, ApprovalItem, ApprovalKind } from "../api/typesM6";
 import { MfgError, Spinner } from "../components/Feedback";
-import { needsText, useAccess } from "../lib/permissions";
+import { needsText, PERMISSION_ROLES, useAccess } from "../lib/permissions";
 import { usePolling } from "../lib/usePolling";
 import { errorText, isConflict, useLoad } from "../lib/useMfg";
 import { mobileLink } from "./MobileAlerts";
 import { useOnline } from "./MobileLayout";
 
-const KIND: Record<ApprovalKind, { label: string; icon: IconName; perm: Permission }> = {
-  pr: { label: "Purchase request", icon: "briefcase", perm: "pr_approve" },
-  eco: { label: "Engineering change", icon: "refresh", perm: "eco_approve" },
-  proposal: { label: "Schedule proposal", icon: "calendar", perm: "schedule_publish" },
-  overtime: { label: "Suggested overtime", icon: "clock", perm: "schedule_run" },
+const KIND: Record<ApprovalKind, { label: string; icon: IconName }> = {
+  pr: { label: "Purchase request", icon: "briefcase" },
+  eco: { label: "Engineering change", icon: "refresh" },
+  replan_proposal: { label: "Schedule proposal", icon: "calendar" },
+  overtime: { label: "Suggested overtime", icon: "clock" },
 };
 
 const FILTERS: { key: ApprovalKind | "all"; label: string }[] = [
   { key: "all", label: "All" },
   { key: "pr", label: "Purchasing" },
   { key: "eco", label: "Changes" },
-  { key: "proposal", label: "Schedules" },
+  { key: "replan_proposal", label: "Schedules" },
   { key: "overtime", label: "Overtime" },
 ];
 
-type Outcome = { tone: "ok" | "danger"; text: string } | null;
-
-function fmtMinutes(m: number | null | undefined): string | null {
-  if (m === null || m === undefined) return null;
-  if (Math.abs(m) >= 1440) return `${(m / 1440).toFixed(1)} days`;
-  if (Math.abs(m) >= 60) return `${(m / 60).toFixed(1)} h`;
-  return `${Math.round(m)} min`;
+/** The text field an action needs (`reason` for PR reject, `note` for ECO reject), if its body has it empty. */
+function textField(a: ApprovalAction): "reason" | "note" | null {
+  for (const k of ["reason", "note"] as const) if (k in (a.body ?? {}) && !String(a.body[k] ?? "").trim()) return k;
+  return null;
 }
 
-function ProposalCompare({ item }: { item: ApprovalItem }) {
-  const cmp = useLoad((signal) => (item.base_run_id ? compareApsRuns(item.base_run_id, item.id, signal) : null), [item.id, item.base_run_id]);
-  if (!item.base_run_id) return <p className="muted small" style={{ margin: 0 }}>No published schedule to compare with.</p>;
-  if (cmp.loading && !cmp.data) return <p className="muted small" role="status" style={{ margin: 0 }}><span className="spinner" aria-hidden /> Comparing…</p>;
+const isNegative = (a: ApprovalAction) => /reject|decline/i.test(a.label) || /\/reject$/.test(a.path);
+
+type Outcome = { tone: "ok" | "danger"; text: string } | null;
+
+function ProposalCompare({ runId }: { runId: string }) {
+  const cmp = useLoad(async (signal) => {
+    const pub = await getPublishedRun(signal).catch(() => null);
+    if (!pub) return null;
+    return compareApsRuns(pub.id, runId, signal);
+  }, [runId]);
+  if (cmp.loading && !cmp.data)
+    return (
+      <p className="muted small" role="status" style={{ margin: 0 }}>
+        <span className="spinner" aria-hidden /> Comparing…
+      </p>
+    );
   if (cmp.error) return <MfgError error={cmp.error} onRetry={cmp.reload} title="Could not compare" />;
-  const t = cmp.data?.tradeoff;
-  const kpis = (cmp.data?.kpis ?? []).slice(0, 4);
+  if (!cmp.data) return <p className="muted small" style={{ margin: 0 }}>There is no published schedule to compare with.</p>;
+  const t = cmp.data.tradeoff;
+  const kpis = cmp.data.kpis.slice(0, 5);
+  const mins = (m: number) => (Math.abs(m) >= 1440 ? `${(m / 1440).toFixed(1)} days` : Math.abs(m) >= 60 ? `${(m / 60).toFixed(1)} h` : `${Math.round(m)} min`);
   return (
     <div className="col" style={{ gap: 6 }} data-testid="m-proposal-compare">
       {t ? (
         <dl className="m-dl">
           <dt>Late demand lines</dt>
-          <dd>{t.late_demand_saved >= 0 ? `${t.late_demand_saved} fewer` : `${-t.late_demand_saved} more`}</dd>
+          <dd>{t.late_demand_saved > 0 ? `${t.late_demand_saved} fewer` : t.late_demand_saved < 0 ? `${-t.late_demand_saved} more` : "same"}</dd>
           <dt>Lateness</dt>
-          <dd>{t.late_minutes_saved >= 0 ? `${fmtMinutes(t.late_minutes_saved)} less` : `${fmtMinutes(-t.late_minutes_saved)} more`}</dd>
+          <dd>{t.late_minutes_saved > 0 ? `${mins(t.late_minutes_saved)} less` : t.late_minutes_saved < 0 ? `${mins(-t.late_minutes_saved)} more` : "same"}</dd>
           <dt>Overtime</dt>
-          <dd>{t.overtime_hours_added ? `${t.overtime_hours_added.toFixed(1)} h more (${Math.round(t.overtime_cost_added).toLocaleString()})` : "no change"}</dd>
+          <dd>{t.overtime_hours_added ? `${t.overtime_hours_added.toFixed(1)} h more (cost ${Math.round(t.overtime_cost_added).toLocaleString()})` : "no change"}</dd>
         </dl>
       ) : null}
       {kpis.length ? (
@@ -79,7 +88,9 @@ function ProposalCompare({ item }: { item: ApprovalItem }) {
           <tbody>
             {kpis.map((k) => (
               <tr key={k.key}>
-                <th scope="row">{k.key.replace(/_/g, " ")}</th>
+                <th scope="row" style={{ fontWeight: 500 }}>
+                  {k.key.replace(/_/g, " ")}
+                </th>
                 <td>{k.a ?? "–"}</td>
                 <td>{k.b ?? "–"}</td>
               </tr>
@@ -93,133 +104,109 @@ function ProposalCompare({ item }: { item: ApprovalItem }) {
 
 function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: boolean; onDone(): void }) {
   const access = useAccess();
-  const k = KIND[item.kind] ?? { label: item.kind, icon: "flag" as IconName, perm: "view" as Permission };
-  const allowed = access.can(k.perm);
+  const k = KIND[item.kind] ?? { label: item.kind, icon: "flag" as IconName };
+  const perm = item.permission as Permission;
+  const allowed = perm in PERMISSION_ROLES && access.can(perm);
   const [busy, setBusy] = useState<string | null>(null);
   const [out, setOut] = useState<Outcome>(null);
-  const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState("");
+  const [asking, setAsking] = useState<ApprovalAction | null>(null);
+  const [text, setText] = useState("");
   const [showCompare, setShowCompare] = useState(false);
-  const [confirmStale, setConfirmStale] = useState(false);
-  const blocked = !online ? "Needs a connection: approvals always use the latest data." : !allowed ? needsText(k.perm) : null;
+  const [stale, setStale] = useState<ApprovalAction | null>(null);
+  const blocked = !online ? "Needs a connection: approvals always use the latest data." : !allowed ? needsText(perm) : null;
   const to = mobileLink(item.link);
+  const actions = item.actions.filter((a) => requestPath(a) !== null);
 
-  const run = async (what: string, fn: () => Promise<unknown>, okText: string) => {
-    setBusy(what);
+  const send = async (a: ApprovalAction, extra: Record<string, unknown> = {}) => {
+    setBusy(a.label);
     setOut(null);
+    const field = textField(a);
+    const body = { ...(a.body ?? {}), ...(field ? { [field]: text.trim() } : {}), ...extra };
     try {
-      await fn();
-      setOut({ tone: "ok", text: okText });
-      setRejecting(false);
-      setConfirmStale(false);
-      window.setTimeout(onDone, 1200);
+      await runApprovalAction(a, item.row_version, body, `appr-${item.kind}-${item.id}-${a.label}-${Date.now()}`.slice(0, 120));
+      setOut({ tone: "ok", text: item.kind === "overtime" ? "Accepted. A new schedule with this overtime is being made; publish it when it is ready." : `${a.label}: done.` });
+      setAsking(null);
+      setStale(null);
+      window.setTimeout(onDone, 1500);
     } catch (e) {
       if (e instanceof ApiError && e.code === "APS_RUN_STALE_BASIS") {
-        setConfirmStale(true);
-        setOut({ tone: "danger", text: "Another schedule was published after this proposal was made. Publishing it changes work already planned for the floor." });
+        setStale(a);
+        setOut({ tone: "danger", text: "Another schedule was published after this proposal was made. Publishing it anyway changes work already planned for the floor." });
       } else setOut({ tone: "danger", text: isConflict(e) ? "This changed since the list was loaded. Reload the list and check it again." : errorText(e) });
     } finally {
       setBusy(null);
     }
   };
 
-  const approve = () => {
-    if (item.kind === "pr") return run("approve", () => purchaseAction("pr", item.id, "approve", item.row_version), "Approved.");
-    if (item.kind === "eco") return run("approve", () => ecoAction(item.id, "approve", item.row_version), "Approved.");
-    if (item.kind === "proposal") return run("approve", () => publishApsRun(item.id, item.row_version, confirmStale), "Published. It is now the plant schedule.");
-    return run("approve", () => rerunWithOpenShifts(item.id, item.shifts ?? [], `Overtime accepted: ${item.label}`.slice(0, 120)), "Accepted. A new schedule with this overtime is being made; it appears here as a proposal to publish.");
+  const click = (a: ApprovalAction) => {
+    if (textField(a)) {
+      setAsking(a);
+      setText("");
+    } else void send(a);
   };
-  const reject = () => {
-    if (item.kind === "pr") return run("reject", () => purchaseAction("pr", item.id, "reject", item.row_version, { reason: reason.trim() }), "Rejected.");
-    return run("reject", () => ecoAction(item.id, "reject", item.row_version, { note: reason.trim() }), "Rejected.");
-  };
-  const approveLabel = item.kind === "proposal" ? (confirmStale ? "Publish anyway" : "Publish") : item.kind === "overtime" ? "Accept overtime" : "Approve";
-  const canReject = item.kind === "pr" || item.kind === "eco";
 
+  const done = out?.tone === "ok";
   return (
     <li className="m-card" data-testid="m-approval" data-kind={item.kind} data-id={item.id}>
       <span className="muted small m-state">
         <Icon name={k.icon} size={14} /> {k.label}
+        {item.number && item.kind !== "overtime" ? ` · ${item.number}` : ""}
       </span>
       <div className="row" style={{ justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-        <strong>{item.label}</strong>
-        {item.created_at ? <span className="muted small">{new Date(item.created_at).toLocaleDateString()}</span> : null}
+        <strong>{item.title}</strong>
+        {item.waiting_since ? <span className="muted small nowrap">since {new Date(item.waiting_since).toLocaleDateString()}</span> : null}
       </div>
-      <p style={{ margin: 0 }}>{item.summary}</p>
-      {item.requested_by ? <span className="muted small">From {item.requested_by.name}</span> : null}
-      {item.facts?.length ? (
-        <dl className="m-dl">
-          {item.facts.map((f) => (
-            <div key={f.label} style={{ display: "contents" }}>
-              <dt>{f.label}</dt>
-              <dd>{f.value}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-      {item.kind === "overtime" ? (
-        <dl className="m-dl">
-          {(item.shifts ?? []).map((s, i) => (
-            <div key={i} style={{ display: "contents" }}>
-              <dt>Shift {i + 1}</dt>
-              <dd>
-                {new Date(s.start).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} –{" "}
-                {new Date(s.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </dd>
-            </div>
-          ))}
-          {item.tardiness_saved_minutes ? (
-            <>
-              <dt>Saves</dt>
-              <dd>{fmtMinutes(item.tardiness_saved_minutes)} of lateness</dd>
-            </>
-          ) : null}
-          {item.cost ? (
-            <>
-              <dt>Cost</dt>
-              <dd>{Math.round(item.cost).toLocaleString()}</dd>
-            </>
-          ) : null}
-        </dl>
-      ) : null}
-      {item.kind === "proposal" ? (
+      {item.summary ? <p style={{ margin: 0 }}>{item.summary}</p> : null}
+      {item.kind === "replan_proposal" ? (
         <>
           <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={showCompare} onClick={() => setShowCompare((v) => !v)} disabled={!online} data-testid="m-proposal-compare-btn">
             <Icon name={showCompare ? "chevron-down" : "compare"} /> Compare with the published schedule
           </button>
-          {showCompare ? <ProposalCompare item={item} /> : null}
+          {showCompare ? <ProposalCompare runId={item.id} /> : null}
         </>
       ) : null}
-      {rejecting ? (
+      {asking ? (
         <div className="col" style={{ gap: 6 }}>
-          <label htmlFor={`rej-${item.id}`} className="small" style={{ fontWeight: 600 }}>
-            Reason
+          <label htmlFor={`appr-text-${item.kind}-${item.id}`} className="small" style={{ fontWeight: 600 }}>
+            {textField(asking) === "reason" ? "Reason" : "Note"} (required)
           </label>
-          <textarea id={`rej-${item.id}`} className="textarea" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="m-approval-reason" />
+          <textarea id={`appr-text-${item.kind}-${item.id}`} className="textarea" rows={2} value={text} onChange={(e) => setText(e.target.value)} data-testid="m-approval-reason" />
         </div>
       ) : null}
-      {out?.tone !== "ok" ? (
+      {!done ? (
         <div className="m-actions">
-          {rejecting ? (
+          {asking ? (
             <>
-              <button type="button" className="btn danger" disabled={Boolean(blocked) || busy !== null || !reason.trim()} onClick={() => void reject()} data-testid="m-approval-reject-confirm">
-                {busy === "reject" ? <span className="spinner" aria-hidden /> : <Icon name="x" />} Reject
+              <button type="button" className={`btn ${isNegative(asking) ? "danger" : "primary"}`} disabled={Boolean(blocked) || busy !== null || !text.trim()} onClick={() => void send(asking)} data-testid="m-approval-text-confirm">
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name={isNegative(asking) ? "x" : "check"} />} {asking.label}
               </button>
-              <button type="button" className="btn ghost" onClick={() => setRejecting(false)}>
+              <button type="button" className="btn ghost" onClick={() => setAsking(null)}>
+                Cancel
+              </button>
+            </>
+          ) : stale ? (
+            <>
+              <button type="button" className="btn primary" disabled={Boolean(blocked) || busy !== null} onClick={() => void send(stale, { confirm_stale_basis: true })} data-testid="m-approval-stale-confirm">
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="flag" />} Publish anyway
+              </button>
+              <button type="button" className="btn ghost" onClick={() => { setStale(null); setOut(null); }}>
                 Cancel
               </button>
             </>
           ) : (
-            <>
-              <button type="button" className="btn primary" disabled={Boolean(blocked) || busy !== null} onClick={() => void approve()} data-testid="m-approval-approve">
-                {busy === "approve" ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {approveLabel}
+            actions.map((a, i) => (
+              <button
+                key={a.label}
+                type="button"
+                className={`btn${i === 0 && !isNegative(a) ? " primary" : ""}`}
+                disabled={Boolean(blocked) || busy !== null}
+                onClick={() => click(a)}
+                data-testid={`m-approval-action-${i}`}
+                data-label={a.label}
+              >
+                {busy === a.label ? <span className="spinner" aria-hidden /> : <Icon name={isNegative(a) ? "x" : "check"} />} {a.label}
               </button>
-              {canReject ? (
-                <button type="button" className="btn" disabled={Boolean(blocked) || busy !== null} onClick={() => setRejecting(true)} data-testid="m-approval-reject">
-                  <Icon name="x" /> Reject
-                </button>
-              ) : null}
-            </>
+            ))
           )}
           {to ? (
             <Link to={to} className="btn ghost">
@@ -228,7 +215,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
           ) : null}
         </div>
       ) : null}
-      {blocked && out?.tone !== "ok" ? (
+      {blocked && !done ? (
         <span className="muted small m-state" data-testid="m-approval-blocked">
           <Icon name={!online ? "alert" : "lock"} size={12} /> {blocked}
         </span>
@@ -278,7 +265,7 @@ export function MobileApprovals() {
       ) : null}
       <ul className="m-list">
         {items.map((it) => (
-          <ApprovalCard key={`${it.kind}-${it.id}-${it.label}`} item={it} online={online} onDone={list.reload} />
+          <ApprovalCard key={`${it.kind}-${it.id}`} item={it} online={online} onDone={list.reload} />
         ))}
       </ul>
     </div>

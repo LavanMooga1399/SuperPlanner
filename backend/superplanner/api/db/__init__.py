@@ -16,6 +16,7 @@ def load_all_models():
     from ..mfg import db_models_m3 as _mfg_db_models_m3  # noqa: F401
     from ..mfg import db_models_m4 as _mfg_db_models_m4  # noqa: F401
     from ..mfg import db_models_m5 as _mfg_db_models_m5  # noqa: F401
+    from ..mfg import db_models_m6 as _mfg_db_models_m6  # noqa: F401
 
     return Base.metadata
 

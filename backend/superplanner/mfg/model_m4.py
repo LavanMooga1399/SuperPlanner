@@ -304,6 +304,9 @@ class DowntimeRecord(_Stamped):
     reported_by: Ref | None = None
     closed_by: Ref | None = None
     triggers: list[dict[str, Any]] = Field(default_factory=list)
+    #: M6-DESIGN 2: who saw it
+    acknowledged_by: Ref | None = None
+    acknowledged_at: datetime | None = None
 
 
 # ---------------------------------------------------------------- batch loads (6.3)

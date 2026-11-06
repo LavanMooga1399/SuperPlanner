@@ -27,7 +27,8 @@ from prometheus_client import Counter, Gauge, Histogram
 log = logging.getLogger(__name__)
 
 JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import", "integration_filedrop",
-             "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill")
+             "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill",
+             "push_delivery", "digest_send", "inventory_snapshot")
 QUEUE_STATUSES = ("queued", "running")
 AUTH_EVENTS = ("sign_in_ok", "sign_in_failed", "sign_up", "rate_limited", "csrf_failed")
 COLLECTOR_TTL_SECONDS = 5.0
@@ -42,6 +43,10 @@ QUEUE_DEPTH = Gauge("sp_jobs_queue_depth", "Jobs by kind and status (queued, run
 OLDEST_QUEUED = Gauge("sp_jobs_oldest_queued_age_seconds", "Age of the oldest queued job (0 if none).", ["kind"])
 WORKERS_ALIVE = Gauge("sp_workers_alive", "Workers with a recent heartbeat (inline: RUN_WORKERS).")
 AUTH_EVENTS_TOTAL = Counter("sp_auth_events_total", "Authentication events.", ["event"])
+#: M6-DESIGN 4.2: replica-routed reads by where they were served (replica | primary_lag | primary_recent_write |
+#: primary_error)
+REPLICA_READS = Counter("sp_db_replica_reads_total", "Replica-routed reads by outcome.", ["result"])
+DB_UNAVAILABLE = Counter("sp_db_unavailable_total", "Requests answered 503 DB_UNAVAILABLE (failover).", ["reason"])
 
 for _k in ("solver", "finance"):
     SSE_ACTIVE.labels(kind=_k)

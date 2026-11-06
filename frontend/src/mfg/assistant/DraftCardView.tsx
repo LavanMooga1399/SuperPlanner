@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { Icon } from "../../components/Icon";
-import { applyDraft, draftRequestPath, reportDraftApplied } from "../api/clientM6";
+import { applyDraft, reportDraftApplied, requestPath } from "../api/clientM6";
 import type { Permission } from "../api/typesM2";
 import type { DraftCard } from "../api/typesM6";
 import { needsText, PERMISSION_ROLES, useAccess } from "../lib/permissions";
@@ -22,18 +22,21 @@ function responseRef(data: unknown): string | null {
 
 export function DraftCardView({ draft }: { draft: DraftCard }) {
   const access = useAccess();
-  const [st, setSt] = useState<State>(draft.applied_at ? { s: "done", at: draft.applied_at } : { s: "idle" });
+  const [st, setSt] = useState<State>(
+    draft.applied_at && draft.applied_status !== "failed" ? { s: "done", at: draft.applied_at } : { s: "idle" },
+  );
   const perm = draft.required_permission as Permission;
   const known = perm in PERMISSION_ROLES;
-  const allowed = known && access.can(perm);
-  const sendable = draftRequestPath(draft) !== null;
+  // the server says whether the asking user holds the permission (`allowed`); the role here must agree too
+  const allowed = draft.allowed && known && access.can(perm);
+  const sendable = requestPath(draft) !== null;
 
   const apply = async () => {
     setSt({ s: "busy" });
     try {
       const r = await applyDraft(draft);
       setSt({ s: "done", at: new Date().toISOString() });
-      void reportDraftApplied(draft.draft_id, { status: "applied", response_ref: responseRef(r.data) }).catch(() => undefined);
+      void reportDraftApplied(draft.draft_id, { status: "succeeded", response_ref: responseRef(r.data) }).catch(() => undefined);
     } catch (e) {
       const text = isConflict(e)
         ? "The record changed after this suggestion was made, so nothing was changed. Open the record to check it, or ask again for a fresh suggestion."

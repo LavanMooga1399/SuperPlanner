@@ -37,7 +37,8 @@ PASSWORD_HASH_PROFILES = ("default", "fast")
 LOG_FORMATS = ("text", "json")
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import", "integration_filedrop",
-             "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill")
+             "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill",
+             "push_delivery", "digest_send", "inventory_snapshot")   # M6-DESIGN 6
 
 
 class ConfigError(ValueError):
@@ -354,6 +355,37 @@ class Settings:
     trusted_proxy_cidrs: str | None = field(default_factory=_str("TRUSTED_PROXY_CIDRS"))
     forwarded_allow_ips: str = field(default_factory=lambda: _env("FORWARDED_ALLOW_IPS") or "127.0.0.1")
 
+    # --- M6-DESIGN 1.1: planning assistant (off unless ASSISTANT_AI_ENABLED is set and credentials resolve)
+    assistant_ai_enabled: bool = field(default_factory=lambda: _env_flag("ASSISTANT_AI_ENABLED"))
+    assistant_ai_timeout_seconds: float = field(default_factory=lambda: _env_float("ASSISTANT_AI_TIMEOUT_SECONDS",
+                                                                                   60.0))
+    assistant_ai_max_retries: int = field(default_factory=_int("ASSISTANT_AI_MAX_RETRIES", 2, 0))
+    assistant_ai_max_concurrent: int = field(default_factory=_int("ASSISTANT_AI_MAX_CONCURRENT", 4, 1))
+    assistant_max_tool_rounds: int = field(default_factory=_int("ASSISTANT_MAX_TOOL_ROUNDS", 8, 1))
+    assistant_max_output_tokens: int = field(default_factory=_int("ASSISTANT_MAX_OUTPUT_TOKENS", 4000, 256))
+    assistant_daily_tokens_per_user: int = field(default_factory=_int("ASSISTANT_DAILY_TOKENS_PER_USER", 400_000, 0))
+    assistant_daily_tokens_per_plant: int = field(default_factory=_int("ASSISTANT_DAILY_TOKENS_PER_PLANT", 2_000_000,
+                                                                       0))
+    assistant_retention_days: int = field(default_factory=_int("ASSISTANT_RETENTION_DAYS", 30, 1))
+    assistant_ai_client_factory: Callable[[], Any] | None = None   # tests only: returns a fake SDK client
+    #: development only: a scripted assistant over the real tools (no model, no network; UI work without a key)
+    assistant_ai_demo: bool = field(default_factory=_bool("ASSISTANT_AI_DEMO", False))
+    # --- M6-DESIGN 2: Web Push (off without both)
+    webpush_vapid_private_key: str | None = field(default_factory=_str("WEBPUSH_VAPID_PRIVATE_KEY"))
+    webpush_subject: str | None = field(default_factory=_str("WEBPUSH_SUBJECT"))
+    push_post: Callable[..., Any] | None = None                     # tests only: (url, headers, body, timeout) -> status
+    # --- M6-DESIGN 3.3: e-mail digests (off without SMTP_HOST)
+    smtp_host: str | None = field(default_factory=_str("SMTP_HOST"))
+    smtp_port: int = field(default_factory=_int("SMTP_PORT", 587, 1))
+    smtp_user: str | None = field(default_factory=_str("SMTP_USER"))
+    smtp_password: str | None = field(default_factory=_str("SMTP_PASSWORD"))
+    smtp_from: str | None = field(default_factory=_str("SMTP_FROM"))
+    smtp_starttls: bool = field(default_factory=_bool("SMTP_STARTTLS", True))
+    smtp_send: Callable[..., Any] | None = None                     # tests only: (EmailMessage) -> None
+    # --- M6-DESIGN 4.2: optional read replica
+    database_read_url: str | None = field(default_factory=_str("DATABASE_READ_URL"))
+    replica_max_lag_seconds: float = field(default_factory=_float("REPLICA_MAX_LAG_SECONDS", 5.0))
+
     # --- Phase 2b: operations (B 5.2-5.4)
     log_level: str = field(default_factory=lambda: (_env("LOG_LEVEL") or "INFO").upper())
     log_format: str | None = field(default_factory=_lower("LOG_FORMAT"))
@@ -446,6 +478,21 @@ class Settings:
                 raise ConfigError(f"PUBLIC_BASE_URL must be https:// outside APP_ENV=development "
                                   f"(got {self.public_base_url!r}).")
 
+        # M6: replica URL, push keys, SMTP
+        if self.database_read_url:
+            self.database_read_url = validate_database_url(self.database_read_url, "DATABASE_READ_URL")
+        if self.webpush_vapid_private_key:
+            from ..push.vapid import check_private_key
+
+            self.webpush_vapid_private_key = check_private_key(self.webpush_vapid_private_key)
+            if not self.webpush_subject or not self.webpush_subject.startswith(("mailto:", "https://")):
+                raise ConfigError("WEBPUSH_SUBJECT must be a mailto: or https:// URL when "
+                                  "WEBPUSH_VAPID_PRIVATE_KEY is set.")
+        if prod and self.assistant_ai_demo:
+            raise ConfigError("ASSISTANT_AI_DEMO is only allowed with APP_ENV=development.")
+        if self.smtp_host and not self.smtp_from:
+            raise ConfigError("SMTP_FROM is required when SMTP_HOST is set.")
+
         # CORS (R10: production default is empty = same-origin deployment)
         if self.cors_origins is None:
             self.cors_origins = [] if prod else list(DEFAULT_CORS_ORIGINS)
@@ -524,6 +571,14 @@ class Settings:
         if self.worker_embedded == "auto":
             return self.run_workers
         return int(self.worker_embedded or 0)
+
+    @property
+    def push_enabled(self) -> bool:
+        return bool(self.webpush_vapid_private_key and self.webpush_subject)
+
+    @property
+    def smtp_enabled(self) -> bool:
+        return bool(self.smtp_host or self.smtp_send)
 
     def log_warnings(self) -> None:
         for w in self.warnings:

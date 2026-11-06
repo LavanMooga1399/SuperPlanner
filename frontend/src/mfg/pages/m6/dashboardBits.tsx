@@ -1,7 +1,11 @@
-/** Dashboard tiles (M6 3.1), shared by the plant and organisation dashboards. Status = icon + text, never colour alone. */
+/**
+ * Dashboard tiles (M6 3.1), shared by the plant and organisation dashboards. Status = icon + text, never colour
+ * alone. Tile details are tile-specific dicts (`model_m6.Tile.details`); they are shown as label / value pairs with
+ * the units the key names imply (fractions as percent, `_h` as hours, `value*` in the plant currency).
+ */
 import { Link } from "react-router";
 import { Icon, type IconName } from "../../../components/Icon";
-import type { DashboardPeriod, DashboardTile, TileStatus, TrendPoint } from "../../api/typesM6";
+import type { DashboardPeriod, DashboardTile, TileStatus } from "../../api/typesM6";
 import { safeInternalLink } from "../../assistant/AnswerText";
 
 export const PERIODS: { value: DashboardPeriod; label: string }[] = [
@@ -10,21 +14,16 @@ export const PERIODS: { value: DashboardPeriod; label: string }[] = [
   { value: "52w", label: "Last 52 weeks" },
 ];
 
-/** Display order and names of the known tiles; unknown ones follow in server order. */
-export const TILE_NAMES: Record<string, string> = {
-  otd: "On-time delivery",
-  wo_on_time: "Work orders on time",
-  backlog: "Backlog vs capacity",
-  material_risk: "Material risk",
-  adherence: "Schedule adherence",
-  oee: "Equipment effectiveness (OEE-lite)",
-  fpy: "First-pass yield",
-  scrap_rate: "Scrap rate",
-  inventory_value: "Inventory value",
-  inventory_turns: "Inventory turns",
-  late_pos: "Late purchase orders",
-  quality: "Quality",
-  integration: "ERP integration health",
+/** Display order and names of the S0 tiles (`model_m6.TILE_NAMES`); unknown ones follow in server order. */
+export const TILE_NAMES: Record<string, { name: string; help: string }> = {
+  otd: { name: "On-time delivery", help: "Demand lines shipped on time" },
+  backlog: { name: "Backlog vs capacity", help: "Load of the next 4 weeks against base capacity" },
+  material_risk: { name: "Material risk", help: "Items short within 4 weeks" },
+  execution: { name: "Execution", help: "Schedule adherence" },
+  inventory: { name: "Inventory", help: "Value on hand at standard cost" },
+  late_pos: { name: "Late purchase orders", help: "Open overdue deliveries" },
+  quality: { name: "Quality", help: "Open recalls" },
+  integration: { name: "ERP integration", help: "Problems needing attention" },
 };
 
 export function orderedTiles(tiles: Record<string, DashboardTile>): [string, DashboardTile][] {
@@ -33,15 +32,27 @@ export function orderedTiles(tiles: Record<string, DashboardTile>): [string, Das
   return [...known, ...rest].map((k) => [k, tiles[k]]);
 }
 
-export function tileName(key: string, t?: DashboardTile): string {
-  return t?.label || TILE_NAMES[key] || key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+export function humanize(key: string): string {
+  const w = key
+    .replace(/_4w$/, " (4 weeks)")
+    .replace(/_8w$/, " (8 weeks)")
+    .replace(/_7d$/, " (7 days)")
+    .replace(/_12m$/, " (12 months)")
+    .replace(/^weeks_(\d+)$/, "next $1 weeks")
+    .replace(/_h$/, "")
+    .replace(/_/g, " ");
+  return w.replace(/\b(oee|fpy|otd|wo|eco|ecos|po|pos)\b/gi, (m) => m.toUpperCase()).replace(/^./, (c) => c.toUpperCase());
+}
+
+export function tileName(key: string): string {
+  return TILE_NAMES[key]?.name ?? humanize(key);
 }
 
 const STATUS: Record<string, { text: string; icon: IconName; tone: string }> = {
   ok: { text: "On track", icon: "check", tone: "ok" },
   watch: { text: "Watch", icon: "alert", tone: "warn" },
   alert: { text: "Needs attention", icon: "alert", tone: "danger" },
-  na: { text: "No data yet", icon: "circle", tone: "info" },
+  "n/a": { text: "No data yet", icon: "circle", tone: "info" },
 };
 
 export function TileStatusBadge({ status }: { status: TileStatus }) {
@@ -53,37 +64,64 @@ export function TileStatusBadge({ status }: { status: TileStatus }) {
   );
 }
 
-export function fmtTileValue(v: number | string | null | undefined, unit: string | undefined, currency?: string): string {
+const pct = (v: number) => `${(v * 100).toFixed(1).replace(/\.0$/, "")} %`;
+const num = (v: number, digits = 1) => v.toLocaleString(undefined, { maximumFractionDigits: digits });
+
+/** Tile value in its unit: "%" is a fraction (0.91 = 91 %), "count", "h", "turns", else a currency code. */
+export function fmtValue(v: number | null | undefined, unit: string): string {
   if (v === null || v === undefined) return "n/a";
-  if (typeof v === "string") return v;
   switch (unit) {
-    case "ratio":
-      return `${(v * 100).toFixed(1)} %`;
-    case "pct":
-    case "percent":
-      return `${v.toFixed(1)} %`;
-    case "currency":
-      return `${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}${currency ? ` ${currency}` : ""}`;
-    case "hours":
-      return `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} h`;
-    case "minutes":
-      return `${Math.round(v).toLocaleString()} min`;
+    case "%":
+      return pct(v);
+    case "count":
+    case "":
+      return num(v, 0);
+    case "h":
+      return `${num(v)} h`;
     case "turns":
-      return `${v.toFixed(1)} x`;
-    case "days":
-      return `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} days`;
+      return `${num(v)} turns`;
     default:
-      return `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}${unit && unit !== "count" ? ` ${unit}` : ""}`;
+      return `${unit} ${num(v, 0)}`;
   }
 }
 
-function trendValues(trend: DashboardTile["trend"]): { label: string; y: number | null }[] {
-  return (trend ?? []).map((p, i) => (typeof p === "object" && p !== null ? { label: (p as TrendPoint).x, y: (p as TrendPoint).y } : { label: `#${i + 1}`, y: p as number | null }));
+const PCT_KEYS = /(^|_)(load|adherence|oee|fpy|scrap_rate|wo_on_time|otd|lateness|utilisation|ratio|share)(_|$)/;
+const SKIP_KEYS = new Set(["id", "currency", "weights", "turns_note"]);
+
+/** One detail value by its key: fractions as %, `_h` hours, `value*` in currency, booleans as yes / no. */
+export function fmtDetail(key: string, v: unknown, currency?: string): string {
+  if (v === null || v === undefined) return "n/a";
+  if (typeof v === "boolean") return v ? "yes" : "no";
+  if (typeof v === "number") {
+    if (PCT_KEYS.test(key)) return pct(v);
+    if (/_h$/.test(key)) return `${num(v)} h`;
+    if (/(^|_)value(_|$)/.test(key)) return currency ? `${currency} ${num(v, 0)}` : num(v, 0);
+    return num(v);
+  }
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return v.map((x) => fmtObject(x, currency)).join("; ");
+  return fmtObject(v, currency);
+}
+
+function fmtObject(o: unknown, currency?: string): string {
+  if (o === null || typeof o !== "object") return fmtDetail("", o, currency);
+  const rec = o as Record<string, unknown>;
+  // a reference {id, code, name} reads as "AVN Avnet"
+  if ("name" in rec && ("code" in rec || "id" in rec) && Object.keys(rec).every((k) => ["id", "code", "name"].includes(k)))
+    return [rec.code, rec.name].filter(Boolean).join(" ");
+  return Object.entries(rec)
+    .filter(([k]) => !SKIP_KEYS.has(k) && !k.endsWith("_id"))
+    .map(([k, x]) => {
+      if (x !== null && typeof x === "object") return fmtObject(x, currency);
+      if (typeof x === "string") return x;
+      return `${humanize(k).toLowerCase()} ${fmtDetail(k, x, currency)}`;
+    })
+    .join(", ");
 }
 
 export function Sparkline({ tile, name }: { tile: DashboardTile; name: string }) {
-  const vals = trendValues(tile.trend);
-  const pts = vals.map((v, i) => ({ i, v: v.y })).filter((p): p is { i: number; v: number } => typeof p.v === "number");
+  const vals = tile.trend ?? [];
+  const pts = vals.map((v, i) => ({ i, v: v.value })).filter((p): p is { i: number; v: number } => typeof p.v === "number");
   if (pts.length < 2) return null;
   const W = 160;
   const H = 36;
@@ -95,37 +133,64 @@ export function Sparkline({ tile, name }: { tile: DashboardTile; name: string })
   const d = pts.map((p, k) => `${k ? "L" : "M"}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
   const first = pts[0];
   const last = pts[pts.length - 1];
-  const dir = last.v > first.v ? "up" : last.v < first.v ? "down" : "flat";
+  const dir = last.v > first.v ? "rising" : last.v < first.v ? "falling" : "flat";
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" className="kpi-spark" aria-label={`${name}: ${vals.length} points, from ${fmtTileValue(first.v, tile.unit)} to ${fmtTileValue(last.v, tile.unit)} (${dir})`}>
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      className="kpi-spark"
+      aria-label={`${name}: ${vals[0]?.period ?? ""} to ${vals[vals.length - 1]?.period ?? ""}, from ${fmtValue(first.v, tile.unit)} to ${fmtValue(last.v, tile.unit)} (${dir})`}
+    >
       <path d={d} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
       <circle cx={x(last.i)} cy={y(last.v)} r={2.5} fill="var(--accent)" />
     </svg>
   );
 }
 
-function thresholdText(t: DashboardTile): string | null {
-  const th = t.thresholds;
-  if (!th) return null;
+export function thresholdText(t: DashboardTile): string | null {
+  const th = t.thresholds ?? {};
+  const f = (v: unknown) => (typeof v === "number" ? fmtValue(v, t.unit) : null);
   const parts: string[] = [];
-  if (typeof th.alert === "number") parts.push(`needs attention below ${fmtTileValue(th.alert, t.unit)}`);
-  if (typeof th.watch === "number") parts.push(`watch below ${fmtTileValue(th.watch, t.unit)}`);
+  if (f(th.alert_below)) parts.push(`needs attention below ${f(th.alert_below)}`);
+  if (f(th.watch_below)) parts.push(`watch below ${f(th.watch_below)}`);
+  if (f(th.watch_above)) parts.push(`watch above ${f(th.watch_above)}`);
+  if (f(th.alert_above)) parts.push(`needs attention above ${f(th.alert_above)}`);
   return parts.length ? `Targets: ${parts.join(", ")}.` : null;
 }
 
-export function drillOf(t: DashboardTile): { label: string; to: string } | null {
-  const d = t.drill;
-  if (!d) return null;
-  const link = typeof d === "string" ? d : d.link;
-  const to = safeInternalLink(link);
-  if (!to) return null;
-  return { label: typeof d === "string" ? "Open the details" : d.label, to };
+export function drillLinks(t: DashboardTile): { label: string; to: string }[] {
+  return (t.drill ?? []).map((d) => ({ label: d.label, to: safeInternalLink(d.path) })).filter((d): d is { label: string; to: string } => Boolean(d.to));
+}
+
+function DetailList({ details, currency }: { details: Record<string, unknown>; currency?: string }) {
+  const rows = Object.entries(details ?? {}).filter(([k, v]) => !SKIP_KEYS.has(k) && !(k === "turns" && v === null && "turns_note" in details));
+  const note = typeof details?.turns_note === "string" && details.turns === null ? details.turns_note : null;
+  if (!rows.length && !note) return null;
+  return (
+    <dl className="dash-details">
+      {rows.map(([k, v]) => (
+        <div key={k}>
+          <dt>{humanize(k)}</dt>
+          <dd>{fmtDetail(k, v, currency)}</dd>
+        </div>
+      ))}
+      {note ? (
+        <div>
+          <dt>Turns</dt>
+          <dd>n/a ({note})</dd>
+        </div>
+      ) : null}
+    </dl>
+  );
 }
 
 export function TileCard({ name, tile, currency, extra }: { name: string; tile: DashboardTile; currency?: string; extra?: string | null }) {
-  const title = tileName(name, tile);
-  const drill = drillOf(tile);
+  const title = tileName(name);
+  const links = drillLinks(tile);
   const th = thresholdText(tile);
+  const cur = typeof tile.details?.currency === "string" ? tile.details.currency : currency;
   return (
     <article className="card dash-tile" data-testid={`tile-${name}`} data-status={tile.status} aria-label={title}>
       <div className="card-body col" style={{ gap: 6 }}>
@@ -134,27 +199,18 @@ export function TileCard({ name, tile, currency, extra }: { name: string; tile: 
           <TileStatusBadge status={tile.status} />
         </div>
         <div className="dash-tile-value" data-testid="tile-value">
-          {fmtTileValue(tile.value, tile.unit, currency)}
+          {fmtValue(tile.value, tile.unit)}
         </div>
-        {extra ? <span className="muted small">{extra}</span> : null}
+        <span className="muted small">{extra ?? TILE_NAMES[name]?.help ?? ""}</span>
         <Sparkline tile={tile} name={title} />
-        {tile.details?.length ? (
-          <dl className="dash-details">
-            {tile.details.map((d) => (
-              <div key={d.label}>
-                <dt>{d.label}</dt>
-                <dd>{fmtTileValue(d.value, d.unit, currency)}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
+        <DetailList details={tile.details} currency={cur} />
         {tile.note ? <span className="muted small">{tile.note}</span> : null}
         {th ? <span className="faint small">{th}</span> : null}
-        {drill ? (
-          <Link to={drill.to} className="small no-print" data-testid="tile-drill">
-            {drill.label} <Icon name="arrow-right" size={12} />
+        {links.map((d) => (
+          <Link key={d.to} to={d.to} className="small no-print" data-testid="tile-drill">
+            {d.label} <Icon name="arrow-right" size={12} />
           </Link>
-        ) : null}
+        ))}
       </div>
     </article>
   );

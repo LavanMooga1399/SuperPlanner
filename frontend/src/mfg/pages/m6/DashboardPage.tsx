@@ -10,11 +10,11 @@ import { ApiError } from "../../../api/client";
 import { Icon } from "../../../components/Icon";
 import { saveBlob } from "../../api/client";
 import { createDigest, deleteDigest, exportDashboard, getDashboard, listDigests, putDashboardThresholds } from "../../api/clientM6";
-import type { DashboardPeriod, DashboardResponse, DashboardThresholds, DigestInput } from "../../api/typesM6";
+import type { DashboardPeriod, DashboardResponse, DigestInput, ThresholdKey, ThresholdsInput } from "../../api/typesM6";
 import { MfgError, Spinner } from "../../components/Feedback";
 import { useAccess } from "../../lib/permissions";
-import { errorText, useLoad, usePlant } from "../../lib/useMfg";
-import { isPeriod, orderedTiles, PeriodSelect, TileCard, tileName } from "./dashboardBits";
+import { errorText, useLoad } from "../../lib/useMfg";
+import { isPeriod, orderedTiles, PeriodSelect, TileCard } from "./dashboardBits";
 
 export const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -22,11 +22,10 @@ export function DashboardPage() {
   const [params, setParams] = useSearchParams();
   const period: DashboardPeriod = isPeriod(params.get("period")) ? (params.get("period") as DashboardPeriod) : "13w";
   const dash = useLoad((signal) => getDashboard(period, signal), [period]);
-  const plant = usePlant();
   const access = useAccess();
   const [busy, setBusy] = useState<string | null>(null);
   const [exportErr, setExportErr] = useState<unknown>(null);
-  const canTune = access.isOwner || Boolean(access.me?.roles?.includes("plant_admin"));
+  const canTune = access.isOwner || access.can("owner") || Boolean(access.me?.roles?.includes("plant_admin"));
   useEffect(() => {
     document.title = "Plant dashboard - SuperPlanner";
   }, []);
@@ -49,8 +48,7 @@ export function DashboardPage() {
         <div>
           <h1 style={{ margin: 0 }}>Plant dashboard</h1>
           <span className="muted small">
-            {plant.data?.name ? `${plant.data.name} · ` : ""}
-            {d ? `as of ${new Date(d.as_of).toLocaleString()}` : ""}
+            {d ? `${d.plant.name ? `${d.plant.name} · ` : ""}as of ${new Date(d.as_of).toLocaleString()}` : ""}
           </span>
         </div>
         <div className="row wrap no-print" style={{ gap: 8 }}>
@@ -72,7 +70,7 @@ export function DashboardPage() {
       {d ? (
         <div className="dash-grid" data-testid="dash-tiles">
           {orderedTiles(d.tiles).map(([k, t]) => (
-            <TileCard key={k} name={k} tile={t} currency={plant.data?.currency} />
+            <TileCard key={k} name={k} tile={t} currency={d.plant.currency} />
           ))}
         </div>
       ) : null}
@@ -95,7 +93,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const mine = (list.data?.items ?? []).filter((x) => x.scope === scope && x.scope_id === scopeId);
-  const emailOff = noSmtp || list.data?.email_available === false;
+  const emailOff = noSmtp;
 
   const add = async () => {
     setBusy(true);
@@ -135,6 +133,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
                   <li key={s.id} className="row" style={{ gap: 8 }} data-testid="digest-row">
                     <Icon name="calendar" size={14} />
                     {s.frequency === "daily" ? "Every day" : `Every ${WEEKDAY_NAMES[s.weekday ?? 0] ?? "week"}`} at {s.local_time}
+                    {s.time_zone ? <span className="muted small">({s.time_zone})</span> : null}
                     {s.last_sent_at ? <span className="muted small">last sent {new Date(s.last_sent_at).toLocaleString()}</span> : null}
                     <button type="button" className="btn ghost sm" onClick={() => void deleteDigest(s.id).then(list.reload, setErr)} aria-label="Stop this digest">
                       <Icon name="trash" /> Stop
@@ -179,17 +178,29 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
   );
 }
 
-/** D7: per-tile watch / alert targets (owner, plant admin). Values in the tile's unit; ratios as percent. */
+/** D7 keys (`model_m6.DEFAULT_THRESHOLDS`): direction, unit and the server defaults. */
+const THRESHOLD_ROWS: { key: ThresholdKey; label: string; dir: "below" | "above"; unit: "%" | "count"; watch: number; alert: number }[] = [
+  { key: "otd", label: "On-time delivery", dir: "below", unit: "%", watch: 0.95, alert: 0.85 },
+  { key: "adherence", label: "Schedule adherence", dir: "below", unit: "%", watch: 0.85, alert: 0.7 },
+  { key: "fpy", label: "First-pass yield", dir: "below", unit: "%", watch: 0.98, alert: 0.95 },
+  { key: "backlog_load", label: "Backlog vs capacity", dir: "above", unit: "%", watch: 0.9, alert: 1.1 },
+  { key: "material_risk", label: "Items short (material risk)", dir: "above", unit: "count", watch: 1, alert: 10 },
+  { key: "late_pos", label: "Late purchase orders", dir: "above", unit: "count", watch: 1, alert: 10 },
+];
+const TILE_OF: Partial<Record<ThresholdKey, string>> = { otd: "otd", backlog_load: "backlog", material_risk: "material_risk", late_pos: "late_pos" };
+
+/** D7: watch / attention targets per measure (owner, plant admin). Percentages are entered as percent. */
 function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): void }) {
   const [open, setOpen] = useState(false);
-  const tiles = orderedTiles(dash.tiles).filter(([, t]) => t.thresholds);
   const init = () => {
     const out: Record<string, { watch: string; alert: string }> = {};
-    for (const [k, t] of tiles) {
-      const pct = t.unit === "ratio" ? 100 : 1;
-      const w = t.thresholds?.watch;
-      const a = t.thresholds?.alert;
-      out[k] = { watch: typeof w === "number" ? String(+(w * pct).toFixed(4)) : "", alert: typeof a === "number" ? String(+(a * pct).toFixed(4)) : "" };
+    for (const r of THRESHOLD_ROWS) {
+      const th = (TILE_OF[r.key] ? dash.tiles[TILE_OF[r.key]!]?.thresholds : undefined) ?? {};
+      const w = r.dir === "below" ? th.watch_below : th.watch_above;
+      const a = r.dir === "below" ? th.alert_below : th.alert_above;
+      const k = r.unit === "%" ? 100 : 1;
+      const show = (v: unknown, d: number) => String(+((typeof v === "number" ? v : d) * k).toFixed(4));
+      out[r.key] = { watch: show(w, r.watch), alert: show(a, r.alert) };
     }
     return out;
   };
@@ -197,16 +208,15 @@ function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): voi
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
-  if (!tiles.length) return null;
   const save = async () => {
     setBusy(true);
     setErr(null);
     setMsg(null);
-    const out: DashboardThresholds = {};
-    for (const [k, t] of tiles) {
-      const pct = t.unit === "ratio" ? 100 : 1;
-      const num = (s: string) => (s.trim() === "" ? null : Number(s) / pct);
-      out[k] = { watch: num(f[k].watch), alert: num(f[k].alert) };
+    const out: ThresholdsInput["thresholds"] = {};
+    for (const r of THRESHOLD_ROWS) {
+      const k = r.unit === "%" ? 100 : 1;
+      const v = (s: string) => (s.trim() === "" ? null : Number(s) / k);
+      out[r.key] = r.dir === "below" ? { watch_below: v(f[r.key].watch), alert_below: v(f[r.key].alert) } : { watch_above: v(f[r.key].watch), alert_above: v(f[r.key].alert) };
     }
     try {
       await putDashboardThresholds({ thresholds: out });
@@ -218,46 +228,50 @@ function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): voi
       setBusy(false);
     }
   };
-  const bad = Object.values(f).some((v) => [v.watch, v.alert].some((s) => s.trim() !== "" && !Number.isFinite(Number(s))));
+  const bad = Object.values(f).some((v) => [v.watch, v.alert].some((s) => s.trim() !== "" && !(Number.isFinite(Number(s)) && Number(s) >= 0)));
   return (
     <section className="card" data-testid="dash-thresholds">
       <div className="card-body col">
-        <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="dash-thresholds-toggle">
           <Icon name={open ? "chevron-down" : "chevron-right"} /> Adjust targets (owner, plant admin)
         </button>
         {open ? (
           <>
             <p className="muted small" style={{ margin: 0 }}>
-              A tile shows "Watch" below the watch value and "Needs attention" below the alert value. Percentages are entered as percent.
+              A tile shows "Watch" past the watch value and "Needs attention" past the attention value. Percentages are entered as percent.
             </p>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Tile</th>
-                  <th>Watch below</th>
-                  <th>Needs attention below</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tiles.map(([k, t]) => (
-                  <tr key={k}>
-                    <td>{tileName(k, t)}</td>
-                    {(["watch", "alert"] as const).map((which) => (
-                      <td key={which}>
-                        <input
-                          className="input"
-                          inputMode="decimal"
-                          aria-label={`${tileName(k, t)}: ${which === "watch" ? "watch below" : "needs attention below"}${t.unit === "ratio" ? " (%)" : ""}`}
-                          value={f[k]?.[which] ?? ""}
-                          onChange={(e) => setF({ ...f, [k]: { ...f[k], [which]: e.target.value } })}
-                          data-testid={`threshold-${k}-${which}`}
-                        />
-                      </td>
-                    ))}
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Measure</th>
+                    <th scope="col">Watch</th>
+                    <th scope="col">Needs attention</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {THRESHOLD_ROWS.map((r) => (
+                    <tr key={r.key}>
+                      <th scope="row" style={{ fontWeight: 500 }}>
+                        {r.label} <span className="muted small">({r.dir}{r.unit === "%" ? ", %" : ""})</span>
+                      </th>
+                      {(["watch", "alert"] as const).map((which) => (
+                        <td key={which}>
+                          <input
+                            className="input"
+                            inputMode="decimal"
+                            aria-label={`${r.label}: ${which === "watch" ? "watch" : "needs attention"} ${r.dir}${r.unit === "%" ? " (%)" : ""}`}
+                            value={f[r.key][which]}
+                            onChange={(e) => setF({ ...f, [r.key]: { ...f[r.key], [which]: e.target.value } })}
+                            data-testid={`threshold-${r.key}-${which}`}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div className="row" style={{ gap: 8 }}>
               <button type="button" className="btn primary" disabled={busy || bad} onClick={() => void save()} data-testid="thresholds-save">
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save targets

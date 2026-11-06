@@ -21,8 +21,8 @@ def test_migration_0006_to_0007_and_back(empty_pg_db):
     url = empty_pg_db()
     migrate.run_alembic_upgrade(url, "0006_mfg_m4")
     t6 = _tables(url)
-    migrate.run_alembic_upgrade(url)
-    assert migrate.HEAD == "0007_m5" and migrate.schema_state(url) == "current"
+    migrate.run_alembic_upgrade(url, "0007_m5")
+    assert migrate.schema_state(url) == "behind"
     assert _tables(url) - t6 == set(M5_TABLES)
     eng = sa.create_engine(url)
     try:

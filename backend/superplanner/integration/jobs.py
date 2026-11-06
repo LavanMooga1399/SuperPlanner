@@ -11,7 +11,8 @@ def target_model(kind: str) -> Any:
     return {"integration_import": m.IntInboxRow, "integration_filedrop": m.MaintenanceRunRow,
             "integration_delivery": m.MaintenanceRunRow, "integration_reconcile": m.IntReconciliationRow,
             "org_publish": m.OrgPublishRow, "maintenance_retention": m.MaintenanceRunRow,
-            "trace_backfill": m.MaintenanceRunRow}[kind]
+            "trace_backfill": m.MaintenanceRunRow, "push_delivery": m.MaintenanceRunRow,
+            "digest_send": m.MaintenanceRunRow, "inventory_snapshot": m.MaintenanceRunRow}[kind]
 
 
 def handler(kind: str) -> Callable[..., None]:
@@ -35,6 +36,10 @@ def handler(kind: str) -> Callable[..., None]:
         from ..orgs import service
 
         return service.run_publish_job
+    if kind in ("push_delivery", "digest_send", "inventory_snapshot"):     # M6-DESIGN 6
+        from .. import m6jobs
+
+        return m6jobs.handler(kind)
     from ..api.mfg.services import maintenance
 
     return maintenance.run_job

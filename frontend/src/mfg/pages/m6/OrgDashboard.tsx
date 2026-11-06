@@ -10,14 +10,14 @@ import type { DashboardPeriod, DashboardTile } from "../../api/typesM6";
 import { MfgError, Spinner } from "../../components/Feedback";
 import { useLoad } from "../../lib/useMfg";
 import { DigestSettings } from "./DashboardPage";
-import { fmtTileValue, PeriodSelect, TileCard, TileStatusBadge, TILE_NAMES, tileName } from "./dashboardBits";
+import { fmtValue, PeriodSelect, TileCard, TileStatusBadge, TILE_NAMES, tileName } from "./dashboardBits";
 
 function Cell({ t }: { t: DashboardTile | undefined }) {
   if (!t) return <td className="muted">n/a</td>;
   return (
     <td>
       <div className="col" style={{ gap: 2 }}>
-        <span className="mfg-num">{fmtTileValue(t.value, t.unit)}</span>
+        <span className="mfg-num">{fmtValue(t.value, t.unit)}</span>
         <TileStatusBadge status={t.status} />
       </div>
     </td>
@@ -52,7 +52,7 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
             {keys
               .filter((k) => d.totals[k])
               .map((k) => (
-                <TileCard key={k} name={k} tile={d.totals[k]} extra={d.totals[k].weights ? `All plants: ${d.totals[k].weights}` : "All plants"} />
+                <TileCard key={k} name={k} tile={d.totals[k]} extra={typeof d.totals[k].details?.weights === "string" ? `All plants, weighted by ${d.totals[k].details.weights}` : "All plants"} />
               ))}
           </div>
           <div className="table-wrap">
@@ -62,9 +62,9 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
                 <tr>
                   <th scope="col">Tile</th>
                   {d.plants.map((p) => (
-                    <th key={p.owner_id} scope="col" data-testid="org-dash-plant">
-                      {p.plant_code ? `${p.plant_code} ` : ""}
-                      {p.plant_name}
+                    <th key={p.plant.owner_id} scope="col" data-testid="org-dash-plant">
+                      {p.plant.code ? `${p.plant.code} ` : ""}
+                      {p.plant.name}
                     </th>
                   ))}
                   <th scope="col">All plants</th>
@@ -73,9 +73,9 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
               <tbody>
                 {keys.map((k) => (
                   <tr key={k}>
-                    <th scope="row">{tileName(k, d.totals[k] ?? d.plants.find((p) => p.tiles[k])?.tiles[k])}</th>
+                    <th scope="row">{tileName(k)}</th>
                     {d.plants.map((p) => (
-                      <Cell key={p.owner_id} t={p.tiles[k]} />
+                      <Cell key={p.plant.owner_id} t={p.tiles[k]} />
                     ))}
                     <Cell t={d.totals[k]} />
                   </tr>

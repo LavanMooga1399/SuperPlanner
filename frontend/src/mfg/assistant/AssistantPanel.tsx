@@ -30,7 +30,7 @@ import type { AssistantStatus, AssistantTurn, Conversation, QuickExplanation, Qu
 import { useAccess } from "../lib/permissions";
 import { errorText, isAbortError, useLoad } from "../lib/useMfg";
 import { currentWorkspace } from "../lib/workspace";
-import { AnswerText, CitationList } from "./AnswerText";
+import { AnswerText, CitationList, QuickView } from "./AnswerText";
 import { DraftCardView } from "./DraftCardView";
 import { aiCodeText, budgetText, contextFromPath, isLastingCode, LATE_CONTEXTS, stepView, SUGGESTED_QUESTIONS } from "./assistantText";
 
@@ -65,7 +65,7 @@ export function aiErrorCode(e: unknown): string | null {
 function turnError(t: AssistantTurn): { code: string | null; text: string } | null {
   if (t.status === "cancelled") return { code: null, text: "Stopped." };
   if (t.status !== "failed") return null;
-  const code = t.error?.code ?? t.error_code ?? null;
+  const code = t.error?.code ?? null;
   return { code, text: t.error?.message || aiCodeText(code, "The question could not be answered.") };
 }
 
@@ -119,7 +119,7 @@ function QuickExplanations({ context, onNavigate }: { context: ReturnType<typeof
         {res?.data ? (
           <div className="asst-bubble" data-testid="asst-quick-result" data-kind={res.data.kind}>
             <strong>{res.data.title}</strong>
-            {res.data.empty && !res.data.answer ? <p className="muted">Nothing to explain here.</p> : <AnswerText text={res.data.answer} citations={res.data.citations} onNavigate={onNavigate} testId="asst-quick-answer" />}
+            <QuickView q={res.data} onNavigate={onNavigate} />
             <CitationList citations={res.data.citations} onNavigate={onNavigate} />
           </div>
         ) : null}
@@ -183,11 +183,6 @@ function TurnView({ turn, onNavigate, onStop }: { turn: AssistantTurn; onNavigat
           </p>
         </div>
       ) : null}
-      {(turn.notes ?? []).map((n, i) => (
-        <p key={i} className="muted small" style={{ margin: 0 }}>
-          <Icon name="info" size={12} /> {n}
-        </p>
-      ))}
       {(turn.drafts ?? []).length ? (
         <div className="col" style={{ gap: 8 }} data-testid="asst-drafts">
           <span className="small muted">Suggested actions (nothing is changed until you apply one):</span>
@@ -201,14 +196,13 @@ function TurnView({ turn, onNavigate, onStop }: { turn: AssistantTurn; onNavigat
 }
 
 // ---------------------------------------------------------------- ask
-function Unavailable({ status, onRetry }: { status: AssistantStatus | null; onRetry(): void }) {
-  const code = status?.code ?? null;
+function Unavailable({ code, message, onRetry }: { code: string | null; message?: string; onRetry(): void }) {
   return (
     <div className="asst-off" role="status" data-testid="asst-unavailable" data-code={code ?? ""}>
       <Icon name={code === "AI_PLANT_OPTED_OUT" ? "ban" : "info"} />
       <div>
         <strong>Asking in your own words is not available</strong>
-        <p style={{ margin: "2px 0" }}>{aiCodeText(code)}</p>
+        <p style={{ margin: "2px 0" }}>{aiCodeText(code, message || undefined)}</p>
         {code ? <span className="chip mono" data-testid="asst-code">{code}</span> : null}
         <p className="muted small" style={{ margin: "4px 0 0" }}>The quick explanations above work without it.</p>
         {!isLastingCode(code) ? (
@@ -259,7 +253,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
   const pollRef = useRef<number | null>(null);
   const listEnd = useRef<HTMLLIElement | null>(null);
   const running = turns.find((t) => !FINAL.has(t.status)) ?? null;
-  const whatifAllowed = status.allow_whatif !== false;
+  const whatifAllowed = status.plant.assistant_allow_whatif;
 
   // load the remembered conversation
   useEffect(() => {
@@ -267,7 +261,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
     const c = new AbortController();
     getConversation(convId, c.signal).then(
       (conv) => {
-        setTurns(conv.turns ?? []);
+        setTurns(conv.history ?? []);
         setWhatif(conv.allow_whatif && whatifAllowed);
       },
       (e: unknown) => {
@@ -325,8 +319,14 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
         setConvId(id);
         writeSession(convKey(), id);
       }
-      const r = await startTurn(id, { text: question.slice(0, 4000), context: sendCtx && context ? { type: context.type, id: context.id } : null, allow_whatif: whatif });
-      setTurns((prev) => [...prev, { id: r.turn_id, conversation_id: id!, status: "queued", user_text: question, steps: [], answer: null, citations: [], drafts: [] }]);
+      const ctx = sendCtx && context ? { type: context.type, id: context.id } : null;
+      const r = await startTurn(id, { text: question.slice(0, status.max_text_chars || 4000), context: ctx, allow_whatif: whatif });
+      const placeholder: AssistantTurn = {
+        id: r.turn_id, conversation_id: r.conversation_id || id, status: r.status ?? "queued", user_text: question, context: ctx, allow_whatif: whatif,
+        steps: [], answer: null, citations: [], drafts: [], error: null, model: null, fallback_code: null,
+        tokens: { input: 0, output: 0, cache_read: 0 }, rounds: 0, created_at: new Date().toISOString(), started_at: null, finished_at: null,
+      };
+      setTurns((prev) => [...prev, placeholder]);
       setText("");
       poll(r.turn_id);
     } catch (e) {
@@ -420,7 +420,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
           id="asst-input"
           className="textarea"
           rows={3}
-          maxLength={4000}
+          maxLength={status.max_text_chars || 4000}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -524,15 +524,15 @@ export function AssistantBody({ onNavigate }: { onNavigate?: () => void }) {
           Ask the assistant
         </h3>
         {!mayUse && !access.loading ? (
-          <Unavailable status={{ available: false, code: "MFG_FORBIDDEN", privacy_notice: "", budget_left: null }} onRetry={() => undefined} />
+          <Unavailable code="AI_FORBIDDEN" onRetry={() => undefined} />
         ) : status.loading && !st ? (
           <p className="muted small" role="status">
             <span className="spinner" aria-hidden /> Checking…
           </p>
         ) : status.error && !st ? (
-          <Unavailable status={{ available: false, code: aiErrorCode(status.error) ?? "AI_CONNECTION_ERROR", privacy_notice: "", budget_left: null }} onRetry={status.reload} />
+          <Unavailable code={aiErrorCode(status.error) ?? "AI_CONNECTION_ERROR"} onRetry={status.reload} />
         ) : st && !st.available ? (
-          <Unavailable status={st} onRetry={status.reload} />
+          <Unavailable code={st.code} message={st.message} onRetry={status.reload} />
         ) : st ? (
           <Ask status={st} reloadStatus={status.reload} onNavigate={onNavigate} />
         ) : null}

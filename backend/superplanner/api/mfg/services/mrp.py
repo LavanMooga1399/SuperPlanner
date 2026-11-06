@@ -132,7 +132,9 @@ def _with_schedule(ctx: AppContext, params: MrpParams, as_of: date) -> MrpParams
     return params.model_copy(update={"supply_date_overrides": list(params.supply_date_overrides) + extra})
 
 
-def create_run(ctx: AppContext, params: MrpParams) -> dict[str, Any]:
+def create_run(ctx: AppContext, params: MrpParams, *, force_what_if: bool = False) -> dict[str, Any]:
+    """`force_what_if` (M6-DESIGN 1.3: assistant runs): the run is `what_if` whatever its inputs (never convertible
+    and never the plant's live plan)."""
     t0 = time.monotonic()
     actor = actor_id()
 
@@ -150,7 +152,8 @@ def create_run(ctx: AppContext, params: MrpParams) -> dict[str, Any]:
         n = int(s.execute(select(func.coalesce(func.max(MfgMrpRunRow.run_no), 0))).scalar() or 0) + 1
         as_of = params.as_of or d
         now = utcnow()
-        run = MfgMrpRunRow(id=new_id("mrr_"), run_no=n, kind="what_if" if _what_if(params, d) else "live",
+        run = MfgMrpRunRow(id=new_id("mrr_"), run_no=n,
+                           kind="what_if" if force_what_if or _what_if(params, d) else "live",
                            status="running", label=params.label, note=params.note, pinned=False,
                            params=params.model_dump(mode="json"), as_of=as_of,
                            horizon_days=params.horizon_days or p.planning_horizon_days, master_fingerprint="",

@@ -148,6 +148,9 @@ class MfgDowntimeRow(OwnedMixin, _Editable, Base):
     closed_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     #: `Idempotency-Key` of the POST (offline tablets replay their queue, 16.WP-S)
     idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    #: M6-DESIGN 2: who saw it (supervisor acknowledgement)
+    acknowledged_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = _dt()
 
 
 class MfgUnitSerialRow(OwnedMixin, _Editable, Base):

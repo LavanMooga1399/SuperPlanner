@@ -235,12 +235,14 @@ def _created_from_job(s: Session, job: Any) -> dict[str, Any]:
 
 
 def create_run(ctx: AppContext, body: ApsParams, idem_key: str | None, *, extras: dict[str, Any] | None = None,
-               delay_minutes: int = 0) -> tuple[dict[str, Any], bool]:
-    """`extras` / `delay_minutes`: M4 replan proposals (7: trigger ids, policy; the job's `run_after` debounce)."""
+               delay_minutes: int = 0, force_what_if: bool = False) -> tuple[dict[str, Any], bool]:
+    """`extras` / `delay_minutes`: M4 replan proposals (7: trigger ids, policy; the job's `run_after` debounce).
+    `force_what_if` (M6-DESIGN 1.3: assistant runs): kind `what_if` whatever the inputs (never publishable)."""
     idem = idempotency.Idempotency(idem_key, idempotency.request_hash("aps_run", {}, body.model_dump(mode="json"))) \
         if idem_key else None
     try:
-        return _create_run(ctx, body, idem, extras=extras, delay_minutes=delay_minutes), False
+        return _create_run(ctx, body, idem, extras=extras, delay_minutes=delay_minutes,
+                           force_what_if=force_what_if), False
     except idempotency.Replay as rp:
         return rp.body, True
     except IntegrityError as exc:
@@ -253,13 +255,15 @@ def create_run(ctx: AppContext, body: ApsParams, idem_key: str | None, *, extras
 
 
 def _create_run(ctx: AppContext, body: ApsParams, idem: Any, *, extras: dict[str, Any] | None = None,
-                delay_minutes: int = 0) -> dict[str, Any]:
+                delay_minutes: int = 0, force_what_if: bool = False) -> dict[str, Any]:
     actor = actor_id()
     with write_tx(ctx, lock=False) as (s, _p):
         repo.lock_plant(s)              # m4: run_no races serialise on the plant row
         if idem is not None:
             idempotency.lookup(s, idem, ctx.settings.idempotency_ttl_hours, _created_from_job)
         params, kind, as_of, mrp, copy_of = _resolve(s, body)
+        if force_what_if:
+            kind = "what_if"
         carry = _carried_locks(s, copy_of) if copy_of else []
         active = s.execute(select(MfgApsRunRow.run_no).where(MfgApsRunRow.status.in_(("queued", "running")))).first()
         if active is not None:

@@ -29,20 +29,25 @@ PERMISSIONS: tuple[str, ...] = ("view", "master_edit", "supplier_edit", "invento
                                 # M4-DESIGN 11
                                 "floor_view", "floor_report", "floor_supervise", "downtime_report", "replan_manage",
                                 # M5-DESIGN 9
-                                "trace_view", "eco_edit", "eco_approve", "transfer_edit", "integration_admin")
+                                "trace_view", "eco_edit", "eco_approve", "transfer_edit", "integration_admin",
+                                # M6-DESIGN 5
+                                "assistant_use")
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "owner": frozenset(PERMISSIONS),
     "plant_admin": frozenset(PERMISSIONS),          # M5-DESIGN 3.4: owner-equivalent in an organisation's plant
     "planner": frozenset({"view", "master_edit", "supplier_edit", "pr_edit", "demand_edit", "wo_edit", "mrp_run",
                           "schedule_run", "schedule_publish", "import",   # M3-DESIGN 11
-                          "floor_view", "floor_report", "downtime_report", "replan_manage", "trace_view", "eco_edit", "transfer_edit"}),   # M4-DESIGN 11
-    "purchaser": frozenset({"view", "supplier_edit", "pr_edit", "po_edit", "floor_view", "trace_view"}),
-    "store_keeper": frozenset({"view", "inventory", "floor_view", "trace_view", "transfer_edit"}),
-    "approver": frozenset({"view", "pr_approve", "floor_view", "trace_view", "eco_approve"}),
-    "viewer": frozenset({"view", "floor_view", "trace_view"}),
+                          "floor_view", "floor_report", "downtime_report", "replan_manage", "trace_view", "eco_edit", "transfer_edit",
+                          "assistant_use"}),   # M4-DESIGN 11, M6 5
+    "purchaser": frozenset({"view", "supplier_edit", "pr_edit", "po_edit", "floor_view", "trace_view",
+                            "assistant_use"}),
+    "store_keeper": frozenset({"view", "inventory", "floor_view", "trace_view", "transfer_edit", "assistant_use"}),
+    "approver": frozenset({"view", "pr_approve", "floor_view", "trace_view", "eco_approve", "assistant_use"}),
+    "viewer": frozenset({"view", "floor_view", "trace_view", "assistant_use"}),
     # M4-DESIGN 0.4 / 11: tablets (personal or station accounts) and shift supervisors
     "operator": frozenset({"view", "floor_view", "floor_report", "downtime_report", "trace_view"}),
-    "supervisor": frozenset({"view", "floor_view", "floor_report", "floor_supervise", "downtime_report", "trace_view"}),
+    "supervisor": frozenset({"view", "floor_view", "floor_report", "floor_supervise", "downtime_report", "trace_view",
+                            "assistant_use"}),   # M6 5: every plant role except operator
 }
 ROLE_LABELS = {"owner": "Owner", "planner": "Planner", "purchaser": "Purchaser", "store_keeper": "Store keeper",
                "approver": "Approver", "viewer": "Viewer", "operator": "Operator", "supervisor": "Supervisor",

@@ -50,10 +50,12 @@ from ..identity import router as identity_router
 from ..integration import router as integration_router
 from ..orgs import router as orgs_router
 from .mfg import router_m5 as mfg_router_m5
+from .mfg import router_m6 as mfg_router_m6
 from .routes import health, metrics, problems, schedules, solver_runs, templates
 
 API_PREFIX = "/api/v1"
-EXPOSE_HEADERS = ["ETag", "Location", "Content-Disposition", "X-Request-ID", "Idempotent-Replayed", "Retry-After"]
+EXPOSE_HEADERS = ["ETag", "Location", "Content-Disposition", "X-Request-ID", "Idempotent-Replayed", "Retry-After",
+                  "SP-Read-After"]
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -76,6 +78,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # context (outermost: every response carries X-Request-ID and is logged/measured once).
     app.add_middleware(OwnershipScopeMiddleware)
     app.add_middleware(BodySizeLimitMiddleware, max_body_bytes=settings.max_body_bytes)
+    if settings.database_read_url:      # M6-DESIGN 4.2: read-your-writes marker (no change without a replica)
+        from .ha import ReadAfterWriteMiddleware
+
+        app.add_middleware(ReadAfterWriteMiddleware, cookie_secure=bool(settings.cookie_secure))
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins or []),
                        allow_credentials=settings.cors_allow_credentials, allow_methods=["*"], allow_headers=["*"],
                        expose_headers=EXPOSE_HEADERS)
@@ -90,13 +96,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     protected = (templates.router, problems.router, solver_runs.router, schedules.router, finance_router.router,
                  intake_router.router, mfg_router.router, mfg_router_m2.router,
                  mfg_router_m3.router, mfg_router_m4.router, identity_router.tokens_router,
-                 integration_router.router, orgs_router.router, mfg_router_m5.router, mfg_router_m5.audit_router)
+                 integration_router.router, orgs_router.router, mfg_router_m5.router, mfg_router_m5.audit_router,
+                 mfg_router_m6.router, mfg_router_m6.platform_router)
     for r in protected:
         app.include_router(r, prefix=API_PREFIX, dependencies=[Depends(require_user)])
     body_gate.install(app, protected)   # 401/403 before 422 also for unparseable JSON bodies
     if settings.metrics_enabled:
         app.include_router(metrics.router)   # root, outside /api/v1 (B 5.4)
     intake_service.install(app, settings)   # per-app AI concurrency slots (PHASE2 2.10)
+    from ..assistant import service as assistant_service
+
+    assistant_service.install(app, settings)   # M6-DESIGN 1.1: the assistant's own slots
     return app
 
 

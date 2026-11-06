@@ -379,11 +379,44 @@ questions on the Kavach sample.
 1. **Q1 AI provider approval.** The assistant sends questions and the looked-up planning records (no prices or
    personal data by default) to Anthropic. It ships switched off; may HBL's security policy allow enabling it, for all
    plants or only some?
+   **Decided (2026-11-06):** the assistant ships **off by default** (`ASSISTANT_AI_ENABLED=false`); enabling it is a
+   deployment decision of the operator (HBL security sign-off), and every plant can opt out
+   (`plant.assistant_enabled`, owner / plant admin). The built-in explanations work regardless.
 2. **Q2 Hosting.** Will production run on HBL premises or in a cloud? Both HA setups are documented (on-premises
    Patroni is the default recommendation); this only decides which runbook set is rehearsed.
+   **Decided (2026-11-06):** DEPLOY.md documents both (managed cloud PostgreSQL HA and on-premises Patroni); the
+   **on-premises Patroni set is the rehearsed default** (runbooks R1-R11 are written for it, with cloud notes).
 
 ## 11. Implementation notes
 
 ### 11.WP-S Backend
+
+**S0 frozen (2026-11-06).** Contract: `assistant/model.py` (status, conversations, turns, steps, citations, draft
+cards, quick explanations), `push/model.py` (VAPID key, subscriptions, payload), `mfg/model_m6.py` (dashboard tiles,
+org dashboard, thresholds, digests, approvals). `DowntimeRecord` gains `acknowledged_by` / `acknowledged_at`.
+Typed examples: `backend/superplanner/assistant/fixtures/example_m6.json` (built and validated by
+`build_example.py`; includes the scripted "why is DO-KV-003/10 late" turn with tool steps, four citations and two
+draft cards, error envelopes, push, dashboard, org dashboard, digest, approvals). Migration `0008_m6` =
+`migrate.HEAD` (expand; up/down + ORM == schema tested). Route table (`tests/auth/route_table.py`): 16 new `/mfg`
+operations with their permission, 8 protected platform operations (`/push/*`, `/digests*`,
+`/orgs/{org_id}/dashboard`). Dashboards answer from the fixture until S2; everything else is live.
+For UI work without a model key: `ASSISTANT_AI_DEMO=true` (development only) runs a scripted assistant over the
+real tools (no network).
+
+Contract decisions made at S0:
+1. New route `PUT /mfg/plant/assistant {assistant_enabled, assistant_allow_whatif}` (perm `owner` = owner /
+   plant_admin): the opt-out is not part of `PlantInput` (a full-replace PUT used by the M1 bundle import; adding
+   fields there would reset them on every plant save). Current values: `GET /mfg/assistant/status` -> `plant`.
+   New `GET /push/subscriptions` (the user's devices) next to M1-M3.
+2. `GET /mfg/assistant/conversations/{id}` returns the conversation with `history` (turns, oldest first).
+   Turn `context.type` is one of `demand_line, demand_order, work_order, item, purchase_order, line, aps_run,
+   mrp_run, eco, supplier, page`. The per-turn `allow_whatif` sets the conversation's switch; true while the plant
+   disallows -> 422 `AI_WHATIF_NOT_ALLOWED`.
+3. Quick explanation citations use `Q1, Q2, ...` (same shape as assistant citations).
+4. Errors as 422 with the code in `details.code` also for `AI_DISABLED` / `AI_SDK_MISSING` / `AI_NO_CREDENTIALS`;
+   409 `AI_TURN_RUNNING` carries `details.turn_id`.
+5. `assistant_turns` and `assistant_refs` carry `owner_id` (plant-owned like the conversation; the ownership filter
+   covers them directly); `assistant_usage`, `push_subscriptions`, `digest_subscriptions` are platform tables.
+   `digest_subscriptions` gains `time_zone` (the plant's zone at subscribe time; organisations: UTC).
 
 ### 11.WP-U UI

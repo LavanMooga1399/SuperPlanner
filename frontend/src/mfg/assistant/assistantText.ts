@@ -1,5 +1,5 @@
 /** Plain-language texts of the assistant (M6 1.1, 1.2, 1.7; P2 2.12 catalog wording). */
-import type { AiCode, DraftKind, TurnStep } from "../api/typesM6";
+import type { AiCode, BudgetLeft, ContextType, DraftKind, TurnStep } from "../api/typesM6";
 
 export const AI_CODE_TEXT: Record<string, string> = {
   AI_DISABLED: "The assistant is turned off on this server.",
@@ -9,6 +9,10 @@ export const AI_CODE_TEXT: Record<string, string> = {
   AI_BUDGET_EXCEEDED: "Today's assistant allowance is used up. It resets tomorrow.",
   AI_WHATIF_NOT_ALLOWED: "This plant does not allow the assistant to run what-if plans.",
   AI_TURN_RUNNING: "You already have a question running. Wait for it or stop it first.",
+  AI_FORBIDDEN: "Your role in this plant does not include the assistant.",
+  AI_ROUND_LIMIT: "The question needed more look-ups than allowed; the answer covers what was found.",
+  AI_TURN_LOST: "The server stopped working on this question. Ask again.",
+  AI_CANCELLED: "Stopped.",
   AI_BUSY: "The assistant is handling other requests. Try again in a moment.",
   AI_RATE_LIMITED: "The assistant is busy right now (rate limit); try again in a minute.",
   AI_AUTH_FAILED: "The assistant is not set up correctly (the credentials were rejected).",
@@ -27,7 +31,7 @@ export function aiCodeText(code: AiCode | null | undefined, fallback?: string): 
 
 /** Codes that will not go away by retrying now (no "try again" button). */
 export function isLastingCode(code: string | null | undefined): boolean {
-  return ["AI_DISABLED", "AI_SDK_MISSING", "AI_NO_CREDENTIALS", "AI_PLANT_OPTED_OUT", "AI_BUDGET_EXCEEDED", "AI_AUTH_FAILED", "MFG_FORBIDDEN"].includes(code ?? "");
+  return ["AI_DISABLED", "AI_SDK_MISSING", "AI_NO_CREDENTIALS", "AI_PLANT_OPTED_OUT", "AI_BUDGET_EXCEEDED", "AI_AUTH_FAILED", "AI_FORBIDDEN", "MFG_FORBIDDEN"].includes(code ?? "");
 }
 
 const TOOL_TEXT: Record<string, string> = {
@@ -54,19 +58,21 @@ const TOOL_TEXT: Record<string, string> = {
 export interface StepView {
   kind: string;
   text: string;
+  ok: boolean;
 }
 
-/** `thinking` / `tool: <name> (<summary>)` / `answer` (or the object form) -> one line for the progress list. */
+/** A turn step (`{kind, name, summary: "tool: demand_status (DO-KV-003/10)"}`) as one line of the progress list. */
 export function stepView(s: TurnStep): StepView {
-  if (typeof s !== "string") {
-    if (s.kind === "tool") return { kind: "tool", text: `${TOOL_TEXT[s.name ?? ""] ?? s.name ?? "Tool"}${s.summary ? ` (${s.summary})` : ""}` };
-    return { kind: s.kind, text: s.kind === "thinking" ? "Thinking" : s.kind === "answer" ? "Writing the answer" : String(s.kind) };
+  const ok = s.ok !== false;
+  if (s.kind === "tool") {
+    const m = (s.summary ?? "").match(/^tool:\s*([a-z_]+)\s*(?:\((.*)\))?\s*$/i);
+    const name = s.name ?? m?.[1] ?? "";
+    const detail = m ? m[2] : s.summary && !s.summary.startsWith("tool:") ? s.summary : "";
+    return { kind: "tool", text: `${TOOL_TEXT[name] ?? (name.replace(/_/g, " ") || "Looking something up")}${detail ? ` (${detail})` : ""}`, ok };
   }
-  const m = s.match(/^tool:\s*([a-z_]+)\s*(?:\((.*)\))?\s*$/i);
-  if (m) return { kind: "tool", text: `${TOOL_TEXT[m[1]] ?? m[1]}${m[2] ? ` (${m[2]})` : ""}` };
-  if (s === "thinking") return { kind: "thinking", text: "Thinking" };
-  if (s === "answer") return { kind: "answer", text: "Writing the answer" };
-  return { kind: "other", text: s };
+  if (s.kind === "thinking") return { kind: "thinking", text: "Thinking", ok };
+  if (s.kind === "answer") return { kind: "answer", text: "Writing the answer", ok };
+  return { kind: s.kind, text: s.summary || s.kind, ok };
 }
 
 export const DRAFT_KIND_TEXT: Record<string, string> = {
@@ -79,7 +85,7 @@ export const DRAFT_KIND_TEXT: Record<string, string> = {
   whatif_run: "Start a what-if run",
 };
 
-export function draftKindText(k: DraftKind): string {
+export function draftKindText(k: DraftKind | (string & {})): string {
   return DRAFT_KIND_TEXT[k] ?? k.replace(/_/g, " ");
 }
 
@@ -90,16 +96,15 @@ export const SUGGESTED_QUESTIONS = [
 ];
 
 /** The page the user is on, sent as the turn `context` and used by "Why late?" (1.2, 1.7). */
-export function contextFromPath(pathname: string, search = ""): { type: string; id: string; label: string } | null {
+export function contextFromPath(pathname: string, search = ""): { type: ContextType; id: string; label: string } | null {
   const q = new URLSearchParams(search);
-  const rules: [RegExp, string, string][] = [
+  const rules: [RegExp, ContextType, string][] = [
     [/^\/mfg\/demand\/([^/]+)/, "demand_order", "this demand order"],
     [/^\/mfg\/work-orders\/(?!kitting)([^/]+)/, "work_order", "this work order"],
     [/^\/mfg\/items\/([^/]+)/, "item", "this item"],
     [/^\/mfg\/schedule\/runs\/([^/]+)/, "aps_run", "this schedule run"],
     [/^\/mfg\/mrp\/runs\/([^/]+)/, "mrp_run", "this MRP run"],
     [/^\/mfg\/purchasing\/orders\/([^/]+)/, "purchase_order", "this purchase order"],
-    [/^\/mfg\/purchasing\/requests\/([^/]+)/, "purchase_request", "this purchase request"],
     [/^\/mfg\/purchasing\/suppliers\/([^/]+)/, "supplier", "this supplier"],
     [/^\/mfg\/eco\/([^/]+)/, "eco", "this change request"],
     [/^\/mfg\/floor\/lines\/([^/]+)/, "line", "this line"],
@@ -120,9 +125,9 @@ export function contextFromPath(pathname: string, search = ""): { type: string; 
 /** "Why late?" makes sense for these contexts. */
 export const LATE_CONTEXTS = new Set(["demand_order", "demand_line", "work_order"]);
 
-export function budgetText(b: number | { user: number; plant: number } | null | undefined): string | null {
-  if (b === null || b === undefined) return null;
-  const n = typeof b === "number" ? b : Math.min(b.user, b.plant);
+export function budgetText(b: BudgetLeft | null | undefined): string | null {
+  if (!b) return null;
+  const n = Math.min(b.user, b.plant);
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M tokens left today`;
   if (n >= 1000) return `${Math.round(n / 1000)} k tokens left today`;
   return `${n} tokens left today`;

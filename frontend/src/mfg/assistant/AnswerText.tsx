@@ -2,12 +2,12 @@
  * Assistant answers (M6 1.5): a markdown subset - paragraphs, `-`/`*`/`1.` lists, **bold**, `code` and fenced code
  * blocks - rendered as React text nodes only (no HTML parsing, no `dangerouslySetInnerHTML`, no images). Links are
  * never taken from the text: markdown links, bare URLs and HTML stay plain text. `[R7]` markers become internal
- * links only when the server returned citation R7 for this answer with an internal path (`/mfg/...`); markers the
+ * links only when the server returned citation R7 (Q2 for quick explanations) for this answer with an internal path (`/mfg/...`); markers the
  * server did not issue are dropped (the server strips them too, T-A4).
  */
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import type { Citation } from "../api/typesM6";
+import type { Citation, QuickExplanation } from "../api/typesM6";
 
 /** Only same-origin app paths (no scheme, no `//host`, no backslash tricks). */
 export function safeInternalLink(link: string | null | undefined): string | null {
@@ -18,7 +18,7 @@ export function safeInternalLink(link: string | null | undefined): string | null
   return link;
 }
 
-const MARKER = /\[(R\d{1,4})\]/g;
+const MARKER = /\[([RQ]\d{1,4})\]/g;
 
 function CitationLink({ c, onNavigate }: { c: Citation; onNavigate?: () => void }) {
   const to = safeInternalLink(c.link);
@@ -164,5 +164,37 @@ export function CitationList({ citations, onNavigate }: { citations: Citation[];
         })}
       </ol>
     </details>
+  );
+}
+
+/** A quick explanation (1.7): sections of plain-text items, each with its citation refs as internal links. */
+export function QuickView({ q, onNavigate }: { q: QuickExplanation; onNavigate?: () => void }) {
+  const cites = new Map(q.citations.map((c) => [c.ref, c]));
+  const sections = q.sections.filter((s) => s.items.length);
+  if (!sections.length)
+    return (
+      <p className="muted" style={{ margin: 0 }} data-testid="asst-quick-empty">
+        {q.empty_message || "Nothing to explain here."}
+      </p>
+    );
+  return (
+    <div className="asst-answer" data-testid="asst-quick-answer">
+      {sections.map((s, i) => (
+        <section key={i}>
+          <strong className="small">{s.title}</strong>
+          <ul>
+            {s.items.map((it, j) => (
+              <li key={j}>
+                {it.text}{" "}
+                {it.refs.map((r) => {
+                  const c = cites.get(r);
+                  return c ? <CitationLink key={r} c={c} onNavigate={onNavigate} /> : null;
+                })}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }

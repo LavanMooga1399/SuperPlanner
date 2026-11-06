@@ -66,6 +66,10 @@ class MfgPlantRow(OwnedMixin, _Editable, Base):
                                                                nullable=True)
     backflush_location_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_locations.id", ondelete="SET NULL"),
                                                               nullable=True)
+    # M6-DESIGN 1.1 / 3.1 (server defaults in 0008 for existing rows; Python defaults for older writers)
+    assistant_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    assistant_allow_whatif: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    dashboard_thresholds: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
 
 
 class MfgItemRow(OwnedMixin, _Editable, Base):

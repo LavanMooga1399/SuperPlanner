@@ -29,7 +29,7 @@ def records(s: Session, rows: list[MfgDowntimeRow], triggers: list[dict[str, Any
         return []
     lines = {ln.id: ln for ln in s.execute(select(MfgLineRow).where(
         MfgLineRow.id.in_({r.line_id for r in rows}))).scalars()}
-    names = user_names(s, [x for r in rows for x in (r.reported_by, r.closed_by) if x])
+    names = user_names(s, [x for r in rows for x in (r.reported_by, r.closed_by, r.acknowledged_by) if x])
     out = []
     for r in rows:
         ln = lines.get(r.line_id)
@@ -45,7 +45,11 @@ def records(s: Session, rows: list[MfgDowntimeRow], triggers: list[dict[str, Any
                     if r.reported_by else None,
                     "closed_by": {"id": r.closed_by, "code": "", "name": names.get(r.closed_by, "")}
                     if r.closed_by else None,
-                    "triggers": triggers or []})
+                    "triggers": triggers or [],
+                    # M6-DESIGN 2: who saw it
+                    "acknowledged_by": {"id": r.acknowledged_by, "code": "", "name": names.get(r.acknowledged_by, "")}
+                    if r.acknowledged_by else None,
+                    "acknowledged_at": as_utc(r.acknowledged_at)})
     return out
 
 
@@ -179,6 +183,22 @@ def update_downtime(ctx: AppContext, downtime_id: str, inp: DowntimeUpdate, if_m
         touch(row, now)
         s.flush()
         audit(s, "downtime", row.id, "update", {"version": row.row_version, "closed": row.end_at is not None})
+        return records(s, [row])[0]
+
+    return run_tx(ctx, fn)
+
+
+def acknowledge(ctx: AppContext, downtime_id: str, client_id: str | None = None) -> dict[str, Any]:
+    """M6-DESIGN 2 (M4 #mobile): a supervisor saw the downtime. Idempotent (offline replays with the same client id
+    or a second acknowledgement return the record unchanged; the first acknowledger is kept)."""
+    def fn(s: Session) -> dict[str, Any]:
+        row = repo.get_row(s, MfgDowntimeRow, downtime_id, what="Downtime", lock=True)
+        if row.acknowledged_at is None:
+            row.acknowledged_by, row.acknowledged_at = actor_id(), utcnow()
+            touch(row)
+            s.flush()
+            audit(s, "downtime", row.id, "acknowledge", {"version": row.row_version,
+                                                         **({"client_id": client_id} if client_id else {})})
         return records(s, [row])[0]
 
     return run_tx(ctx, fn)

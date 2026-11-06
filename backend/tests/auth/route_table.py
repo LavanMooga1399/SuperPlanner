@@ -600,6 +600,38 @@ PROTECTED_M5 = frozenset({
     ("PUT", "/orgs/{org_id}/plants/{plant}"),
 })
 PROTECTED = PROTECTED | PROTECTED_M5
+# M6-DESIGN 5: /mfg assistant, mobile, dashboards (one permission each) + platform push / digests / org dashboard
+MFG_PERMISSIONS_M6 = {
+    ("GET", "/mfg/assistant/status"): "assistant_use",
+    ("GET", "/mfg/assistant/quick"): "view",
+    ("GET", "/mfg/assistant/conversations"): "assistant_use",
+    ("POST", "/mfg/assistant/conversations"): "assistant_use",
+    ("GET", "/mfg/assistant/conversations/{conversation_id}"): "assistant_use",
+    ("DELETE", "/mfg/assistant/conversations/{conversation_id}"): "assistant_use",
+    ("POST", "/mfg/assistant/conversations/{conversation_id}/turns"): "assistant_use",
+    ("GET", "/mfg/assistant/turns/{turn_id}"): "assistant_use",
+    ("POST", "/mfg/assistant/turns/{turn_id}/cancel"): "assistant_use",
+    ("POST", "/mfg/assistant/drafts/{draft_id}/applied"): "assistant_use",
+    ("PUT", "/mfg/plant/assistant"): "owner",
+    ("POST", "/mfg/downtime/{downtime_id}/acknowledge"): "floor_view",
+    ("GET", "/mfg/approvals"): "view",
+    ("GET", "/mfg/dashboard"): "view",
+    ("GET", "/mfg/dashboard/export"): "view",
+    ("PUT", "/mfg/plant/dashboard-thresholds"): "owner",
+}
+MFG_PERMISSIONS.update(MFG_PERMISSIONS_M6)
+MFG_PROTECTED = MFG_PROTECTED | frozenset(MFG_PERMISSIONS_M6)
+PROTECTED_M6 = frozenset({
+    ("GET", "/push/vapid-public-key"),
+    ("GET", "/push/subscriptions"),
+    ("POST", "/push/subscriptions"),
+    ("DELETE", "/push/subscriptions/{subscription_id}"),
+    ("GET", "/digests"),
+    ("POST", "/digests"),
+    ("DELETE", "/digests/{digest_id}"),
+    ("GET", "/orgs/{org_id}/dashboard"),
+})
+PROTECTED = PROTECTED | PROTECTED_M6
 # M5 auth additions resolve the session themselves (config / OIDC public; TOTP steps need a session or a pending login)
 PUBLIC_ALLOWLIST = PUBLIC_ALLOWLIST | frozenset({
     ("GET", "/auth/config"),
