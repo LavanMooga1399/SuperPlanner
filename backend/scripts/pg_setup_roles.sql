@@ -51,6 +51,9 @@ GRANT USAGE ON SCHEMA public TO :"app";
 
 -- Existing objects (re-run after a restore or on an already migrated database) ...
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"app";
+-- audit rows are append-only for the application (M5-DESIGN 7, 15.WP-S); migration 0007 revokes it for new tables
+SELECT format('REVOKE UPDATE, DELETE ON audit_events FROM %I', :'app') WHERE to_regclass('public.audit_events') IS NOT NULL
+\gexec
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO :"app";
 -- ... and every object the owner creates from now on (migrations).
 ALTER DEFAULT PRIVILEGES FOR ROLE :"owner" IN SCHEMA public

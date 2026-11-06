@@ -148,7 +148,7 @@ class AuditEventRow(Base):
     actor_id: Mapped[str | None] = mapped_column(String(64), nullable=True)   # user id; no FK (survives deletion)
     #: M5-DESIGN 7: the plant of the event (None for platform events) and the per-owner hash chain
     owner_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    chain_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    chain_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
 
 # ---------------------------------------------------------------- jobs (PHASE2B 2.3)

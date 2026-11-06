@@ -82,6 +82,17 @@ def put_settings(ctx: AppContext, inp: Any, if_match: str | None) -> dict[str, A
 
     def fn(s: Session) -> dict[str, Any]:
         r = s.execute(select(IntSettingsRow).with_for_update()).scalars().first()
+        if inp.plant_code:                   # names the file-drop folders: unique across plants (15.WP-S)
+            from ...db.ownership import current_owner, system_scope
+
+            me = current_owner()
+            with system_scope():
+                other = s.execute(select(IntSettingsRow.owner_id).where(
+                    func.lower(IntSettingsRow.plant_code) == inp.plant_code.lower(),
+                    IntSettingsRow.owner_id != me)).first()
+            if other is not None:
+                raise ApiError(409, "INT_PLANT_CODE_TAKEN", f"Plant code {inp.plant_code!r} is used by another "
+                               "plant.", {"loc": ["body", "plant_code"]})
         now = utcnow()
         sor = {**SOR_DEFAULTS, **inp.sor}
         sor["po_receipts"] = inp.goods_receipts_owner           # 14 Q2: one switch, kept in step
@@ -107,7 +118,13 @@ def put_settings(ctx: AppContext, inp: Any, if_match: str | None) -> dict[str, A
                                                           "goods_receipts_owner": r.goods_receipts_owner})
         return settings_record(r)
 
-    return run_tx(ctx, fn)
+    try:
+        return run_tx(ctx, fn)
+    except IntegrityError as exc:            # a concurrent save of the same code
+        if "uq_int_settings_plant_code" in str(exc.orig):
+            raise ApiError(409, "INT_PLANT_CODE_TAKEN", f"Plant code {inp.plant_code!r} is used by another plant.",
+                           {"loc": ["body", "plant_code"]}) from None
+        raise
 
 
 def check_local_item_write(s: Session, before: Any | None, after: Any) -> None:
@@ -128,6 +145,39 @@ def check_local_write(s: Session, entity: str, fields: list[str] | None = None) 
         return
     raise ApiError(409, "INT_ERP_OWNED", f"{entity.replace('_', ' ').capitalize()} are maintained in the ERP for "
                    "this plant.", {"fields": fields or ["document"], "entity": entity})
+
+
+def track_shared(s: Session, entity: str, record_id: str, ref: str | None, version_before: int | None,
+                 version_after: int, changed: bool) -> None:
+    """4.4 `shared` SoR: remember the row version an inbound write leaves; when the inbound write changes a record
+    that was also changed locally since the previous sync, log a conflict (last writer - the ERP - still wins)."""
+    from ..db_models_m5 import IntSyncStateRow
+
+    st = s.execute(select(IntSyncStateRow).where(IntSyncStateRow.entity == entity,
+                                                 IntSyncStateRow.record_id == record_id).with_for_update()
+                   ).scalars().first()
+    now = utcnow()
+    if st is None:
+        s.add(IntSyncStateRow(id=new_id("iss_"), entity=entity, record_id=record_id, ref=ref,
+                              synced_version=int(version_after), synced_at=now, conflict=None, conflict_at=None))
+        s.flush()
+        return
+    if changed and version_before is not None and int(version_before) != int(st.synced_version):
+        st.conflict = {"entity": entity, "record_id": record_id, "ref": ref, "synced_version": st.synced_version,
+                       "local_version": int(version_before), "erp_version": int(version_after),
+                       "message": "Changed in SuperPlanner and in the ERP since the last sync; the ERP value "
+                                  "was applied (last writer wins)."}
+        st.conflict_at = now
+    st.synced_version, st.synced_at, st.ref = int(version_after), now, ref or st.ref
+    s.flush()
+
+
+def shared_conflicts(s: Session, entities: tuple[str, ...]) -> list[dict[str, Any]]:
+    from ..db_models_m5 import IntSyncStateRow
+
+    return [{**(r.conflict or {}), "detected_at": as_utc(r.conflict_at).isoformat()} for r in s.execute(
+        select(IntSyncStateRow).where(IntSyncStateRow.entity.in_(entities), IntSyncStateRow.conflict_at.is_not(None))
+        .order_by(IntSyncStateRow.conflict_at.desc()).limit(1000)).scalars()]
 
 
 def check_local_po_receipt(s: Session) -> None:
@@ -373,11 +423,15 @@ def _items(ctx: AppContext, batch: C.V1Batch, maps: dict[tuple[str, str], str], 
 
             for i, r, ref in live:
                 row = s.execute(select(MfgItemRow).where(MfgItemRow.part_number == r["part_number"],
-                                                         MfgItemRow.revision == r["revision"])).scalars().first()
+                                                         MfgItemRow.revision == r["revision"])
+                                .execution_options(populate_existing=True)).scalars().first()
                 was = before.get((r["part_number"], r["revision"]))
                 status = "created" if was is None else ("updated" if row is not None and row.id in changed
                                                         else "unchanged")
                 results[i] = {"ref": ref, "status": status, "id": row.id if row else None, "errors": []}
+                if sor == "shared" and row is not None:
+                    track_shared(s, "items", row.id, ref, was.row_version if was is not None else None,
+                                 row.row_version, status == "updated")
             if live:
                 audit(s, "integration_batch", None, "items_chunk", {"records": len(live)})
     return [results[i] for i in range(len(batch.records))]
@@ -801,6 +855,8 @@ def reconcile(ctx: AppContext, inp: Any) -> dict[str, Any]:
             res["sor_conflicts"] = ([{"entity": ent, "message": f"{ent} are maintained in SuperPlanner; the ERP "
                                       "snapshot is informational."}] if sor == "superplanner" and ent != "stock"
                                     else [])
+            if ent == "items":                      # 4.4: conflicts of shared items / suppliers since the last sync
+                res["sor_conflicts"] += shared_conflicts(s, ("items", "suppliers"))
             results[ent] = res
             summary[ent] = {k: len(v) for k, v in res.items()}
     now = utcnow()

@@ -246,6 +246,11 @@ def via_bundle(ctx: Any, batch: C.V1Batch, maps: dict[tuple[str, str], str]) -> 
                 except Reject as e:
                     results[i] = rejected(rec.ref, e.code, e.message, **e.details)
             before = {i: _doc_ids(s, key)[0] for i, (_r, key) in rows_of.items()}
+            shared = batch.entity == "supplier" and _sor(s, "suppliers") == "shared"
+            if shared:
+                from ..api.mfg.db_models_m2 import MfgSupplierRow
+
+                ver_before = {i: s.get(MfgSupplierRow, d).row_version for i, d in before.items() if d}
             live = [i for i, _r in chunk if i in rows_of]
             plan = None
             for _attempt in range(3):
@@ -289,8 +294,23 @@ def via_bundle(ctx: Any, batch: C.V1Batch, maps: dict[tuple[str, str], str]) -> 
                     st = "created" if before[i] is None else (
                         "updated" if did in changed or kids & changed else "unchanged")
                     results[i] = {"ref": rec_ref, "status": st, "id": did, "errors": []}
+                    if shared and did:
+                        from ..api.mfg.db_models_m2 import MfgSupplierRow
+                        from ..api.mfg.services.integration import track_shared
+
+                        s.flush()
+                        row = s.get(MfgSupplierRow, did)
+                        s.refresh(row)
+                        track_shared(s, "suppliers", did, rec_ref, ver_before.get(i), row.row_version,
+                                     st == "updated")
                 audit(s, "integration_batch", None, f"{batch.entity}_chunk", {"records": len(live)})
     return [results[i] for i in range(n)]
+
+
+def _sor(s: Session, entity: str) -> str:
+    from ..api.mfg.services.integration import sor_of
+
+    return sor_of(s, entity)
 
 
 def chunk_ref(batch: C.V1Batch, i: int) -> str:

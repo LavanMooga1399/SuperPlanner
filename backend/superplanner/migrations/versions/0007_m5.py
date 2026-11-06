@@ -27,7 +27,7 @@ TABLES = ('user_identities', 'user_totp', 'oidc_states', 'auth_pending_logins', 
           'org_plants', 'org_publishes', 'maintenance_runs', 'int_settings', 'int_endpoints', 'int_value_maps',
           'int_mapping_profiles', 'int_inbox', 'int_outbox', 'int_deliveries', 'int_reconciliations',
           'mfg_change_requests', 'mfg_change_request_items', 'mfg_trace_edges', 'mfg_recalls', 'mfg_transfer_orders',
-          'mfg_transfer_lines')
+          'mfg_transfer_lines', 'int_sync_state', 'audit_chain_heads')
 JOB_TARGETS = (('int_inbox_id', 'int_inbox'),
                ('int_reconciliation_id', 'int_reconciliations'),
                ('maintenance_run_id', 'maintenance_runs'), ('org_publish_id', 'org_publishes'))
@@ -43,7 +43,7 @@ def _json() -> sa.types.TypeEngine:
 def _columns_up() -> None:
     op.add_column("users", sa.Column("kind", sa.String(16), nullable=False, server_default=sa.text("'person'")))
     op.add_column("audit_events", sa.Column("owner_id", sa.String(64), nullable=True))
-    op.add_column("audit_events", sa.Column("chain_hash", sa.String(64), nullable=True))
+    op.add_column("audit_events", sa.Column("chain_hash", sa.String(80), nullable=True))
     op.create_index("ix_audit_owner_id", "audit_events", ["owner_id", "id"])
     op.add_column("mfg_boms", sa.Column("locked_by_cr_id", sa.String(64), nullable=True))
     op.add_column("mfg_routings", sa.Column("locked_by_cr_id", sa.String(64), nullable=True))
@@ -476,6 +476,41 @@ def upgrade() -> None:
     )
     op.create_index('ix_mfg_transfer_lines_item', 'mfg_transfer_lines', ['item_id'])
     op.create_index('ix_mfg_transfer_lines_owner', 'mfg_transfer_lines', ['owner_id'])
+    # 15.WP-S (security review, before release): shared-SoR sync state, audit chain heads, unique plant codes,
+    # append-only audit rows for every role but the owner
+    op.create_table(
+        'int_sync_state',
+        sa.Column('id', sa.String(64), primary_key=True, nullable=False),
+        sa.Column('entity', sa.String(32), nullable=False),
+        sa.Column('record_id', sa.String(64), nullable=False),
+        sa.Column('ref', sa.String(64), nullable=True),
+        sa.Column('synced_version', sa.Integer(), nullable=False),
+        sa.Column('synced_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('conflict', _json(), nullable=True),
+        sa.Column('conflict_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('owner_id', sa.String(64),
+                  sa.ForeignKey('users.id', ondelete='RESTRICT',
+                                name='fk_int_sync_state_owner_id_users'), nullable=False),
+        sa.UniqueConstraint('owner_id', 'entity', 'record_id', name='uq_int_sync_state_record'),
+    )
+    op.create_index('ix_int_sync_state_conflicts', 'int_sync_state', ['owner_id', 'conflict_at'])
+    op.create_table(
+        'audit_chain_heads',
+        sa.Column('owner_key', sa.String(64), primary_key=True, nullable=False),
+        sa.Column('last_id', sa.BigInteger(), nullable=False),
+        sa.Column('head_hash', sa.String(80), nullable=False),
+        sa.Column('mac', sa.String(80), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    )
+    op.create_index('uq_int_settings_plant_code', 'int_settings', [sa.text('lower(plant_code)')], unique=True,
+                    postgresql_where=sa.text("plant_code <> ''"))
+    op.execute("""DO $$ DECLARE r record; BEGIN
+  FOR r IN SELECT DISTINCT grantee FROM information_schema.role_table_grants
+           WHERE table_name = 'audit_events' AND privilege_type IN ('UPDATE', 'DELETE')
+             AND grantee NOT IN (current_user, 'PUBLIC') LOOP
+    EXECUTE format('REVOKE UPDATE, DELETE ON audit_events FROM %I', r.grantee);
+  END LOOP;
+END $$""")
 
     _jobs_up()
 

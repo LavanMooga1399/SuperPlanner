@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import (BigInteger, Boolean, Date, DateTime, Double, ForeignKey, Identity, Index, Integer, String, Text,
+from sqlalchemy import (text, BigInteger, Boolean, Date, DateTime, Double, ForeignKey, Identity, Index, Integer, String, Text,
                         UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -173,11 +173,26 @@ class MaintenanceRunRow(Base):
     finished_at: Mapped[datetime | None] = _dt()
 
 
+class AuditChainHeadRow(Base):
+    """Per-owner head of the audit hash chain (`owner_key` '' = platform): last id / hash and a keyed MAC over them,
+    written at commit - detects deleted newest rows (15.WP-S)."""
+    __tablename__ = "audit_chain_heads"
+
+    owner_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    last_id: Mapped[int] = mapped_column(BigInteger)
+    head_hash: Mapped[str] = _s(80)
+    mac: Mapped[str] = _s(80)
+    updated_at: Mapped[datetime] = _dt(False)
+
+
 # ---------------------------------------------------------------- integration (4.1), owned by the plant
 
 class IntSettingsRow(OwnedMixin, _Editable, Base):
     __tablename__ = "int_settings"
-    __table_args__ = (UniqueConstraint("owner_id", name="uq_int_settings_owner"),)
+    __table_args__ = (UniqueConstraint("owner_id", name="uq_int_settings_owner"),
+                      # plant codes name the file-drop folders: unique across plants (15.WP-S)
+                      Index("uq_int_settings_plant_code", text("lower(plant_code)"), unique=True,
+                            postgresql_where=text("plant_code <> ''")))
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     enabled: Mapped[bool] = mapped_column(Boolean)
@@ -222,6 +237,23 @@ class IntMappingProfileRow(OwnedMixin, _Editable, Base):
     name: Mapped[str] = _s(100)
     file_pattern: Mapped[str] = _s(200)
     mapping: Mapped[dict[str, Any]] = mapped_column(JsonType)
+
+
+class IntSyncStateRow(OwnedMixin, Base):
+    """4.4 `shared` SoR: the row version an inbound write left on a record, and the last conflict (both sides
+    changed the record since the previous sync), reported by reconciliation (`sor_conflicts`)."""
+    __tablename__ = "int_sync_state"
+    __table_args__ = (UniqueConstraint("owner_id", "entity", "record_id", name="uq_int_sync_state_record"),
+                      Index("ix_int_sync_state_conflicts", "owner_id", "conflict_at"))
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    entity: Mapped[str] = _s(32)
+    record_id: Mapped[str] = _s(64)
+    ref: Mapped[str | None] = _s(64, True)
+    synced_version: Mapped[int] = mapped_column(Integer)
+    synced_at: Mapped[datetime] = _dt(False)
+    conflict: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
+    conflict_at: Mapped[datetime | None] = _dt()
 
 
 class IntInboxRow(OwnedMixin, Base):
@@ -401,11 +433,12 @@ class MfgTransferLineRow(OwnedMixin, _Editable, Base):
 
 
 M5_PLATFORM_MODELS: tuple[type[Base], ...] = (UserIdentityRow, UserTotpRow, OidcStateRow, PendingLoginRow, ApiTokenRow,
-                                              OrgRow, OrgMemberRow, OrgPlantRow, OrgPublishRow, MaintenanceRunRow)
+                                              OrgRow, OrgMemberRow, OrgPlantRow, OrgPublishRow, MaintenanceRunRow,
+                                              AuditChainHeadRow)
 M5_OWNED_MODELS: tuple[type[Base], ...] = (IntSettingsRow, IntEndpointRow, IntValueMapRow, IntMappingProfileRow,
                                            IntInboxRow, IntOutboxRow, IntDeliveryRow, IntReconciliationRow,
                                            MfgChangeRequestRow, MfgChangeRequestItemRow, MfgTraceEdgeRow, MfgRecallRow,
-                                           MfgTransferOrderRow, MfgTransferLineRow)
+                                           MfgTransferOrderRow, MfgTransferLineRow, IntSyncStateRow)
 M5_TABLES: tuple[str, ...] = tuple(m.__tablename__ for m in M5_PLATFORM_MODELS + M5_OWNED_MODELS)
 #: reset (M2 9.4) deletes these in reverse; trace edges are append-only traceability (I3) but belong to the plant's
 #: data like the ledger, so a reset (which also deletes the ledger) removes them too

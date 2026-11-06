@@ -146,6 +146,8 @@ def cmd_reassign_owner(db: Database, args: argparse.Namespace, out: TextIO) -> N
                                "first")
         counts: dict[str, int] = {}
         for t in owned_tables():
+            if t.name == "audit_events":       # append-only; the chain hash covers owner_id (M5-DESIGN 7)
+                continue
             if args.dry_run:
                 counts[t.name] = int(s.scalar(select(func.count()).select_from(t)
                                               .where(t.c.owner_id == src.id)) or 0)

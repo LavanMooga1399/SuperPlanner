@@ -53,3 +53,19 @@ def test_t_o1_user_across_two_plants_isolated(db_url):
         assert bt.get(f"{MFG}/items").json()["total"] == 1                  # plant token: plant A only
         assert bt.get(f"{MFG}/items", headers={"X-SP-Workspace": b["plant_owner_id"]}).status_code == 404
         assert bt.get(f"{V1}/orgs").status_code == 403
+
+
+def test_plant_codes_are_unique_across_plants(db_url):
+    app = acc_app(db_url)
+    with TestClient(app):
+        admin = sign_up(app, "pc@hbl.example")
+        org = admin.post(f"{V1}/orgs", json={"name": "HBL", "slug": "hbl-pc"}).json()
+        a = admin.post(f"{V1}/orgs/{org['id']}/plants", json={"code": "HYD", "name": "H"}).json()
+        b = admin.post(f"{V1}/orgs/{org['id']}/plants", json={"code": "BLR", "name": "B"}).json()
+        body = {"enabled": True, "plant_code": "HBL1", "sor": {}}
+        r = admin.put(f"{V1}/integration/settings", json=body,
+                      headers={"If-Match": '"0"', "X-SP-Workspace": a["plant_owner_id"]})
+        assert r.status_code == 200, r.text
+        r = admin.put(f"{V1}/integration/settings", json={**body, "plant_code": "hbl1"},
+                      headers={"If-Match": '"0"', "X-SP-Workspace": b["plant_owner_id"]})
+        assert r.status_code == 409 and r.json()["error"]["code"] == "INT_PLANT_CODE_TAKEN"

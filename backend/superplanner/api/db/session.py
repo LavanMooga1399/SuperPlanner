@@ -42,6 +42,14 @@ class Database:
 
     @classmethod
     def from_settings(cls, settings: Any, service: str = "api") -> "Database":
+        db = cls._from(settings, service)
+        from ..audit_chain import configure                    # keyed audit chain (M5-DESIGN 7, 15.WP-S)
+
+        configure(db.engine, list(getattr(settings, "secrets_keys", None) or []))
+        return db
+
+    @classmethod
+    def _from(cls, settings: Any, service: str) -> "Database":
         return cls(settings.database_url, pool_size=settings.db_pool_size, max_overflow=settings.db_max_overflow,
                    pool_timeout=settings.db_pool_timeout_seconds,
                    statement_timeout_ms=settings.db_statement_timeout_ms,

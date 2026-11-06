@@ -133,3 +133,19 @@ def test_large_batch_is_queued(env):  # noqa: F811
             break
         time.sleep(0.2)
     assert b["status"] == "completed" and b["counts"] == {"created": 501}, b["counts"]
+
+
+def test_shared_sor_logs_conflicts(env):  # noqa: F811
+    it, api, _app, _r = env
+    _enable(it, sor={"items": "shared"})
+    it.batch("item", ITEMS[:1], "c1")
+    item = api.by_pn("R-10K")
+    body = {k: item[k] for k in ("part_number", "revision", "description", "uom", "make_buy", "active",
+                                 "external_ref")}
+    api.put(f"/items/{item['id']}", {**body, "description": "Local"}, item["row_version"])   # shared: allowed
+    it.batch("item", [{**ITEMS[0], "description": "From ERP"}], "c2")                      # both changed
+    assert api.by_pn("R-10K")["description"] == "From ERP"                                   # last writer wins
+    it.batch("item", [{**ITEMS[0], "description": "ERP again"}], "c3")                     # no local change
+    rec = it.req("POST", "/reconciliations", 201, json={"entities": ["items"], "records": {"items": []}}).json()
+    conf = rec["results"]["items"]["sor_conflicts"]
+    assert len(conf) == 1 and conf[0]["ref"] == "ERP-1" and conf[0]["entity"] == "items"
