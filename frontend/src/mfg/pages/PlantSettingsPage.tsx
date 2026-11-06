@@ -6,6 +6,8 @@ import { WEEKDAYS, type PlantInput, type PlantRecord, type Weekday } from "../ap
 import type { PlantM2Fields } from "../api/typesM2";
 import { OVERTIME_POLICIES, type OvertimePolicy, type PlantM3Fields } from "../api/typesM3";
 import type { PlantM4Fields, ReplanPolicy } from "../api/typesM4";
+import type { PlantM6Fields } from "../api/typesM6";
+import { useAccess } from "../lib/permissions";
 import { listLocations } from "../api/clientM2";
 import { POLICY_TEXT } from "./schedule/ApsRunForm";
 import { WEEKDAY_LABEL } from "../lib/format";
@@ -24,6 +26,8 @@ const REPLAN_HELP: Record<ReplanPolicy, string> = {
 
 export function PlantSettingsPage() {
   const plant = usePlant();
+  const access = useAccess();
+  const adminish = access.isOwner || Boolean(access.me?.roles?.includes("plant_admin"));
   const [base, setBase] = useState<PlantRecord | null>(null);
   const [f, setF] = useState({
     name: "",
@@ -45,6 +49,8 @@ export function PlantSettingsPage() {
     adherence: "120",
     receiptLoc: "",
     backflushLoc: "",
+    assistantOn: true,
+    assistantWhatif: true,
   });
   const locs = useLoad((signal) => listLocations({ active: true }, signal).catch(() => null), []);
   const meta = useMeta() as (ReturnType<typeof useMeta> & { time_zones?: string[] }) | null;
@@ -85,6 +91,8 @@ export function PlantSettingsPage() {
       adherence: String((p as PlantRecord & PlantM4Fields).adherence_tolerance_minutes ?? 120),
       receiptLoc: (p as PlantRecord & PlantM4Fields).wo_receipt_location_id ?? "",
       backflushLoc: (p as PlantRecord & PlantM4Fields).backflush_location_id ?? "",
+      assistantOn: (p as PlantRecord & PlantM6Fields).assistant_enabled ?? true,
+      assistantWhatif: (p as PlantRecord & PlantM6Fields).assistant_allow_whatif ?? true,
     });
     setConflict(false);
   };
@@ -124,7 +132,11 @@ export function PlantSettingsPage() {
         backflush_location_id: f.backflushLoc || null,
       }
     : {};
-  const body: PlantInput & PlantM2Fields & PlantM3Fields & PlantM4Fields = {
+  // M6 6: assistant opt-out, only when the server knows it (changed by the owner / a plant admin)
+  const m6 = "assistant_enabled" in base;
+  const m6Body: PlantM6Fields = m6 ? { assistant_enabled: f.assistantOn, assistant_allow_whatif: f.assistantWhatif } : {};
+  const body: PlantInput & PlantM2Fields & PlantM3Fields & PlantM4Fields & PlantM6Fields = {
+    ...m6Body,
     ...m3Body,
     ...m4Body,
     name: f.name.trim() || "Plant",
@@ -262,6 +274,24 @@ export function PlantSettingsPage() {
                 <TextField label="On time if within (min)" type="number" value={f.adherence} onChange={(v) => setF({ ...f, adherence: v })} hint="Schedule adherence: started and finished within this many minutes of the plan." />
               </div>
             ) : null}
+          </fieldset>
+        ) : null}
+        {m6 ? (
+          <fieldset className="mfg-fieldset" data-testid="plant-assistant">
+            <legend>Planning assistant</legend>
+            <label className="checkbox">
+              <input type="checkbox" checked={f.assistantOn} disabled={!adminish} onChange={(e) => setF({ ...f, assistantOn: e.target.checked })} data-testid="plant-assistant-enabled" />
+              Offer the AI planning assistant in this plant
+            </label>
+            <span className="hint">
+              When on (and switched on for the server), questions and the planning records the assistant looks up are sent to Anthropic, an AI provider. No
+              prices unless someone asks about cost, no personal data. The built-in quick explanations work either way.
+            </span>
+            <label className="checkbox">
+              <input type="checkbox" checked={f.assistantWhatif} disabled={!adminish || !f.assistantOn} onChange={(e) => setF({ ...f, assistantWhatif: e.target.checked })} data-testid="plant-assistant-whatif" />
+              Allow it to run what-if plans when the user switches this on (never live, never published)
+            </label>
+            {!adminish ? <span className="hint"><Icon name="lock" size={12} /> Only the owner or a plant admin can change these.</span> : null}
           </fieldset>
         ) : null}
         {m2 ? (

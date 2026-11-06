@@ -69,6 +69,7 @@ const router = createBrowserRouter([
               { path: "account/tokens", element: <TokensPage /> },
               { path: "orgs", element: <OrgListPage /> },
               { path: "orgs/:org", element: <OrgPage tab="overview" /> },
+              { path: "orgs/:org/dashboard", element: <OrgPage tab="dashboard" /> },
               { path: "orgs/:org/plants", element: <OrgPage tab="plants" /> },
               { path: "orgs/:org/members", element: <OrgPage tab="members" /> },
               { path: "orgs/:org/publish", element: <OrgPage tab="publish" /> },

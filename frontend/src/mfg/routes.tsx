@@ -75,6 +75,7 @@ import { BatchPage, BatchesTab, DeliveriesTab, EndpointsTab, EventsTab, Filedrop
 import { RecallPage, RecallsPage } from "./pages/m5/RecallPages";
 import { TracePage, WhereUsedPage } from "./pages/m5/TracePages";
 import { TransferPage, TransfersPage } from "./pages/m5/TransferPages";
+import { DashboardPage } from "./pages/m6/DashboardPage";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
 import { FloorHome } from "./floor/FloorHome";
@@ -269,6 +270,8 @@ export const mfgRoutes: RouteObject[] = [
       { path: "transfers", element: <TransfersPage /> },
       { path: "transfers/:transferId", element: <Keyed param="transferId">{(k) => <TransferPage key={k} />}</Keyed> },
       { path: "audit", element: <AuditPage /> },
+      // ---------------------------------------------------------------- M6
+      { path: "dashboard", element: <DashboardPage /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

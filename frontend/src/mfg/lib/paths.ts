@@ -117,6 +117,8 @@ export const mfgPaths = {
   transfers: () => `${MFG}/transfers`,
   transfer: (id: string) => `${MFG}/transfers/${enc(id)}`,
   audit: () => `${MFG}/audit`,
+  // ---------------------------------------------------------------- M6
+  dashboard: (period?: string) => `${MFG}/dashboard${queryString({ period })}`,
   printLabels: (q: { type: "lot" | "serial" | "badge"; ids?: string; item?: string; codes?: string }) => `${MFG}/print/labels${queryString(q)}`,
 };
 

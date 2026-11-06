@@ -29,6 +29,7 @@ const EXECUTION: Section[] = [
   { key: "floor", label: "Shop floor", to: mfgPaths.floorOverview(), icon: "factory" },
   { key: "replan", label: "Replanning", to: mfgPaths.replan(), icon: "refresh" },
   { key: "kpis", label: "KPIs", to: mfgPaths.kpis(), icon: "graph" },
+  { key: "dashboard", label: "Dashboard", to: mfgPaths.dashboard(), icon: "graph" },
   { key: "serials", label: "Serials", to: mfgPaths.serials(), icon: "list" },
   { key: "trace", label: "Trace and recall", to: mfgPaths.trace(), icon: "graph" },
 ];

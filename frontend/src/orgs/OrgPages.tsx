@@ -6,6 +6,7 @@
  * Org admins manage; members see the overview of the plants they can view.
  */
 import { useEffect, useState } from "react";
+import { OrgDashboardTab } from "../mfg/pages/m6/OrgDashboard";
 import { Link, NavLink, useNavigate, useParams } from "react-router";
 import { ApiError } from "../api/client";
 import { Banner } from "../components/Banner";
@@ -191,7 +192,7 @@ export function OrgListPage() {
   );
 }
 
-type Tab = "overview" | "plants" | "members" | "publish" | "settings";
+type Tab = "overview" | "dashboard" | "plants" | "members" | "publish" | "settings";
 
 export function OrgPage({ tab }: { tab: Tab }) {
   const { org: orgId = "" } = useParams();
@@ -205,6 +206,7 @@ export function OrgPage({ tab }: { tab: Tab }) {
   const admin = o.my_role === "org_admin";
   const tabs: { key: Tab; label: string; admin?: boolean }[] = [
     { key: "overview", label: "Overview" },
+    { key: "dashboard", label: "Dashboard" },
     { key: "plants", label: "Plants" },
     { key: "members", label: "People", admin: true },
     { key: "publish", label: "Master data", admin: true },
@@ -226,6 +228,7 @@ export function OrgPage({ tab }: { tab: Tab }) {
           ))}
       </nav>
       {tab === "overview" ? <OrgOverviewTab org={o} /> : null}
+      {tab === "dashboard" ? <OrgDashboardTab orgId={o.id} /> : null}
       {tab === "plants" ? <PlantsTab org={o} admin={admin} /> : null}
       {tab === "members" && admin ? <MembersTab org={o} /> : null}
       {tab === "publish" && admin ? <PublishTab org={o} /> : null}
