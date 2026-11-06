@@ -233,7 +233,7 @@ dependency views, what-if/compare, and the deployment setup.
 | **M4 — Execution and replanning** | WO release, shop-floor actuals (barcode-friendly), scrap/rework/yield, event-driven replanning with frozen horizon, KPIs (OTD, utilisation, WIP, setup time) | Closed loop with the shop floor |
 | **M5 — Integration and traceability** | ERP connectors (items, BOMs, stock, POs in; WOs, PRs out), serial/lot genealogy, ECO handling, multi-plant/organisation accounts | Production use alongside HBL's ERP |
 
-**Status (5 November 2026):**
+**Status (6 November 2026):**
 
 | Phase | Status |
 |---|---|
@@ -241,7 +241,8 @@ dependency views, what-if/compare, and the deployment setup.
 | M2 | **Built** (`docs/M2-DESIGN.md`, section 22; commit e3b7077): inventory ledger, purchasing with staggered schedule lines, demand orders, plant-level MRP with pegging/exceptions/what-if, firm/release, work orders with kitting, workspaces and roles. |
 | M3 | **Built** (`docs/M3-DESIGN.md`, section 17; commit f9c4325): finite-capacity scheduler with LNS, validator, material from MRP pegging, overtime policies, freeze/publish, validated edits, Gantt/load/dispatch, IANA time zones. |
 | M4 | **Built** (`docs/M4-DESIGN.md`, section 16; commit 77ccef0): floor event log and actuals, barcode floor screens, auto receipt and backflush, downtime, batching, serial capture, replan triggers and policies, risk simulation, KPI dashboard, operator/supervisor roles. |
-| M5 | **Designed, ready to build**: `docs/M5-DESIGN.md`. Vendor-neutral ERP integration (`superplanner.v1` over REST batches, file drop, outbox with pull and signed webhooks; per-entity system of record; reconciliation; adapter interface), multi-level serial/lot genealogy with recall and quarantine, ECO workflow with impact analysis, organisations with multiple plants (plant principals, no new tenant column) and inter-plant transfers, OIDC SSO, TOTP 2FA, scoped API tokens, retention/archival, hash-chained audit export, HA notes. SCIM and specific ERP adapters deferred. |
+| M5 | **Built** (`docs/M5-DESIGN.md`, section 15; commit 844209b): vendor-neutral ERP integration with system-of-record rules and reconciliation, multi-level genealogy and recall, ECO workflow, organisations and inter-plant transfers, OIDC SSO, TOTP, scoped API tokens, retention and hash-chained audit. |
+| M6 | **Designed, ready to build**: `docs/M6-DESIGN.md`. Planning assistant (opt-in, read-only permission-checked tools, cited answers, user-confirmed drafts, budgets, plant opt-out, deterministic fallback), supervisor/manager PWA with Web Push and mobile approvals, plant and organisation dashboards with optional email digests, HA (Patroni or managed PostgreSQL, read-replica routing with lag and read-your-writes rules, failover handling, expand/contract migration policy, runbooks). |
 
 Each phase follows the same agent-team process used so far (design → plan → build → test → security review →
 fix → verify), with acceptance tests built from a realistic anonymised Kavach-like dataset.
