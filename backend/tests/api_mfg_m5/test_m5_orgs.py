@@ -42,6 +42,10 @@ def test_t_o1_user_across_two_plants_isolated(db_url):
         assert u.post(f"{V1}/orgs/{org['id']}/plants", json={"code": "X", "name": "X"}).status_code == 403
         ov = u.get(f"{V1}/orgs/{org['id']}/overview").json()
         assert {p["plant"]["code"]: p["visible"] for p in ov["plants"]} == {"BLR": False, "HYD": True}
+        hyd = next(p for p in ov["plants"] if p["plant"]["code"] == "HYD")
+        blr = next(p for p in ov["plants"] if p["plant"]["code"] == "BLR")
+        assert "otd" in hyd["kpis"] and hyd["late_demand"] == 0 and hyd["open_triggers"] == 0
+        assert hyd["integration"]["status"] == "off" and blr["kpis"] == {} and blr["late_demand"] is None
         tok = admin.post(f"{V1}/tokens", json={"name": "p", "kind": "plant", "scopes": ["view"],
                                                "workspace_owner_id": a["plant_owner_id"]}).json()
         bt = TestClient(app)

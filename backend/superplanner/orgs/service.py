@@ -271,7 +271,54 @@ def overview(ctx: AppContext, user_id: str, org_id: str) -> dict[str, Any]:
             visible = bool(rec["my_roles"]) or role == "org_admin"
             out.append({"plant": {"code": p.code, "name": p.name, "owner_id": p.plant_owner_id}, "visible": visible,
                         "kpis": {}, "late_demand": None, "open_triggers": None, "integration": {}})
-        return {"org": {"id": o.id, "name": o.name, "slug": o.slug}, "plants": out}
+        org = {"id": o.id, "name": o.name, "slug": o.slug}
+    for x in out:
+        if x["visible"]:
+            x.update(plant_health(ctx, x["plant"]["owner_id"]))
+    return {"org": org, "plants": out}
+
+
+def plant_health(ctx: Any, owner: str) -> dict[str, Any]:
+    """3.4 org overview of one plant: M4 KPIs (default period), late open demand lines, open replan triggers and
+    integration health (pending / dead deliveries, failed batches and files of the last 7 days)."""
+    from datetime import timedelta
+
+    from ..api.mfg.db_models_m2 import MfgDemandLineRow, MfgDemandOrderRow
+    from ..api.mfg.db_models_m4 import MfgNotificationRow, MfgReplanTriggerRow
+    from ..api.mfg.db_models_m5 import IntDeliveryRow, IntInboxRow, IntSettingsRow
+    from ..api.mfg.services import kpi
+    from ..api.mfg.services.common import read_tx
+    from ..api.mfg.services.m2util import today
+
+    with owner_scope(owner):
+        try:
+            m = kpi.kpis(ctx, None, None, "plant", None, "day")["metrics"]
+            kp = {k: (m.get(k) or {}).get("value") for k in ("otd", "oee", "adherence", "utilisation", "fpy")}
+        except ApiError:
+            kp = {}
+        with read_tx(ctx) as s:
+            d = today(s)
+            late = int(s.execute(select(func.count()).select_from(MfgDemandLineRow).join(
+                MfgDemandOrderRow, MfgDemandOrderRow.id == MfgDemandLineRow.order_id).where(
+                MfgDemandOrderRow.status == "open", MfgDemandLineRow.due_date < d,
+                MfgDemandLineRow.qty - MfgDemandLineRow.shipped_qty > 1e-9)).scalar() or 0)
+            trig = int(s.execute(select(func.count()).select_from(MfgReplanTriggerRow).where(
+                MfgReplanTriggerRow.status == "open")).scalar() or 0)
+            st = s.execute(select(IntSettingsRow)).scalars().first()
+            dl = dict(s.execute(select(IntDeliveryRow.status, func.count()).group_by(IntDeliveryRow.status)).all())
+            since = utcnow() - timedelta(days=7)
+            failed = int(s.execute(select(func.count()).select_from(IntInboxRow).where(
+                IntInboxRow.received_at >= since, IntInboxRow.status == "failed")).scalar() or 0)
+            files = int(s.execute(select(func.count()).select_from(MfgNotificationRow).where(
+                MfgNotificationRow.kind == "INTEGRATION_FILE_ERROR", MfgNotificationRow.created_at >= since))
+                .scalar() or 0)
+            last = s.execute(select(func.max(IntInboxRow.received_at))).scalar()
+    integ = {"enabled": bool(st and st.enabled), "pending_deliveries": int(dl.get("pending", 0)),
+             "dead_deliveries": int(dl.get("dead", 0)), "failed_batches_7d": failed, "failed_files_7d": files,
+             "last_batch_at": as_utc(last)}
+    integ["status"] = ("off" if not integ["enabled"] else "error" if integ["dead_deliveries"] or failed or files
+                       else "ok")
+    return {"kpis": kp, "late_demand": late, "open_triggers": trig, "integration": integ}
 
 
 def publish_record(r: OrgPublishRow) -> dict[str, Any]:

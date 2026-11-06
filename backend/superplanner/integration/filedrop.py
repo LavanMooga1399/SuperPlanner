@@ -185,21 +185,92 @@ def _tabular_file(ctx: Any, data: bytes, name: str) -> dict[str, Any]:
         rec = svc.reconcile(ctx, SimpleNamespace(entities=["stock"], records={"stock": recs}, snapshot="inline",
                                                  file_name=name))
         return {**out, "ok": True, "reconciliation_id": rec["id"], "summary": rec["summary"]}
-    with write_tx(ctx) as (s, plant):              # one plan, under the plant lock (no second planning pass)
-        s.info["sp_inbound"] = True
-        if plant is None:
-            plant = repo.plant_row_unlocked(s)
-        plan, map_errors, warnings = _plan(staged, mapping, repo_m2.load_import_dataset(
-            s, with_txn=bool(targets & set(TXN_SHEETS))))
-        errors = map_errors + plan.row_errors
-        if errors:
-            return {**out, "ok": False, "counts": plan.counts, "row_errors": errors[:200],
-                    "error_count": len(errors)}
-        if plan.has_writes():
-            writer.apply(s, plan, plant)
-        audit(s, "integration_file", None, "import", {"file": name, "counts": {
-            k: v for k, v in plan.result_counts().items() if any(v.values())}})
-    return {**out, "ok": True, "counts": plan.result_counts(), "warnings": warnings[:50]}
+    docs: dict[str, list[dict[str, Any]]] = {}
+    if targets & DOC_SHEETS:                     # 4.4 / 5: structures from the ERP go through an ERP ECO
+        bundle, _src, map_errors = apply_mapping(staged, mapping)
+        if map_errors:
+            return {**out, "ok": False, "row_errors": map_errors[:200], "error_count": len(map_errors)}
+        docs = {k: bundle.get(k) or [] for k in DOC_SHEETS}
+        mapping = {**mapping, "sheets": {k: v for k, v in (mapping.get("sheets") or {}).items()
+                                         if (v or {}).get("target") not in DOC_SHEETS}}
+    plan, warnings = None, []
+    if mapping.get("sheets"):
+        with write_tx(ctx) as (s, plant):          # one plan, under the plant lock (no second planning pass)
+            s.info["sp_inbound"] = True
+            if plant is None:
+                plant = repo.plant_row_unlocked(s)
+            plan, map_errors, warnings = _plan(staged, mapping, repo_m2.load_import_dataset(
+                s, with_txn=bool(targets & set(TXN_SHEETS))))
+            errors = map_errors + plan.row_errors
+            if errors:
+                return {**out, "ok": False, "counts": plan.counts, "row_errors": errors[:200],
+                        "error_count": len(errors)}
+            if plan.has_writes():
+                writer.apply(s, plan, plant)
+            audit(s, "integration_file", None, "import", {"file": name, "counts": {
+                k: v for k, v in plan.result_counts().items() if any(v.values())}})
+    res: dict[str, Any] = {**out, "ok": True, "counts": plan.result_counts() if plan else {},
+                           "warnings": warnings[:50]}
+    if docs:
+        res["documents"] = _documents(ctx, docs)
+        res["ok"] = all(r["status"] != "rejected" for rs in res["documents"].values() for r in rs)
+    return res
+
+
+DOC_SHEETS = frozenset({"boms", "bom_lines", "routings", "operations"})
+
+
+def _documents(ctx: Any, docs: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
+    """BOM / routing sheet rows -> v1 `bom` / `routing` records -> `inbound.documents` (one ERP ECO per changed
+    document), as for v1 JSON files."""
+    from ..api.mfg.services import integration as svc
+    from ..api.mfg.services.common import read_tx
+    from . import contract as C
+    from .inbound import documents
+
+    def k(r: dict[str, Any], pn: str) -> tuple:
+        return (str(r[pn]), r.get("revision") or None, r.get("version") or None) + \
+            ((r.get("code") or "STD",) if pn == "part_number" else ())
+
+    with read_tx(ctx) as s:
+        maps = svc._maps(s)
+    out: dict[str, list[dict[str, Any]]] = {}
+    heads = {k(h, "parent_part_number"): h for h in docs["boms"]}
+    lines: dict[tuple, list[dict[str, Any]]] = {}
+    for ln in docs["bom_lines"]:
+        lines.setdefault(k(ln, "parent_part_number"), []).append(
+            {"child_ref": str(ln["child_part_number"]), "find_number": str(ln.get("find_number") or ""),
+             "qty_per": float(ln["qty_per"]), **({"uom": ln["uom"]} if ln.get("uom") else {}),
+             **({"scrap_pct": ln["scrap_pct"]} if ln.get("scrap_pct") else {}),
+             **({"ref_designators": ln["ref_designators"]} if ln.get("ref_designators") else {}),
+             **({"operation_seq": ln["operation_seq"]} if ln.get("operation_seq") else {})})
+    recs = []
+    for key in sorted(set(heads) | set(lines), key=str):
+        h = heads.get(key, {})
+        recs.append({"ref": ":".join(str(x) for x in key if x is not None), "parent_ref": key[0],
+                     **({"revision": key[1]} if key[1] else {}), **({"version": int(key[2])} if key[2] else {}),
+                     **({"effective_from": h["effective_from"].isoformat()} if h.get("effective_from") else {}),
+                     "status": h.get("status") or "released", "lines": lines.get(key, [])})
+    if recs:
+        out["bom"] = documents(ctx, C.V1Batch.model_validate({"schema": C.SCHEMA, "entity": "bom",
+                                                              "records": recs}), maps)
+    heads = {k(h, "part_number"): h for h in docs["routings"]}
+    ops: dict[tuple, list[dict[str, Any]]] = {}
+    for o in docs["operations"]:
+        ops.setdefault(k(o, "part_number"), []).append(
+            {f: o[f] for f in ("seq", "name", "group_code", "setup_minutes", "run_minutes", "run_per",
+                               "units_per_batch", "units_per_panel", "labor", "crew_size") if o.get(f) is not None})
+    recs = []
+    for key in sorted(set(heads) | set(ops), key=str):
+        h = heads.get(key, {})
+        recs.append({"ref": ":".join(str(x) for x in key if x is not None), "item_ref": key[0], "code": key[3],
+                     **({"revision": key[1]} if key[1] else {}), **({"version": int(key[2])} if key[2] else {}),
+                     **({"priority": h["priority"]} if h.get("priority") else {}),
+                     "status": h.get("status") or "released", "operations": ops.get(key, [])})
+    if recs:
+        out["routing"] = documents(ctx, C.V1Batch.model_validate({"schema": C.SCHEMA, "entity": "routing",
+                                                                  "records": recs}), maps)
+    return out
 
 
 def _move(src: Path, dest_dir: Path) -> Path:

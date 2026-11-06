@@ -237,11 +237,33 @@ def _audit_principal(p: MfgPrincipal = Depends(mfg_principal)) -> MfgPrincipal:
     return p
 
 
-def _conds(p: MfgPrincipal, frm: datetime | None, to: datetime | None, entity_type: str | None,
+def _audit_scope(org_id: str | None = Query(default=None, max_length=64), p: MfgPrincipal = Depends(mfg_principal),
+                 ctx: AppContext = Depends(get_ctx)) -> list[str]:
+    """Owners whose audit rows the caller reads: the workspace (owner / plant_admin), or with `org_id` every plant
+    of that organisation (org admins only, sessions only; 7 "org admins (org-wide)")."""
+    if org_id is None:
+        return [_audit_principal(p).owner_id]
+    from ..db.ownership import system_scope
+    from .db_models_m5 import OrgMemberRow, OrgPlantRow
+
+    if p.scopes is not None:
+        raise ApiError(403, "TOKEN_SCOPE", "Org-wide audit needs a signed-in org admin.", {"permission": "org_admin"})
+    with system_scope(), ctx.db.read() as s:
+        role = s.execute(select(OrgMemberRow.org_role).where(OrgMemberRow.org_id == org_id,
+                                                             OrgMemberRow.user_id == p.user_id)).scalar()
+        if role is None:
+            raise ApiError(404, "NOT_FOUND", "Organisation not found.", {"id": org_id})
+        if role != "org_admin":
+            raise ApiError(403, "MFG_FORBIDDEN", "Only org admins can read the organisation's audit log.",
+                           {"permission": "org_admin"})
+        return sorted(s.execute(select(OrgPlantRow.plant_owner_id).where(OrgPlantRow.org_id == org_id)).scalars())
+
+
+def _conds(owners: list[str], frm: datetime | None, to: datetime | None, entity_type: str | None,
            actor: str | None) -> list[Any]:
     from ..db.models import AuditEventRow
 
-    c = [AuditEventRow.owner_id == p.owner_id]
+    c = [AuditEventRow.owner_id.in_(owners or ["-"])]
     if frm is not None:
         c.append(AuditEventRow.created_at >= frm)
     if to is not None:
@@ -264,12 +286,12 @@ def _row(r: Any) -> dict[str, Any]:
 @audit_router.get("/events")
 def audit_events(frm: datetime | None = Query(default=None, alias="from"), to: datetime | None = None,
                  entity_type: str | None = Query(default=None, max_length=32), actor: str | None = Id(),
-                 limit: int = Limit(), offset: int = Offset(), p: MfgPrincipal = Depends(_audit_principal),
+                 limit: int = Limit(), offset: int = Offset(), owners: list[str] = Depends(_audit_scope),
                  ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ..db.models import AuditEventRow
     from ..db.ownership import system_scope
 
-    conds = _conds(p, frm, to, entity_type, actor)
+    conds = _conds(owners, frm, to, entity_type, actor)
     with system_scope(), ctx.db.read() as s:
         total = int(s.execute(select(func.count()).select_from(AuditEventRow).where(*conds)).scalar() or 0)
         rows = [_row(r) for r in s.execute(select(AuditEventRow).where(*conds).order_by(AuditEventRow.id.desc())
@@ -278,32 +300,39 @@ def audit_events(frm: datetime | None = Query(default=None, alias="from"), to: d
 
 
 @audit_router.get("/verify")
-def audit_verify(p: MfgPrincipal = Depends(_audit_principal), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
-    """7: the `manage.py audit-verify` check of the workspace's chain -> {ok, checked, first_broken {id, at}}."""
+def audit_verify(owners: list[str] = Depends(_audit_scope), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    """7: the `manage.py audit-verify` check of the workspace's chain (or every plant of `org_id`) -> {ok, checked,
+    first_broken {id, at, owner_id}, plants [...]}."""
     from ..audit_chain import verify
     from ..db.models import AuditEventRow
     from ..db.ownership import system_scope
     from ..schemas import as_utc
 
+    per, fb, n = [], None, 0
     with system_scope(), ctx.db.read() as s:
-        r = verify(s, p.owner_id)
-        fb = None
-        if r["first_broken_id"] is not None:
-            row = s.get(AuditEventRow, r["first_broken_id"])
-            fb = {"id": r["first_broken_id"], "at": as_utc(row.created_at) if row else None}
-    return _ok({"ok": r["ok"], "checked": r["checked"], "first_broken": fb})
+        for o in owners:
+            r = verify(s, o)
+            n += r["checked"]
+            x = None
+            if r["first_broken_id"] is not None:
+                row = s.get(AuditEventRow, r["first_broken_id"])
+                x = {"id": r["first_broken_id"], "at": as_utc(row.created_at) if row else None, "owner_id": o,
+                     "reason": r.get("reason")}
+                fb = fb or x
+            per.append({"owner_id": o, "ok": r["ok"], "checked": r["checked"], "first_broken": x})
+    return _ok({"ok": fb is None, "checked": n, "first_broken": fb, "plants": per})
 
 
 @audit_router.get("/export")
 def audit_export(format: Literal["jsonl", "csv"] = "jsonl",  # noqa: A002
                  frm: datetime | None = Query(default=None, alias="from"), to: datetime | None = None,
-                 p: MfgPrincipal = Depends(_audit_principal), ctx: AppContext = Depends(get_ctx)) -> Response:
+                 owners: list[str] = Depends(_audit_scope), ctx: AppContext = Depends(get_ctx)) -> Response:
     """Streamed in id order with a keyset cursor (constant memory, AP2)."""
     from ..db.models import AuditEventRow
     from ..db.ownership import system_scope
     from .services.common import jsonable
 
-    conds = _conds(p, frm, to, None, None)
+    conds = _conds(owners, frm, to, None, None)
     cols = ["id", "entity_type", "entity_id", "action", "actor_id", "owner_id", "created_at", "chain_hash",
             "details"]
 

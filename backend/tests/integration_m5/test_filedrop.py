@@ -105,3 +105,25 @@ def test_t_i8_file_drop_and_scheduled_duties(db_url, tmp_path, monkeypatch):
         out = sorted(p.name for p in (tmp_path / "HBL1" / "outbox").iterdir())
         assert any(n.endswith(".jsonl") for n in out) and any("inventory_posting.csv" in n for n in out), out
         assert _runs(app, "integration_delivery")[-1][0] == "completed"
+
+
+def test_dropped_bom_file_goes_through_an_erp_eco(db_url, tmp_path):
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.integration import filedrop
+
+    app = make_app(db_url, integration_root=str(tmp_path), retention_enabled=False)
+    with TestClient(app) as c:
+        it, api = Int(c), Api(c)
+        _enable(it, filedrop_enabled=True)
+        it.batch("item", [{"ref": "P", "part_number": "PCB-1", "make_buy": "make"},
+                          {"ref": "R", "part_number": "R-1"}], "i1")
+        f = tmp_path / "bom_lines.csv"
+        f.write_text("parent_part_number,find_number,child_part_number,qty_per\nPCB-1,1,R-1,2\n")
+        with owner_scope("usr_local"):
+            r = filedrop.process_file(app.state.ctx, f)
+            assert r["ok"] and r["documents"]["bom"][0]["status"] == "created", r
+            assert r["documents"]["bom"][0]["eco"]["number"] == "ECO-000001"
+            again = filedrop.process_file(app.state.ctx, f)
+        assert again["documents"]["bom"][0]["status"] == "unchanged"
+        eco = api.get("/eco")["items"]
+        assert [(e["source"], e["status"]) for e in eco] == [("erp", "implemented")]
