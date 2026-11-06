@@ -20,7 +20,7 @@ OCTET = {"content-type": "application/octet-stream"}
 EXEMPT = {"downtime.py:create_downtime", "inventory.py:reverse_posting", "floor.py:post_event",
           "floor.py:ensure_lazy", "kpi.py:_store", "replan.py:_sweep_tx",
           # M5: the inbound receipt posts through `post_in_session` (audits itself); webhook delivery bookkeeping
-          "integration.py:_po_receipts", "integration.py:deliver_now",
+          "integration.py:_po_receipts", "integration.py:deliver_now", "integration.py:_deliver_endpoint",
           # M5 round 2: release wrappers audit in `release_in_session` (shared with ECO implement / ERP inbound)
           "boms.py:release_bom", "routings.py:release_routing"}
 

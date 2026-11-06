@@ -164,7 +164,9 @@ def test_app_runs_as_the_restricted_role_after_owner_migration(role_db: RoleDb, 
 
     # and it still cannot change the schema
     for ddl in ("CREATE TABLE intruder (id int)", "DROP TABLE mfg_skills", "TRUNCATE audit_events",
-                "ALTER TABLE problems ADD COLUMN x int", "CREATE INDEX ix_x ON problems (name)"):
+                "ALTER TABLE problems ADD COLUMN x int", "CREATE INDEX ix_x ON problems (name)",
+                # M5 (15.WP-S): audit rows are append-only for the app role
+                "UPDATE audit_events SET action = 'x'", "DELETE FROM audit_events"):
         with pytest.raises(sa.exc.ProgrammingError, match="permission denied|must be owner"):
             _scalar(role_db.app_url, ddl)
     assert _scalar(role_db.app_url, "SELECT COUNT(*) FROM audit_events") >= 2

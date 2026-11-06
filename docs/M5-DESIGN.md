@@ -665,8 +665,73 @@ Deviations / interpretations:
 28. Performance changes: `repo_m2.lock_or_create_balances` creates many new balances (> 20) with one
     `INSERT .. ON CONFLICT DO NOTHING` per chunk instead of one savepoint each (IP5); trace writers skip posting
     types without edges.
-29. Not built: the org overview KPIs (placeholders as in S1), `shared` SoR conflict log, specific ERP adapters
-    (generic_v1 only, 14 Q1).
+29. Not built: specific ERP adapters (generic_v1 only, 14 Q1).
+
+**Round 3 (2026-11-06).**
+30. `aps.exceptions` read its rows after the read session's rollback (which expires them): the counts and the
+    page are now built inside the session (fixes `test_m3_runs_api::test_run_lifecycle_views_publish`).
+31. Kavach M4 sample: each history WO receives its lot-controlled components as a supplier lot
+    (`receipt_misc`, lot `Hnn-<part>`, supplier lot `SUP-Hnn-<part>`) issued to the WO the same day (net-zero
+    stock; M2 / M3 / M4 pinned outcomes unchanged). Every captured CPU serial now traces back to supplier lots
+    (possible for the unit), a coating lot forward to its WO's 12 units (acceptance 3; `tests/trace/
+    test_kavach_genealogy.py`). Item 27's caveat is void.
+32. Org overview (`orgs.service.plant_health`, visible plants only): `kpis {otd, oee, adherence, utilisation,
+    fpy}` (M4 KPIs, default period), `late_demand` (open lines past due), `open_triggers`, `integration {enabled,
+    pending_deliveries, dead_deliveries, failed_batches_7d, failed_files_7d, last_batch_at, status ok|error|off}`.
+33. `shared` SoR conflict log (table `int_sync_state`, per record the row version the last inbound write left):
+    an inbound write that changes an item / supplier which was also changed locally since that sync records a
+    conflict (the ERP value is applied - last writer wins); reconciliations of `items` list them in
+    `sor_conflicts` (`{entity, record_id, ref, synced_version, local_version, erp_version, message,
+    detected_at}`).
+34. Org-wide audit: `GET /audit/events|export|verify?org_id=` for org admins (sessions only): every plant of the
+    organisation; `verify` returns `plants[]` per chain.
+35. File drop: `boms`/`bom_lines`/`routings`/`operations` sheets are turned into v1 `bom` / `routing` records and
+    go through `inbound.documents` (ERP ECO per changed document, item 11); other sheets as before. The result
+    file carries `documents {bom: [...], routing: [...]}`.
+36. Webhook proxy: `WEBHOOK_PROXY` (else `HTTPS_PROXY` / `https_proxy`; `direct` forces direct) -> HTTP CONNECT
+    tunnel to the checked IP (`WEBHOOK_PROXY_CONNECT=host`: the host name), TLS inside with SNI / certificate check
+    for the host, `Proxy-Authorization` from the URL, `NO_PROXY` honoured; the target's address check always runs
+    first. No proxy configured -> direct (DEPLOY 13).
+37. `slow` tests are deselected unless `-m` is given (`tests/conftest.py`; README "Tests").
+38. Migration 0007 was extended in place before release (not yet deployed; a dev database at the earlier 0007
+    needs `migrate downgrade 0006_mfg_m4` + `upgrade`): tables `int_sync_state`, `audit_chain_heads`; unique index
+    `uq_int_settings_plant_code` on `lower(plant_code)`; `audit_events.chain_hash` 80 chars; UPDATE / DELETE on
+    `audit_events` revoked from every role but the owner (also in `scripts/pg_setup_roles.sql`).
+
+**Security review (LEAD, 2026-11-06) - decisions as built.**
+- M1 Bearer tokens only on `/api/v1/mfg/`, `/integration/`, `/audit/`; elsewhere 403 `TOKEN_SCOPE` before the
+  token is resolved.
+- M2 Plant tokens need a workspace principal with `kind = plant`; listed / revocable by every current
+  `plant_admin` of that plant; a plant token stops working (401 `AUTH_TOKEN_INVALID`) when its creator is no
+  longer an active `plant_admin` there or is disabled.
+- M3 `managed_by(org, user)`: the user's only organisation is this one, or JIT-created through `OIDC_ORG_SLUG`
+  (no password, an SSO identity). Disable / enable of non-managed members -> 403 `ORG_USER_NOT_MANAGED`; org
+  `require_2fa` applies to managed users only. Residual (for LEAD): anybody may still create an organisation and
+  add an organisation-less user, which then "manages" that user; restricting org creation is a product decision.
+- M4 M1 import commit (`integration.check_import_plan`): sheets of ERP-owned entities -> 409 `INT_ERP_OWNED`
+  (purchase sheets: PO rows only); items while ERP-owned: no new items, no ERP-field change (planning fields
+  import); BOM / routing rows of a document held by a submitted / approved CR -> 409 `ECO_DOC_LOCKED`.
+  `DELETE /items/{id}` while items are ERP-owned -> 409. (Released ERP documents are covered by the sheet rule.)
+- M5 Plant codes unique across plants, case-insensitive (index + 409 `INT_PLANT_CODE_TAKEN`); folders come from
+  the stored code.
+- M6 Password sign-up and sign-in refused (403 `AUTH_SSO_REQUIRED`) for `OIDC_REQUIRED_DOMAINS` and
+  `OIDC_ALLOWED_DOMAINS`; the first SSO link to an existing password account clears its password and revokes
+  all its sessions.
+- minor 1 OIDC state bound to the browser: `sp_oidc` cookie (HttpOnly, SameSite=Lax, path `/api/v1/auth/oidc`,
+  10 min) = sha256(state), compared in the callback (400 `AUTH_SSO_STATE` otherwise).
+- minor 2 Webhook targets must be global unicast (`ip.is_global`: also CGNAT, documentation, benchmarking),
+  including IPv4 embedded in v4-mapped, NAT64 (64:ff9b::/96, 64:ff9b:1::/48 refused), 6to4 and Teredo.
+- minor 3 Delivery: one deliverer per endpoint by a session advisory lock on its own connection; each event's
+  preparation and its result are separate short transactions (committed per event), the HTTP call runs outside
+  any transaction and without row locks, signed with the time of that post.
+- minor 4 A batch whose processing raises is stored `failed`; the same key and body (or a `running` row older
+  than 15 min) is processed again.
+- minor 5 File drop / snapshot files: symlinks are skipped and refused (`O_NOFOLLOW`), size checked by `lstat`
+  before reading.
+- minor 6 Audit: append-only for the app role (above); keyed chain `k1:<hmac>` with a key derived from the first
+  `SECRETS_KEY(S)` (all keys verify; rows after the first keyed one must be keyed); per-owner head row with a
+  keyed MAC at commit detects truncation of the newest rows. Without `SECRETS_KEY` the chain stays plain SHA-256
+  (tamper evidence only against careless edits). `reassign-owner` no longer rewrites `audit_events.owner_id`.
 
 Performance (local PostgreSQL 16, development machine, `tests/integration_m5/test_m5_perf_s3.py -m slow`):
 | # | Measured | Target |
