@@ -35,6 +35,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "eco_approve",
   "transfer_edit",
   "integration_admin",
+  "assistant_use",
   "owner",
 ];
 
@@ -86,6 +87,7 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   eco_approve: ["approver", "plant_admin"],
   transfer_edit: ["planner", "store_keeper", "plant_admin"],
   integration_admin: ["plant_admin"],
+  assistant_use: ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "viewer"],
   owner: [],
 };
 

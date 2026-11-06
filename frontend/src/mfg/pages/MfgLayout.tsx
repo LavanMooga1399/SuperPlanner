@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
 import { MfgError } from "../components/Feedback";
 import { NotificationBell } from "../components/NotificationBell";
+import { AssistantButton } from "../assistant/AssistantPanel";
 import { RoleBadge, WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { mfgPaths } from "../lib/paths";
 import { AccessProvider, useAccess } from "../lib/permissions";
@@ -97,6 +98,7 @@ function MfgNav() {
         <NavGroup label="Control" sections={CONTROL} testId="nav-group-control" />
       </nav>
       <div className="row mfg-nav-side">
+        <AssistantButton />
         <NotificationBell />
         <WorkspaceSwitcher />
         <RoleBadge />

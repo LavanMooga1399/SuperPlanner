@@ -38,6 +38,8 @@ export type Permission =
   | "eco_approve"
   | "transfer_edit"
   | "integration_admin"
+  /** M6 5: the planning assistant (all plant roles except operator) */
+  | "assistant_use"
   | "owner";
 
 export interface Actor {

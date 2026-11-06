@@ -306,3 +306,32 @@ details.card > summary { cursor: pointer; }
 .trace-spacer { display: inline-block; width: 28px; }
 .trace-graph svg text { font-family: var(--font); }
 .int-json { max-height: 320px; overflow: auto; background: var(--shade); padding: 10px; border-radius: var(--radius-sm); font-size: 12px; margin: 0; }
+
+/* ---------------------------------------------------------------- M6 assistant */
+.asst-drawer { width: min(480px, 100%); }
+.asst-h { margin: 0 0 6px; font-size: 14px; }
+.asst-section { display: flex; flex-direction: column; gap: 8px; }
+.asst-bubble { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.asst-answer p { margin: 0 0 6px; }
+.asst-answer ul, .asst-answer ol { margin: 0 0 6px; padding-left: 20px; }
+.asst-answer pre { background: var(--surface-3); padding: 8px; border-radius: var(--radius-sm); overflow: auto; font-size: 12px; }
+.asst-answer code { font-family: var(--mono); font-size: 0.92em; }
+.asst-cite { font-size: 12px; font-weight: 600; margin: 0 1px; white-space: nowrap; }
+.asst-sources ol { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+.asst-sources summary, .asst-steps-done summary, .asst-draft-request summary { cursor: pointer; }
+.asst-turns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.asst-turn { display: flex; flex-direction: column; gap: 6px; }
+.asst-q { align-self: flex-end; max-width: 90%; background: var(--accent-soft); color: var(--text); border-radius: var(--radius); padding: 6px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.asst-progress { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 8px 10px; }
+.asst-steps { list-style: none; margin: 0; padding: 0; font-size: 13px; display: flex; flex-direction: column; gap: 2px; }
+.asst-msg { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; }
+.asst-msg.danger, .asst-draft-msg.danger { color: var(--danger); }
+.asst-draft-msg.ok { color: var(--ok); }
+.asst-draft-msg { font-size: 13px; display: flex; gap: 4px; align-items: flex-start; }
+.asst-off, .asst-privacy { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--surface-2); }
+.asst-privacy { flex-direction: column; gap: 0; }
+.asst-draft { border: 1px solid var(--border-strong); border-left: 3px solid var(--accent); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; background: var(--surface); }
+.asst-draft-summary { margin: 0; }
+.asst-draft-body { margin: 4px 0 0; max-height: 220px; overflow: auto; font-size: 12px; background: var(--surface-2); padding: 6px; border-radius: var(--radius-sm); }
+.asst-suggest { text-align: left; justify-content: flex-start; white-space: normal; }
+.asst-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
