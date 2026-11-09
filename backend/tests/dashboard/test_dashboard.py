@@ -72,6 +72,9 @@ def test_plant_dashboard_matches_the_endpoints(world: World):
     assert tiles["inventory"]["details"]["turns"] is None and "n/a" in tiles["inventory"]["details"]["turns_note"]
     assert tiles["backlog"]["details"]["run_id"] == world.run_id and tiles["backlog"]["value"] is not None
     assert tiles["otd"]["trend"] and all(t["drill"] for t in tiles.values())
+    assert all(x["path"].startswith("/mfg/") for t in tiles.values() for x in t["drill"])   # app routes (WP-U)
+    # regression (WP-U): the inventory-by-family GROUP BY answered 500 once
+    assert tiles["inventory"]["details"]["by_family"]
     api.get("/dashboard", period="52w")
     t0 = time.monotonic()
     d52 = api.get("/dashboard", period="52w")
