@@ -4,7 +4,7 @@
  * The API runs the development-only scripted assistant (`ASSISTANT_AI_DEMO`, playwright.config.ts).
  */
 import { expect, type APIRequestContext } from "@playwright/test";
-import { findItem, loadSampleM2, M2_ANCHOR, mfgCall, mfgJson, resetMfg, runMrpApi } from "./mfg-helpers";
+import { findItem, loadSampleM2, mfgCall, mfgJson, resetMfg, runMrpApi } from "./mfg-helpers";
 
 export const isoDay = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 
@@ -38,10 +38,11 @@ export interface M6Data {
 
 export async function setupM6(request: APIRequestContext): Promise<M6Data> {
   await resetMfg(request);
-  await loadSampleM2(request, "small", { anchor: M2_ANCHOR });
+  // anchored at today so the rush line is late against the current calendar (the schedule then suggests overtime)
+  await loadSampleM2(request, "small", { anchor: null });
   const it = await findItem(request, "SM-100");
   const d = (await mfgCall(request, "POST", "/demand-orders", {
-    data: { number: "DO-RUSH", demand_type: "customer", customer: "Rush customer (fictional)", priority: 1, lines: [{ line_no: 10, item_id: it.id, qty: 25, due_date: isoDay(1) }] },
+    data: { number: "DO-RUSH", demand_type: "customer", customer: "Rush customer (fictional)", priority: 1, lines: [{ line_no: 10, item_id: it.id, qty: 400, due_date: isoDay(2) }] },
     status: 201,
   })) as { id: string; row_version: number; lines: { id: string }[] };
   await mfgCall(request, "POST", `/demand-orders/${d.id}/open`, { data: {}, headers: { "If-Match": `"${d.row_version}"` } });

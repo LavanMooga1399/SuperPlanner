@@ -11,6 +11,13 @@ import { setAssistant, setupM6, type M6Data } from "./m6-helpers";
 
 let data: M6Data;
 
+/** A draft with the server's fields and a real endpoint (a what-if copy of the published schedule). */
+const extraDraft = () => ({
+  draft_id: "drf_e2e_whatif", kind: "whatif_run", summary: "Re-run the published schedule allowing overtime, to compare.",
+  method: "POST", path: "/api/v1/mfg/aps/runs", body: { copy_of: data.publishedRunId, overtime: "allow", label: "Assistant what-if (e2e)" },
+  if_match_of: null, required_permission: "schedule_run", allowed: true, applied_at: null, applied_status: null, response_ref: null,
+});
+
 test.describe("M6 assistant and dashboards (desktop)", () => {
   test.beforeAll(async ({ request }) => {
     test.setTimeout(300_000);
@@ -19,6 +26,16 @@ test.describe("M6 assistant and dashboards (desktop)", () => {
 
   test("assistant: quick explanations, privacy notice, polled turn, citations as internal links, draft applied as the user", async ({ page }) => {
     await setAssistant(page.request, true);
+    // The scripted assistant drafts overtime only when the published schedule suggests some (data-dependent). If
+    // it drafted nothing, a server-shaped draft (same fields, a real endpoint) is added to the turn so Apply is
+    // always exercised against the live API.
+    await page.route(/\/api\/v1\/mfg\/assistant\/turns\/[^/]+$/, async (route) => {
+      const r = await route.fetch();
+      const t = (await r.json()) as { status: string; drafts: unknown[] };
+      if (t.status === "completed" && !t.drafts.length)
+        t.drafts = [extraDraft()];
+      await route.fulfill({ response: r, json: t });
+    });
     await page.goto(`/mfg/demand/${data.demandOrderId}?line=${data.demandLineId}`);
     await page.getByTestId("asst-open").click();
     const panel = page.getByTestId("asst-panel");
@@ -54,23 +71,21 @@ test.describe("M6 assistant and dashboards (desktop)", () => {
     for (const href of await cites.evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""))) expect(href).toMatch(/^\/(?!\/)/);
     await expect(turn.locator('a[href^="http"]')).toHaveCount(0);
 
-    // the overtime draft (when the published schedule suggests overtime): Apply sends the real request as the user
+    // a draft card: Apply sends the exact request as the user (session, CSRF, workspace, idempotency key)
     const draft = turn.getByTestId("asst-draft").first();
-    if (await draft.count()) {
-      await expect(draft.getByTestId("asst-draft-state")).toContainText("not applied");
-      await draft.getByTestId("asst-draft-apply").click();
-      const applied = page.waitForRequest((r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/v1/mfg/aps/runs");
-      const reported = page.waitForRequest((r) => /\/assistant\/drafts\/[^/]+\/applied$/.test(new URL(r.url()).pathname));
-      await draft.getByTestId("asst-draft-confirm").click();
-      const req = await applied;
-      expect(req.headers()["idempotency-key"]).toMatch(/^asst-/);
-      expect((req.postDataJSON() as { copy_of?: string }).copy_of).toBe(data.publishedRunId);
-      await expect(draft.getByTestId("asst-draft-done")).toBeVisible();
-      expect(((await reported).postDataJSON() as { status: string }).status).toBe("succeeded");
-      console.log("m6: overtime draft applied");
-    } else {
-      test.info().annotations.push({ type: "note", description: "no overtime suggested by the published run; draft apply not exercised" });
-    }
+    await expect(draft).toBeVisible();
+    await expect(draft.getByTestId("asst-draft-state")).toContainText("not applied");
+    await draft.getByTestId("asst-draft-apply").click();
+    const applied = page.waitForRequest((r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/v1/mfg/aps/runs");
+    const reported = page.waitForRequest((r) => /\/assistant\/drafts\/[^/]+\/applied$/.test(new URL(r.url()).pathname));
+    await draft.getByTestId("asst-draft-confirm").click();
+    const req = await applied;
+    expect(req.headers()["idempotency-key"]).toMatch(/^asst-/);
+    expect((req.postDataJSON() as { copy_of?: string }).copy_of).toBe(data.publishedRunId);
+    const created = await req.response();
+    expect(created?.status()).toBeLessThan(300);
+    await expect(draft.getByTestId("asst-draft-done")).toBeVisible();
+    expect(((await reported).postDataJSON() as { status: string }).status).toBe("succeeded");
   });
 
   test("viewer-style draft: Apply is disabled when the server says the user lacks the permission", async ({ page }) => {
@@ -78,7 +93,8 @@ test.describe("M6 assistant and dashboards (desktop)", () => {
     // the server marks drafts `allowed: false` for users without the target permission (T-A1); simulate that answer
     await page.route(/\/api\/v1\/mfg\/assistant\/turns\/[^/]+$/, async (route) => {
       const r = await route.fetch();
-      const t = (await r.json()) as { drafts: { allowed: boolean }[] };
+      const t = (await r.json()) as { status: string; drafts: { allowed: boolean }[] };
+      if (t.status === "completed" && !t.drafts.length) t.drafts = [extraDraft()];
       t.drafts = t.drafts.map((d) => ({ ...d, allowed: false }));
       await route.fulfill({ response: r, json: t });
     });
@@ -94,6 +110,7 @@ test.describe("M6 assistant and dashboards (desktop)", () => {
     const turn = panel.getByTestId("asst-turn").last();
     await expect(turn).toHaveAttribute("data-status", "completed", { timeout: 90_000 });
     const drafts = turn.getByTestId("asst-draft");
+    await expect(drafts.first()).toBeVisible();
     for (let i = 0; i < (await drafts.count()); i++) {
       await expect(drafts.nth(i).getByTestId("asst-draft-apply")).toBeDisabled();
       await expect(drafts.nth(i).getByTestId("asst-draft-needs")).toBeVisible();
