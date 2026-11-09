@@ -52,6 +52,9 @@ def upgrade() -> None:
                                          server_default=sa.text("true")))
     op.add_column("mfg_plant", sa.Column("assistant_allow_whatif", sa.Boolean(), nullable=False,
                                          server_default=sa.text("true")))
+    # The server default only backfills existing plants; the ORM sets the value on insert (no server defaults).
+    op.alter_column("mfg_plant", "assistant_enabled", server_default=None)
+    op.alter_column("mfg_plant", "assistant_allow_whatif", server_default=None)
     op.add_column("mfg_plant", sa.Column("dashboard_thresholds", _json(), nullable=True))
     op.add_column("mfg_downtime", sa.Column("acknowledged_by", sa.String(64), nullable=True))
     op.add_column("mfg_downtime", _ts("acknowledged_at"))

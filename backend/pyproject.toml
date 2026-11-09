@@ -38,6 +38,7 @@ include = ["superplanner*"]
 "superplanner.mfg.aps.fixtures" = ["*.json"]
 "superplanner.mfg.floor.fixtures" = ["*.json"]
 "superplanner.integration.fixtures" = ["*.json"]
+"superplanner.assistant.fixtures" = ["*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
