@@ -21,14 +21,22 @@ V1 = "/api/v1/mfg"
 MAX_ITEMS = 100
 
 
+def _may_self_approve(p: Any) -> bool:
+    return bool(p.is_owner or "plant_admin" in (p.roles or ()))
+
+
 def approvals(ctx: AppContext, p: Any) -> dict[str, Any]:
+    """Review m3: the user's own submissions are not listed (four eyes) unless owner / plant_admin."""
     items: list[dict[str, Any]] = []
+    self_ok = _may_self_approve(p)
     with read_tx(ctx) as s:
         if p.has("pr_approve"):
             sups = {x.id: x for x in s.execute(select(MfgSupplierRow)).scalars()}
             for d in s.execute(select(MfgPurchaseDocRow).where(MfgPurchaseDocRow.doc_type == "pr",
                                                                MfgPurchaseDocRow.status == "submitted")
                                .order_by(MfgPurchaseDocRow.submitted_at).limit(MAX_ITEMS)).scalars():
+                if d.submitted_by == p.user_id and not self_ok:
+                    continue
                 sup = sups.get(d.supplier_id or "")
                 items.append({"kind": "pr", "id": d.id, "number": d.number,
                               "title": f"{d.number}" + (f" ({sup.name})" if sup else ""), "summary": d.note[:200],
@@ -41,6 +49,8 @@ def approvals(ctx: AppContext, p: Any) -> dict[str, Any]:
         if p.has("eco_approve"):
             for c in s.execute(select(MfgChangeRequestRow).where(MfgChangeRequestRow.status == "submitted")
                                .order_by(MfgChangeRequestRow.updated_at).limit(MAX_ITEMS)).scalars():
+                if (c.submitted_by or c.requested_by) == p.user_id and not self_ok:
+                    continue
                 items.append({"kind": "eco", "id": c.id, "number": c.number, "title": f"{c.number} {c.title}"[:200],
                               "summary": c.reason[:200], "waiting_since": as_utc(c.updated_at),
                               "permission": "eco_approve", "row_version": c.row_version, "link": f"/mfg/eco/{c.id}",

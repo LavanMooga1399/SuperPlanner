@@ -129,10 +129,12 @@ def due(r: DigestSubscriptionRow, now: datetime) -> bool:
 def tiles_csv(tiles: dict[str, Any], plant_label: str = "") -> bytes:
     buf = io.StringIO()
     w = csv.writer(buf)
+    from ..mfg.io.export import csv_value      # M4/M1 rule: formula triggers are prefixed with ' (review m6)
+
     w.writerow(["plant", "tile", "value", "unit", "status", "note"])
     for name, t in tiles.items():
-        w.writerow([plant_label, name, "" if t.get("value") is None else t.get("value"), t.get("unit", ""),
-                    t.get("status", ""), t.get("note", "")])
+        w.writerow([csv_value(x) for x in (plant_label, name, t.get("value"), t.get("unit", ""), t.get("status", ""),
+                                           t.get("note", ""))])
     return buf.getvalue().encode("utf-8")
 
 

@@ -6,7 +6,7 @@ import hashlib
 from typing import Any
 from urllib.parse import urlsplit
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..api.db import new_id, utcnow
@@ -105,7 +105,14 @@ def subscribe(ctx: Any, user_id: str, body: PushSubscriptionInput, user_agent: s
                        {"loc": ["body", "keys", "p256dh"]}) from None
     eh = hashlib.sha256(body.endpoint.encode()).hexdigest()
     now = utcnow()
+    from ..api.auth.models import UserRow
+
     with ctx.write_guard(), ctx.db.write() as s:
+        # review m5: serialise this user's subscribes (count + upsert) and move a device that another account
+        # registered to this account (one browser = one owner; never two accounts on one device)
+        s.execute(select(UserRow.id).where(UserRow.id == user_id).with_for_update())
+        s.execute(delete(PushSubscriptionRow).where(PushSubscriptionRow.endpoint_hash == eh,
+                                                    PushSubscriptionRow.user_id != user_id))
         n = len(list(s.execute(select(PushSubscriptionRow.id).where(PushSubscriptionRow.user_id == user_id))))
         stmt = pg_insert(PushSubscriptionRow).values(
             id=new_id("psb_"), user_id=user_id, endpoint=body.endpoint, endpoint_hash=eh,

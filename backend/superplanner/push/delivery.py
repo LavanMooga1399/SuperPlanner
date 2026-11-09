@@ -118,6 +118,15 @@ def send_to_user(ctx: Any, user_id: str, topic: str, title: str, body: str, link
 
 # ---------------------------------------------------------------- per plant (job kind push_delivery)
 
+def plant_admins(s: Any, owner_id: str) -> set[str]:
+    from ..api.mfg.db_models_m2 import MfgPlantMemberRow
+
+    return {owner_id} | {uid for uid, roles in s.execute(select(MfgPlantMemberRow.user_id, MfgPlantMemberRow.roles)
+                                                         .where(MfgPlantMemberRow.owner_id == owner_id,
+                                                                MfgPlantMemberRow.active.is_(True))).all()
+                         if "plant_admin" in (roles or [])}
+
+
 def plant_people(s: Any, owner_id: str) -> dict[str, frozenset[str]]:
     """user id -> permissions in the plant (owner principal + active members)."""
     from ..api.auth.models import UserRow
@@ -143,8 +152,8 @@ def last_cursor(s: Any, owner_id: str) -> datetime | None:
     return datetime.fromisoformat(cur) if cur else None
 
 
-def _events(s: Any, owner_id: str, since: datetime) -> list[tuple[datetime, str, str, dict[str, Any], str]]:
-    """[(at, topic, permission, payload, urgency)] new since `since` in the plant."""
+def _events(s: Any, owner_id: str, since: datetime) -> list[tuple[datetime, str, str, dict[str, Any], str, str | None]]:
+    """[(at, topic, permission, payload, urgency, submitter)] new since `since` in the plant."""
     from ..api.mfg.db_models_m2 import MfgPurchaseDocRow
     from ..api.mfg.db_models_m3 import MfgApsRunRow
     from ..api.mfg.db_models_m4 import MfgNotificationRow
@@ -158,26 +167,26 @@ def _events(s: Any, owner_id: str, since: datetime) -> list[tuple[datetime, str,
             link = n.link if (n.link or "").startswith("/") else "/m/alerts"
             out.append((as_utc(n.created_at), "critical_alerts", "floor_view",
                         {"title": n.title[:120], "body": "Critical alert", "link": link[:300],
-                         "topic": "critical_alerts", "tag": n.id}, "high"))
+                         "topic": "critical_alerts", "tag": n.id}, "high", None))
     D = MfgPurchaseDocRow
     for d in s.execute(select(D).where(D.owner_id == owner_id, D.doc_type == "pr", D.status == "submitted",
                                        D.submitted_at > since).limit(100)).scalars():
         out.append((as_utc(d.submitted_at), "approvals", "pr_approve",
                     {"title": f"{d.number} waits for approval", "body": "Purchase request", "link": "/m/approvals",
-                     "topic": "approvals", "tag": d.id}, "normal"))
+                     "topic": "approvals", "tag": d.id}, "normal", d.submitted_by))
     C = MfgChangeRequestRow
     for c in s.execute(select(C).where(C.owner_id == owner_id, C.status == "submitted", C.updated_at > since)
                        .limit(100)).scalars():
         out.append((as_utc(c.updated_at), "approvals", "eco_approve",
                     {"title": f"{c.number} waits for approval", "body": "Engineering change", "link": "/m/approvals",
-                     "topic": "approvals", "tag": c.id}, "normal"))
+                     "topic": "approvals", "tag": c.id}, "normal", c.submitted_by or c.requested_by))
     R = MfgApsRunRow
     for r in s.execute(select(R).where(R.owner_id == owner_id, R.status == "completed", R.kind == "live",
                                        R.is_published.is_(False), R.finished_at > since).limit(20)).scalars():
         if (r.extras or {}).get("replan"):
             out.append((as_utc(r.finished_at), "approvals", "schedule_publish",
                         {"title": f"Replan proposal {r.run_no} is ready", "body": "Compare and publish",
-                         "link": "/m/approvals", "topic": "approvals", "tag": r.id}, "normal"))
+                         "link": "/m/approvals", "topic": "approvals", "tag": r.id}, "normal", None))
     return sorted(out, key=lambda x: x[0])
 
 
@@ -221,11 +230,14 @@ def run_plant(ctx: Any, owner_id: str, now: datetime | None = None) -> dict[str,
         since = last_cursor(s, owner_id) or now - timedelta(hours=1)
         events = _events(s, owner_id, since)
         people = plant_people(s, owner_id)
+        admins = plant_admins(s, owner_id)
         subs_by_topic = {t: _subs(s, list(people), t) for t in ("critical_alerts", "approvals")}
     sent = gone = failed = 0
     cursor = since
-    for at, topic, perm, payload, urgency in events:
-        subs = [x for x in subs_by_topic[topic] if perm in people.get(x["user_id"], frozenset())]
+    for at, topic, perm, payload, urgency, submitter in events:
+        # review m3: no "waits for your approval" push to the submitter (unless owner / plant_admin)
+        subs = [x for x in subs_by_topic[topic] if perm in people.get(x["user_id"], frozenset())
+                and (submitter is None or x["user_id"] != submitter or x["user_id"] in admins)]
         r = deliver(ctx, subs, payload, urgency)
         sent, gone, failed = sent + r["sent"], gone + r["gone"], failed + r["failed"]
         cursor = max(cursor, at)

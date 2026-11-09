@@ -416,8 +416,10 @@ def export(ctx: AppContext, period: str, fmt: str) -> tuple[bytes, str, str]:
         rows.append([name, "" if t["value"] is None else t["value"], t["unit"], t["status"], t["note"]])
     stamp = d["as_of"].strftime("%Y%m%d")
     if fmt == "csv":
+        from ....mfg.io.export import csv_value
+
         buf = io.StringIO()
-        csv.writer(buf).writerows(rows)
+        csv.writer(buf).writerows([rows[0]] + [[csv_value(x) for x in r] for r in rows[1:]])
         return buf.getvalue().encode("utf-8"), f"dashboard-{stamp}.csv", "text/csv"
     from openpyxl import Workbook
 
