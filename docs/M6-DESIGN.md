@@ -420,3 +420,88 @@ Contract decisions made at S0:
    `digest_subscriptions` gains `time_zone` (the plant's zone at subscribe time; organisations: UTC).
 
 ### 11.WP-U UI
+
+**Built (2026-11-09); types aligned to the frozen S0 contract (`assistant/model.py`, `push/model.py`,
+`mfg/model_m6.py`); `frontend/src/mfg/api/contractExamplesM6.ts` is `example_m6.json` verbatim, typed against
+`typesM6.ts` (regenerate when the fixture changes). Client: `clientM6.ts`.**
+
+Screens:
+- **U1 assistant panel** (`src/mfg/assistant/`): "Assistant" button in the Manufacturing nav opens a non-modal side
+  panel (Esc closes); the same body is the phone screen `/m/assistant`.
+  - Quick explanations always (perm `view`): "Why late?" (demand order / line / work order pages), "What limits this
+    week?", "What changed?" from A2, rendered as sections with `Q` citations.
+  - Ask (perm `assistant_use`): privacy notice from `status.privacy_notice` before the first question (accepted per
+    user in localStorage); the page is sent as `context` (checkbox, mapping in `assistantText.contextFromPath`);
+    the turn is polled every second with its steps (tool names in plain words, the tool summary in brackets); Stop
+    = A9; "More options" holds the what-if switch (disabled when `status.plant.assistant_allow_whatif` is false),
+    new conversation, earlier conversations (open / delete), and the 30-day note. Budget left is shown.
+  - Rendering: a markdown subset (paragraphs, lists, bold, code) as React text only; no HTML parsing, no links from
+    text; `[R7]`/`[Q2]` markers become router links only for server citations whose `link` is an app path
+    (`/...`, not `//`, not `/api/`); unknown markers are dropped; a Sources list follows.
+  - Draft cards: summary, "Show the exact request" (method, path, If-Match version, body as JSON text), Apply ->
+    inline confirm -> the draft's own request via `v1Raw` (session cookie + CSRF from `authFetch`, workspace header,
+    `If-Match` from `if_match_of`, `Idempotency-Key: asst-<draft_id>`); only `POST`/`PUT` to `/api/v1/...` paths
+    without query, `..` or `//` are sent. Apply is disabled unless the server's `allowed` is true and the role holds
+    `required_permission` (unknown permission = disabled). 412 -> "the record changed after this suggestion".
+    The outcome is reported with A10 (`succeeded` / `failed` + record id or error code).
+  - AI off / unreachable: the reason text plus the code chip (`AI_DISABLED`, `AI_PLANT_OPTED_OUT`,
+    `AI_BUDGET_EXCEEDED`, `AI_CONNECTION_ERROR`, ...), "Check again" for transient codes; quick explanations stay.
+    Failed turns show `error.message` + code. Operators (no `assistant_use`) see quick explanations only.
+  - Plant opt-out: Plant settings gains a "Planning assistant" card (read from `status.plant`, saved with
+    `PUT /mfg/plant/assistant`; owner / plant admin, read-only for others).
+- **U2 dashboards** (`src/mfg/pages/m6/`): `/mfg/dashboard` (nav "Execution > Dashboard"): period 4/13/52 weeks
+  (`?period=`), tiles in the S0 order with status as icon + text ("On track", "Watch", "Needs attention", "No data
+  yet"), value in its unit (`%` = fraction), SVG trend, tile details as label/value pairs (fractions as %, `_h`
+  hours, `value*` in currency, references as code + name), targets text, drill links (internal only); Excel / CSV
+  export; Print = browser print with an A4 landscape stylesheet (controls hidden, 4 tiles per row). "Adjust
+  targets" (owner / plant admin) edits the six D7 keys (percent entry for fractions). Email digest card (daily /
+  weekly, weekday 0 = Monday, plant time); hidden with an explanation when `GET /digests` says `smtp_enabled: false`
+  or a create answers `DIGEST_NO_SMTP`. Organisation page gains a "Dashboard" tab (`/orgs/:org/dashboard`): totals
+  (with the stated weights) and a tile x plant table, print, org digest.
+- **U3 PWA and phone screens:**
+  - `public/manifest.webmanifest` (start_url `/m`, standalone, PNG icons incl. maskable, shortcuts), manifest and
+    apple-touch links in `index.html`, nginx serves `sw.js` and the manifest with `no-cache`.
+  - Service worker `frontend/pwa/sw.js`, hand-written; the `sp-service-worker` plugin in `vite.config.ts` fills in
+    the build's file list and a content hash as version (pre-cache per version, old caches dropped), and serves an
+    empty-list copy on the dev server (no fetch handler there, so dev and e2e routing are untouched). Navigations
+    network-first with cached `index.html` as offline fallback; `/api/` never cached. Push: notification (title,
+    short body, link path only; non-path links open `/m`), `notificationclick` focuses/navigates; every push is also
+    posted to open windows (the phone badge refreshes). Registered on load in production builds and from `/m`
+    always.
+  - Push opt-in (`/m/more`, "Notifications"): topics with plain descriptions; hidden when
+    `vapid-public-key.enabled` is false; iOS-not-installed, unsupported and blocked states explained; the stored
+    subscription id is checked against `GET /push/subscriptions` (removed after 404/410 -> shown as off).
+  - `/m` shell: own layout (no desktop top bar), plant switcher, online/offline chip, offline banner, the M4 offline
+    queue status (waiting / not accepted with retry / discard), bottom tabs Home, Lines, Alerts, Approvals (count),
+    More. Home = my plants (lines down / running / paused, late demand lines from the published run, open warnings,
+    approvals) composed from existing endpoints with a per-plant workspace header; the last result is kept in
+    IndexedDB (`sp-mobile`) and shown offline with a "stale since" banner. Lines list / detail (current and next
+    operations, open downtime with Acknowledge and "Line is back up"), Alerts (M4 notifications, ack), Approvals,
+    WO quick view, Scan (wedge input; camera via `BarcodeDetector` when present), Assistant.
+  - Offline: the M4 queue gained `downtime_ack` (M4 endpoint, `Idempotency-Key` = queued action id, body
+    `client_id`) and `notification_ack`; both show "waiting to sync" and replay once.
+  - Approvals inbox: renders the server's `actions` and sends each as the user with If-Match = `row_version`;
+    an action whose body has an empty `reason` / `note` asks for it first; replan proposals can be compared with the
+    published schedule (`compare` of published vs proposal) before Publish; `APS_RUN_STALE_BASIS` asks once more and
+    resends with `confirm_stale_basis: true`. Offline: buttons disabled with the reason.
+
+e2e (`e2e/m6-desktop.spec.ts`, `e2e/m6-mobile.spec.ts` with the Pixel 7 profile; data in `e2e/m6-helpers.ts`;
+`playwright.config.ts` now starts the API with `ASSISTANT_AI_DEMO=true` and a per-run generated VAPID key, no
+SMTP): desktop 4/4, phone 4/4 (each run alone).
+- The demo assistant drafts overtime only when the published schedule suggests some; the sample data here has
+  material-bound lateness, so the desktop spec adds one server-shaped draft (a what-if copy of the published run)
+  to the turn when the demo made none, and Apply runs against the live API. The viewer case (T-A1) is checked by
+  answering the turn with `allowed: false` (single-user mode has no second role).
+- Phone approvals cover PR approve and replan-proposal compare + publish; overtime accept runs only when offered;
+  ECO approval is not exercised (single-user mode = self-approval, refused by M5).
+- Headless Chromium always reports notifications as blocked, so the push test stubs the permission and the
+  browser's push service, registers the subscription with the real API, delivers a message to the worker via the
+  DevTools protocol and checks that the worker handled it (message to the open app). A real notification needs a
+  headed browser or a phone.
+
+Requests to WP-S:
+1. Dashboard tile `integration` drills to `/integration`; the UI route is `/mfg/integration` (the UI only follows
+   app paths, so the link currently points to a not-found page).
+2. While writing the e2e, `GET /mfg/dashboard` answered 500 once (`GroupingError: mfg_items.family must appear in
+   the GROUP BY` in the inventory-by-family query, with the rush demand of `m6-helpers.ts`); it passed after the
+   uncommitted `literal_column("''")` change in `services/dashboard.py` - please keep that fix.

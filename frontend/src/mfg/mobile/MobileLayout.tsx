@@ -118,6 +118,11 @@ function BottomNav() {
   const { online } = useAutoSync();
   const appr = useLoad((signal) => (online ? listApprovals(signal) : null), [online]);
   usePolling(appr.reload, online, 60000);
+  useEffect(() => {
+    const on = () => appr.reload();
+    window.addEventListener("sp-push", on);
+    return () => window.removeEventListener("sp-push", on);
+  }, [appr.reload]);
   const n = appr.data?.items.length ?? 0;
   return (
     <nav className="m-tabs" aria-label="Mobile sections">
@@ -147,6 +152,8 @@ function Shell() {
     const onMsg = (e: MessageEvent) => {
       const d = e.data as { type?: string; link?: string } | null;
       if (d?.type === "open" && typeof d.link === "string" && d.link.startsWith("/") && !d.link.startsWith("//")) navigate(d.link);
+      // a push arrived while the app is open: pages refresh their counts (see BottomNav)
+      if (d?.type === "push") window.dispatchEvent(new CustomEvent("sp-push", { detail: d }));
     };
     navigator.serviceWorker?.addEventListener("message", onMsg);
     document.title = "SuperPlanner mobile";

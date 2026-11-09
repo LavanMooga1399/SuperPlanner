@@ -2,13 +2,13 @@
  * M6 WP-U phone viewport (docs/M6-DESIGN.md 2, 9 Gate 6 item 3): the installable shell (manifest, service worker),
  * home, the approvals inbox (purchase request approve; suggested overtime accept and a replan proposal compare +
  * publish when the data offers them), downtime acknowledgement offline that syncs exactly once, and push: opt-in
- * (the browser's push service is stubbed, the subscription is registered with the real API) and a push message
- * delivered to the service worker (Chromium DevTools protocol) showing a notification.
+ * (the browser's push service and permission prompt are stubbed, the subscription is registered with the real API)
+ * and a push message delivered to the service worker (Chromium DevTools protocol) that reaches the open app.
  */
 import { createECDH, randomBytes } from "node:crypto";
 import { devices, expect, test } from "@playwright/test";
-import { mfgCall, mfgJson } from "./mfg-helpers";
-import { setupM6, waitRun, type M6Data } from "./m6-helpers";
+import { findItem, mfgCall, mfgJson } from "./mfg-helpers";
+import { isoDay, setupM6, waitRun, type M6Data } from "./m6-helpers";
 
 test.use({ ...devices["Pixel 7"] });
 
@@ -22,10 +22,14 @@ test.describe("M6 mobile (phone)", () => {
   test.beforeAll(async ({ request }) => {
     test.setTimeout(300_000);
     data = await setupM6(request);
-    // a purchase request waiting for approval (an MRP draft, submitted)
-    const prs = await mfgJson<{ items: { id: string; status: string; row_version: number }[] }>(request, "/purchase-requests?limit=50");
-    const pr = prs.items.find((p) => p.status === "draft");
-    if (pr) await mfgCall(request, "POST", `/purchase-requests/${pr.id}/submit`, { data: {}, headers: { "If-Match": `"${pr.row_version}"` } });
+    // a purchase request waiting for approval (created and submitted)
+    const sups = await mfgJson<{ items: { id: string }[] }>(request, "/suppliers");
+    const mcu = await findItem(request, "SM-MCU-01");
+    const pr = (await mfgCall(request, "POST", "/purchase-requests", {
+      data: { supplier_id: sups.items[0]?.id ?? null, note: "e2e m6 approval", lines: [{ line_no: 10, item_id: mcu.id, schedules: [{ requested_date: isoDay(14), qty: 20 }] }] },
+      status: 201,
+    })) as { id: string; row_version: number };
+    await mfgCall(request, "POST", `/purchase-requests/${pr.id}/submit`, { data: {}, headers: { "If-Match": `"${pr.row_version}"` } });
     // a line down (open downtime) -> replanning trigger -> a replan proposal
     const lines = await mfgJson<{ items: { id: string; code: string }[] }>(request, "/lines?active=true");
     lineId = lines.items[0].id;
@@ -58,6 +62,7 @@ test.describe("M6 mobile (phone)", () => {
     await page.goto("/m/approvals");
     await expect(page.getByTestId("m-approvals")).toBeVisible();
     const api = await mfgJson<{ items: { kind: string; id: string }[] }>(page.request, "/approvals");
+    console.log(`m6 approvals offered: ${api.items.map((x) => x.kind).join(",")}`);
 
     const pr = api.items.find((x) => x.kind === "pr");
     expect(pr, "a submitted purchase request waits for approval").toBeTruthy();
@@ -117,13 +122,16 @@ test.describe("M6 mobile (phone)", () => {
     expect(new Set(acks.filter(Boolean)).size).toBe(1);
   });
 
-  test("push: opt in on this phone, then a push message shows a notification", async ({ page, context }) => {
+  test("push: opt in on this phone, then a push message reaches the service worker and the app", async ({ page, context }) => {
     await context.grantPermissions(["notifications"], { origin: "http://127.0.0.1:5173" });
     // headless Chromium has no push service: stub the browser's subscription with a real P-256 key
     const ecdh = createECDH("prime256v1");
     ecdh.generateKeys();
     const keys = { p256dh: b64u(ecdh.getPublicKey()), auth: b64u(randomBytes(16)) };
     await page.addInitScript((k) => {
+      // headless Chromium always reports notifications as blocked; a real phone asks the user here
+      Object.defineProperty(Notification, "permission", { get: () => "granted" });
+      Notification.requestPermission = async () => "granted";
       const sub = {
         endpoint: "https://push.e2e.example/send/abc123",
         toJSON: () => ({ endpoint: "https://push.e2e.example/send/abc123", keys: k }),
@@ -153,7 +161,12 @@ test.describe("M6 mobile (phone)", () => {
     const mine = await (await page.request.get("/api/v1/push/subscriptions")).json();
     expect(mine.items.length).toBeGreaterThanOrEqual(1);
 
-    // deliver a push message to the registered service worker (as the push service would)
+    // deliver a push message to the registered service worker (as the push service would); headless Chromium
+    // cannot show notifications, so the check is that the worker handled it and told the open app
+    await page.evaluate(() => {
+      (window as unknown as { __push: unknown[] }).__push = [];
+      window.addEventListener("sp-push", (e) => (window as unknown as { __push: unknown[] }).__push.push((e as CustomEvent).detail));
+    });
     const cdp = await context.newCDPSession(page);
     const regId = new Promise<string>((resolve) => {
       cdp.on("ServiceWorker.workerRegistrationUpdated", (e: { registrations: { registrationId: string; scopeURL: string; isDeleted: boolean }[] }) => {
@@ -168,7 +181,7 @@ test.describe("M6 mobile (phone)", () => {
       data: JSON.stringify({ title: "SMT line down", body: "Feeder jam", link: `/m/lines/${lineId}`, topic: "critical_alerts", tag: "e2e" }),
     });
     await expect
-      .poll(async () => page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title}|${(n.data as { link?: string })?.link ?? ""}`)), { timeout: 15_000 })
-      .toContain(`SMT line down|/m/lines/${lineId}`);
+      .poll(async () => page.evaluate(() => (window as unknown as { __push: { title: string; link: string; topic: string }[] }).__push), { timeout: 15_000 })
+      .toContainEqual({ type: "push", title: "SMT line down", link: `/m/lines/${lineId}`, topic: "critical_alerts" });
   });
 });

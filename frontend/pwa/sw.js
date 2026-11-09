@@ -88,15 +88,25 @@ self.addEventListener("push", (event) => {
   const title = typeof data.title === "string" && data.title ? data.title.slice(0, 120) : "SuperPlanner";
   const body = typeof data.body === "string" ? data.body.slice(0, 240) : "";
   const link = safePath(data.link);
+  const topic = typeof data.topic === "string" ? data.topic : null;
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      tag: typeof data.tag === "string" ? data.tag : undefined,
-      data: { link, topic: typeof data.topic === "string" ? data.topic : null },
-      icon: "/icons/icon-192.png",
-      badge: "/icons/badge-72.png",
-      requireInteraction: data.urgency === "high" || data.topic === "critical_alerts",
-    }),
+    (async () => {
+      try {
+        await self.registration.showNotification(title, {
+          body,
+          tag: typeof data.tag === "string" ? data.tag : undefined,
+          data: { link, topic },
+          icon: "/icons/icon-192.png",
+          badge: "/icons/badge-72.png",
+          requireInteraction: data.urgency === "high" || topic === "critical_alerts",
+        });
+      } catch (e) {
+        /* notifications blocked: open windows are still told below */
+      }
+      // open app windows refresh their counts (approvals badge, alerts) without waiting for the next poll
+      const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const c of all) c.postMessage({ type: "push", title, link, topic });
+    })(),
   );
 });
 
