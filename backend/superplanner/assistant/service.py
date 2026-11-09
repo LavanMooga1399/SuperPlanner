@@ -164,6 +164,8 @@ def delete_conversation(ctx: Any, p: Any, conversation_id: str) -> None:
 # ---------------------------------------------------------------- turns
 
 def start_turn(ctx: Any, app: Any, p: Any, conversation_id: str, body: TurnInput) -> dict[str, Any]:
+    with ctx.db.read() as s:                  # 404 for others' conversations before any availability answer
+        _own_conversation(s, p, conversation_id)
     code, ps, left = _availability(ctx, p)
     if code is not None:
         extra = {"budget_left": {"user": left[0], "plant": left[1]}} if code == "AI_BUDGET_EXCEEDED" else {}

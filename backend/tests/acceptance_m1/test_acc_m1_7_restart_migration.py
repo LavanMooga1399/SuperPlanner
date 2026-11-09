@@ -104,8 +104,9 @@ def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_u
     from superplanner.api.mfg.db_models_m3 import M3_TABLES
     from superplanner.api.mfg.db_models_m4 import M4_TABLES
     from superplanner.api.mfg.db_models_m5 import M5_TABLES
+    from superplanner.api.mfg.db_models_m6 import M6_TABLES
 
-    all_mfg = set(MFG_TABLES) | set(M2_TABLES) | set(M3_TABLES) | set(M4_TABLES) | set(M5_TABLES)
+    all_mfg = set(MFG_TABLES) | set(M2_TABLES) | set(M3_TABLES) | set(M4_TABLES) | set(M5_TABLES) | set(M6_TABLES)
     assert set(at_head) - set(at_0002) == all_mfg
     assert len(MFG_TABLES) == 18
     assert at_0002 == {t: n for t, n in at_head.items() if t not in all_mfg}
@@ -124,7 +125,7 @@ def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_u
         assert api.get("/summary")["counts"]["items"] == 0          # mfg starts empty after the downgrade
         api.load("small")
         assert api.health()["ok"]
-    assert migrate.current_revision(db_url) == migrate.HEAD == "0007_m5"     # head moved with M2 / M3 / M4 / M5
+    assert migrate.current_revision(db_url) == migrate.HEAD == "0008_m6"     # head moved with M2 / M3 / M4 / M5 / M6
     after = _table_counts(db_url)
     for t, n in at_0002.items():
         if t == "audit_events":

@@ -79,7 +79,7 @@ def test_migration_0005_to_0006_and_back(empty_pg_db):
         eng.dispose()
     t5 = _tables(url)
     migrate.run_alembic_upgrade(url, "0006_mfg_m4")      # (M5 0007_m5 sits on top; head moved)
-    assert migrate.HEAD == "0007_m5" and migrate.schema_state(url) == "behind"
+    assert migrate.HEAD == "0008_m6" and migrate.schema_state(url) == "behind"
     assert _tables(url) - t5 == set(M4_TABLES) and t5 - _tables(url) == {"mfg_wo_op_progress"}
     eng = sa.create_engine(url)
     try:

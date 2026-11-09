@@ -334,6 +334,20 @@ def make_m5_world(c: TestClient, w: dict[str, Any]) -> None:
     w["mfg_bodies"].update({
         "/integration/endpoints/{endpoint_id}": {"name": "erp", "url": "https://127.0.0.1/hook"},
     })
+    make_m6_world(c, w)
+
+
+def make_m6_world(c: TestClient, w: dict[str, Any]) -> None:
+    """M6 objects (M6-DESIGN 5): a conversation; turn / draft / push subscription / digest ids are unknown ids
+    (the sweep only needs 404 for user B)."""
+    ids = w["mfg_ids"]
+    r = c.post(f"{MFG}/assistant/conversations", json={})
+    assert r.status_code == 201, r.text
+    ids.update({"conversation_id": r.json()["id"], "turn_id": f"ast_{uuid.uuid4().hex}",
+                "draft_id": f"drf_{uuid.uuid4().hex}", "subscription_id": f"psb_{uuid.uuid4().hex}",
+                "digest_id": f"dgs_{uuid.uuid4().hex}"})
+    w["mfg_bodies"].update({"/assistant/conversations/{conversation_id}/turns": {"text": "why late?"},
+                            "/assistant/drafts/{draft_id}/applied": {"status": "succeeded"}})
 
 
 def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:

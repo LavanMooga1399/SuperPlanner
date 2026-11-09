@@ -4,7 +4,9 @@
 - `GET /health/live`: 200 `{"status":"ok"}`, no database access (process liveness).
 - `GET /health/ready`: 200 `{"status":"ready", ...}` or 503 `{"status":"not_ready", ...}` when the database ping
   fails (`"database":"error"`) or the schema is not at `migrate.HEAD` (`"schema":"outdated"`; the body names
-  `schema_revision` found and `schema_head` required). Missing workers do not make
+  `schema_revision` found and `schema_head` required), or when the write pool reaches a standby
+  (`pg_is_in_recovery()`, `"database":"read_only"`, M6-DESIGN 4.2); with DATABASE_READ_URL the body also reports
+  `replica {status, lag_seconds}` (not a readiness condition). Missing workers do not make
   the API unready (shown in `workers_alive`). Schema state is cached 30 s per app. Public in every auth mode and
   runs in `system_scope()` (it counts rows of the owned `jobs` table inside a request without a user, review R9).
 """
@@ -88,6 +90,20 @@ def readiness(ctx: AppContext, state: Any) -> dict[str, Any]:
         if not ctx.db.ping():
             body.update(status="not_ready", database="error", schema="unknown")
             return body
+        # M6-DESIGN 4.2 item 3: the write pool must point at the primary (DNS lag after a failover)
+        try:
+            in_recovery = ctx.db.in_recovery()
+        except Exception as exc:
+            log.warning("readiness: recovery check failed (%s)", exc.__class__.__name__)
+            in_recovery = None
+        if in_recovery:
+            body.update(status="not_ready", database="read_only")
+            return body
+        if ctx.db.replica is not None:                 # reported, not a readiness condition
+            lag = ctx.db.replica.lag()
+            body["replica"] = {"status": "error" if lag is None else
+                               "lagging" if lag > ctx.db.replica.max_lag else "ok",
+                               "lag_seconds": None if lag is None else round(lag, 3)}
         try:
             schema, rev = _schema(ctx, state)
         except Exception as exc:
