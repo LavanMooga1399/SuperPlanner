@@ -59,6 +59,7 @@ class Dashboard(MfgModel):
     tiles: dict[str, Tile]
     source: Literal["primary", "replica"] = "primary"
     computed_ms: int = 0
+    timings_ms: dict[str, int] = Field(default_factory=dict)
 
 
 class OrgDashboardPlant(MfgModel):

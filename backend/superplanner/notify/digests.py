@@ -175,10 +175,14 @@ def render(settings: Any, title: str, sections: list[tuple[str, dict[str, Any]]]
 def run_job(ctx: Any, run_id: str, lease: Any) -> None:
     from ..integration.jobs import run_duty
 
-    run_duty(ctx, run_id, lease, lambda info: send_due(ctx))
+    run_duty(ctx, run_id, lease, lambda info: send_due(ctx, user_id=info["owner"]))
 
 
-def send_due(ctx: Any, now: datetime | None = None) -> dict[str, Any]:
+def due_users(s: Any, now: datetime) -> list[str]:
+    return sorted({r.user_id for r in s.execute(select(DigestSubscriptionRow)).scalars() if due(r, now)})
+
+
+def send_due(ctx: Any, now: datetime | None = None, user_id: str | None = None) -> dict[str, Any]:
     """Send every due digest (each computed in its recipient's scope). -> counts."""
     from ..api.auth.models import UserRow
     from ..api.db.ownership import owner_scope, system_scope
@@ -186,7 +190,10 @@ def send_due(ctx: Any, now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     sent = failed = 0
     with system_scope(), ctx.db.read() as s:
-        subs = [r for r in s.execute(select(DigestSubscriptionRow)).scalars() if due(r, now)]
+        q = select(DigestSubscriptionRow)
+        if user_id:
+            q = q.where(DigestSubscriptionRow.user_id == user_id)
+        subs = [r for r in s.execute(q).scalars() if due(r, now)]
         emails = {u.id: u.email for u in s.execute(select(UserRow).where(UserRow.id.in_(
             [r.user_id for r in subs]))).scalars()} if subs else {}
         s.expunge_all()

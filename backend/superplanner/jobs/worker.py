@@ -173,7 +173,8 @@ class WorkerLoop:
     def _start_scheduler(self) -> None:
         """M5-DESIGN 4.5 / 4.6 / 7: a worker that runs a scheduled duty kind also enqueues due duties every
         `FILEDROP_POLL_SECONDS` (integration.scheduler; one scheduler at a time by advisory lock)."""
-        duties = {"integration_filedrop", "integration_delivery", "maintenance_retention"}
+        duties = {"integration_filedrop", "integration_delivery", "maintenance_retention", "push_delivery",
+                  "digest_send", "inventory_snapshot"}
         if self.once or not duties & set(self.kinds) or getattr(self.settings, "scheduler_disabled", False):
             return
 
@@ -190,7 +191,7 @@ class WorkerLoop:
                         last_full = now
                         scheduler.tick(self.ctx)
                     else:                             # webhooks / export only (IP4 latency)
-                        scheduler.tick(self.ctx, duties={"integration_delivery"})
+                        scheduler.tick(self.ctx, duties={"integration_delivery", "push_delivery"})
                 except Exception as exc:          # never kills the worker
                     log.warning("scheduler tick failed: %s", exc)
 

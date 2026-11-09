@@ -130,7 +130,7 @@ tiles = {
     "quality": tile(1, "count", "alert", [{"label": "Recalls", "path": "/mfg/recalls"}],
                     details={"open_recalls": 1, "ecos_by_status": {"submitted": 2, "approved": 1},
                              "top_scrap_reasons": [{"reason": "SOLDER_BRIDGE", "qty": 14}]}),
-    "integration": tile(0, "count", "ok", [{"label": "Integration console", "path": "/integration"}],
+    "integration": tile(0, "count", "ok", [{"label": "Integration console", "path": "/mfg/integration"}],
                         details={"dead_deliveries": 0, "failed_batches_7d": 0, "stale_reconciliation": False}),
 }
 plant = {"owner_id": "usr_" + "1" * 32, "name": "Kavach Hyderabad", "currency": "INR", "time_zone": "Asia/Kolkata"}

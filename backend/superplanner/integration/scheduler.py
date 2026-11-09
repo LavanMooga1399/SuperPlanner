@@ -78,6 +78,16 @@ def tick(ctx: Any, now: datetime | None = None, duties: set[str] | None = None) 
                 _rid, job = new_run(s, ctx, kind, st.owner_id, {})
                 jobs.append(job)
                 out.append((kind, st.owner_id))
+        # M6-DESIGN 4.2 item 4: the M6 duties join this scheduler (same lock, same "one active run" rule)
+        if duties is None or duties & {"push_delivery", "digest_send", "inventory_snapshot"}:
+            from .. import m6jobs
+
+            for kind, owner in m6jobs.due_kinds(s, ctx, now):
+                if duties is not None and kind not in duties:
+                    continue
+                _rid, job = new_run(s, ctx, kind, owner, {})
+                jobs.append(job)
+                out.append((kind, owner))
     for j in jobs:
         ctx.jobs.dispatch(j)
     if out:
