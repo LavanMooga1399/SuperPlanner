@@ -93,7 +93,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const mine = (list.data?.items ?? []).filter((x) => x.scope === scope && x.scope_id === scopeId);
-  const emailOff = noSmtp;
+  const emailOff = noSmtp || list.data?.smtp_enabled === false;
 
   const add = async () => {
     setBusy(true);

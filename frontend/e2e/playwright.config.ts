@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -13,6 +14,8 @@ process.env.SP_E2E_TMP ??= fs.mkdtempSync(path.join(os.tmpdir(), "sp-e2e-"));
 process.env.SP_E2E_DB ??= `sp_e2e_${Date.now()}_${process.pid}`;
 const tmpDir = process.env.SP_E2E_TMP;
 const dbName = process.env.SP_E2E_DB;
+// M6: a throwaway VAPID key per run (push on, shared by runner and workers) for the m6 specs' push opt-in.
+process.env.SP_E2E_VAPID_PEM ??= generateKeyPairSync("ec", { namedCurve: "prime256v1" }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 const backendDir = path.resolve(here, "../../backend");
 const frontendDir = path.resolve(here, "..");
 
@@ -53,6 +56,11 @@ export default defineConfig({
         WORKER_POLL_SECONDS: "0.2",
         JOB_CANCEL_POLL_SECONDS: "0.2",
         WORKER_SHUTDOWN_GRACE_SECONDS: "2",
+        // M6: the development-only scripted assistant (real tools, no AI provider) and Web Push with a test key;
+        // no SMTP, so e-mail digests are refused (DIGEST_NO_SMTP)
+        ASSISTANT_AI_DEMO: "true",
+        WEBPUSH_VAPID_PRIVATE_KEY: process.env.SP_E2E_VAPID_PEM,
+        WEBPUSH_SUBJECT: "mailto:e2e@superplanner.example",
       },
       url: "http://127.0.0.1:8000/api/v1/health",
       reuseExistingServer: false,

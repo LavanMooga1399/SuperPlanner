@@ -99,7 +99,7 @@ export const getDashboard = (period: DashboardPeriod, signal?: AbortSignal) => m
 export const exportDashboard = (period: DashboardPeriod, format: "xlsx" | "csv") => mfgDownload("/dashboard/export", { period, format }, `dashboard.${format}`);
 export const getOrgDashboard = (org: string, period: DashboardPeriod, signal?: AbortSignal) =>
   v1Request<OrgDashboardResponse>(`/orgs/${enc(org)}/dashboard`, { query: { period }, signal });
-export const listDigests = (signal?: AbortSignal) => v1Request<{ items: DigestSubscription[] }>("/digests", { signal });
+export const listDigests = (signal?: AbortSignal) => v1Request<{ items: DigestSubscription[]; smtp_enabled?: boolean }>("/digests", { signal });
 export const createDigest = (body: DigestInput) => v1Request<DigestSubscription>("/digests", { method: "POST", body });
 export const deleteDigest = (id: string) => v1Request<void>(`/digests/${enc(id)}`, { method: "DELETE" });
 export const putDashboardThresholds = (body: ThresholdsInput) => mfgRequest<unknown>("/plant/dashboard-thresholds", { method: "PUT", body });
