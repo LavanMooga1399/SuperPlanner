@@ -63,6 +63,26 @@ def replica_reads(ctx: Any = None) -> Iterator[list[str]]:
         _read_source.reset(t2)
 
 
+def replica_call(fn: Callable[[], Any], ctx: Any = None) -> Any:
+    """Run `fn` replica-routed; if it fails with a database error after reading from the replica (replica fault,
+    40001 recovery conflict, ...), run it once more on the primary (review m4). Primary faults propagate."""
+    from sqlalchemy.exc import DBAPIError
+
+    with replica_reads(ctx) as src:
+        try:
+            return fn()
+        except DBAPIError as exc:
+            if "replica" not in src:
+                raise
+            db = getattr(ctx, "db", None)
+            rep = getattr(db, "replica", None)
+            if rep is not None:
+                rep.log_failure(exc)
+                rep.reset()
+            _count("primary_error")
+    return fn()
+
+
 @contextmanager
 def primary_only() -> Iterator[None]:
     """Inside a replica-safe block: reads that must see the primary (staleness / If-Match)."""

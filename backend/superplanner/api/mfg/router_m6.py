@@ -3,7 +3,8 @@
 
 Services: `assistant/service.py` (status, conversations, turns, drafts), `assistant/quick.py`, `services/dashboard.py`,
 `services/approvals.py`, `services/downtime.py` (ack), `push/service.py`, `notify/digests.py`.
-Replica-routed reads (4.2): dashboards, exports and assistant read tools run inside `replica_reads()`."""
+Replica-routed reads (4.2): dashboards, exports and quick explanations run through `replica_call()` (replica when fresh,
+retried once on the primary after a replica fault)."""
 
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ from ...assistant.model import AssistantPlantSettings, ConversationInput, DraftA
 from ...mfg.model_m6 import DigestInput, DowntimeAck, ThresholdsInput
 from ...push.model import PushSubscriptionInput
 from ..context import AppContext, get_ctx
-from ..db.session import replica_reads
+from ..db.session import replica_call
 from .access import MfgPrincipal, mfg_principal
 from .router_m2 import P, Id, Limit, Offset, _file, _idem, _idem_key, _ok
 
@@ -52,8 +53,7 @@ def assistant_quick(kind: Literal["why_late", "limits", "changes"], type: str | 
         ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ...assistant import quick
 
-    with replica_reads(ctx):
-        return _ok(quick.explain(ctx, p, kind, type, id))
+    return _ok(replica_call(lambda: quick.explain(ctx, p, kind, type, id), ctx))
 
 
 @router.get("/assistant/conversations", dependencies=PA("assistant_use"))
@@ -153,8 +153,7 @@ def approvals(p: MfgPrincipal = Depends(mfg_principal), ctx: AppContext = Depend
 def dashboard(period: Literal["4w", "13w", "52w"] = "13w", ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from .services import dashboard as svc
 
-    with replica_reads(ctx):
-        return _ok(svc.plant_dashboard(ctx, period))
+    return _ok(replica_call(lambda: svc.plant_dashboard(ctx, period), ctx))
 
 
 @router.get("/dashboard/export", dependencies=P("view"))
@@ -163,8 +162,7 @@ def dashboard_export(period: Literal["4w", "13w", "52w"] = "13w",
                      ctx: AppContext = Depends(get_ctx)) -> Response:
     from .services import dashboard as svc
 
-    with replica_reads(ctx):
-        data, name, media = svc.export(ctx, period, format)
+    data, name, media = replica_call(lambda: svc.export(ctx, period, format), ctx)
     return _file(data, name, media)
 
 
@@ -234,8 +232,8 @@ def org_dashboard(org_id: str, request: Request, period: Literal["4w", "13w", "5
                   ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from .services import dashboard as svc
 
-    with replica_reads(ctx):
-        return _ok(svc.org_dashboard(ctx, _user(request), org_id, period))
+    uid = _user(request)
+    return _ok(replica_call(lambda: svc.org_dashboard(ctx, uid, org_id, period), ctx))
 
 
 def _user(request: Request) -> str:

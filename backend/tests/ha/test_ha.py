@@ -146,3 +146,25 @@ def test_m4_unknown_lag_means_primary(db_url):
         rep.reset()
         assert Api(c).get("/dashboard")["source"] == "primary"
         assert c.get(f"{V1}/health/ready").json()["replica"] == {"status": "error", "lag_seconds": None}
+
+
+def test_m4_replica_fault_retries_on_the_primary(db_url):
+    """Review m4: a read failing on the replica is retried once on the primary (no 503, primary pool kept)."""
+    app = _app(db_url)
+    with TestClient(app) as c:
+        rep = app.state.ctx.db.replica
+        rep.lag_probe = lambda: 0.0
+        rep.reset()
+        bad = sa.create_engine(db_url, connect_args={"options": "-c statement_timeout=1"})
+        good = rep.engine
+        rep.factory.configure(bind=bad)          # every replica statement is cancelled (57014)
+        try:
+            Api(c).item("RF-1")
+            c.cookies.clear()
+            primary_pool = app.state.ctx.db.engine.pool
+            r = c.get(f"{V1}/mfg/dashboard")
+            assert r.status_code == 200 and r.json()["source"] == "primary"
+            assert app.state.ctx.db.engine.pool is primary_pool
+        finally:
+            rep.factory.configure(bind=good)
+            bad.dispose()

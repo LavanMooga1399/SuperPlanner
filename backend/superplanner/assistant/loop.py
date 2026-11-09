@@ -26,6 +26,8 @@ from . import budget, citations, client as C, prompts, tools as T
 log = logging.getLogger("superplanner.assistant")
 HISTORY_TURNS = 10
 STALE_SECONDS = 180
+#: review m1: the heartbeat is written by a timer while a model call or a tool (what-if APS: up to 120 s) runs
+HEARTBEAT_SECONDS = 30.0
 MESSAGES = {
     "AI_DISABLED": "The assistant is switched off on this server.",
     "AI_SDK_MISSING": "The AI library is not installed on this server.",
@@ -74,7 +76,7 @@ class Turn:
         """Write progress; returns cancel_requested."""
         with self.ctx.write_guard(), self.ctx.db.write() as s:
             t = s.get(AssistantTurnRow, self.turn_id, with_for_update=True)
-            if t is None:
+            if t is None or t.status not in ("queued", "running"):    # review m1: reaped / cancelled meanwhile
                 return True
             for k, v in vals.items():
                 setattr(t, k, v)
@@ -91,7 +93,7 @@ class Turn:
             else None
         with self.ctx.write_guard(), self.ctx.db.write() as s:
             t = s.get(AssistantTurnRow, self.turn_id, with_for_update=True)
-            if t is None:
+            if t is None or t.status not in ("queued", "running"):    # review m1: never overwrite a final state
                 return
             if refs is not None:
                 refs.flush(s)
@@ -130,6 +132,20 @@ def run(ctx: Any, app_state: Any, turn_id: str, owner_id: str, user_id: str) -> 
     if slots is not None and not slots.acquire():
         turn.finish("failed", code="AI_BUSY")
         return
+    stop = threading.Event()
+
+    def beat() -> None:
+        while not stop.wait(HEARTBEAT_SECONDS):
+            try:
+                with ctx.write_guard(), ctx.db.write() as s:
+                    t = s.get(AssistantTurnRow, turn_id, with_for_update=True)
+                    if t is None or t.status not in ("queued", "running"):
+                        return
+                    t.heartbeat_at = utcnow()
+            except Exception as exc:  # noqa: BLE001
+                log.info("assistant heartbeat failed: %s", type(exc).__name__)
+
+    threading.Thread(target=beat, name=f"sp-assistant-hb-{turn_id[-6:]}", daemon=True).start()
     try:
         _run(turn)
     except Exception as exc:  # noqa: BLE001 - a turn never dies silently
@@ -139,6 +155,7 @@ def run(ctx: Any, app_state: Any, turn_id: str, owner_id: str, user_id: str) -> 
         except Exception:  # pragma: no cover
             pass
     finally:
+        stop.set()
         if slots is not None:
             slots.release()
 

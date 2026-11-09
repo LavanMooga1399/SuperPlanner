@@ -509,6 +509,38 @@ Performance (developer machine, PostgreSQL local; Kavach M4 sample):
   created exactly once.
 - AI2 (live model) not run: tests never call the real API; the manual live smoke test stays with LEAD.
 
+**Security review fixes (2026-11-09) - decisions as built.**
+- M1 Assistant routes (`/mfg/assistant/*`, `PUT /mfg/plant/assistant`) refuse API token principals (403
+  `TOKEN_SCOPE`); `assistant_use` is no longer a mintable token scope; tool permission re-checks intersect with a
+  principal's scopes if a turn ever carries them.
+- M2 `whatif_run` drafts take no free parameters: typed `whatif_mrp` / `whatif_aps` arguments (extra=forbid), the
+  body is built by the server and always carries `what_if: true`; `MrpParams` / `ApsParams` gain `what_if`
+  (excluded from stored params; allowed with `copy_of`), which the services honour (kind `what_if`, also for a copy of
+  the published live run), so applying the card can never create a live / publishable / convertible run. (The
+  `open_overtime` card stays a live re-run on purpose: accepting overtime = 1.4 / M3 `copy_of` + `open_shifts`.)
+- M3 Push endpoints are allow-listed (`fcm.googleapis.com`, `*.push.services.mozilla.com`, `*.notify.windows.com`,
+  `web.push.apple.com`, `*.push.apple.com`; https, port 443, no credentials) at subscribe (422
+  `PUSH_SUBSCRIPTION_INVALID`) and again before every send (a stored endpoint no longer allowed is dropped);
+  `WEBPUSH_EXTRA_HOSTS` adds hosts in development only (ConfigError otherwise; e2e config sets
+  `push.e2e.example`). Sends use the M5 pinned connection (`resolve_checked` + `pinned_post`: checked address, TLS to
+  the host name, proxy rules, redirects never followed). `GET /push/subscriptions` shows `active` only (no failure
+  counts / last success).
+- M4 Replica lag: unknown (NULL -> primary) when the standby's WAL receiver is not `streaming`; caught up counts as
+  0 only while the primary's walsender keepalives arrive within 30 s (`pg_stat_wal_receiver.last_msg_receipt_time`
+  as the heartbeat), else the replay timestamp's age; readiness reports such a replica as `error`.
+- m1 A heartbeat timer (30 s) runs while model calls / tools run; progress writes and `finish` never overwrite a turn
+  that left `queued`/`running` (reaped or cancelled meanwhile).
+- m3 Approvals inbox and approval pushes exclude the user's own submissions (PR `submitted_by`, ECO
+  `submitted_by`/`requested_by`) unless owner / plant_admin.
+- m4 Replica-routed endpoints run through `replica_call`: a database error after a replica read (fault, 40001,
+  statement cancel) is retried once on the primary; the primary pool is not dropped and no `DB_UNAVAILABLE` is
+  answered for replica faults.
+- m5 Subscribe locks the user row (count + upsert serialised) and moves a device registered by another account to
+  the subscribing account (one browser endpoint = one account).
+- m6 Digest and dashboard CSV cells use the M1 export rule (`csv_value`: formula triggers prefixed with `'`).
+- Regression tests: `tests/assistant/test_m6_security_review.py`, `test_assistant_loop.py::test_m2_*`,
+  `tests/push/test_push_delivery.py::test_m3_*`, `tests/ha/test_ha.py::test_m4_*`.
+
 ### 11.WP-U UI
 
 **Built (2026-11-09); types aligned to the frozen S0 contract (`assistant/model.py`, `push/model.py`,
