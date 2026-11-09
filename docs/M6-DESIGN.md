@@ -486,7 +486,7 @@ Interpretations / deviations:
 21. Readiness body gains `"database": "read_only"` (standby write target) and, only with a replica, `replica`.
 22. Migration policy: 0001-0007 predate the policy and are not re-checked; 0008 declares `policy = "expand"`.
 
-Targeted results (2026-11-09): `tests/assistant` 20 passed, `tests/dashboard` 6, `tests/push` 10, `tests/ha` 6,
+Targeted results (2026-11-09): `tests/assistant` 20 passed, `tests/dashboard` 6, `tests/push` 7, `tests/ha` 6,
 `tests/db/test_migration_policy.py` 10; touched existing tests green: route coverage + authz sweep (M6 objects
 added), ops health, migrations (0002 / 0006 / 0007 head assertions moved to 0008), config, M4 S0, M4 floor, M5 orgs,
 file drop, M2 reset.
