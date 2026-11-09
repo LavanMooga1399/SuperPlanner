@@ -262,7 +262,7 @@ def _create_run(ctx: AppContext, body: ApsParams, idem: Any, *, extras: dict[str
         if idem is not None:
             idempotency.lookup(s, idem, ctx.settings.idempotency_ttl_hours, _created_from_job)
         params, kind, as_of, mrp, copy_of = _resolve(s, body)
-        if force_what_if:
+        if force_what_if or body.what_if:
             kind = "what_if"
         carry = _carried_locks(s, copy_of) if copy_of else []
         active = s.execute(select(MfgApsRunRow.run_no).where(MfgApsRunRow.status.in_(("queued", "running")))).first()

@@ -50,6 +50,7 @@ def stub() -> Stub:
 
 
 def _app(db_url, stub, **kw):
+    kw.setdefault("webpush_extra_hosts", ["push.example.test"])
     return acc_app(db_url, webpush_vapid_private_key=PEM, webpush_subject="mailto:ops@hbl.example", push_post=stub,
                    **kw)
 
@@ -96,7 +97,7 @@ def test_delivery_encrypted_payload_and_410_cleanup(db_url, stub):
     assert h["Content-Encoding"] == "aes128gcm" and h["TTL"] == "86400" and h["Urgency"] == "normal"
     assert h["Authorization"].startswith("vapid t=") and f"k={vapid.public_key(PEM)}" in h["Authorization"]
     items = a.get(f"{V1}/push/subscriptions").json()["items"]
-    assert len(items) == 1 and items[0]["last_success_at"]
+    assert len(items) == 1 and items[0]["active"] is True and "failures" not in items[0]
     assert delivery.send_to_user(app.state.ctx, uid, "approvals", "x", "", "/m") == 0     # topic not subscribed
 
 
@@ -172,3 +173,29 @@ def test_fanout_1000_subscriptions_pu1(db_url, stub):
         dt = time.monotonic() - t0
         print(f"PU1 fan-out 1000 subscriptions {dt:.2f}s")
         assert n == 1000 and len(stub.got) == 1000 and dt < 60
+
+
+def test_m3_push_hosts_are_allow_listed(db_url, stub):
+    """M6 review M3: only browser push services (+ WEBPUSH_EXTRA_HOSTS in development); delivery re-checks."""
+    from superplanner.api.config import ConfigError, Settings
+    from superplanner.push import delivery
+    from superplanner.push.service import endpoint_allowed
+
+    app = _app(db_url, stub, webpush_extra_hosts=[])
+    a = sign_up(app, "a@p.example")
+    dev = stub.device(1)
+    for ep in ("https://169.254.169.254/latest", "https://intranet.hbl.example/x", "https://fcm.googleapis.com.evil"
+               ".example/x", "https://push.example.test/send/1", "https://user:pw@fcm.googleapis.com/x",
+               "https://fcm.googleapis.com:8443/x"):
+        r = a.post(f"{V1}/push/subscriptions", json=dict(dev, endpoint=ep))
+        assert r.status_code == 422 and r.json()["error"]["code"] == "PUSH_SUBSCRIPTION_INVALID", ep
+    s = app.state.ctx.settings
+    for ok in ("https://fcm.googleapis.com/fcm/send/x", "https://updates.push.services.mozilla.com/wpush/v2/x",
+               "https://wns2-par02p.notify.windows.com/w/?token=x", "https://web.push.apple.com/abc"):
+        assert endpoint_allowed(ok, s), ok
+    # a stored endpoint that is no longer allowed is dropped at delivery, nothing is posted
+    assert delivery._post(s, "https://intranet.hbl.example/x", {}, b"") == 410 and stub.got == []
+    with pytest.raises(ConfigError):
+        Settings(database_url="postgresql+psycopg://u:LongPassw0rd!x@localhost/x", sp_env="production",
+                 webpush_extra_hosts=["stub.local"], metrics_token="m" * 10 + "abcdefghijklmnopqrstuvwxyz",
+                 public_base_url="https://sp.example")

@@ -21,12 +21,24 @@ from .access import MfgPrincipal, mfg_principal
 from .router_m2 import P, Id, Limit, Offset, _file, _idem, _idem_key, _ok
 
 router = APIRouter(prefix="/mfg", tags=["mfg-m6"])
+
+
+async def _session_only(p: MfgPrincipal = Depends(mfg_principal)) -> None:
+    """M6 review M1: assistant routes refuse API token principals (403 TOKEN_SCOPE)."""
+    if p.scopes is not None:
+        from ..errors import ApiError
+
+        raise ApiError(403, "TOKEN_SCOPE", "API tokens cannot use the assistant.", {"permission": "assistant_use"})
+
+
+def PA(perm: str) -> list:
+    return P(perm) + [Depends(_session_only)]
 platform_router = APIRouter(tags=["m6"])
 
 
 # ---------------------------------------------------------------- A1-A10 assistant (1)
 
-@router.get("/assistant/status", dependencies=P("assistant_use"))
+@router.get("/assistant/status", dependencies=PA("assistant_use"))
 def assistant_status(request: Request, p: MfgPrincipal = Depends(mfg_principal),
                      ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ...assistant import service as svc
@@ -34,7 +46,7 @@ def assistant_status(request: Request, p: MfgPrincipal = Depends(mfg_principal),
     return _ok(svc.status(ctx, request.app, p))
 
 
-@router.get("/assistant/quick", dependencies=P("view"))
+@router.get("/assistant/quick", dependencies=PA("view"))
 def assistant_quick(kind: Literal["why_late", "limits", "changes"], type: str | None = Query(  # noqa: A002
         default=None, max_length=32), id: str | None = Id(), p: MfgPrincipal = Depends(mfg_principal),  # noqa: A002
         ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
@@ -44,7 +56,7 @@ def assistant_quick(kind: Literal["why_late", "limits", "changes"], type: str | 
         return _ok(quick.explain(ctx, p, kind, type, id))
 
 
-@router.get("/assistant/conversations", dependencies=P("assistant_use"))
+@router.get("/assistant/conversations", dependencies=PA("assistant_use"))
 def list_conversations(limit: int = Limit(), offset: int = Offset(), p: MfgPrincipal = Depends(mfg_principal),
                        ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ...assistant import service as svc
@@ -52,7 +64,7 @@ def list_conversations(limit: int = Limit(), offset: int = Offset(), p: MfgPrinc
     return _ok(svc.list_conversations(ctx, p, limit, offset))
 
 
-@router.post("/assistant/conversations", status_code=201, dependencies=P("assistant_use"))
+@router.post("/assistant/conversations", status_code=201, dependencies=PA("assistant_use"))
 def create_conversation(request: Request, body: ConversationInput | None = None,
                         p: MfgPrincipal = Depends(mfg_principal), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ...assistant import service as svc
@@ -60,7 +72,7 @@ def create_conversation(request: Request, body: ConversationInput | None = None,
     return _ok(svc.create_conversation(ctx, request.app, p, body or ConversationInput()), 201)
 
 
-@router.get("/assistant/conversations/{conversation_id}", dependencies=P("assistant_use"))
+@router.get("/assistant/conversations/{conversation_id}", dependencies=PA("assistant_use"))
 def get_conversation(conversation_id: str, p: MfgPrincipal = Depends(mfg_principal),
                      ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ...assistant import service as svc
@@ -68,7 +80,7 @@ def get_conversation(conversation_id: str, p: MfgPrincipal = Depends(mfg_princip
     return _ok(svc.get_conversation(ctx, p, conversation_id))
 
 
-@router.delete("/assistant/conversations/{conversation_id}", status_code=204, dependencies=P("assistant_use"))
+@router.delete("/assistant/conversations/{conversation_id}", status_code=204, dependencies=PA("assistant_use"))
 def delete_conversation(conversation_id: str, p: MfgPrincipal = Depends(mfg_principal),
                         ctx: AppContext = Depends(get_ctx)) -> Response:
     from ...assistant import service as svc
@@ -77,7 +89,7 @@ def delete_conversation(conversation_id: str, p: MfgPrincipal = Depends(mfg_prin
     return Response(status_code=204)
 
 
-@router.post("/assistant/conversations/{conversation_id}/turns", status_code=202, dependencies=P("assistant_use"))
+@router.post("/assistant/conversations/{conversation_id}/turns", status_code=202, dependencies=PA("assistant_use"))
 def create_turn(conversation_id: str, body: TurnInput, request: Request, p: MfgPrincipal = Depends(mfg_principal),
                 ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ...assistant import service as svc
@@ -86,7 +98,7 @@ def create_turn(conversation_id: str, body: TurnInput, request: Request, p: MfgP
     return _ok(out, 202, headers={"Location": f"/api/v1/mfg/assistant/turns/{out['turn_id']}"})
 
 
-@router.get("/assistant/turns/{turn_id}", dependencies=P("assistant_use"))
+@router.get("/assistant/turns/{turn_id}", dependencies=PA("assistant_use"))
 def get_turn(turn_id: str, p: MfgPrincipal = Depends(mfg_principal), ctx: AppContext = Depends(get_ctx)
              ) -> JSONResponse:
     from ...assistant import service as svc
@@ -94,7 +106,7 @@ def get_turn(turn_id: str, p: MfgPrincipal = Depends(mfg_principal), ctx: AppCon
     return _ok(svc.get_turn(ctx, p, turn_id))
 
 
-@router.post("/assistant/turns/{turn_id}/cancel", dependencies=P("assistant_use"))
+@router.post("/assistant/turns/{turn_id}/cancel", dependencies=PA("assistant_use"))
 def cancel_turn(turn_id: str, p: MfgPrincipal = Depends(mfg_principal), ctx: AppContext = Depends(get_ctx)
                 ) -> JSONResponse:
     from ...assistant import service as svc
@@ -102,7 +114,7 @@ def cancel_turn(turn_id: str, p: MfgPrincipal = Depends(mfg_principal), ctx: App
     return _ok(svc.cancel_turn(ctx, p, turn_id))
 
 
-@router.post("/assistant/drafts/{draft_id}/applied", dependencies=P("assistant_use"))
+@router.post("/assistant/drafts/{draft_id}/applied", dependencies=PA("assistant_use"))
 def draft_applied(draft_id: str, body: DraftApplied, p: MfgPrincipal = Depends(mfg_principal),
                   ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ...assistant import service as svc
@@ -110,7 +122,7 @@ def draft_applied(draft_id: str, body: DraftApplied, p: MfgPrincipal = Depends(m
     return _ok(svc.draft_applied(ctx, p, draft_id, body))
 
 
-@router.put("/plant/assistant", dependencies=P("owner"))
+@router.put("/plant/assistant", dependencies=PA("owner"))
 def put_assistant_settings(body: AssistantPlantSettings, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from ...assistant import service as svc
 

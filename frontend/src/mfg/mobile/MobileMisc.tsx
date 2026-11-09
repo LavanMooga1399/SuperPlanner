@@ -13,7 +13,8 @@ import type { PushTopic } from "../api/typesM6";
 import { AssistantBody } from "../assistant/AssistantPanel";
 import { MfgError, Spinner } from "../components/Feedback";
 import { OpStatusChip } from "../floor/floorText";
-import { useCan } from "../lib/permissions";
+import { useAccess, useCan } from "../lib/permissions";
+import { useAuth } from "../../auth/AuthContext";
 import { errorText, useLoad } from "../lib/useMfg";
 import { mobileLink } from "./MobileAlerts";
 
@@ -215,16 +216,19 @@ export function MobileScan() {
 // ---------------------------------------------------------------- notifications (push opt-in)
 function PushSettings() {
   const server = useLoad((signal) => pushAvailableOnServer(signal), []);
-  const [sub, setSub] = useState<StoredPush | null>(() => storedPush());
+  const auth = useAuth();
+  const access = useAccess();
+  const uid = auth.user?.id ?? access.me?.user_id ?? "";
+  const [sub, setSub] = useState<StoredPush | null>(() => storedPush(uid));
   // the server drops subscriptions whose push service answers 404/410: then this phone is off again
   const mine = useLoad((signal) => (server.data?.available && sub ? listPushSubscriptions(signal).catch(() => null) : null), [server.data?.available, sub?.id]);
   useEffect(() => {
     if (sub && mine.data && !mine.data.items.some((x) => x.id === sub.id)) {
-      forgetPush();
+      forgetPush(uid);
       setSub(null);
     }
   }, [mine.data, sub]);
-  const [topics, setTopics] = useState<PushTopic[]>(() => storedPush()?.topics ?? ["critical_alerts", "approvals"]);
+  const [topics, setTopics] = useState<PushTopic[]>(() => storedPush(uid)?.topics ?? ["critical_alerts", "approvals"]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -252,10 +256,10 @@ function PushSettings() {
     setSaved(false);
     try {
       if (next === null || next.length === 0) {
-        await unsubscribePush();
+        await unsubscribePush(uid);
         setSub(null);
       } else {
-        setSub(await subscribePush(next, server.data!.key!));
+        setSub(await subscribePush(uid, next, server.data!.key!));
       }
       setSaved(true);
     } catch (e) {
@@ -268,6 +272,7 @@ function PushSettings() {
     <div className="col" style={{ gap: 8 }} data-testid="m-push">
       <span className="m-state" data-testid="m-push-state" data-on={Boolean(sub)}>
         <Icon name={sub ? "check" : "circle"} size={14} /> {sub ? "Notifications are on for this phone." : "Notifications are off for this phone."}
+        {sub && mine.data?.items.find((x) => x.id === sub.id)?.active === false ? " Deliveries stopped working; turn them off and on again." : ""}
       </span>
       <fieldset className="mfg-fieldset">
         <legend>Tell me about</legend>

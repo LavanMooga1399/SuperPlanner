@@ -93,10 +93,12 @@ class MrpParams(MfgModel):
     #: M3-DESIGN 10: with a published schedule, existing WOs' projected dates come from it (applied by the service
     #: as `supply_date_overrides`; not a what-if input)
     use_schedule: bool = True
+    #: M6 review M2: an explicit what-if request (assistant drafts): the run is `what_if` whatever its inputs
+    what_if: bool = Field(default=False, exclude=True)
 
     def what_if_inputs(self) -> bool:
         """True when any what-if input other than `as_of` is set (8.14)."""
-        return bool(self.demand_filter is not None or self.exclude_demand_line_ids or self.extra_demand
+        return bool(self.what_if or self.demand_filter is not None or self.exclude_demand_line_ids or self.extra_demand
                     or self.supply_date_overrides or self.lead_time_overrides or not self.include_pr_supply)
 
 

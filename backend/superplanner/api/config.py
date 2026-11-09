@@ -374,6 +374,8 @@ class Settings:
     webpush_vapid_private_key: str | None = field(default_factory=_str("WEBPUSH_VAPID_PRIVATE_KEY"))
     webpush_subject: str | None = field(default_factory=_str("WEBPUSH_SUBJECT"))
     push_post: Callable[..., Any] | None = None                     # tests only: (url, headers, body, timeout) -> status
+    #: M6 review M3: push services are allow-listed; extra hosts (e2e / local stub) only with APP_ENV=development
+    webpush_extra_hosts: list[str] = field(default_factory=lambda: [h.lower() for h in _csv("WEBPUSH_EXTRA_HOSTS")])
     # --- M6-DESIGN 3.3: e-mail digests (off without SMTP_HOST)
     smtp_host: str | None = field(default_factory=_str("SMTP_HOST"))
     smtp_port: int = field(default_factory=_int("SMTP_PORT", 587, 1))
@@ -488,6 +490,8 @@ class Settings:
             if not self.webpush_subject or not self.webpush_subject.startswith(("mailto:", "https://")):
                 raise ConfigError("WEBPUSH_SUBJECT must be a mailto: or https:// URL when "
                                   "WEBPUSH_VAPID_PRIVATE_KEY is set.")
+        if prod and self.webpush_extra_hosts:
+            raise ConfigError("WEBPUSH_EXTRA_HOSTS is only allowed with APP_ENV=development.")
         if prod and self.assistant_ai_demo:
             raise ConfigError("ASSISTANT_AI_DEMO is only allowed with APP_ENV=development.")
         if self.smtp_host and not self.smtp_from:

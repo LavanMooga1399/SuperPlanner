@@ -11,7 +11,7 @@ import re
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from ..api.db import new_id
 from ..api.errors import ApiError
@@ -63,6 +63,37 @@ class EditArg(MfgModel):
     op_nos: list[int] | None = None
 
 
+class ExtraDemandArg(MfgModel):
+    item: str = Field(max_length=64)
+    qty: float = Field(gt=0, le=1_000_000)
+    due_date: date
+
+
+class SupplyDateArg(MfgModel):
+    purchase_order: str = Field(max_length=64, description="PO number or id")
+    new_date: date
+
+
+class WhatIfMrpArgs(MfgModel):
+    extra_demand: list[ExtraDemandArg] | None = None
+    supply_delays: list[SupplyDateArg] | None = None
+    label: str | None = Field(default=None, max_length=60)
+
+
+class LineBreakdownArg(MfgModel):
+    line_id: str = Field(max_length=64)
+    start: datetime
+    end: datetime
+
+
+class WhatIfApsArgs(MfgModel):
+    open_shifts: list[OpenShiftArg] | None = Field(default=None, description="optional shift windows to open "
+                                                     "(from overtime_options)")
+    overtime: Literal["off", "suggest", "allow"] | None = None
+    line_breakdowns: list[LineBreakdownArg] | None = None
+    label: str | None = Field(default=None, max_length=60)
+
+
 class DraftArgs(MfgModel):
     """Flat arguments of `draft_action` (every field nullable; each kind uses its own)."""
     purchase_order: str | None = None          # PO id or number (expedite)
@@ -79,9 +110,9 @@ class DraftArgs(MfgModel):
     demand_order: str | None = None            # raise_priority: order id or number
     line_no: int | None = None
     priority: int | None = None
-    target: Literal["mrp", "aps"] | None = None    # whatif_run
-    mrp_params: dict[str, Any] | None = None
-    aps_params: dict[str, Any] | None = None
+    target: Literal["mrp", "aps"] | None = None    # whatif_run (typed, extra=forbid; body built by the server)
+    whatif_mrp: WhatIfMrpArgs | None = None
+    whatif_aps: WhatIfApsArgs | None = None
     summary: str | None = None                 # the model's one-line rationale (shown, truncated)
 
 
@@ -182,19 +213,23 @@ def build(tctx: Any, kind: str, args: DraftArgs) -> dict[str, Any]:
             summary = (f"Set the priority of {order['number']}" + (f" line {args.line_no}" if args.line_no else "")
                        + f" to {args.priority}.")
         elif kind == "whatif_run":
+            # M6 review M2: no free parameters - the body is built by the server and always says what_if
+            from . import tools as T
+
             if args.target == "aps":
-                body = dict(args.aps_params or {})
+                body = T.whatif_aps_body(tctx, args.whatif_aps or WhatIfApsArgs())
                 method, path = "POST", f"{V1}/mfg/aps/runs"
             else:
-                body = dict(args.mrp_params or {})
+                body = T.whatif_mrp_body(tctx, args.whatif_mrp or WhatIfMrpArgs())
                 method, path = "POST", f"{V1}/mfg/mrp/runs"
-            body.setdefault("label", "Assistant what-if draft")
-            summary = f"Start a {'schedule' if args.target == 'aps' else 'MRP'} run with these parameters."
+            summary = f"Start a what-if {'schedule' if args.target == 'aps' else 'MRP'} run (never live)."
         else:
             raise DraftInvalid(f"unknown draft kind {kind!r}")
     except ApiError as exc:
         raise DraftInvalid(f"{exc.code}: {exc.message}"[:300]) from None
-    perm, _validated = check(method, path, body)
+    perm, validated = check(method, path, body)
+    if kind == "whatif_run" and getattr(validated, "what_if", False) is not True:
+        raise DraftInvalid("a what-if draft must request a what-if run")
     if args.summary:
         summary = f"{summary} {args.summary.strip()[:300]}".strip()
     return {"draft_id": new_id("drf_"), "kind": kind, "summary": summary[:600], "method": method, "path": path,

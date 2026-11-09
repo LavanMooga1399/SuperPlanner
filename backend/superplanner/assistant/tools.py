@@ -56,6 +56,8 @@ class ToolContext:
     drafts: list[dict[str, Any]] = field(default_factory=list)
     whatif_runs: list[dict[str, Any]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    #: M6 review M1: a token principal's scopes cap the permissions (None = a session)
+    scopes: frozenset[str] | None = None
     #: tests: the permission re-check (default: the membership in the database)
     reload_permissions: Callable[["ToolContext"], frozenset[str]] | None = None
 
@@ -162,35 +164,7 @@ class StockArgs(MfgModel):
     item: str = Field(max_length=64, description="part number or id")
 
 
-class ExtraDemandArg(MfgModel):
-    item: str = Field(max_length=64)
-    qty: float = Field(gt=0, le=1_000_000)
-    due_date: date
-
-
-class SupplyDateArg(MfgModel):
-    purchase_order: str = Field(max_length=64, description="PO number or id")
-    new_date: date
-
-
-class WhatIfMrpArgs(MfgModel):
-    extra_demand: list[ExtraDemandArg] | None = None
-    supply_delays: list[SupplyDateArg] | None = None
-    label: str | None = Field(default=None, max_length=60)
-
-
-class LineBreakdownArg(MfgModel):
-    line_id: str = Field(max_length=64)
-    start: datetime
-    end: datetime
-
-
-class WhatIfApsArgs(MfgModel):
-    open_shifts: list[D.OpenShiftArg] | None = Field(default=None, description="optional shift windows to open "
-                                                     "(from overtime_options)")
-    overtime: Literal["off", "suggest", "allow"] | None = None
-    line_breakdowns: list[LineBreakdownArg] | None = None
-    label: str | None = Field(default=None, max_length=60)
+from .drafts import ExtraDemandArg, LineBreakdownArg, SupplyDateArg, WhatIfApsArgs, WhatIfMrpArgs  # noqa: E402
 
 
 class DraftActionArgs(MfgModel):
@@ -512,8 +486,9 @@ def t_stock(tctx: ToolContext, a: StockArgs) -> ToolResult:
     return ToolResult(inventory.item_stock(tctx.ctx, iid), [("item", iid, a.item, f"/mfg/items/{iid}")])
 
 
-def t_whatif_mrp(tctx: ToolContext, a: WhatIfMrpArgs) -> ToolResult:
-    from ..api.mfg.services import mrp, purchasing
+def whatif_mrp_body(tctx: ToolContext, a: WhatIfMrpArgs) -> dict[str, Any]:
+    """Server-built MRP what-if request body (M6 review M2): always `what_if: true`."""
+    from ..api.mfg.services import purchasing
     from ..mfg.mrp.model import MrpParams
 
     extra = [{"item_id": _item_id(tctx, x.item), "qty": x.qty, "due_date": x.due_date.isoformat()}
@@ -526,17 +501,48 @@ def t_whatif_mrp(tctx: ToolContext, a: WhatIfMrpArgs) -> ToolResult:
                                                          limit=5, offset=0)) if d["number"] == x.purchase_order), None)
         if pid is None:
             raise ApiError(404, "NOT_FOUND", f"No purchase order {x.purchase_order!r}.", {})
-        doc = purchasing.get_doc(tctx.ctx, "po", pid)
+        doc = _jsonable(purchasing.get_doc(tctx.ctx, "po", pid))
         for ln in doc["lines"]:
             for sc in ln["schedules"]:
                 if (sc.get("open_qty") or 0) > 0:
                     overrides.append({"schedule_id": sc["id"], "date": x.new_date.isoformat()})
+    body = {"what_if": True, "label": f"Assistant what-if {a.label or ''}".strip()[:100],
+            "extra_demand": extra, "supply_date_overrides": overrides}
     try:
-        params = MrpParams.model_validate({"label": f"Assistant what-if {a.label or ''}".strip()[:100],
-                                           "extra_demand": extra, "supply_date_overrides": overrides})
+        MrpParams.model_validate(body)
     except ValidationError as exc:
         raise ApiError(422, "VALIDATION_ERROR", "The what-if parameters are not valid.",
                        {"errors": [e["msg"] for e in exc.errors()[:5]]}) from None
+    return body
+
+
+def whatif_aps_body(tctx: ToolContext, a: WhatIfApsArgs) -> dict[str, Any]:
+    """Server-built APS what-if request body (M6 review M2): always `what_if: true` (also for copies)."""
+    from ..mfg.aps.model import ApsParams
+
+    label = f"Assistant what-if {a.label or ''}".strip()[:100]
+    if a.open_shifts:
+        body: dict[str, Any] = {"what_if": True, "copy_of": _published(tctx), "label": label,
+                                "open_shifts": [x.model_dump(mode="json") for x in a.open_shifts[:20]]}
+        if a.overtime:
+            body["overtime"] = a.overtime
+    else:
+        body = {"what_if": True, "label": label, "overtime": a.overtime,
+                "line_breakdowns": [x.model_dump(mode="json") for x in (a.line_breakdowns or [])[:20]]}
+    body = {k: v for k, v in body.items() if v is not None}
+    try:
+        ApsParams.model_validate(body)
+    except ValidationError as exc:
+        raise ApiError(422, "VALIDATION_ERROR", "The what-if parameters are not valid.",
+                       {"errors": [e["msg"] for e in exc.errors()[:5]]}) from None
+    return body
+
+
+def t_whatif_mrp(tctx: ToolContext, a: WhatIfMrpArgs) -> ToolResult:
+    from ..api.mfg.services import mrp
+    from ..mfg.mrp.model import MrpParams
+
+    params = MrpParams.model_validate(whatif_mrp_body(tctx, a))
     rec = mrp.create_run(tctx.ctx, params, force_what_if=True)
     tctx.whatif_runs.append({"kind": "mrp", "id": rec["id"]})
     return ToolResult({"run": {k: rec.get(k) for k in ("id", "run_no", "kind", "status", "label", "summary")}},
@@ -547,20 +553,7 @@ def t_whatif_aps(tctx: ToolContext, a: WhatIfApsArgs) -> ToolResult:
     from ..api.mfg.services import aps
     from ..mfg.aps.model import ApsParams
 
-    label = f"Assistant what-if {a.label or ''}".strip()[:100]
-    if a.open_shifts:
-        body: dict[str, Any] = {"copy_of": _published(tctx), "label": label,
-                                "open_shifts": [x.model_dump(mode="json") for x in a.open_shifts[:20]]}
-        if a.overtime:
-            body["overtime"] = a.overtime
-    else:
-        body = {"label": label, "overtime": a.overtime,
-                "line_breakdowns": [x.model_dump(mode="json") for x in (a.line_breakdowns or [])[:20]]}
-    try:
-        params = ApsParams.model_validate({k: v for k, v in body.items() if v is not None})
-    except ValidationError as exc:
-        raise ApiError(422, "VALIDATION_ERROR", "The what-if parameters are not valid.",
-                       {"errors": [e["msg"] for e in exc.errors()[:5]]}) from None
+    params = ApsParams.model_validate(whatif_aps_body(tctx, a))
     rec, _ = aps.create_run(tctx.ctx, params, None, force_what_if=True)
     tctx.whatif_runs.append({"kind": "aps", "id": rec["id"]})
     deadline = time.monotonic() + WHATIF_APS_WAIT_SECONDS
@@ -724,13 +717,18 @@ def _jsonable(v: Any) -> Any:
 
 def current_permissions(tctx: ToolContext) -> frozenset[str]:
     if tctx.reload_permissions is not None:
-        return tctx.reload_permissions(tctx)
-    from ..api.mfg.access import ROLE_PERMISSIONS, _membership, permissions_of
+        perms = tctx.reload_permissions(tctx)
+    else:
+        from ..api.mfg.access import ROLE_PERMISSIONS, _membership, permissions_of
 
-    if tctx.owner_id == tctx.user_id:
-        return ROLE_PERMISSIONS["owner"]
-    roles = _membership(tctx.ctx, tctx.owner_id, tctx.user_id)
-    return permissions_of(list(roles)) if roles else frozenset()
+        if tctx.owner_id == tctx.user_id:
+            perms = ROLE_PERMISSIONS["owner"]
+        else:
+            roles = _membership(tctx.ctx, tctx.owner_id, tctx.user_id)
+            perms = permissions_of(list(roles)) if roles else frozenset()
+    if tctx.scopes is not None:
+        perms = frozenset(perms & tctx.scopes)
+    return perms
 
 
 def run_call(tctx: ToolContext, name: str, args: Any, offered_names: set[str]) -> tuple[dict[str, Any], bool, int]:

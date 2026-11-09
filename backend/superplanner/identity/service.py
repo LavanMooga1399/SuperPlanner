@@ -442,7 +442,8 @@ def list_tokens(ctx: AppContext, user_id: str) -> dict[str, Any]:
 def valid_scopes() -> set[str]:
     from ..api.mfg.access import PERMISSIONS
 
-    return set(PERMISSIONS) | {"integration.read", "integration.write"}
+    # M6 review M1: the assistant is for people's sessions only (tokens cannot hold `assistant_use`)
+    return (set(PERMISSIONS) - {"assistant_use"}) | {"integration.read", "integration.write"}
 
 
 def create_token(ctx: AppContext, user_id: str, inp: Any) -> dict[str, Any]:

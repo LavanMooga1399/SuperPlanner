@@ -14,8 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
-import urllib.error
-import urllib.request
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -35,15 +34,22 @@ TIMEOUT_SECONDS = 10.0
 
 
 def _post(settings: Any, url: str, headers: dict[str, str], body: bytes) -> int:
+    """M6 review M3: allow-listed push hosts only, through the M5 pinned connection (resolved and checked address,
+    TLS to the host name, proxy per DEPLOY 13, redirects never followed); failures are not reported in detail."""
+    from .service import endpoint_allowed
+
+    if not endpoint_allowed(url, settings):
+        return 410                                       # not a push service (any more): drop the subscription
     if settings.push_post is not None:
         return int(settings.push_post(url, headers, body, TIMEOUT_SECONDS))
-    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    from ..integration.outbox import pinned_post, proxy_config
+
+    extra = urllib.parse.urlsplit(url).hostname in (settings.webpush_extra_hosts or [])   # development stub only
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:   # noqa: S310 - https only (model)
-            return int(resp.status)
-    except urllib.error.HTTPError as e:
-        return int(e.code)
-    except Exception as exc:  # noqa: BLE001 - network failure = a failed attempt
+        status, _err = pinned_post(url, body, headers, allow_private=bool(extra and not settings.is_production),
+                                   proxy=proxy_config(settings.webhook_proxy, settings.webhook_proxy_connect))
+        return int(status)
+    except Exception as exc:  # noqa: BLE001 - refused address / network failure = a failed attempt
         log.info("push post failed: %s", type(exc).__name__)
         return 0
 

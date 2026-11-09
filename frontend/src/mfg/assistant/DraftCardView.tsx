@@ -13,7 +13,14 @@ import { needsText, PERMISSION_ROLES, useAccess } from "../lib/permissions";
 import { errorCode, errorText, isConflict } from "../lib/useMfg";
 import { draftKindText } from "./assistantText";
 
-type State = { s: "idle" } | { s: "confirm" } | { s: "busy" } | { s: "done"; at: string } | { s: "error"; text: string };
+type State = { s: "idle" } | { s: "confirm" } | { s: "busy" } | { s: "done"; at: string; kind?: string | null } | { s: "error"; text: string };
+
+/** `kind` of the record the request created (a schedule / MRP run answers `live` or `what_if`). */
+function responseKind(data: unknown): string | null {
+  if (data && typeof data === "object" && "kind" in data && typeof (data as { kind: unknown }).kind === "string") return (data as { kind: string }).kind;
+  return null;
+}
+const KIND_WORDS: Record<string, string> = { what_if: "what-if run (cannot be published)", live: "live run" };
 
 function responseRef(data: unknown): string | null {
   if (data && typeof data === "object" && "id" in data && typeof (data as { id: unknown }).id === "string") return (data as { id: string }).id;
@@ -35,7 +42,7 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
     setSt({ s: "busy" });
     try {
       const r = await applyDraft(draft);
-      setSt({ s: "done", at: new Date().toISOString() });
+      setSt({ s: "done", at: new Date().toISOString(), kind: responseKind(r.data) });
       void reportDraftApplied(draft.draft_id, { status: "succeeded", response_ref: responseRef(r.data) }).catch(() => undefined);
     } catch (e) {
       const text = isConflict(e)
@@ -65,6 +72,11 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
         </span>
       </header>
       <p className="asst-draft-summary">{draft.summary}</p>
+      {draft.kind === "whatif_run" ? (
+        <p className="muted small" style={{ margin: 0 }} data-testid="asst-draft-whatif-note">
+          <Icon name="info" size={12} /> Apply creates a what-if run to compare with the plan. It never changes the live plan and cannot be published.
+        </p>
+      ) : null}
       <details className="asst-draft-request">
         <summary>Show the exact request</summary>
         <div className="mono small" data-testid="asst-draft-request">
@@ -80,14 +92,15 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
       ) : null}
       {st.s === "done" ? (
         <div className="asst-draft-msg ok" role="status" data-testid="asst-draft-done">
-          <Icon name="check" size={14} /> Applied {new Date(st.at).toLocaleString()}. It is recorded under your name like any change on the page.
+          <Icon name="check" size={14} /> Applied {new Date(st.at).toLocaleString()}
+          {st.kind ? <span data-testid="asst-draft-result-kind" data-kind={st.kind}>: created a {KIND_WORDS[st.kind] ?? st.kind.replace(/_/g, " ")}</span> : null}. It is recorded under your name like any change on the page.
         </div>
       ) : null}
       {st.s !== "done" ? (
         <div className="row wrap" style={{ gap: 8 }}>
           {st.s === "confirm" ? (
             <>
-              <span className="small">Apply this change now, as you?</span>
+              <span className="small">{draft.kind === "whatif_run" ? "Create this what-if run now, as you?" : "Apply this change now, as you?"}</span>
               <button type="button" className="btn primary sm" onClick={() => void apply()} data-testid="asst-draft-confirm">
                 <Icon name="check" /> Yes, apply
               </button>

@@ -141,10 +141,13 @@ class ApsParams(MfgModel):
     #: M4-DESIGN 8 (what-if inputs)
     supply_delays: Annotated[list[SupplyDelay], Field(max_length=APS_MAX_OVERRIDES)] = Field(default_factory=list)
     line_breakdowns: Annotated[list[LineBreakdown], Field(max_length=APS_MAX_OVERRIDES)] = Field(default_factory=list)
+    #: M6 review M2: an explicit what-if request (assistant drafts): kind `what_if` also for copies of a live run
+    what_if: bool = Field(default=False, exclude=True)
 
 
 #: body fields that may accompany `copy_of`
-COPY_FIELDS: frozenset[str] = frozenset({"copy_of", "overtime", "label", "note", "improve_seconds", "open_shifts"})
+COPY_FIELDS: frozenset[str] = frozenset({"copy_of", "overtime", "label", "note", "improve_seconds", "open_shifts",
+                                         "what_if"})
 
 
 class OpenShift(MfgModel):

@@ -40,9 +40,15 @@ LAG_CACHE_SECONDS = 2.0
 _replica_ok: ContextVar[bool] = ContextVar("sp_replica_ok", default=False)
 _recent_write: ContextVar[bool] = ContextVar("sp_recent_write", default=False)
 _read_source: ContextVar[list[str] | None] = ContextVar("sp_read_source", default=None)
-LAG_SQL = ("SELECT CASE WHEN NOT pg_is_in_recovery() THEN 0 "
-           "WHEN pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() THEN 0 "
-           "ELSE COALESCE(EXTRACT(EPOCH FROM now() - pg_last_xact_replay_timestamp()), 0) END")
+#: M6 review M4: lag in seconds, NULL = unknown (-> primary). A standby whose WAL receiver is not streaming is
+#: unknown; caught up (receive = replay) counts as 0 only while the primary's keepalives arrive (the walsender's
+#: messages are the heartbeat, `last_msg_receipt_time` within :hb seconds); else the replay timestamp's age.
+LAG_SQL = ("SELECT CASE WHEN NOT pg_is_in_recovery() THEN 0::float8 "
+           "WHEN NOT EXISTS (SELECT 1 FROM pg_stat_wal_receiver WHERE status = 'streaming') THEN NULL "
+           "WHEN pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() AND (SELECT max(now() - last_msg_receipt_time) "
+           "FROM pg_stat_wal_receiver) <= make_interval(secs => :hb) THEN 0::float8 "
+           "ELSE EXTRACT(EPOCH FROM now() - pg_last_xact_replay_timestamp())::float8 END")
+HEARTBEAT_SECONDS = 30.0
 
 
 @contextmanager
@@ -95,10 +101,11 @@ class Replica:
                 return value
             try:
                 if self.lag_probe is not None:
-                    value = float(self.lag_probe())
+                    raw = self.lag_probe()
                 else:
                     with self.engine.connect() as c:
-                        value = float(c.execute(text(LAG_SQL)).scalar() or 0.0)
+                        raw = c.execute(text(LAG_SQL), {"hb": HEARTBEAT_SECONDS}).scalar()
+                value = None if raw is None else max(0.0, float(raw))
             except Exception as exc:  # noqa: BLE001 - any replica failure means "use the primary"
                 self.log_failure(exc)
                 value = None

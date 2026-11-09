@@ -407,3 +407,39 @@ def test_draft_allow_list_and_markdown_subset():
     assert "<script>" not in a and "evil.example" not in a and "](" not in a and "**x**" in a
     assert citations.safe_link("https://evil.example") is None and citations.safe_link("/mfg//x") is None
     assert citations.safe_link("/mfg/work-orders/wko_1") == "/mfg/work-orders/wko_1"
+
+
+def test_m2_whatif_run_drafts_apply_as_what_if_only(world: World):
+    """M6 review M2: applying any whatif_run draft yields kind what_if, never publishable / a live MRP run."""
+    from datetime import datetime, timedelta
+
+    from m6_helpers import wait_aps
+
+    api = world.api("planner")
+    pub = api.get("/aps/runs/published")
+    line = api.get("/lines", limit=1)["items"][0]["id"]
+    s0 = datetime.fromisoformat(pub["as_of"].replace("Z", "+00:00")) + timedelta(days=2)
+    shifts = [{"line_id": line, "start": s0.isoformat(), "end": (s0 + timedelta(hours=8)).isoformat()}]
+    world.script([response(
+        tool_use("draft_action", {"kind": "whatif_run", "args": {"target": "aps", "whatif_aps": {
+            "open_shifts": shifts, "overtime": None, "line_breakdowns": None, "label": "ot"}}}, "w1"),
+        tool_use("draft_action", {"kind": "whatif_run", "args": {"target": "mrp", "whatif_mrp": {
+            "extra_demand": None, "supply_delays": None, "label": "plain"}}}, "w2"),
+        tool_use("draft_action", {"kind": "whatif_run", "args": {"target": "aps", "aps_params": {
+            "copy_of": pub["id"]}}}, "w3")),                                  # free params: refused by the schema
+        response(T("drafts"))])
+    turn = ask(api, "draft what-if runs")
+    assert turn["status"] == "completed"
+    res = last_tool_results(world.holder.client.calls[1])
+    assert res[2]["error"] == "invalid_arguments"
+    cards = [d for d in turn["drafts"] if d["kind"] == "whatif_run"]
+    assert len(cards) == 2 and all(c["body"]["what_if"] is True for c in cards)
+    aps_card = next(c for c in cards if c["path"].endswith("/aps/runs"))
+    assert aps_card["body"]["copy_of"] == pub["id"]                       # a copy of the live published run ...
+    r = api.post("/aps/runs", aps_card["body"], status=202)
+    assert r["kind"] == "what_if"                                         # ... is still what-if
+    done = wait_aps(world.api(), r["id"])
+    assert done["publishable"] is False
+    mrp_card = next(c for c in cards if c["path"].endswith("/mrp/runs"))
+    m = api.post("/mrp/runs", mrp_card["body"])
+    assert m["kind"] == "what_if"

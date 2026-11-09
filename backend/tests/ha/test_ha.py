@@ -130,3 +130,19 @@ def test_classify():
     assert classify(err("55P03", sa.exc.OperationalError)) is None       # lock timeout stays MFG_BUSY
     assert classify(err("23505", sa.exc.IntegrityError)) is None
     assert classify(ValueError()) is None
+
+
+def test_m4_unknown_lag_means_primary(db_url):
+    """M6 review M4: lag unknown (WAL receiver not streaming) -> primary; readiness reports the replica as error;
+    the real lag query runs (here against a primary: 0)."""
+    from superplanner.api.db.session import HEARTBEAT_SECONDS, LAG_SQL
+
+    app = _app(db_url)
+    with TestClient(app) as c:
+        rep = app.state.ctx.db.replica
+        with rep.engine.connect() as conn:
+            assert conn.execute(sa.text(LAG_SQL), {"hb": HEARTBEAT_SECONDS}).scalar() == 0
+        rep.lag_probe = lambda: None
+        rep.reset()
+        assert Api(c).get("/dashboard")["source"] == "primary"
+        assert c.get(f"{V1}/health/ready").json()["replica"] == {"status": "error", "lag_seconds": None}

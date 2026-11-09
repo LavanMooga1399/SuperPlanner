@@ -595,3 +595,17 @@ Requests to WP-S:
 2. While writing the e2e, `GET /mfg/dashboard` answered 500 once (`GroupingError: mfg_items.family must appear in
    the GROUP BY` in the inventory-by-family query, with the rush demand of `m6-helpers.ts`); it passed after the
    uncommitted `literal_column("''")` change in `services/dashboard.py` - please keep that fix.
+
+Review follow-ups (WP-U, 2026-11-09):
+- Push on shared devices: the device's subscription is stored per signed-in user (`sp.push.subscription.<user id>`;
+  the old unkeyed entry is removed); subscribing drops a browser subscription this user did not create, so each user
+  gets a fresh endpoint; sign-out (`AuthContext.signOut` -> `pwa.pushSignOut`, before the session ends) deletes the
+  server record and unsubscribes the browser. The UI never showed delivery failures; it now reads only `active`
+  (inactive -> "deliveries stopped working") from `GET /push/subscriptions`.
+- `whatif_run` cards: "Start a what-if run (cannot be published)", a note that Apply creates a what-if run that
+  never changes the live plan and cannot be published, the confirm says so, and after Apply the card shows the
+  `kind` of the created run from the response. The request is still sent as the server built it; nothing changes
+  in the UI when WP-S switches to server-built, forced what-if bodies. The desktop spec's injected draft is now an
+  `open_overtime` card (it is a live copy, not a what-if).
+- e2e config: `WEBPUSH_EXTRA_HOSTS=push.e2e.example` (development only) for the stubbed push endpoint.
+- Assistant routes refusing API tokens: no UI change (the UI uses the session).

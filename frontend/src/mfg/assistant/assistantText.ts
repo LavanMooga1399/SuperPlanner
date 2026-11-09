@@ -82,7 +82,7 @@ export const DRAFT_KIND_TEXT: Record<string, string> = {
   schedule_edit: "Change the schedule",
   create_pr: "Create a purchase request",
   raise_priority: "Raise the priority",
-  whatif_run: "Start a what-if run",
+  whatif_run: "Start a what-if run (cannot be published)",
 };
 
 export function draftKindText(k: DraftKind | (string & {})): string {

@@ -12,6 +12,7 @@ import { ApiError, isNetworkError } from "../api/client";
 import { fetchSession, postChangePassword, postSignIn, postSignOut, postSignUp } from "./api";
 import { registerAuthHandlers, setCsrfToken } from "./authFetch";
 import { forgetSignedInUser, noteSignedInUser } from "./drafts";
+import { pushSignOut } from "../pwa/pwa";
 import type { AuthMode, AuthUser, ChangePasswordRequest, SessionInfo, SignInRequest, SignUpRequest } from "./types";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
@@ -194,6 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    // M6 2: a shared device stops receiving this user's pushes (before the session ends: the delete needs it)
+    await pushSignOut(stateRef.current.user?.id ?? "");
     try {
       await postSignOut();
     } catch {

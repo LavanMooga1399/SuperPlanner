@@ -251,8 +251,10 @@ export interface PushSubscriptionRecord {
   topics: PushTopic[];
   user_agent: string;
   created_at: IsoDateTime;
-  last_success_at: IsoDateTime | null;
-  failures: number;
+  /** review: the list answers active / inactive only (no delivery failure details); older fields optional */
+  active?: boolean;
+  last_success_at?: IsoDateTime | null;
+  failures?: number;
 }
 
 /** what the service worker receives */

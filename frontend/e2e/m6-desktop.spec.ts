@@ -11,9 +11,9 @@ import { setAssistant, setupM6, type M6Data } from "./m6-helpers";
 
 let data: M6Data;
 
-/** A draft with the server's fields and a real endpoint (a what-if copy of the published schedule). */
+/** A draft with the server's fields and a real endpoint (a copy of the published schedule allowing overtime). */
 const extraDraft = () => ({
-  draft_id: "drf_e2e_whatif", kind: "whatif_run", summary: "Re-run the published schedule allowing overtime, to compare.",
+  draft_id: "drf_e2e_overtime", kind: "open_overtime", summary: "Re-run the published schedule allowing overtime, to compare.",
   method: "POST", path: "/api/v1/mfg/aps/runs", body: { copy_of: data.publishedRunId, overtime: "allow", label: "Assistant what-if (e2e)" },
   if_match_of: null, required_permission: "schedule_run", allowed: true, applied_at: null, applied_status: null, response_ref: null,
 });
@@ -85,6 +85,8 @@ test.describe("M6 assistant and dashboards (desktop)", () => {
     const created = await req.response();
     expect(created?.status()).toBeLessThan(300);
     await expect(draft.getByTestId("asst-draft-done")).toBeVisible();
+    // the card says what the server created (run kind from the response)
+    await expect(draft.getByTestId("asst-draft-result-kind")).toHaveAttribute("data-kind", ((await created!.json()) as { kind: string }).kind);
     expect(((await reported).postDataJSON() as { status: string }).status).toBe("succeeded");
   });
 

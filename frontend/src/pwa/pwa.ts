@@ -61,33 +61,48 @@ function urlBase64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-const STORE = "sp.push.subscription";
+/**
+ * The device's subscription is remembered per signed-in user (`sp.push.subscription.<user id>`), so on a shared
+ * phone user B never sees or inherits user A's subscription; sign-out removes it (`pushSignOut`).
+ */
+const LEGACY_STORE = "sp.push.subscription";
+const storeKey = (userId: string) => `${LEGACY_STORE}.${userId || "local"}`;
 export interface StoredPush {
   id: string;
   topics: PushTopic[];
   endpoint: string;
 }
 
-export function storedPush(): StoredPush | null {
+export function storedPush(userId: string): StoredPush | null {
   try {
-    const raw = localStorage.getItem(STORE);
+    localStorage.removeItem(LEGACY_STORE); // pre-review builds kept one unkeyed entry
+    const raw = localStorage.getItem(storeKey(userId));
     return raw ? (JSON.parse(raw) as StoredPush) : null;
   } catch {
     return null;
   }
 }
-function savePush(v: StoredPush | null) {
+function savePush(userId: string, v: StoredPush | null) {
   try {
-    if (v) localStorage.setItem(STORE, JSON.stringify(v));
-    else localStorage.removeItem(STORE);
+    if (v) localStorage.setItem(storeKey(userId), JSON.stringify(v));
+    else localStorage.removeItem(storeKey(userId));
   } catch {
     /* ignore */
   }
 }
 
 /** The server no longer knows this phone's subscription (removed after 404/410 from the push service). */
-export function forgetPush(): void {
-  savePush(null);
+export function forgetPush(userId: string): void {
+  savePush(userId, null);
+}
+
+async function browserSubscription(): Promise<PushSubscription | null> {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration("/");
+    return (await reg?.pushManager.getSubscription()) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** True when the server has push configured; false for `PUSH_DISABLED` (or no M6 server). */
@@ -101,36 +116,56 @@ export async function pushAvailableOnServer(signal?: AbortSignal): Promise<{ ava
   }
 }
 
-/** Ask for permission, subscribe with the server's VAPID key and register the subscription with these topics. */
-export async function subscribePush(topics: PushTopic[], vapidKey: string): Promise<StoredPush> {
+/**
+ * Ask for permission, subscribe with the server's VAPID key and register the subscription with these topics.
+ * A browser subscription this user did not create (another user on a shared device) is dropped first, so each
+ * user gets a fresh endpoint.
+ */
+export async function subscribePush(userId: string, topics: PushTopic[], vapidKey: string): Promise<StoredPush> {
   const reg = await registerServiceWorker();
   if (!reg) throw new Error(PUSH_SUPPORT_TEXT.no_sw);
   const perm = await Notification.requestPermission();
   if (perm !== "granted") throw new Error(PUSH_SUPPORT_TEXT.denied);
   const ready = await navigator.serviceWorker.ready;
+  const old = storedPush(userId);
   let sub = await ready.pushManager.getSubscription();
+  if (sub && (!old || old.endpoint !== sub.endpoint)) {
+    await sub.unsubscribe().catch(() => false);
+    sub = null;
+  }
   if (!sub) sub = await ready.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToBytes(vapidKey) });
   const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
   if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new Error("The browser returned an incomplete push subscription.");
-  const old = storedPush();
   if (old) await deletePushSubscription(old.id).catch(() => undefined);
   const rec = await createPushSubscription({ endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth }, topics });
   const v = { id: rec.id, topics: rec.topics ?? topics, endpoint: json.endpoint };
-  savePush(v);
+  savePush(userId, v);
   return v;
 }
 
-export async function unsubscribePush(): Promise<void> {
-  const old = storedPush();
-  if (old) await deletePushSubscription(old.id).catch((e: unknown) => {
-    if (!(e instanceof ApiError && e.status === 404)) throw e;
-  });
-  savePush(null);
+/** Turn push off for this user on this device: server record, browser subscription, stored entry. */
+export async function unsubscribePush(userId: string): Promise<void> {
+  const old = storedPush(userId);
+  if (old)
+    await deletePushSubscription(old.id).catch((e: unknown) => {
+      if (!(e instanceof ApiError && e.status === 404)) throw e;
+    });
+  savePush(userId, null);
+  await (await browserSubscription())?.unsubscribe().catch(() => false);
+}
+
+/**
+ * Sign-out (called while the session is still valid): the device stops receiving this user's pushes. Never
+ * throws; a failed server delete leaves a record whose endpoint no longer exists (the push service answers 410
+ * and the server removes it).
+ */
+export async function pushSignOut(userId: string): Promise<void> {
   try {
-    const reg = await navigator.serviceWorker.getRegistration("/");
-    const sub = await reg?.pushManager.getSubscription();
-    await sub?.unsubscribe();
+    const old = storedPush(userId);
+    if (old) await deletePushSubscription(old.id).catch(() => undefined);
+    savePush(userId, null);
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) await (await browserSubscription())?.unsubscribe().catch(() => false);
   } catch {
-    /* nothing to undo locally */
+    /* sign-out goes on */
   }
 }

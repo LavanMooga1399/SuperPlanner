@@ -61,6 +61,10 @@ export default defineConfig({
         ASSISTANT_AI_DEMO: "true",
         WEBPUSH_VAPID_PRIVATE_KEY: process.env.SP_E2E_VAPID_PEM,
         WEBPUSH_SUBJECT: "mailto:e2e@superplanner.example",
+        // the m6 phone spec stubs the browser push service at this host (allowed in development only)
+        WEBPUSH_EXTRA_HOSTS: "push.e2e.example",
+        // backend review M3: push endpoints are allow-listed; the stubbed browser subscription's host (dev only)
+        WEBPUSH_EXTRA_HOSTS: "push.e2e.example",
       },
       url: "http://127.0.0.1:8000/api/v1/health",
       reuseExistingServer: false,

@@ -17,6 +17,25 @@ from .model import PushSubscriptionInput
 from .vapid import b64u_decode, public_key
 
 MAX_SUBSCRIPTIONS_PER_USER = 20
+#: M6 review M3: the public push services of the browsers (exact host or a subdomain of a `.`-prefixed entry)
+PUSH_HOSTS: tuple[str, ...] = ("fcm.googleapis.com", ".push.services.mozilla.com", ".notify.windows.com",
+                               "web.push.apple.com", ".push.apple.com")
+
+
+def host_allowed(host: str, settings: Any) -> bool:
+    h = (host or "").lower().rstrip(".")
+    if not h:
+        return False
+    for e in PUSH_HOSTS:
+        if (e.startswith(".") and h.endswith(e) and len(h) > len(e)) or h == e:
+            return True
+    return h in (getattr(settings, "webpush_extra_hosts", None) or []) and not settings.is_production
+
+
+def endpoint_allowed(endpoint: str, settings: Any) -> bool:
+    u = urlsplit(endpoint)
+    return u.scheme == "https" and not u.username and not u.password and (u.port in (None, 443)) and \
+        host_allowed(u.hostname or "", settings)
 
 
 def disabled() -> ApiError:
@@ -50,9 +69,9 @@ def dec(ctx_or_settings: Any, value: str) -> str:
 
 
 def record(r: PushSubscriptionRow) -> dict[str, Any]:
+    # M6 review M3: no delivery details (scanning oracle) - only whether the device is active
     return {"id": r.id, "endpoint_host": urlsplit(r.endpoint).hostname or "", "topics": list(r.topics or []),
-            "user_agent": r.user_agent, "created_at": as_utc(r.created_at),
-            "last_success_at": as_utc(r.last_success_at), "failures": r.failures}
+            "user_agent": r.user_agent, "created_at": as_utc(r.created_at), "active": int(r.failures or 0) == 0}
 
 
 def list_subscriptions(ctx: Any, user_id: str) -> dict[str, Any]:
@@ -71,6 +90,9 @@ def subscribe(ctx: Any, user_id: str, body: PushSubscriptionInput, user_agent: s
     except Exception:  # noqa: BLE001
         p256, auth = b"", b""
     host = urlsplit(body.endpoint).hostname or ""
+    if not endpoint_allowed(body.endpoint, ctx.settings):
+        raise ApiError(422, "PUSH_SUBSCRIPTION_INVALID", "The push endpoint is not a known browser push service.",
+                       {"loc": ["body", "endpoint"]})
     if len(p256) != 65 or p256[0] != 4 or len(auth) != 16 or not host or "." not in host:
         raise ApiError(422, "PUSH_SUBSCRIPTION_INVALID", "The push subscription keys or endpoint are not valid.",
                        {"loc": ["body", "keys"]})

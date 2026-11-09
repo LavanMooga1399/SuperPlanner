@@ -40,8 +40,7 @@ class PushSubscriptionRecord(MfgModel):
     topics: list[Topic]
     user_agent: str = ""
     created_at: datetime
-    last_success_at: datetime | None = None
-    failures: int = 0
+    active: bool = True
 
 
 class VapidPublicKey(MfgModel):
