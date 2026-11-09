@@ -727,8 +727,7 @@ export const examplePushSubscription: PushSubscriptionRecord = {
  ],
  "user_agent": "Chrome/131 Android",
  "created_at": "2026-11-06T04:30:00Z",
- "last_success_at": null,
- "failures": 0
+ "active": true
 };
 
 export const examplePushPayload: PushPayload = {
