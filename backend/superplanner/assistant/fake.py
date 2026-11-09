@@ -45,6 +45,7 @@ class FakeClient:
     def __init__(self, script: list[Any] | Callable[[dict[str, Any], int], Any]):
         self.script = script
         self.calls: list[dict[str, Any]] = []
+        self.errors: list[str] = []
         self.beta = SimpleNamespace(messages=_Messages(self))
         self._lock = threading.Lock()
 
@@ -53,7 +54,13 @@ class FakeClient:
             n = len(self.calls)
             self.calls.append(json.loads(json.dumps(kw, default=str)))
         if callable(self.script):
-            out = self.script(kw, n)
+            try:
+                out = self.script(kw, n)
+            except Exception as exc:          # tests: keep the script's own failure visible
+                import traceback
+
+                self.errors.append(traceback.format_exc())
+                raise exc
         else:
             if n >= len(self.script):
                 return response(text("(end of script)"))

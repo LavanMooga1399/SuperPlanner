@@ -235,8 +235,8 @@ def _item_id(tctx: ToolContext, ref: str) -> str:
         return ref
     from ..api.mfg.services import items
 
-    hits = items.list_items(tctx.ctx, q=ref, make_buy=None, family=None, active=None, has_bom=None,
-                            has_routing=None, sort="part_number", limit=20, offset=0)["items"]
+    hits = _page(items.list_items(tctx.ctx, q=ref, make_buy=None, family=None, active=None, has_bom=None,
+                                  has_routing=None, sort="part_number", limit=20, offset=0))
     exact = [x for x in hits if x["part_number"].lower() == ref.lower()]
     if len(exact) == 1 or len(hits) == 1:
         return (exact or hits)[0]["id"]
@@ -259,6 +259,7 @@ def _demand_order(tctx: ToolContext, ref: str) -> dict[str, Any]:
 
 
 def _page(d: Any) -> list[Any]:
+    d = _jsonable(d)
     return list(d.get("items") or []) if isinstance(d, dict) else list(d or [])
 
 
@@ -274,8 +275,8 @@ def t_find(tctx: ToolContext, a: FindArgs) -> ToolResult:
     out: dict[str, Any] = {}
     refs: list[tuple[str, str, str, str]] = []
     if "item" in kinds:
-        rows = items.list_items(ctx, q=q, make_buy=None, family=None, active=None, has_bom=None, has_routing=None,
-                                sort="part_number", limit=10, offset=0)["items"]
+        rows = _page(items.list_items(ctx, q=q, make_buy=None, family=None, active=None, has_bom=None,
+                                      has_routing=None, sort="part_number", limit=10, offset=0))
         out["items"] = [{"id": x["id"], "part_number": x["part_number"], "description": x.get("description"),
                          "make_buy": x.get("make_buy")} for x in rows]
         refs += [("item", x["id"], x["part_number"], f"/mfg/items/{x['id']}") for x in rows]
@@ -464,7 +465,7 @@ def t_supplier(tctx: ToolContext, a: SupplierArgs) -> ToolResult:
         if len(hits) != 1:
             raise ApiError(404, "NOT_FOUND", f"No supplier {a.supplier!r}.", {})
         sid = hits[0]["id"]
-    sup = suppliers.get_supplier(tctx.ctx, sid)
+    sup = _jsonable(suppliers.get_supplier(tctx.ctx, sid))
     board = purchasing.schedule_board(tctx.ctx, d0=None, d1=None, supplier_id=sid, item_id=None, doc_type="po",
                                       overdue_only=False, limit=MAX_ROWS, offset=0)
     from ..api.mfg.services import dashboard as dash
@@ -649,7 +650,7 @@ def trim(data: Any, *, cost: bool, registry: RefRegistry, extra_refs: list[tuple
          ) -> tuple[dict[str, Any], int]:
     """-> (tool result payload, row count). Issues references for records with server links."""
     untrusted: list[str] = []
-    state = {"rows": 0, "truncated": False}
+    state: dict[str, Any] = {"rows": 0, "truncated": False, "cap": MAX_ROWS}
 
     def walk(v: Any, path: str, depth: int) -> Any:
         if depth > 12:
@@ -674,9 +675,10 @@ def trim(data: Any, *, cost: bool, registry: RefRegistry, extra_refs: list[tuple
                         out["ref"] = ref
             return out
         if isinstance(v, (list, tuple)):
-            if len(v) > MAX_ROWS:
+            cap = state["cap"]
+            if len(v) > cap:
                 state["truncated"] = True
-            items = [walk(x, f"{path}[{i}]", depth + 1) for i, x in enumerate(list(v)[:MAX_ROWS])]
+            items = [walk(x, f"{path}[{i}]", depth + 1) for i, x in enumerate(list(v)[:cap])]
             state["rows"] = max(state["rows"], len(items))
             return items
         if isinstance(v, str):
@@ -690,7 +692,14 @@ def trim(data: Any, *, cost: bool, registry: RefRegistry, extra_refs: list[tuple
             return v.isoformat()
         return v
 
-    body = walk(_jsonable(data), "", 0)
+    src = _jsonable(data)
+    body = walk(src, "", 0)
+    for cap in (25, 10, 5, 2):          # over 20,000 characters: fewer rows per list before cutting text
+        if len(json.dumps(body, default=str)) <= MAX_CHARS - 2000:
+            break
+        state.update(cap=cap, truncated=True)
+        untrusted.clear()
+        body = walk(src, "", 0)
     refs_out = []
     for t, i, label, link in extra_refs:
         ref = registry.issue(t, i, label, link)
@@ -755,6 +764,12 @@ def run_call(tctx: ToolContext, name: str, args: Any, offered_names: set[str]) -
         res = tool.run(tctx, parsed)
     except ApiError as exc:
         return {"error": exc.code, "message": exc.message[:300]}, False, 0
+    except Exception as exc:  # noqa: BLE001 - a tool bug fails the call, not the turn (logged by type only)
+        import logging
+
+        logging.getLogger("superplanner.assistant").warning("assistant tool %s failed: %s", name,
+                                                            type(exc).__name__)
+        return {"error": "tool_failed", "message": "The tool failed; try another way."}, False, 0
     if ck is not None:
         cache.put(ck, (res.data, res.refs))
     payload, rows = trim(res.data, cost=tool.cost, registry=tctx.refs, extra_refs=res.refs)

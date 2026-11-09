@@ -102,7 +102,9 @@ def _resolve(svc_list: Any, ref: str, key: str = "number") -> str:
     """An id, or a number found through the list service (exact match)."""
     if re.fullmatch(r"[a-z]{3}_[0-9a-f]{32}", ref or ""):
         return ref
-    items = svc_list(ref)
+    from ..api.mfg.services.common import jsonable
+
+    items = jsonable(svc_list(ref))
     hit = [x for x in items if str(x.get(key, "")).lower() == (ref or "").lower()]
     if len(hit) != 1:
         raise DraftInvalid(f"{ref!r} was not found")

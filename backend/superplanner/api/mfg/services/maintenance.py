@@ -175,7 +175,17 @@ def run_job(ctx: Any, run_id: str, lease: Any) -> None:
                 return backfill(s, info["owner"])
             if not info["owner"]:
                 return {"skipped": "no plant"}
-            return retention(s, info["owner"], ctx.settings.archive_dir)
+            out = retention(s, info["owner"], ctx.settings.archive_dir)
+            # M6-DESIGN 1.1: assistant conversations older than ASSISTANT_RETENTION_DAYS (not archived)
+            from sqlalchemy import delete as _delete
+
+            from ..db_models_m6 import AssistantConversationRow as _C
+
+            cut = datetime.now(UTC) - timedelta(days=int(ctx.settings.assistant_retention_days))
+            res = s.execute(_delete(_C).where(_C.owner_id == info["owner"], _C.updated_at < cut)
+                            .execution_options(synchronize_session=False))
+            out["assistant_conversations"] = {"purged": int(res.rowcount or 0)}
+            return out
 
     run_duty(ctx, run_id, lease, fn)
 

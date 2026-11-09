@@ -518,7 +518,7 @@ def convert_plant(db: Any, person_id: str, org_slug: str, code: str, name: str |
         counts: dict[str, int] = {}
         skip = {"audit_events", "jobs", "sessions", "api_tokens"}
         for t in md.sorted_tables:
-            if "owner_id" not in t.c or t.name in skip or not (t.name.startswith(("mfg_", "int_"))):
+            if "owner_id" not in t.c or t.name in skip or not (t.name.startswith(("mfg_", "int_", "assistant_"))):
                 continue
             res = s.execute(sa.update(t).where(t.c.owner_id == person_id).values(owner_id=principal.id))
             counts[t.name] = int(res.rowcount or 0)

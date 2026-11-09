@@ -102,9 +102,12 @@ def delete_all(s: Session) -> dict[str, int]:
     M2-DESIGN 9.4: `ALL_MFG_MODELS`; workspace memberships survive)."""
     out: dict[str, int] = {}
     s.info["sp_series_reset"] = True          # number allocation stays in this transaction (repo_m2)
-    for model in reversed(ALL_MFG_MODELS):
+    from ..db_models_m6 import M6_RESET_MODELS        # M6-DESIGN 6: plant-owned M6 tables go with the data
+
+    for model in reversed(ALL_MFG_MODELS + M6_RESET_MODELS):
         res = s.execute(delete(model).execution_options(synchronize_session=False))
-        out[model.__tablename__[len("mfg_"):]] = int(res.rowcount or 0)
+        name = model.__tablename__
+        out[name[len("mfg_"):] if name.startswith("mfg_") else name] = int(res.rowcount or 0)
     s.expunge_all()
     return out
 
