@@ -536,7 +536,125 @@ their account or force 2FA on it. Users created by SSO with `OIDC_ORG_SLUG` join
 hbl --code HYD` moves a personal workspace into an organisation in one transaction (members are kept, the person
 becomes `plant_admin`). Use `--dry-run` first and take a backup.
 
-## 14. Changelog
+## 14. High availability (M6-DESIGN 4)
+
+Two supported production shapes; both use the same application settings.
+
+| Option | For | Shape |
+|---|---|---|
+| Managed PostgreSQL 16+ with HA (RDS Multi-AZ, Cloud SQL HA, Azure Flexible zone-redundant) | cloud | `DATABASE_URL` = the provider's failover endpoint; optional read replica endpoint as `DATABASE_READ_URL`; provider PITR |
+| **Patroni 3 nodes + HAProxy + pgBackRest (rehearsed default)** | on premises | etcd (or Consul) DCS; `synchronous_mode: true`, `synchronous_node_count: 1`; HAProxy 5432 -> leader, 5433 -> replicas (health checks `GET /primary` / `GET /replica` on the Patroni REST port 8008); `DATABASE_URL` -> HAProxy:5432, `DATABASE_READ_URL` -> HAProxy:5433; pgBackRest full weekly, differential daily, WAL archived continuously to a second site |
+
+Targets (rehearsed on the on-premises set): node / AZ failure **RPO 0** for committed transactions (synchronous
+replica), **RTO <= 2 min** (Patroni failover + pool reconnect); site loss **RPO <= 5 min** (WAL archive),
+**RTO <= 4 h** (PITR restore of <= 200 GB). Restore drill twice a year (R4).
+
+Patroni excerpt (`patroni.yml`, per node):
+
+```yaml
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    synchronous_mode: true
+    synchronous_node_count: 1
+    postgresql:
+      parameters: {wal_level: replica, hot_standby: "on", max_wal_senders: 10, archive_mode: "on",
+                   archive_command: "pgbackrest --stanza=sp archive-push %p"}
+```
+
+HAProxy excerpt:
+
+```
+listen primary
+  bind *:5432
+  option httpchk GET /primary
+  http-check expect status 200
+  default-server inter 2s fall 3 rise 2 on-marked-down shutdown-sessions
+  server pg1 pg1:5432 check port 8008
+  server pg2 pg2:5432 check port 8008
+  server pg3 pg3:5432 check port 8008
+listen replicas
+  bind *:5433
+  balance roundrobin
+  option httpchk GET /replica?lag=5MB
+  server pg1 pg1:5432 check port 8008
+  server pg2 pg2:5432 check port 8008
+  server pg3 pg3:5432 check port 8008
+```
+
+What the application does (code, M6-DESIGN 4.2):
+
+- **Replica routing (optional, `DATABASE_READ_URL`)** only for dashboards / digests, KPI and assistant read tools,
+  quick explanations, exports of the dashboard. Writes, MRP / APS snapshot loads, staleness and If-Match reads, floor
+  and integration always use the primary. The replica is used only while its lag (checked at most every 2 s) is <=
+  `REPLICA_MAX_LAG_SECONDS` (5) and the request carries no recent-write marker: every unsafe request answers with
+  cookie `sp_rw` (15 s) and header `SP-Read-After` (epoch seconds; API token clients send it back). A failing
+  replica falls back to the primary (logged at most once a minute). Metric `sp_db_replica_reads_total{result}`.
+  Without `DATABASE_READ_URL` nothing changes (no cookie, no header).
+- **Failover**: a lost connection, a demoted primary (SQLSTATE 25006) or a shutdown (57P01-57P03) answers **503
+  `DB_UNAVAILABLE` with `Retry-After: 5`** (never 500) and drops the pool, so the next request reconnects through
+  HAProxy to the new leader (metric `sp_db_unavailable_total{reason}`). Postings, floor events, conversions and
+  integration batches carry idempotency keys: retrying the same request creates the record once.
+- **Readiness**: `/health/ready` is 503 with `"database": "read_only"` while the write pool reaches a standby
+  (`pg_is_in_recovery()`); with a replica it reports `replica {status, lag_seconds}` (not a readiness condition).
+- **Singleton duties** stay on the M5 scheduler tick (`pg_try_advisory_xact_lock` on the primary); M6 adds
+  `push_delivery`, `digest_send`, `inventory_snapshot`; assistant conversations are purged by
+  `maintenance_retention`.
+- **Migrations**: expand / contract policy, enforced by `tests/db/test_migration_policy.py`; every revision from
+  0008 declares `policy`. `contract` revisions ship at least one release after the code stopped using the old shape.
+
+Load balancer: `/health/ready` as the health check (2 s interval, 3 failures); idle timeout 60 s is enough for the
+API (assistant turns are polled); the SSE paths (`/solver-runs/{id}/events`, `/finance/runs/{id}/events`) need 300 s.
+
+## 15. Runbooks (R1-R11)
+
+Written for the on-premises Patroni set; cloud notes in brackets.
+
+- **R1 Planned switchover.** `patronictl -c /etc/patroni.yml switchover --leader pg1 --candidate pg2 --force`.
+  Expect a burst of 503 `DB_UNAVAILABLE` <= 10 s; the UI retries GETs once and shows a banner for writes. Check
+  `/health/ready` = 200 on every API instance and `patronictl list` (one Leader, one Sync Standby). [Cloud: the
+  provider's "failover / reboot with failover".]
+- **R2 Unplanned failover check-list.** (1) `patronictl list`: new Leader, a Sync Standby; (2) every API
+  `/health/ready` 200 (`database: ok`, not `read_only`); (3) job backlog: `sp_jobs_queue_depth` falls, the reaper
+  re-leased running jobs (`/metrics`); (4) integration delivery FIFO resumed (`/integration/deliveries` no growth of
+  `retry`); (5) replica lag `replica.lag_seconds` back under 5; (6) rebuild the failed node (R3).
+- **R3 Replica rebuild.** `patronictl -c /etc/patroni.yml reinit sp pg3` (pgBackRest delta restore if configured);
+  wait for `streaming` and lag 0 in `patronictl list`.
+- **R4 PITR restore drill (twice a year).** Into a staging cluster: `pgbackrest --stanza=sp --type=time
+  --target="2026-11-09 10:15:00+05:30" --target-action=promote restore`; start PostgreSQL; verify with
+  `python -m superplanner.migrate check`, `python -m superplanner.manage audit-verify`, row counts of
+  `mfg_inv_postings` / `mfg_floor_events` against the incident time, a dashboard load. Cut-over: stop APIs/workers,
+  repoint `DATABASE_URL` / `DATABASE_READ_URL` (or HAProxy backends), start, `/health/ready`. [Cloud: provider PITR
+  to a new instance.]
+- **R5 Rolling upgrade with an expand migration.** Run the one-shot `migrate` service (advisory lock, idempotent);
+  then roll API and worker instances one by one (old code works on the expanded schema); watch `/health/ready`.
+- **R6 Contract migration release.** Only after a release in which no running code uses the old shape; stop nothing
+  - run `migrate`, then roll instances. `tests/db/test_migration_policy.py` must declare the revision `contract`.
+- **R7 Queue backlog / stuck jobs.** `/metrics` `sp_jobs_queue_depth{kind,status}`, oldest queued age; add workers
+  (`WORKER_KINDS` per pool, section 7); stuck `running` jobs are re-leased by the reaper after `JOB_LEASE_SECONDS`.
+- **R8 Webhook dead letters.** Integration console -> deliveries `dead`: fix the receiver, `retry` or `park` /
+  `unpark` (M5 notes 16).
+- **R9 Secrets rotation.** `SECRETS_KEYS`: prepend the new key, restart, keep the old one until re-encrypted rows
+  (TOTP, OIDC verifiers, push keys) were rewritten; VAPID: a new `WEBPUSH_VAPID_PRIVATE_KEY` invalidates existing
+  browser subscriptions (they re-subscribe on the next visit of `/m`; old ones answer 401/403 and count failures,
+  410 deletes them); SMTP / OIDC client secrets: change in the secret store and restart.
+- **R10 Disabling the assistant and purging conversations.** Server-wide: `ASSISTANT_AI_ENABLED=false` and restart
+  (turns answer 422 `AI_DISABLED`; the built-in explanations keep working). Per plant: `PUT
+  /api/v1/mfg/plant/assistant {"assistant_enabled": false}` (owner / plant admin). Purge now:
+  `DELETE FROM assistant_conversations WHERE owner_id = '<plant>'` (turns and references cascade) or lower
+  `ASSISTANT_RETENTION_DAYS` and let `maintenance_retention` run.
+- **R11 Load balancer health checks and timeouts.** Health check `GET /api/v1/health/ready` (2 s, fall 3, rise 2);
+  idle timeout 60 s (API, assistant polling), 300 s on the SSE paths; forward `X-Forwarded-For` only from trusted
+  proxies (`TRUSTED_PROXY_CIDRS`).
+
+HA rehearsal without a Patroni rig: a `docker compose --profile ha` (primary + streaming replica) is left to the final gate (not part of WP-S)
+or the failover simulation used by `tests/ha/test_ha.py` (database set to `default_transaction_read_only` = a
+demoted primary; `REPLICA` lag injected through the lag probe).
+
+## 16. Changelog
 
 - **PostgreSQL-only release.** SQLite support was removed: `DATABASE_URL` is required and must be PostgreSQL, the
   schema is created only by `python -m superplanner.migrate upgrade` (no automatic creation or file backups at

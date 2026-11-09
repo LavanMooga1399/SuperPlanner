@@ -419,6 +419,96 @@ Contract decisions made at S0:
    covers them directly); `assistant_usage`, `push_subscriptions`, `digest_subscriptions` are platform tables.
    `digest_subscriptions` gains `time_zone` (the plant's zone at subscribe time; organisations: UTC).
 
+**S1-S3 built (2026-11-09).** Assistant (`assistant/`: `client.py`, `loop.py`, `tools.py`, `prompts.py`,
+`citations.py`, `drafts.py`, `budget.py`, `cache.py`, `quick.py`, `service.py`, `fake.py`), dashboards / snapshot
+(`api/mfg/services/dashboard.py`), approvals (`services/approvals.py`), downtime acknowledgement, digests
+(`notify/email.py`, `notify/digests.py`), push (`push/ece.py` RFC 8291, `push/vapid.py`, `push/service.py`,
+`push/delivery.py`), M6 duties (`m6jobs.py`, joined to the M5 scheduler tick), replica routing / read-your-writes /
+failover mapping / readiness (`api/db/session.py`, `api/ha.py`, `api/errors.py`, `routes/health.py`), migration
+policy (`tests/db/test_migration_policy.py`), DEPLOY.md 14 (HA) and 15 (runbooks R1-R11; the old 14 Changelog is
+now 16), `.env.example` M6 block. Dashboards no longer answer from the fixture.
+
+Interpretations / deviations:
+6. Tools: 18 tools of 1.3. Every run re-resolves the user's permissions in the plant (membership query) and refuses
+   tools not offered at turn start (`permission_denied` tool_result, audited). Tool bugs become a `tool_failed`
+   tool_result (type logged only), never a failed turn. Trimming: <= 50 rows per list, payload <= 20,000 characters
+   (lists are cut to 25 / 10 / 5 / 2 rows before the text is cut), free-text keys cut to 200 characters and listed
+   in `untrusted_text`, personal keys (`reported_by`, `actor_id`, `email`, ...) removed, keys matching
+   price|cost|amount|value removed: no tool name says cost, so **`overtime_options` shows minutes and tardiness saved
+   but not the overtime cost** (the design's table mentioned cost; the "prices only in cost tools" rule wins).
+7. References: records in tool output with a server `link` (and the tools' explicit refs) are numbered per
+   conversation (`assistant_refs`); links must match `^/(mfg|integration|m)/...` (no scheme, no `//`). Answers are
+   reduced to the markdown subset (HTML, images, links and bare URLs removed) before unknown markers are stripped.
+8. What-if: `run_whatif_mrp` (extra demand, PO supply delays) / `run_whatif_aps` (open_shifts on a copy of the
+   published run, overtime policy, line breakdowns) call the services with the new `force_what_if=True` (M2
+   `mrp.create_run`, M3 `aps.create_run`), so even a `copy_of` of a live run is `what_if` (not publishable, not
+   convertible); label "Assistant what-if ...", audited with the user as actor; APS waits up to 120 s.
+9. Drafts are built from fresh server reads (the model only names records and changes): `expedite_po_schedule` =
+   the full PO `PUT` body with the schedule's requested date set to the needed date (confirmed date cleared, note
+   appended), `if_match_of` = the PO's row_version; `raise_priority` = the full demand order `PUT`; the others as
+   1.4. Every card passes the allow-list (7 (method, path) patterns) and the target input model; `allowed` = the
+   user holds `required_permission`. At most 5 drafts per answer. `whatif_run` drafts accept only the strict
+   (empty) parameter object through the model's schema (the model cannot pass arbitrary params).
+10. Budgets: tokens = input + cache writes + output (cache reads are reported, not counted); a turn is refused (422
+    at POST, failed turn mid-way) when less than 4,000 tokens are left for the user or plant; the status reports
+    `AI_BUDGET_EXCEEDED` then. Day = UTC date.
+11. Turns run in a daemon thread of the API process inside an AI slot (4 per app, 5 s wait -> `AI_BUSY`);
+    progress is written to the turn row per tool call; queued / running turns without progress for 3 minutes are
+    failed `AI_TURN_LOST` (checked on poll and before every new turn). Cancel stops before the next tool / round.
+    The 404 for another user's conversation comes before any availability answer.
+12. History: the last 9 completed turns (user text + answer + the reference list of their citations / tool refs);
+    tool results of earlier turns are not sent again. The page context is appended to the question as one sentence.
+13. Fallback model: `model` = the response's model; when it differs from `claude-opus-5-5`, `fallback_code =
+    AI_FALLBACK_MODEL`.
+14. Cache: process-local, 5 minutes, key (plant, tool, args, data token = plant data_version, latest live MRP run,
+    published schedule run + row_version), for plan views only (`demand_status`, `mrp_*`, `schedule_*`,
+    `overtime_options`, `kpis`).
+15. Quick explanations need `type=demand_line|demand_order&id=` for `why_late`.
+16. Dashboard: `backlog` value = 4-week load (required / base minutes of the published run, group totals);
+    `execution` value = adherence (status = worst of adherence and FPY); `quality` value = recalls created in the
+    period ("open" recalls: recalls have no closed state); `integration` "stale reconciliation" = integration on and
+    no reconciliation for 7 days. Response gains `timings_ms`. Org dashboard: plants where the user's plant roles
+    grant `view` (org admins without plant roles see no plant data); totals = sums for counts / values (a note when
+    currencies differ), OTD weighted by the KPI denominators, adherence / load as unweighted means (stated in
+    `details.weights`). Drill links are app routes (`/mfg/...`; WP-U: integration is `/mfg/integration`).
+17. Snapshot duty: `inventory_snapshot` per plant once a local day after 00:30 (upsert per family x location kind);
+    it also warms the M4 closed-day KPI cache for 52 weeks so the first dashboard view of the day stays fast.
+18. Digests: `digest_send` duty per recipient with a due digest (local time in the subscription's time zone; a new
+    subscription waits for its next slot); computed with the recipient bound as actor in each plant (plant scope:
+    membership re-checked at send time, else nothing is sent); push `digest_ready` after sending.
+19. Push: subscription keys are stored encrypted with SECRETS_KEYS when configured (else marked `raw:`; the
+    p256dh key is public, the auth secret is low value). `push_delivery` per plant when there is something new since
+    the previous run's cursor for that plant's subscribers: critical / line-down M4 notifications (`floor_view`),
+    submitted PRs (`pr_approve`), submitted ECOs (`eco_approve`), completed replan proposals (`schedule_publish`);
+    payload title + fixed short body + link path (notification bodies with operator text are not sent). Fan-out 16
+    threads; 404 / 410 delete, other failures count (deleted after 20). It runs on the fast scheduler tick (2 s).
+20. Reset deletes the M6 plant tables; `convert-plant` moves `assistant_*` rows too.
+21. Readiness body gains `"database": "read_only"` (standby write target) and, only with a replica, `replica`.
+22. Migration policy: 0001-0007 predate the policy and are not re-checked; 0008 declares `policy = "expand"`.
+
+Targeted results (2026-11-09): `tests/assistant` 20 passed, `tests/dashboard` 6, `tests/push` 10, `tests/ha` 6,
+`tests/db/test_migration_policy.py` 10; touched existing tests green: route coverage + authz sweep (M6 objects
+added), ops health, migrations (0002 / 0006 / 0007 head assertions moved to 0008), config, M4 S0, M4 floor, M5 orgs,
+file drop, M2 reset.
+
+Performance (developer machine, PostgreSQL local; Kavach M4 sample):
+- AI1 tool run (server, excl. model): demand_status 60-77 ms, mrp_exceptions 44-50, bottlenecks 9-10, overtime 18-24,
+  line_status 105-130, kpis 134 (warm M4 KPI cache; 1.2 s on the plant's very first KPI request), stock 40-43 ->
+  p95 < 300 ms met (warm).
+- AI3 fake-client turn of 8 rounds (7 real tools): 2.5-3.3 s end to end incl. 50 ms polling and tool time; server
+  overhead without tool time about 1-1.5 s (target 2 s met).
+- DB1 plant dashboard: 13w warm 556-595 ms, 52w warm 922-973 ms, 52w with a year of synthetic snapshots 1.24 s
+  (target 1.5 s met warm); cold first view of a plant 2.0-2.2 s (M4 KPI day cache fill; the nightly snapshot duty now
+  pre-warms it).
+- DB2 org dashboard: 459 ms for 2 small plants (5 Kavach-size plants not measured; ~5 x warm DB1 = about 3-5 s,
+  at the 4 s target - LEAD to confirm on the gate).
+- PU1 push fan-out 1,000 subscriptions (local stub, real encryption + VAPID): 0.95 s (target 60 s).
+- HA2 lag 10 s injected: replica-routed endpoints served by the primary; read-your-writes cookie / header hold
+  (`tests/ha`). HA1 (real primary kill) needs the Patroni / compose HA rig: not run by WP-S; T-H2 simulated (a demoted
+  primary = database `default_transaction_read_only`): 503 + Retry-After, the retried posting with the same key
+  created exactly once.
+- AI2 (live model) not run: tests never call the real API; the manual live smoke test stays with LEAD.
+
 ### 11.WP-U UI
 
 **Built (2026-11-09); types aligned to the frozen S0 contract (`assistant/model.py`, `push/model.py`,
