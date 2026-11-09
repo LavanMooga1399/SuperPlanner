@@ -67,6 +67,7 @@ test.describe("M6 assistant and dashboards (desktop)", () => {
       expect((req.postDataJSON() as { copy_of?: string }).copy_of).toBe(data.publishedRunId);
       await expect(draft.getByTestId("asst-draft-done")).toBeVisible();
       expect(((await reported).postDataJSON() as { status: string }).status).toBe("succeeded");
+      console.log("m6: overtime draft applied");
     } else {
       test.info().annotations.push({ type: "note", description: "no overtime suggested by the published run; draft apply not exercised" });
     }
@@ -84,7 +85,8 @@ test.describe("M6 assistant and dashboards (desktop)", () => {
     await gotoMfg(page, "/schedule");
     await page.getByTestId("asst-open").click();
     const panel = page.getByTestId("asst-panel");
-    if (await panel.getByTestId("asst-privacy-accept").count()) await panel.getByTestId("asst-privacy-accept").click();
+    // a fresh browser profile: the privacy notice comes first
+    await panel.getByTestId("asst-privacy-accept").click();
     await panel.getByTestId("asst-more").click();
     await panel.getByTestId("asst-new").click();
     await panel.getByTestId("asst-input").fill("Why is DO-RUSH/10 late?");
