@@ -85,11 +85,16 @@ function savePush(v: StoredPush | null) {
   }
 }
 
+/** The server no longer knows this phone's subscription (removed after 404/410 from the push service). */
+export function forgetPush(): void {
+  savePush(null);
+}
+
 /** True when the server has push configured; false for `PUSH_DISABLED` (or no M6 server). */
 export async function pushAvailableOnServer(signal?: AbortSignal): Promise<{ available: boolean; key: string | null }> {
   try {
     const r = await getVapidKey(signal);
-    return { available: Boolean(r.public_key), key: r.public_key || null };
+    return { available: Boolean(r.enabled && r.public_key), key: r.enabled ? r.public_key || null : null };
   } catch (e) {
     if (e instanceof ApiError && (e.code === "PUSH_DISABLED" || e.details?.code === "PUSH_DISABLED" || e.status === 404)) return { available: false, key: null };
     throw e;

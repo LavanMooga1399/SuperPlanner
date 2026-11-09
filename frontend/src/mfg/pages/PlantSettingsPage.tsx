@@ -6,8 +6,7 @@ import { WEEKDAYS, type PlantInput, type PlantRecord, type Weekday } from "../ap
 import type { PlantM2Fields } from "../api/typesM2";
 import { OVERTIME_POLICIES, type OvertimePolicy, type PlantM3Fields } from "../api/typesM3";
 import type { PlantM4Fields, ReplanPolicy } from "../api/typesM4";
-import type { PlantM6Fields } from "../api/typesM6";
-import { useAccess } from "../lib/permissions";
+import { AssistantPlantCard } from "./m6/AssistantPlantCard";
 import { listLocations } from "../api/clientM2";
 import { POLICY_TEXT } from "./schedule/ApsRunForm";
 import { WEEKDAY_LABEL } from "../lib/format";
@@ -26,8 +25,6 @@ const REPLAN_HELP: Record<ReplanPolicy, string> = {
 
 export function PlantSettingsPage() {
   const plant = usePlant();
-  const access = useAccess();
-  const adminish = access.isOwner || Boolean(access.me?.roles?.includes("plant_admin"));
   const [base, setBase] = useState<PlantRecord | null>(null);
   const [f, setF] = useState({
     name: "",
@@ -49,8 +46,6 @@ export function PlantSettingsPage() {
     adherence: "120",
     receiptLoc: "",
     backflushLoc: "",
-    assistantOn: true,
-    assistantWhatif: true,
   });
   const locs = useLoad((signal) => listLocations({ active: true }, signal).catch(() => null), []);
   const meta = useMeta() as (ReturnType<typeof useMeta> & { time_zones?: string[] }) | null;
@@ -91,8 +86,6 @@ export function PlantSettingsPage() {
       adherence: String((p as PlantRecord & PlantM4Fields).adherence_tolerance_minutes ?? 120),
       receiptLoc: (p as PlantRecord & PlantM4Fields).wo_receipt_location_id ?? "",
       backflushLoc: (p as PlantRecord & PlantM4Fields).backflush_location_id ?? "",
-      assistantOn: (p as PlantRecord & PlantM6Fields).assistant_enabled ?? true,
-      assistantWhatif: (p as PlantRecord & PlantM6Fields).assistant_allow_whatif ?? true,
     });
     setConflict(false);
   };
@@ -132,11 +125,7 @@ export function PlantSettingsPage() {
         backflush_location_id: f.backflushLoc || null,
       }
     : {};
-  // M6 6: assistant opt-out, only when the server knows it (changed by the owner / a plant admin)
-  const m6 = "assistant_enabled" in base;
-  const m6Body: PlantM6Fields = m6 ? { assistant_enabled: f.assistantOn, assistant_allow_whatif: f.assistantWhatif } : {};
-  const body: PlantInput & PlantM2Fields & PlantM3Fields & PlantM4Fields & PlantM6Fields = {
-    ...m6Body,
+  const body: PlantInput & PlantM2Fields & PlantM3Fields & PlantM4Fields = {
     ...m3Body,
     ...m4Body,
     name: f.name.trim() || "Plant",
@@ -178,187 +167,172 @@ export function PlantSettingsPage() {
   };
 
   return (
-    <form
-      className="card"
-      style={{ maxWidth: 720 }}
-      onSubmit={(e) => {
-        e.preventDefault();
-        void save();
-      }}
-      data-testid="plant-settings"
-    >
-      <div className="card-header">
-        <h2>Plant settings</h2>
-        <SaveState busy={false} saved={saved} />
-      </div>
-      <div className="card-body col">
-        {conflict ? <ConflictBanner onReload={() => void getPlant().then(reset, setError)} what="the plant settings" /> : null}
-        <MfgError error={error} title="Could not save" />
-        {base.id === null ? <p className="muted small" style={{ margin: 0 }}>Default settings; nothing is stored until you save.</p> : null}
-        <TextField label="Plant name" value={f.name} onChange={(v) => setF({ ...f, name: v })} testId="plant-name" />
-        <div className="form-grid">
-          <TextField
-            label="Time zone offset"
-            disabled={m3 && Boolean(f.timeZone.trim())}
-            value={f.utc_offset}
-            onChange={(v) => setF({ ...f, utc_offset: v })}
-            placeholder="+05:30"
-            hint={OFFSET.test(f.utc_offset.trim()) ? "Shift times, holidays and dates use this offset (no daylight saving)." : "Use the form +05:30 or -04:00."}
-            testId="plant-offset"
-          />
-          <TextField label="Planning horizon (days)" type="number" value={f.horizon} onChange={(v) => setF({ ...f, horizon: v })} hint="7 to 730; used by the data-health check." testId="plant-horizon" />
-          <TextField label="Currency" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} hint="Shown with costs, e.g. INR" />
+    <div className="col gap-lg">
+      <form
+        className="card"
+        style={{ maxWidth: 720 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+        data-testid="plant-settings"
+      >
+        <div className="card-header">
+          <h2>Plant settings</h2>
+          <SaveState busy={false} saved={saved} />
         </div>
-        {m3 ? (
-          <fieldset className="mfg-fieldset" data-testid="plant-aps">
-            <legend>Time zone and production schedule</legend>
-            <div className="form-grid">
-              <div className="field">
-                <label htmlFor="plant-tz">Time zone</label>
-                <input
-                  id="plant-tz"
-                  className="input"
-                  list="plant-tz-list"
-                  value={f.timeZone}
-                  onChange={(e) => setF({ ...f, timeZone: e.target.value })}
-                  placeholder="e.g. Asia/Kolkata"
-                  aria-invalid={tzBad}
-                  data-testid="tz-select"
-                />
-                <datalist id="plant-tz-list">
-                  {zones.map((z) => (
-                    <option key={z} value={z} />
-                  ))}
-                </datalist>
-                <span className="hint">{tzBad ? "Choose a zone from the list." : "With a zone, daylight saving is handled and the offset above is only shown. Empty = use the fixed offset."}</span>
-              </div>
-              <TextField label="Freeze window (hours)" type="number" value={f.freeze} onChange={(v) => setF({ ...f, freeze: v })} hint="0 to 336. Published operations starting this soon stay where they are." testId="plant-aps-freeze" />
-              <TextField label="Schedule horizon (days)" type="number" value={f.apsHorizon} onChange={(v) => setF({ ...f, apsHorizon: v })} hint="7 to 120; default of new schedule runs." testId="plant-aps-horizon" />
-              <div className="field">
-                <label htmlFor="plant-aps-policy">Overtime in new schedules</label>
-                <select id="plant-aps-policy" className="select" value={f.policy} onChange={(e) => setF({ ...f, policy: e.target.value as OvertimePolicy })} data-testid="plant-aps-policy">
-                  {OVERTIME_POLICIES.map((p) => (
-                    <option key={p} value={p}>
-                      {POLICY_TEXT[p].label}
-                    </option>
-                  ))}
-                </select>
-                <span className="hint">{POLICY_TEXT[f.policy].help}</span>
-              </div>
-            </div>
-          </fieldset>
-        ) : null}
-        {m4 ? (
-          <fieldset className="mfg-fieldset" data-testid="plant-floor">
-            <legend>Shop floor and replanning</legend>
-            <div className="form-grid">
-              <div className="field">
-                <label htmlFor="plant-replan">When the floor or supply changes</label>
-                <select id="plant-replan" className="select" value={f.replanPolicy} onChange={(e) => setF({ ...f, replanPolicy: e.target.value as ReplanPolicy })} data-testid="plant-replan-policy">
-                  <option value="notify">Notify the planner (recommended)</option>
-                  <option value="auto_whatif">Prepare a new schedule automatically</option>
-                  <option value="auto_publish">Prepare and publish automatically when safe</option>
-                </select>
-                <span className="hint">{REPLAN_HELP[f.replanPolicy]}</span>
-              </div>
-              <SelectField label="Finished goods go to" value={f.receiptLoc} onChange={(v) => setF({ ...f, receiptLoc: v })} options={[{ value: "", label: "Not set (each work order needs one)" }, ...(locs.data?.items ?? []).map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]} hint="Receipt of the last operation's good output." />
-              <SelectField label="Backflush from" value={f.backflushLoc} onChange={(v) => setF({ ...f, backflushLoc: v })} options={[{ value: "", label: "Not set" }, ...(locs.data?.items ?? []).map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]} hint="Default line-side stock for backflushed items (a line can override)." />
-            </div>
-            <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={floorExpert} onClick={() => setFloorExpert((v) => !v)}>
-              <Icon name={floorExpert ? "chevron-down" : "chevron-right"} /> Expert settings (tolerances, waiting time)
-            </button>
-            {floorExpert ? (
+        <div className="card-body col">
+          {conflict ? <ConflictBanner onReload={() => void getPlant().then(reset, setError)} what="the plant settings" /> : null}
+          <MfgError error={error} title="Could not save" />
+          {base.id === null ? <p className="muted small" style={{ margin: 0 }}>Default settings; nothing is stored until you save.</p> : null}
+          <TextField label="Plant name" value={f.name} onChange={(v) => setF({ ...f, name: v })} testId="plant-name" />
+          <div className="form-grid">
+            <TextField
+              label="Time zone offset"
+              disabled={m3 && Boolean(f.timeZone.trim())}
+              value={f.utc_offset}
+              onChange={(v) => setF({ ...f, utc_offset: v })}
+              placeholder="+05:30"
+              hint={OFFSET.test(f.utc_offset.trim()) ? "Shift times, holidays and dates use this offset (no daylight saving)." : "Use the form +05:30 or -04:00."}
+              testId="plant-offset"
+            />
+            <TextField label="Planning horizon (days)" type="number" value={f.horizon} onChange={(v) => setF({ ...f, horizon: v })} hint="7 to 730; used by the data-health check." testId="plant-horizon" />
+            <TextField label="Currency" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} hint="Shown with costs, e.g. INR" />
+          </div>
+          {m3 ? (
+            <fieldset className="mfg-fieldset" data-testid="plant-aps">
+              <legend>Time zone and production schedule</legend>
               <div className="form-grid">
-                <TextField label="Collect changes for (min)" type="number" value={f.debounce} onChange={(v) => setF({ ...f, debounce: v })} hint="0 to 1440. Automatic proposals wait this long so several changes go into one run." />
-                <TextField label="Overrun warning after (%)" type="number" value={f.overrun} onChange={(v) => setF({ ...f, overrun: v })} hint="A running operation projected this much over its planned time (at least 30 min) raises a warning." />
-                <TextField label="On time if within (min)" type="number" value={f.adherence} onChange={(v) => setF({ ...f, adherence: v })} hint="Schedule adherence: started and finished within this many minutes of the plan." />
-              </div>
-            ) : null}
-          </fieldset>
-        ) : null}
-        {m6 ? (
-          <fieldset className="mfg-fieldset" data-testid="plant-assistant">
-            <legend>Planning assistant</legend>
-            <label className="checkbox">
-              <input type="checkbox" checked={f.assistantOn} disabled={!adminish} onChange={(e) => setF({ ...f, assistantOn: e.target.checked })} data-testid="plant-assistant-enabled" />
-              Offer the AI planning assistant in this plant
-            </label>
-            <span className="hint">
-              When on (and switched on for the server), questions and the planning records the assistant looks up are sent to Anthropic, an AI provider. No
-              prices unless someone asks about cost, no personal data. The built-in quick explanations work either way.
-            </span>
-            <label className="checkbox">
-              <input type="checkbox" checked={f.assistantWhatif} disabled={!adminish || !f.assistantOn} onChange={(e) => setF({ ...f, assistantWhatif: e.target.checked })} data-testid="plant-assistant-whatif" />
-              Allow it to run what-if plans when the user switches this on (never live, never published)
-            </label>
-            {!adminish ? <span className="hint"><Icon name="lock" size={12} /> Only the owner or a plant admin can change these.</span> : null}
-          </fieldset>
-        ) : null}
-        {m2 ? (
-          <fieldset className="mfg-fieldset" data-testid="plant-mrp">
-            <legend>Material planning (MRP)</legend>
-            <Field label="Working days" hint="Manufacturing lead times count these days (holidays of the plant calendar are skipped).">
-              {(id) => (
-                <div className="row wrap" id={id} role="group" aria-label="Working days">
-                  {WEEKDAYS.map((d) => (
-                    <label key={d} className="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={f.workdays.includes(d)}
-                        data-testid={`plant-workday-${d}`}
-                        onChange={(e) => setF({ ...f, workdays: e.target.checked ? [...f.workdays, d] : f.workdays.filter((x) => x !== d) })}
-                      />
-                      {WEEKDAY_LABEL[d]}
-                    </label>
-                  ))}
+                <div className="field">
+                  <label htmlFor="plant-tz">Time zone</label>
+                  <input
+                    id="plant-tz"
+                    className="input"
+                    list="plant-tz-list"
+                    value={f.timeZone}
+                    onChange={(e) => setF({ ...f, timeZone: e.target.value })}
+                    placeholder="e.g. Asia/Kolkata"
+                    aria-invalid={tzBad}
+                    data-testid="tz-select"
+                  />
+                  <datalist id="plant-tz-list">
+                    {zones.map((z) => (
+                      <option key={z} value={z} />
+                    ))}
+                  </datalist>
+                  <span className="hint">{tzBad ? "Choose a zone from the list." : "With a zone, daylight saving is handled and the offset above is only shown. Empty = use the fixed offset."}</span>
                 </div>
-              )}
-            </Field>
-            {f.workdays.length === 0 ? <span className="field-error">Choose at least one working day.</span> : null}
-            <div className="form-grid">
-              <TextField
-                label="Routing minutes per working day"
-                type="number"
-                value={f.dayMinutes}
-                onChange={(v) => setF({ ...f, dayMinutes: v })}
-                hint="60 to 1440. 480 = one 8-hour shift; turns routing times into lead-time days."
-                testId="plant-mrp-day-minutes"
-              />
-              <TextField
-                label="Release window (days)"
-                type="number"
-                value={f.releaseWindow}
-                onChange={(v) => setF({ ...f, releaseWindow: v })}
-                hint="Planned orders starting within this many days are marked 'Release now'."
-                testId="plant-mrp-release-window"
-              />
-              <TextField
-                label="Defer tolerance (days)"
-                type="number"
-                value={f.deferTol}
-                onChange={(v) => setF({ ...f, deferTol: v })}
-                hint="Suggest pushing out a delivery only when it is this much earlier than needed."
-                testId="plant-mrp-defer"
-              />
-              <TextField
-                label="Over-receipt allowed (%)"
-                type="number"
-                value={f.overReceipt}
-                onChange={(v) => setF({ ...f, overReceipt: v })}
-                hint="How much more than ordered the stores may receive on one delivery."
-                testId="plant-over-receipt"
-              />
-            </div>
-          </fieldset>
-        ) : null}
-        <div className="row">
-          <PermissionGate perm="master_edit" mode="disable">
-            <button type="submit" className="btn primary" disabled={busy || invalid} data-testid="plant-save">
-              {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save settings
-            </button>
-          </PermissionGate>
+                <TextField label="Freeze window (hours)" type="number" value={f.freeze} onChange={(v) => setF({ ...f, freeze: v })} hint="0 to 336. Published operations starting this soon stay where they are." testId="plant-aps-freeze" />
+                <TextField label="Schedule horizon (days)" type="number" value={f.apsHorizon} onChange={(v) => setF({ ...f, apsHorizon: v })} hint="7 to 120; default of new schedule runs." testId="plant-aps-horizon" />
+                <div className="field">
+                  <label htmlFor="plant-aps-policy">Overtime in new schedules</label>
+                  <select id="plant-aps-policy" className="select" value={f.policy} onChange={(e) => setF({ ...f, policy: e.target.value as OvertimePolicy })} data-testid="plant-aps-policy">
+                    {OVERTIME_POLICIES.map((p) => (
+                      <option key={p} value={p}>
+                        {POLICY_TEXT[p].label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="hint">{POLICY_TEXT[f.policy].help}</span>
+                </div>
+              </div>
+            </fieldset>
+          ) : null}
+          {m4 ? (
+            <fieldset className="mfg-fieldset" data-testid="plant-floor">
+              <legend>Shop floor and replanning</legend>
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="plant-replan">When the floor or supply changes</label>
+                  <select id="plant-replan" className="select" value={f.replanPolicy} onChange={(e) => setF({ ...f, replanPolicy: e.target.value as ReplanPolicy })} data-testid="plant-replan-policy">
+                    <option value="notify">Notify the planner (recommended)</option>
+                    <option value="auto_whatif">Prepare a new schedule automatically</option>
+                    <option value="auto_publish">Prepare and publish automatically when safe</option>
+                  </select>
+                  <span className="hint">{REPLAN_HELP[f.replanPolicy]}</span>
+                </div>
+                <SelectField label="Finished goods go to" value={f.receiptLoc} onChange={(v) => setF({ ...f, receiptLoc: v })} options={[{ value: "", label: "Not set (each work order needs one)" }, ...(locs.data?.items ?? []).map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]} hint="Receipt of the last operation's good output." />
+                <SelectField label="Backflush from" value={f.backflushLoc} onChange={(v) => setF({ ...f, backflushLoc: v })} options={[{ value: "", label: "Not set" }, ...(locs.data?.items ?? []).map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]} hint="Default line-side stock for backflushed items (a line can override)." />
+              </div>
+              <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={floorExpert} onClick={() => setFloorExpert((v) => !v)}>
+                <Icon name={floorExpert ? "chevron-down" : "chevron-right"} /> Expert settings (tolerances, waiting time)
+              </button>
+              {floorExpert ? (
+                <div className="form-grid">
+                  <TextField label="Collect changes for (min)" type="number" value={f.debounce} onChange={(v) => setF({ ...f, debounce: v })} hint="0 to 1440. Automatic proposals wait this long so several changes go into one run." />
+                  <TextField label="Overrun warning after (%)" type="number" value={f.overrun} onChange={(v) => setF({ ...f, overrun: v })} hint="A running operation projected this much over its planned time (at least 30 min) raises a warning." />
+                  <TextField label="On time if within (min)" type="number" value={f.adherence} onChange={(v) => setF({ ...f, adherence: v })} hint="Schedule adherence: started and finished within this many minutes of the plan." />
+                </div>
+              ) : null}
+            </fieldset>
+          ) : null}
+          {m2 ? (
+            <fieldset className="mfg-fieldset" data-testid="plant-mrp">
+              <legend>Material planning (MRP)</legend>
+              <Field label="Working days" hint="Manufacturing lead times count these days (holidays of the plant calendar are skipped).">
+                {(id) => (
+                  <div className="row wrap" id={id} role="group" aria-label="Working days">
+                    {WEEKDAYS.map((d) => (
+                      <label key={d} className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={f.workdays.includes(d)}
+                          data-testid={`plant-workday-${d}`}
+                          onChange={(e) => setF({ ...f, workdays: e.target.checked ? [...f.workdays, d] : f.workdays.filter((x) => x !== d) })}
+                        />
+                        {WEEKDAY_LABEL[d]}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </Field>
+              {f.workdays.length === 0 ? <span className="field-error">Choose at least one working day.</span> : null}
+              <div className="form-grid">
+                <TextField
+                  label="Routing minutes per working day"
+                  type="number"
+                  value={f.dayMinutes}
+                  onChange={(v) => setF({ ...f, dayMinutes: v })}
+                  hint="60 to 1440. 480 = one 8-hour shift; turns routing times into lead-time days."
+                  testId="plant-mrp-day-minutes"
+                />
+                <TextField
+                  label="Release window (days)"
+                  type="number"
+                  value={f.releaseWindow}
+                  onChange={(v) => setF({ ...f, releaseWindow: v })}
+                  hint="Planned orders starting within this many days are marked 'Release now'."
+                  testId="plant-mrp-release-window"
+                />
+                <TextField
+                  label="Defer tolerance (days)"
+                  type="number"
+                  value={f.deferTol}
+                  onChange={(v) => setF({ ...f, deferTol: v })}
+                  hint="Suggest pushing out a delivery only when it is this much earlier than needed."
+                  testId="plant-mrp-defer"
+                />
+                <TextField
+                  label="Over-receipt allowed (%)"
+                  type="number"
+                  value={f.overReceipt}
+                  onChange={(v) => setF({ ...f, overReceipt: v })}
+                  hint="How much more than ordered the stores may receive on one delivery."
+                  testId="plant-over-receipt"
+                />
+              </div>
+            </fieldset>
+          ) : null}
+          <div className="row">
+            <PermissionGate perm="master_edit" mode="disable">
+              <button type="submit" className="btn primary" disabled={busy || invalid} data-testid="plant-save">
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save settings
+              </button>
+            </PermissionGate>
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+      <AssistantPlantCard />
+    </div>
   );
 }

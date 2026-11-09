@@ -5,9 +5,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
-import { ALL_TOPICS, pushAvailableOnServer, pushSupport, PUSH_SUPPORT_TEXT, storedPush, subscribePush, TOPIC_TEXT, unsubscribePush, type StoredPush } from "../../pwa/pwa";
+import { ALL_TOPICS, forgetPush, pushAvailableOnServer, pushSupport, PUSH_SUPPORT_TEXT, storedPush, subscribePush, TOPIC_TEXT, unsubscribePush, type StoredPush } from "../../pwa/pwa";
 import { getWorkOrder } from "../api/clientM2";
 import { floorScan, listWoOperationsM4 } from "../api/clientM4";
+import { listPushSubscriptions } from "../api/clientM6";
 import type { PushTopic } from "../api/typesM6";
 import { AssistantBody } from "../assistant/AssistantPanel";
 import { MfgError, Spinner } from "../components/Feedback";
@@ -215,6 +216,14 @@ export function MobileScan() {
 function PushSettings() {
   const server = useLoad((signal) => pushAvailableOnServer(signal), []);
   const [sub, setSub] = useState<StoredPush | null>(() => storedPush());
+  // the server drops subscriptions whose push service answers 404/410: then this phone is off again
+  const mine = useLoad((signal) => (server.data?.available && sub ? listPushSubscriptions(signal).catch(() => null) : null), [server.data?.available, sub?.id]);
+  useEffect(() => {
+    if (sub && mine.data && !mine.data.items.some((x) => x.id === sub.id)) {
+      forgetPush();
+      setSub(null);
+    }
+  }, [mine.data, sub]);
   const [topics, setTopics] = useState<PushTopic[]>(() => storedPush()?.topics ?? ["critical_alerts", "approvals"]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
