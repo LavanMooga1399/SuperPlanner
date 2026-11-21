@@ -6,6 +6,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Dialog } from "../../components/Dialog";
 import { Icon } from "../../components/Icon";
 import { MfgError } from "./Feedback";
+import { FormErrors } from "./Field";
 
 export interface EntityFormDialogProps {
   title: string;
@@ -75,7 +76,7 @@ export function EntityFormDialog({
     >
       <form id={formId} onSubmit={submit} className="col" data-testid={testId} noValidate>
         {error ? <MfgError error={error} title="Could not save" /> : null}
-        {children}
+        <FormErrors error={error}>{children}</FormErrors>
       </form>
     </Dialog>
   );

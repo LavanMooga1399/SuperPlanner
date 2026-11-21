@@ -2,7 +2,36 @@
  * Labelled form controls (label + control + hint) used by the Manufacturing forms. Values are controlled;
  * numbers are kept as text while typing and parsed by the form on save.
  */
-import { useId, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, type ReactNode } from "react";
+import { Icon } from "../../components/Icon";
+import { fieldErrors, type FieldError } from "../lib/useMfg";
+import { nodeText } from "./VirtualTable";
+
+/**
+ * Server validation errors (422 `details.errors[].loc`) for the fields inside (UX-STANDARD 4). A `Field` shows the
+ * message under its control when the last `loc` segment matches its `name`, or its label text
+ * ("part_number" matches "Part number"). The summary banner above the form stays as well.
+ */
+const FormErrorsContext = createContext<FieldError[]>([]);
+
+export function FormErrors({ error, children }: { error: unknown; children: ReactNode }) {
+  const list = useMemo(() => fieldErrors(error), [error]);
+  return <FormErrorsContext.Provider value={list}>{children}</FormErrorsContext.Provider>;
+}
+
+const norm = (x: string) => x.toLowerCase().replace(/[_\s]+/g, " ").replace(/\s*\(.*\)\s*$/, "").trim();
+
+function useFieldError(name: string | undefined, label: ReactNode): string | null {
+  const list = useContext(FormErrorsContext);
+  if (!list.length) return null;
+  const key = norm(name ?? nodeText(label));
+  if (!key) return null;
+  const hit = list.find((e) => {
+    const last = [...e.loc].reverse().find((x) => typeof x === "string");
+    return typeof last === "string" && norm(last) === key;
+  });
+  return hit ? hit.message : null;
+}
 
 export function Field({
   label,
@@ -11,6 +40,7 @@ export function Field({
   required,
   className,
   htmlFor,
+  name,
 }: {
   label: ReactNode;
   hint?: ReactNode;
@@ -18,11 +48,25 @@ export function Field({
   required?: boolean;
   className?: string;
   htmlFor?: string;
+  /** API field name for inline server errors (default: matched by label). */
+  name?: string;
 }) {
   const auto = useId();
   const id = htmlFor ?? `f${auto.replace(/:/g, "")}`;
+  const error = useFieldError(name, label);
+  useEffect(() => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (error) {
+      el.setAttribute("aria-invalid", "true");
+      el.setAttribute("aria-describedby", `${id}-err`);
+    } else if (el.getAttribute("aria-describedby") === `${id}-err`) {
+      el.removeAttribute("aria-invalid");
+      el.removeAttribute("aria-describedby");
+    }
+  }, [error, id]);
   return (
-    <div className={`field${className ? ` ${className}` : ""}`}>
+    <div className={`field${className ? ` ${className}` : ""}${error ? " has-error" : ""}`}>
       <label htmlFor={id}>
         {label}
         {required ? (
@@ -33,7 +77,13 @@ export function Field({
         ) : null}
       </label>
       {children(id)}
-      {hint ? <span className="hint">{hint}</span> : null}
+      {error ? (
+        <span className="field-error" id={`${id}-err`} data-testid="field-error">
+          <Icon name="alert" size={12} /> {error}
+        </span>
+      ) : hint ? (
+        <span className="hint">{hint}</span>
+      ) : null}
     </div>
   );
 }
@@ -50,7 +100,9 @@ export function TextField({
   disabled,
   type = "text",
   className,
+  name,
 }: {
+  name?: string;
   label: ReactNode;
   value: string;
   onChange(v: string): void;
@@ -64,7 +116,7 @@ export function TextField({
   className?: string;
 }) {
   return (
-    <Field label={label} hint={hint} required={required} className={className}>
+    <Field label={label} hint={hint} required={required} className={className} name={name}>
       {(id) => (
         <input
           id={id}
@@ -94,7 +146,9 @@ export function SelectField<V extends string>({
   required,
   testId,
   disabled,
+  name,
 }: {
+  name?: string;
   label: ReactNode;
   value: V;
   onChange(v: NoInfer<V>): void;
@@ -105,7 +159,7 @@ export function SelectField<V extends string>({
   disabled?: boolean;
 }) {
   return (
-    <Field label={label} hint={hint} required={required}>
+    <Field label={label} hint={hint} required={required} name={name}>
       {(id) => (
         <select
           id={id}
@@ -134,6 +188,8 @@ export function CheckField({
   testId,
   disabled,
 }: {
+  /** API field name (accepted for symmetry; checkboxes show errors in the summary only). */
+  name?: string;
   label: ReactNode;
   checked: boolean;
   onChange(v: boolean): void;

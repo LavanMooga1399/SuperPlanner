@@ -214,7 +214,7 @@
 .col-row input { accent-color: var(--accent); margin: 0; }
 
 /* ---------------------------------------------------------------- reference id in error banners */
-.ref-id { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: var(--fs-xs); color: var(--text-muted); }
+.ref-id { display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: var(--fs-xs); color: var(--text-muted); }
 .ref-id code { font-size: var(--fs-xs); user-select: all; }
 
 @media (prefers-reduced-motion: reduce) { .side { transition: none; } .skel { animation: none; } }

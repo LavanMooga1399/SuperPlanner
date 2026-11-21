@@ -561,8 +561,20 @@ export function VirtualTable<T>({
 
 function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T>[]; prefs: ColumnPrefs; canHide(c: Column<T>): boolean; onChange(p: ColumnPrefs): void; label: string }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
+  const toggle = () => {
+    if (!open && btn.current) {
+      // fixed position next to the button, on the side with more room, never off-screen
+      const r = btn.current.getBoundingClientRect();
+      const below = window.innerHeight - r.bottom - 8;
+      const above = r.top - 8;
+      const right = Math.max(8, window.innerWidth - r.right);
+      setPos(below >= Math.min(420, above) ? { position: "fixed", right, top: r.bottom + 4, maxHeight: below - 4 } : { position: "fixed", right, top: "auto", bottom: window.innerHeight - r.top + 4, maxHeight: above - 4 });
+    }
+    setOpen((v) => !v);
+  };
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: globalThis.MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
@@ -591,11 +603,11 @@ function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T
   const customised = prefs.hidden.length > 0 || prefs.order.length > 0 || Object.keys(prefs.widths).length > 0;
   return (
     <div className="popover-anchor" ref={ref}>
-      <button ref={btn} type="button" className="btn ghost sm" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="vt-columns">
+      <button ref={btn} type="button" className="btn ghost sm" aria-haspopup="dialog" aria-expanded={open} onClick={toggle} data-testid="vt-columns">
         <Icon name="columns" size={14} /> Columns{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
       </button>
       {open ? (
-        <div className="popover col-menu" role="dialog" aria-label={`Columns of ${label}`} style={{ top: "auto", bottom: "calc(100% + 6px)" }}>
+        <div className="popover col-menu" role="dialog" aria-label={`Columns of ${label}`} style={pos}>
           <div className="popover-group">
             <span className="small muted" style={{ padding: "0 6px" }}>
               Show, hide and order columns. Drag a header edge to resize; double-click it to reset.
@@ -613,10 +625,10 @@ function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T
                   />
                   <span className="mfg-ellipsis">{headerText(c)}</span>
                 </label>
-                <button type="button" className="btn ghost sm icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${headerText(c)} left`}>
+                <button type="button" className="btn ghost sm icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${headerText(c)} up`}>
                   <Icon name="sort-asc" size={12} />
                 </button>
-                <button type="button" className="btn ghost sm icon" onClick={() => move(i, 1)} disabled={i === all.length - 1} aria-label={`Move ${headerText(c)} right`}>
+                <button type="button" className="btn ghost sm icon" onClick={() => move(i, 1)} disabled={i === all.length - 1} aria-label={`Move ${headerText(c)} down`}>
                   <Icon name="sort-desc" size={12} />
                 </button>
               </div>

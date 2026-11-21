@@ -13,7 +13,7 @@ import type { ItemM2Fields, LotRuleM2 } from "../api/typesM2";
 import { ConflictBanner, MfgError, SaveState } from "../components/Feedback";
 import { ErpOwnedBadge, ErpOwnedBanner } from "../components/ErpOwned";
 import { useErpOwnership } from "../lib/erpOwnership";
-import { CheckField, numOr, numOrNull, numText, SelectField, strOrNull, TextField } from "../components/Field";
+import { CheckField, FormErrors, numOr, numOrNull, numText, SelectField, strOrNull, TextField } from "../components/Field";
 import { MAKE_BUY_OPTIONS, useUomOptions } from "../components/NewItemDialog";
 import { PermissionGate } from "../components/PermissionGate";
 import { fmtTimestamp } from "../lib/format";
@@ -239,6 +239,7 @@ export function ItemDetailsTab() {
       }}
       data-testid="item-form"
     >
+      <FormErrors error={error}>
       {conflict ? <ConflictBanner onReload={() => void reloadLatest()} what="this item" /> : null}
       {erp.owns("items") ? <ErpOwnedBanner entity="Items" /> : null}
       <MfgError error={error} title="Could not save the item" />
@@ -251,15 +252,15 @@ export function ItemDetailsTab() {
         </div>
         <div className="card-body col">
           <div className="form-grid">
-            <TextField label={erpLabel("Part number", "part_number")} value={form.part_number} onChange={(v) => set("part_number", v)} required maxLength={64} testId="item-part-number" disabled={erp.ownsField("items", "part_number")} />
-            <TextField label={erpLabel("Revision", "revision")} value={form.revision} onChange={(v) => set("revision", v)} maxLength={16} disabled={erp.ownsField("items", "revision")} />
-            <SelectField label={erpLabel("Make or buy", "make_buy")} value={form.make_buy} onChange={(v) => set("make_buy", v)} options={MAKE_BUY_OPTIONS} testId="item-make-buy" disabled={erp.ownsField("items", "make_buy")} />
-            <SelectField label={erpLabel("Unit", "uom")} value={form.uom} onChange={(v) => set("uom", v)} options={uoms} disabled={erp.ownsField("items", "uom")} />
+            <TextField name="part_number" label={erpLabel("Part number", "part_number")} value={form.part_number} onChange={(v) => set("part_number", v)} required maxLength={64} testId="item-part-number" disabled={erp.ownsField("items", "part_number")} />
+            <TextField name="revision" label={erpLabel("Revision", "revision")} value={form.revision} onChange={(v) => set("revision", v)} maxLength={16} disabled={erp.ownsField("items", "revision")} />
+            <SelectField name="make_buy" label={erpLabel("Make or buy", "make_buy")} value={form.make_buy} onChange={(v) => set("make_buy", v)} options={MAKE_BUY_OPTIONS} testId="item-make-buy" disabled={erp.ownsField("items", "make_buy")} />
+            <SelectField name="uom" label={erpLabel("Unit", "uom")} value={form.uom} onChange={(v) => set("uom", v)} options={uoms} disabled={erp.ownsField("items", "uom")} />
           </div>
-          <TextField label={erpLabel("Description", "description")} value={form.description} onChange={(v) => set("description", v)} maxLength={500} testId="item-description" disabled={erp.ownsField("items", "description")} />
+          <TextField name="description" label={erpLabel("Description", "description")} value={form.description} onChange={(v) => set("description", v)} maxLength={500} testId="item-description" disabled={erp.ownsField("items", "description")} />
           <div className="form-grid">
-            <TextField label="Family" value={form.family} onChange={(v) => set("family", v)} maxLength={32} hint="Groups similar items; lines can be limited to families." />
-            <TextField
+            <TextField name="family" label="Family" value={form.family} onChange={(v) => set("family", v)} maxLength={32} hint="Groups similar items; lines can be limited to families." />
+            <TextField name="lead_time_days"
               label="Lead time (days)"
               type="number"
               value={form.lead_time_days}
@@ -273,7 +274,7 @@ export function ItemDetailsTab() {
                   : "Optional fixed lead time; empty = use the routing time."
               }
             />
-            <CheckField
+            <CheckField name="active"
               label={erpLabel("Active", "active")}
               disabled={erp.ownsField("items", "active")}
               checked={form.active}
@@ -290,7 +291,7 @@ export function ItemDetailsTab() {
           <h2>Ordering and stock</h2>
         </div>
         <div className="card-body form-grid">
-          <SelectField
+          <SelectField name="lot_rule"
             label="Lot size rule"
             value={form.lot_rule}
             onChange={(v) => set("lot_rule", v)}
@@ -302,7 +303,7 @@ export function ItemDetailsTab() {
             testId="item-lot-rule"
           />
           {form.lot_rule === "period" ? (
-            <TextField
+            <TextField name="lot_period_days"
               label="Period (days)"
               type="number"
               value={form.lot_period_days}
@@ -313,7 +314,7 @@ export function ItemDetailsTab() {
             />
           ) : null}
           {form.lot_rule === "fixed" ? (
-            <TextField
+            <TextField name="fixed_lot_qty"
               label="Fixed lot quantity"
               type="number"
               value={form.fixed_lot_qty}
@@ -322,13 +323,13 @@ export function ItemDetailsTab() {
               hint={fixedMissing ? "Required for a fixed lot size." : undefined}
             />
           ) : null}
-          <TextField label="Minimum order quantity" type="number" value={form.min_order_qty} onChange={(v) => set("min_order_qty", v)} hint="0 = no minimum" />
-          <TextField label="Order multiple" type="number" value={form.order_multiple} onChange={(v) => set("order_multiple", v)} hint="e.g. reel of 5000; 0 = none" />
-          <TextField label="Safety stock" type="number" value={form.safety_stock} onChange={(v) => set("safety_stock", v)} />
-          <TextField label="Goods-in inspection (days)" type="number" value={form.receiving_days} onChange={(v) => set("receiving_days", v)} />
+          <TextField name="min_order_qty" label="Minimum order quantity" type="number" value={form.min_order_qty} onChange={(v) => set("min_order_qty", v)} hint="0 = no minimum" />
+          <TextField name="order_multiple" label="Order multiple" type="number" value={form.order_multiple} onChange={(v) => set("order_multiple", v)} hint="e.g. reel of 5000; 0 = none" />
+          <TextField name="safety_stock" label="Safety stock" type="number" value={form.safety_stock} onChange={(v) => set("safety_stock", v)} />
+          <TextField name="receiving_days" label="Goods-in inspection (days)" type="number" value={form.receiving_days} onChange={(v) => set("receiving_days", v)} />
           {form.m2 ? (
             <>
-              <TextField
+              <TextField name="standard_cost"
                 label={erpLabel("Standard cost", "standard_cost")}
                 disabled={erp.ownsField("items", "standard_cost")}
                 type="number"
@@ -337,7 +338,7 @@ export function ItemDetailsTab() {
                 hint="Per unit, in the plant currency; values stock."
                 testId="item-standard-cost"
               />
-              <CheckField
+              <CheckField name="lot_controlled"
                 label="Track lots"
                 checked={form.lot_controlled}
                 onChange={(v) => set("lot_controlled", v)}
@@ -358,16 +359,16 @@ export function ItemDetailsTab() {
         <section className="card" data-testid="item-more">
           <div className="card-body col">
             <div className="form-grid">
-              <TextField
+              <TextField name="setup_family"
                 label="Setup family"
                 value={form.setup_family}
                 onChange={(v) => set("setup_family", v)}
                 maxLength={32}
                 hint="Changeover class; empty = same as family."
               />
-              <CheckField label="Serial numbers" checked={form.serialized} onChange={(v) => set("serialized", v)} hint="Units carry serial numbers (allows BOMs per serial range)." />
+              <CheckField name="serialized" label="Serial numbers" checked={form.serialized} onChange={(v) => set("serialized", v)} hint="Units carry serial numbers (allows BOMs per serial range)." />
               {form.m4 ? (
-                <CheckField
+                <CheckField name="backflush"
                   label="Backflush from the line"
                   checked={form.backflush}
                   onChange={(v) => set("backflush", v)}
@@ -375,11 +376,11 @@ export function ItemDetailsTab() {
                   testId="item-backflush"
                 />
               ) : null}
-              <TextField label="Shelf life (days)" type="number" value={form.shelf_life_days} onChange={(v) => set("shelf_life_days", v)} />
-              <TextField label="Handling class" value={form.handling_class} onChange={(v) => set("handling_class", v)} maxLength={32} hint="e.g. MSL3, ESD, HAZ" />
+              <TextField name="shelf_life_days" label="Shelf life (days)" type="number" value={form.shelf_life_days} onChange={(v) => set("shelf_life_days", v)} />
+              <TextField name="handling_class" label="Handling class" value={form.handling_class} onChange={(v) => set("handling_class", v)} maxLength={32} hint="e.g. MSL3, ESD, HAZ" />
             </div>
             {form.m2 ? (
-              <TextField
+              <TextField name="external_ref"
                 label={erpLabel("External reference", "external_ref")}
                 disabled={erp.ownsField("items", "external_ref")}
                 value={form.external_ref}
@@ -389,7 +390,7 @@ export function ItemDetailsTab() {
                 testId="item-external-ref"
               />
             ) : null}
-            <TextField label="Handling note" value={form.handling_note} onChange={(v) => set("handling_note", v)} maxLength={500} />
+            <TextField name="handling_note" label="Handling note" value={form.handling_note} onChange={(v) => set("handling_note", v)} maxLength={500} />
             <AttributesEditor rows={form.attributes} onChange={(rows) => set("attributes", rows)} />
           </div>
         </section>
@@ -427,6 +428,7 @@ export function ItemDetailsTab() {
           </p>
         </ConfirmDialog>
       ) : null}
+      </FormErrors>
     </form>
   );
 }
