@@ -21,6 +21,7 @@ import { usePolling } from "../lib/usePolling";
 import { errorText, isConflict, useLoad } from "../lib/useMfg";
 import { mobileLink } from "./MobileAlerts";
 import { useOnline } from "./MobileLayout";
+import { formatDate } from "../../lib/locale";
 
 const KIND: Record<ApprovalKind, { label: string; icon: IconName }> = {
   pr: { label: "Purchase request", icon: "briefcase" },
@@ -73,7 +74,7 @@ function ProposalCompare({ runId }: { runId: string }) {
           <dt>Lateness</dt>
           <dd>{t.late_minutes_saved > 0 ? `${mins(t.late_minutes_saved)} less` : t.late_minutes_saved < 0 ? `${mins(-t.late_minutes_saved)} more` : "same"}</dd>
           <dt>Overtime</dt>
-          <dd>{t.overtime_hours_added ? `${t.overtime_hours_added.toFixed(1)} h more (cost ${Math.round(t.overtime_cost_added).toLocaleString()})` : "no change"}</dd>
+          <dd>{t.overtime_hours_added ? `${t.overtime_hours_added.toFixed(1)} h more (cost ${Math.round(t.overtime_cost_added).toLocaleString("en-IN")})` : "no change"}</dd>
         </dl>
       ) : null}
       {kpis.length ? (
@@ -154,7 +155,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
       </span>
       <div className="row" style={{ justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
         <strong>{item.title}</strong>
-        {item.waiting_since ? <span className="muted small nowrap">since {new Date(item.waiting_since).toLocaleDateString()}</span> : null}
+        {item.waiting_since ? <span className="muted small nowrap">since {formatDate(item.waiting_since)}</span> : null}
       </div>
       {item.summary ? <p style={{ margin: 0 }}>{item.summary}</p> : null}
       {item.kind === "replan_proposal" ? (

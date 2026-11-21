@@ -108,8 +108,8 @@ export function MrpRunsPage() {
                     </td>
                     <td>{fmtDate(r.as_of)}</td>
                     <td className="right">{s ? <span className={s.demand_late + s.demand_past_due ? "mfg-neg" : undefined}>{s.demand_late + s.demand_past_due} of {s.demand_lines}</span> : ""}</td>
-                    <td className="right">{s ? s.items_short.toLocaleString() : ""}</td>
-                    <td className="right">{s ? `${s.planned_make.toLocaleString()} / ${s.planned_buy.toLocaleString()}` : ""}</td>
+                    <td className="right">{s ? s.items_short.toLocaleString("en-IN") : ""}</td>
+                    <td className="right">{s ? `${s.planned_make.toLocaleString("en-IN")} / ${s.planned_buy.toLocaleString("en-IN")}` : ""}</td>
                     <td className="small">{fmtTimestamp(r.finished_at)}</td>
                     <td className="small">{r.actor.name}</td>
                     <td className="right">

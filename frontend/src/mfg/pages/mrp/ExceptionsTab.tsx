@@ -88,7 +88,7 @@ export function ExceptionsTab() {
             .filter(([, n]) => n > 0)
             .map(([code, n]) => (
               <button key={code} type="button" className="btn sm mfg-code-chip" aria-pressed={codes.has(code)} onClick={() => toggle("code", codes, code)} data-testid="exception-code-chip" data-code={code} title={code}>
-                <Icon name={severityOfCode(code) === "critical" ? "x" : severityOfCode(code) === "warning" ? "alert" : "info"} size={12} /> {exceptionLabel(code)} {n.toLocaleString()}
+                <Icon name={severityOfCode(code) === "critical" ? "x" : severityOfCode(code) === "warning" ? "alert" : "info"} size={12} /> {exceptionLabel(code)} {n.toLocaleString("en-IN")}
               </button>
             ))}
           {codes.size || sevs.size ? (
@@ -126,7 +126,7 @@ export function ExceptionsTab() {
         rowExtras={(e) => ({ testId: "exception-row", data: { code: e.code, severity: e.severity, subject: e.subject.label } })}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading messages…" : "No messages match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} messages · the focused message is shown in full below</span>}
+        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} messages · the focused message is shown in full below</span>}
       />
       {cur ? (
         <section className="card card-body" aria-live="polite" data-testid="exception-focus">

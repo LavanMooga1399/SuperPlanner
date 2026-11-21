@@ -30,6 +30,7 @@ import { fmtDate, fmtQty } from "../lib/format";
 import { mfgPaths } from "../lib/paths";
 import { errorText, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
+import { toast } from "../../components/Toast";
 
 type Pending = { kind: "release" | "obsolete" | "delete"; bom: BomSummary } | null;
 
@@ -261,7 +262,7 @@ export function BomTab() {
           {explosion.data && explosion.data.mode === "summarized" && mode === "summarized" ? <SummaryTable rows={explosion.data.rows} /> : null}
           {explosion.data ? (
             <p className="small muted" style={{ margin: 0 }} data-testid="bom-totals">
-              {explosion.data.totals.distinct_items.toLocaleString()} distinct items · {explosion.data.totals.make_items} make ·{" "}
+              {explosion.data.totals.distinct_items.toLocaleString("en-IN")} distinct items · {explosion.data.totals.make_items} make ·{" "}
               {explosion.data.totals.buy_items} buy · {explosion.data.totals.phantom_items} phantom · {explosion.data.totals.max_level + 1} levels
             </p>
           ) : null}
@@ -276,6 +277,7 @@ export function BomTab() {
           onClose={() => setPending(null)}
           onRelease={async (body) => {
             await releaseBom(pending.bom.id, body, pending.bom.row_version);
+            toast("BOM released");
             setPending(null);
             refreshAfterChange();
           }}

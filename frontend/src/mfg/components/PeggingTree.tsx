@@ -111,7 +111,7 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
         return true;
       }}
       empty="Nothing is pegged to this."
-      footer={<span className="muted small">{visible.length.toLocaleString()} of {rows.length.toLocaleString()} rows · Left/Right collapse and expand</span>}
+      footer={<span className="muted small">{visible.length.toLocaleString("en-IN")} of {rows.length.toLocaleString("en-IN")} rows · Left/Right collapse and expand</span>}
     />
   );
 }

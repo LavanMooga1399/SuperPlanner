@@ -209,7 +209,7 @@ function PlanningCard({ summary }: { summary: Summary }) {
           <Link key={t.label} to={t.to} className="card kpi mfg-kpi" data-testid={t.testId}>
             <div className="kpi-label">{t.label}</div>
             <div className="kpi-value" style={t.bad ? { color: "var(--danger)" } : undefined}>
-              {t.value.toLocaleString()}
+              {t.value.toLocaleString("en-IN")}
             </div>
           </Link>
         ))}
@@ -277,7 +277,7 @@ export function MfgHome() {
           {KPIS.map((k) => (
             <Link key={k.key} to={k.to} className="card kpi mfg-kpi" data-testid={`mfg-count-${k.key}`}>
               <div className="kpi-label">{k.label}</div>
-              <div className="kpi-value">{c[k.key].toLocaleString()}</div>
+              <div className="kpi-value">{c[k.key].toLocaleString("en-IN")}</div>
               {k.sub ? <div className="kpi-sub">{k.sub(c)}</div> : null}
             </Link>
           ))}

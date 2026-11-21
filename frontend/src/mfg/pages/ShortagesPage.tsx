@@ -75,7 +75,7 @@ export function ShortagesPage() {
               <a key={k} href={`#panel-${panel}`} className="card kpi mfg-kpi" data-testid={`shortage-count-${panel}`}>
                 <div className="kpi-label">{label}</div>
                 <div className="kpi-value" style={s.counts[k] ? { color: "var(--danger)" } : undefined}>
-                  {s.counts[k].toLocaleString()}
+                  {s.counts[k].toLocaleString("en-IN")}
                 </div>
               </a>
             ))}

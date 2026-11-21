@@ -17,6 +17,7 @@ import { listLines } from "../../api/client";
 import type { LineRecord, PlantRecord } from "../../api/types";
 import { usePlantClock } from "../../lib/plantTime";
 import { useLoad, usePlant } from "../../lib/useMfg";
+import { toast } from "../../../components/Toast";
 
 export const POLICY_TEXT: Record<OvertimePolicy, { label: string; help: string }> = {
   off: { label: "Regular shifts only", help: "Baseline: no overtime is used or suggested." },
@@ -109,6 +110,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
     setError(null);
     try {
       onDone(await createApsRun(params));
+      toast("Schedule run started");
     } catch (e) {
       setError(e);
       setBusy(false);

@@ -37,6 +37,7 @@ import { ROLE_HELP, ROLE_LABEL } from "../mfg/lib/permissions";
 import { useLoad } from "../mfg/lib/useMfg";
 import { switchWorkspace } from "../mfg/lib/workspace";
 import "./orgs.css";
+import { formatDateTime } from "../lib/locale";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
 const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer"];
@@ -292,7 +293,7 @@ function OrgOverviewTab({ org }: { org: Org }) {
                           <Icon name="check" /> healthy
                         </span>
                       )}
-                      {p.integration?.last_batch_at ? <div className="faint">last data in {new Date(p.integration.last_batch_at).toLocaleString()}</div> : null}
+                      {p.integration?.last_batch_at ? <div className="faint">last data in {formatDateTime(p.integration.last_batch_at)}</div> : null}
                     </td>
                     <td>
                       <button type="button" className="btn sm" onClick={() => openPlant(p.plant.owner_id)}>

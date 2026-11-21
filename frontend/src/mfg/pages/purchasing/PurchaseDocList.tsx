@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Icon } from "../../../components/Icon";
+import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { listPurchaseDocs } from "../../api/clientM2";
 import type { DocType, PurchaseDocSummary, PurchaseSort, PurchaseStatus } from "../../api/typesM2";
 import { MfgError } from "../../components/Feedback";
@@ -59,6 +60,8 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
         key: "no",
         header: "Number",
         width: "130px",
+        sortKey: "number",
+        exportValue: (d) => d.number,
         render: (d) => (
           <Link to={mfgPaths.purchaseDoc(docType, d.id)} className="mono" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             {d.number}
@@ -68,22 +71,43 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
       { key: "st", header: "Status", width: "180px", render: (d) => <PurchaseStatusChip status={d.status} /> },
       { key: "sup", header: "Supplier", width: "minmax(160px, 1.5fr)", render: (d) => <span className="mfg-ellipsis">{d.supplier ? `${d.supplier.code} · ${d.supplier.name}` : <span className="faint">No supplier yet</span>}</span> },
       { key: "lines", header: "Lines", width: "60px", align: "right", render: (d) => d.line_count },
-      { key: "next", header: "Next delivery", width: "116px", render: (d) => fmtDate(d.next_dock_date) },
+      { key: "next", header: "Next delivery", width: "120px", sortKey: "next_dock_date", render: (d) => fmtDate(d.next_dock_date) },
       { key: "od", header: "Overdue", width: "120px", render: (d) => (d.overdue_count > 0 ? <OverdueBadge days={0} /> : null) },
       { key: "val", header: "Open value", width: "120px", align: "right", render: (d) => fmtMoney(d.open_value, d.currency) },
       { key: "src", header: "Source", width: "100px", render: (d) => <SourceBadge source={d.source} runNo={d.source_run_no} /> },
-      { key: "date", header: docType === "po" ? "Order date" : "Created", width: "110px", render: (d) => (docType === "po" ? fmtDate(d.order_date) : fmtDate(d.created_at.slice(0, 10))) },
+      { key: "date", header: docType === "po" ? "Order date" : "Created", width: "110px", sortKey: "-created_at", render: (d) => (docType === "po" ? fmtDate(d.order_date) : fmtDate(d.created_at.slice(0, 10))) },
     ],
     [docType],
   );
 
+  const chips: FilterChip[] = [];
+  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
+  if (status !== "open") chips.push({ key: "st", label: "Status", value: status.replace(/_/g, " "), onClear: () => set("status", "") });
+  if (source) chips.push({ key: "src", label: "Source", value: source, onClear: () => set("source", "") });
+  if (overdue) chips.push({ key: "od", label: "Deliveries", value: "Overdue only", onClear: () => set("overdue", "") });
+  if (supplier) chips.push({ key: "sup", label: "Supplier", value: "One supplier", onClear: () => set("supplier", "") });
+
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 220px" }}>
-          <label htmlFor="pd-q">Search</label>
-          <input id="pd-q" className="input" type="search" placeholder="Number" value={q} onChange={(e) => setQ(e.target.value)} data-testid="docs-search" />
-        </div>
+      <FilterBar
+        search={{ id: "pd-q", value: q, onChange: setQ, placeholder: "Number", testId: "docs-search" }}
+        chips={chips}
+        onClearAll={() => {
+          setQ("");
+          setParams({}, { replace: true });
+        }}
+        pageKey={`purchasing-${docType}`}
+        end={
+          <>
+            <ImportShortcut what={word} />
+            <PermissionGate perm={docType === "pr" ? "pr_edit" : "po_edit"}>
+              <Link className="btn primary" to={mfgPaths.purchaseDocNew(docType)} data-testid="doc-new">
+                <Icon name="plus" /> New {docType === "pr" ? "request" : "order"}
+              </Link>
+            </PermissionGate>
+          </>
+        }
+      >
         <div className="field">
           <label htmlFor="pd-status">Status</label>
           <select id="pd-status" className="select" value={status} onChange={(e) => set("status", e.target.value === "open" ? "" : e.target.value)} data-testid="docs-status">
@@ -113,24 +137,10 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
             <option value="next_dock_date">Next delivery</option>
           </select>
         </div>
-        <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
+        <label className="checkbox" style={{ alignSelf: "flex-end", height: "var(--control-h)" }}>
           <input type="checkbox" checked={overdue} onChange={(e) => set("overdue", e.target.checked ? "1" : "")} data-testid="docs-overdue" /> Only with overdue deliveries
         </label>
-        {supplier ? (
-          <button type="button" className="btn sm" style={{ alignSelf: "flex-end" }} onClick={() => set("supplier", "")}>
-            <Icon name="x" /> One supplier only
-          </button>
-        ) : null}
-        <span className="grow" />
-        <div className="row" style={{ alignSelf: "flex-end" }}>
-          <ImportShortcut what={word} />
-          <PermissionGate perm={docType === "pr" ? "pr_edit" : "po_edit"}>
-            <Link className="btn primary" to={mfgPaths.purchaseDocNew(docType)} data-testid="doc-new">
-              <Icon name="plus" /> New {docType === "pr" ? "request" : "order"}
-            </Link>
-          </PermissionGate>
-        </div>
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
         rows={data.rows}
@@ -143,8 +153,12 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
         onRowClick={(d) => navigate(mfgPaths.purchaseDoc(docType, d.id))}
         onActivate={(d) => navigate(mfgPaths.purchaseDoc(docType, d.id))}
         onEndReached={data.onEndReached}
+        loading={data.loading}
+        sort={{ key: sort, dir: sort.startsWith("-") ? "desc" : "asc" }}
+        onSortChange={(x) => set("sort", !x || x.key === "-created_at" ? "" : x.key)}
+        exportName={docType === "po" ? "purchase-orders" : "purchase-requests"}
         empty={data.loading ? "Loading…" : `No ${word} match these filters.`}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} {word}</span>}
+        footer={<span>Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} {word}</span>}
       />
     </div>
   );

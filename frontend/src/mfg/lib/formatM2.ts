@@ -39,12 +39,12 @@ export function qtyUom(q: number | null | undefined, uom?: string): string {
 /** Thousands separators for counts and large quantities. */
 export function fmtNum(x: number | null | undefined): string {
   if (x === null || x === undefined || Number.isNaN(x)) return "";
-  return (Math.round(x * 1e6) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 6 });
+  return (Math.round(x * 1e6) / 1e6).toLocaleString("en-IN", { maximumFractionDigits: 6 });
 }
 
 export function fmtMoney(x: number | null | undefined, currency?: string): string {
   if (x === null || x === undefined || Number.isNaN(x)) return "";
-  const t = x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const t = x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return currency ? `${t} ${currency}` : t;
 }
 

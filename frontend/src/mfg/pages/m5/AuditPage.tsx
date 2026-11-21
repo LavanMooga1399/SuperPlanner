@@ -12,6 +12,7 @@ import type { AuditEvent, AuditVerify } from "../../api/typesM5";
 import { MfgError } from "../../components/Feedback";
 import { usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
+import { formatDateTime } from "../../../lib/locale";
 
 export function AuditPage() {
   const [from, setFrom] = useState("");
@@ -85,7 +86,7 @@ export function AuditPage() {
           </Banner>
         ) : (
           <Banner tone="danger" title="The audit chain is broken" testId="audit-verify-broken">
-            The first entry that does not match its chain is {verify.first_broken ? `${verify.first_broken.id} (${new Date(verify.first_broken.at).toLocaleString()})` : "unknown"}. Entries from there on cannot be trusted; contact your administrator.
+            The first entry that does not match its chain is {verify.first_broken ? `${verify.first_broken.id} (${formatDateTime(verify.first_broken.at)})` : "unknown"}. Entries from there on cannot be trusted; contact your administrator.
           </Banner>
         )
       ) : null}
@@ -129,7 +130,7 @@ export function AuditPage() {
             ) : null}
             {data.rows.map((e) => [
               <tr key={e.id} data-testid="audit-row">
-                <td className="small">{new Date(e.created_at).toLocaleString()}</td>
+                <td className="small">{formatDateTime(e.created_at)}</td>
                 <td className="small mono">
                   {e.actor_id ?? "system"}
                   {e.actor_id?.startsWith("tok_") ? <div className="faint">API token</div> : null}

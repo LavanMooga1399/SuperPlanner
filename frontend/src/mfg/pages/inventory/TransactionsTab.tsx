@@ -175,7 +175,7 @@ export function TransactionsTab() {
         empty={data.loading ? <span className="row" role="status"><span className="spinner" aria-hidden /> Loading the ledger…</span> : "No stock movements match these filters."}
         footer={
           <span className="muted small" role="status">
-            Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} movements, newest first · Enter opens the posting
+            Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} movements, newest first · Enter opens the posting
           </span>
         }
       />

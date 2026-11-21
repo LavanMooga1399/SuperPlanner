@@ -34,6 +34,8 @@ import { blankOp, opProblems, opToDraft, RoutingEditor, type OpDraft } from "../
 import { StatusChip } from "../components/StatusChip";
 import { isConflict, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
+import { toast } from "../../components/Toast";
+import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
 
 interface RHeader {
   code: string;
@@ -300,6 +302,7 @@ export function RoutingTab() {
           onClose={() => setPending(null)}
           onRelease={async (body) => {
             await releaseRouting(pending.r.id, body, pending.r.row_version);
+            toast("Routing released");
             setPending(null);
             list.reload();
           }}
@@ -496,9 +499,10 @@ function RoutingDocument({
               ))}
             </ul>
           ) : null}
+          <UnsavedChangesGuard when={!readOnly && dirty && !busy} what="this routing" />
           {!readOnly ? (
             <div className="row">
-              <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0 || duplicateSeq} data-testid="routing-save">
+              <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0 || duplicateSeq} title={!dirty ? "No changes to save" : problems.length || duplicateSeq ? "Fix the problems listed above first" : undefined} data-testid="routing-save">
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save routing
               </button>
               <button type="button" className="btn" onClick={() => reset(base)} disabled={!dirty || busy}>

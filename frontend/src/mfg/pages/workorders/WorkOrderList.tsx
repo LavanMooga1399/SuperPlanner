@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Icon } from "../../../components/Icon";
+import { FilterBar, type FilterChip } from "../../../components/FilterBar";
+import { PageHeader } from "../../../components/PageHeader";
 import { listWorkOrders } from "../../api/clientM2";
 import type { WoSort, WorkOrderSummary } from "../../api/typesM2";
 import { MfgError } from "../../components/Feedback";
@@ -46,6 +48,8 @@ export function WorkOrderList() {
         key: "no",
         header: "Work order",
         width: "130px",
+        sortKey: "number",
+        exportValue: (w) => w.number,
         render: (w) => (
           <Link to={mfgPaths.workOrder(w.id)} className="mono" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             {w.number}
@@ -55,11 +59,11 @@ export function WorkOrderList() {
       { key: "st", header: "Status", width: "150px", render: (w) => <WoStatusChip status={w.status} /> },
       { key: "pn", header: "Item", width: "minmax(150px, 1.2fr)", render: (w) => <span className="mono mfg-ellipsis">{w.item.part_number}</span> },
       { key: "desc", header: "Description", width: "minmax(140px, 1.3fr)", render: (w) => <span className="mfg-ellipsis">{w.item.description}</span> },
-      { key: "qty", header: "Qty", width: "70px", align: "right", render: (w) => fmtNum(w.qty) },
-      { key: "done", header: "Done", width: "70px", align: "right", render: (w) => fmtNum(w.qty_completed) },
-      { key: "start", header: "Start", width: "104px", render: (w) => fmtDate(w.start_date) },
-      { key: "due", header: "Due", width: "104px", render: (w) => fmtDate(w.due_date) },
-      { key: "prio", header: "Prio.", width: "56px", align: "right", render: (w) => `P${w.priority}` },
+      { key: "qty", header: "Qty", width: "80px", align: "right", render: (w) => fmtNum(w.qty) },
+      { key: "done", header: "Done", width: "80px", align: "right", render: (w) => fmtNum(w.qty_completed) },
+      { key: "start", header: "Start", width: "104px", sortKey: "start_date", render: (w) => fmtDate(w.start_date) },
+      { key: "due", header: "Due", width: "104px", sortKey: "due_date", render: (w) => fmtDate(w.due_date) },
+      { key: "prio", header: "Priority", width: "72px", align: "right", sortKey: "priority", render: (w) => `P${w.priority}` },
       { key: "ser", header: "Units", width: "90px", render: (w) => serialText(w.serial_from, w.serial_to) },
       { key: "dl", header: "For demand", width: "120px", render: (w) => (w.demand_line ? <span className="mono small">{w.demand_line.order_number}/{w.demand_line.line_no}</span> : "") },
       { key: "src", header: "Source", width: "96px", render: (w) => <SourceBadge source={w.source} runNo={w.source_run_no} /> },
@@ -67,30 +71,41 @@ export function WorkOrderList() {
     [],
   );
 
+  const STATUS_LABEL: Record<string, string> = { planned: "Planned (firm)", released: "Released / in progress", done: "Completed / closed", cancelled: "Cancelled", all: "All" };
+  const SOURCE_LABEL: Record<string, string> = { manual: "Entered by hand", mrp: "From MRP", import: "Imported" };
+  const chips: FilterChip[] = [];
+  if (dq) chips.push({ key: "q", label: "Search", value: dq, onClear: () => setQ("") });
+  if (st !== "active") chips.push({ key: "status", label: "Status", value: STATUS_LABEL[st] ?? st, onClear: () => set("status", "") });
+  if (source) chips.push({ key: "source", label: "Source", value: SOURCE_LABEL[source] ?? source, onClear: () => set("source", "") });
+
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Work orders</h1>
-          <p>What the plant makes: quantities, dates and frozen component lists, with reservations and kitting.</p>
-        </div>
-        <div className="row" style={{ alignItems: "flex-start" }}>
-          <Link className="btn" to={mfgPaths.kitting()} data-testid="wo-kitting-check">
-            <Icon name="check" /> Kitting check
-          </Link>
-          <ImportShortcut what="work orders" />
-          <PermissionGate perm="wo_edit">
-            <Link className="btn primary" to={mfgPaths.workOrderNew()} data-testid="wo-new">
-              <Icon name="plus" /> New work order
+      <PageHeader
+        title="Work orders"
+        description="Production orders with quantities, dates, frozen component lists, reservations and kitting."
+        actions={
+          <>
+            <Link className="btn" to={mfgPaths.kitting()} data-testid="wo-kitting-check">
+              <Icon name="check" /> Kitting check
             </Link>
-          </PermissionGate>
-        </div>
-      </div>
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 220px" }}>
-          <label htmlFor="wo-q">Search</label>
-          <input id="wo-q" className="input" type="search" placeholder="Number or part number" value={q} onChange={(e) => setQ(e.target.value)} data-testid="wo-search" />
-        </div>
+            <ImportShortcut what="work orders" />
+            <PermissionGate perm="wo_edit">
+              <Link className="btn primary" to={mfgPaths.workOrderNew()} data-testid="wo-new">
+                <Icon name="plus" /> New work order
+              </Link>
+            </PermissionGate>
+          </>
+        }
+      />
+      <FilterBar
+        search={{ id: "wo-q", value: q, onChange: setQ, placeholder: "Number or part number", testId: "wo-search" }}
+        chips={chips}
+        onClearAll={() => {
+          setQ("");
+          setParams({}, { replace: true });
+        }}
+        pageKey="work-orders"
+      >
         <div className="field">
           <label htmlFor="wo-status">Status</label>
           <select id="wo-status" className="select" value={st} onChange={(e) => set("status", e.target.value === "active" ? "" : e.target.value)} data-testid="wo-status">
@@ -120,7 +135,7 @@ export function WorkOrderList() {
             <option value="number">Number</option>
           </select>
         </div>
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
         rows={data.rows}
@@ -133,8 +148,12 @@ export function WorkOrderList() {
         onRowClick={(w) => navigate(mfgPaths.workOrder(w.id))}
         onActivate={(w) => navigate(mfgPaths.workOrder(w.id))}
         onEndReached={data.onEndReached}
+        loading={data.loading}
+        sort={{ key: sort, dir: "asc" }}
+        onSortChange={(x) => set("sort", !x || x.key === "start_date" ? "" : x.key)}
+        exportName="work-orders"
         empty={data.loading ? "Loading…" : "No work orders match these filters. Firm planned orders from an MRP run, or create one."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} work orders</span>}
+        footer={<span>Showing {fmtNum(data.rows.length)} of {fmtNum(data.total)} work orders</span>}
       />
     </div>
   );

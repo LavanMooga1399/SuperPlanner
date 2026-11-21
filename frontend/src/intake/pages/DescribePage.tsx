@@ -83,13 +83,13 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
                 <div className="row small" style={{ justifyContent: "space-between" }}>
                   <span className="muted">Lists, sentences and ranges like "2-3 days" or "70-80k" all work.</span>
                   <span id={`${textId}-count`} className={tooLong ? "field-error" : "muted"} data-testid="intake-count">
-                    {count.toLocaleString()} / {max.toLocaleString()} characters
+                    {count.toLocaleString("en-IN")} / {max.toLocaleString("en-IN")} characters
                   </span>
                 </div>
                 {invalid ? (
                   <span id={errId} className="field-error" role="alert">
                     <Icon name="alert" size={12} />{" "}
-                    {tooLong ? `The text is too long: at most ${max.toLocaleString()} characters.` : "Write a few lines about your plan first."}
+                    {tooLong ? `The text is too long: at most ${max.toLocaleString("en-IN")} characters.` : "Write a few lines about your plan first."}
                   </span>
                 ) : null}
               </div>

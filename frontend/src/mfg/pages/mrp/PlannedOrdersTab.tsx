@@ -379,7 +379,7 @@ export function PlannedOrdersTab() {
         }}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading planned orders…" : "No planned orders match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} planned orders{canConvert ? " · Space selects the focused row" : ""}</span>}
+        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} planned orders{canConvert ? " · Space selects the focused row" : ""}</span>}
       />
       {converting ? (
         <ConvertDialog

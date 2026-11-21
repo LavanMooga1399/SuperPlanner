@@ -11,6 +11,7 @@ import { MfgError, Spinner } from "../../components/Feedback";
 import { useLoad } from "../../lib/useMfg";
 import { DigestSettings } from "./DashboardPage";
 import { fmtValue, PeriodSelect, TileCard, TileStatusBadge, TILE_NAMES, tileName } from "./dashboardBits";
+import { formatDateTime } from "../../../lib/locale";
 
 function Cell({ t }: { t: DashboardTile | undefined }) {
   if (!t) return <td className="muted">n/a</td>;
@@ -36,7 +37,7 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
   return (
     <div className="col gap-lg dash-print" data-testid="org-dashboard">
       <div className="row wrap no-print" style={{ justifyContent: "space-between", gap: 8 }}>
-        <span className="muted small">{d ? `As of ${new Date(d.as_of).toLocaleString()}. Only plants you can view are included.` : ""}</span>
+        <span className="muted small">{d ? `As of ${formatDateTime(d.as_of)}. Only plants you can view are included.` : ""}</span>
         <div className="row" style={{ gap: 8 }}>
           <PeriodSelect value={period} onChange={setPeriod} />
           <button type="button" className="btn ghost" onClick={() => window.print()} data-testid="org-dash-print">

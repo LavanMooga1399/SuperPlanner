@@ -17,7 +17,7 @@
 .m-tab.active { color: var(--accent); }
 .m-tab.active::before { content: ""; position: absolute; top: 0; left: 25%; right: 25%; height: 3px; border-radius: 0 0 3px 3px; background: var(--accent); }
 .m-tab:focus-visible { outline: none; box-shadow: inset var(--focus); }
-.m-tab-count { position: absolute; top: 6px; right: calc(50% - 22px); min-width: 18px; height: 18px; border-radius: 9px; padding: 0 5px; background: var(--danger); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+.m-tab-count { position: absolute; top: 6px; right: calc(50% - 22px); min-width: 18px; height: 18px; border-radius: 9px; padding: 0 5px; background: var(--danger); color: var(--on-danger); font-size: 11px; line-height: 18px; text-align: center; }
 .m-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .m-card h2, .m-card h3 { margin: 0; }
 .m-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }

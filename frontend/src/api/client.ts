@@ -38,6 +38,8 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly details: Record<string, unknown>;
+  /** Server request id (`X-Request-ID`), shown as "Reference" so support can find the request in the logs. */
+  requestId?: string;
 
   constructor(status: number, code: string, message: string, details: Record<string, unknown> = {}) {
     super(message);
@@ -46,6 +48,13 @@ export class ApiError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+/** Attach the response's request id to an error (UX-STANDARD 4). */
+export function withRequestId(err: ApiError, res: Response): ApiError {
+  const id = res.headers.get("x-request-id");
+  if (id) err.requestId = id;
+  return err;
 }
 
 function isEnvelope(x: unknown): x is ErrorEnvelope {
@@ -95,14 +104,14 @@ async function raw<T>(path: string, opts: RequestOptions = {}): Promise<RawRespo
   }
   if (!res.ok) {
     if (isEnvelope(parsed)) {
-      throw new ApiError(res.status, parsed.error.code, parsed.error.message, parsed.error.details ?? {});
+      throw withRequestId(new ApiError(res.status, parsed.error.code, parsed.error.message, parsed.error.details ?? {}), res);
     }
     if (looksLikeProxyFailure(res.status, text)) throw networkError(res.status);
     const detail =
       typeof parsed === "object" && parsed !== null && "detail" in parsed
         ? String((parsed as { detail: unknown }).detail)
         : res.statusText || "Request failed";
-    throw new ApiError(res.status, `HTTP_${res.status}`, detail);
+    throw withRequestId(new ApiError(res.status, `HTTP_${res.status}`, detail), res);
   }
   return { data: parsed as T, headers: res.headers, status: res.status };
 }

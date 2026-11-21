@@ -22,6 +22,7 @@ import { useLoad } from "../lib/useMfg";
 import { currentWorkspace } from "../lib/workspace";
 import { floorErrorText } from "./floorText";
 import { discardFailed, retryFailed, syncNow, useAutoSync, useFloorQueue } from "./offlineQueue";
+import { formatTime } from "../../lib/locale";
 
 export interface CrewMember {
   id?: string;
@@ -322,7 +323,7 @@ function FloorShell({ children }: { children: ReactNode }) {
             </div>
             {queue.pending.map((a) => (
               <div key={a.id} className="floor-sync-item">
-                <Icon name="clock" /> {a.label} <span className="faint small">saved {new Date(a.created_at).toLocaleTimeString()}</span>
+                <Icon name="clock" /> {a.label} <span className="faint small">saved {formatTime(a.created_at)}</span>
               </div>
             ))}
             {queue.failed.map((a) => (

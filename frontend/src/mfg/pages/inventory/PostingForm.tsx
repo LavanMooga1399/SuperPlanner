@@ -24,6 +24,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { fieldErrors, isAbortError, todayInOffset, usePlant } from "../../lib/useMfg";
 import { FORM_TYPES } from "./InventoryLayout";
+import { toast } from "../../../components/Toast";
 
 const MAX_BACKDATE = 31;
 const REASONS = ["SCRAP", "RTV", "SAMPLE", "DAMAGE", "FOUND", "LOST", "CORRECTION"];
@@ -406,6 +407,7 @@ export function PostingForm() {
     setError(null);
     try {
       const { record, replay } = await createPosting(body, keyRef.current.key);
+      if (!replay) toast(record.number ? `Posting ${record.number} saved` : "Posting saved");
       keyRef.current = null;
       navigate(mfgPaths.posting(record.id), { state: { posted: true, replay } });
     } catch (e) {

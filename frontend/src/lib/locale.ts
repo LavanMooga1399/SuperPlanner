@@ -36,3 +36,12 @@ export function formatDate(d: Date | string | number | null | undefined): string
   const x = d instanceof Date ? d : new Date(d);
   return Number.isNaN(x.getTime()) ? String(d) : df.format(x);
 }
+
+const tf = new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+/** Browser-local time of day, 24 h, e.g. "17:20". */
+export function formatTime(d: Date | string | number | null | undefined): string {
+  if (d === null || d === undefined || d === "") return "";
+  const x = d instanceof Date ? d : new Date(d);
+  return Number.isNaN(x.getTime()) ? String(d) : tf.format(x);
+}

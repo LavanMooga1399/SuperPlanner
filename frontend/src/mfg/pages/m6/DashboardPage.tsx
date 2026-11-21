@@ -15,6 +15,7 @@ import { MfgError, Spinner } from "../../components/Feedback";
 import { useAccess } from "../../lib/permissions";
 import { errorText, useLoad } from "../../lib/useMfg";
 import { isPeriod, orderedTiles, PeriodSelect, TileCard } from "./dashboardBits";
+import { formatDateTime } from "../../../lib/locale";
 
 export const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -48,7 +49,7 @@ export function DashboardPage() {
         <div>
           <h1 style={{ margin: 0 }}>Plant dashboard</h1>
           <span className="muted small">
-            {d ? `${d.plant.name ? `${d.plant.name} · ` : ""}as of ${new Date(d.as_of).toLocaleString()}` : ""}
+            {d ? `${d.plant.name ? `${d.plant.name} · ` : ""}as of ${formatDateTime(d.as_of)}` : ""}
           </span>
         </div>
         <div className="row wrap no-print" style={{ gap: 8 }}>
@@ -134,7 +135,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
                     <Icon name="calendar" size={14} />
                     {s.frequency === "daily" ? "Every day" : `Every ${WEEKDAY_NAMES[s.weekday ?? 0] ?? "week"}`} at {s.local_time}
                     {s.time_zone ? <span className="muted small">({s.time_zone})</span> : null}
-                    {s.last_sent_at ? <span className="muted small">last sent {new Date(s.last_sent_at).toLocaleString()}</span> : null}
+                    {s.last_sent_at ? <span className="muted small">last sent {formatDateTime(s.last_sent_at)}</span> : null}
                     <button type="button" className="btn ghost sm" onClick={() => void deleteDigest(s.id).then(list.reload, setErr)} aria-label="Stop this digest">
                       <Icon name="trash" /> Stop
                     </button>

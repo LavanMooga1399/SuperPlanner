@@ -5,6 +5,7 @@
  */
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+import { formatDateTime } from "./locale";
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const pad = (n: number, w = 2) => String(Math.abs(Math.trunc(n))).padStart(w, "0");
@@ -170,7 +171,7 @@ export function fmtLocal(iso: string | null | undefined): string {
   if (!iso) return "-";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(d);
 }
 
 export function fmtSeconds(s: number | null | undefined): string {
@@ -182,7 +183,7 @@ export function fmtSeconds(s: number | null | undefined): string {
 export function fmtMoney(v: number | null | undefined, currency: string): string {
   if (v === null || v === undefined) return "-";
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: currency || "USD",
       maximumFractionDigits: v >= 1000 ? 0 : 2,

@@ -22,7 +22,7 @@ function countsLine(counts: Record<string, number>): string {
   return Object.entries(counts)
     .filter(([k]) => COUNT_LABELS[k])
     .slice(0, 4)
-    .map(([k, v]) => `${v.toLocaleString()} ${COUNT_LABELS[k]}`)
+    .map(([k, v]) => `${v.toLocaleString("en-IN")} ${COUNT_LABELS[k]}`)
     .join(" · ");
 }
 

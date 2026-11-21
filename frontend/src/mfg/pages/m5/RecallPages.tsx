@@ -21,6 +21,7 @@ import { needsText, useCan } from "../../lib/permissions";
 import { usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { PrecisionTag } from "./TracePages";
+import { formatDate, formatDateTime } from "../../../lib/locale";
 
 const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "play" | "flag" | "circle" }> = {
   in_stock: { label: "In stock", tone: "warn", icon: "layers" },
@@ -125,9 +126,9 @@ export function RecallsPage() {
                   <Link to={mfgPaths.recall(r.id)}>
                     <span className="mono">{r.number}</span> {r.name}
                   </Link>
-                  {r.quarantined_at ? <div className="small faint">quarantined {new Date(r.quarantined_at).toLocaleDateString()}</div> : null}
+                  {r.quarantined_at ? <div className="small faint">quarantined {formatDate(r.quarantined_at)}</div> : null}
                 </td>
-                <td className="small">{new Date(r.created_at).toLocaleString()}</td>
+                <td className="small">{formatDateTime(r.created_at)}</td>
                 <td className="right">{fmtNum(r.report?.units.length ?? 0)}</td>
                 <td className="right">{fmtNum((r.report?.units ?? []).filter((u) => u.status === "shipped").length)}</td>
                 <td className="right">{fmtNum(r.report?.by_customer.length ?? 0)}</td>
@@ -183,7 +184,7 @@ export function RecallPage() {
         </span>
       </div>
       <p className="muted small" style={{ margin: 0 }}>
-        {r.include_possible ? "Includes possible links (lot level)." : "Exact links only."} Created {new Date(r.created_at).toLocaleString()}.
+        {r.include_possible ? "Includes possible links (lot level)." : "Exact links only."} Created {formatDateTime(r.created_at)}.
       </p>
       <div className="kpis" data-testid="recall-summary" data-units={all.length}>
         <div className="card kpi">
@@ -223,7 +224,7 @@ export function RecallPage() {
         <div className="card-body col">
           {r.quarantined_at ? (
             <Banner tone="ok" title="Quarantined">
-              Affected stock was moved and put on hold on {new Date(r.quarantined_at).toLocaleString()}.
+              Affected stock was moved and put on hold on {formatDateTime(r.quarantined_at)}.
             </Banner>
           ) : null}
           {qResult ? (

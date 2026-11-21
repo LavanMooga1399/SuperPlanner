@@ -33,6 +33,7 @@ import { currentWorkspace } from "../lib/workspace";
 import { AnswerText, CitationList, QuickView } from "./AnswerText";
 import { DraftCardView } from "./DraftCardView";
 import { aiCodeText, budgetText, contextFromPath, isLastingCode, LATE_CONTEXTS, stepView, SUGGESTED_QUESTIONS } from "./assistantText";
+import { formatDate } from "../../lib/locale";
 
 const FINAL = new Set(["completed", "failed", "cancelled"]);
 const convKey = () => `sp.asst.conversation.${currentWorkspace() ?? "own"}`;
@@ -482,7 +483,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
                     <button type="button" className="btn link" onClick={() => { writeSession(convKey(), c.id); setConvId(c.id); }}>
                       {c.title || "Untitled"}
                     </button>
-                    <span className="muted small">{new Date(c.updated_at).toLocaleDateString()}</span>
+                    <span className="muted small">{formatDate(c.updated_at)}</span>
                     <button
                       type="button"
                       className="btn ghost icon sm"

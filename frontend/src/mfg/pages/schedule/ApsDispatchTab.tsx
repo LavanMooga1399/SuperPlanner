@@ -19,6 +19,7 @@ import { useCan } from "../../lib/permissions";
 import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
+import { formatDateTime } from "../../../lib/locale";
 
 const MATERIAL: Record<string, { label: string; tone: string; icon: "check" | "alert" | "help" }> = {
   kitted: { label: "kit complete", tone: "ok", icon: "check" },
@@ -220,7 +221,7 @@ export function ApsDispatchTab() {
             </table>
           </div>
           <p className="print-only small">
-            Printed {new Date().toLocaleString()} · schedule #{run.run_no}
+            Printed {formatDateTime(new Date())} · schedule #{run.run_no}
             {run.is_published ? " (published)" : ""} · <span>{mfgPaths.apsDispatch(run.id)}</span>
           </p>
         </section>

@@ -10,7 +10,7 @@ import "./auth.css";
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "-";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
 }
 
 export function AccountPage() {

@@ -18,6 +18,7 @@ import { invalidateErpOwnership } from "../../lib/erpOwnership";
 import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
 import { isConflict, useLoad } from "../../lib/useMfg";
+import { formatDateTime, formatTime } from "../../../lib/locale";
 
 export const SOR_LABEL: Record<SorEntity, { label: string; help: string; allowed: SorValue[] }> = {
   items: { label: "Items", help: "Part number, description, unit, make/buy, cost. Planning settings (lot sizes, safety stock, families) always stay here.", allowed: ["erp", "superplanner", "shared"] },
@@ -114,7 +115,7 @@ export function IntegrationOverview() {
         <Link to={mfgPaths.integration("batches")} className="card kpi" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="kpi-label">Last data in</div>
           <div className="kpi-value" style={{ fontSize: 18 }}>
-            {last ? new Date(last.received_at).toLocaleString() : "none yet"}
+            {last ? formatDateTime(last.received_at) : "none yet"}
           </div>
           <div className="kpi-sub">{rejected ? `${rejected} rejected records in the last 5 batches` : "no rejected records recently"}</div>
         </Link>
@@ -123,7 +124,7 @@ export function IntegrationOverview() {
           <div className="kpi-value" style={{ fontSize: 18 }}>
             {!fd.data?.enabled ? "off" : fd.data.inbox.length ? `${fd.data.inbox.length} waiting` : "ok"}
           </div>
-          <div className="kpi-sub">{fd.data?.last_poll_at ? `checked ${new Date(fd.data.last_poll_at).toLocaleTimeString()}` : ""}</div>
+          <div className="kpi-sub">{fd.data?.last_poll_at ? `checked ${formatTime(fd.data.last_poll_at)}` : ""}</div>
         </Link>
       </div>
       <section className="card">

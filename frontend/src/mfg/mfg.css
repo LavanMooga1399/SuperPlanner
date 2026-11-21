@@ -1,7 +1,7 @@
 /* SuperPlanner Manufacturing styles. Uses the shared theme variables (light + dark); no new palette beyond hatching. */
 
 :root {
-  --mfg-row-h: 32px;
+  --mfg-row-h: var(--row-h);
   --mfg-selected: var(--accent-soft);
   --mfg-optional-hatch: repeating-linear-gradient(135deg, var(--warn) 0 3px, transparent 3px 6px);
 }
@@ -33,11 +33,12 @@ details.card > summary { cursor: pointer; }
 @media (max-width: 1100px) { .mfg-split, .mfg-split-wide { grid-template-columns: 1fr; } }
 
 /* ---------------------------------------------------------------- virtual table */
-.vt { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.vt { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.vt > .vt-scroll { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .vt-scroll { overflow: auto; position: relative; outline: none; }
 .vt-inner { width: max-content; min-width: 100%; }
 .vt-head, .vt-row { display: grid; height: var(--mfg-row-h); align-items: center; }
-.vt-head { position: sticky; top: 0; z-index: 2; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 620; color: var(--text-muted); }
+.vt-head { position: sticky; top: 0; z-index: 2; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-muted); }
 .vt-row { border-bottom: 1px solid var(--grid); cursor: default; }
 .vt-row:hover { background: var(--surface-2); }
 .vt-row:focus { outline: none; }
@@ -46,11 +47,13 @@ details.card > summary { cursor: pointer; }
 .vt-row.mfg-selected { background: var(--mfg-selected); box-shadow: inset 3px 0 0 var(--accent); }
 .vt-row.mfg-match-row { background: color-mix(in srgb, var(--warn-soft) 70%, transparent); }
 .vt-row.mfg-row-error { box-shadow: inset 3px 0 0 var(--danger); }
-.vt-cell { padding: 0 8px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
+.vt-row { font-variant-numeric: tabular-nums; }
+.vt-cell { padding: 0 var(--cell-px); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
 .vt-cell.right { justify-content: flex-end; text-align: right; font-variant-numeric: tabular-nums; }
 .vt-cell.center { justify-content: center; }
 .vt-empty { padding: 24px; text-align: center; color: var(--text-muted); }
-.vt-footer { padding: 6px 10px; border-top: 1px solid var(--border); background: var(--surface-2); }
+.vt-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; padding: 0 6px 0 12px; border-top: 1px solid var(--border); background: var(--surface-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg); font-size: var(--fs-sm); color: var(--text-muted); }
+.vt-footer-main { min-width: 0; }
 
 /* ---------------------------------------------------------------- BOM tree */
 .mfg-tree-cell { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
@@ -261,7 +264,7 @@ details.card > summary { cursor: pointer; }
 
 /* M4 notification bell */
 .mfg-bell { position: relative; }
-.mfg-bell-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 2px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.mfg-bell-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 2px; border-radius: 9px; background: var(--danger); color: var(--on-danger); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 .mfg-bell-pop { position: absolute; right: 0; top: calc(100% + 4px); width: min(420px, 92vw); max-height: 70vh; overflow: auto; z-index: 30; box-shadow: var(--shadow-lg); }
 
 /* M4 KPI dashboard */

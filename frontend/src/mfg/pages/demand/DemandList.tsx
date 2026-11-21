@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Icon } from "../../../components/Icon";
+import { FilterBar, type FilterChip } from "../../../components/FilterBar";
+import { PageHeader } from "../../../components/PageHeader";
 import { listDemandOrders } from "../../api/clientM2";
 import { DEMAND_TYPES, type DemandOrderSummary, type DemandStatus, type DemandType } from "../../api/typesM2";
 import { MfgError } from "../../components/Feedback";
@@ -53,7 +55,7 @@ export function DemandList() {
       { key: "prog", header: "Programme", width: "110px", render: (o) => <span className="mono">{o.program ?? ""}</span> },
       { key: "prio", header: "Priority", width: "70px", align: "right", render: (o) => `P${o.priority}` },
       { key: "lines", header: "Lines", width: "60px", align: "right", render: (o) => o.line_count },
-      { key: "open", header: "Open qty", width: "84px", align: "right", render: (o) => fmtNum(o.open_qty) },
+      { key: "open", header: "Open qty", width: "90px", align: "right", render: (o) => fmtNum(o.open_qty) },
       { key: "due", header: "Next due", width: "106px", render: (o) => fmtDate(o.next_due) },
       {
         key: "late",
@@ -74,27 +76,39 @@ export function DemandList() {
     [],
   );
 
+  const chips: FilterChip[] = [];
+  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
+  if (status) chips.push({ key: "st", label: "Status", value: status, onClear: () => set("status", "") });
+  if (type) chips.push({ key: "type", label: "Type", value: DEMAND_TYPE_LABEL[type] ?? type, onClear: () => set("type", "") });
+  if (program.trim()) chips.push({ key: "prog", label: "Programme", value: program.trim(), onClear: () => setProgram("") });
+  if (lateOnly) chips.push({ key: "late", label: "Lines", value: "Late only", onClear: () => set("late", "") });
+
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Demand</h1>
-          <p>Customer orders, spares, internal and project demand. Only open orders are planned by MRP.</p>
-        </div>
-        <div className="row" style={{ alignItems: "flex-start" }}>
-          <ImportShortcut what="demand" />
-          <PermissionGate perm="demand_edit">
-            <Link className="btn primary" to={mfgPaths.demandNew()} data-testid="demand-new">
-              <Icon name="plus" /> New demand order
-            </Link>
-          </PermissionGate>
-        </div>
-      </div>
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 220px" }}>
-          <label htmlFor="dm-q">Search</label>
-          <input id="dm-q" className="input" type="search" placeholder="Order number or customer" value={q} onChange={(e) => setQ(e.target.value)} data-testid="demand-search" />
-        </div>
+      <PageHeader
+        title="Demand"
+        description="Customer orders, spares, internal and project demand. MRP plans open orders only."
+        actions={
+          <>
+            <ImportShortcut what="demand" />
+            <PermissionGate perm="demand_edit">
+              <Link className="btn primary" to={mfgPaths.demandNew()} data-testid="demand-new">
+                <Icon name="plus" /> New demand order
+              </Link>
+            </PermissionGate>
+          </>
+        }
+      />
+      <FilterBar
+        search={{ id: "dm-q", value: q, onChange: setQ, placeholder: "Order number or customer", testId: "demand-search" }}
+        chips={chips}
+        onClearAll={() => {
+          setQ("");
+          setProgram("");
+          setParams({}, { replace: true });
+        }}
+        pageKey="demand"
+      >
         <div className="field">
           <label htmlFor="dm-status">Status</label>
           <select id="dm-status" className="select" value={status} onChange={(e) => set("status", e.target.value)} data-testid="demand-status">
@@ -120,10 +134,10 @@ export function DemandList() {
           <label htmlFor="dm-prog">Programme</label>
           <input id="dm-prog" className="input" value={program} onChange={(e) => setProgram(e.target.value)} />
         </div>
-        <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
+        <label className="checkbox" style={{ alignSelf: "flex-end", height: "var(--control-h)" }}>
           <input type="checkbox" checked={lateOnly} onChange={(e) => set("late", e.target.checked ? "1" : "")} data-testid="demand-late-only" /> Only late (latest MRP run)
         </label>
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
         rows={data.rows}
@@ -136,8 +150,10 @@ export function DemandList() {
         onRowClick={(o) => navigate(mfgPaths.demandOrder(o.id))}
         onActivate={(o) => navigate(mfgPaths.demandOrder(o.id))}
         onEndReached={data.onEndReached}
+        loading={data.loading}
+        exportName="demand-orders"
         empty={data.loading ? "Loading…" : "No demand orders match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} orders</span>}
+        footer={<span>Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} orders</span>}
       />
     </div>
   );

@@ -19,6 +19,8 @@ import { useUomOptions } from "../components/NewItemDialog";
 import { mfgPaths } from "../lib/paths";
 import { fieldErrors, isConflict, isNotFound, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
+import { toast } from "../../components/Toast";
+import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
 
 interface Header {
   revision: string;
@@ -274,9 +276,10 @@ export function BomEditPage() {
         </div>
       </section>
 
+      <UnsavedChangesGuard when={!readOnly && dirty && !busy} what="this BOM" />
       {!readOnly ? (
         <div className="row mfg-sticky-actions">
-          <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0} data-testid="bom-save">
+          <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0} title={!dirty ? "No changes to save" : problems.length ? "Fix the problems listed above first" : undefined} data-testid="bom-save">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save BOM
           </button>
           <button type="button" className="btn" disabled={!dirty || busy} onClick={() => reset(base)}>
@@ -298,6 +301,7 @@ export function BomEditPage() {
           onClose={() => setReleasing(false)}
           onRelease={async (body) => {
             await releaseBom(base.id, body, base.row_version);
+            toast("BOM released");
             navigate(mfgPaths.itemBom(item.id, { bom: base.id }));
           }}
         />

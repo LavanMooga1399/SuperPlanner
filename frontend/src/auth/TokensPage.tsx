@@ -16,6 +16,7 @@ import { ALL_PERMISSIONS } from "../mfg/lib/permissions";
 import { useLoad } from "../mfg/lib/useMfg";
 import { currentWorkspace } from "../mfg/lib/workspace";
 import "./auth.css";
+import { formatDateTime } from "../lib/locale";
 
 const PRESETS: { key: string; label: string; help: string; scopes: TokenScope[] }[] = [
   { key: "read", label: "Read only", help: "Reports and dashboards: read everything, change nothing.", scopes: ["view", "floor_view", "trace_view"] },
@@ -35,7 +36,7 @@ const SCOPE_LABEL: Partial<Record<TokenScope, string>> = {
   floor_report: "Report floor work",
 };
 
-const fmt = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "never");
+const fmt = (iso: string | null | undefined) => (iso ? formatDateTime(iso) : "never");
 
 export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
   const tokens = useLoad((signal) => listTokens({ kind }, signal), [kind]);

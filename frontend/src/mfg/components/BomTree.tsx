@@ -300,7 +300,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
         })}
         footer={
           <span className="small muted" role="status">
-            {vis.length.toLocaleString()} of {rows.length.toLocaleString()} rows shown
+            {vis.length.toLocaleString("en-IN")} of {rows.length.toLocaleString("en-IN")} rows shown
           </span>
         }
       />

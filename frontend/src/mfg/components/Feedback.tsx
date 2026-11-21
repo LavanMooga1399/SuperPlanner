@@ -2,8 +2,9 @@
 import type { ReactNode } from "react";
 import { Banner } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
+import { SkeletonPage } from "../../components/Skeleton";
 import { errorText, isForbidden, isNotFound } from "../lib/useMfg";
-import { networkError } from "../../api/client";
+import { ApiError, networkError } from "../../api/client";
 
 const NETWORK_MESSAGE = networkError().message;
 
@@ -52,7 +53,22 @@ export function MfgError({ error, onRetry, title }: { error: unknown; onRetry?()
       }
     >
       {text}
+      <RequestRef error={error} />
     </Banner>
+  );
+}
+
+/** "Reference: <request id>" with a copy button, for errors that came back from the server. */
+export function RequestRef({ error }: { error: unknown }) {
+  const id = error instanceof ApiError ? error.requestId : undefined;
+  if (!id) return null;
+  return (
+    <div className="ref-id" data-testid="error-ref">
+      Reference <code>{id}</code>
+      <button type="button" className="btn ghost sm icon" aria-label="Copy reference" title="Copy reference" onClick={() => void navigator.clipboard?.writeText(id).catch(() => undefined)}>
+        <Icon name="copy" size={12} />
+      </button>
+    </div>
   );
 }
 
@@ -67,13 +83,9 @@ export function NotFoundPanel({ what, back }: { what: string; back?: ReactNode }
   );
 }
 
+/** Page/section loading state: a skeleton that reserves the layout (UX-STANDARD 4); `label` is announced. */
 export function Spinner({ label = "Loading…" }: { label?: string }) {
-  return (
-    <div className="empty" role="status">
-      <span className="spinner" aria-hidden />
-      <span>{label}</span>
-    </div>
-  );
+  return <SkeletonPage label={label} rows={5} />;
 }
 
 /** Inline saved / saving state. */

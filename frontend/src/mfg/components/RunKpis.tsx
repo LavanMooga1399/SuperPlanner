@@ -17,7 +17,7 @@ export function RunKpis({ run }: { run: MrpRunRecord }) {
       bad: s.demand_late + s.demand_past_due > 0,
       to: mfgPaths.runDemand(run.id),
     },
-    { key: "short", label: "Parts short", value: s.items_short, sub: `of ${s.items.toLocaleString()} parts planned`, icon: s.items_short ? "alert" : "check", bad: s.items_short > 0, to: `${mfgPaths.runItems(run.id)}?short=1` },
+    { key: "short", label: "Parts short", value: s.items_short, sub: `of ${s.items.toLocaleString("en-IN")} parts planned`, icon: s.items_short ? "alert" : "check", bad: s.items_short > 0, to: `${mfgPaths.runItems(run.id)}?short=1` },
     { key: "planned_make", label: "Planned work orders", value: s.planned_make, sub: "to make", icon: "factory", to: `${mfgPaths.runPlanned(run.id)}?kind=make` },
     { key: "planned_buy", label: "Planned purchases", value: s.planned_buy, sub: "to buy", icon: "briefcase", to: `${mfgPaths.runPlanned(run.id)}?kind=buy` },
     {
@@ -38,7 +38,7 @@ export function RunKpis({ run }: { run: MrpRunRecord }) {
             <Icon name={t.icon} size={13} /> {t.label}
           </div>
           <div className="kpi-value" style={t.bad ? { color: "var(--danger)" } : undefined}>
-            {t.value.toLocaleString()}
+            {t.value.toLocaleString("en-IN")}
           </div>
           <div className="kpi-sub">{t.sub}</div>
         </Link>

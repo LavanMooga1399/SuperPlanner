@@ -5,6 +5,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Icon } from "../../components/Icon";
+import { FilterBar, type FilterChip } from "../../components/FilterBar";
+import { PageHeader } from "../../components/PageHeader";
 import { listItems } from "../api/client";
 import type { ItemQuery, ItemRecord, ItemSort, MakeBuy } from "../api/types";
 import { MfgError } from "../components/Feedback";
@@ -120,6 +122,8 @@ export function ItemsPage() {
         key: "pn",
         header: "Part number",
         width: "minmax(150px, 1.1fr)",
+        sortKey: "part_number",
+        exportValue: (it) => it.part_number,
         render: (it) => (
           <Link to={mfgPaths.item(it.id)} className="mono mfg-ellipsis" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             {it.part_number}
@@ -127,54 +131,58 @@ export function ItemsPage() {
         ),
       },
       { key: "rev", header: "Rev.", width: "52px", render: (it) => <span className="mono">{it.revision}</span> },
-      { key: "desc", header: "Description", width: "minmax(200px, 2fr)", render: (it) => <span className="mfg-ellipsis">{it.description}</span> },
+      { key: "desc", header: "Description", width: "minmax(200px, 2fr)", sortKey: "description", render: (it) => <span className="mfg-ellipsis">{it.description}</span> },
       { key: "mb", header: "Make / buy", width: "104px", render: (it) => <MakeBuyBadge value={it.make_buy} /> },
       { key: "uom", header: "Unit", width: "52px", render: (it) => it.uom },
       { key: "family", header: "Family", width: "110px", render: (it) => <span className="mfg-ellipsis">{it.family ?? ""}</span> },
       {
         key: "lead",
-        header: "Lead time",
-        width: "84px",
+        header: "Lead time (d)",
+        width: "100px",
         align: "right",
-        render: (it) => (it.lead_time_days === null ? <span className="faint">-</span> : `${it.lead_time_days} d`),
+        render: (it) => (it.lead_time_days === null ? <span className="faint">-</span> : it.lead_time_days),
       },
       { key: "bom", header: "BOM", width: "64px", render: (it) => yes(it.has_bom, "Has a BOM") },
       { key: "rtg", header: "Routing", width: "72px", render: (it) => yes(it.has_routing, "Has a routing") },
-      { key: "used", header: "Used in", width: "70px", align: "right", render: (it) => it.used_in_count },
+      { key: "used", header: "Used in", width: "76px", align: "right", render: (it) => it.used_in_count },
       { key: "act", header: <span className="sr-only">Status</span>, label: "Status", width: "90px", render: (it) => <ActiveBadge active={it.active} /> },
     ],
     [],
   );
 
   const filtered = Boolean(query.q || query.make_buy || query.family || active || hasBom || hasRouting);
+  const chips: FilterChip[] = [];
+  if (query.q) chips.push({ key: "q", label: "Search", value: query.q, onClear: () => setQ("") });
+  if (makeBuy) chips.push({ key: "mb", label: "Make / buy", value: makeBuy, onClear: () => setParam("make_buy", "") });
+  if (query.family) chips.push({ key: "fam", label: "Family", value: query.family, onClear: () => setFamily("") });
+  if (active) chips.push({ key: "act", label: "Status", value: active === "true" ? "Active" : "Inactive", onClear: () => setParam("active", "") });
+  if (hasBom) chips.push({ key: "bom", label: "BOM", value: hasBom === "true" ? "Has a BOM" : "No BOM", onClear: () => setParam("has_bom", "") });
+  if (hasRouting) chips.push({ key: "rtg", label: "Routing", value: hasRouting === "true" ? "Has a routing" : "No routing", onClear: () => setParam("has_routing", "") });
 
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Items</h1>
-          <p>Every part you make or buy: assemblies, boards, components, materials.</p>
-        </div>
-        <PermissionGate perm="master_edit">
-          <button type="button" className="btn primary" onClick={() => setCreating(true)} data-testid="item-new">
-            <Icon name="plus" /> New item
-          </button>
-        </PermissionGate>
-      </div>
+      <PageHeader
+        title="Items"
+        description="Every part you make or buy: assemblies, boards, components and materials."
+        actions={
+          <PermissionGate perm="master_edit">
+            <button type="button" className="btn primary" onClick={() => setCreating(true)} data-testid="item-new">
+              <Icon name="plus" /> New item
+            </button>
+          </PermissionGate>
+        }
+      />
 
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 260px" }}>
-          <label htmlFor="items-q">Search</label>
-          <input
-            id="items-q"
-            className="input"
-            type="search"
-            placeholder="Part number or description"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            data-testid="items-search"
-          />
-        </div>
+      <FilterBar
+        search={{ id: "items-q", value: q, onChange: setQ, placeholder: "Part number or description", testId: "items-search" }}
+        chips={chips}
+        onClearAll={() => {
+          setQ("");
+          setFamily("");
+          setParams({}, { replace: true });
+        }}
+        pageKey="items"
+      >
         <div className="field">
           <label htmlFor="items-mb">Make / buy</label>
           <select id="items-mb" className="select" value={makeBuy} onChange={(e) => setParam("make_buy", e.target.value)} data-testid="items-filter-make-buy">
@@ -220,7 +228,7 @@ export function ItemsPage() {
             <option value="-updated_at">Recently changed</option>
           </select>
         </div>
-      </div>
+      </FilterBar>
 
       <MfgError error={error} onRetry={() => void fetchPage(0, true)} />
 
@@ -236,6 +244,10 @@ export function ItemsPage() {
         onRowClick={(it) => navigate(mfgPaths.item(it.id))}
         onActivate={(it) => navigate(mfgPaths.item(it.id))}
         onEndReached={onEndReached}
+        loading={loading}
+        sort={{ key: sort, dir: sort.startsWith("-") ? "desc" : "asc" }}
+        onSortChange={(x) => setParam("sort", !x || x.key === "part_number" ? "" : x.key)}
+        exportName="items"
         empty={
           loading ? (
             <span className="row" role="status">
@@ -251,9 +263,9 @@ export function ItemsPage() {
           )
         }
         footer={
-          <span className="muted small" role="status" data-testid="items-count">
-            {loading && items.length ? <span className="spinner" aria-hidden /> : null} Showing {items.length.toLocaleString()} of{" "}
-            {total.toLocaleString()} items
+          <span role="status" data-testid="items-count">
+            {loading && items.length ? <span className="spinner" aria-hidden /> : null} Showing {items.length.toLocaleString("en-IN")} of{" "}
+            {total.toLocaleString("en-IN")} items
           </span>
         }
       />

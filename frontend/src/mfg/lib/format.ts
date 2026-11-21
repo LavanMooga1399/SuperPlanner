@@ -1,5 +1,6 @@
 /** Number/date formatting for the Manufacturing screens. */
 import type { MakeBuy, Weekday } from "../api/types";
+import { formatDateTime } from "../../lib/locale";
 
 /** Up to 6 decimals (M 4.4: outputs rounded to 6 decimals for display), no thousands separators. */
 export function fmtQty(x: number | null | undefined): string {
@@ -48,7 +49,7 @@ export function fmtTimestamp(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(d);
 }
 
 export const WEEKDAY_LABEL: Record<Weekday, string> = {

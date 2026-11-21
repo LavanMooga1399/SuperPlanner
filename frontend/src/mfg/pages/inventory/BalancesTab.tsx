@@ -228,8 +228,8 @@ export function BalancesTab() {
         }
         footer={
           <span className="muted small" role="status" data-testid="balances-count">
-            {data.loading && data.rows.length ? <span className="spinner" aria-hidden /> : null} Showing {data.rows.length.toLocaleString()} of{" "}
-            {data.total.toLocaleString()} balances · Enter on a row opens its ledger
+            {data.loading && data.rows.length ? <span className="spinner" aria-hidden /> : null} Showing {data.rows.length.toLocaleString("en-IN")} of{" "}
+            {data.total.toLocaleString("en-IN")} balances · Enter on a row opens its ledger
           </span>
         }
       />

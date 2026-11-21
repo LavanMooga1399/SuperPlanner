@@ -14,6 +14,7 @@ import { currentWorkspace, switchWorkspace } from "../lib/workspace";
 import { countStates, plantGlance, type PlantGlance } from "./glance";
 import { useOnline } from "./MobileLayout";
 import { loadSnapshot, saveSnapshot } from "./snapshot";
+import { formatDateTime } from "../../lib/locale";
 
 interface HomeRow {
   plant: { owner_id: string; plant_name: string; plant_code?: string | null };
@@ -104,7 +105,7 @@ export function MobileHome() {
       <h1>My plants</h1>
       {d?.staleSince ? (
         <div className="m-banner warn" role="status" data-testid="m-stale">
-          <Icon name="clock" size={16} /> Offline view: these figures are from {new Date(d.staleSince).toLocaleString()} (stale since then).
+          <Icon name="clock" size={16} /> Offline view: these figures are from {formatDateTime(d.staleSince)} (stale since then).
         </div>
       ) : null}
       {home.error && !d ? <MfgError error={home.error} onRetry={home.reload} /> : null}

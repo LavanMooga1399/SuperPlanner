@@ -14,6 +14,7 @@ import { ItemPicker } from "../../components/ItemPicker";
 import { LocationSelect } from "../../components/PickersM2";
 import { fmtNum } from "../../lib/formatM2";
 import { isCountUom, useItemInfo } from "../../lib/itemCache";
+import { toast } from "../../../components/Toast";
 
 function usePost() {
   const keyRef = useRef<{ body: string; key: string } | null>(null);
@@ -274,6 +275,7 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
         note: r.note,
       }));
       onSaved(await updateWorkOrder(wo.id, { ...input, components }, wo.row_version));
+      toast("Work order saved");
     } catch (e) {
       setError(e);
       setBusy(false);

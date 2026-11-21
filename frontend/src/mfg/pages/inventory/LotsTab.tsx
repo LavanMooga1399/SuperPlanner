@@ -173,7 +173,7 @@ export function LotsTab() {
         rowExtras={(l) => ({ testId: "lot-row", data: { lot: l.lot_code, hold: l.hold }, className: l.id === lotParam ? "mfg-selected" : undefined })}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading lots…" : "No lots. Lots are created by receipts of lot-tracked items."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} lots, earliest expiry first</span>}
+        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} lots, earliest expiry first</span>}
       />
       {editing ? (
         <LotDialog

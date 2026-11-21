@@ -17,6 +17,7 @@ import { usePolling } from "../lib/usePolling";
 import { useLoad } from "../lib/useMfg";
 import { loadLines, lineState, type LineState } from "./glance";
 import { useOnline } from "./MobileLayout";
+import { formatDateTime, formatTime } from "../../lib/locale";
 
 export const LINE_STATE: Record<LineState, { label: string; icon: IconName; tone: string }> = {
   running: { label: "Running", icon: "play", tone: "ok" },
@@ -94,11 +95,11 @@ function DowntimeCard({ d, onChanged }: { d: DowntimeM6; onChanged(): void }) {
       </h2>
       <dl className="m-dl">
         <dt>Since</dt>
-        <dd>{new Date(d.start_at).toLocaleString()}</dd>
+        <dd>{formatDateTime(d.start_at)}</dd>
         {d.expected_end_at ? (
           <>
             <dt>Expected back</dt>
-            <dd>{new Date(d.expected_end_at).toLocaleString()}</dd>
+            <dd>{formatDateTime(d.expected_end_at)}</dd>
           </>
         ) : null}
         {d.reason ? (
@@ -117,7 +118,7 @@ function DowntimeCard({ d, onChanged }: { d: DowntimeM6; onChanged(): void }) {
         <dd data-testid="m-downtime-ack">
           {d.acknowledged_at ? (
             <span className="m-state">
-              <Icon name="check" size={14} /> {d.acknowledged_by?.name ?? "someone"}, {new Date(d.acknowledged_at).toLocaleTimeString()}
+              <Icon name="check" size={14} /> {d.acknowledged_by?.name ?? "someone"}, {formatTime(d.acknowledged_at)}
             </span>
           ) : ackWaiting ? (
             <span className="m-state">
@@ -193,7 +194,7 @@ export function MobileLine() {
                     <div className="m-sub">
                       {i === 0 ? "Now · " : ""}
                       {r.wo.item.part_number} · {r.qty_good}/{r.qty_planned}
-                      {r.planned_start ? ` · planned ${new Date(r.planned_start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                      {r.planned_start ? ` · planned ${new Date(r.planned_start).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : ""}
                     </div>
                   </div>
                   <OpStatusChip status={r.status} />

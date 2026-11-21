@@ -106,7 +106,7 @@ export function RunSummaryTab() {
                 <Link to={mfgPaths.runExceptions(run.id, { code })} className="grow" data-testid="run-exception-code" data-code={code}>
                   {exceptionLabel(code)}
                 </Link>
-                <span className="mfg-num">{n.toLocaleString()}</span>
+                <span className="mfg-num">{n.toLocaleString("en-IN")}</span>
               </li>
             ))}
           </ul>

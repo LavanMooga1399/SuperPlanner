@@ -44,7 +44,7 @@ export function ImportMapping({
           <section key={s.name} className="card" aria-label={`Sheet ${s.name}`} data-testid="import-sheet-card" data-sheet={s.name}>
             <div className="card-header">
               <h3 className="row">
-                <Icon name="file" /> {s.name} <span className="muted small">{s.row_count.toLocaleString()} rows</span>
+                <Icon name="file" /> {s.name} <span className="muted small">{s.row_count.toLocaleString("en-IN")} rows</span>
                 {m.target ? (
                   <span className="badge info" data-testid="import-sheet-kind" title={`Saving this sheet needs the role: ${sheetKind(m.target).perm}`}>
                     {sheetKind(m.target).label}

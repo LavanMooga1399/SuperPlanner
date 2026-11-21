@@ -89,10 +89,10 @@ function ImportInner({ kind }: { kind: PlanKind }) {
               />
               <span id={`${pasteId}-help`} className={tooLong || (tried && empty) ? "field-error" : "small muted"} role={tooLong || (tried && empty) ? "alert" : undefined}>
                 {tooLong
-                  ? `The table is too long: at most ${limits.max_table_chars.toLocaleString()} characters.`
+                  ? `The table is too long: at most ${limits.max_table_chars.toLocaleString("en-IN")} characters.`
                   : tried && empty
                     ? "Paste a table or choose a file first."
-                    : `Up to ${limits.max_table_rows.toLocaleString()} rows and ${limits.max_table_columns} columns. The first row may hold column names.`}
+                    : `Up to ${limits.max_table_rows.toLocaleString("en-IN")} rows and ${limits.max_table_columns} columns. The first row may hold column names.`}
               </span>
             </div>
             <div className="field">

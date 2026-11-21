@@ -123,7 +123,7 @@ export function RunItemsTab() {
         onActivate={(r) => navigate(mfgPaths.runItem(run.id, r.item.id))}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading the plan…" : "No items match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} items · "Short" is before planned orders</span>}
+        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} items · "Short" is before planned orders</span>}
       />
     </div>
   );

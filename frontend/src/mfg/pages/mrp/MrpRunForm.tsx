@@ -15,6 +15,7 @@ import { ItemPicker } from "../../components/ItemPicker";
 import { fmtDate } from "../../lib/format";
 import { DEMAND_TYPE_LABEL, fmtNum } from "../../lib/formatM2";
 import { isAbortError, todayInOffset, usePlant } from "../../lib/useMfg";
+import { toast } from "../../../components/Toast";
 
 interface Extra {
   key: number;
@@ -143,6 +144,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
     setError(null);
     try {
       onDone(await createMrpRun(params));
+      toast("MRP run started");
     } catch (e) {
       setError(e);
       setBusy(false);

@@ -21,6 +21,7 @@ import { needsText, useCan } from "../../lib/permissions";
 import { usePolling } from "../../lib/usePolling";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { apsRunTitle, isActive } from "./ApsRunsPage";
+import { toast } from "../../../components/Toast";
 
 export interface ApsRunContext {
   run: ApsRunRecord;
@@ -66,6 +67,7 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
     setError(null);
     try {
       onDone(await publishApsRun(run.id, run.row_version, staleBasis));
+      toast(`Schedule #${run.run_no} published to the shop floor`);
       setConfirm(false);
     } catch (e) {
       setError(e);

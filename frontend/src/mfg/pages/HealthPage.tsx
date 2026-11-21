@@ -134,7 +134,7 @@ export function HealthPage() {
           ) : null}
           {r.truncated ? (
             <Banner tone="warn" title="Only the first issues are listed">
-              The counts above are complete; {r.issues.length.toLocaleString()} issues are shown. Fix the errors first and check again.
+              The counts above are complete; {r.issues.length.toLocaleString("en-IN")} issues are shown. Fix the errors first and check again.
             </Banner>
           ) : null}
           {r.issues.length === 0 ? (

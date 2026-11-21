@@ -497,10 +497,50 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
     onZoom(Math.max(0, Math.min(ZOOMS.length - 1, zoom + (e.deltaY < 0 ? 1 : -1))));
   };
 
+  // keyboard bar navigation (UX-STANDARD 6): "]" / "[" or Tab-free n/p select the next / previous operation in
+  // time order on visible rows and scroll it into view; Enter keeps the selection (details panel opens).
+  const orderedBars = useMemo(() => {
+    const list: { op: number; s: number; row: number }[] = [];
+    for (const [key, bars] of barsByRow) {
+      const ri = rowIndex.get(key);
+      if (ri === undefined) continue;
+      for (const b of bars) if (b.bar.op_no >= 0) list.push({ op: b.bar.op_no, s: b.s, row: ri });
+    }
+    return list.sort((x, y) => x.s - y.s || x.row - y.row);
+  }, [barsByRow, rowIndex]);
+  const stepBar = (dir: 1 | -1) => {
+    if (!orderedBars.length) return;
+    const cur = selected === null ? -1 : orderedBars.findIndex((b) => b.op === selected);
+    const next = orderedBars[cur < 0 ? (dir === 1 ? 0 : orderedBars.length - 1) : Math.max(0, Math.min(orderedBars.length - 1, cur + dir))];
+    onSelect(next.op);
+    const el = scrollRef.current;
+    if (!el) return;
+    const x = (next.s - from) * pxPerMs;
+    const y = next.row * ROW_H;
+    if (x < el.scrollLeft || x > el.scrollLeft + el.clientWidth - 80) el.scrollLeft = Math.max(0, x - el.clientWidth / 3);
+    if (y < el.scrollTop || y > el.scrollTop + el.clientHeight - ROW_H * 3) el.scrollTop = Math.max(0, y - el.clientHeight / 3);
+  };
+  const selectedText = useMemo(() => {
+    if (selected === null) return "";
+    const b = data.bars.find((x) => x.op_no === selected);
+    return b ? `Selected ${b.label || `operation ${b.op_no}`}, starts ${clock.dateTime(b.start)} ${clock.zoneLabel}` : "";
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, data.bars]);
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const el = scrollRef.current;
     if (!el) return;
     const stepX = el.clientWidth / 4;
+    if (e.key === "]" || e.key === "n") {
+      stepBar(1);
+      e.preventDefault();
+      return;
+    }
+    if (e.key === "[" || e.key === "p") {
+      stepBar(-1);
+      e.preventDefault();
+      return;
+    }
     if (e.key === "ArrowRight") el.scrollLeft += stepX;
     else if (e.key === "ArrowLeft") el.scrollLeft -= stepX;
     else if (e.key === "ArrowDown") el.scrollTop += ROW_H * 3;
@@ -560,7 +600,8 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
           </div>
         </div>
       </div>
-      <div ref={scrollRef} className="pg-scroll" onScroll={onScroll} onWheel={onWheel} onKeyDown={onKeyDown} tabIndex={0} aria-label="Gantt chart: arrow keys scroll, + and - zoom, Escape clears the selection">
+      <span className="sr-only" aria-live="polite">{selectedText}</span>
+      <div ref={scrollRef} className="pg-scroll" onScroll={onScroll} onWheel={onWheel} onKeyDown={onKeyDown} tabIndex={0} aria-label="Gantt chart: arrow keys scroll, ] and [ select the next or previous operation, + and - zoom, Escape clears the selection">
         <div style={{ width: totalW, height: totalH + HEAD_H, position: "relative" }}>
           <canvas
             ref={canvasRef}

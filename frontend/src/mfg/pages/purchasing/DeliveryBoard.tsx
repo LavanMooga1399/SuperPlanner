@@ -125,7 +125,7 @@ export function DeliveryBoard() {
         onActivate={(s) => navigate(s.link)}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading deliveries…" : "No open deliveries match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString()} of {data.total.toLocaleString()} open deliveries</span>}
+        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} open deliveries</span>}
       />
     </div>
   );

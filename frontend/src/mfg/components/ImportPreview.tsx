@@ -68,7 +68,7 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
           <div className="card-header">
             <h3 id="imp-err-title" className="row">
               <span className="badge danger">
-                <Icon name="x" /> {preview.error_count.toLocaleString()} {preview.error_count === 1 ? "row error" : "row errors"}
+                <Icon name="x" /> {preview.error_count.toLocaleString("en-IN")} {preview.error_count === 1 ? "row error" : "row errors"}
               </span>
               {preview.row_errors.length < preview.error_count ? <span className="muted small">first {preview.row_errors.length} shown</span> : null}
             </h3>

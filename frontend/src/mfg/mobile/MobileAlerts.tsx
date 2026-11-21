@@ -14,6 +14,7 @@ import { floorErrorText } from "../floor/floorText";
 import { usePolling } from "../lib/usePolling";
 import { useLoad } from "../lib/useMfg";
 import { useOnline } from "./MobileLayout";
+import { formatDateTime } from "../../lib/locale";
 
 const SEVERITY: Record<Severity, { label: string; tone: string; icon: "alert" | "info" }> = {
   critical: { label: "Critical", tone: "danger", icon: "alert" },
@@ -68,7 +69,7 @@ function AlertRow({ n }: { n: MfgNotification }) {
         <SeverityBadge severity={n.severity} />
       </div>
       {n.body ? <p style={{ margin: 0 }}>{n.body}</p> : null}
-      <span className="muted small">{new Date(n.created_at).toLocaleString()}</span>
+      <span className="muted small">{formatDateTime(n.created_at)}</span>
       <div className="m-actions">
         {acked ? (
           <span className="m-state small">

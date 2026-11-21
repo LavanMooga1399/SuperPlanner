@@ -3,7 +3,7 @@
  * `src/api/client.ts` keeps its request helpers private, so this module has `mfgRaw`/`mfgRequest` with the same
  * A.14 envelope parsing, importing only the exported names allowed by M 2.
  */
-import { API_BASE, ApiError, looksLikeProxyFailure, networkError } from "../../api/client";
+import { API_BASE, ApiError, looksLikeProxyFailure, networkError, withRequestId } from "../../api/client";
 import { authFetch } from "../../auth/authFetch";
 import { workspaceHeaders } from "../lib/workspace";
 import type {
@@ -120,13 +120,13 @@ async function failure(res: Response): Promise<ApiError> {
     }
   }
   const env = envelopeOf(parsed);
-  if (env) return new ApiError(res.status, env.code, env.message, env.details ?? {});
+  if (env) return withRequestId(new ApiError(res.status, env.code, env.message, env.details ?? {}), res);
   if (looksLikeProxyFailure(res.status, text)) return networkError(res.status);
   const detail =
     typeof parsed === "object" && parsed !== null && "detail" in parsed
       ? String((parsed as { detail: unknown }).detail)
       : res.statusText || "Request failed";
-  return new ApiError(res.status, `HTTP_${res.status}`, detail);
+  return withRequestId(new ApiError(res.status, `HTTP_${res.status}`, detail), res);
 }
 
 async function send(path: string, init: RequestInit): Promise<Response> {

@@ -12,6 +12,7 @@ import type { DraftCard } from "../api/typesM6";
 import { needsText, PERMISSION_ROLES, useAccess } from "../lib/permissions";
 import { errorCode, errorText, isConflict } from "../lib/useMfg";
 import { draftKindText } from "./assistantText";
+import { formatDateTime } from "../../lib/locale";
 
 type State = { s: "idle" } | { s: "confirm" } | { s: "busy" } | { s: "done"; at: string; kind?: string | null } | { s: "error"; text: string };
 
@@ -92,7 +93,7 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
       ) : null}
       {st.s === "done" ? (
         <div className="asst-draft-msg ok" role="status" data-testid="asst-draft-done">
-          <Icon name="check" size={14} /> Applied {new Date(st.at).toLocaleString()}
+          <Icon name="check" size={14} /> Applied {formatDateTime(st.at)}
           {st.kind ? <span data-testid="asst-draft-result-kind" data-kind={st.kind}>: created a {KIND_WORDS[st.kind] ?? st.kind.replace(/_/g, " ")}</span> : null}. It is recorded under your name like any change on the page.
         </div>
       ) : null}

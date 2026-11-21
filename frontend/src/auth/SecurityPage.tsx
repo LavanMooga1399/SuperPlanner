@@ -19,6 +19,7 @@ import { FormError, authFailureText } from "./AuthFields";
 import { safeNext } from "./nextPath";
 import { AuthLoading } from "./SignInPage";
 import "./auth.css";
+import { formatDate } from "../lib/locale";
 
 const groups = (s: string) => s.replace(/\s+/g, "").match(/.{1,4}/g)?.join(" ") ?? s;
 
@@ -259,7 +260,7 @@ export function SecurityPage() {
                 <span className="badge ok">
                   <Icon name="check" /> On
                 </span>{" "}
-                {status.enabled_at ? `since ${new Date(status.enabled_at).toLocaleDateString()}` : ""}
+                {status.enabled_at ? `since ${formatDate(status.enabled_at)}` : ""}
                 {status.recovery_codes_left !== null ? ` · ${status.recovery_codes_left} recovery codes left` : ""}
               </p>
               {mode ? (

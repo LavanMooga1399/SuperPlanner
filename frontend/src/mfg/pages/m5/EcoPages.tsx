@@ -23,6 +23,7 @@ import { mfgPaths } from "../../lib/paths";
 import { needsText, useAccess, useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { isConflict, useLoad } from "../../lib/useMfg";
+import { formatDate } from "../../../lib/locale";
 
 const STATUS: Record<CrStatus, { label: string; tone: string; icon: IconName }> = {
   draft: { label: "Draft", tone: "info", icon: "file" },
@@ -305,7 +306,7 @@ export function EcoPage() {
               Takes effect {effText(c)} · P{c.priority}
               {c.requested_by ? ` · requested by ${who(c.requested_by)}` : ""}
               {c.approved_by ? ` · approved by ${who(c.approved_by)}` : ""}
-              {c.implemented_at ? ` · implemented ${new Date(c.implemented_at).toLocaleDateString()}` : ""}
+              {c.implemented_at ? ` · implemented ${formatDate(c.implemented_at)}` : ""}
             </span>
           </span>
         </div>

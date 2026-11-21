@@ -35,6 +35,7 @@ import { fmtMoney, POSTING_LABEL } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { needsText, useAccess } from "../../lib/permissions";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
+import { toast } from "../../../components/Toast";
 
 const EDITABLE: Record<DocType, PurchaseStatus[]> = { pr: ["draft", "rejected"], po: ["draft", "open", "partially_received"] };
 
@@ -230,9 +231,11 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
     try {
       if (isNew) {
         const created = await createPurchaseDoc(docType, body);
+        toast(`${docType === "po" ? "Purchase order" : "Purchase request"} ${created.number} created`);
         navigate(mfgPaths.purchaseDoc(docType, created.id), { replace: true });
       } else if (doc) {
         reset(await updatePurchaseDoc(docType, doc.id, body, doc.row_version));
+        toast("Changes saved");
         setNotice("Saved.");
       }
     } catch (e) {

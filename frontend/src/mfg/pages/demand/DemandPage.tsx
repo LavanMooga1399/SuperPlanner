@@ -23,6 +23,8 @@ import { isCountUom, useItemInfo } from "../../lib/itemCache";
 import { mfgPaths } from "../../lib/paths";
 import { useAccess } from "../../lib/permissions";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
+import { toast } from "../../../components/Toast";
+import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
 
 interface LineDraft {
   key: number;
@@ -243,9 +245,11 @@ export function DemandPage() {
     try {
       if (isNew) {
         const o = await createDemandOrder(body);
+        toast(`Demand order ${o.number} created`);
         navigate(mfgPaths.demandOrder(o.id), { replace: true });
       } else if (order) {
         reset(await updateDemandOrder(order.id, body, order.row_version));
+        toast("Changes saved");
         setNotice("Saved.");
       }
     } catch (e) {
@@ -280,6 +284,7 @@ export function DemandPage() {
 
   return (
     <div className="col gap-lg" data-testid="demand-page" data-status={status}>
+      <UnsavedChangesGuard when={!isNew && dirty && !busy} what="this demand order" />
       <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.demand()}>Demand</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{order?.number ?? "New demand order"}</span>
       </nav>

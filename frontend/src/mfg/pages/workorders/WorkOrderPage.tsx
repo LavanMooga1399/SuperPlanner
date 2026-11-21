@@ -37,6 +37,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useAccess } from "../../lib/permissions";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { ComponentsEditor, IssueDialog, OutputDialog } from "./WoDialogs";
+import { toast } from "../../../components/Toast";
 
 interface Form {
   number: string;
@@ -192,6 +193,7 @@ export function WorkOrderPage() {
     guard(async () => {
       if (isNew) {
         const created = await createWorkOrder(body);
+        toast(`Work order ${created.number} created`);
         navigate(mfgPaths.workOrder(created.id), { replace: true, state: { warnings: created.warnings } });
         return;
       }

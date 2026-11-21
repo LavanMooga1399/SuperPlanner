@@ -20,6 +20,7 @@ import { fmtTimestamp } from "../lib/format";
 import { mfgPaths } from "../lib/paths";
 import { isConflict } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
+import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
 
 interface AttrRow {
   key: string;
@@ -394,9 +395,10 @@ export function ItemDetailsTab() {
         </section>
       ) : null}
 
+      <UnsavedChangesGuard when={dirty && !busy} what="this item" />
       <div className="row mfg-sticky-actions">
         <PermissionGate perm="master_edit" mode="disable">
-        <button type="submit" className="btn primary" disabled={busy || !dirty || !form.part_number.trim() || periodMissing} data-testid="item-save">
+        <button type="submit" className="btn primary" disabled={busy || !dirty || !form.part_number.trim() || periodMissing} title={!dirty ? "No changes to save" : !form.part_number.trim() ? "Enter a part number first" : periodMissing ? "Complete the period fields first" : undefined} data-testid="item-save">
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save changes
         </button>
         </PermissionGate>

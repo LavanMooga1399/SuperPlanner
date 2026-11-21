@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { NETWORK_MESSAGE } from "../api/client";
 import { Icon, type IconName } from "./Icon";
+import { SkeletonPage } from "./Skeleton";
 
 export interface BannerProps {
   tone?: "ok" | "warn" | "danger" | "accent" | "info";
@@ -50,11 +51,7 @@ export function ErrorBanner({ error, onRetry }: { error: string | null; onRetry?
   );
 }
 
+/** Page/section loading: skeleton placeholder (UX-STANDARD 4); `label` is announced to screen readers. */
 export function Loading({ label = "Loading…" }: { label?: string }) {
-  return (
-    <div className="empty" role="status">
-      <span className="spinner" aria-hidden />
-      <span>{label}</span>
-    </div>
-  );
+  return <SkeletonPage label={label} rows={5} />;
 }

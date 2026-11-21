@@ -31,6 +31,7 @@
   --danger-soft: #fdecea;
   --info: #44546a;
   --info-soft: #edf0f4;
+  --on-danger: #ffffff;
 
   /* data visualisation */
   --bar: #3b78d8;
@@ -127,6 +128,7 @@
   --danger-soft: #3a1817;
   --info: #a9b4c3;
   --info-soft: #222833;
+  --on-danger: #1b0b0a;
 
   --bar: #3b78d8;
   --bar-crit: #1d4ed8;

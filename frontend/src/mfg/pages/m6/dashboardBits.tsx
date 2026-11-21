@@ -65,7 +65,7 @@ export function TileStatusBadge({ status }: { status: TileStatus }) {
 }
 
 const pct = (v: number) => `${(v * 100).toFixed(1).replace(/\.0$/, "")} %`;
-const num = (v: number, digits = 1) => v.toLocaleString(undefined, { maximumFractionDigits: digits });
+const num = (v: number, digits = 1) => v.toLocaleString("en-IN", { maximumFractionDigits: digits });
 
 /** Tile value in its unit: "%" is a fraction (0.91 = 91 %), "count", "h", "turns", else a currency code. */
 export function fmtValue(v: number | null | undefined, unit: string): string {

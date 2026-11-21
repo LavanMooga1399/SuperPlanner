@@ -55,7 +55,9 @@ const TABLES: [string[], string][] = [
   [["PgUp", "PgDn"], "Move a page of rows"],
   [["Home", "End"], "First or last row"],
   [["Enter"], "Open the focused row"],
-  [["←", "→"], "Collapse or expand (trees)"],
+  [["←", "→"], "Collapse or expand (trees); scroll (Gantt)"],
+  [["[", "]"], "Previous or next operation (Gantt)"],
+  [["+", "−"], "Zoom in or out (Gantt)"],
 ];
 
 function Keys({ keys }: { keys: string[] }) {

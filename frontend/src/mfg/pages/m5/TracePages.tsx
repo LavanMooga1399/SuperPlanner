@@ -22,6 +22,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
+import { formatDate } from "../../../lib/locale";
 
 const KIND: Record<TraceKind, { label: string; icon: IconName }> = {
   serial: { label: "Unit", icon: "circle" },
@@ -270,7 +271,7 @@ function TreeNode({ n, level, isRoot, onRetrace, onRecall }: { n: TraceNode; lev
             <Icon name="flag" size={12} /> {n.customer}
           </span>
         ) : null}
-        {n.at ? <span className="small faint">{new Date(n.at).toLocaleDateString()}</span> : null}
+        {n.at ? <span className="small faint">{formatDate(n.at)}</span> : null}
         {n.plant && !n.plant.visible ? <span className="badge info">in plant {n.plant.code}, not visible to you</span> : n.plant ? <span className="badge info">plant {n.plant.code}</span> : null}
         {!isRoot && onRetrace && (n.kind === "serial" || n.kind === "lot" || n.kind === "wo") ? (
           <button type="button" className="btn sm ghost" onClick={() => onRetrace(n)}>
