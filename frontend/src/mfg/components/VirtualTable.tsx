@@ -25,6 +25,7 @@ import {
 } from "react";
 import { Icon } from "../../components/Icon";
 import { useRowHeight } from "../../lib/prefs";
+import { t } from "../../lib/i18n";
 
 /** Default (compact) row height; the live value follows the density preference (`useRowHeight`). */
 export const ROW_HEIGHT = 28;
@@ -512,7 +513,7 @@ export function VirtualTable<T>({
                       className={`vt-resize${dragging === c.key ? " dragging" : ""}`}
                       role="separator"
                       aria-orientation="vertical"
-                      aria-label={`Resize ${headerText(c)} column`}
+                      aria-label={t("table.resize", { name: headerText(c) })}
                       tabIndex={-1}
                       onPointerDown={(e) => startResize(e, c)}
                       onKeyDown={(e) => resizeKey(e, c)}
@@ -537,7 +538,7 @@ export function VirtualTable<T>({
               ))}
             </div>
           ) : n === 0 ? (
-            <div className="vt-empty">{empty ?? "Nothing to show."}</div>
+            <div className="vt-empty">{empty ?? t("table.empty")}</div>
           ) : (
             <>
               <div aria-hidden style={{ height: start * ROW_HEIGHT }} />
@@ -549,11 +550,11 @@ export function VirtualTable<T>({
       </div>
       {footer || columnSettings || exportName ? (
         <div className="vt-footer vt-toolbar">
-          <div className="vt-footer-main">{footer ?? <span className="muted small">{(totalCount ?? n).toLocaleString("en-IN")} rows</span>}</div>
+          <div className="vt-footer-main">{footer ?? <span className="muted small">{t("table.rows", { count: (totalCount ?? n).toLocaleString("en-IN") })}</span>}</div>
           <div className="row" style={{ gap: 4 }}>
             {exportName ? (
-              <button type="button" className="btn ghost sm" onClick={exportCsv} disabled={n === 0} title="Download the rows loaded so far as CSV" data-testid="vt-export">
-                <Icon name="download" size={14} /> CSV
+              <button type="button" className="btn ghost sm" onClick={exportCsv} disabled={n === 0} title={t("table.csvTitle")} data-testid="vt-export">
+                <Icon name="download" size={14} /> {t("table.csv")}
               </button>
             ) : null}
             {columnSettings ? <ColumnMenu all={orderedAll} prefs={colPrefs} canHide={canHide} onChange={updatePrefs} label={label} /> : null}
@@ -609,13 +610,13 @@ function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T
   return (
     <div className="popover-anchor" ref={ref}>
       <button ref={btn} type="button" className="btn ghost sm" aria-haspopup="dialog" aria-expanded={open} onClick={toggle} data-testid="vt-columns">
-        <Icon name="columns" size={14} /> Columns{hiddenCount ? ` (${hiddenCount} hidden)` : ""}
+        <Icon name="columns" size={14} /> {hiddenCount ? t("table.columnsHidden", { count: hiddenCount }) : t("table.columns")}
       </button>
       {open ? (
         <div className="popover col-menu" role="dialog" aria-label={`Columns of ${label}`} style={pos}>
           <div className="popover-group">
             <span className="small muted" style={{ padding: "0 6px" }}>
-              Show, hide and order columns. Drag a header edge to resize; double-click it to reset.
+              {t("table.columnsHelp")}
             </span>
           </div>
           <div>
@@ -630,10 +631,10 @@ function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T
                   />
                   <span className="mfg-ellipsis">{headerText(c)}</span>
                 </label>
-                <button type="button" className="btn ghost sm icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${headerText(c)} up`}>
+                <button type="button" className="btn ghost sm icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label={t("table.moveUp", { name: headerText(c) })}>
                   <Icon name="sort-asc" size={12} />
                 </button>
-                <button type="button" className="btn ghost sm icon" onClick={() => move(i, 1)} disabled={i === all.length - 1} aria-label={`Move ${headerText(c)} down`}>
+                <button type="button" className="btn ghost sm icon" onClick={() => move(i, 1)} disabled={i === all.length - 1} aria-label={t("table.moveDown", { name: headerText(c) })}>
                   <Icon name="sort-desc" size={12} />
                 </button>
               </div>
@@ -641,7 +642,7 @@ function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T
           </div>
           <div className="menu-sep" />
           <button type="button" className="btn sm" onClick={() => onChange(EMPTY_PREFS)} disabled={!customised}>
-            <Icon name="refresh" size={14} /> Reset to default
+            <Icon name="refresh" size={14} /> {t("table.columnsReset")}
           </button>
         </div>
       ) : null}

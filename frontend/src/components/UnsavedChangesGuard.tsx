@@ -6,6 +6,7 @@
 import { useEffect } from "react";
 import { useBlocker } from "react-router";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { t } from "../lib/i18n";
 
 const automated = typeof navigator !== "undefined" && navigator.webdriver === true;
 
@@ -24,14 +25,14 @@ export function UnsavedChangesGuard({ when, what = "this page" }: { when: boolea
   if (blocker.state !== "blocked") return null;
   return (
     <ConfirmDialog
-      title="Leave without saving?"
-      confirmLabel="Discard changes and leave"
-      cancelLabel="Stay on this page"
+      title={t("guard.title")}
+      confirmLabel={t("guard.confirm")}
+      cancelLabel={t("guard.cancel")}
       danger
       onConfirm={() => blocker.proceed()}
       onCancel={() => blocker.reset()}
     >
-      <p style={{ margin: 0 }}>You have unsaved changes on {what}. If you leave now, they are lost.</p>
+      <p style={{ margin: 0 }}>{t("guard.body", { what })}</p>
     </ConfirmDialog>
   );
 }

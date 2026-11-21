@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Icon } from "./Icon";
+import { t } from "../lib/i18n";
 
 export interface ToastItem {
   id: number;
@@ -32,10 +33,10 @@ const subscribe = (l: () => void) => {
   return () => listeners.delete(l);
 };
 
-function ToastView({ t }: { t: ToastItem }) {
+function ToastView({ item }: { item: ToastItem }) {
   const timer = useRef<number | null>(null);
   const start = () => {
-    timer.current = window.setTimeout(() => dismiss(t.id), 5000);
+    timer.current = window.setTimeout(() => dismiss(item.id), 5000);
   };
   const stop = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
@@ -46,10 +47,10 @@ function ToastView({ t }: { t: ToastItem }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <div className={`toast ${t.tone}`} onMouseEnter={stop} onMouseLeave={start} onFocus={stop} onBlur={start} data-testid="toast">
-      <Icon name={t.tone === "ok" ? "check" : t.tone === "warn" ? "alert" : "info"} />
-      <span className="toast-text">{t.text}</span>
-      <button type="button" className="btn ghost sm icon" aria-label="Dismiss notification" onClick={() => dismiss(t.id)}>
+    <div className={`toast ${item.tone}`} onMouseEnter={stop} onMouseLeave={start} onFocus={stop} onBlur={start} data-testid="toast">
+      <Icon name={item.tone === "ok" ? "check" : item.tone === "warn" ? "alert" : "info"} />
+      <span className="toast-text">{item.text}</span>
+      <button type="button" className="btn ghost sm icon" aria-label={t("common.dismiss")} onClick={() => dismiss(item.id)}>
         <Icon name="x" size={14} />
       </button>
     </div>
@@ -61,7 +62,7 @@ export function Toaster() {
   return (
     <div className="toaster" role="status" aria-live="polite" aria-relevant="additions">
       {list.map((t) => (
-        <ToastView key={t.id} t={t} />
+        <ToastView key={t.id} item={t} />
       ))}
     </div>
   );

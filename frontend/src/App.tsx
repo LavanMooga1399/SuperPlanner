@@ -14,6 +14,7 @@ import { AccountMenu } from "./auth/AccountMenu";
 import { useAuth } from "./auth/AuthContext";
 import { SessionExpiredBanner } from "./auth/SessionExpiredBanner";
 import { isMfgPath } from "./mfg/lib/paths";
+import { t } from "./lib/i18n";
 
 /** Polls /health; shared by the top bar dot and the offline banner. */
 function useServerHealth() {
@@ -91,7 +92,7 @@ function SearchButton() {
   return (
     <button type="button" className="global-search" onClick={openPalette} aria-label={`Search and commands (${MOD}+K)`} data-testid="global-search">
       <Icon name="search" size={14} />
-      <span className="global-search-text">Search or jump to…</span>
+      <span className="global-search-text">{t("shell.search")}</span>
       <kbd className="hide-sm">{MOD} K</kbd>
     </button>
   );
@@ -107,7 +108,7 @@ export function App() {
     <HeaderSlotContext.Provider value={slot}>
       <div className="app-shell">
         <a href="#main" className="skip-link">
-          Skip to content
+          {t("shell.skip")}
         </a>
         <header className="topbar">
           <Link to="/" className="brand" aria-label="SuperPlanner home">
@@ -126,7 +127,7 @@ export function App() {
             <div className="topbar-slot" ref={setSlot} />
             <ServerStatus health={server.health} down={server.down} />
             <span className="topbar-sep hide-sm" aria-hidden />
-            <button type="button" className="btn ghost icon" onClick={openShortcuts} aria-label="Help and keyboard shortcuts" title="Help and keyboard shortcuts (?)" data-testid="help-button">
+            <button type="button" className="btn ghost icon" onClick={openShortcuts} aria-label={t("shell.help")} title={`${t("shell.help")} (?)`} data-testid="help-button">
               <Icon name="help" />
             </button>
             <DisplayMenu />

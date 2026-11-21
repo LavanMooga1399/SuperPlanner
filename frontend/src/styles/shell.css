@@ -235,3 +235,17 @@
 h1.mono, .ws-title h1 { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
 h2.mono { font-size: var(--fs-md); }
 .ws-header { margin-bottom: var(--sp-2); }
+
+/* filter fields fold on phones */
+.filter-fields { display: contents; }
+.filter-toggle { display: none; }
+@media (max-width: 720px) {
+  .filter-toggle { display: inline-flex; align-self: flex-end; }
+  .filter-bar:not(.filters-open) > .filter-fields { display: none; }
+  .filter-bar .filter-search { flex: 1 1 100%; }
+  .filter-bar-end { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .main-nav-link:not(.active) { display: none; }
+}
+.page-header .select, .page-header .input { width: auto; }

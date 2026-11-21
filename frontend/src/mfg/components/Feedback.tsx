@@ -5,6 +5,7 @@ import { Icon } from "../../components/Icon";
 import { SkeletonPage } from "../../components/Skeleton";
 import { errorText, isForbidden, isNotFound } from "../lib/useMfg";
 import { ApiError, networkError } from "../../api/client";
+import { t } from "../../lib/i18n";
 
 const NETWORK_MESSAGE = networkError().message;
 
@@ -64,8 +65,8 @@ export function RequestRef({ error }: { error: unknown }) {
   if (!id) return null;
   return (
     <div className="ref-id" data-testid="error-ref">
-      Reference <code>{id}</code>
-      <button type="button" className="btn ghost sm icon" aria-label="Copy reference" title="Copy reference" onClick={() => void navigator.clipboard?.writeText(id).catch(() => undefined)}>
+      {t("error.reference")} <code>{id}</code>
+      <button type="button" className="btn ghost sm icon" aria-label={t("error.copyReference")} title={t("error.copyReference")} onClick={() => void navigator.clipboard?.writeText(id).catch(() => undefined)}>
         <Icon name="copy" size={12} />
       </button>
     </div>

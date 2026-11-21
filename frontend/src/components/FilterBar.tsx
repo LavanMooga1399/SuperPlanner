@@ -3,9 +3,10 @@
  * views (named URL query strings per page, kept in localStorage `sp.views.<pageKey>`). Pages keep their own
  * field ids and test ids; this component only lays them out the same way everywhere.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Icon } from "./Icon";
+import { t } from "../lib/i18n";
 
 export interface FilterChip {
   key: string;
@@ -39,9 +40,12 @@ export function FilterBar({
   pageKey?: string;
   end?: ReactNode;
 }) {
+  // phones: the filter fields fold behind one "Filters" button (search and chips stay visible)
+  const [open, setOpen] = useState(false);
+  const fieldCount = Children.count(children);
   return (
     <div className="col" style={{ gap: 6 }}>
-      <div className="filter-bar toolbar mfg-filters" role="search" style={{ marginBottom: 0 }}>
+      <div className={`filter-bar toolbar mfg-filters${open ? " filters-open" : ""}`} role="search" style={{ marginBottom: 0 }}>
         {search ? (
           <div className="field filter-search">
             <label htmlFor={search.id}>{search.label ?? "Search"}</label>
@@ -59,7 +63,13 @@ export function FilterBar({
             </div>
           </div>
         ) : null}
-        {children}
+        {fieldCount ? (
+          <button type="button" className="btn filter-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            <Icon name="filter" size={14} /> {t("filters.button")}
+            {chips.length ? ` (${chips.length})` : ""}
+          </button>
+        ) : null}
+        <div className="filter-fields">{children}</div>
         {end || pageKey ? (
           <div className="filter-bar-end">
             {end}
@@ -68,20 +78,20 @@ export function FilterBar({
         ) : null}
       </div>
       {chips.length ? (
-        <div className="chips" aria-label="Active filters">
+        <div className="chips" aria-label={t("filters.active")}>
           {chips.map((c) => (
             <span key={c.key} className="filter-chip">
               <span>
                 {c.label}: <b>{c.value}</b>
               </span>
-              <button type="button" onClick={c.onClear} aria-label={`Remove filter ${c.label}: ${c.value}`}>
+              <button type="button" onClick={c.onClear} aria-label={t("filters.remove", { label: c.label, value: c.value })}>
                 <Icon name="x" size={12} />
               </button>
             </span>
           ))}
           {onClearAll && chips.length > 1 ? (
             <button type="button" className="btn ghost sm" onClick={onClearAll}>
-              Clear all
+              {t("filters.clearAll")}
             </button>
           ) : null}
         </div>
@@ -146,21 +156,21 @@ function SavedViews({ pageKey }: { pageKey: string }) {
     <div className="popover-anchor" ref={ref}>
       <button ref={btn} type="button" className="btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="saved-views" title="Saved views: named sets of filters">
         <Icon name="bookmark" size={14} />
-        <span className="nowrap">{current ? current.name : "Views"}</span>
+        <span className="nowrap">{current ? current.name : t("views.button")}</span>
         <Icon name="chevron-down" size={12} />
       </button>
       {open ? (
         <div className="popover" role="dialog" aria-label="Saved views">
           <div className="popover-group">
-            <span className="popover-legend">Saved views</span>
-            {views.length === 0 ? <span className="small muted" style={{ padding: "2px 6px" }}>No saved views yet. Set filters, then save them here.</span> : null}
+            <span className="popover-legend">{t("views.title")}</span>
+            {views.length === 0 ? <span className="small muted" style={{ padding: "2px 6px" }}>{t("views.none")}</span> : null}
             {views.map((v) => (
               <div key={v.name} className="col-row">
                 <button type="button" className="menu-item" onClick={() => (navigate({ search: v.search }), setOpen(false))} aria-current={v === current ? "true" : undefined}>
                   {v === current ? <Icon name="check" size={14} /> : <span style={{ width: 14 }} />}
                   <span className="mfg-ellipsis">{v.name}</span>
                 </button>
-                <button type="button" className="btn ghost sm icon" onClick={() => store(views.filter((x) => x !== v))} aria-label={`Delete view ${v.name}`}>
+                <button type="button" className="btn ghost sm icon" onClick={() => store(views.filter((x) => x !== v))} aria-label={t("views.delete", { name: v.name })}>
                   <Icon name="trash" size={14} />
                 </button>
               </div>
@@ -174,13 +184,13 @@ function SavedViews({ pageKey }: { pageKey: string }) {
               save();
             }}
           >
-            <input className="input sm" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name for current filters" aria-label="Name for the current view" maxLength={60} />
+            <input className="input sm" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("views.namePlaceholder")} aria-label="Name for the current view" maxLength={60} />
             <button type="submit" className="btn sm primary" disabled={!name.trim()}>
-              Save
+              {t("views.save")}
             </button>
           </form>
           <button type="button" className="menu-item" onClick={() => (navigate({ search: "" }), setOpen(false))}>
-            <Icon name="refresh" size={14} /> Reset to default filters
+            <Icon name="refresh" size={14} /> {t("views.reset")}
           </button>
         </div>
       ) : null}

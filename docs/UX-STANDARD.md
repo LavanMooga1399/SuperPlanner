@@ -94,6 +94,29 @@ contrast checked for text, status text on soft backgrounds and accent buttons in
 
 No new npm packages. Everything above is built on React, react-router and CSS.
 
-## 8. Remaining gaps (prioritised)
+## 8. Implementation notes
 
-Kept current at the end of the work; see section 9.
+- Unsaved-changes guard (`components/UnsavedChangesGuard.tsx`) is on the item, BOM, routing and demand-order
+  editors. It does not prompt in automated browsers (`navigator.webdriver`), so scripted e2e runs behave as before.
+- Inline server validation: wrap a form in `<FormErrors error={err}>`; every `Field`/`TextField`/`SelectField`
+  with `name` (or a label matching the API field) shows its 422 message under the control with `aria-invalid`.
+- Table column layout is per browser (`localStorage`), not per server account, because no preferences API
+  exists and backend APIs were out of scope.
+- Strings of the shared components live in `lib/i18n.ts` (`t()`); page copy is still inline.
+- All existing `data-testid`s are kept; new ones: `global-search`, `command-palette`, `command-input`,
+  `help-button`, `display-menu`, `density-*`, `side-toggle`, `side-open`, `nav-group-overview`,
+  `nav-group-supply`, `vt-columns`, `vt-export`, `sort-<column>`, `saved-views`, `toast`, `field-error`, `error-ref`.
+
+## 9. Remaining gaps (prioritised)
+
+1. Saved views and column layouts are per device; move them to a server-side user-preferences endpoint.
+2. Bulk selection with bulk actions: no list has a bulk API today (e.g. firm/release several planned orders);
+   add row checkboxes to `VirtualTable` when such endpoints exist.
+3. Server-side sorting exists only where the API offers sort keys (items, work orders, purchase documents,
+   MRP items/planned orders); demand, lots, transactions need API sort keys before headers become sortable.
+4. Convert the remaining ~15 legacy filter toolbars and ~40 page headers to `FilterBar`/`PageHeader`
+   components (they already inherit the compact styling through `.mfg-filters` / `.page-header`).
+5. Gantt: bar-level keyboard navigation (`[` `]`) and announcements are in; keyboard move/resize of bars
+   (today drag only) is not.
+6. Unsaved-changes guard on work order, purchase document and plan-settings editors (they lack a dirty flag).
+7. Page copy outside the shared components is not yet in `lib/i18n.ts`.

@@ -13,6 +13,7 @@ import { listDemandOrders, listPurchaseDocs, listWorkOrders } from "../../mfg/ap
 import { listSerials } from "../../mfg/api/clientM4";
 import { setDensity, setTheme, usePrefs } from "../../lib/prefs";
 import { closePalette, openShortcuts, useCommandState } from "./commands";
+import { t } from "../../lib/i18n";
 
 interface Entry {
   id: string;
@@ -196,7 +197,7 @@ function PaletteDialog() {
             aria-activedescendant={shown[active] ? `${listId}-${active}` : undefined}
             aria-autocomplete="list"
             aria-label="Search pages, actions and records"
-            placeholder="Search pages, work orders, items, purchase orders, serials…"
+            placeholder={t("palette.placeholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
@@ -207,7 +208,7 @@ function PaletteDialog() {
         <ul className="palette-list" role="listbox" id={listId} ref={listRef} aria-label="Results">
           {shown.length === 0 ? (
             <li className="palette-empty" role="presentation">
-              {records.busy ? "Searching…" : `No pages, actions or records match "${q.trim()}".`}
+              {records.busy ? t("palette.searching") : t("palette.none", { q: q.trim() })}
             </li>
           ) : null}
           {shown.map((e, i) => {
@@ -243,7 +244,7 @@ function PaletteDialog() {
           <span><kbd>Enter</kbd> open</span>
           <span><kbd>Esc</kbd> close</span>
           <span className="grow" />
-          <span>Type 2+ characters to search records</span>
+          <span>{t("palette.hint")}</span>
         </div>
       </div>
     </div>
