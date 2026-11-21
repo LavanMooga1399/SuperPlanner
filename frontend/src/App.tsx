@@ -1,45 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
+import { HeaderSlotContext } from "./components/shell/HeaderSlot";
+import { DisplayMenu, ThemeToggle } from "./components/shell/DisplayMenu";
+import { CommandPalette } from "./components/shell/CommandPalette";
+import { GlobalShortcuts, ShortcutsDialog } from "./components/shell/Shortcuts";
+import { MOD, openPalette, openShortcuts } from "./components/shell/commands";
+import { Toaster } from "./components/Toast";
 import { NETWORK_MESSAGE, getHealth } from "./api/client";
 import type { Health } from "./api/types";
 import { Banner } from "./components/Banner";
 import { Icon } from "./components/Icon";
-import { useStoredState } from "./lib/useAsync";
 import { AccountMenu } from "./auth/AccountMenu";
 import { useAuth } from "./auth/AuthContext";
 import { SessionExpiredBanner } from "./auth/SessionExpiredBanner";
 import { isMfgPath } from "./mfg/lib/paths";
-
-type ThemePref = "light" | "dark";
-
-function systemTheme(): ThemePref {
-  try {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  } catch {
-    return "light";
-  }
-}
-
-function ThemeToggle() {
-  const [pref, setPref] = useStoredState<ThemePref | null>("sp.theme", null);
-  const theme = pref ?? systemTheme();
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
-  const next = theme === "dark" ? "light" : "dark";
-  return (
-    <button
-      type="button"
-      className="btn ghost icon"
-      onClick={() => setPref(next)}
-      aria-label={`Switch to ${next} mode`}
-      title={`Switch to ${next} mode`}
-      data-testid="theme-toggle"
-    >
-      <Icon name={theme === "dark" ? "sun" : "moon"} />
-    </button>
-  );
-}
 
 /** Polls /health; shared by the top bar dot and the offline banner. */
 function useServerHealth() {
@@ -75,9 +49,14 @@ function ServerStatus({ health, down }: { health: Health | null; down: boolean }
     );
   if (!health) return null;
   return (
-    <span className="server-dot hide-sm" title={`OR-Tools ${health.ortools_version}, database ${health.database}`}>
-      <Icon name={health.status === "ok" ? "check" : "alert"} size={14} />
-      Engine {health.version}
+    <span
+      className="server-dot hide-md"
+      title={`Engine ${health.version}, OR-Tools ${health.ortools_version}, database ${health.database}`}
+      aria-label={health.status === "ok" ? `Server connected, engine ${health.version}` : "Server degraded"}
+      role="img"
+    >
+      <span className={`status-dot ${health.status === "ok" ? "ok" : "warn"}`} aria-hidden />
+      <span aria-hidden>{health.status === "ok" ? "Connected" : "Degraded"}</span>
     </span>
   );
 }
@@ -108,51 +87,84 @@ function MainNav() {
   );
 }
 
+function SearchButton() {
+  return (
+    <button type="button" className="global-search" onClick={openPalette} aria-label={`Search and commands (${MOD}+K)`} data-testid="global-search">
+      <Icon name="search" size={14} />
+      <span className="global-search-text">Search or jump to…</span>
+      <kbd className="hide-sm">{MOD} K</kbd>
+    </button>
+  );
+}
+
 export function App() {
   const server = useServerHealth();
   const auth = useAuth();
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   // Accounts mode, nobody signed in (sign-in / sign-up pages): no section links to pages that need a session.
   const showNav = !(auth.mode === "accounts" && auth.status !== "authenticated");
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <Link to="/" className="brand" aria-label="SuperPlanner home">
-          <svg className="brand-mark" viewBox="0 0 22 22" aria-hidden>
-            <rect x="1" y="1" width="20" height="20" rx="5" fill="var(--accent)" />
-            <rect x="5" y="6" width="7" height="3" rx="1.2" fill="var(--accent-contrast)" />
-            <rect x="9" y="11" width="8" height="3" rx="1.2" fill="var(--accent-contrast)" opacity="0.85" />
-            <rect x="6" y="16" width="5" height="2" rx="1" fill="var(--accent-contrast)" opacity="0.6" />
-          </svg>
-          SuperPlanner <span className="muted hide-sm" style={{ fontWeight: 500 }}>Studio</span>
-        </Link>
-        {showNav ? <MainNav /> : null}
-        <div className="topbar-spacer" />
-        <ServerStatus health={server.health} down={server.down} />
-        <ThemeToggle />
-        <AccountMenu />
-      </header>
-      <main className="main">
-        {server.down ? (
-          <div className="mb">
-            <Banner
-              tone="danger"
-              role="alert"
-              testId="server-offline"
-              title="Server not reachable"
-              actions={
-                <button className="btn sm" onClick={() => void server.check()} disabled={server.checking}>
-                  {server.checking ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Retry
-                </button>
-              }
-            >
-              {NETWORK_MESSAGE}
-            </Banner>
+    <HeaderSlotContext.Provider value={slot}>
+      <div className="app-shell">
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
+        <header className="topbar">
+          <Link to="/" className="brand" aria-label="SuperPlanner home">
+            <svg className="brand-mark" viewBox="0 0 22 22" aria-hidden>
+              <rect x="1" y="1" width="20" height="20" rx="5" fill="var(--accent)" />
+              <rect x="5" y="6" width="7" height="3" rx="1.2" fill="var(--accent-contrast)" />
+              <rect x="9" y="11" width="8" height="3" rx="1.2" fill="var(--accent-contrast)" opacity="0.85" />
+              <rect x="6" y="16" width="5" height="2" rx="1" fill="var(--accent-contrast)" opacity="0.6" />
+            </svg>
+            <span className="hide-sm">SuperPlanner</span>
+          </Link>
+          {showNav ? <MainNav /> : null}
+          <div className="topbar-spacer" />
+          {showNav ? <SearchButton /> : null}
+          <div className="topbar-tools">
+            <div className="topbar-slot" ref={setSlot} />
+            <ServerStatus health={server.health} down={server.down} />
+            <span className="topbar-sep hide-sm" aria-hidden />
+            <button type="button" className="btn ghost icon" onClick={openShortcuts} aria-label="Help and keyboard shortcuts" title="Help and keyboard shortcuts (?)" data-testid="help-button">
+              <Icon name="help" />
+            </button>
+            <DisplayMenu />
+            <ThemeToggle />
+            <AccountMenu />
           </div>
+        </header>
+        <main className="main" id="main" tabIndex={-1}>
+          {server.down ? (
+            <div className="mb">
+              <Banner
+                tone="danger"
+                role="alert"
+                testId="server-offline"
+                title="Server not reachable"
+                actions={
+                  <button className="btn sm" onClick={() => void server.check()} disabled={server.checking}>
+                    {server.checking ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Retry
+                  </button>
+                }
+              >
+                {NETWORK_MESSAGE}
+              </Banner>
+            </div>
+          ) : null}
+          <SessionExpiredBanner />
+          <Outlet />
+        </main>
+        {showNav ? (
+          <>
+            <GlobalShortcuts />
+            <CommandPalette />
+            <ShortcutsDialog />
+          </>
         ) : null}
-        <SessionExpiredBanner />
-        <Outlet />
-      </main>
-    </div>
+        <Toaster />
+      </div>
+    </HeaderSlotContext.Provider>
   );
 }
 

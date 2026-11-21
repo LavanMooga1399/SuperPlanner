@@ -133,13 +133,7 @@ details.card > summary { cursor: pointer; }
 .mfg-drop:hover, .mfg-drop.over { border-color: var(--accent); background: var(--accent-soft); }
 .mfg-drop:focus-within { box-shadow: var(--focus); }
 
-/* ---------------------------------------------------------------- M2 navigation */
-.mfg-nav { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.mfg-nav-groups { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end; }
-.mfg-nav-group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mfg-nav-group-label { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); padding-left: 2px; }
-.mfg-nav-side { gap: 8px; margin-bottom: 6px; }
-.mfg-workspace select { min-width: 180px; }
+.mfg-workspace select { min-width: 160px; }
 
 /* ---------------------------------------------------------------- menus, tiles, M2 tables */
 .mfg-menu { position: relative; }

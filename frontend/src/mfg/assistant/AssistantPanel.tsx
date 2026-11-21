@@ -577,8 +577,8 @@ export function AssistantButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="btn sm" onClick={() => setOpen((v) => !v)} aria-expanded={open} data-testid="asst-open">
-        <Icon name="help" /> Assistant
+      <button type="button" className="btn ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Assistant" title="Assistant" data-testid="asst-open">
+        <Icon name="chat" /> <span className="asst-label">Assistant</span>
       </button>
       {open ? <AssistantDrawer onClose={() => setOpen(false)} /> : null}
     </>

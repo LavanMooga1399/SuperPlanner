@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import "./styles/theme.css";
+import "./styles/shell.css";
+import { initPrefs } from "./lib/prefs";
 import { App, NotFound } from "./App";
 import { HomePage } from "./pages/HomePage";
 import { PlanWorkspace } from "./pages/PlanWorkspace";
@@ -86,6 +88,8 @@ const router = createBrowserRouter([
     ],
   },
 ]);
+
+initPrefs();
 
 // M6 2: the app shell is cached by the service worker in production builds; the dev server registers it only from
 // the mobile pages (`/m`), so the desktop e2e specs keep plain network routing.

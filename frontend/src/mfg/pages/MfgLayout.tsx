@@ -1,77 +1,39 @@
-import { useEffect } from "react";
-import { Link, NavLink, Outlet } from "react-router";
-import { Icon, type IconName } from "../../components/Icon";
+import { useEffect, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { Icon } from "../../components/Icon";
+import { HeaderTools } from "../../components/shell/HeaderSlot";
 import { MfgError } from "../components/Feedback";
 import { NotificationBell } from "../components/NotificationBell";
 import { AssistantButton } from "../assistant/AssistantPanel";
 import { RoleBadge, WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { mfgPaths } from "../lib/paths";
+import { MFG_NAV, sectionFor, type NavGroupDef } from "../lib/nav";
 import { AccessProvider, useAccess } from "../lib/permissions";
+import { useStoredState } from "../../lib/useAsync";
 
-interface Section {
-  key: string;
-  label: string;
-  to: string;
-  icon: IconName;
-  end?: boolean;
-}
-
-const SETUP: Section[] = [
-  { key: "overview", label: "Overview", to: mfgPaths.home(), icon: "factory", end: true },
-  { key: "items", label: "Items", to: mfgPaths.items(), icon: "list" },
-  { key: "plant", label: "Plant", to: mfgPaths.plant(), icon: "settings" },
-  { key: "resources", label: "People & tooling", to: mfgPaths.resources(), icon: "briefcase" },
-  { key: "health", label: "Data health", to: mfgPaths.health(), icon: "check" },
-  { key: "import", label: "Import / export", to: mfgPaths.importStart(), icon: "upload" },
-];
-
-const EXECUTION: Section[] = [
-  { key: "floor", label: "Shop floor", to: mfgPaths.floorOverview(), icon: "factory" },
-  { key: "replan", label: "Replanning", to: mfgPaths.replan(), icon: "refresh" },
-  { key: "kpis", label: "KPIs", to: mfgPaths.kpis(), icon: "graph" },
-  { key: "dashboard", label: "Dashboard", to: mfgPaths.dashboard(), icon: "graph" },
-  { key: "serials", label: "Serials", to: mfgPaths.serials(), icon: "list" },
-  { key: "trace", label: "Trace and recall", to: mfgPaths.trace(), icon: "graph" },
-];
-
-/** M5: engineering changes, transfers, integration and audit */
-const CONTROL: Section[] = [
-  { key: "eco", label: "Engineering changes", to: mfgPaths.ecos(), icon: "refresh" },
-  { key: "transfers", label: "Transfers", to: mfgPaths.transfers(), icon: "arrow-right" },
-  { key: "integration", label: "ERP integration", to: mfgPaths.integration(), icon: "upload" },
-  { key: "audit", label: "Audit trail", to: mfgPaths.audit(), icon: "book" },
-];
-
-const PLANNING: Section[] = [
-  { key: "demand", label: "Demand", to: mfgPaths.demand(), icon: "flag" },
-  { key: "mrp", label: "MRP", to: mfgPaths.mrp(), icon: "graph" },
-  { key: "schedule", label: "Schedule", to: mfgPaths.schedule(), icon: "calendar" },
-  { key: "shortages", label: "Shortages", to: mfgPaths.shortages(), icon: "alert" },
-  { key: "work-orders", label: "Work orders", to: mfgPaths.workOrders(), icon: "play" },
-  { key: "purchasing", label: "Purchasing", to: mfgPaths.purchasing(), icon: "briefcase" },
-  { key: "inventory", label: "Inventory", to: mfgPaths.inventory(), icon: "layers" },
-];
-
-function NavGroup({ label, sections, testId }: { label: string; sections: Section[]; testId: string }) {
+function NavGroup({ group, ownerVisible, collapsed }: { group: NavGroupDef; ownerVisible: boolean; collapsed: boolean }) {
+  const sections = group.sections.filter((s) => !s.ownerOnly || ownerVisible);
   return (
-    <div className="mfg-nav-group" role="group" aria-label={label} data-testid={testId}>
-      <span className="mfg-nav-group-label" aria-hidden>
-        {label}
+    <div className="side-group" role="group" aria-labelledby={`side-${group.key}`} data-testid={group.testId}>
+      <span className="side-group-label" id={`side-${group.key}`}>
+        {group.label}
       </span>
-      <div className="tabs mfg-subnav">
+      <ul className="side-list">
         {sections.map((s) => (
-          <NavLink
-            key={s.key}
-            to={s.to}
-            end={s.end}
-            className={({ isActive }) => `tab${isActive ? " active" : ""}`}
-            data-testid={`mfg-subnav-${s.key}`}
-          >
-            <Icon name={s.icon} size={14} />
-            {s.label}
-          </NavLink>
+          <li key={s.key}>
+            <NavLink
+              to={s.to}
+              end={s.end}
+              className={({ isActive }) => `side-link${isActive ? " active" : ""}`}
+              data-testid={`mfg-subnav-${s.key}`}
+              title={collapsed ? s.label : undefined}
+            >
+              <Icon name={s.icon} size={16} />
+              <span className="side-text">{s.label}</span>
+            </NavLink>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }
@@ -87,29 +49,73 @@ function AccessError() {
   );
 }
 
-function MfgNav() {
+/** Left navigation (UX-STANDARD 3): role-oriented groups, collapsible to an icon rail, drawer on phones. */
+function MfgSidebar({ collapsed, onToggle, open, onClose }: { collapsed: boolean; onToggle(): void; open: boolean; onClose(): void }) {
   const { isOwner, assumed } = useAccess();
-  const setup = isOwner && !assumed ? [...SETUP, { key: "members", label: "Members", to: mfgPaths.members(), icon: "lock" as IconName }] : SETUP;
+  const { pathname } = useLocation();
+  useEffect(() => onClose(), [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="mfg-nav">
-      <nav className="mfg-nav-groups" aria-label="Manufacturing sections">
-        <NavGroup label="Setup" sections={setup} testId="nav-group-setup" />
-        <NavGroup label="Planning & stores" sections={PLANNING} testId="nav-group-planning" />
-        <NavGroup label="Execution" sections={EXECUTION} testId="nav-group-execution" />
-        <NavGroup label="Control" sections={CONTROL} testId="nav-group-control" />
+    <>
+      {open ? <div className="side-scrim" onClick={onClose} aria-hidden /> : null}
+      <aside className={`side${collapsed ? " collapsed" : ""}${open ? " open" : ""}`} aria-label="Manufacturing">
+        <nav className="side-scroll" aria-label="Manufacturing sections">
+          {MFG_NAV.map((g) => (
+            <NavGroup key={g.key} group={g} ownerVisible={isOwner && !assumed} collapsed={collapsed} />
+          ))}
+        </nav>
+        <button type="button" className="side-toggle" onClick={onToggle} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} aria-expanded={!collapsed} data-testid="side-toggle">
+          <Icon name="sidebar" size={16} />
+          <span className="side-text">Collapse</span>
+        </button>
+      </aside>
+    </>
+  );
+}
+
+/** Route-derived breadcrumb for every Manufacturing page; hidden by CSS when the page has its own record trail. */
+function MfgBreadcrumbs({ onMenu }: { onMenu(): void }) {
+  const { pathname } = useLocation();
+  const hit = sectionFor(pathname);
+  const atSection = hit && pathname.replace(/\/$/, "") === hit.section.to.split("?")[0];
+  return (
+    <div className="crumb-bar">
+      <button type="button" className="btn ghost sm icon side-menu-btn" onClick={onMenu} aria-label="Open navigation" data-testid="side-open">
+        <Icon name="menu" />
+      </button>
+      <nav aria-label="Breadcrumb" className="crumbs auto-crumbs">
+        <ol>
+          <li>
+            <Link to={mfgPaths.home()}>Manufacturing</Link>
+          </li>
+          {hit && hit.section.key !== "overview" ? (
+            <>
+              <li>
+                <span className="crumb-group">{hit.group.label}</span>
+              </li>
+              <li>{atSection ? <span aria-current="page">{hit.section.label}</span> : <Link to={hit.section.to}>{hit.section.label}</Link>}</li>
+            </>
+          ) : null}
+        </ol>
       </nav>
-      <div className="row mfg-nav-side">
-        <AssistantButton />
-        <NotificationBell />
-        <WorkspaceSwitcher />
-        <RoleBadge />
-      </div>
     </div>
   );
 }
 
-/** Wraps every /mfg/** route: area title, workspace/role context and the two-group sub-navigation (M2 14.1). */
+function MfgTools() {
+  return (
+    <HeaderTools>
+      <WorkspaceSwitcher />
+      <RoleBadge />
+      <AssistantButton />
+      <NotificationBell />
+    </HeaderTools>
+  );
+}
+
+/** Wraps every /mfg/** route: sidebar navigation, header tools, breadcrumb, then the page (UX-STANDARD 3). */
 export function MfgLayout() {
+  const [collapsed, setCollapsed] = useStoredState<boolean>("sp.side.collapsed", false);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     document.title = "Manufacturing - SuperPlanner";
     return () => {
@@ -118,10 +124,16 @@ export function MfgLayout() {
   }, []);
   return (
     <AccessProvider>
-      <div className="mfg-page">
-        <MfgNav />
-        <AccessError />
-        <Outlet />
+      <MfgTools />
+      <div className={`mfg-shell${collapsed ? " side-collapsed" : ""}`}>
+        <MfgSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} open={open} onClose={() => setOpen(false)} />
+        <div className="mfg-content">
+          <MfgBreadcrumbs onMenu={() => setOpen(true)} />
+          <div className="mfg-page">
+            <AccessError />
+            <Outlet />
+          </div>
+        </div>
       </div>
     </AccessProvider>
   );
