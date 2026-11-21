@@ -12,6 +12,7 @@ import { fmtQty } from "../lib/format";
 import { mfgPaths } from "../lib/paths";
 import { errorText, useLoad } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
+import { plural } from "../../lib/i18n";
 
 export function WhereUsedTab() {
   const { item } = useItem();
@@ -99,7 +100,7 @@ export function WhereUsedTab() {
           empty={`${item.part_number} is not used in any ${include === "effective" ? "effective released" : ""} BOM.`}
           footer={
             <span className="small muted">
-              {wu.data.totals.rows} rows · {wu.data.totals.top_items} top-level products
+              {plural(wu.data.totals.rows, "row")} · {plural(wu.data.totals.top_items, "top-level product")}
             </span>
           }
         />

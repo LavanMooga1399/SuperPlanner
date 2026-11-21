@@ -23,7 +23,7 @@ function ScopeSelect({ value, onChange, testId }: { value: ExportScope; onChange
   );
 }
 
-export function ExportButtons({ compact }: { compact?: boolean }) {
+export function ExportButtons({ compact, grouped }: { compact?: boolean; grouped?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [scope, setScope] = useState<ExportScope>("master");
   const [error, setError] = useState<unknown>(null);
@@ -39,6 +39,28 @@ export function ExportButtons({ compact }: { compact?: boolean }) {
     }
   };
   const exp = (f: FileFormat) => run(`export-${f}`, () => downloadExport(f, scope === "master" ? undefined : scope));
+  if (grouped)
+    // one grouped control: Export (Excel) | CSV (zip) | what to include
+    return (
+      <div className="col" style={{ gap: 6, alignItems: "flex-end" }}>
+        <div className="btn-group export-group" role="group" aria-label="Export">
+          <button type="button" className="btn" onClick={() => void exp("xlsx")} disabled={busy !== null} data-testid="mfg-export" title="Download as an Excel workbook (one sheet per kind of data)">
+            {busy === "export-xlsx" ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Export
+          </button>
+          <button type="button" className="btn" onClick={() => void exp("zip")} disabled={busy !== null} data-testid="mfg-export-zip" title="Download as CSV files in a zip">
+            {busy === "export-zip" ? <span className="spinner" aria-hidden /> : null} CSV (zip)
+          </button>
+          <select className="btn seg-select" aria-label="What to export" value={scope} onChange={(e) => setScope(e.target.value as ExportScope)} data-testid="mfg-export-scope">
+            {SCOPES.map((x) => (
+              <option key={x.value} value={x.value}>
+                {x.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <MfgError error={error} title="Download failed" />
+      </div>
+    );
   return (
     <div className="col" style={{ gap: 6 }}>
       <div className="row wrap">

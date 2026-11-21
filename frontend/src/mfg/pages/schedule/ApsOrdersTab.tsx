@@ -11,6 +11,7 @@ import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
+import { plural } from "../../../lib/i18n";
 
 const KIND_LABEL: Record<string, string> = {
   material: "material",
@@ -115,7 +116,7 @@ export function ApsOrdersTab() {
                   <Link to={mfgPaths.apsGantt(run.id, { view: "order", order: o.order.id })} className="small" title="Show in the Gantt" aria-label={`Show ${o.order.number} in the Gantt`}>
                     <Icon name="calendar" size={12} />
                   </Link>
-                  {o.unscheduled_ops ? <div className="faint small">{o.unscheduled_ops} operations not scheduled</div> : null}
+                  {o.unscheduled_ops ? <div className="faint small">{plural(o.unscheduled_ops, "operation")} not scheduled</div> : null}
                 </td>
                 <td className="mono">{o.part_number}</td>
                 <td className="right">{fmtNum(o.qty)}</td>

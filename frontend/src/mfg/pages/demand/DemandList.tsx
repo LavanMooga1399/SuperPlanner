@@ -145,6 +145,7 @@ export function DemandList() {
         rowKey={(o) => o.id}
         label="Demand orders"
         testId="demand-table"
+        card={{ title: "no", status: "st", fields: ["cust", "open", "due"] }}
         totalCount={data.total}
         rowExtras={(o) => ({ testId: "demand-order-row", data: { number: o.number, status: o.status, late: o.late_lines } })}
         onRowClick={(o) => navigate(mfgPaths.demandOrder(o.id))}

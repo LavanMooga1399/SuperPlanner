@@ -20,6 +20,7 @@ import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { formatDateTime } from "../../../lib/locale";
+import { plural } from "../../../lib/i18n";
 
 const MATERIAL: Record<string, { label: string; tone: string; icon: "check" | "alert" | "help" }> = {
   kitted: { label: "kit complete", tone: "ok", icon: "check" },
@@ -137,7 +138,7 @@ export function ApsDispatchTab() {
               {d.shift ? ` · ${d.shift}` : ""}
             </h2>
             <span className="muted small">
-              {d.items.length} operations · times in {clock.zoneLabel}
+              {plural(d.items.length, "operation")} · times in {clock.zoneLabel}
             </span>
           </div>
           <div className="table-wrap">

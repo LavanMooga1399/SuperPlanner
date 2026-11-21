@@ -47,7 +47,7 @@ export function WorkOrderList() {
       {
         key: "no",
         header: "Work order",
-        width: "130px",
+        width: "116px",
         sortKey: "number",
         exportValue: (w) => w.number,
         render: (w) => (
@@ -56,17 +56,17 @@ export function WorkOrderList() {
           </Link>
         ),
       },
-      { key: "st", header: "Status", width: "150px", render: (w) => <WoStatusChip status={w.status} /> },
-      { key: "pn", header: "Item", width: "minmax(150px, 1.2fr)", render: (w) => <span className="mono mfg-ellipsis">{w.item.part_number}</span> },
-      { key: "desc", header: "Description", width: "minmax(140px, 1.3fr)", render: (w) => <span className="mfg-ellipsis">{w.item.description}</span> },
-      { key: "qty", header: "Qty", width: "80px", align: "right", render: (w) => fmtNum(w.qty) },
-      { key: "done", header: "Done", width: "80px", align: "right", render: (w) => fmtNum(w.qty_completed) },
-      { key: "start", header: "Start", width: "104px", sortKey: "start_date", render: (w) => fmtDate(w.start_date) },
-      { key: "due", header: "Due", width: "104px", sortKey: "due_date", render: (w) => fmtDate(w.due_date) },
-      { key: "prio", header: "Priority", width: "72px", align: "right", sortKey: "priority", render: (w) => `P${w.priority}` },
-      { key: "ser", header: "Units", width: "90px", render: (w) => serialText(w.serial_from, w.serial_to) },
-      { key: "dl", header: "For demand", width: "120px", render: (w) => (w.demand_line ? <span className="mono small">{w.demand_line.order_number}/{w.demand_line.line_no}</span> : "") },
-      { key: "src", header: "Source", width: "96px", render: (w) => <SourceBadge source={w.source} runNo={w.source_run_no} /> },
+      { key: "st", header: "Status", width: "124px", render: (w) => <WoStatusChip status={w.status} /> },
+      { key: "pn", header: "Item", width: "minmax(120px, 1fr)", render: (w) => <span className="mono mfg-ellipsis">{w.item.part_number}</span> },
+      { key: "desc", header: "Description", width: "minmax(110px, 1.4fr)", render: (w) => <span className="mfg-ellipsis">{w.item.description}</span> },
+      { key: "qty", header: "Qty", width: "64px", align: "right", render: (w) => fmtNum(w.qty) },
+      { key: "done", header: "Done", width: "64px", align: "right", render: (w) => fmtNum(w.qty_completed) },
+      { key: "start", header: "Start", width: "100px", sortKey: "start_date", render: (w) => fmtDate(w.start_date) },
+      { key: "due", header: "Due", width: "100px", sortKey: "due_date", render: (w) => fmtDate(w.due_date) },
+      { key: "prio", header: "Priority", width: "76px", align: "right", sortKey: "priority", render: (w) => `P${w.priority}` },
+      { key: "ser", header: "Units", width: "72px", render: (w) => serialText(w.serial_from, w.serial_to) },
+      { key: "dl", header: "For demand", width: "110px", render: (w) => (w.demand_line ? <span className="mono small">{w.demand_line.order_number}/{w.demand_line.line_no}</span> : "") },
+      { key: "src", header: "Source", width: "92px", render: (w) => <SourceBadge source={w.source} runNo={w.source_run_no} /> },
     ],
     [],
   );
@@ -143,6 +143,7 @@ export function WorkOrderList() {
         rowKey={(w) => w.id}
         label="Work orders"
         testId="wo-table"
+        card={{ title: "no", status: "st", fields: ["pn", "qty", "due"] }}
         totalCount={data.total}
         rowExtras={(w) => ({ testId: "wo-row", data: { number: w.number, status: w.status } })}
         onRowClick={(w) => navigate(mfgPaths.workOrder(w.id))}

@@ -17,6 +17,7 @@ import { SampleLoader } from "../components/SampleLoader";
 import { MakeBuyBadge } from "../components/StatusChip";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
+import { plural } from "../../lib/i18n";
 
 const KPIS: { key: keyof SummaryCounts; label: string; sub?: (c: SummaryCounts) => string; to: string }[] = [
   { key: "items", label: "Items", sub: (c) => `${c.make} make · ${c.buy} buy · ${c.phantom} phantom`, to: mfgPaths.items() },
@@ -53,7 +54,7 @@ function HealthCard({ tick }: { tick: number }) {
                 <Icon name="check" /> Ready for planning
               </span>
               <span className="muted small">
-                {r.counts.warning} warnings · {r.counts.info} notes. Nothing blocks planning.
+                {plural(r.counts.warning, "warning")} · {plural(r.counts.info, "note")}. Nothing blocks planning.
               </span>
             </div>
           ) : (
@@ -62,7 +63,7 @@ function HealthCard({ tick }: { tick: number }) {
                 <Icon name="x" /> {r.counts.error} {r.counts.error === 1 ? "problem blocks" : "problems block"} planning
               </span>
               <span className="muted small">
-                {r.counts.warning} warnings · {r.counts.info} notes. Each problem has a "Fix" link.
+                {plural(r.counts.warning, "warning")} · {plural(r.counts.info, "note")}. Each problem has a "Fix" link.
               </span>
             </div>
           )
@@ -153,10 +154,12 @@ function FloorCard({ summary }: { summary: Summary }) {
         {tiles.map((t) => (
           <Link key={t.testId} to={t.to} className="card kpi" data-testid={t.testId} style={{ textDecoration: "none", color: "inherit" }}>
             <div className="kpi-label">{t.label}</div>
-            <div className="kpi-value" style={{ color: t.bad ? "var(--danger)" : undefined }}>
-              {t.value}
-              {t.bad ? <Icon name="alert" size={16} /> : null}
-            </div>
+            <div className="kpi-value">{t.value.toLocaleString("en-IN")}</div>
+            {t.bad ? (
+              <span className="badge danger kpi-status">
+                <Icon name="alert" /> Needs action
+              </span>
+            ) : null}
           </Link>
         ))}
       </div>
@@ -209,9 +212,12 @@ function PlanningCard({ summary }: { summary: Summary }) {
         {tiles.map((t) => (
           <Link key={t.label} to={t.to} className="card kpi mfg-kpi" data-testid={t.testId}>
             <div className="kpi-label">{t.label}</div>
-            <div className="kpi-value" style={t.bad ? { color: "var(--danger)" } : undefined}>
-              {t.value.toLocaleString("en-IN")}
-            </div>
+            <div className="kpi-value">{t.value.toLocaleString("en-IN")}</div>
+            {t.bad ? (
+              <span className="badge danger kpi-status">
+                <Icon name="alert" /> Needs action
+              </span>
+            ) : null}
           </Link>
         ))}
       </div>
@@ -235,11 +241,11 @@ export function MfgHome() {
           <h1>Manufacturing</h1>
           <p>Master data, planning, stores and shop-floor status for this plant.</p>
         </div>
-        <div className="row wrap">
+        <div className="row wrap page-actions">
           <Link className="btn" to={mfgPaths.importStart()}>
-            <Icon name="upload" /> Import from Excel or CSV
+            <Icon name="upload" /> Import
           </Link>
-          <ExportButtons />
+          <ExportButtons grouped />
         </div>
       </div>
 
@@ -256,8 +262,8 @@ export function MfgHome() {
           }
         >
           {loaded.health.ok
-            ? `Data health: ready for planning (${loaded.health.counts.warning} warnings, ${loaded.health.counts.info} notes).`
-            : `Data health: ${loaded.health.counts.error} problems to fix.`}
+            ? `Data health: ready for planning (${plural(loaded.health.counts.warning, "warning")}, ${plural(loaded.health.counts.info, "note")}).`
+            : `Data health: ${plural(loaded.health.counts.error, "problem")} to fix.`}
         </Banner>
       ) : null}
       {resetDone ? (

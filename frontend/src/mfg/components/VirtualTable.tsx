@@ -100,6 +100,33 @@ export interface VirtualTableProps<T> {
   exportName?: string;
   /** False hides the column settings button (e.g. editable grids). */
   columnSettings?: boolean;
+  /** Phone layout (< 768 px): rows become cards built from these column keys (UX-STANDARD 4). */
+  card?: CardSpec;
+}
+
+export interface CardSpec {
+  /** Column shown as the card title (the record id). */
+  title: string;
+  /** Column shown top right (status). */
+  status?: string;
+  /** Two or three key columns shown as "label value" pairs. */
+  fields: string[];
+}
+
+const CARD_H = 84;
+const PHONE_QUERY = "(max-width: 767px)";
+
+function usePhone(enabled: boolean): boolean {
+  const [phone, setPhone] = useState(() => enabled && typeof window !== "undefined" && window.matchMedia(PHONE_QUERY).matches);
+  useEffect(() => {
+    if (!enabled) return;
+    const mq = window.matchMedia(PHONE_QUERY);
+    const on = () => setPhone(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [enabled]);
+  return enabled && phone;
 }
 
 interface ColumnPrefs {
@@ -179,8 +206,12 @@ export function VirtualTable<T>({
   loading,
   exportName,
   columnSettings = true,
+  card,
 }: VirtualTableProps<T>) {
-  const ROW_HEIGHT = useRowHeight();
+  const denseRow = useRowHeight();
+  const cardMode = usePhone(!!card);
+  const ROW_HEIGHT = cardMode ? CARD_H : denseRow;
+  const HEAD_H = cardMode ? 0 : ROW_HEIGHT;
   const prefsId = tableId ?? testId ?? label;
   const [colPrefs, setColPrefs] = useState<ColumnPrefs>(() => loadPrefs(prefsId));
   const updatePrefs = (p: ColumnPrefs) => {
@@ -335,7 +366,7 @@ export function VirtualTable<T>({
     });
   };
 
-  const bodyViewport = Math.max(ROW_HEIGHT, viewport - ROW_HEIGHT);
+  const bodyViewport = Math.max(ROW_HEIGHT, viewport - HEAD_H);
   const first = Math.floor(scrollTop / ROW_HEIGHT);
   const count = Math.ceil(bodyViewport / ROW_HEIGHT) + 1;
   const start = Math.max(0, first - OVERSCAN);
@@ -350,7 +381,7 @@ export function VirtualTable<T>({
       const el = scrollRef.current;
       if (!el) return;
       const top = i * ROW_HEIGHT;
-      const vh = Math.max(ROW_HEIGHT, el.clientHeight - ROW_HEIGHT);
+      const vh = Math.max(ROW_HEIGHT, el.clientHeight - HEAD_H);
       let next = el.scrollTop;
       if (centre) next = Math.max(0, top - vh / 2 + ROW_HEIGHT / 2);
       else if (top < el.scrollTop) next = top;
@@ -427,8 +458,16 @@ export function VirtualTable<T>({
   };
 
   const template = columns.map(widthOf).join(" ");
-  const gridStyle: CSSProperties = { gridTemplateColumns: template, height: ROW_HEIGHT };
-  const contentHeight = (Math.max(n, 1) + 1) * ROW_HEIGHT + 2;
+  const gridStyle: CSSProperties = cardMode ? { height: ROW_HEIGHT } : { gridTemplateColumns: template, height: ROW_HEIGHT };
+  const contentHeight = Math.max(n, 1) * ROW_HEIGHT + HEAD_H + 2;
+  const byKey = new Map(orderedAll.map((c) => [c.key, c]));
+  const cell = (c: Column<T> | undefined, row: T, i: number, cls: string, label?: boolean) =>
+    c ? (
+      <div key={c.key} role="gridcell" className={cls}>
+        {label ? <span className="vt-card-label">{headerText(c)}</span> : null}
+        <span className="vt-card-value">{c.render(row, i)}</span>
+      </div>
+    ) : null;
   const safeActive = Math.min(active, Math.max(0, n - 1));
 
   const body: ReactNode[] = [];
@@ -443,7 +482,7 @@ export function VirtualTable<T>({
       <div
         key={rowKey(row, i)}
         role="row"
-        className={`vt-row${i === safeActive ? " vt-active" : ""}${x.className ? ` ${x.className}` : ""}`}
+        className={`vt-row${cardMode ? " vt-card" : ""}${i === safeActive ? " vt-active" : ""}${x.className ? ` ${x.className}` : ""}`}
         style={gridStyle}
         aria-rowindex={i + 2}
         aria-level={x.ariaLevel}
@@ -459,10 +498,18 @@ export function VirtualTable<T>({
         }}
         {...dataAttrs}
       >
-        {columns.map((c) => {
+        {cardMode && card ? (
+          <>
+            <div className="vt-card-top">
+              {cell(byKey.get(card.title), row, i, "vt-card-title")}
+              {card.status ? cell(byKey.get(card.status), row, i, "vt-card-status") : null}
+            </div>
+            <div className="vt-card-fields">{card.fields.map((k) => cell(byKey.get(k), row, i, "vt-card-field", true))}</div>
+          </>
+        ) : columns.map((c) => {
           const content = c.render(row, i);
           // full text as a tooltip for plain-text cells that may be truncated (UX-STANDARD 4)
-          const tip = typeof content === "string" || typeof content === "number" ? String(content) : undefined;
+          const tip = typeof content === "string" || typeof content === "number" ? String(content) : nodeText(content) || undefined;
           return (
             <div key={c.key} role="gridcell" className={`vt-cell${c.align ? ` ${c.align}` : ""}`} title={tip}>
               {content}
@@ -487,7 +534,7 @@ export function VirtualTable<T>({
         onKeyDown={onKeyDown}
       >
         <div className="vt-inner">
-          <div role="row" className="vt-head" style={gridStyle} aria-rowindex={1}>
+          <div role="row" className={`vt-head${cardMode ? " vt-head-hidden" : ""}`} style={gridStyle} aria-rowindex={1}>
             {columns.map((c) => {
               const sk = onSortChange ? c.sortKey : c.key;
               const dir = activeSort && sortable(c) && activeSort.key === sk ? activeSort.dir : null;

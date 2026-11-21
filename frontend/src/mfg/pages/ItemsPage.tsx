@@ -238,6 +238,7 @@ export function ItemsPage() {
         rowKey={(it) => it.id}
         label="Items"
         testId="items-table"
+        card={{ title: "pn", status: "act", fields: ["desc", "mb", "used"] }}
         totalCount={total}
         height="min(66vh, 720px)"
         rowExtras={(it) => ({ testId: "items-row", data: { "part-number": it.part_number }, className: it.active ? undefined : "mfg-inactive" })}

@@ -107,6 +107,10 @@ No new npm packages. Everything above is built on React, react-router and CSS.
   `help-button`, `display-menu`, `density-*`, `side-toggle`, `side-open`, `nav-group-overview`,
   `nav-group-supply`, `vt-columns`, `vt-export`, `sort-<column>`, `saved-views`, `toast`, `field-error`, `error-ref`.
 
+- Phone widths (< 768 px): the main lists (items, work orders, purchase orders, demand) render rows as
+  cards through `VirtualTable card={{ title, status, fields }}`; tables return at 768 px and up.
+- `DateInput` shows dates as en-IN ("21 Nov 2026") over the native picker; `plural()` in `lib/i18n.ts`.
+
 ## 9. Remaining gaps (prioritised)
 
 1. Saved views and column layouts are per device; move them to a server-side user-preferences endpoint.

@@ -22,6 +22,7 @@ import { usePolling } from "../../lib/usePolling";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { apsRunTitle, isActive } from "./ApsRunsPage";
 import { toast } from "../../../components/Toast";
+import { formatNumber } from "../../../lib/locale";
 
 export interface ApsRunContext {
   run: ApsRunRecord;
@@ -130,8 +131,8 @@ export function RerunAllowBanner({ run }: { run: ApsRunRecord }) {
         </button>
       }
     >
-      Creates a new run with the same inputs that opens extra shifts where work would otherwise be late, then compares both: lateness saved against overtime hours added.
-      {saved ? ` The suggestions of this run would save about ${Math.round(saved / 60)} weighted late hours.` : ""} You then publish whichever plan you prefer.
+      A re-run with the same inputs opens extra shifts where work would otherwise be late and compares lateness saved against overtime added.
+      {saved ? ` Estimated saving: about ${formatNumber(Math.round(saved / 60), 0)} priority-weighted late hours.` : ""} You then publish the plan you prefer.
       <MfgError error={error} title="Could not start the re-run" />
     </Banner>
   );

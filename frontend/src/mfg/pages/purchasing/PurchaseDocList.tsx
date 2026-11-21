@@ -148,6 +148,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
         rowKey={(d) => d.id}
         label={word}
         testId="docs-table"
+        card={{ title: "no", status: "st", fields: ["sup", "next", "val"] }}
         totalCount={data.total}
         rowExtras={(d) => ({ testId: "doc-row", data: { number: d.number, status: d.status } })}
         onRowClick={(d) => navigate(mfgPaths.purchaseDoc(docType, d.id))}

@@ -19,6 +19,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { isNotFound, useDebounced, useLoad } from "../../lib/useMfg";
 import { ItemSupplierTable } from "../ItemSuppliersTab";
+import { plural } from "../../../lib/i18n";
 
 function SupplierDialog({ sup, onClose, onSaved }: { sup: SupplierRecord | null; onClose(): void; onSaved(s: SupplierRecord): void }) {
   const [f, setF] = useState({
@@ -188,7 +189,7 @@ export function SupplierPage() {
         <div className="card-body">
           <dl className="mfg-dl">
             <dt>Default lead time</dt>
-            <dd>{s.lead_time_days === null ? "-" : `${s.lead_time_days} days`}</dd>
+            <dd>{s.lead_time_days === null ? "-" : plural(s.lead_time_days, "day")}</dd>
             <dt>Currency</dt>
             <dd>{s.currency || "-"}</dd>
             <dt>Contact</dt>

@@ -36,7 +36,7 @@ details.card > summary { cursor: pointer; }
 .vt { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
 .vt > .vt-scroll { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .vt-scroll { overflow: auto; position: relative; outline: none; }
-.vt-inner { width: max-content; min-width: 100%; }
+.vt-inner { width: 100%; min-width: min-content; }
 .vt-head, .vt-row { display: grid; height: var(--mfg-row-h); align-items: center; }
 .vt-head { position: sticky; top: 0; z-index: 2; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-muted); }
 .vt-row { border-bottom: 1px solid var(--grid); cursor: default; }

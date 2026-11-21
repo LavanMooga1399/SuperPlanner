@@ -61,3 +61,11 @@ export function t(key: StringKey, vars?: Record<string, string | number>): strin
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
   return s;
 }
+
+const pluralRules = new Intl.PluralRules("en-IN");
+
+/** "1 warning", "2 warnings", "1,200 items": count with digit grouping and the right noun form. */
+export function plural(n: number | null | undefined, one: string, other: string = `${one}s`): string {
+  const v = n ?? 0;
+  return `${v.toLocaleString("en-IN")} ${pluralRules.select(v) === "one" ? one : other}`;
+}

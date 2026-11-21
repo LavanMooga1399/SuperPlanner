@@ -33,8 +33,8 @@ export function ImportShortcut({ what, testId }: { what: string; testId?: string
         <Link className="btn" to={mfgPaths.importStart()} data-testid={testId} title={`Import ${what} from an Excel or CSV file; nothing is saved before the preview`}>
           <Icon name="upload" /> Import {what}
         </Link>
-        <button type="button" className="btn ghost icon" onClick={() => void template()} disabled={busy} aria-label={`Download a blank template for ${what}`} title="Blank template (Excel)">
-          {busy ? <span className="spinner" aria-hidden /> : <Icon name="file" />}
+        <button type="button" className="btn ghost" onClick={() => void template()} disabled={busy} aria-label={`Download a blank Excel template for ${what}`} title={`Download a blank Excel template for ${what}`}>
+          {busy ? <span className="spinner" aria-hidden /> : <Icon name="file" />} Template
         </button>
       </div>
       <MfgError error={error} title="Download failed" />

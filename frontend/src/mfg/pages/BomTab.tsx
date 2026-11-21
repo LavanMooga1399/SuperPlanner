@@ -31,6 +31,7 @@ import { mfgPaths } from "../lib/paths";
 import { errorText, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
+import { plural } from "../../lib/i18n";
 
 type Pending = { kind: "release" | "obsolete" | "delete"; bom: BomSummary } | null;
 
@@ -159,7 +160,7 @@ export function BomTab() {
                 </strong>
                 <StatusChip status={b.status} />
                 <EffectivityBadge from={b.effective_from} to={b.effective_to} serialFrom={b.serial_from} serialTo={b.serial_to} />
-                <span className="muted small">{b.line_count} lines</span>
+                <span className="muted small">{plural(b.line_count, "line")}</span>
                 {b.note ? <span className="muted small mfg-ellipsis">{b.note}</span> : null}
               </button>
               <span className="row">

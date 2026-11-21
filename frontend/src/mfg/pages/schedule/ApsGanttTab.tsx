@@ -23,6 +23,8 @@ import { needsText, useCan } from "../../lib/permissions";
 import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
+import { DateInput } from "../../../components/DateInput";
+import { InfoTip } from "../../../components/InfoTip";
 
 const VIEWS: { key: GanttView; label: string }[] = [
   { key: "line", label: "By line" },
@@ -133,16 +135,20 @@ export function ApsGanttTab() {
   const from = Date.parse(fromIso);
   const to = Date.parse(toIso);
   const frozenEditCode = error instanceof ApiError && error.code === "APS_EDIT_FROZEN";
+  const zoomLabel = ZOOMS[zoom] >= 48 ? "Hours" : ZOOMS[zoom] >= 12 ? "Shifts" : ZOOMS[zoom] >= 3 ? "Days" : "Weeks";
 
   return (
     <div className="col gap-lg" data-testid="aps-gantt">
       <div className="toolbar mfg-filters">
-        <div className="row" role="group" aria-label="Rows">
+        <div className="field">
+          <span className="field-label">Rows</span>
+          <div className="btn-group" role="group" aria-label="Rows">
           {VIEWS.map((v) => (
-            <button key={v.key} type="button" className={`btn sm${v.key === view ? " primary" : ""}`} aria-pressed={v.key === view} onClick={() => set("view", v.key === "line" ? "" : v.key)} data-testid={`gantt-view-${v.key}`}>
+            <button key={v.key} type="button" className="btn sm" aria-pressed={v.key === view} onClick={() => set("view", v.key === "line" ? "" : v.key)} data-testid={`gantt-view-${v.key}`}>
               {v.label}
             </button>
           ))}
+          </div>
         </div>
         <div className="field">
           <label htmlFor="gg-group">Stage</label>
@@ -157,22 +163,27 @@ export function ApsGanttTab() {
         </div>
         <div className="field">
           <label htmlFor="gg-from">From</label>
-          <input id="gg-from" className="input sm" type="date" value={fromDay} onChange={(e) => e.target.value && set("from", e.target.value)} />
+          <DateInput id="gg-from" small value={fromDay} onChange={(v) => v && set("from", v)} />
         </div>
         <div className="field">
           <label htmlFor="gg-to">To</label>
-          <input id="gg-to" className="input sm" type="date" value={toDay} min={addDays(fromDay, 1)} onChange={(e) => e.target.value && set("to", e.target.value)} />
+          <DateInput id="gg-to" small value={toDay} min={addDays(fromDay, 1)} onChange={(v) => v && set("to", v)} />
         </div>
-        <div className="row" role="group" aria-label="Zoom" style={{ alignSelf: "flex-end" }}>
-          <button type="button" className="btn sm icon" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0} data-testid="gantt-zoom-out">
-            <Icon name="zoom-out" />
-          </button>
-          <span className="small muted" style={{ minWidth: 70, textAlign: "center" }}>
-            {ZOOMS[zoom] >= 48 ? "hours" : ZOOMS[zoom] >= 12 ? "shifts" : ZOOMS[zoom] >= 3 ? "days" : "weeks"}
+        <div className="field">
+          <span className="field-label" id="gg-zoom-label">
+            Zoom
           </span>
-          <button type="button" className="btn sm icon" aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1} data-testid="gantt-zoom-in">
-            <Icon name="zoom-in" />
-          </button>
+          <div className="btn-group" role="group" aria-labelledby="gg-zoom-label">
+            <button type="button" className="btn sm icon" aria-label="Zoom out" title="Zoom out (-)" onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0} data-testid="gantt-zoom-out">
+              <Icon name="zoom-out" size={14} />
+            </button>
+            <span className="btn sm seg-label" role="status" aria-live="polite" aria-label={`Zoom level: ${zoomLabel}`}>
+              {zoomLabel}
+            </span>
+            <button type="button" className="btn sm icon" aria-label="Zoom in" title="Zoom in (+)" onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1} data-testid="gantt-zoom-in">
+              <Icon name="zoom-in" size={14} />
+            </button>
+          </div>
         </div>
         {line || order ? (
           <button
@@ -195,44 +206,74 @@ export function ApsGanttTab() {
           </button>
         ) : null}
       </div>
-      <div className="pg-legend" aria-label="Legend">
-        <span>
-          <span className="pg-swatch" style={{ background: "var(--bar)" }} /> scheduled
-        </span>
-        <span>
-          <span className="pg-swatch" style={{ background: "var(--danger)", outline: "2px solid var(--danger)" }} /> late (thick outline, "!")
-        </span>
-        <span>
-          <span className="pg-swatch" style={{ background: "var(--bar-alt)", border: "1px dashed var(--text)" }} /> frozen ("F")
-        </span>
-        <span>"L" locked · "1/2" split part · striped start = setup</span>
-        <span>
-          <span className="pg-swatch" style={{ background: "var(--shade)" }} /> shift open
-        </span>
-        <span>
-          <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} /> overtime suggested
-        </span>
-        <span>
-          <span className="pg-swatch" style={{ border: "1px solid var(--warn)", background: "var(--shade)" }} /> overtime opened
-        </span>
-        <span>hatched = closed / absence</span>
-        <span>
-          <span className="pg-swatch" style={{ border: "1px solid var(--danger)" }} /> "DOWN" = line down
-        </span>
-        <span>
-          <span className="pg-swatch pg-swatch-actual" /> actual (thin bar under the plan; arrow = still running)
-        </span>
-        <span>"B3 (2)" bracket = batch load with 2 orders</span>
+      <div className="legend-bar">
+        <details className="grow">
+          <summary>
+            <Icon name="chevron-right" size={12} /> Legend
+            <span className="legend-key" aria-hidden>
+              <span>
+                <span className="pg-swatch" style={{ background: "var(--bar)" }} /> Scheduled
+              </span>
+              <span>
+                <span className="pg-swatch" style={{ background: "var(--danger)" }} /> Late
+              </span>
+              <span>
+                <span className="pg-swatch" style={{ background: "var(--bar-alt)", border: "1px dashed var(--text)" }} /> Frozen
+              </span>
+              <span>
+                <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} /> Overtime suggested
+              </span>
+              <span>
+                <span className="pg-swatch" style={{ border: "1px solid var(--danger)" }} /> Line down
+              </span>
+              <span>
+                <span className="pg-swatch pg-swatch-actual" /> Actual
+              </span>
+            </span>
+          </summary>
+          <div className="legend-more" aria-label="Legend">
+            <span>
+              <span className="pg-swatch" style={{ background: "var(--bar)" }} /> Scheduled operation
+            </span>
+            <span>
+              <span className="pg-swatch" style={{ background: "var(--danger)", outline: "2px solid var(--danger)" }} /> Late: thick outline and <code>!</code>
+            </span>
+            <span>
+              <span className="pg-swatch" style={{ background: "var(--bar-alt)", border: "1px dashed var(--text)" }} /> Frozen: <code>F</code>
+            </span>
+            <span>
+              <code>L</code> locked · <code>1/2</code> split part
+            </span>
+            <span>Striped start: setup time</span>
+            <span>
+              <span className="pg-swatch" style={{ background: "var(--shade)" }} /> Shift open
+            </span>
+            <span>Hatched: closed or absence</span>
+            <span>
+              <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} /> Overtime suggested
+            </span>
+            <span>
+              <span className="pg-swatch" style={{ border: "1px solid var(--warn)", background: "var(--shade)" }} /> Overtime opened
+            </span>
+            <span>
+              <span className="pg-swatch" style={{ border: "1px solid var(--danger)" }} /> <code>DOWN</code> line down
+            </span>
+            <span>
+              <span className="pg-swatch pg-swatch-actual" /> Actual: thin bar under the plan; arrow = still running
+            </span>
+            <span>
+              <code>B3 (2)</code> batch load with 2 orders
+            </span>
+          </div>
+        </details>
+        {canEdit ? (
+          <InfoTip label="How to change the plan">
+            Drag a bar to another line or time to change the plan; drop it on its own line to change the order. Nothing changes until you apply; applying creates an edited copy of this run.
+          </InfoTip>
+        ) : !canRun ? (
+          <span className="faint small">{needsText("schedule_run")}</span>
+        ) : null}
       </div>
-      {canEdit ? (
-        <p className="faint small" style={{ margin: 0 }}>
-          Drag a bar to another line or time to change the plan; drop it on its own line to change the order. Nothing changes until you apply; applying creates an edited copy of this run.
-        </p>
-      ) : !canRun ? (
-        <p className="faint small" style={{ margin: 0 }}>
-          {needsText("schedule_run")}
-        </p>
-      ) : null}
       <MfgError error={gantt.error} onRetry={gantt.reload} />
       {g?.truncated ? <Banner tone="warn" title="Only the first 5,000 operations are drawn">Narrow the dates or pick a stage.</Banner> : null}
       {gantt.loading && !g ? <Spinner label="Loading the Gantt…" /> : null}

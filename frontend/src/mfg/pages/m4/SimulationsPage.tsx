@@ -16,6 +16,7 @@ import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
+import { plural } from "../../../lib/i18n";
 
 const active = (s: Simulation) => s.status === "queued" || s.status === "running";
 
@@ -299,7 +300,7 @@ export function SimulationPage() {
               </div>
               {topSupplier ? (
                 <div className="kpi-sub">
-                  {topSupplier.late_lines} late lines in the replays · typically {topSupplier.mean_delay_days.toFixed(1)} days late
+                  {plural(topSupplier.late_lines, "late line")} in the replays · typically {topSupplier.mean_delay_days.toFixed(1)} days late
                 </div>
               ) : null}
             </div>

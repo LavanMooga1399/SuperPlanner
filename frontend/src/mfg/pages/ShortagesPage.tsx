@@ -15,6 +15,7 @@ import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
 import { LimitingPath } from "./mrp/DemandProjectionTab";
 import { ItemsShortTable } from "./workorders/KittingCheckPage";
+import { plural } from "../../lib/i18n";
 
 export function ShortagesPage() {
   const [horizon, setHorizon] = useState(30);
@@ -34,7 +35,7 @@ export function ShortagesPage() {
             <select id="sh-h" className="select" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
               {[7, 14, 30, 60, 90].map((n) => (
                 <option key={n} value={n}>
-                  {n} days
+                  {plural(n, "day")}
                 </option>
               ))}
             </select>

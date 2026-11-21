@@ -21,6 +21,7 @@ import { fieldErrors, isConflict, isNotFound, todayInOffset, useLoad, usePlant }
 import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
+import { plural } from "../../lib/i18n";
 
 interface Header {
   revision: string;
@@ -196,7 +197,7 @@ export function BomEditPage() {
           BOM rev. {base.revision} v{base.version}
         </h2>
         <StatusChip status={base.status} />
-        <span className="muted small">{lines.length} lines</span>
+        <span className="muted small">{plural(lines.length, "line")}</span>
       </div>
 
       {readOnly ? (

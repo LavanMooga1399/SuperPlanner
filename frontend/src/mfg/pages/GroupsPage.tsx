@@ -28,6 +28,7 @@ import { ActiveBadge, KindBadge } from "../components/StatusChip";
 import { effectivityText } from "../components/EffectivityBadge";
 import { mfgPaths } from "../lib/paths";
 import { isConflict, useLoad } from "../lib/useMfg";
+import { plural } from "../../lib/i18n";
 
 type Panel = { kind: "group"; id: string } | { kind: "line"; id: string } | { kind: "new-group" } | { kind: "new-line"; groupId: string } | null;
 
@@ -103,7 +104,7 @@ export function GroupsPage() {
                   <Icon name="layers" />
                   <strong className="mono">{g.code}</strong>
                   <span className="grow mfg-ellipsis">{g.name}</span>
-                  <span className="muted small">{g.line_count} lines</span>
+                  <span className="muted small">{plural(g.line_count, "line")}</span>
                   <ActiveBadge active={g.active} />
                 </button>
                 <ul className="mfg-plain-list">

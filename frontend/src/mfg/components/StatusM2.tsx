@@ -11,6 +11,7 @@ import type {
   RunStatus,
   WoStatus,
 } from "../api/typesM2";
+import { plural } from "../../lib/i18n";
 
 type Tone = "ok" | "warn" | "danger" | "info" | "accent";
 interface Meta {
@@ -156,7 +157,7 @@ export function LocationKindBadge({ kind }: { kind: LocationKind }) {
 
 export function OverdueBadge({ days }: { days: number }) {
   return (
-    <span className="badge danger" data-overdue="true" title={`Dock date passed ${days} days ago and not fully received`}>
+    <span className="badge danger" data-overdue="true" title={`Dock date passed ${plural(days, "day")} ago and not fully received`}>
       <Icon name="clock" />
       {days > 0 ? `${days} d overdue` : "Overdue"}
     </span>

@@ -12,6 +12,7 @@ import { HealthIssueList } from "../components/HealthIssueList";
 import { SeverityBadge } from "../components/StatusChip";
 import { fmtDate } from "../lib/format";
 import { useDebounced, useLoad, usePlant } from "../lib/useMfg";
+import { plural } from "../../lib/i18n";
 
 const SEVERITIES: { key: Severity; label: string }[] = [
   { key: "error", label: "Errors" },
@@ -94,7 +95,7 @@ export function HealthPage() {
           <div data-testid="health-status" data-ok={String(r.ok)} data-errors={r.counts.error} role="status">
             {r.ok ? (
               <Banner tone="ok" title="Ready for planning">
-                No errors from {fmtDate(r.as_of)} over the next {r.horizon_days} days. {r.counts.warning} warnings and {r.counts.info} notes are worth a look but do not block anything.
+                No errors from {fmtDate(r.as_of)} over the next {plural(r.horizon_days, "day")}. {plural(r.counts.warning, "warning")} and {plural(r.counts.info, "note")} are worth a look but do not block anything.
               </Banner>
             ) : (
               <Banner tone="danger" icon="x" title={`${r.counts.error} ${r.counts.error === 1 ? "problem blocks" : "problems block"} planning`}>

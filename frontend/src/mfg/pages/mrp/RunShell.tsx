@@ -15,6 +15,7 @@ import { fmtDate, fmtTimestamp } from "../../lib/format";
 import { mfgPaths } from "../../lib/paths";
 import { isNotFound, useLoad } from "../../lib/useMfg";
 import { runTitle } from "./MrpRunsPage";
+import { plural } from "../../../lib/i18n";
 
 export interface RunContext {
   run: MrpRunRecord;
@@ -91,7 +92,7 @@ export function RunShell() {
             </span>
           ) : null}
           <span className="muted small">
-            As of {fmtDate(r.as_of)} · {r.horizon_days} days · {fmtTimestamp(r.finished_at ?? r.started_at)} by {r.actor.name}
+            As of {fmtDate(r.as_of)} · {plural(r.horizon_days, "day")} · {fmtTimestamp(r.finished_at ?? r.started_at)} by {r.actor.name}
           </span>
         </div>
         <ExportMenu runId={r.id} />

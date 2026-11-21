@@ -36,6 +36,7 @@ import { isConflict, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
+import { plural } from "../../lib/i18n";
 
 interface RHeader {
   code: string;
@@ -220,7 +221,7 @@ export function RoutingTab() {
                 </span>
                 <StatusChip status={r.status} />
                 <EffectivityBadge from={r.effective_from} to={r.effective_to} serialFrom={r.serial_from} serialTo={r.serial_to} />
-                <span className="muted small">{r.operation_count} operations</span>
+                <span className="muted small">{plural(r.operation_count, "operation")}</span>
               </button>
               <span className="row">
                 {r.status === "draft" ? (

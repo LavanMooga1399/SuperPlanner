@@ -10,6 +10,7 @@ import { checkSheet } from "../lib/importMapping";
 import { useMeta } from "../lib/useMfg";
 import { CheckField, TextField } from "./Field";
 import { sheetKind, sheetLabel } from "./ImportUpload";
+import { plural } from "../../lib/i18n";
 
 function cellText(c: Cell | undefined): string {
   if (c === null || c === undefined) return "";
@@ -44,7 +45,7 @@ export function ImportMapping({
           <section key={s.name} className="card" aria-label={`Sheet ${s.name}`} data-testid="import-sheet-card" data-sheet={s.name}>
             <div className="card-header">
               <h3 className="row">
-                <Icon name="file" /> {s.name} <span className="muted small">{s.row_count.toLocaleString("en-IN")} rows</span>
+                <Icon name="file" /> {s.name} <span className="muted small">{plural(s.row_count, "row")}</span>
                 {m.target ? (
                   <span className="badge info" data-testid="import-sheet-kind" title={`Saving this sheet needs the role: ${sheetKind(m.target).perm}`}>
                     {sheetKind(m.target).label}
