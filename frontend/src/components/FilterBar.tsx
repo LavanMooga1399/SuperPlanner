@@ -144,16 +144,11 @@ function SavedViews({ pageKey }: { pageKey: string }) {
   };
   return (
     <div className="popover-anchor" ref={ref}>
-      <div className="field">
-        <span className="field-label" aria-hidden>
-          View
-        </span>
-        <button ref={btn} type="button" className="btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="saved-views">
-          <Icon name="bookmark" size={14} />
-          <span className="nowrap">{current ? current.name : "Saved views"}</span>
-          <Icon name="chevron-down" size={12} />
-        </button>
-      </div>
+      <button ref={btn} type="button" className="btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="saved-views" title="Saved views: named sets of filters">
+        <Icon name="bookmark" size={14} />
+        <span className="nowrap">{current ? current.name : "Views"}</span>
+        <Icon name="chevron-down" size={12} />
+      </button>
       {open ? (
         <div className="popover" role="dialog" aria-label="Saved views">
           <div className="popover-group">

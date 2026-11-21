@@ -351,8 +351,8 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .banner .banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ---------------------------------------------------------------- KPI */
-.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-.kpi { padding: var(--sp-3); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-2); }
+.kpi { padding: var(--sp-2) var(--sp-3); }
 .kpi .kpi-label { font-size: var(--fs-sm); color: var(--text-muted); font-weight: var(--fw-medium); }
 .kpi .kpi-value { font-size: var(--fs-lg); font-weight: var(--fw-semibold); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .kpi .kpi-sub { font-size: var(--fs-sm); color: var(--text-faint); }

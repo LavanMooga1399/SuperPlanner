@@ -11,6 +11,7 @@ import type { PublishedScheduleSummary } from "../api/typesM3";
 import type { FloorSummary } from "../api/typesM4";
 import { PermissionGate } from "../components/PermissionGate";
 import { ExportButtons } from "../components/ExportButtons";
+import { SkeletonPage } from "../../components/Skeleton";
 import { MfgError } from "../components/Feedback";
 import { SampleLoader } from "../components/SampleLoader";
 import { MakeBuyBadge } from "../components/StatusChip";
@@ -232,7 +233,7 @@ export function MfgHome() {
       <div className="page-header mfg-header">
         <div>
           <h1>Manufacturing</h1>
-          <p>Describe your plant and your products, then plan materials: demand, stock, purchasing, MRP and work orders.</p>
+          <p>Master data, planning, stores and shop-floor status for this plant.</p>
         </div>
         <div className="row wrap">
           <Link className="btn" to={mfgPaths.importStart()}>
@@ -283,9 +284,7 @@ export function MfgHome() {
           ))}
         </div>
       ) : summary.loading ? (
-        <div className="empty" role="status">
-          <span className="spinner" aria-hidden /> Loading…
-        </div>
+        <SkeletonPage label="Loading the plant summary…" rows={3} />
       ) : null}
 
       {summary.data ? <PlanningCard summary={summary.data} /> : null}

@@ -13,7 +13,7 @@ const SCOPES: { value: ExportScope; label: string }[] = [
 
 function ScopeSelect({ value, onChange, testId }: { value: ExportScope; onChange(v: ExportScope): void; testId: string }) {
   return (
-    <select className="select sm" aria-label="What to include" value={value} onChange={(e) => onChange(e.target.value as ExportScope)} data-testid={testId}>
+    <select className="select sm" style={{ width: "auto" }} aria-label="What to include" value={value} onChange={(e) => onChange(e.target.value as ExportScope)} data-testid={testId}>
       {SCOPES.map((s) => (
         <option key={s.value} value={s.value}>
           {s.label}
