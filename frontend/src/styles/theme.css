@@ -493,7 +493,7 @@ table.table { width: 100%; border-collapse: separate; border-spacing: 0; }
 }
 
 /* ---------------------------------------------------------------- landing (PHASE2.md 3.2) */
-.kind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.kind-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-3); }
 .kind-card .card-body { display: flex; flex-direction: column; gap: 12px; height: 100%; }
 .kind-card h2.kind-title, .kind-card h3.kind-title { font-size: 15px; margin: 0; }
 .kind-card.large h2.kind-title { font-size: 18px; }

@@ -230,3 +230,8 @@
 .popover form .input { flex: 1; min-width: 160px; }
 .mfg-filters .select.sm, .mfg-filters .input.sm { height: var(--control-h); font-size: var(--fs-base); }
 .mfg-filters > div:not(.field):not(.filter-bar-end) { align-self: flex-end; }
+
+/* record headers: identifiers are titles too */
+h1.mono, .ws-title h1 { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
+h2.mono { font-size: var(--fs-md); }
+.ws-header { margin-bottom: var(--sp-2); }

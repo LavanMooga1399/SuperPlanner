@@ -38,13 +38,13 @@ export function KittingTable({ components, kitting, highlight, showKitting }: { 
     },
     { key: "desc", header: "Description", width: "minmax(140px, 1.4fr)", render: (r) => <span className="mfg-ellipsis">{r.c.item.description}</span> },
     { key: "op", header: "Op.", width: "54px", align: "right", render: (r) => r.c.operation_seq ?? "" },
-    { key: "req", header: "Required", width: "84px", align: "right", render: (r) => fmtNum(r.c.required_qty) },
-    { key: "iss", header: "Issued", width: "74px", align: "right", render: (r) => fmtNum(r.c.issued_qty) },
-    { key: "open", header: "Open", width: "70px", align: "right", render: (r) => fmtNum(r.c.open_qty) },
+    { key: "req", header: "Required", width: "96px", align: "right", render: (r) => fmtNum(r.c.required_qty) },
+    { key: "iss", header: "Issued", width: "96px", align: "right", render: (r) => fmtNum(r.c.issued_qty) },
+    { key: "open", header: "Open", width: "90px", align: "right", render: (r) => fmtNum(r.c.open_qty) },
     { key: "res", header: "Reserved", width: "80px", align: "right", render: (r) => (r.c.reserved_qty ? fmtNum(r.c.reserved_qty) : <span className="faint">0</span>) },
     ...(showKitting
       ? ([
-          { key: "free", header: "Free stock", width: "84px", align: "right", render: (r) => (r.k ? fmtNum(r.k.free) : "") },
+          { key: "free", header: "Free stock", width: "96px", align: "right", render: (r) => (r.k ? fmtNum(r.k.free) : "") },
           {
             key: "short",
             header: "Kit",

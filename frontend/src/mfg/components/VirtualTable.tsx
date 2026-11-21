@@ -458,11 +458,16 @@ export function VirtualTable<T>({
         }}
         {...dataAttrs}
       >
-        {columns.map((c) => (
-          <div key={c.key} role="gridcell" className={`vt-cell${c.align ? ` ${c.align}` : ""}`}>
-            {c.render(row, i)}
-          </div>
-        ))}
+        {columns.map((c) => {
+          const content = c.render(row, i);
+          // full text as a tooltip for plain-text cells that may be truncated (UX-STANDARD 4)
+          const tip = typeof content === "string" || typeof content === "number" ? String(content) : undefined;
+          return (
+            <div key={c.key} role="gridcell" className={`vt-cell${c.align ? ` ${c.align}` : ""}`} title={tip}>
+              {content}
+            </div>
+          );
+        })}
       </div>,
     );
   }
