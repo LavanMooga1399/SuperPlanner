@@ -103,11 +103,20 @@ No new npm packages. Everything above is built on React, react-router and CSS.
 - Table column layout is per browser (`localStorage`), not per server account, because no preferences API
   exists and backend APIs were out of scope.
 - Strings live in one dictionary, `lib/i18n.ts` (`t()`): shared components inline, navigation labels in
-  `lib/strings/nav.ts` (sidebar, breadcrumbs, palette read them through getters, so a translation set with
-  `setStrings()` applies), and the manufacturing page copy in `lib/strings/mfg.ts`, keyed per screen
-  `mfg.<screen>.<kind>.<name>` (kinds: `title`, `desc`, `btn`, `label`, `empty`, `ph`, `toast`). Keys are typed
-  (`StringKey`), so a missing key fails `tsc`. In the few files where a local variable is called `t`, the
-  function is imported as `tr`.
+  `lib/strings/nav.ts` (read through getters, so a translation set with `setStrings()` applies), and page copy per
+  area in `lib/strings/<area>.ts` (`mfg`, `floor`, `mobile`, `assistant`, `studio`, `finance`, `account`), keyed
+  `<area>.<screen>.<kind>.<name>` (kinds: `title`, `desc`, `head`, `text`, `btn`, `label`, `hint`, `aria`, `empty`,
+  `ph`, `toast`). Values go in as placeholders: `t("common.runNo", { n })` -> "Run #3", `common.scheduleNo`,
+  `common.mrpRunNo`, `common.nOfM` ("{n} of {m}"); counts with a noun use `plural()`. Keys are typed (`StringKey`),
+  so a missing key fails `tsc`. Where a local variable is called `t`, the function is imported as `tr`.
+- Dates in UI text never show ISO: `formatDay()` (calendar date, no time-zone shift), `formatDateRange()`
+  ("24 Oct – 22 Nov 2026", "1–22 Nov 2026"), `formatDate/DateTime` and the plant clock for instants. The sweep
+  script fails a screen whose text contains `YYYY-MM-DD`.
+- Narrow screens: a column with `drop: <rank>` leaves the default set, lowest rank first, while the default set
+  is wider than the table (demand and work orders fit at 1024 px with the selection column); Columns shows it as
+  "(narrow screen)" and an explicit choice wins (`shown` in the saved layout).
+- The table styles (`.vt*`, `.card-table`) are global (`styles/shell.css`), so scheduling, finance and account
+  screens use the same `DataTable`/`VirtualTable`.
 - All existing `data-testid`s are kept; new ones: `global-search`, `command-palette`, `command-input`,
   `help-button`, `display-menu`, `density-*`, `side-toggle`, `side-open`, `nav-group-overview`,
   `nav-group-supply`, `vt-columns`, `vt-export`, `sort-<column>`, `saved-views`, `toast`, `field-error`, `error-ref`.
@@ -144,25 +153,31 @@ reconciliation list and results. Status quick filters (KPI period, transfers dir
 delivery status) sit in the `FilterBar` as segmented `btn-group`s. Manufacturing copy and navigation keyed in
 `lib/i18n.ts`.
 
-1. Plain tables kept on purpose: editable grids (routing operations, document lines, posting lines, BOM
-   lines, line rates, import mapping, shift assignments, the transfer and receive dialogs), print layouts
-   (dispatch list, traveller, labels, org dashboard matrix), pivot matrices (setup matrix, MRP item plan
-   buckets, demand projection, compare views, schedule compare and overtime), confirm-dialog summaries, the
-   shop-floor tablet (`floor-table`) and the screen-reader tables behind charts. Detail tables still plain:
-   ECO detail (delta, open work orders, phased out, MRP delta), replan triggers/proposals, plant dashboard
-   drill table, shop-floor overview, work-order operations, integration settings and file drop; also the
-   scheduling studio (task, resource, run history, comparison) and finance tables, which do not load the
-   manufacturing table CSS. Next candidates in that order.
-2. i18n: floor (`mfg/floor`), phone app (`mfg/mobile`), assistant and the scheduling/finance areas still
-   have inline copy; strings with values inside (`Run #{n}`, plurals) are inline everywhere.
-3. Gantt keyboard resize (change duration) is not offered: the edit API moves operations, it has no
+Done in round 5: the remaining read-only tables are on the shared table: change-request impact (structure
+changes, open orders, purchases, phased-out parts, date moves), replanning changes and proposals, shop-floor
+overview, work-order operations (both variants), ERP integration (who owns what, webhooks, batch records, file-drop
+inbox / recent files / mappings), scheduling run history and the per-task comparison, finance result history,
+explanation assumptions and the review cash flow, API tokens. Row sub-lines use `.vt-sub`; in-page tabs rendered
+as buttons look like link tabs. Copy of the floor, phone app, assistant, scheduling studio, finance and account
+areas is keyed; "Run #", "Schedule #", "N of M" and hand-written plurals are interpolated. Demand and work-order
+lists fit at 1024 px. ISO dates removed from UI text (KPI period, floor queue, phone work order, recall units).
+The two failing specs are fixed (see 9.2).
+
+1. Plain tables kept on purpose: editable grids (routing operations, document and posting lines, BOM lines,
+   line rates, import / intake column mapping, shift assignments, scheduling tasks, resources and dependencies,
+   finance asset classes and glide path, code mappings, dashboard targets, change-request documents with their
+   disposition selects, transfer and receive dialogs), print layouts (dispatch list, traveller, labels, org
+   dashboard matrix), pivot and compare matrices (setup matrix, MRP item plan buckets, demand projection, MRP and
+   schedule compare, overtime, A/B schedule measures, scenario compare, contribution per month), confirm-dialog
+   summaries, the shop-floor tablet (`floor-table`) and the screen-reader tables behind charts.
+2. Organisation pages (org overview, plants, org members) still use plain tables; next candidates.
+3. Copy built from several values in one sentence (e.g. "since 10:20, back 12:00") and strings in `.ts` helper
+   modules (status labels in `floorText`, `formatM2`) are inline; the per-area maps cover JSX copy.
+4. Gantt keyboard resize (change duration) is not offered: the edit API moves operations, it has no
    duration edit.
-4. The trace and dispatch toolbars stay plain forms (submit-based search, print layout); styled alike.
-5. Record headers (work order, item, purchase document, demand order, plan workspace, finance result) use the
+5. The trace and dispatch toolbars stay plain forms (submit-based search, print layout); styled alike.
+6. Record headers (work order, item, purchase document, demand order, plan workspace, finance result) use the
    `ws-header` record anatomy rather than `PageHeader` by design (editable title, status chips).
-6. Known failing e2e unrelated to UX: `mfg-m2-mrp` "pilot journey" expects "Release now" planned orders that
-   the current sample/date produces none of; `m5-integration` "trace tree ..." stops at the first step (the
-   trace page with the fixture serial `srl_x` shows no nodes), before any screen changed in round 4.
 
 ### 9.1 Consistency sweep log (round 4)
 
@@ -188,6 +203,29 @@ light and dark (kavach sample, MRP run and a schedule run loaded). Fixed:
   box.
 - Dark theme: no unreadable colours found on the swept screens (status badges, links and the accent buttons
   keep contrast).
+
+### 9.2 Test data fixes (round 5)
+
+- `mfg-m2-mrp` "pilot journey": the sample was anchored to this week's Monday, so on late weekdays the first buy
+  order's release date had already passed ("start in past" instead of "release now"). The test now loads the
+  sample anchored to today; product behaviour unchanged.
+- `m5-integration` "trace tree ...": a test issue, not a product bug. It traced the S0 fixture serial `srl_x`,
+  which the real trace API (correctly) answers with 404. The test now makes its own data: the sample's finished
+  good becomes lot-controlled, a released work order receives its output into a fresh lot (trace: lot -> work
+  order, exact), a recall is built from that lot, and a change request with a draft BOM copy is created for the
+  impact view. Transfers need a second plant of an organisation (not available in single-user mode), so that
+  step checks the list and its empty state. The whole spec now runs through recall, ECO, transfers and audit.
+- `explore` (three tests) expected the New York summer offset (-04:00) for a plan created today; it now accepts
+  EDT or EST and checks the screen shows the same offset as the API.
+
+### 9.3 Sweep log (round 5)
+
+Screens: KPIs, demand, work orders, replanning, shop-floor overview, work order detail, ERP integration (overview,
+webhooks, file drop), change requests, shortages, Scheduling and Finance landing pages at 1440 / 1024 / 390, light
+and dark; script checks for page overflow and ISO dates found none. Fixed on the way: change-request tabs drew
+button borders (now link-style tabs); KPI period shows "24 Oct – 22 Nov 2026"; demand list scrolled sideways at
+1024 (programme, type, lines and priority leave the default set there); batch-record result filters moved into the
+filter bar as a segmented control.
 
 ## 10. Backend support (API contract for the UI)
 

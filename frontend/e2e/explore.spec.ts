@@ -34,15 +34,16 @@ for (const c of CASES) {
     await page.waitForURL(/\/plans\/p_[0-9a-f]+\/tasks/);
     const planId = page.url().match(/\/plans\/(p_[0-9a-f]+)\//)![1];
     const rec = await apiJson(request, `/problems/${planId}`);
-    // EDT on 2026-10-15
-    expect(rec.problem.horizon_start).toMatch(/-04:00$/);
+    // New York offset of the plan start: EDT (-04:00) in summer, EST (-05:00) in winter; the screen shows the same one
+    const off = String(rec.problem.horizon_start).match(/([+-]\d\d:\d\d)$/)![1];
+    expect(off).toMatch(/^-0[45]:00$/);
     c.check(rec);
-    await expect(page.getByText("Times in UTC-04:00").first()).toBeVisible();
+    await expect(page.getByText(`Times in UTC${off}`).first()).toBeVisible();
 
     await validateReady(page);
     const run1 = await optimize(page);
     await openSchedule(page);
-    await expect(page.getByText("Times shown in UTC-04:00")).toBeVisible();
+    await expect(page.getByText(`Times shown in UTC${off}`)).toBeVisible();
     // resource view shows one row per used resource; every bar still present
     await page.getByRole("group", { name: "Timeline view" }).getByRole("button").nth(1).click();
     const sch = await apiJson(request, `/schedules/${(await apiJson(request, `/solver-runs/${run1}`)).primary_schedule_id}`);
