@@ -124,6 +124,7 @@ export function DeliveryBoard() {
       </p>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
+        card={{ title: "doc", status: "od", fields: ["pn", "dock", "open"] }}
         rows={data.rows}
         columns={columns}
         rowKey={(s) => s.schedule_id}

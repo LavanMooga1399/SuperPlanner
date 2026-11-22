@@ -102,13 +102,27 @@ No new npm packages. Everything above is built on React, react-router and CSS.
   with `name` (or a label matching the API field) shows its 422 message under the control with `aria-invalid`.
 - Table column layout is per browser (`localStorage`), not per server account, because no preferences API
   exists and backend APIs were out of scope.
-- Strings of the shared components live in `lib/i18n.ts` (`t()`); page copy is still inline.
+- Strings live in one dictionary, `lib/i18n.ts` (`t()`): shared components inline, navigation labels in
+  `lib/strings/nav.ts` (sidebar, breadcrumbs, palette read them through getters, so a translation set with
+  `setStrings()` applies), and the manufacturing page copy in `lib/strings/mfg.ts`, keyed per screen
+  `mfg.<screen>.<kind>.<name>` (kinds: `title`, `desc`, `btn`, `label`, `empty`, `ph`, `toast`). Keys are typed
+  (`StringKey`), so a missing key fails `tsc`. In the few files where a local variable is called `t`, the
+  function is imported as `tr`.
 - All existing `data-testid`s are kept; new ones: `global-search`, `command-palette`, `command-input`,
   `help-button`, `display-menu`, `density-*`, `side-toggle`, `side-open`, `nav-group-overview`,
   `nav-group-supply`, `vt-columns`, `vt-export`, `sort-<column>`, `saved-views`, `toast`, `field-error`, `error-ref`.
 
-- Phone widths (< 768 px): the main lists (items, work orders, purchase orders, demand) render rows as
-  cards through `VirtualTable card={{ title, status, fields }}`; tables return at 768 px and up.
+- Phone widths (< 768 px): lists render rows as cards through `VirtualTable card={{ title, status, actions,
+  fields }}` (items, work orders, purchase orders, demand, stock, lots, ledger, planned orders, MRP items and
+  messages, delivery schedule and every `DataTable`); tables return at 768 px and up. Empty card fields are
+  left out.
+- Short lists use `mfg/components/DataTable.tsx`: the same `VirtualTable` with `virtual={false}` (every row in
+  the DOM, rows grow with `Column.wrap` text, no inner scroll, cards derived from the columns when `card` is
+  omitted, `rowDetail` for a full-width explanation line such as why an order is late, `ShowMore` footer for
+  paged lists). A data table that is the body of a card uses `section.card.card-table` (the card draws the
+  frame).
+- Default column widths must fit the content area at 1440 px including the selection column (about 1170 px
+  with the sidebar); wider sets scroll horizontally at 1024 px.
 - `DateInput` shows dates as en-IN ("21 Nov 2026") over the native picker; `plural()` in `lib/i18n.ts`.
 
 ## 9. Remaining gaps (prioritised)
@@ -120,16 +134,60 @@ transactions; `PageHeader`/`FilterBar` on all list and area pages incl. finance,
 account; Gantt keyboard move (Alt+Left/Right by zoom step, Shift+Alt+Up/Down to another line) through the
 drag preview; unsaved-changes guard on work order, purchase document and plan editors; shared `DateInput`.
 
-1. Legacy `table.table` grids (audit trail, MRP runs, KPI by line, recalls, transfers) are not yet
-   `VirtualTable`s, so they lack column settings, phone cards and sorting; on phones they wrap tightly.
-2. Gantt keyboard resize (change duration) is not offered: the edit API moves operations, it has no
+Done in round 4: plain tables moved onto the shared table (column settings, client sorting, CSV, skeleton and
+empty states, phone cards): audit trail, MRP runs, KPI by line / stage, adherence, top scrap and downtime,
+recalls (list, affected stock, per customer, per programme, units), transfers (list, lines), suppliers, item
+suppliers, members, locations, serials, schedule runs, schedule orders and demand, shop-floor events, change
+requests, risk checks, calendar exceptions, skill holders, shortages (short parts, overdue deliveries),
+kitting check, work-order stock movements, item stock and open supply/demand, ERP deliveries, batches, events,
+reconciliation list and results. Status quick filters (KPI period, transfers direction, change-request status,
+delivery status) sit in the `FilterBar` as segmented `btn-group`s. Manufacturing copy and navigation keyed in
+`lib/i18n.ts`.
+
+1. Plain tables kept on purpose: editable grids (routing operations, document lines, posting lines, BOM
+   lines, line rates, import mapping, shift assignments, the transfer and receive dialogs), print layouts
+   (dispatch list, traveller, labels, org dashboard matrix), pivot matrices (setup matrix, MRP item plan
+   buckets, demand projection, compare views, schedule compare and overtime), confirm-dialog summaries, the
+   shop-floor tablet (`floor-table`) and the screen-reader tables behind charts. Detail tables still plain:
+   ECO detail (delta, open work orders, phased out, MRP delta), replan triggers/proposals, plant dashboard
+   drill table, shop-floor overview, work-order operations, integration settings and file drop; also the
+   scheduling studio (task, resource, run history, comparison) and finance tables, which do not load the
+   manufacturing table CSS. Next candidates in that order.
+2. i18n: floor (`mfg/floor`), phone app (`mfg/mobile`), assistant and the scheduling/finance areas still
+   have inline copy; strings with values inside (`Run #{n}`, plurals) are inline everywhere.
+3. Gantt keyboard resize (change duration) is not offered: the edit API moves operations, it has no
    duration edit.
-3. The trace and dispatch toolbars stay plain forms (submit-based search, print layout); styled alike.
-4. Record headers (work order, item, purchase document, demand order, plan workspace, finance result) use the
+4. The trace and dispatch toolbars stay plain forms (submit-based search, print layout); styled alike.
+5. Record headers (work order, item, purchase document, demand order, plan workspace, finance result) use the
    `ws-header` record anatomy rather than `PageHeader` by design (editable title, status chips).
-5. Page copy outside the shared components is not yet in `lib/i18n.ts`.
 6. Known failing e2e unrelated to UX: `mfg-m2-mrp` "pilot journey" expects "Release now" planned orders that
-   the current sample/date produces none of (fails identically on the original code).
+   the current sample/date produces none of; `m5-integration` "trace tree ..." stops at the first step (the
+   trace page with the fixture serial `srl_x` shows no nodes), before any screen changed in round 4.
+
+### 9.1 Consistency sweep log (round 4)
+
+Screens: every Manufacturing area page plus the Scheduling and Finance landing pages at 1440, 1024 and 390,
+light and dark (kavach sample, MRP run and a schedule run loaded). Fixed:
+
+- KPIs at 1024: period buttons and plant scope were header actions; the scope select wrapped onto its own
+  full-width row. Both are now labelled fields in the filter bar (segmented period, scope select).
+- Work orders at 1440 with selection: the Source column was clipped; default widths now total about 1110 px
+  including the checkbox, and the status column fits "Planned (firm)".
+- MRP runs: the Keep column fell off the right edge at 1440 and the run link collapsed to "R" next to the
+  Latest / Out of date badges; widths rebalanced, badges no longer shrink inside table cells.
+- Phones: the overview's planning card header ("Schedule production", "MRP run #1 ...") and the plant split
+  pane pushed the page 85 px / 23 px wider than the screen; card headers wrap and split panes may shrink.
+- Schedule run and MRP run headers: "Export CSV (zip)" was a borderless small text button next to bordered
+  buttons of another size; both exports are now default buttons with the download icon.
+- Floor event log: the When cell wrapped to three lines and "by" lines started with a stray separator; the
+  recorded time is a sub-line and the people column joins only present parts.
+- Titles: "People & tooling" and "Import / export" now match the navigation ("People and tooling",
+  "Import and export"); the row counter says "1 row", not "1 rows"; top scrap says "1 unit".
+- Inventory stock, lots, ledger, planned orders, MRP items and messages and the delivery schedule had no
+  phone cards (tables scrolled sideways at 390); they now render cards; planned-order cards keep the select
+  box.
+- Dark theme: no unreadable colours found on the swept screens (status badges, links and the accent buttons
+  keep contrast).
 
 ## 10. Backend support (API contract for the UI)
 

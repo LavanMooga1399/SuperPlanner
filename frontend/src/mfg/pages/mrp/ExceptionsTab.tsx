@@ -115,6 +115,7 @@ export function ExceptionsTab() {
       ) : null}
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
+        card={{ title: "what", status: "sev", fields: ["item", "date", "qty"] }}
         rows={data.rows}
         columns={columns}
         rowKey={(e) => e.id}

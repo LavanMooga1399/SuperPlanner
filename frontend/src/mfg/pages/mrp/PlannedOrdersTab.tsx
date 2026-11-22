@@ -349,6 +349,7 @@ export function PlannedOrdersTab() {
       )}
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
+        card={{ title: "no", status: "rel", actions: "sel", fields: ["pn", "qty", "need"] }}
         rows={data.rows}
         columns={columns}
         rowKey={(r) => r.id}

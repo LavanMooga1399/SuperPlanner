@@ -204,6 +204,7 @@ export function BalancesTab() {
 
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
+        card={{ title: "pn", fields: ["desc", "loc", "av"] }}
         rows={data.rows}
         columns={columns}
         rowKey={(b) => b.id}

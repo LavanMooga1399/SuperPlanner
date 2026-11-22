@@ -365,3 +365,10 @@ details.card > summary { cursor: pointer; }
 .card-table > .card-footer, .card-table > .mfg-error { margin: 0; padding: var(--sp-2) var(--sp-3); }
 .vt-sub { display: block; font-size: var(--fs-xs); color: var(--text-faint); line-height: 1.3; }
 .vt-detail { padding: 4px var(--cell-px) 6px calc(var(--cell-px) + 12px); border-bottom: 1px solid var(--grid); background: var(--surface-2); font-size: var(--fs-sm); color: var(--text-muted); white-space: normal; }
+/* phones: card header actions wrap under the title; split panes never force the page wider than the screen */
+.split > *, .mfg-split > * { min-width: 0; }
+@media (max-width: 767px) {
+  .card-header { flex-wrap: wrap; }
+  .card-header > .row { flex-wrap: wrap; }
+}
+.vt-cell .badge { flex-shrink: 0; }

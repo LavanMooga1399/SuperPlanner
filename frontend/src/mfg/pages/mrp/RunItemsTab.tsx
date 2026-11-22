@@ -109,6 +109,7 @@ export function RunItemsTab() {
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
+        card={{ title: "pn", fields: ["gross", "short", "late"] }}
         rows={data.rows}
         columns={columns}
         rowKey={(r) => r.item.id}

@@ -44,12 +44,12 @@ function ExportMenu({ runId }: { runId: string }) {
   };
   return (
     <div className="col" style={{ gap: 4 }}>
-      <div className="row" style={{ gap: 4 }}>
-        <button type="button" className="btn sm" onClick={() => void run("xlsx")} disabled={busy} data-testid="run-export">
+      <div className="row" style={{ gap: 8 }}>
+        <button type="button" className="btn" onClick={() => void run("xlsx")} disabled={busy} data-testid="run-export">
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Export to Excel
         </button>
-        <button type="button" className="btn sm ghost" onClick={() => void run("zip")} disabled={busy}>
-          {t("mfg.runShell.btn.csvZip")}
+        <button type="button" className="btn" onClick={() => void run("zip")} disabled={busy}>
+          <Icon name="download" /> {t("mfg.runShell.btn.csvZip")}
         </button>
       </div>
       <MfgError error={error} title="Download failed" />

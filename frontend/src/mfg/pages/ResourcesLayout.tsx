@@ -8,7 +8,7 @@ export function ResourcesLayout() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="People &amp; tooling"
+        title="People and tooling"
         description={t("mfg.resourcesLayout.desc.skillsTheOperatorsWhoHold")} />
       <SectionTabs
         label="People and tooling sections"

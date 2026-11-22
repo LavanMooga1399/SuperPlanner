@@ -248,7 +248,7 @@ export const mfgStrings = {
   "mfg.importWizard.btn.startANewImport": "Start a new import",
   "mfg.importWizard.desc.bringInItemsBomsRoutings": "Bring in items, BOMs, routings, plant data, suppliers, stock, purchase orders and requests, demand and work orders from Excel or CSV. Nothing is saved until you confirm the preview.",
   "mfg.importWizard.title.fixTheseRowsBeforeImporting": "Fix these rows before importing",
-  "mfg.importWizard.title.importExport": "Import / export",
+  "mfg.importWizard.title.importExport": "Import and export",
   "mfg.importWizard.title.readyToImport": "Ready to import",
   "mfg.importWizard.title.thisImportIsNoLonger": "This import is no longer available",
   "mfg.integrationPages.btn.both": "Both",

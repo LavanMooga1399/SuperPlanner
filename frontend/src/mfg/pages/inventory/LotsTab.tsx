@@ -171,6 +171,7 @@ export function LotsTab() {
       </FilterBar>
       <MfgError error={data.error ?? toggleError} onRetry={data.reload} />
       <VirtualTable
+        card={{ title: "lot", status: "hold", fields: ["pn", "exp", "oh"] }}
         rows={data.rows}
         columns={columns}
         rowKey={(l) => l.id}

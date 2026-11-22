@@ -178,6 +178,7 @@ export function TransactionsTab() {
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
+        card={{ title: "post", fields: ["date", "type", "pn", "qty"] }}
         rows={data.rows}
         columns={columns}
         rowKey={(t) => t.id}

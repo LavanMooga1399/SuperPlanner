@@ -222,11 +222,11 @@ export function ApsRunShell() {
               <PublishButton run={r} onDone={(x) => run.setData(x)} />
               {done ? (
                 <>
-                  <button type="button" className="btn sm" onClick={() => void exp("xlsx")} data-testid="aps-export">
+                  <button type="button" className="btn" onClick={() => void exp("xlsx")} data-testid="aps-export">
                     <Icon name="download" /> {t("mfg.apsRunShell.btn.exportExcel")}
                   </button>
-                  <button type="button" className="btn sm ghost" onClick={() => void exp("zip")}>
-                    {t("mfg.apsRunShell.btn.exportCsvZip")}
+                  <button type="button" className="btn" onClick={() => void exp("zip")}>
+                    <Icon name="download" /> {t("mfg.apsRunShell.btn.exportCsvZip")}
                   </button>
                 </>
               ) : null}
