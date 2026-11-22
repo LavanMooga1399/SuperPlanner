@@ -17,6 +17,7 @@ import { errorText, useLoad } from "../../lib/useMfg";
 import { isPeriod, orderedTiles, PeriodSelect, TileCard } from "./dashboardBits";
 import { formatDateTime } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
+import { t } from "../../../lib/i18n";
 
 export const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -47,7 +48,7 @@ export function DashboardPage() {
   return (
     <div className="col gap-lg dash-print" data-testid="dashboard">
       <PageHeader
-        title="Plant dashboard"
+        title={t("mfg.dashboardPage.title.plantDashboard")}
         description={<>{d ? `${d.plant.name ? `${d.plant.name} · ` : ""}as of ${formatDateTime(d.as_of)}` : ""}</>}
         actions={
           <>
@@ -59,7 +60,7 @@ export function DashboardPage() {
             {busy === "csv" ? <span className="spinner" aria-hidden /> : <Icon name="download" />} CSV
             </button>
             <button type="button" className="btn ghost" onClick={() => window.print()} data-testid="dash-print">
-            <Icon name="file" /> Print
+            <Icon name="file" /> {t("mfg.dashboardPage.btn.print")}
             </button>
           </>
         }
@@ -119,7 +120,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
         {list.error && !list.data ? <MfgError error={list.error} onRetry={list.reload} /> : null}
         {emailOff ? (
           <p className="muted" style={{ margin: 0 }} data-testid="digest-no-smtp">
-            <Icon name="info" size={14} /> Email is not set up on this server, so digests by email are off. On a phone you can get a push message when the
+            <Icon name="info" size={14} /> {t("mfg.dashboardPage.btn.emailIsNotSetUp")}
             digest is ready (SuperPlanner mobile, Notifications).
           </p>
         ) : (
@@ -136,7 +137,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
                     {s.time_zone ? <span className="muted small">({s.time_zone})</span> : null}
                     {s.last_sent_at ? <span className="muted small">last sent {formatDateTime(s.last_sent_at)}</span> : null}
                     <button type="button" className="btn ghost sm" onClick={() => void deleteDigest(s.id).then(list.reload, setErr)} aria-label="Stop this digest">
-                      <Icon name="trash" /> Stop
+                      <Icon name="trash" /> {t("mfg.dashboardPage.btn.stop")}
                     </button>
                   </li>
                 ))}
@@ -144,7 +145,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
             ) : null}
             <div className="row wrap" style={{ gap: 8, alignItems: "flex-end" }}>
               <div className="field" style={{ margin: 0 }}>
-                <label htmlFor="digest-freq">How often</label>
+                <label htmlFor="digest-freq">{t("mfg.dashboardPage.label.howOften")}</label>
                 <select id="digest-freq" className="select" value={f.frequency} onChange={(e) => setF({ ...f, frequency: e.target.value as "daily" | "weekly" })} data-testid="digest-frequency">
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -152,7 +153,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
               </div>
               {f.frequency === "weekly" ? (
                 <div className="field" style={{ margin: 0 }}>
-                  <label htmlFor="digest-day">On</label>
+                  <label htmlFor="digest-day">{t("mfg.dashboardPage.label.on")}</label>
                   <select id="digest-day" className="select" value={f.weekday} onChange={(e) => setF({ ...f, weekday: Number(e.target.value) })}>
                     {WEEKDAY_NAMES.map((n, i) => (
                       <option key={n} value={i}>
@@ -163,7 +164,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
                 </div>
               ) : null}
               <div className="field" style={{ margin: 0 }}>
-                <label htmlFor="digest-time">At (plant time)</label>
+                <label htmlFor="digest-time">{t("mfg.dashboardPage.label.atPlantTime")}</label>
                 <input id="digest-time" type="time" className="input" value={f.local_time} onChange={(e) => setF({ ...f, local_time: e.target.value })} />
               </div>
               <button type="button" className="btn" onClick={() => void add()} disabled={busy || !scopeId || !f.local_time} data-testid="digest-add">
@@ -233,7 +234,7 @@ function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): voi
     <section className="card" data-testid="dash-thresholds">
       <div className="card-body col">
         <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="dash-thresholds-toggle">
-          <Icon name={open ? "chevron-down" : "chevron-right"} /> Adjust targets (owner, plant admin)
+          <Icon name={open ? "chevron-down" : "chevron-right"} /> {t("mfg.dashboardPage.btn.adjustTargetsOwnerPlantAdmin")}
         </button>
         {open ? (
           <>

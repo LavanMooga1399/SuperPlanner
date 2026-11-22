@@ -28,6 +28,7 @@ import { FilterBar } from "../../../components/FilterBar";
 import { DataTable } from "../../components/DataTable";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { DateInput } from "../../../components/DateInput";
+import { t as tr } from "../../../lib/i18n";
 
 type TransferLine = TransferOrder["lines"][number];
 const LINE_COLS: Column<TransferLine>[] = [
@@ -98,12 +99,12 @@ export function TransfersPage() {
   return (
     <div className="col gap-lg" data-testid="transfers-page">
       <PageHeader
-        title="Transfers between plants"
-        description="Send stock to another plant of your organisation. Lots and serial numbers go with it."
+        title={tr("mfg.transferPages.title.transfersBetweenPlants")}
+        description={tr("mfg.transferPages.desc.sendStockToAnotherPlant")}
         actions={
           <>
             <button type="button" className="btn primary" disabled={!canEdit} title={canEdit ? undefined : needsText("transfer_edit")} onClick={() => setCreating(true)} data-testid="transfer-new">
-            <Icon name="plus" /> New transfer
+            <Icon name="plus" /> {tr("mfg.transferPages.btn.newTransfer")}
             </button>
           </>
         }
@@ -115,10 +116,10 @@ export function TransfersPage() {
           </span>
           <div className="btn-group" role="group" aria-labelledby="trf-dir-label">
             <button type="button" className="btn" aria-pressed={dir === "outbound"} onClick={() => setSearchParam(setParams, "dir", "outbound")}>
-              Outgoing
+              {tr("mfg.transferPages.btn.outgoing")}
             </button>
             <button type="button" className="btn" aria-pressed={dir === "inbound"} onClick={() => setSearchParam(setParams, "dir", "inbound")} data-testid="transfer-incoming">
-              Incoming
+              {tr("mfg.transferPages.btn.incoming")}
             </button>
           </div>
         </div>
@@ -159,13 +160,13 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
   const ok = dest && lines.every((l) => l.item && Number(l.qty) > 0 && l.ship && l.recv && l.recv >= l.ship);
   return (
     <Dialog
-      title="New transfer"
+      title={tr("mfg.transferPages.title.newTransfer")}
       onClose={onClose}
       wide
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {tr("mfg.transferPages.btn.cancel")}
           </button>
           <button
             type="button"
@@ -191,7 +192,7 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
     >
       <div className="col">
         <div className="field">
-          <label htmlFor="tf-dest">To plant</label>
+          <label htmlFor="tf-dest">{tr("mfg.transferPages.label.toPlant")}</label>
           <select id="tf-dest" className="select" value={dest} onChange={(e) => setDest(e.target.value)} data-testid="transfer-dest">
             <option value="">{targets.length ? "Choose…" : "No other plant of your organisation is open to you"}</option>
             {targets.map((w) => (
@@ -239,10 +240,10 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
           </tbody>
         </table>
         <button type="button" className="btn sm" style={{ alignSelf: "flex-start" }} onClick={() => setLines((x) => [...x, { item: null, qty: "", ship: today, recv: addDays(today, 2) }])}>
-          <Icon name="plus" /> Line
+          <Icon name="plus" /> {tr("mfg.transferPages.btn.line")}
         </button>
         <div className="field">
-          <label htmlFor="tf-note">Note</label>
+          <label htmlFor="tf-note">{tr("mfg.transferPages.label.note")}</label>
           <input id="tf-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
         <span className="faint small">The receiving plant needs the same items (same external reference or part number); publish master data first if not.</span>
@@ -297,32 +298,32 @@ export function TransferPage() {
         <div className="row wrap">
           {out && d.status === "draft" && canEdit ? (
             <button type="button" className="btn primary" disabled={busy} onClick={() => void act("open")} data-testid="transfer-open">
-              Confirm (planning sees it)
+              {tr("mfg.transferPages.btn.confirmPlanningSeesIt")}
             </button>
           ) : null}
           {out && ["open", "partly_shipped"].includes(d.status) && toShip ? (
             <button type="button" className="btn primary" disabled={!canStock} title={canStock ? undefined : needsText("inventory")} onClick={() => setMoving("transfer_ship")} data-testid="transfer-ship">
-              <Icon name="arrow-right" /> Ship
+              <Icon name="arrow-right" /> {tr("mfg.transferPages.btn.ship")}
             </button>
           ) : null}
           {!out && toReceive ? (
             <button type="button" className="btn primary" disabled={!canStock} title={canStock ? undefined : needsText("inventory")} onClick={() => setMoving("transfer_receipt")} data-testid="transfer-receive">
-              <Icon name="download" /> Receive
+              <Icon name="download" /> {tr("mfg.transferPages.btn.receive")}
             </button>
           ) : null}
           {out && canEdit && ["draft", "open"].includes(d.status) ? (
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void act("cancel")}>
-              Cancel transfer
+              {tr("mfg.transferPages.btn.cancelTransfer")}
             </button>
           ) : null}
           {out && canEdit && ["shipped", "partly_shipped", "received"].includes(d.status) ? (
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void act("close")}>
-              Close
+              {tr("mfg.transferPages.btn.close")}
             </button>
           ) : null}
         </div>
       </div>
-      {!out && d.status === "open" ? <Banner tone="info" title="Not shipped yet">The sending plant has not shipped; planning here already counts it as arriving on the dates below.</Banner> : null}
+      {!out && d.status === "open" ? <Banner tone="info" title={tr("mfg.transferPages.title.notShippedYet")}>The sending plant has not shipped; planning here already counts it as arriving on the dates below.</Banner> : null}
       <MfgError error={error} />
       <DataTable
         rows={d.lines}
@@ -370,7 +371,7 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {tr("mfg.transferPages.btn.cancel")}
           </button>
           <button
             type="button"

@@ -15,6 +15,7 @@ import { numOr, TextField } from "../components/Field";
 import { PermissionGate } from "../components/PermissionGate";
 import { useCan } from "../lib/permissions";
 import { useLoad } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 function RowDialog({ row, family, families, onClose, onSaved }: { row: SetupMatrixRowRecord | null; family: string; families: string[]; onClose(): void; onSaved(): void }) {
   const [f, setF] = useState({
@@ -85,7 +86,7 @@ export function SetupMatrixPage() {
         </p>
         <PermissionGate perm="master_edit">
           <button type="button" className="btn primary" onClick={() => setEditing({ row: null, family: lineFamilies[0] ?? "" })} data-testid="setup-row-new">
-            <Icon name="plus" /> Add changeover time
+            <Icon name="plus" /> {t("mfg.setupMatrixPage.btn.addChangeoverTime")}
           </button>
         </PermissionGate>
       </div>
@@ -128,7 +129,7 @@ export function SetupMatrixPage() {
                     {canEdit ? (
                       <span className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
                         <button type="button" className="btn sm" onClick={() => setEditing({ row: r, family: fam })}>
-                          Edit
+                          {t("mfg.setupMatrixPage.btn.edit")}
                         </button>
                         <button type="button" className="btn sm ghost icon" aria-label={`Delete ${r.from_family} to ${r.to_family}`} onClick={() => setDeleting(r)}>
                           <Icon name="trash" />
@@ -163,8 +164,8 @@ export function SetupMatrixPage() {
       ) : null}
       {deleting ? (
         <ConfirmDialog
-          title="Delete this changeover time?"
-          confirmLabel="Delete"
+          title={t("mfg.setupMatrixPage.title.deleteThisChangeoverTime")}
+          confirmLabel={t("mfg.setupMatrixPage.btn.delete")}
           danger
           onCancel={() => setDeleting(null)}
           onConfirm={() => {

@@ -19,6 +19,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
 import { severityOfCode } from "./RunSummaryTab";
+import { t } from "../../../lib/i18n";
 
 const csv = (v: string | null) => new Set((v ?? "").split(",").filter(Boolean));
 
@@ -64,7 +65,7 @@ export function ExceptionsTab() {
       render: (e) =>
         e.link ? (
           <Link to={e.link} className="btn sm" tabIndex={-1} data-testid="exception-link" onClick={(ev) => ev.stopPropagation()}>
-            Open
+            {t("mfg.exceptionsTab.btn.open")}
           </Link>
         ) : null,
     },
@@ -79,7 +80,7 @@ export function ExceptionsTab() {
           </button>
         ))}
         <div className="field" style={{ marginLeft: "auto", width: 260 }}>
-          <input className="input sm" type="search" aria-label="Search messages" placeholder="Search part or document" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input sm" type="search" aria-label="Search messages" placeholder={t("mfg.exceptionsTab.ph.searchPartOrDocument")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
       {all ? (
@@ -107,7 +108,7 @@ export function ExceptionsTab() {
                 )
               }
             >
-              <Icon name="x" /> Clear filters
+              <Icon name="x" /> {t("mfg.exceptionsTab.btn.clearFilters")}
             </button>
           ) : null}
         </div>

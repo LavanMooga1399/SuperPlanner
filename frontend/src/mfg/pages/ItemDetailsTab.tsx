@@ -21,6 +21,7 @@ import { mfgPaths } from "../lib/paths";
 import { isConflict } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
+import { t } from "../../lib/i18n";
 
 interface AttrRow {
   key: string;
@@ -352,7 +353,7 @@ export function ItemDetailsTab() {
 
       <div>
         <button type="button" className="btn ghost sm" aria-expanded={more} onClick={() => setMore((m) => !m)} data-testid="item-more-toggle">
-          <Icon name={more ? "chevron-down" : "chevron-right"} /> More details (setup family, serial numbers, handling, attributes)
+          <Icon name={more ? "chevron-down" : "chevron-right"} /> {t("mfg.itemDetailsTab.btn.moreDetailsSetupFamilySerial")}
         </button>
       </div>
       {more ? (
@@ -404,13 +405,13 @@ export function ItemDetailsTab() {
         </button>
         </PermissionGate>
         <button type="button" className="btn" disabled={!dirty || busy} onClick={() => setForm(toForm(base))}>
-          Undo changes
+          {t("mfg.itemDetailsTab.btn.undoChanges")}
         </button>
         <SaveState busy={false} saved={saved && !dirty} />
         <span className="grow" />
         <PermissionGate perm="master_edit">
           <button type="button" className="btn danger" onClick={() => setConfirmDelete(true)} data-testid="item-delete">
-            <Icon name="trash" /> Delete item
+            <Icon name="trash" /> {t("mfg.itemDetailsTab.btn.deleteItem")}
           </button>
         </PermissionGate>
       </div>
@@ -418,7 +419,7 @@ export function ItemDetailsTab() {
       {confirmDelete ? (
         <ConfirmDialog
           title={`Delete ${base.part_number}?`}
-          confirmLabel="Delete item"
+          confirmLabel={t("mfg.itemDetailsTab.btn.deleteItem")}
           danger
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => void remove()}
@@ -457,7 +458,7 @@ function AttributesEditor({ rows, onChange }: { rows: AttrRow[]; onChange(rows: 
       ))}
       <div>
         <button type="button" className="btn sm" onClick={() => onChange([...rows, { key: "", type: "text", value: "" }])}>
-          <Icon name="plus" /> Add attribute
+          <Icon name="plus" /> {t("mfg.itemDetailsTab.btn.addAttribute")}
         </button>
       </div>
     </fieldset>

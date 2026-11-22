@@ -12,7 +12,7 @@ import { HealthIssueList } from "../components/HealthIssueList";
 import { SeverityBadge } from "../components/StatusChip";
 import { fmtDate } from "../lib/format";
 import { useDebounced, useLoad, usePlant } from "../lib/useMfg";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
 import { DateInput } from "../../components/DateInput";
 
@@ -59,17 +59,17 @@ export function HealthPage() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Data health"
-        description="Checks that your items, BOMs, routings, plant and people fit together before anything is planned."
+        title={t("mfg.healthPage.title.dataHealth")}
+        description={t("mfg.healthPage.desc.checksThatYourItemsBoms")}
         actions={
           <>
             <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
           <div className="field">
-            <label htmlFor="health-asof">Check from</label>
+            <label htmlFor="health-asof">{t("mfg.healthPage.label.checkFrom")}</label>
             <DateInput id="health-asof" small value={asOf} testId="health-as-of" onChange={(v) => setAsOf(v)} />
           </div>
           <div className="field" style={{ width: 130 }}>
-            <label htmlFor="health-horizon">Days ahead</label>
+            <label htmlFor="health-horizon">{t("mfg.healthPage.label.daysAhead")}</label>
             <input
               id="health-horizon"
               type="number"
@@ -95,7 +95,7 @@ export function HealthPage() {
         <>
           <div data-testid="health-status" data-ok={String(r.ok)} data-errors={r.counts.error} role="status">
             {r.ok ? (
-              <Banner tone="ok" title="Ready for planning">
+              <Banner tone="ok" title={t("mfg.healthPage.title.readyForPlanning")}>
                 No errors from {fmtDate(r.as_of)} over the next {plural(r.horizon_days, "day")}. {plural(r.counts.warning, "warning")} and {plural(r.counts.info, "note")} are worth a look but do not block anything.
               </Banner>
             ) : (
@@ -120,7 +120,7 @@ export function HealthPage() {
                   setCodes(new Set());
                 }}
               >
-                <Icon name="x" /> Clear filters
+                <Icon name="x" /> {t("mfg.healthPage.btn.clearFilters")}
               </button>
             ) : null}
           </div>
@@ -135,7 +135,7 @@ export function HealthPage() {
             </div>
           ) : null}
           {r.truncated ? (
-            <Banner tone="warn" title="Only the first issues are listed">
+            <Banner tone="warn" title={t("mfg.healthPage.title.onlyTheFirstIssuesAre")}>
               The counts above are complete; {r.issues.length.toLocaleString("en-IN")} issues are shown. Fix the errors first and check again.
             </Banner>
           ) : null}

@@ -17,6 +17,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { BulkActions, ReasonField, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
 import { useCan } from "../../lib/permissions";
+import { t } from "../../../lib/i18n";
 
 export const PR_STATUSES: PurchaseStatus[] = ["draft", "submitted", "approved", "rejected", "ordered", "cancelled"];
 export const PO_STATUSES: PurchaseStatus[] = ["draft", "open", "partially_received", "received", "closed", "cancelled"];
@@ -156,7 +157,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
         }
       >
         <div className="field">
-          <label htmlFor="pd-status">Status</label>
+          <label htmlFor="pd-status">{t("mfg.purchaseDocList.label.status")}</label>
           <select id="pd-status" className="select" value={status} onChange={(e) => set("status", e.target.value === "open" ? "" : e.target.value)} data-testid="docs-status">
             <option value="open">Open (not finished)</option>
             <option value="all">All</option>
@@ -168,7 +169,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="pd-src">Source</label>
+          <label htmlFor="pd-src">{t("mfg.purchaseDocList.label.source")}</label>
           <select id="pd-src" className="select" value={source} onChange={(e) => set("source", e.target.value)}>
             <option value="">Any</option>
             <option value="manual">Entered by hand</option>
@@ -177,7 +178,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="pd-sort">Sort by</label>
+          <label htmlFor="pd-sort">{t("mfg.purchaseDocList.label.sortBy")}</label>
           <select id="pd-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "-created_at" ? "" : e.target.value)}>
             <option value="-created_at">Newest first</option>
             <option value="number">Number</option>

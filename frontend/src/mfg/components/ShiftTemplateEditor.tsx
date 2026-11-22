@@ -5,6 +5,7 @@
 import { Icon } from "../../components/Icon";
 import { WEEKDAYS, type ShiftDef, type Weekday } from "../api/types";
 import { WEEKDAY_LABEL } from "../lib/format";
+import { t } from "../../lib/i18n";
 
 const MON_FRI: Weekday[] = ["mon", "tue", "wed", "thu", "fri"];
 const MON_SAT: Weekday[] = ["mon", "tue", "wed", "thu", "fri", "sat"];
@@ -72,11 +73,11 @@ export function ShiftTemplateEditor({ shifts, onChange, readOnly }: { shifts: Sh
               </div>
               <div className="field" style={{ width: 86 }}>
                 <label htmlFor={`sh-${i}-start`}>Start</label>
-                <input id={`sh-${i}-start`} className="input sm mono" value={s.start} placeholder="HH:MM" maxLength={5} readOnly={readOnly} aria-invalid={!HHMM.test(s.start)} onChange={(e) => update(i, { start: e.target.value })} data-testid="shift-start" />
+                <input id={`sh-${i}-start`} className="input sm mono" value={s.start} placeholder={t("mfg.shiftTemplateEditor.ph.hhmm")} maxLength={5} readOnly={readOnly} aria-invalid={!HHMM.test(s.start)} onChange={(e) => update(i, { start: e.target.value })} data-testid="shift-start" />
               </div>
               <div className="field" style={{ width: 86 }}>
                 <label htmlFor={`sh-${i}-end`}>End</label>
-                <input id={`sh-${i}-end`} className="input sm mono" value={s.end} placeholder="HH:MM" maxLength={5} readOnly={readOnly} aria-invalid={!HHMM.test(s.end)} onChange={(e) => update(i, { end: e.target.value })} data-testid="shift-end" />
+                <input id={`sh-${i}-end`} className="input sm mono" value={s.end} placeholder={t("mfg.shiftTemplateEditor.ph.hhmm")} maxLength={5} readOnly={readOnly} aria-invalid={!HHMM.test(s.end)} onChange={(e) => update(i, { end: e.target.value })} data-testid="shift-end" />
               </div>
               {hint ? <span className="small muted" style={{ paddingBottom: 6 }}>{hint}</span> : null}
               <div className="field">
@@ -105,9 +106,9 @@ export function ShiftTemplateEditor({ shifts, onChange, readOnly }: { shifts: Sh
                     Break
                   </span>
                   <input className="input sm" style={{ width: 110 }} aria-label={`Break ${j + 1} name, shift ${i + 1}`} value={b.name} maxLength={32} readOnly={readOnly} onChange={(e) => update(i, { breaks: s.breaks.map((x, n) => (n === j ? { ...x, name: e.target.value } : x)) })} />
-                  <input className="input sm mono" style={{ width: 76 }} placeholder="HH:MM" aria-label={`Break ${j + 1} start, shift ${i + 1}`} value={b.start} maxLength={5} readOnly={readOnly} onChange={(e) => update(i, { breaks: s.breaks.map((x, n) => (n === j ? { ...x, start: e.target.value } : x)) })} />
+                  <input className="input sm mono" style={{ width: 76 }} placeholder={t("mfg.shiftTemplateEditor.ph.hhmm")} aria-label={`Break ${j + 1} start, shift ${i + 1}`} value={b.start} maxLength={5} readOnly={readOnly} onChange={(e) => update(i, { breaks: s.breaks.map((x, n) => (n === j ? { ...x, start: e.target.value } : x)) })} />
                   <span aria-hidden>-</span>
-                  <input className="input sm mono" style={{ width: 76 }} placeholder="HH:MM" aria-label={`Break ${j + 1} end, shift ${i + 1}`} value={b.end} maxLength={5} readOnly={readOnly} onChange={(e) => update(i, { breaks: s.breaks.map((x, n) => (n === j ? { ...x, end: e.target.value } : x)) })} />
+                  <input className="input sm mono" style={{ width: 76 }} placeholder={t("mfg.shiftTemplateEditor.ph.hhmm")} aria-label={`Break ${j + 1} end, shift ${i + 1}`} value={b.end} maxLength={5} readOnly={readOnly} onChange={(e) => update(i, { breaks: s.breaks.map((x, n) => (n === j ? { ...x, end: e.target.value } : x)) })} />
                   {readOnly ? null : (
                     <button type="button" className="btn sm ghost icon" aria-label={`Remove break ${j + 1}, shift ${i + 1}`} onClick={() => update(i, { breaks: s.breaks.filter((_, n) => n !== j) })}>
                       <Icon name="x" />
@@ -118,7 +119,7 @@ export function ShiftTemplateEditor({ shifts, onChange, readOnly }: { shifts: Sh
               {readOnly ? null : (
                 <div>
                   <button type="button" className="btn sm ghost" onClick={() => update(i, { breaks: [...s.breaks, { name: "Break", start: "", end: "" }] })} data-testid="shift-add-break">
-                    <Icon name="plus" /> Add break
+                    <Icon name="plus" /> {t("mfg.shiftTemplateEditor.btn.addBreak")}
                   </button>
                 </div>
               )}
@@ -140,7 +141,7 @@ export function ShiftTemplateEditor({ shifts, onChange, readOnly }: { shifts: Sh
             data-testid="shift-add"
             disabled={shifts.length >= 10}
           >
-            <Icon name="plus" /> Add shift
+            <Icon name="plus" /> {t("mfg.shiftTemplateEditor.btn.addShift")}
           </button>
         </div>
       )}

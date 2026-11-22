@@ -18,6 +18,7 @@ import type { LineRecord, PlantRecord } from "../../api/types";
 import { usePlantClock } from "../../lib/plantTime";
 import { useLoad, usePlant } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
+import { t } from "../../../lib/i18n";
 
 export const POLICY_TEXT: Record<OvertimePolicy, { label: string; help: string }> = {
   off: { label: "Regular shifts only", help: "Baseline: no overtime is used or suggested." },
@@ -110,7 +111,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
     setError(null);
     try {
       onDone(await createApsRun(params));
-      toast("Schedule run started");
+      toast(t("mfg.apsRunForm.toast.scheduleRunStarted"));
     } catch (e) {
       setError(e);
       setBusy(false);
@@ -122,7 +123,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
       <div className="card-header">
         <h2 id="aps-form-title">Schedule the whole plant</h2>
         <button type="button" className="btn sm ghost" onClick={onClose}>
-          <Icon name="x" /> Close
+          <Icon name="x" /> {t("mfg.apsRunForm.btn.close")}
         </button>
       </div>
       <div className="card-body col">
@@ -131,8 +132,8 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
           material availability, most urgent first. Runs in the background; you can keep working.
         </p>
         <div className="field" style={{ maxWidth: 420 }}>
-          <label htmlFor="aps-label">Name (optional)</label>
-          <input id="aps-label" className="input" maxLength={100} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Week 45" data-testid="aps-label" />
+          <label htmlFor="aps-label">{t("mfg.apsRunForm.label.nameOptional")}</label>
+          <input id="aps-label" className="input" maxLength={100} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("mfg.apsRunForm.ph.egWeek45")} data-testid="aps-label" />
         </div>
         <PolicyPicker
           value={policy}
@@ -143,10 +144,10 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
         />
         <div className="row wrap">
           <button type="button" className="btn sm ghost" aria-expanded={expert} onClick={() => setExpert((x) => !x)} data-testid="aps-expert-toggle">
-            <Icon name={expert ? "chevron-down" : "chevron-right"} /> Planning options
+            <Icon name={expert ? "chevron-down" : "chevron-right"} /> {t("mfg.apsRunForm.btn.planningOptions")}
           </button>
           <button type="button" className="btn sm ghost" aria-expanded={whatIf} onClick={() => setWhatIf((x) => !x)} data-testid="aps-whatif-toggle">
-            <Icon name={whatIf ? "chevron-down" : "chevron-right"} /> What-if scenario
+            <Icon name={whatIf ? "chevron-down" : "chevron-right"} /> {t("mfg.apsRunForm.btn.whatifScenario")}
           </button>
         </div>
         {expert ? (
@@ -154,12 +155,12 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
             <legend>Planning options</legend>
             <div className="form-grid">
               <div className="field">
-                <label htmlFor="aps-h">Horizon (days)</label>
+                <label htmlFor="aps-h">{t("mfg.apsRunForm.label.horizonDays")}</label>
                 <input id="aps-h" className="input" type="number" min={7} max={120} value={horizon} placeholder={String(p3?.aps_horizon_days ?? 42)} onChange={(e) => setHorizon(e.target.value)} aria-invalid={hBad} />
                 <span className="hint">{hBad ? "7 to 120 days." : "Operations that cannot start before the end are listed, not scheduled."}</span>
               </div>
               <div className="field">
-                <label htmlFor="aps-mrp">Material plan (MRP run)</label>
+                <label htmlFor="aps-mrp">{t("mfg.apsRunForm.label.materialPlanMrpRun")}</label>
                 <select id="aps-mrp" className="select" value={mrpRun} onChange={(e) => setMrpRun(e.target.value)}>
                   <option value="">Latest live run</option>
                   {(mrpRuns.data?.items ?? [])
@@ -174,7 +175,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
                 <span className="hint">Gives the planned orders and when each part arrives.</span>
               </div>
               <div className="field">
-                <label htmlFor="aps-imp">Improvement time (seconds)</label>
+                <label htmlFor="aps-imp">{t("mfg.apsRunForm.label.improvementTimeSeconds")}</label>
                 <input id="aps-imp" className="input" type="number" min={0} max={300} value={improve} onChange={(e) => setImprove(e.target.value)} aria-invalid={impBad} />
                 <span className="hint">{impBad ? "0 to 300." : "0 = first plan only; more time can reduce lateness and setups."}</span>
               </div>
@@ -228,7 +229,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
               ))}
               <div>
                 <button type="button" className="btn sm" onClick={() => setOvs((x) => [...x, { key: ++k, target_id: "", start: "", end: "", mode: "open_optional" }])}>
-                  <Icon name="plus" /> Add a capacity change
+                  <Icon name="plus" /> {t("mfg.apsRunForm.btn.addACapacityChange")}
                 </button>
               </div>
             </div>
@@ -245,7 +246,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} {isWhatIf ? "Run what-if schedule" : "Schedule now"}
           </button>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t("mfg.apsRunForm.btn.cancel")}
           </button>
         </div>
       </div>

@@ -24,6 +24,7 @@ import { useDebounced } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
 import { FilterBar } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 const MAX_SELECT = 500;
 
@@ -68,7 +69,7 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
       footer={
         <>
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.plannedOrdersTab.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy} data-testid="convert-submit">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {mode === "firm" ? "Firm" : "Release"} {orders.length}
@@ -99,7 +100,7 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
         <div className="form-grid">
           {buy ? (
             <div className="field">
-              <label htmlFor="conv-group">Purchase requests</label>
+              <label htmlFor="conv-group">{t("mfg.plannedOrdersTab.label.purchaseRequests")}</label>
               <select id="conv-group" className="select" value={grouping} onChange={(e) => setGrouping(e.target.value as "per_supplier" | "per_order")}>
                 <option value="per_supplier">One request per supplier</option>
                 <option value="per_order">One request per planned order</option>
@@ -253,11 +254,11 @@ export function PlannedOrdersTab() {
   return (
     <div className="col gap-lg">
       {!isLatestLive ? (
-        <Banner tone="info" icon="lock" title="Converting is only possible from the latest live plan">
+        <Banner tone="info" icon="lock" title={t("mfg.plannedOrdersTab.title.convertingIsOnlyPossibleFrom")}>
           {run.kind === "what_if" ? "This is a what-if scenario." : "A newer live run exists, or this run did not complete."} <Link to={mfgPaths.mrp()}>Open the runs list</Link>.
         </Banner>
       ) : !canRun ? (
-        <Banner tone="info" icon="lock" title="Read only">
+        <Banner tone="info" icon="lock" title={t("mfg.plannedOrdersTab.title.readOnly")}>
           {needsText("mrp_run")}
         </Banner>
       ) : null}
@@ -290,7 +291,7 @@ export function PlannedOrdersTab() {
       ) : null}
       <FilterBar search={{ id: "po-q", value: q, onChange: setQ, placeholder: "Part number", testId: "planned-search" }} pageKey="PlannedOrdersTab">
         <div className="field">
-          <label htmlFor="po-kind">Make / buy</label>
+          <label htmlFor="po-kind">{t("mfg.plannedOrdersTab.label.makeBuy")}</label>
           <select id="po-kind" className="select" value={kind} onChange={(e) => set("kind", e.target.value)} data-testid="planned-kind">
             <option value="">All {counts?.by_kind ? `(${(counts.by_kind.make ?? 0) + (counts.by_kind.buy ?? 0)})` : ""}</option>
             <option value="make">Make{counts?.by_kind ? ` (${counts.by_kind.make ?? 0})` : ""}</option>
@@ -298,7 +299,7 @@ export function PlannedOrdersTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="po-rel">Release</label>
+          <label htmlFor="po-rel">{t("mfg.plannedOrdersTab.label.release")}</label>
           <select id="po-rel" className="select" value={release} onChange={(e) => set("release", e.target.value)} data-testid="planned-release">
             <option value="">Any</option>
             <option value="start_in_past">Should have started{counts?.by_release_status ? ` (${counts.by_release_status.start_in_past ?? 0})` : ""}</option>
@@ -307,7 +308,7 @@ export function PlannedOrdersTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="po-st">Status</label>
+          <label htmlFor="po-st">{t("mfg.plannedOrdersTab.label.status")}</label>
           <select id="po-st" className="select" value={status} onChange={(e) => set("status", e.target.value === "open" ? "" : e.target.value)}>
             <option value="open">Not converted</option>
             <option value="converted">Converted</option>
@@ -315,7 +316,7 @@ export function PlannedOrdersTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="po-sort">Sort by</label>
+          <label htmlFor="po-sort">{t("mfg.plannedOrdersTab.label.sortBy")}</label>
           <select id="po-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "start_date" ? "" : e.target.value)}>
             <option value="start_date">Start date</option>
             <option value="need_date">Need date</option>
@@ -331,19 +332,19 @@ export function PlannedOrdersTab() {
           </button>
           {selected.size ? (
             <button type="button" className="btn sm ghost" onClick={() => setSelected(new Map())}>
-              Clear selection
+              {t("mfg.plannedOrdersTab.btn.clearSelection")}
             </button>
           ) : null}
           <span className="small muted" data-testid="planned-selected-count">
             {selected.size} selected{selected.size >= MAX_SELECT ? ` (maximum ${MAX_SELECT})` : ""}
           </span>
           <button type="button" className="btn primary" onClick={() => setConverting(true)} disabled={!selected.size} data-testid="convert-open">
-            <Icon name="check" /> Firm / release…
+            <Icon name="check" /> {t("mfg.plannedOrdersTab.btn.firmRelease")}
           </button>
         </div>
       ) : (
         <button type="button" className="btn" disabled aria-disabled title={!isLatestLive ? "Only from the latest live run" : needsText("mrp_run")} data-testid="convert-open" style={{ alignSelf: "flex-start" }}>
-          <Icon name="lock" /> Firm / release…
+          <Icon name="lock" /> {t("mfg.plannedOrdersTab.btn.firmRelease")}
         </button>
       )}
       <MfgError error={data.error} onRetry={data.reload} />

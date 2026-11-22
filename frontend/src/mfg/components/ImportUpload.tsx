@@ -10,6 +10,7 @@ import type { ImportRecord } from "../api/types";
 import { fmtBytes } from "../lib/importMapping";
 import { useMeta } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
+import { t } from "../../lib/i18n";
 
 const SHEET_LABEL: Record<string, string> = {
   plant: "Plant settings",
@@ -142,7 +143,7 @@ export function ImportUpload({ onUploaded, reuseNote }: { onUploaded(rec: Import
         ) : null}
         {isCsv ? (
           <div className="field" style={{ maxWidth: 320 }}>
-            <label htmlFor="imp-sheet">What does this CSV contain?</label>
+            <label htmlFor="imp-sheet">{t("mfg.importUpload.label.whatDoesThisCsvContain")}</label>
             <select id="imp-sheet" className="select" value={sheet} onChange={(e) => setSheet(e.target.value)} data-testid="import-csv-sheet">
               {sheets.map((s) => (
                 <option key={s} value={s}>

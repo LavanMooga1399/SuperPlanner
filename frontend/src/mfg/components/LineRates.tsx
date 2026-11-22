@@ -12,6 +12,7 @@ import { useCan } from "../lib/permissions";
 import { useLoad } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
 import { numOrNull } from "./Field";
+import { t } from "../../lib/i18n";
 
 export function LineRates({ operationId, groupId, readOnly }: { operationId: string | null; groupId: string; readOnly: boolean }) {
   const canEdit = useCan("master_edit") && !readOnly;
@@ -78,11 +79,11 @@ export function LineRates({ operationId, groupId, readOnly }: { operationId: str
                 <td className="mono">{l.code}</td>
                 <td className="faint">{l.speed_factor}</td>
                 <td style={{ width: 120 }}>
-                  <input className="input sm num" type="number" min={0} step="any" aria-label={`${l.code} setup minutes`} placeholder="operation's" value={val(l.id, "setup", r)} readOnly={!canEdit}
+                  <input className="input sm num" type="number" min={0} step="any" aria-label={`${l.code} setup minutes`} placeholder={t("mfg.lineRates.ph.operations")} value={val(l.id, "setup", r)} readOnly={!canEdit}
                     onChange={(e) => setDraft((d) => ({ ...d, [l.id]: { setup: e.target.value, run: d[l.id]?.run ?? val(l.id, "run", r) } }))} />
                 </td>
                 <td style={{ width: 140 }}>
-                  <input className="input sm num" type="number" min={0} step="any" aria-label={`${l.code} run minutes`} placeholder="operation's" value={val(l.id, "run", r)} readOnly={!canEdit}
+                  <input className="input sm num" type="number" min={0} step="any" aria-label={`${l.code} run minutes`} placeholder={t("mfg.lineRates.ph.operations")} value={val(l.id, "run", r)} readOnly={!canEdit}
                     onChange={(e) => setDraft((d) => ({ ...d, [l.id]: { run: e.target.value, setup: d[l.id]?.setup ?? val(l.id, "setup", r) } }))} data-testid="line-rate-run" />
                 </td>
                 <td>

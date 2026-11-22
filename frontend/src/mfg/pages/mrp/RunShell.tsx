@@ -15,7 +15,7 @@ import { fmtDate, fmtTimestamp } from "../../lib/format";
 import { mfgPaths } from "../../lib/paths";
 import { isNotFound, useLoad } from "../../lib/useMfg";
 import { runTitle } from "./MrpRunsPage";
-import { plural } from "../../../lib/i18n";
+import { plural, t } from "../../../lib/i18n";
 
 export interface RunContext {
   run: MrpRunRecord;
@@ -49,7 +49,7 @@ function ExportMenu({ runId }: { runId: string }) {
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Export to Excel
         </button>
         <button type="button" className="btn sm ghost" onClick={() => void run("zip")} disabled={busy}>
-          CSV (zip)
+          {t("mfg.runShell.btn.csvZip")}
         </button>
       </div>
       <MfgError error={error} title="Download failed" />
@@ -88,7 +88,7 @@ export function RunShell() {
           <RunStatusChip status={r.status} />
           {isLatestLive ? (
             <span className="badge accent" title="Planned orders of this run can be firmed or released">
-              <Icon name="star" /> Latest live plan
+              <Icon name="star" /> {t("mfg.runShell.btn.latestLivePlan")}
             </span>
           ) : null}
           <span className="muted small">
@@ -101,11 +101,11 @@ export function RunShell() {
         <Banner
           tone="warn"
           icon="clock"
-          title="The data changed after this plan was made"
+          title={t("mfg.runShell.title.theDataChangedAfterThis")}
           testId="run-stale-banner"
           actions={
             <Link className="btn sm" to={mfgPaths.mrp()}>
-              <Icon name="refresh" /> Run again
+              <Icon name="refresh" /> {t("mfg.runShell.btn.runAgain")}
             </Link>
           }
         >
@@ -113,11 +113,11 @@ export function RunShell() {
         </Banner>
       ) : null}
       {r.kind === "what_if" ? (
-        <Banner tone="info" icon="help" title="What-if scenario">
+        <Banner tone="info" icon="help" title={t("mfg.runShell.title.whatifScenario")}>
           This run is for comparison only; its planned orders cannot be firmed or released. Live data was not changed.
         </Banner>
       ) : null}
-      {r.status === "failed" ? <Banner tone="danger" title="This run failed">{r.error?.message ?? "Unexpected error."}</Banner> : null}
+      {r.status === "failed" ? <Banner tone="danger" title={t("mfg.runShell.title.thisRunFailed")}>{r.error?.message ?? "Unexpected error."}</Banner> : null}
       <nav className="tabs" aria-label="Plan sections">
         {tabs.map((t) => (
           <NavLink key={t.key} to={t.to} end={t.end} className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={`run-tab-${t.key}`}>

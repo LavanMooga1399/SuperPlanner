@@ -22,6 +22,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { FilterBar } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 const TYPES = Object.keys(EVENT_LABEL) as FloorEventType[];
 
@@ -85,7 +86,7 @@ export function FloorEvents() {
           {e.corrected ? (
             <span className="small">
               {" "}
-              · <Icon name="refresh" size={12} /> corrected later
+              · <Icon name="refresh" size={12} /> {t("mfg.floorEvents.btn.correctedLater")}
             </span>
           ) : null}
           {e.reason_code ? <span className="faint small"> · reason: {humanCode(e.reason_code)}</span> : null}
@@ -136,12 +137,12 @@ export function FloorEvents() {
         <span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
           {!e.corrected && ["report", "complete", "correct"].includes(e.event_type) ? (
             <button type="button" className="btn sm" onClick={() => setCorrecting(e)} data-testid="event-correct">
-              Correct
+              {t("mfg.floorEvents.btn.correct")}
             </button>
           ) : null}
           {e.event_type === "complete" && !e.corrected ? (
             <button type="button" className="btn sm ghost" onClick={() => setReopening(e)} data-testid="event-reopen">
-              Reopen
+              {t("mfg.floorEvents.btn.reopen")}
             </button>
           ) : null}
         </span>
@@ -152,12 +153,12 @@ export function FloorEvents() {
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>Floor event log</h1>
         <Link className="btn" to={mfgPaths.floorOverview()}>
-          Shop floor overview
+          {t("mfg.floorEvents.btn.shopFloorOverview")}
         </Link>
       </div>
       <FilterBar pageKey="FloorEvents">
         <div className="field">
-          <label htmlFor="fe-line">Line</label>
+          <label htmlFor="fe-line">{t("mfg.floorEvents.label.line")}</label>
           <select id="fe-line" className="select" value={line} onChange={(e) => set("line", e.target.value)}>
             <option value="">All lines</option>
             {(lines.data?.items ?? []).map((l) => (
@@ -168,7 +169,7 @@ export function FloorEvents() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="fe-type">Event</label>
+          <label htmlFor="fe-type">{t("mfg.floorEvents.label.event")}</label>
           <select id="fe-type" className="select" value={type} onChange={(e) => set("type", e.target.value)}>
             <option value="">All events</option>
             {TYPES.map((t) => (
@@ -179,16 +180,16 @@ export function FloorEvents() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="fe-from">From</label>
+          <label htmlFor="fe-from">{t("mfg.floorEvents.label.from")}</label>
           <DateInput id="fe-from" value={from} onChange={(v) => set("from", v)} />
         </div>
         <div className="field">
-          <label htmlFor="fe-to">To</label>
+          <label htmlFor="fe-to">{t("mfg.floorEvents.label.to")}</label>
           <DateInput id="fe-to" value={to} onChange={(v) => set("to", v)} />
         </div>
         {wo ? (
           <button type="button" className="btn ghost" style={{ alignSelf: "flex-end" }} onClick={() => set("wo", "")}>
-            <Icon name="x" /> Work order filter
+            <Icon name="x" /> {t("mfg.floorEvents.btn.workOrderFilter")}
           </button>
         ) : null}
       </FilterBar>
@@ -203,7 +204,7 @@ export function FloorEvents() {
         loading={data.loading}
         exportName="floor-events"
         rowExtras={(e) => ({ testId: "floor-event-row", data: { type: e.event_type }, className: e.corrected ? "faint" : undefined })}
-        empty="No events in this period. Events appear as operators report on the shop floor."
+        empty={t("mfg.floorEvents.empty.noEventsInThisPeriod")}
         footer={<ShowMore shown={data.rows.length} total={data.total} noun="events" loading={data.loading} onMore={data.onEndReached} />}
         card={{ title: "wo", status: "event", actions: "actions", fields: ["when", "qty", "who"] }}
       />
@@ -263,15 +264,15 @@ function CorrectDialog({ ev, onClose, onDone }: { ev: FloorEventRecord; onClose(
   };
   return (
     <Dialog
-      title="Correct the event"
+      title={t("mfg.floorEvents.title.correctTheEvent")}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t("mfg.floorEvents.btn.cancel")}
           </button>
           <button type="button" className="btn primary" disabled={busy || !note.trim()} onClick={() => void go()} data-testid="correct-submit">
-            Record correction
+            {t("mfg.floorEvents.btn.recordCorrection")}
           </button>
         </>
       }
@@ -281,20 +282,20 @@ function CorrectDialog({ ev, onClose, onDone }: { ev: FloorEventRecord; onClose(
       </p>
       <div className="grid-3">
         <div className="field">
-          <label htmlFor="cr-good">Good</label>
+          <label htmlFor="cr-good">{t("mfg.floorEvents.label.good")}</label>
           <input id="cr-good" className="input" inputMode="decimal" value={good} onChange={(e) => setGood(e.target.value)} />
         </div>
         <div className="field">
-          <label htmlFor="cr-scrap">Scrap</label>
+          <label htmlFor="cr-scrap">{t("mfg.floorEvents.label.scrap")}</label>
           <input id="cr-scrap" className="input" inputMode="decimal" value={scrap} onChange={(e) => setScrap(e.target.value)} />
         </div>
         <div className="field">
-          <label htmlFor="cr-rework">Rework</label>
+          <label htmlFor="cr-rework">{t("mfg.floorEvents.label.rework")}</label>
           <input id="cr-rework" className="input" inputMode="decimal" value={rework} onChange={(e) => setRework(e.target.value)} />
         </div>
       </div>
       <div className="field">
-        <label htmlFor="cr-note">Why (required)</label>
+        <label htmlFor="cr-note">{t("mfg.floorEvents.label.whyRequired")}</label>
         <input id="cr-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
       </div>
       {error ? <div className="banner danger">{error}</div> : null}
@@ -313,7 +314,7 @@ export function ReasonDialog({ title, text, confirm, onClose, onConfirm }: { tit
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t("mfg.floorEvents.btn.cancel")}
           </button>
           <button
             type="button"
@@ -338,7 +339,7 @@ export function ReasonDialog({ title, text, confirm, onClose, onConfirm }: { tit
     >
       <p style={{ marginTop: 0 }}>{text}</p>
       <div className="field">
-        <label htmlFor="rd-reason">Reason (required)</label>
+        <label htmlFor="rd-reason">{t("mfg.floorEvents.label.reasonRequired")}</label>
         <input id="rd-reason" className="input" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
       </div>
       {error ? <div className="banner danger">{error}</div> : null}

@@ -16,6 +16,7 @@ import { useCan } from "../../lib/permissions";
 import { useLoad } from "../../lib/useMfg";
 import { MrpRunForm } from "./MrpRunForm";
 import { PageHeader } from "../../../components/PageHeader";
+import { t } from "../../../lib/i18n";
 
 export function runTitle(r: MrpRunRecord): string {
   return `Run #${r.run_no}${r.label ? ` · ${r.label}` : ""}`;
@@ -54,17 +55,17 @@ export function MrpRunsPage() {
           </Link>
           {r.id === latestLive?.id ? (
             <span className="badge accent" title="Planned orders can be firmed or released only from this run">
-              <Icon name="star" /> Latest
+              <Icon name="star" /> {t("mfg.mrpRunsPage.btn.latest")}
             </span>
           ) : null}
           {r.pinned ? (
             <span className="badge info">
-              <Icon name="lock" /> Kept
+              <Icon name="lock" /> {t("mfg.mrpRunsPage.btn.kept")}
             </span>
           ) : null}
           {r.stale?.is_stale ? (
             <span className="badge warn" title="Data changed after this run">
-              <Icon name="clock" /> Out of date
+              <Icon name="clock" /> {t("mfg.mrpRunsPage.btn.outOfDate")}
             </span>
           ) : null}
         </span>
@@ -114,13 +115,13 @@ export function MrpRunsPage() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Material planning (MRP)"
-        description="Plan what to make and buy for all open demand at once, see which orders will be late and why, then firm or release the planned orders."
+        title={t("mfg.mrpRunsPage.title.materialPlanningMrp")}
+        description={t("mfg.mrpRunsPage.desc.planWhatToMakeAnd")}
         actions={
           <>
             <PermissionGate perm="mrp_run">
           <button type="button" className="btn primary" onClick={() => setForm(true)} disabled={form} data-testid="mrp-new-run">
-            <Icon name="play" /> Run MRP
+            <Icon name="play" /> {t("mfg.mrpRunsPage.btn.runMrp")}
           </button>
         </PermissionGate>
           </>
@@ -129,7 +130,7 @@ export function MrpRunsPage() {
       {form ? <MrpRunForm onClose={() => setForm(false)} onDone={(r) => navigate(mfgPaths.run(r.id))} /> : null}
       <MfgError error={runs.error ?? error} onRetry={runs.reload} />
       {runs.data && items.length === 0 && !form ? (
-        <Banner tone="info" title="No plan yet" testId="mrp-empty">
+        <Banner tone="info" title={t("mfg.mrpRunsPage.title.noPlanYet")} testId="mrp-empty">
           {canRun ? "Run MRP to plan materials for every open demand order." : "Nobody has run MRP in this plant yet."} Demand orders must be open, and data health must have no errors.
         </Banner>
       ) : null}

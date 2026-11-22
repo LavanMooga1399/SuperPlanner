@@ -14,6 +14,7 @@ import { fmtNum } from "../../lib/formatM2";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 export function scheduleColumns(): Column<ScheduleRow>[] {
   return [
@@ -102,7 +103,7 @@ export function DeliveryBoard() {
           />
         </div>
         <div className="field">
-          <label htmlFor="board-type">Documents</label>
+          <label htmlFor="board-type">{t("mfg.deliveryBoard.label.documents")}</label>
           <select id="board-type" className="select" value={docType} onChange={(e) => set("doc_type", e.target.value)}>
             <option value="">Orders and requests</option>
             <option value="po">Purchase orders</option>
@@ -110,16 +111,16 @@ export function DeliveryBoard() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="board-from">Dock from</label>
+          <label htmlFor="board-from">{t("mfg.deliveryBoard.label.dockFrom")}</label>
           <DateInput id="board-from" value={from} onChange={(v) => set("from", v)} />
         </div>
         <div className="field">
-          <label htmlFor="board-to">Dock to</label>
+          <label htmlFor="board-to">{t("mfg.deliveryBoard.label.dockTo")}</label>
           <DateInput id="board-to" value={to} onChange={(v) => set("to", v)} />
         </div>
       </FilterBar>
       <p className="muted small" style={{ margin: 0 }}>
-        <Icon name="info" size={12} /> Dock date = confirmed date, else requested date. Available = dock date + the part's goods-in inspection days.
+        <Icon name="info" size={12} /> {t("mfg.deliveryBoard.btn.dockDateConfirmedDate")}
       </p>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable

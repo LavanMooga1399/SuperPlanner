@@ -2,13 +2,14 @@ import { Outlet } from "react-router";
 import { mfgPaths } from "../lib/paths";
 import { SectionTabs } from "./MfgLayout";
 import { PageHeader } from "../../components/PageHeader";
+import { t } from "../../lib/i18n";
 
 export function ResourcesLayout() {
   return (
     <div className="col gap-lg">
       <PageHeader
         title="People &amp; tooling"
-        description="Skills, the operators who hold them and the shifts they work, and shared tooling such as stencils and jigs." />
+        description={t("mfg.resourcesLayout.desc.skillsTheOperatorsWhoHold")} />
       <SectionTabs
         label="People and tooling sections"
         tabs={[

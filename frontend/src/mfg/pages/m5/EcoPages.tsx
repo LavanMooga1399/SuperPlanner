@@ -27,6 +27,7 @@ import { formatDate } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
+import { t } from "../../../lib/i18n";
 
 const STATUS: Record<CrStatus, { label: string; tone: string; icon: IconName }> = {
   draft: { label: "Draft", tone: "info", icon: "file" },
@@ -89,12 +90,12 @@ export function EcoListPage() {
   return (
     <div className="col gap-lg" data-testid="eco-list">
       <PageHeader
-        title="Engineering changes"
-        description="Change BOMs and routings in a controlled way: see the impact, get approval, switch over on a date or serial number."
+        title={t("mfg.ecoPages.title.engineeringChanges")}
+        description={t("mfg.ecoPages.desc.changeBomsAndRoutingsIn")}
         actions={
           <>
             <button type="button" className="btn primary" disabled={!canEdit} title={canEdit ? undefined : needsText("eco_edit")} onClick={() => setCreating(true)} data-testid="eco-new">
-            <Icon name="plus" /> New change request
+            <Icon name="plus" /> {t("mfg.ecoPages.btn.newChangeRequest")}
             </button>
           </>
         }
@@ -174,7 +175,7 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t("mfg.ecoPages.btn.cancel")}
           </button>
           <button
             type="button"
@@ -199,11 +200,11 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
     >
       <div className="col">
         <div className="field">
-          <label htmlFor="cr-title">What changes</label>
-          <input id="cr-title" className="input" value={f.title} onChange={(ev) => setF({ ...f, title: ev.target.value })} placeholder="e.g. Replace C12 100nF with 220nF on KV-PCB-CPU" data-testid="eco-title" />
+          <label htmlFor="cr-title">{t("mfg.ecoPages.label.whatChanges")}</label>
+          <input id="cr-title" className="input" value={f.title} onChange={(ev) => setF({ ...f, title: ev.target.value })} placeholder={t("mfg.ecoPages.ph.egReplaceC12100nfWith")} data-testid="eco-title" />
         </div>
         <div className="field">
-          <label htmlFor="cr-reason">Why</label>
+          <label htmlFor="cr-reason">{t("mfg.ecoPages.label.why")}</label>
           <textarea id="cr-reason" className="input" rows={2} value={f.reason} onChange={(ev) => setF({ ...f, reason: ev.target.value })} />
         </div>
         <fieldset className="mfg-fieldset">
@@ -221,7 +222,7 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
           </div>
           {e.mode === "serial" ? (
             <div className="field" style={{ maxWidth: 220 }}>
-              <label htmlFor="cr-serial">First serial number</label>
+              <label htmlFor="cr-serial">{t("mfg.ecoPages.label.firstSerialNumber")}</label>
               <input id="cr-serial" className="input" type="number" min={1} value={e.serial_from ?? ""} onChange={(ev) => setF({ ...f, effectivity: { mode: "serial", serial_from: ev.target.value ? Number(ev.target.value) : null } })} />
             </div>
           ) : (
@@ -233,14 +234,14 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
         </fieldset>
         <div className="row wrap">
           <div className="field">
-            <label htmlFor="cr-kind">Kind</label>
+            <label htmlFor="cr-kind">{t("mfg.ecoPages.label.kind")}</label>
             <select id="cr-kind" className="select" value={f.kind} onChange={(ev) => setF({ ...f, kind: ev.target.value as "eco" | "ecn" })}>
               <option value="eco">Change order (needs approval)</option>
               <option value="ecn">Change notice (documentation)</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="cr-prio">Priority</label>
+            <label htmlFor="cr-prio">{t("mfg.ecoPages.label.priority")}</label>
             <select id="cr-prio" className="select" value={f.priority} onChange={(ev) => setF({ ...f, priority: Number(ev.target.value) })}>
               {[1, 2, 3, 4, 5].map((p) => (
                 <option key={p} value={p}>
@@ -323,39 +324,39 @@ export function EcoPage() {
           {draft && canEdit ? (
             <>
               <button type="button" className="btn" onClick={() => setEditing(true)}>
-                Edit
+                {t("mfg.ecoPages.btn.edit")}
               </button>
               <button type="button" className="btn primary" disabled={busy || !c.items.length} title={c.items.length ? undefined : "Add at least one draft BOM or routing"} onClick={() => void act("submit")} data-testid="eco-submit">
-                <Icon name="arrow-right" /> Submit for approval
+                <Icon name="arrow-right" /> {t("mfg.ecoPages.btn.submitForApproval")}
               </button>
             </>
           ) : null}
           {c.status === "submitted" && canApprove ? (
             <>
               <button type="button" className="btn primary" disabled={busy || selfApproveBlocked} title={selfApproveBlocked ? "You submitted it: someone else approves" : undefined} onClick={() => void act("approve")} data-testid="eco-approve">
-                <Icon name="check" /> Approve
+                <Icon name="check" /> {t("mfg.ecoPages.btn.approve")}
               </button>
               <button type="button" className="btn" disabled={busy} onClick={() => setRejecting(true)} data-testid="eco-reject">
-                Reject
+                {t("mfg.ecoPages.btn.reject")}
               </button>
             </>
           ) : null}
           {c.status === "approved" && canEdit ? (
             <button type="button" className="btn primary" disabled={busy} onClick={() => void act("implement")} data-testid="eco-implement">
-              <Icon name="play" /> Implement now
+              <Icon name="play" /> {t("mfg.ecoPages.btn.implementNow")}
             </button>
           ) : null}
           {(draft || c.status === "submitted" || c.status === "approved") && canEdit ? (
             <button type="button" className="btn ghost" disabled={busy} onClick={() => void act("cancel")} data-testid="eco-cancel">
-              Cancel request
+              {t("mfg.ecoPages.btn.cancelRequest")}
             </button>
           ) : null}
         </div>
       </div>
       {c.reason ? <p style={{ margin: 0 }}>{c.reason}</p> : null}
-      {c.status === "approved" ? <Banner tone="info" title="Ready to implement">Implementing releases every draft below at once with the effectivity above and supersedes the current versions. If any draft fails the release checks, nothing is released.</Banner> : null}
+      {c.status === "approved" ? <Banner tone="info" title={t("mfg.ecoPages.title.readyToImplement")}>Implementing releases every draft below at once with the effectivity above and supersedes the current versions. If any draft fails the release checks, nothing is released.</Banner> : null}
       {issues ? (
-        <Banner tone="danger" title="Nothing was released: fix these first" testId="eco-release-blocked">
+        <Banner tone="danger" title={t("mfg.ecoPages.title.nothingWasReleasedFixThese")} testId="eco-release-blocked">
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {issues.map((i, k) => (
               <li key={k}>
@@ -372,7 +373,7 @@ export function EcoPage() {
           Documents ({c.items.length})
         </button>
         <button type="button" className={`tab${tab === "impact" ? " active" : ""}`} aria-pressed={tab === "impact"} onClick={() => setTab("impact")} data-testid="eco-tab-impact">
-          Impact
+          {t("mfg.ecoPages.btn.impact")}
         </button>
       </nav>
       {tab === "docs" ? (
@@ -381,7 +382,7 @@ export function EcoPage() {
             <h2>Draft versions in this change</h2>
             {draft && canEdit ? (
               <button type="button" className="btn sm primary" onClick={() => setAdding(true)} data-testid="eco-add-doc">
-                <Icon name="plus" /> Add a draft
+                <Icon name="plus" /> {t("mfg.ecoPages.btn.addADraft")}
               </button>
             ) : null}
           </div>
@@ -422,7 +423,7 @@ export function EcoPage() {
           footer={
             <>
               <button type="button" className="btn" onClick={() => setRejecting(false)}>
-                Cancel
+                {t("mfg.ecoPages.btn.cancel")}
               </button>
               <button
                 type="button"
@@ -433,13 +434,13 @@ export function EcoPage() {
                   void act("reject", { note: note.trim() });
                 }}
               >
-                Reject
+                {t("mfg.ecoPages.btn.reject")}
               </button>
             </>
           }
         >
           <div className="field">
-            <label htmlFor="cr-note">Why (sent to the requester)</label>
+            <label htmlFor="cr-note">{t("mfg.ecoPages.label.whySentToTheRequester")}</label>
             <input id="cr-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
         </Dialog>
@@ -492,7 +493,7 @@ function DocRow({ c, i, editable, onChanged }: { c: ChangeRequest; i: CrItem; ed
       <td>
         {editable ? (
           <button type="button" className="btn sm ghost" disabled={busy} onClick={async () => onChanged(await removeEcoItem(c.id, i.id))}>
-            Remove
+            {t("mfg.ecoPages.btn.remove")}
           </button>
         ) : null}
       </td>
@@ -516,12 +517,12 @@ function AddDocDialog({ c, onClose, onSaved }: { c: ChangeRequest; onClose(): vo
   const [error, setError] = useState<unknown>(null);
   return (
     <Dialog
-      title="Add a draft"
+      title={t("mfg.ecoPages.title.addADraft")}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t("mfg.ecoPages.btn.cancel")}
           </button>
           <button
             type="button"
@@ -556,7 +557,7 @@ function AddDocDialog({ c, onClose, onSaved }: { c: ChangeRequest; onClose(): vo
         <ItemPicker value={item} onChange={(it) => { setItem(it); setDoc(""); }} label="Item" makeBuy="make" />
         {item ? (
           <div className="field">
-            <label htmlFor="eco-doc">Draft</label>
+            <label htmlFor="eco-doc">{t("mfg.ecoPages.label.draft")}</label>
             <select id="eco-doc" className="select" value={doc} onChange={(e) => setDoc(e.target.value)} data-testid="eco-doc-pick">
               <option value="">{docs.data?.length ? "Choose…" : docs.loading ? "Loading…" : "No drafts: make one with Copy as draft first"}</option>
               {(docs.data ?? []).map((d) => (
@@ -593,7 +594,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
           actions={
             canEdit && c.effectivity.mode !== "serial" && c.effectivity.date !== d.use_up_date ? (
               <button type="button" className="btn sm" onClick={() => void onUseDate(d.use_up_date!)} data-testid="eco-use-date">
-                Take effect on that date
+                {t("mfg.ecoPages.btn.takeEffectOnThatDate")}
               </button>
             ) : null
           }
@@ -619,7 +620,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
                   {x.added.map((a, k) => (
                     <div key={`a${k}`}>
                       <span className="badge ok">
-                        <Icon name="plus" size={12} /> added
+                        <Icon name="plus" size={12} /> {t("mfg.ecoPages.btn.added")}
                       </span>{" "}
                       <span className="mono">{entryText(a)}</span>
                     </div>
@@ -627,7 +628,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
                   {x.removed.map((a, k) => (
                     <div key={`r${k}`}>
                       <span className="badge danger">
-                        <Icon name="x" size={12} /> removed
+                        <Icon name="x" size={12} /> {t("mfg.ecoPages.btn.removed")}
                       </span>{" "}
                       <span className="mono">{entryText(a)}</span>
                     </div>
@@ -635,7 +636,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
                   {x.changed.map((a, k) => (
                     <div key={`c${k}`}>
                       <span className="badge warn">
-                        <Icon name="refresh" size={12} /> changed
+                        <Icon name="refresh" size={12} /> {t("mfg.ecoPages.btn.changed")}
                       </span>{" "}
                       <span className="mono">{entryText(a)}</span>
                     </div>

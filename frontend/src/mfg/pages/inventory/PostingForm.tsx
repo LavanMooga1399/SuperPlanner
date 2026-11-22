@@ -26,6 +26,7 @@ import { fieldErrors, isAbortError, todayInOffset, usePlant } from "../../lib/us
 import { FORM_TYPES } from "./InventoryLayout";
 import { toast } from "../../../components/Toast";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 const MAX_BACKDATE = 31;
 const REASONS = ["SCRAP", "RTV", "SAMPLE", "DAMAGE", "FOUND", "LOST", "CORRECTION"];
@@ -420,7 +421,7 @@ export function PostingForm() {
 
   if (!canPost)
     return (
-      <Banner tone="warn" icon="lock" title="Posting is not available for your role" testId="forbidden-banner">
+      <Banner tone="warn" icon="lock" title={t("mfg.postingForm.title.postingIsNotAvailableFor")} testId="forbidden-banner">
         Stock postings need the Store keeper role in this plant. You can still look at <Link to={mfgPaths.inventory()}>stock</Link> and the{" "}
         <Link to={mfgPaths.transactions()}>ledger</Link>.
       </Banner>
@@ -453,7 +454,7 @@ export function PostingForm() {
       <section className="card">
         <div className="card-body form-grid">
           <div className="field">
-            <label htmlFor="post-date">Posting date</label>
+            <label htmlFor="post-date">{t("mfg.postingForm.label.postingDate")}</label>
             <input id="post-date" className="input" type="date" value={date} min={minDate} max={today} placeholder={today} onChange={(e) => setDate(e.target.value)} aria-invalid={dateBad} data-testid="post-date" />
             <span className="hint">{dateBad ? `Between ${fmtDate(minDate)} and today.` : `Empty = today (${fmtDate(today)}). Up to ${MAX_BACKDATE} days back.`}</span>
           </div>
@@ -481,8 +482,8 @@ export function PostingForm() {
             {touched && reasonRequired && !reason.trim() ? <span className="field-error">A reason is required for this movement.</span> : null}
           </div>
           <div className="field" style={{ gridColumn: "span 2" }}>
-            <label htmlFor="post-note">Note</label>
-            <input id="post-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. delivery note number" data-testid="post-note" />
+            <label htmlFor="post-note">{t("mfg.postingForm.label.note")}</label>
+            <input id="post-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("mfg.postingForm.ph.egDeliveryNoteNumber")} data-testid="post-note" />
           </div>
         </div>
       </section>
@@ -528,7 +529,7 @@ export function PostingForm() {
         </table>
         <div className="card-footer row">
           <button type="button" className="btn sm" onClick={() => setLines((ls) => [...ls, newLine(null, ls[ls.length - 1]?.location_id ?? "")])} disabled={lines.length >= 500} data-testid="post-add-line">
-            <Icon name="plus" /> Add line
+            <Icon name="plus" /> {t("mfg.postingForm.btn.addLine")}
           </button>
           <span className="faint small">{lines.length} of up to 500 lines</span>
         </div>
@@ -548,7 +549,7 @@ export function PostingForm() {
           </button>
         </PermissionGate>
         <Link className="btn" to={mfgPaths.inventory()}>
-          Cancel
+          {t("mfg.postingForm.btn.cancel")}
         </Link>
         <span className="faint small">All lines are posted together, or none of them.</span>
       </div>

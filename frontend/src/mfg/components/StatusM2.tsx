@@ -11,7 +11,7 @@ import type {
   RunStatus,
   WoStatus,
 } from "../api/typesM2";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 type Tone = "ok" | "warn" | "danger" | "info" | "accent";
 interface Meta {
@@ -128,11 +128,11 @@ export function RunStatusChip({ status }: { status: RunStatus }) {
 export function RunKindBadge({ kind }: { kind: RunKind }) {
   return kind === "live" ? (
     <span className="badge accent" data-kind="live" title="Plan from today's data; planned orders can be firmed or released">
-      <Icon name="play" /> Live
+      <Icon name="play" /> {t("mfg.statusM2.btn.live")}
     </span>
   ) : (
     <span className="badge info" data-kind="what_if" title="A what-if scenario: for comparison only, nothing can be converted">
-      <Icon name="help" /> What-if
+      <Icon name="help" /> {t("mfg.statusM2.btn.whatif")}
     </span>
   );
 }
@@ -177,7 +177,7 @@ export function LateBadge({ days }: { days: number }) {
 export function HoldBadge() {
   return (
     <span className="badge danger" title="On hold: not used for planning, cannot be issued">
-      <Icon name="lock" /> On hold
+      <Icon name="lock" /> {t("mfg.statusM2.btn.onHold")}
     </span>
   );
 }

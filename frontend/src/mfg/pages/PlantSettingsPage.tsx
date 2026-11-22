@@ -14,6 +14,7 @@ import { ConflictBanner, MfgError, SaveState, Spinner } from "../components/Feed
 import { Field, numOr, SelectField, TextField } from "../components/Field";
 import { PermissionGate } from "../components/PermissionGate";
 import { isConflict, useLoad, useMeta, usePlant } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 const OFFSET = /^[+-](0\d|1[0-4]):[0-5]\d$/;
 
@@ -204,14 +205,14 @@ export function PlantSettingsPage() {
               <legend>Time zone and production schedule</legend>
               <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="plant-tz">Time zone</label>
+                  <label htmlFor="plant-tz">{t("mfg.plantSettingsPage.label.timeZone")}</label>
                   <input
                     id="plant-tz"
                     className="input"
                     list="plant-tz-list"
                     value={f.timeZone}
                     onChange={(e) => setF({ ...f, timeZone: e.target.value })}
-                    placeholder="e.g. Asia/Kolkata"
+                    placeholder={t("mfg.plantSettingsPage.ph.egAsiakolkata")}
                     aria-invalid={tzBad}
                     data-testid="tz-select"
                   />
@@ -225,7 +226,7 @@ export function PlantSettingsPage() {
                 <TextField label="Freeze window (hours)" type="number" value={f.freeze} onChange={(v) => setF({ ...f, freeze: v })} hint="0 to 336. Published operations starting this soon stay where they are." testId="plant-aps-freeze" />
                 <TextField label="Schedule horizon (days)" type="number" value={f.apsHorizon} onChange={(v) => setF({ ...f, apsHorizon: v })} hint="7 to 120; default of new schedule runs." testId="plant-aps-horizon" />
                 <div className="field">
-                  <label htmlFor="plant-aps-policy">Overtime in new schedules</label>
+                  <label htmlFor="plant-aps-policy">{t("mfg.plantSettingsPage.label.overtimeInNewSchedules")}</label>
                   <select id="plant-aps-policy" className="select" value={f.policy} onChange={(e) => setF({ ...f, policy: e.target.value as OvertimePolicy })} data-testid="plant-aps-policy">
                     {OVERTIME_POLICIES.map((p) => (
                       <option key={p} value={p}>
@@ -243,7 +244,7 @@ export function PlantSettingsPage() {
               <legend>Shop floor and replanning</legend>
               <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="plant-replan">When the floor or supply changes</label>
+                  <label htmlFor="plant-replan">{t("mfg.plantSettingsPage.label.whenTheFloorOrSupply")}</label>
                   <select id="plant-replan" className="select" value={f.replanPolicy} onChange={(e) => setF({ ...f, replanPolicy: e.target.value as ReplanPolicy })} data-testid="plant-replan-policy">
                     <option value="notify">Notify the planner (recommended)</option>
                     <option value="auto_whatif">Prepare a new schedule automatically</option>
@@ -255,7 +256,7 @@ export function PlantSettingsPage() {
                 <SelectField label="Backflush from" value={f.backflushLoc} onChange={(v) => setF({ ...f, backflushLoc: v })} options={[{ value: "", label: "Not set" }, ...(locs.data?.items ?? []).map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]} hint="Default line-side stock for backflushed items (a line can override)." />
               </div>
               <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={floorExpert} onClick={() => setFloorExpert((v) => !v)}>
-                <Icon name={floorExpert ? "chevron-down" : "chevron-right"} /> Expert settings (tolerances, waiting time)
+                <Icon name={floorExpert ? "chevron-down" : "chevron-right"} /> {t("mfg.plantSettingsPage.btn.expertSettingsTolerancesWaitingTime")}
               </button>
               {floorExpert ? (
                 <div className="form-grid">

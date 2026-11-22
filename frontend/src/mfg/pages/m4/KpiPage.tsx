@@ -22,6 +22,7 @@ import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
 import { DataTable, ShowMore } from "../../components/DataTable";
 import type { Column } from "../../components/VirtualTable";
+import { t } from "../../../lib/i18n";
 
 interface TileDef {
   key: RatioKey | "wip" | "setup";
@@ -131,7 +132,7 @@ export function KpiPage() {
 
   return (
     <div className="col gap-lg" data-testid="kpi-page">
-      <PageHeader title="KPIs" />
+      <PageHeader title={t("mfg.kpiPage.title.kpis")} />
       <FilterBar>
         <div className="field">
           <span className="field-label" id="kpi-period-label">
@@ -146,7 +147,7 @@ export function KpiPage() {
           </div>
         </div>
         <div className="field">
-          <label htmlFor="kpi-scope">Scope</label>
+          <label htmlFor="kpi-scope">{t("mfg.kpiPage.label.scope")}</label>
           <select
             id="kpi-scope"
             className="select"
@@ -223,7 +224,7 @@ export function KpiPage() {
                 label="Top scrap reasons"
                 testId="kpi-top-scrap"
                 columnSettings={false}
-                empty="No scrap recorded."
+                empty={t("mfg.kpiPage.empty.noScrapRecorded")}
               />
             </section>
             <section className="card card-table">
@@ -237,7 +238,7 @@ export function KpiPage() {
                 label="Top downtime reasons"
                 testId="kpi-top-downtime"
                 columnSettings={false}
-                empty="No downtime recorded."
+                empty={t("mfg.kpiPage.empty.noDowntimeRecorded")}
               />
             </section>
           </div>
@@ -402,11 +403,11 @@ function AdherenceList({ lineId, from, to }: { lineId: string; from: string; to:
       render: (r) =>
         r.adherent ? (
           <span className="badge ok">
-            <Icon name="check" /> yes
+            <Icon name="check" /> {t("mfg.kpiPage.btn.yes")}
           </span>
         ) : (
           <span className="badge warn">
-            <Icon name="alert" /> no
+            <Icon name="alert" /> {t("mfg.kpiPage.btn.no")}
           </span>
         ),
     },
@@ -426,7 +427,7 @@ function AdherenceList({ lineId, from, to }: { lineId: string; from: string; to:
         totalCount={data.total}
         loading={data.loading}
         exportName="schedule-adherence"
-        empty="No planned operations on this line in the period."
+        empty={t("mfg.kpiPage.empty.noPlannedOperationsOnThis")}
         footer={<ShowMore shown={data.rows.length} total={data.total} noun="operations" loading={data.loading} onMore={data.onEndReached} />}
         card={{ title: "wo", status: "ok", fields: ["planned", "start", "end"] }}
       />

@@ -23,6 +23,7 @@ import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { apsRunTitle, isActive } from "./ApsRunsPage";
 import { toast } from "../../../components/Toast";
 import { formatNumber } from "../../../lib/locale";
+import { t } from "../../../lib/i18n";
 
 export interface ApsRunContext {
   run: ApsRunRecord;
@@ -79,7 +80,7 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
   return (
     <>
       <button type="button" className="btn primary" disabled={Boolean(why) || busy} title={why} aria-disabled={Boolean(why)} onClick={() => setConfirm(true)} data-testid={testId}>
-        <Icon name="flag" /> Publish
+        <Icon name="flag" /> {t("mfg.apsRunShell.btn.publish")}
       </button>
       {confirm ? (
         <ConfirmDialog title={`Publish ${apsRunTitle(run)}?`} confirmLabel={staleBasis ? "Publish anyway" : "Publish"} busy={busy} onCancel={() => { setConfirm(false); setError(null); }} onConfirm={() => void go()}>
@@ -199,7 +200,7 @@ export function ApsRunShell() {
           <PolicyBadge policy={r.policy} />
           {r.parent_run_id ? (
             <Link className="badge info" to={mfgPaths.apsRun(r.parent_run_id)} title="Created by manual edits of another run">
-              <Icon name="copy" /> edited copy
+              <Icon name="copy" /> {t("mfg.apsRunShell.btn.editedCopy")}
             </Link>
           ) : null}
           <span className="muted small">
@@ -212,7 +213,7 @@ export function ApsRunShell() {
               <ApsProgress run={r} />
               {canRun ? (
                 <button type="button" className="btn" onClick={() => void cancel()} disabled={busy} data-testid="aps-cancel">
-                  <Icon name="stop" /> Cancel
+                  <Icon name="stop" /> {t("mfg.apsRunShell.btn.cancel")}
                 </button>
               ) : null}
             </>
@@ -222,10 +223,10 @@ export function ApsRunShell() {
               {done ? (
                 <>
                   <button type="button" className="btn sm" onClick={() => void exp("xlsx")} data-testid="aps-export">
-                    <Icon name="download" /> Export Excel
+                    <Icon name="download" /> {t("mfg.apsRunShell.btn.exportExcel")}
                   </button>
                   <button type="button" className="btn sm ghost" onClick={() => void exp("zip")}>
-                    Export CSV (zip)
+                    {t("mfg.apsRunShell.btn.exportCsvZip")}
                   </button>
                 </>
               ) : null}
@@ -238,11 +239,11 @@ export function ApsRunShell() {
         <Banner
           tone="warn"
           icon="clock"
-          title="The data changed after this schedule was made"
+          title={t("mfg.apsRunShell.title.theDataChangedAfterThis")}
           testId="aps-stale-banner"
           actions={
             <Link className="btn sm" to={mfgPaths.schedule()}>
-              <Icon name="refresh" /> New schedule
+              <Icon name="refresh" /> {t("mfg.apsRunShell.btn.newSchedule")}
             </Link>
           }
         >
@@ -252,18 +253,18 @@ export function ApsRunShell() {
         </Banner>
       ) : null}
       {r.kind === "what_if" ? (
-        <Banner tone="info" icon="help" title="What-if scenario">
+        <Banner tone="info" icon="help" title={t("mfg.apsRunShell.title.whatifScenario")}>
           For comparison only; it cannot be published.
         </Banner>
       ) : null}
-      {r.status === "failed" ? <Banner tone="danger" title="This run failed">{r.error?.message ?? "Unexpected error."}</Banner> : null}
+      {r.status === "failed" ? <Banner tone="danger" title={t("mfg.apsRunShell.title.thisRunFailed")}>{r.error?.message ?? "Unexpected error."}</Banner> : null}
       {r.status === "cancelled" ? (
-        <Banner tone="warn" title="Cancelled">
+        <Banner tone="warn" title={t("mfg.apsRunShell.title.cancelled")}>
           {r.summary ? "The best plan found before cancelling is shown." : "No plan was finished before cancelling."}
         </Banner>
       ) : null}
       {r.status === "completed" && r.validation && !r.validation.ok ? (
-        <Banner tone="danger" icon="x" title="This plan breaks hard rules and cannot be published" testId="aps-invalid-banner">
+        <Banner tone="danger" icon="x" title={t("mfg.apsRunShell.title.thisPlanBreaksHardRules")} testId="aps-invalid-banner">
           {r.summary?.violations ? `${r.summary.violations} rule violations. ` : null}
           {(r.validation.violations ?? []).slice(0, 5).map((v, i) => (
             <div key={i}>

@@ -7,6 +7,7 @@ import { MfgError, NotFoundPanel, Spinner } from "../components/Feedback";
 import { ActiveBadge, MakeBuyBadge } from "../components/StatusChip";
 import { mfgPaths } from "../lib/paths";
 import { isNotFound, useLoad } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 export interface ItemContext {
   item: ItemRecord;
@@ -29,7 +30,7 @@ export function ItemShell() {
         what="Item"
         back={
           <Link className="btn" to={mfgPaths.items()}>
-            Back to items
+            {t("mfg.itemShell.btn.backToItems")}
           </Link>
         }
       />

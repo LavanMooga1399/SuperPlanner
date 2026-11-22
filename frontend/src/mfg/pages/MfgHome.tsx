@@ -17,7 +17,7 @@ import { SampleLoader } from "../components/SampleLoader";
 import { MakeBuyBadge } from "../components/StatusChip";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
-import { plural } from "../../lib/i18n";
+import { plural, t as tr } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
 
 const KPIS: { key: keyof SummaryCounts; label: string; sub?: (c: SummaryCounts) => string; to: string }[] = [
@@ -52,7 +52,7 @@ function HealthCard({ tick }: { tick: number }) {
           r.ok ? (
             <div className="row">
               <span className="badge ok">
-                <Icon name="check" /> Ready for planning
+                <Icon name="check" /> {tr("mfg.mfgHome.btn.readyForPlanning")}
               </span>
               <span className="muted small">
                 {plural(r.counts.warning, "warning")} · {plural(r.counts.info, "note")}. Nothing blocks planning.
@@ -91,12 +91,12 @@ function ResetDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) {
   };
   return (
     <Dialog
-      title="Delete all manufacturing data?"
+      title={tr("mfg.mfgHome.title.deleteAllManufacturingData")}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {tr("mfg.mfgHome.btn.cancel")}
           </button>
           <button
             type="button"
@@ -148,7 +148,7 @@ function FloorCard({ summary }: { summary: Summary }) {
       <div className="card-header">
         <h2>Shop floor</h2>
         <Link to={mfgPaths.floor()} className="btn sm primary">
-          <Icon name="factory" /> Floor screens
+          <Icon name="factory" /> {tr("mfg.mfgHome.btn.floorScreens")}
         </Link>
       </div>
       <div className="card-body kpis">
@@ -158,7 +158,7 @@ function FloorCard({ summary }: { summary: Summary }) {
             <div className="kpi-value">{t.value.toLocaleString("en-IN")}</div>
             {t.bad ? (
               <span className="badge danger kpi-status">
-                <Icon name="alert" /> Needs action
+                <Icon name="alert" /> {tr("mfg.mfgHome.btn.needsAction")}
               </span>
             ) : null}
           </Link>
@@ -216,7 +216,7 @@ function PlanningCard({ summary }: { summary: Summary }) {
             <div className="kpi-value">{t.value.toLocaleString("en-IN")}</div>
             {t.bad ? (
               <span className="badge danger kpi-status">
-                <Icon name="alert" /> Needs action
+                <Icon name="alert" /> {tr("mfg.mfgHome.btn.needsAction")}
               </span>
             ) : null}
           </Link>
@@ -238,12 +238,12 @@ export function MfgHome() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Manufacturing"
-        description="Master data, planning, stores and shop-floor status for this plant."
+        title={tr("mfg.mfgHome.title.manufacturing")}
+        description={tr("mfg.mfgHome.desc.masterDataPlanningStoresAnd")}
         actions={
           <>
             <Link className="btn" to={mfgPaths.importStart()}>
-            <Icon name="upload" /> Import
+            <Icon name="upload" /> {tr("mfg.mfgHome.btn.import")}
           </Link>
           <ExportButtons grouped />
           </>
@@ -258,7 +258,7 @@ export function MfgHome() {
           title={`Sample "${loaded.sample_id}" loaded`}
           actions={
             <Link className="btn sm" to={mfgPaths.items()}>
-              Browse items
+              {tr("mfg.mfgHome.btn.browseItems")}
             </Link>
           }
         >
@@ -268,13 +268,13 @@ export function MfgHome() {
         </Banner>
       ) : null}
       {resetDone ? (
-        <Banner tone="ok" role="status" testId="mfg-reset-done" title="All manufacturing data was deleted" />
+        <Banner tone="ok" role="status" testId="mfg-reset-done" title={tr("mfg.mfgHome.title.allManufacturingDataWasDeleted")} />
       ) : null}
 
       <MfgError error={summary.error} onRetry={summary.reload} />
 
       {empty ? (
-        <Banner tone="accent" title="No manufacturing data yet" testId="mfg-empty">
+        <Banner tone="accent" title={tr("mfg.mfgHome.title.noManufacturingDataYet")} testId="mfg-empty">
           Load a sample below to explore, or import your item master and BOMs from Excel. You can also start by
           describing the plant (stages, lines and shifts) under Plant.
         </Banner>
@@ -342,7 +342,7 @@ export function MfgHome() {
       <details className="card mfg-danger-zone">
         <summary className="card-header">
           <span className="row">
-            <Icon name="settings" /> Advanced
+            <Icon name="settings" /> {tr("mfg.mfgHome.btn.advanced")}
           </span>
         </summary>
         <div className="card-body row wrap">
@@ -350,7 +350,7 @@ export function MfgHome() {
             Start over: delete all manufacturing data of your account (scheduling and finance plans stay).
           </span>
           <button type="button" className="btn danger sm" onClick={() => setResetOpen(true)} data-testid="mfg-reset">
-            <Icon name="trash" /> Delete all manufacturing data
+            <Icon name="trash" /> {tr("mfg.mfgHome.btn.deleteAllManufacturingData")}
           </button>
         </div>
       </details>

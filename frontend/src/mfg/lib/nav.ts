@@ -5,6 +5,7 @@
  */
 import type { IconName } from "../../components/Icon";
 import { mfgPaths } from "./paths";
+import { t } from "../../lib/i18n";
 
 export interface NavSection {
   key: string;
@@ -29,68 +30,80 @@ export interface NavGroupDef {
 export const MFG_NAV: NavGroupDef[] = [
   {
     key: "overview",
-    label: "Overview",
+    get label() {
+      return t("nav.mfg.group.overview");
+    },
     testId: "nav-group-overview",
     sections: [
-      { key: "overview", label: "Overview", to: mfgPaths.home(), icon: "home", end: true, keywords: "home start" },
-      { key: "dashboard", label: "Dashboard", to: mfgPaths.dashboard(), icon: "dashboard", keywords: "management tiles" },
-      { key: "kpis", label: "KPIs", to: mfgPaths.kpis(), icon: "chart", keywords: "oee adherence performance" },
+      { key: "overview", get label() { return t("nav.mfg.section.overview"); }, to: mfgPaths.home(), icon: "home", end: true, keywords: "home start" },
+      { key: "dashboard", get label() { return t("nav.mfg.section.dashboard"); }, to: mfgPaths.dashboard(), icon: "dashboard", keywords: "management tiles" },
+      { key: "kpis", get label() { return t("nav.mfg.section.kpis"); }, to: mfgPaths.kpis(), icon: "chart", keywords: "oee adherence performance" },
     ],
   },
   {
     key: "planning",
-    label: "Planning",
+    get label() {
+      return t("nav.mfg.group.planning");
+    },
     testId: "nav-group-planning",
     sections: [
-      { key: "demand", label: "Demand", to: mfgPaths.demand(), icon: "flag", keywords: "demand orders sales orders customer" },
-      { key: "mrp", label: "MRP", to: mfgPaths.mrp(), icon: "layers", keywords: "material requirements planning runs planned orders" },
-      { key: "schedule", label: "Schedule", to: mfgPaths.schedule(), icon: "calendar", keywords: "aps gantt schedule runs capacity" },
-      { key: "shortages", label: "Shortages", to: mfgPaths.shortages(), icon: "alert", keywords: "missing material" },
-      { key: "replan", label: "Replanning", to: mfgPaths.replan(), icon: "refresh", keywords: "triggers notifications" },
+      { key: "demand", get label() { return t("nav.mfg.section.demand"); }, to: mfgPaths.demand(), icon: "flag", keywords: "demand orders sales orders customer" },
+      { key: "mrp", get label() { return t("nav.mfg.section.mrp"); }, to: mfgPaths.mrp(), icon: "layers", keywords: "material requirements planning runs planned orders" },
+      { key: "schedule", get label() { return t("nav.mfg.section.schedule"); }, to: mfgPaths.schedule(), icon: "calendar", keywords: "aps gantt schedule runs capacity" },
+      { key: "shortages", get label() { return t("nav.mfg.section.shortages"); }, to: mfgPaths.shortages(), icon: "alert", keywords: "missing material" },
+      { key: "replan", get label() { return t("nav.mfg.section.replan"); }, to: mfgPaths.replan(), icon: "refresh", keywords: "triggers notifications" },
     ],
   },
   {
     key: "supply",
-    label: "Supply and stores",
+    get label() {
+      return t("nav.mfg.group.supply");
+    },
     testId: "nav-group-supply",
     sections: [
-      { key: "purchasing", label: "Purchasing", to: mfgPaths.purchasing(), icon: "briefcase", keywords: "purchase orders requests suppliers deliveries" },
-      { key: "inventory", label: "Inventory", to: mfgPaths.inventory(), icon: "box", keywords: "stock balances lots locations postings" },
-      { key: "transfers", label: "Transfers", to: mfgPaths.transfers(), icon: "truck", keywords: "inter-plant" },
+      { key: "purchasing", get label() { return t("nav.mfg.section.purchasing"); }, to: mfgPaths.purchasing(), icon: "briefcase", keywords: "purchase orders requests suppliers deliveries" },
+      { key: "inventory", get label() { return t("nav.mfg.section.inventory"); }, to: mfgPaths.inventory(), icon: "box", keywords: "stock balances lots locations postings" },
+      { key: "transfers", get label() { return t("nav.mfg.section.transfers"); }, to: mfgPaths.transfers(), icon: "truck", keywords: "inter-plant" },
     ],
   },
   {
     key: "production",
-    label: "Production",
+    get label() {
+      return t("nav.mfg.group.production");
+    },
     testId: "nav-group-execution",
     sections: [
-      { key: "work-orders", label: "Work orders", to: mfgPaths.workOrders(), icon: "wrench", keywords: "wo kitting" },
-      { key: "floor", label: "Shop floor", to: mfgPaths.floorOverview(), icon: "factory", keywords: "lines operations downtime" },
-      { key: "serials", label: "Serials", to: mfgPaths.serials(), icon: "barcode", keywords: "serial numbers units" },
-      { key: "trace", label: "Trace and recall", to: mfgPaths.trace(), icon: "link", match: ["/mfg/recalls"], keywords: "genealogy where used recall" },
+      { key: "work-orders", get label() { return t("nav.mfg.section.work-orders"); }, to: mfgPaths.workOrders(), icon: "wrench", keywords: "wo kitting" },
+      { key: "floor", get label() { return t("nav.mfg.section.floor"); }, to: mfgPaths.floorOverview(), icon: "factory", keywords: "lines operations downtime" },
+      { key: "serials", get label() { return t("nav.mfg.section.serials"); }, to: mfgPaths.serials(), icon: "barcode", keywords: "serial numbers units" },
+      { key: "trace", get label() { return t("nav.mfg.section.trace"); }, to: mfgPaths.trace(), icon: "link", match: ["/mfg/recalls"], keywords: "genealogy where used recall" },
     ],
   },
   {
     key: "master",
-    label: "Master data",
+    get label() {
+      return t("nav.mfg.group.master");
+    },
     testId: "nav-group-setup",
     sections: [
-      { key: "items", label: "Items", to: mfgPaths.items(), icon: "list", keywords: "parts bom routing" },
-      { key: "plant", label: "Plant", to: mfgPaths.plant(), icon: "settings", keywords: "lines groups shifts calendar setups" },
-      { key: "resources", label: "People and tooling", to: mfgPaths.resources(), icon: "users", keywords: "operators skills tools" },
-      { key: "health", label: "Data health", to: mfgPaths.health(), icon: "check", keywords: "issues validation" },
-      { key: "import", label: "Import and export", to: mfgPaths.importStart(), icon: "upload", keywords: "excel csv" },
-      { key: "members", label: "Members", to: mfgPaths.members(), icon: "lock", ownerOnly: true, match: ["/mfg/settings"], keywords: "roles access" },
+      { key: "items", get label() { return t("nav.mfg.section.items"); }, to: mfgPaths.items(), icon: "list", keywords: "parts bom routing" },
+      { key: "plant", get label() { return t("nav.mfg.section.plant"); }, to: mfgPaths.plant(), icon: "settings", keywords: "lines groups shifts calendar setups" },
+      { key: "resources", get label() { return t("nav.mfg.section.resources"); }, to: mfgPaths.resources(), icon: "users", keywords: "operators skills tools" },
+      { key: "health", get label() { return t("nav.mfg.section.health"); }, to: mfgPaths.health(), icon: "check", keywords: "issues validation" },
+      { key: "import", get label() { return t("nav.mfg.section.import"); }, to: mfgPaths.importStart(), icon: "upload", keywords: "excel csv" },
+      { key: "members", get label() { return t("nav.mfg.section.members"); }, to: mfgPaths.members(), icon: "lock", ownerOnly: true, match: ["/mfg/settings"], keywords: "roles access" },
     ],
   },
   {
     key: "control",
-    label: "Control",
+    get label() {
+      return t("nav.mfg.group.control");
+    },
     testId: "nav-group-control",
     sections: [
-      { key: "eco", label: "Engineering changes", to: mfgPaths.ecos(), icon: "file", keywords: "eco change requests" },
-      { key: "integration", label: "ERP integration", to: mfgPaths.integration(), icon: "database", keywords: "erp sync endpoints" },
-      { key: "audit", label: "Audit trail", to: mfgPaths.audit(), icon: "shield", keywords: "history log" },
+      { key: "eco", get label() { return t("nav.mfg.section.eco"); }, to: mfgPaths.ecos(), icon: "file", keywords: "eco change requests" },
+      { key: "integration", get label() { return t("nav.mfg.section.integration"); }, to: mfgPaths.integration(), icon: "database", keywords: "erp sync endpoints" },
+      { key: "audit", get label() { return t("nav.mfg.section.audit"); }, to: mfgPaths.audit(), icon: "shield", keywords: "history log" },
     ],
   },
 ];

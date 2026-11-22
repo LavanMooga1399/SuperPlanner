@@ -7,6 +7,7 @@ import { LineRates } from "./LineRates";
 import { Fragment, useEffect, useRef, useState, type DragEvent } from "react";
 import { Icon } from "../../components/Icon";
 import type { GroupRecord, Labor, OperationRecord, RunPer, SkillRecord, ToolPoolRecord } from "../api/types";
+import { t as tr } from "../../lib/i18n";
 
 export interface OpDraft {
   key: string;
@@ -495,7 +496,7 @@ function OpDetails({
         ) : (
           <div>
             <button type="button" className="btn sm" onClick={() => onPatch({ tools: [...o.tools, { tool_pool_id: tools[0]?.id ?? "", qty: "1" }] })} disabled={tools.length === 0}>
-              <Icon name="plus" /> Add tool
+              <Icon name="plus" /> {tr("mfg.routingEditor.btn.addTool")}
             </button>
           </div>
         )}

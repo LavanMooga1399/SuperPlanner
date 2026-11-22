@@ -10,6 +10,7 @@ import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { LateChain } from "./ApsOrdersTab";
+import { t } from "../../../lib/i18n";
 
 export function ApsSummaryTab() {
   const { run } = useApsRun();
@@ -73,7 +74,7 @@ export function ApsSummaryTab() {
       <div className="row wrap small muted" data-testid="aps-validation" data-ok={run.validation?.ok ? "true" : "false"}>
         {run.validation?.ok ?? s.validation_ok ? (
           <span className="badge ok">
-            <Icon name="check" /> All hard rules hold (validated)
+            <Icon name="check" /> {t("mfg.apsSummaryTab.btn.allHardRulesHoldValidated")}
           </span>
         ) : (
           <span className="badge danger">
@@ -99,7 +100,7 @@ export function ApsSummaryTab() {
           {late.data && late.data.items.length === 0 ? (
             <div className="card-body">
               <span className="badge ok">
-                <Icon name="check" /> No order is late
+                <Icon name="check" /> {t("mfg.apsSummaryTab.btn.noOrderIsLate")}
               </span>
             </div>
           ) : null}

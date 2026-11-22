@@ -16,13 +16,14 @@ import { ActiveBadge, MakeBuyBadge } from "../components/StatusChip";
 import { VirtualTable, type Column } from "../components/VirtualTable";
 import { mfgPaths } from "../lib/paths";
 import { isAbortError, useDebounced } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 const PAGE = 200;
 
 function yes(v: boolean, label: string) {
   return v ? (
     <span className="mfg-yes" title={label}>
-      <Icon name="check" size={14} /> Yes
+      <Icon name="check" size={14} /> {t("mfg.itemsPage.btn.yes")}
     </span>
   ) : (
     <span className="faint">No</span>
@@ -162,12 +163,12 @@ export function ItemsPage() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Items"
-        description="Every part you make or buy: assemblies, boards, components and materials."
+        title={t("mfg.itemsPage.title.items")}
+        description={t("mfg.itemsPage.desc.everyPartYouMakeOr")}
         actions={
           <PermissionGate perm="master_edit">
             <button type="button" className="btn primary" onClick={() => setCreating(true)} data-testid="item-new">
-              <Icon name="plus" /> New item
+              <Icon name="plus" /> {t("mfg.itemsPage.btn.newItem")}
             </button>
           </PermissionGate>
         }
@@ -184,7 +185,7 @@ export function ItemsPage() {
         pageKey="items"
       >
         <div className="field">
-          <label htmlFor="items-mb">Make / buy</label>
+          <label htmlFor="items-mb">{t("mfg.itemsPage.label.makeBuy")}</label>
           <select id="items-mb" className="select" value={makeBuy} onChange={(e) => setParam("make_buy", e.target.value)} data-testid="items-filter-make-buy">
             <option value="">All</option>
             <option value="make">Make</option>
@@ -193,11 +194,11 @@ export function ItemsPage() {
           </select>
         </div>
         <div className="field" style={{ width: 140 }}>
-          <label htmlFor="items-family">Family</label>
+          <label htmlFor="items-family">{t("mfg.itemsPage.label.family")}</label>
           <input id="items-family" className="input" value={family} onChange={(e) => setFamily(e.target.value)} data-testid="items-filter-family" />
         </div>
         <div className="field">
-          <label htmlFor="items-active">Status</label>
+          <label htmlFor="items-active">{t("mfg.itemsPage.label.status")}</label>
           <select id="items-active" className="select" value={active} onChange={(e) => setParam("active", e.target.value)}>
             <option value="">All</option>
             <option value="true">Active</option>
@@ -205,7 +206,7 @@ export function ItemsPage() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="items-bom">BOM</label>
+          <label htmlFor="items-bom">{t("mfg.itemsPage.label.bom")}</label>
           <select id="items-bom" className="select" value={hasBom} onChange={(e) => setParam("has_bom", e.target.value)}>
             <option value="">Any</option>
             <option value="true">Has a BOM</option>
@@ -213,7 +214,7 @@ export function ItemsPage() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="items-rtg">Routing</label>
+          <label htmlFor="items-rtg">{t("mfg.itemsPage.label.routing")}</label>
           <select id="items-rtg" className="select" value={hasRouting} onChange={(e) => setParam("has_routing", e.target.value)}>
             <option value="">Any</option>
             <option value="true">Has a routing</option>
@@ -221,7 +222,7 @@ export function ItemsPage() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="items-sort">Sort by</label>
+          <label htmlFor="items-sort">{t("mfg.itemsPage.label.sortBy")}</label>
           <select id="items-sort" className="select" value={sort} onChange={(e) => setParam("sort", e.target.value === "part_number" ? "" : e.target.value)}>
             <option value="part_number">Part number</option>
             <option value="description">Description</option>

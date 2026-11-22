@@ -12,7 +12,7 @@ import { fmtQty } from "../lib/format";
 import { mfgPaths } from "../lib/paths";
 import { errorText, useLoad } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 import { DateInput } from "../../components/DateInput";
 
 export function WhereUsedTab() {
@@ -62,18 +62,18 @@ export function WhereUsedTab() {
       <div className="toolbar">
         <div className="btn-group" role="group" aria-label="Depth">
           <button type="button" className="btn sm" aria-pressed={mode === "single"} onClick={() => setMode("single")} data-testid="whereused-mode-single">
-            Direct parents
+            {t("mfg.whereUsedTab.btn.directParents")}
           </button>
           <button type="button" className="btn sm" aria-pressed={mode === "indented"} onClick={() => setMode("indented")} data-testid="whereused-mode-indented">
-            All levels up
+            {t("mfg.whereUsedTab.btn.allLevelsUp")}
           </button>
         </div>
         <div className="btn-group" role="group" aria-label="Versions">
           <button type="button" className="btn sm" aria-pressed={include === "effective"} onClick={() => setInclude("effective")} data-testid="whereused-include-effective">
-            Released and effective
+            {t("mfg.whereUsedTab.btn.releasedAndEffective")}
           </button>
           <button type="button" className="btn sm" aria-pressed={include === "all"} onClick={() => setInclude("all")} data-testid="whereused-include-all">
-            All versions (incl. drafts)
+            {t("mfg.whereUsedTab.btn.allVersionsInclDrafts")}
           </button>
         </div>
         <label className="row small">
@@ -82,7 +82,7 @@ export function WhereUsedTab() {
         </label>
       </div>
       {tooLarge ? (
-        <Banner tone="warn" title="Too many rows to show all levels" actions={<button type="button" className="btn sm" onClick={() => setMode("single")}>Show direct parents</button>}>
+        <Banner tone="warn" title={t("mfg.whereUsedTab.title.tooManyRowsToShow")} actions={<button type="button" className="btn sm" onClick={() => setMode("single")}>Show direct parents</button>}>
           {errorText(wu.error)}
         </Banner>
       ) : (

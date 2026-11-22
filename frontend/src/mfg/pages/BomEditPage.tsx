@@ -21,7 +21,7 @@ import { fieldErrors, isConflict, isNotFound, todayInOffset, useLoad, usePlant }
 import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 interface Header {
   revision: string;
@@ -191,7 +191,7 @@ export function BomEditPage() {
     <div className="col gap-lg" data-testid="bom-edit">
       <div className="row wrap">
         <Link to={mfgPaths.itemBom(item.id, { bom: base.id })} className="btn sm ghost">
-          <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} /> BOM versions
+          <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} /> {t("mfg.bomEditPage.btn.bomVersions")}
         </Link>
         <h2>
           BOM rev. {base.revision} v{base.version}
@@ -208,7 +208,7 @@ export function BomEditPage() {
           title={base.status === "released" ? "Released - copy to a new version to edit" : "Obsolete - copy to a new version to edit"}
           actions={
             <button type="button" className="btn sm primary" onClick={() => void copy()} data-testid="bom-copy-banner">
-              <Icon name="copy" /> Copy to a new version
+              <Icon name="copy" /> {t("mfg.bomEditPage.btn.copyToANewVersion")}
             </button>
           }
         >
@@ -260,7 +260,7 @@ export function BomEditPage() {
           {!readOnly ? (
             <div>
               <button type="button" className="btn sm" onClick={() => setLines([...lines, blankLine(lines)])} data-testid="bom-line-add">
-                <Icon name="plus" /> Add line
+                <Icon name="plus" /> {t("mfg.bomEditPage.btn.addLine")}
               </button>
             </div>
           ) : null}
@@ -284,12 +284,12 @@ export function BomEditPage() {
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save BOM
           </button>
           <button type="button" className="btn" disabled={!dirty || busy} onClick={() => reset(base)}>
-            Undo changes
+            {t("mfg.bomEditPage.btn.undoChanges")}
           </button>
           <SaveState busy={false} saved={saved && !dirty} />
           <span className="grow" />
           <button type="button" className="btn" disabled={dirty || busy || lines.length === 0} onClick={() => setReleasing(true)} title={dirty ? "Save first" : undefined} data-testid="bom-release">
-            <Icon name="check" /> Release…
+            <Icon name="check" /> {t("mfg.bomEditPage.btn.release")}
           </button>
         </div>
       ) : null}
@@ -302,7 +302,7 @@ export function BomEditPage() {
           onClose={() => setReleasing(false)}
           onRelease={async (body) => {
             await releaseBom(base.id, body, base.row_version);
-            toast("BOM released");
+            toast(t("mfg.bomEditPage.toast.bomReleased"));
             navigate(mfgPaths.itemBom(item.id, { bom: base.id }));
           }}
         />

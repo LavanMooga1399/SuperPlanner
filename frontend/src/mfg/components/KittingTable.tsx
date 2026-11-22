@@ -10,6 +10,7 @@ import { fmtDate } from "../lib/format";
 import { fmtNum } from "../lib/formatM2";
 import { mfgPaths } from "../lib/paths";
 import { VirtualTable, type Column } from "./VirtualTable";
+import { t } from "../../lib/i18n";
 
 export interface KitRow {
   c: WoComponentRecord;
@@ -58,7 +59,7 @@ export function KittingTable({ components, kitting, highlight, showKitting }: { 
                 </span>
               ) : r.c.open_qty > 0 ? (
                 <span className="badge ok">
-                  <Icon name="check" /> Covered
+                  <Icon name="check" /> {t("mfg.kittingTable.btn.covered")}
                 </span>
               ) : (
                 <span className="faint">Issued</span>
@@ -99,7 +100,7 @@ export function KittingTable({ components, kitting, highlight, showKitting }: { 
       height="min(56vh, 600px)"
       scrollTo={scrollTo}
       rowExtras={(r) => ({ testId: "kitting-row", data: { item: r.c.item.part_number, shortage: r.k ? r.k.shortage : undefined, component: r.c.id }, className: r.c.id === highlight ? "mfg-selected" : undefined })}
-      empty="No components. Without an effective BOM nothing is generated; use Refresh from BOM after releasing one."
+      empty={t("mfg.kittingTable.empty.noComponentsWithoutAnEffective")}
     />
   );
 }

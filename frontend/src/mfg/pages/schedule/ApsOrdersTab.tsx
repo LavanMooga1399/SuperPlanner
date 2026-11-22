@@ -12,7 +12,7 @@ import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
-import { plural } from "../../../lib/i18n";
+import { plural, t } from "../../../lib/i18n";
 import { FilterBar } from "../../../components/FilterBar";
 
 const KIND_LABEL: Record<string, string> = {
@@ -71,7 +71,7 @@ export function ApsOrdersTab() {
     <div className="col gap-lg">
       <FilterBar search={{ id: "ao-q", value: q, onChange: setQ, placeholder: "Order or part number" }} pageKey="ApsOrdersTab">
         <div className="field">
-          <label htmlFor="ao-type">Orders</label>
+          <label htmlFor="ao-type">{t("mfg.apsOrdersTab.label.orders")}</label>
           <select id="ao-type" className="select" value={type} onChange={(e) => setSearchParam(setParams, "type", e.target.value)}>
             <option value="">Work orders and planned orders</option>
             <option value="wo">Work orders</option>
@@ -122,7 +122,7 @@ export function ApsOrdersTab() {
                 </span>
               ) : (
                 <span className="badge ok">
-                  <Icon name="check" /> on time
+                  <Icon name="check" /> {t("mfg.apsOrdersTab.btn.onTime")}
                 </span>
               ),
           },
@@ -221,7 +221,7 @@ export function ApsDemandTab() {
                 </span>
               ) : (
                 <span className="badge ok">
-                  <Icon name="check" /> On time
+                  <Icon name="check" /> {t("mfg.apsOrdersTab.btn.onTime2")}
                 </span>
               ),
           },

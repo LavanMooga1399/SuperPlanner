@@ -1,6 +1,7 @@
 /** Small shared pieces of the schedule screens: run status chip, progress bar, overtime policy badge. */
 import { Icon, type IconName } from "../../components/Icon";
 import type { ApsRunRecord, ApsRunStatus, OvertimePolicy } from "../api/typesM3";
+import { t } from "../../lib/i18n";
 
 const STATUS: Record<ApsRunStatus, { label: string; tone: string; icon: IconName }> = {
   queued: { label: "Queued", tone: "info", icon: "clock" },
@@ -16,7 +17,7 @@ export function ApsStatusChip({ run }: { run: ApsRunRecord }) {
   if (invalid)
     return (
       <span className="badge danger" data-status="infeasible" title="The validator found broken rules; this plan cannot be published">
-        <Icon name="alert" /> Infeasible
+        <Icon name="alert" /> {t("mfg.apsBits.btn.infeasible")}
       </span>
     );
   return (
@@ -61,7 +62,7 @@ export function PolicyBadge({ policy }: { policy: OvertimePolicy | null | undefi
 export function PublishedBadge() {
   return (
     <span className="badge ok" data-testid="aps-published-badge" title="The plant plan: dispatch lists and the freeze window use it">
-      <Icon name="flag" /> Published
+      <Icon name="flag" /> {t("mfg.apsBits.btn.published")}
     </span>
   );
 }

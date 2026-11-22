@@ -12,6 +12,7 @@ import { useLoad } from "../../lib/useMfg";
 import { DigestSettings } from "./DashboardPage";
 import { fmtValue, PeriodSelect, TileCard, TileStatusBadge, TILE_NAMES, tileName } from "./dashboardBits";
 import { formatDateTime } from "../../../lib/locale";
+import { t } from "../../../lib/i18n";
 
 function Cell({ t }: { t: DashboardTile | undefined }) {
   if (!t) return <td className="muted">n/a</td>;
@@ -41,7 +42,7 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
         <div className="row" style={{ gap: 8 }}>
           <PeriodSelect value={period} onChange={setPeriod} />
           <button type="button" className="btn ghost" onClick={() => window.print()} data-testid="org-dash-print">
-            <Icon name="file" /> Print
+            <Icon name="file" /> {t("mfg.orgDashboard.btn.print")}
           </button>
         </div>
       </div>

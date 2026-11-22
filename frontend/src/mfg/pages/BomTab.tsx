@@ -31,7 +31,7 @@ import { mfgPaths } from "../lib/paths";
 import { errorText, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 import { DateInput } from "../../components/DateInput";
 
 type Pending = { kind: "release" | "obsolete" | "delete"; bom: BomSummary } | null;
@@ -121,7 +121,7 @@ export function BomTab() {
 
   if (item.make_buy === "buy")
     return (
-      <Banner tone="info" title="Bought items have no BOM">
+      <Banner tone="info" title={t("mfg.bomTab.title.boughtItemsHaveNoBom")}>
         {item.part_number} is bought from a supplier. To give it a bill of materials, change it to Make on the Details tab.
       </Banner>
     );
@@ -132,7 +132,7 @@ export function BomTab() {
         <div className="card-header">
           <h2 id="bom-versions-title">BOM versions</h2>
           <button type="button" className="btn sm primary" onClick={() => void newBom()} disabled={busy} data-testid="bom-new">
-            <Icon name="plus" /> New BOM version
+            <Icon name="plus" /> {t("mfg.bomTab.btn.newBomVersion")}
           </button>
         </div>
         <MfgError error={versions.error} onRetry={versions.reload} />
@@ -168,19 +168,19 @@ export function BomTab() {
                 {b.status === "draft" ? (
                   <>
                     <Link className="btn sm" to={mfgPaths.bomEdit(item.id, b.id)} data-testid="bom-edit">
-                      <Icon name="settings" /> Edit
+                      <Icon name="settings" /> {t("mfg.bomTab.btn.edit")}
                     </Link>
                     <button type="button" className="btn sm" onClick={() => setPending({ kind: "release", bom: b })} disabled={busy} data-testid="bom-release">
-                      <Icon name="check" /> Release
+                      <Icon name="check" /> {t("mfg.bomTab.btn.release")}
                     </button>
                   </>
                 ) : null}
                 <button type="button" className="btn sm" onClick={() => void copy(b)} disabled={busy} data-testid="bom-copy" title="Copy to a new draft version">
-                  <Icon name="copy" /> Copy
+                  <Icon name="copy" /> {t("mfg.bomTab.btn.copy")}
                 </button>
                 {b.status === "released" ? (
                   <button type="button" className="btn sm ghost" onClick={() => setPending({ kind: "obsolete", bom: b })} disabled={busy} data-testid="bom-obsolete">
-                    <Icon name="ban" /> Make obsolete
+                    <Icon name="ban" /> {t("mfg.bomTab.btn.makeObsolete")}
                   </button>
                 ) : (
                   <button type="button" className="btn sm ghost icon" onClick={() => setPending({ kind: "delete", bom: b })} disabled={busy} aria-label={`Delete version ${b.version}`} data-testid="bom-delete">
@@ -200,26 +200,26 @@ export function BomTab() {
           <h2 id="bom-structure-title">Structure</h2>
           <div className="btn-group" role="group" aria-label="View">
             <button type="button" className="btn sm" aria-pressed={mode === "indented"} onClick={() => setMode("indented")} data-testid="bom-mode-indented">
-              All levels
+              {t("mfg.bomTab.btn.allLevels")}
             </button>
             <button type="button" className="btn sm" aria-pressed={mode === "summarized"} onClick={() => setMode("summarized")} data-testid="bom-mode-summarized">
-              Total quantities
+              {t("mfg.bomTab.btn.totalQuantities")}
             </button>
           </div>
         </div>
         <div className="card-body col">
           <div className="toolbar" style={{ marginBottom: 0 }}>
             <div className="field">
-              <label htmlFor="bom-on">Effective on</label>
+              <label htmlFor="bom-on">{t("mfg.bomTab.label.effectiveOn")}</label>
               <DateInput id="bom-on" small value={on} onChange={(v) => setParam("on", v)} />
             </div>
             <div className="field" style={{ width: 120 }}>
-              <label htmlFor="bom-qty">Quantity to build</label>
+              <label htmlFor="bom-qty">{t("mfg.bomTab.label.quantityToBuild")}</label>
               <input id="bom-qty" type="number" min={0} step="any" className="input sm" value={qty} placeholder="1" onChange={(e) => setParam("qty", e.target.value)} />
             </div>
             {item.serialized ? (
               <div className="field" style={{ width: 120 }}>
-                <label htmlFor="bom-serial">Unit serial</label>
+                <label htmlFor="bom-serial">{t("mfg.bomTab.label.unitSerial")}</label>
                 <input id="bom-serial" type="number" min={1} className="input sm" value={serial} onChange={(e) => setParam("serial", e.target.value)} />
               </div>
             ) : null}
@@ -230,10 +230,10 @@ export function BomTab() {
           {tooLarge ? (
             <Banner
               tone="warn"
-              title="This structure is too large to show level by level"
+              title={t("mfg.bomTab.title.thisStructureIsTooLarge")}
               actions={
                 <button type="button" className="btn sm" onClick={() => setMode("summarized")}>
-                  Show total quantities
+                  {t("mfg.bomTab.btn.showTotalQuantities")}
                 </button>
               }
             >
@@ -243,7 +243,7 @@ export function BomTab() {
             <MfgError error={explosion.error} onRetry={explosion.reload} />
           )}
           {explosion.data?.warnings.length ? (
-            <Banner tone="warn" title="Notes on this structure">
+            <Banner tone="warn" title={t("mfg.bomTab.title.notesOnThisStructure")}>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {explosion.data.warnings.map((w, i) => (
                   <li key={i}>{w.message}</li>
@@ -279,7 +279,7 @@ export function BomTab() {
           onClose={() => setPending(null)}
           onRelease={async (body) => {
             await releaseBom(pending.bom.id, body, pending.bom.row_version);
-            toast("BOM released");
+            toast(t("mfg.bomTab.toast.bomReleased"));
             setPending(null);
             refreshAfterChange();
           }}
@@ -288,7 +288,7 @@ export function BomTab() {
       {pending?.kind === "obsolete" ? (
         <ConfirmDialog
           title={`Make rev. ${pending.bom.revision} v${pending.bom.version} obsolete?`}
-          confirmLabel="Make obsolete"
+          confirmLabel={t("mfg.bomTab.btn.makeObsolete")}
           busy={busy}
           onCancel={() => setPending(null)}
           onConfirm={() => void act(() => obsoleteBom(pending.bom.id, pending.bom.row_version))}
@@ -299,7 +299,7 @@ export function BomTab() {
       {pending?.kind === "delete" ? (
         <ConfirmDialog
           title={`Delete rev. ${pending.bom.revision} v${pending.bom.version}?`}
-          confirmLabel="Delete"
+          confirmLabel={t("mfg.bomTab.btn.delete")}
           danger
           busy={busy}
           onCancel={() => setPending(null)}
@@ -367,7 +367,7 @@ function SelectedLines({
           {status && status !== "draft" ? <span className="muted small">Read-only ({status}); copy it to change it.</span> : null}
           {status === "draft" && editTo ? (
             <Link className="btn sm" to={editTo}>
-              <Icon name="settings" /> Edit lines
+              <Icon name="settings" /> {t("mfg.bomTab.btn.editLines")}
             </Link>
           ) : null}
           <button type="button" className="btn sm ghost icon" aria-label="Close lines" onClick={onClose}>
@@ -387,7 +387,7 @@ function SelectedLines({
             height="min(40vh, 420px)"
             scrollTo={scrollTo}
             rowExtras={(l) => ({ testId: "bom-line-row", data: { "line-id": l.id }, className: l.id === line ? "mfg-selected" : undefined, ariaSelected: l.id === line })}
-            empty="This version has no lines yet."
+            empty={t("mfg.bomTab.empty.thisVersionHasNoLines")}
           />
         ) : null}
       </div>

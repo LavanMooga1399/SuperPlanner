@@ -6,6 +6,7 @@ import { listSamples, loadSample } from "../api/client";
 import type { SampleInfo, SampleLoadResponse } from "../api/types";
 import { useLoad } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
+import { t } from "../../lib/i18n";
 
 const COUNT_LABELS: Record<string, string> = {
   items: "items",
@@ -92,7 +93,7 @@ export function SampleLoader({ onLoaded }: { onLoaded(res: SampleLoadResponse): 
                   onClick={() => setConfirm(s)}
                   data-testid={`sample-replace-${s.id}`}
                 >
-                  <Icon name="refresh" /> Replace my data
+                  <Icon name="refresh" /> {t("mfg.sampleLoader.btn.replaceMyData")}
                 </button>
               </div>
             </div>
@@ -107,7 +108,7 @@ export function SampleLoader({ onLoaded }: { onLoaded(res: SampleLoadResponse): 
       {confirm ? (
         <ConfirmDialog
           title={`Replace your data with "${confirm.name}"?`}
-          confirmLabel="Delete my data and load the sample"
+          confirmLabel={t("mfg.sampleLoader.btn.deleteMyDataAndLoad")}
           danger
           busy={busy !== null}
           onCancel={() => setConfirm(null)}

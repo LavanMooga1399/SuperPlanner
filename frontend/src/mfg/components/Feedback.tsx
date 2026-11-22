@@ -16,10 +16,10 @@ export function ConflictBanner({ onReload, what = "this record" }: { onReload():
       tone="warn"
       role="alert"
       testId="conflict-banner"
-      title="Someone else changed this in the meantime"
+      title={t("mfg.feedback.title.someoneElseChangedThisIn")}
       actions={
         <button type="button" className="btn sm" onClick={onReload} data-testid="conflict-reload">
-          <Icon name="refresh" /> Reload latest (discard my changes)
+          <Icon name="refresh" /> {t("mfg.feedback.btn.reloadLatestDiscardMyChanges")}
         </button>
       }
     >
@@ -34,7 +34,7 @@ export function MfgError({ error, onRetry, title }: { error: unknown; onRetry?()
   const text = errorText(error);
   if (isForbidden(error))
     return (
-      <Banner tone="warn" role="alert" icon="lock" title="Not allowed for your role" testId="forbidden-banner">
+      <Banner tone="warn" role="alert" icon="lock" title={t("mfg.feedback.title.notAllowedForYourRole")} testId="forbidden-banner">
         {text}
       </Banner>
     );
@@ -48,7 +48,7 @@ export function MfgError({ error, onRetry, title }: { error: unknown; onRetry?()
       actions={
         onRetry ? (
           <button type="button" className="btn sm" onClick={onRetry}>
-            <Icon name="refresh" /> Retry
+            <Icon name="refresh" /> {t("mfg.feedback.btn.retry")}
           </button>
         ) : null
       }
@@ -100,7 +100,7 @@ export function SaveState({ busy, saved }: { busy: boolean; saved: boolean }) {
   if (saved)
     return (
       <span className="save-state" role="status">
-        <Icon name="check" size={14} /> Saved
+        <Icon name="check" size={14} /> {t("mfg.feedback.btn.saved")}
       </span>
     );
   return null;

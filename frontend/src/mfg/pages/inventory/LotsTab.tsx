@@ -20,6 +20,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { isConflict, todayInOffset, useDebounced, usePlant } from "../../lib/useMfg";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 function LotDialog({ lot, onClose, onSaved }: { lot: LotRecord; onClose(): void; onSaved(l: LotRecord): void }) {
   const [f, setF] = useState({ expires_on: lot.expires_on ?? "", supplier_lot: lot.supplier_lot, hold: lot.hold, note: lot.note });
@@ -27,7 +28,7 @@ function LotDialog({ lot, onClose, onSaved }: { lot: LotRecord; onClose(): void;
   return (
     <EntityFormDialog
       title={`Lot ${lot.lot_code}`}
-      submitLabel="Save lot"
+      submitLabel={t("mfg.lotsTab.btn.saveLot")}
       testId="lot-form"
       onClose={onClose}
       onSubmit={async () => {
@@ -140,7 +141,7 @@ export function LotsTab() {
               <Icon name={l.hold ? "unlock" : "lock"} /> {l.hold ? "Release" : "Hold"}
             </button>
             <button type="button" className="btn sm ghost" onClick={() => setEditing(l)} aria-label={`Edit lot ${l.lot_code}`}>
-              Edit
+              {t("mfg.lotsTab.btn.edit")}
             </button>
           </span>
         ) : null,
@@ -156,11 +157,11 @@ export function LotsTab() {
     <div className="col gap-lg">
       <FilterBar chips={chips} onClearAll={() => (setQ(""), setParams({}, { replace: true }))} search={{ id: "lots-q", value: q, onChange: setQ, placeholder: "Lot code or part number", testId: "lots-search" }} pageKey="LotsTab">
         <div className="field">
-          <label htmlFor="lots-before">Expiring before</label>
+          <label htmlFor="lots-before">{t("mfg.lotsTab.label.expiringBefore")}</label>
           <DateInput id="lots-before" value={before} onChange={(v) => set("before", v)} />
         </div>
         <div className="field">
-          <label htmlFor="lots-hold">Status</label>
+          <label htmlFor="lots-hold">{t("mfg.lotsTab.label.status")}</label>
           <select id="lots-hold" className="select" value={hold} onChange={(e) => set("hold", e.target.value)}>
             <option value="">All</option>
             <option value="true">On hold</option>

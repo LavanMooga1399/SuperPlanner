@@ -17,6 +17,7 @@ import { mfgPaths } from "../lib/paths";
 import { useCan } from "../lib/permissions";
 import { useLoad } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
+import { t } from "../../lib/i18n";
 
 export function ItemSupplierTable({
   rows,
@@ -51,7 +52,7 @@ export function ItemSupplierTable({
           )}
           {r.preferred ? (
             <span className="badge accent" title="MRP orders from this supplier">
-              <Icon name="star" /> Preferred
+              <Icon name="star" /> {t("mfg.itemSuppliersTab.btn.preferred")}
             </span>
           ) : null}
         </span>
@@ -76,7 +77,7 @@ export function ItemSupplierTable({
       render: (r) => (
         <span className="row" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
           <button type="button" className="btn sm" onClick={() => onEdit(r)}>
-            Edit
+            {t("mfg.itemSuppliersTab.btn.edit")}
           </button>
           {onDelete ? (
             <button type="button" className="btn sm ghost icon" aria-label="Remove" onClick={() => onDelete(r)}>
@@ -96,7 +97,7 @@ export function ItemSupplierTable({
       tableId={`item-supplier-table-${show}`}
       exportName={show === "item" ? "supplier-parts" : "item-suppliers"}
       rowExtras={(r) => ({ testId: "item-supplier-row", data: { preferred: r.preferred }, className: r.id === highlight ? "mfg-highlight" : undefined })}
-      empty="No suppliers yet. Without one, MRP uses the item's lead time and creates purchase requests without a supplier."
+      empty={t("mfg.itemSuppliersTab.empty.noSuppliersYetWithoutOne")}
       card={{ title: "who", status: "status", fields: ["lead", "moq", "price"] }}
     />
   );
@@ -122,7 +123,7 @@ export function ItemSuppliersTab() {
         </p>
         <PermissionGate perm="supplier_edit">
           <button type="button" className="btn primary" onClick={() => setEditing("new")} data-testid="item-supplier-new">
-            <Icon name="plus" /> Add supplier
+            <Icon name="plus" /> {t("mfg.itemSuppliersTab.btn.addSupplier")}
           </button>
         </PermissionGate>
       </div>
@@ -143,7 +144,7 @@ export function ItemSuppliersTab() {
       {deleting ? (
         <ConfirmDialog
           title={`Remove ${deleting.supplier.code} for this part?`}
-          confirmLabel="Remove"
+          confirmLabel={t("mfg.itemSuppliersTab.btn.remove")}
           danger
           onCancel={() => setDeleting(null)}
           onConfirm={() => {

@@ -8,6 +8,7 @@ import type { Ref } from "../api/types";
 import type { LocationKind, LocationRecord } from "../api/typesM2";
 import { isAbortError, useDebounced } from "../lib/useMfg";
 import { LOCATION_KIND_LABEL } from "./StatusM2";
+import { t } from "../../lib/i18n";
 
 let locCache: Promise<LocationRecord[]> | null = null;
 
@@ -185,7 +186,7 @@ export function SupplierPicker({
           aria-label={hideLabel ? label : undefined}
           aria-activedescendant={open && options[hi] ? `${listId}-${hi}` : undefined}
           value={text}
-          placeholder="Search supplier code or name"
+          placeholder={t("mfg.pickersM2.ph.searchSupplierCodeOrName")}
           disabled={disabled}
           data-testid={testId}
           onFocus={() => setOpen(true)}

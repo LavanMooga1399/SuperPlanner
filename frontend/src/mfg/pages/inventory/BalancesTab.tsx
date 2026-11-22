@@ -18,6 +18,7 @@ import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, usePlant } from "../../lib/useMfg";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 export function BalancesTab() {
   const [params, setParams] = useSearchParams();
@@ -107,11 +108,11 @@ export function BalancesTab() {
         render: (b) =>
           b.nettable ? (
             <span className="mfg-yes" title="Counted by MRP and kitting">
-              <Icon name="check" size={14} /> Yes
+              <Icon name="check" size={14} /> {t("mfg.balancesTab.btn.yes")}
             </span>
           ) : (
             <span className="faint" title="Not counted by MRP (quarantine, held or expired)">
-              <Icon name="ban" size={12} /> No
+              <Icon name="ban" size={12} /> {t("mfg.balancesTab.btn.no")}
             </span>
           ),
       },
@@ -139,7 +140,7 @@ export function BalancesTab() {
           <LocationSelect label="Location" value={locationId} onChange={(v) => set("location", v)} allowEmpty emptyLabel="All locations" includeInactive testId="balances-location" />
         </div>
         <div className="field">
-          <label htmlFor="bal-kind">Kind</label>
+          <label htmlFor="bal-kind">{t("mfg.balancesTab.label.kind")}</label>
           <select id="bal-kind" className="select" value={kind} onChange={(e) => set("kind", e.target.value)} data-testid="balances-kind">
             <option value="">All kinds</option>
             {(Object.keys(LOCATION_KIND_LABEL) as LocationKind[]).map((k) => (
@@ -150,7 +151,7 @@ export function BalancesTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="bal-net">Plannable</label>
+          <label htmlFor="bal-net">{t("mfg.balancesTab.label.plannable")}</label>
           <select id="bal-net" className="select" value={nettable} onChange={(e) => set("nettable", e.target.value)}>
             <option value="">Any</option>
             <option value="true">Counted by MRP</option>
@@ -158,7 +159,7 @@ export function BalancesTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="bal-sort">Sort by</label>
+          <label htmlFor="bal-sort">{t("mfg.balancesTab.label.sortBy")}</label>
           <select id="bal-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "part_number" ? "" : e.target.value)}>
             <option value="part_number">Part number</option>
             <option value="location">Location</option>
@@ -179,7 +180,7 @@ export function BalancesTab() {
             </Link>
             <span className="muted small">{item?.description}</span>
             <button type="button" className="btn sm ghost" onClick={() => set("item", "")}>
-              <Icon name="x" /> Show all items
+              <Icon name="x" /> {t("mfg.balancesTab.btn.showAllItems")}
             </button>
           </div>
           {totals ? (

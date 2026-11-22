@@ -16,6 +16,7 @@ import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 /** Link of a document reference on a ledger line. */
 export function docRefLink(ref: TransactionRow["ref"]): string | null {
@@ -140,18 +141,18 @@ export function TransactionsTab() {
     <div className="col gap-lg">
       <FilterBar chips={chips} onClearAll={() => setParams({}, { replace: true })} pageKey="TransactionsTab">
         <div style={{ width: 240 }}>
-          <ItemPicker label="Item" value={itemRef} onChange={(it) => set("item", it.id)} testId="txn-item" placeholder="All items" />
+          <ItemPicker label="Item" value={itemRef} onChange={(it) => set("item", it.id)} testId="txn-item" placeholder={t("mfg.transactionsTab.ph.allItems")} />
         </div>
         {itemId ? (
           <button type="button" className="btn sm ghost" style={{ alignSelf: "flex-end" }} onClick={() => set("item", "")}>
-            <Icon name="x" /> All items
+            <Icon name="x" /> {t("mfg.transactionsTab.btn.allItems")}
           </button>
         ) : null}
         <div style={{ minWidth: 200 }}>
           <LocationSelect label="Location" value={locationId} onChange={(v) => set("location", v)} allowEmpty emptyLabel="All locations" includeInactive />
         </div>
         <div className="field">
-          <label htmlFor="txn-type">Type</label>
+          <label htmlFor="txn-type">{t("mfg.transactionsTab.label.type")}</label>
           <select id="txn-type" className="select" value={txnType} onChange={(e) => set("type", e.target.value)} data-testid="txn-type">
             <option value="">All types</option>
             {POSTING_TYPES.map((t) => (
@@ -162,11 +163,11 @@ export function TransactionsTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="txn-from">From</label>
+          <label htmlFor="txn-from">{t("mfg.transactionsTab.label.from")}</label>
           <DateInput id="txn-from" value={from} onChange={(v) => set("from", v)} />
         </div>
         <div className="field">
-          <label htmlFor="txn-to">To</label>
+          <label htmlFor="txn-to">{t("mfg.transactionsTab.label.to")}</label>
           <DateInput id="txn-to" value={to} onChange={(v) => set("to", v)} />
         </div>
         {postingId ? (

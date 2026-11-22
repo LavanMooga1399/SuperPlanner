@@ -10,7 +10,7 @@ import { checkSheet } from "../lib/importMapping";
 import { useMeta } from "../lib/useMfg";
 import { CheckField, TextField } from "./Field";
 import { sheetKind, sheetLabel } from "./ImportUpload";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 function cellText(c: Cell | undefined): string {
   if (c === null || c === undefined) return "";
@@ -119,7 +119,7 @@ export function ImportMapping({
                               </select>
                               {dup ? (
                                 <span className="field-error">
-                                  <Icon name="alert" size={12} /> Used twice
+                                  <Icon name="alert" size={12} /> {t("mfg.importMapping.btn.usedTwice")}
                                 </span>
                               ) : null}
                             </td>
@@ -149,7 +149,7 @@ export function ImportMapping({
 
       <div>
         <button type="button" className="btn ghost sm" aria-expanded={more} onClick={() => setMore((x) => !x)} data-testid="import-more-options">
-          <Icon name={more ? "chevron-down" : "chevron-right"} /> More options
+          <Icon name={more ? "chevron-down" : "chevron-right"} /> {t("mfg.importMapping.btn.moreOptions")}
         </button>
       </div>
       {more ? (

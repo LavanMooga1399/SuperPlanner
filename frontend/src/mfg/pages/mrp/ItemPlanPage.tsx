@@ -16,6 +16,7 @@ import { exceptionLabel, leadTimeText, REQUIREMENT_KIND, SUPPLY_KIND } from "../
 import { mfgPaths } from "../../lib/paths";
 import { isNotFound, useLoad } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
+import { t } from "../../../lib/i18n";
 
 type BucketSize = "day" | "week" | "month";
 
@@ -52,10 +53,10 @@ export function ItemPlanPage() {
         </div>
         <div className="row" style={{ gap: 4 }}>
           <Link className="btn sm" to={mfgPaths.itemStock(r.item.id)}>
-            Stock
+            {t("mfg.itemPlanPage.btn.stock")}
           </Link>
           <Link className="btn sm" to={mfgPaths.item(r.item.id)}>
-            Item
+            {t("mfg.itemPlanPage.btn.item")}
           </Link>
         </div>
       </div>
@@ -129,7 +130,7 @@ export function ItemPlanPage() {
                 <td>
                   {b.short ? (
                     <span className="badge danger">
-                      <Icon name="alert" /> Short
+                      <Icon name="alert" /> {t("mfg.itemPlanPage.btn.short")}
                     </span>
                   ) : null}
                 </td>
@@ -183,10 +184,10 @@ export function ItemPlanPage() {
                   </td>
                   <td>
                     <Link className="btn sm ghost" to={mfgPaths.runPegging(run.id, { item: r.item.id, node: q.node, kind: "requirement", direction: "up" })} title="Which demand does this serve?">
-                      Peg up
+                      {t("mfg.itemPlanPage.btn.pegUp")}
                     </Link>
                     <Link className="btn sm ghost" to={mfgPaths.runPegging(run.id, { item: r.item.id, node: q.node, kind: "requirement", direction: "down" })} title="What covers this, down the BOM?">
-                      Peg down
+                      {t("mfg.itemPlanPage.btn.pegDown")}
                     </Link>
                   </td>
                 </tr>
@@ -237,7 +238,7 @@ export function ItemPlanPage() {
                   </td>
                   <td>
                     <Link className="btn sm ghost" to={mfgPaths.runPegging(run.id, { item: r.item.id, node: s.node, kind: "supply", direction: "up" })}>
-                      Peg up
+                      {t("mfg.itemPlanPage.btn.pegUp")}
                     </Link>
                   </td>
                 </tr>

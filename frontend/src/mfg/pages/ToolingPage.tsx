@@ -10,6 +10,7 @@ import { MfgError, Spinner } from "../components/Feedback";
 import { numOr, strOrNull, TextField } from "../components/Field";
 import { RecordList, withParam } from "../components/RecordList";
 import { useLoad } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 export function ToolingPage() {
   const [params, setParams] = useSearchParams();
@@ -29,11 +30,11 @@ export function ToolingPage() {
         <div className="card-header">
           <h2 id="tools-title">Tooling</h2>
           <button type="button" className="btn sm primary" onClick={() => setEditing("new")} data-testid="tool-new">
-            <Icon name="plus" /> New tool pool
+            <Icon name="plus" /> {t("mfg.toolingPage.btn.newToolPool")}
           </button>
         </div>
         <div style={{ padding: "8px 16px 0" }}>
-          <input className="input sm" type="search" placeholder="Search code, name or kind" aria-label="Search tooling" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input sm" type="search" placeholder={t("mfg.toolingPage.ph.searchCodeNameOrKind")} aria-label="Search tooling" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <MfgError error={tools.error} onRetry={tools.reload} />
         <MfgError error={error} title="The action failed" />
@@ -44,7 +45,7 @@ export function ToolingPage() {
             selectedId={toolParam}
             onSelect={(id) => setParams((p) => withParam(p, "tool", id))}
             testId="tool-row"
-            empty="No tooling yet. Add stencils, fixtures or jigs that operations hold while they run."
+            empty={t("mfg.toolingPage.empty.noToolingYetAddStencils")}
             render={(t) => (
               <>
                 <strong className="mono">{t.code}</strong>
@@ -68,7 +69,7 @@ export function ToolingPage() {
               </h2>
               <span className="row">
                 <button type="button" className="btn sm" onClick={() => setEditing(selected)} data-testid="tool-edit">
-                  Edit
+                  {t("mfg.toolingPage.btn.edit")}
                 </button>
                 <button type="button" className="btn sm ghost icon" aria-label={`Delete ${selected.code}`} onClick={() => setDel(selected)}>
                   <Icon name="trash" />
@@ -106,7 +107,7 @@ export function ToolingPage() {
       {del ? (
         <ConfirmDialog
           title={`Delete ${del.code}?`}
-          confirmLabel="Delete"
+          confirmLabel={t("mfg.toolingPage.btn.delete")}
           danger
           onCancel={() => setDel(null)}
           onConfirm={() => {
@@ -135,7 +136,7 @@ function ToolDialog({ tool, onClose, onSaved }: { tool: ToolPoolRecord | null; o
   return (
     <EntityFormDialog
       title={tool ? `Edit ${tool.code}` : "New tool pool"}
-      submitLabel="Save"
+      submitLabel={t("mfg.toolingPage.btn.save")}
       onClose={onClose}
       testId="tool-form"
       disabled={!code.trim() || !name.trim()}

@@ -16,6 +16,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, useLoad } from "../../lib/useMfg";
 import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 const STATUS: Record<SerialStatus, { label: string; tone: string; icon: "check" | "clock" | "layers" | "arrow-right" | "trash" }> = {
   wip: { label: "In production", tone: "accent", icon: "clock" },
@@ -56,10 +57,10 @@ export function SerialsPage() {
   ];
   return (
     <div className="col gap-lg" data-testid="serials-page">
-      <PageHeader title="Unit serials" />
+      <PageHeader title={t("mfg.serialsPage.title.unitSerials")} />
       <FilterBar chips={chips} onClearAll={() => (setQ(""), setParams({}, { replace: true }))} search={{ id: "sr-q", value: q, onChange: setQ, placeholder: "e.g. TPU-000123", label: "Serial, part or work order", testId: "serial-search" }} pageKey="SerialsPage">
         <div className="field">
-          <label htmlFor="sr-status">Status</label>
+          <label htmlFor="sr-status">{t("mfg.serialsPage.label.status")}</label>
           <select id="sr-status" className="select" value={status} onChange={(e) => setSearchParam(setParams, "status", e.target.value)}>
             <option value="">Any</option>
             {(Object.keys(STATUS) as SerialStatus[]).map((s) => (
@@ -119,7 +120,7 @@ export function SerialPage() {
           <span className="mono">{u.serial}</span> <SerialStatusChip s={u.status} />
         </h1>
         <Link className="btn" to={mfgPaths.printLabels({ type: "serial", ids: u.id })}>
-          <Icon name="file" /> Print label
+          <Icon name="file" /> {t("mfg.serialsPage.btn.printLabel")}
         </Link>
       </div>
       <section className="card card-body">

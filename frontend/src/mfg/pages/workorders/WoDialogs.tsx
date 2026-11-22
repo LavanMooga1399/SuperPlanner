@@ -16,6 +16,7 @@ import { fmtNum } from "../../lib/formatM2";
 import { isCountUom, useItemInfo } from "../../lib/itemCache";
 import { toast } from "../../../components/Toast";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 function usePost() {
   const keyRef = useRef<{ body: string; key: string } | null>(null);
@@ -92,12 +93,12 @@ export function IssueDialog({
               onClick={() => setRows((rs) => rs.map((r) => ({ ...r, qty: String(Math.min(r.c.open_qty, Math.max(r.c.reserved_qty, kit.get(r.c.id)?.locations[0]?.available ?? 0))) })))}
               data-testid="wo-issue-fill"
             >
-              Fill open quantities (as available)
+              {t("mfg.woDialogs.btn.fillOpenQuantitiesAsAvailable")}
             </button>
           ) : null}
           <span className="grow" />
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.woDialogs.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || !chosen.length || problems.length > 0} data-testid={`wo-${mode}-submit`}>
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {mode === "issue" ? "Post issue" : "Post return"}
@@ -137,7 +138,7 @@ export function IssueDialog({
                     <LocationSelect label={`Location ${r.c.item.part_number}`} hideLabel value={r.location_id} onChange={(v) => patch(i, { location_id: v })} />
                   </td>
                   <td>
-                    <input className="input sm" aria-label={`Lot ${r.c.item.part_number}`} value={r.lot_code} maxLength={64} placeholder="Earliest expiry" onChange={(e) => patch(i, { lot_code: e.target.value })} />
+                    <input className="input sm" aria-label={`Lot ${r.c.item.part_number}`} value={r.lot_code} maxLength={64} placeholder={t("mfg.woDialogs.ph.earliestExpiry")} onChange={(e) => patch(i, { lot_code: e.target.value })} />
                   </td>
                   {mode === "issue" ? (
                     <td>
@@ -184,7 +185,7 @@ export function OutputDialog({ wo, onClose, onDone }: { wo: WorkOrderRecord; onC
       footer={
         <>
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.woDialogs.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || bad} data-testid="wo-receipt-submit">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Post output
@@ -198,22 +199,22 @@ export function OutputDialog({ wo, onClose, onDone }: { wo: WorkOrderRecord; onC
         </p>
         <div className="form-grid">
           <div className="field">
-            <label htmlFor="out-qty">Good quantity</label>
+            <label htmlFor="out-qty">{t("mfg.woDialogs.label.goodQuantity")}</label>
             <input id="out-qty" className="input num" type="number" min={0} value={qty} onChange={(e) => setQty(e.target.value)} data-testid="wo-receipt-qty" />
           </div>
           <div className="field">
-            <label htmlFor="out-scrap">Scrapped</label>
+            <label htmlFor="out-scrap">{t("mfg.woDialogs.label.scrapped")}</label>
             <input id="out-scrap" className="input num" type="number" min={0} value={scrap} onChange={(e) => setScrap(e.target.value)} />
           </div>
           <LocationSelect label="Into location" value={loc} onChange={setLoc} testId="wo-receipt-location" />
           {info?.lot_controlled ? (
             <>
               <div className="field">
-                <label htmlFor="out-lot">Lot</label>
+                <label htmlFor="out-lot">{t("mfg.woDialogs.label.lot")}</label>
                 <input id="out-lot" className="input" maxLength={64} value={lot} onChange={(e) => setLot(e.target.value)} />
               </div>
               <div className="field">
-                <label htmlFor="out-exp">Expires on</label>
+                <label htmlFor="out-exp">{t("mfg.woDialogs.label.expiresOn")}</label>
                 <DateInput id="out-exp" value={exp} onChange={(v) => setExp(v)} />
               </div>
             </>
@@ -276,7 +277,7 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
         note: r.note,
       }));
       onSaved(await updateWorkOrder(wo.id, { ...input, components }, wo.row_version));
-      toast("Work order saved");
+      toast(t("mfg.woDialogs.toast.workOrderSaved"));
     } catch (e) {
       setError(e);
       setBusy(false);
@@ -290,11 +291,11 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
       footer={
         <>
           <button type="button" className="btn" onClick={() => setRows((rs) => [...rs, { key: ++ck, id: null, item: null, required: "", operation_seq: "", find_number: "", note: "", issued: 0 }])}>
-            <Icon name="plus" /> Add component
+            <Icon name="plus" /> {t("mfg.woDialogs.btn.addComponent")}
           </button>
           <span className="grow" />
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.woDialogs.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || problems.length > 0} data-testid="wo-components-save">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save components

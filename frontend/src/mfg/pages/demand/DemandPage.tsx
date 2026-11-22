@@ -26,6 +26,7 @@ import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
 import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 interface LineDraft {
   key: number;
@@ -127,7 +128,7 @@ function ShipDialog({ order, onClose, onDone }: { order: DemandOrderRecord; onCl
       footer={
         <>
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.demandPage.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || !chosen.length || bad} data-testid="ship-submit">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />} Post shipment
@@ -163,7 +164,7 @@ function ShipDialog({ order, onClose, onDone }: { order: DemandOrderRecord; onCl
                   <LocationSelect label={`Location line ${r.line.line_no}`} hideLabel value={r.location_id} kinds={["stores", "line_side"]} onChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, location_id: v } : x)))} testId="ship-location" />
                 </td>
                 <td>
-                  <input className="input sm" aria-label={`Lot line ${r.line.line_no}`} value={r.lot_code} placeholder="Earliest expiry" onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, lot_code: e.target.value } : x)))} />
+                  <input className="input sm" aria-label={`Lot line ${r.line.line_no}`} value={r.lot_code} placeholder={t("mfg.demandPage.ph.earliestExpiry")} onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, lot_code: e.target.value } : x)))} />
                 </td>
               </tr>
             ))}
@@ -250,7 +251,7 @@ export function DemandPage() {
         navigate(mfgPaths.demandOrder(o.id), { replace: true });
       } else if (order) {
         reset(await updateDemandOrder(order.id, body, order.row_version));
-        toast("Changes saved");
+        toast(t("mfg.demandPage.toast.changesSaved"));
         setNotice("Saved.");
       }
     } catch (e) {
@@ -305,24 +306,24 @@ export function DemandPage() {
             ) : null}
             {status === "open" ? (
               <button type="button" className="btn" onClick={() => setConfirm("close")} disabled={busy || dirty} data-testid="demand-action-close">
-                <Icon name="lock" /> Close
+                <Icon name="lock" /> {t("mfg.demandPage.btn.close")}
               </button>
             ) : null}
             {(status === "draft" || status === "open") && !hasShipments ? (
               <button type="button" className="btn" onClick={() => setConfirm("cancel")} disabled={busy} data-testid="demand-action-cancel">
-                <Icon name="ban" /> Cancel
+                <Icon name="ban" /> {t("mfg.demandPage.btn.cancel")}
               </button>
             ) : null}
             {(status === "draft" || status === "cancelled") && !hasShipments ? (
               <button type="button" className="btn danger" onClick={() => setConfirm("delete")} disabled={busy}>
-                <Icon name="trash" /> Delete
+                <Icon name="trash" /> {t("mfg.demandPage.btn.delete")}
               </button>
             ) : null}
           </div>
         ) : null}
         {order && status === "open" && can("inventory") ? (
           <button type="button" className="btn" onClick={() => setShipping(true)} disabled={!order.lines.some((l) => l.open_qty > 0)} data-testid="demand-ship">
-            <Icon name="arrow-right" /> Ship
+            <Icon name="arrow-right" /> {t("mfg.demandPage.btn.ship")}
           </button>
         ) : null}
       </div>
@@ -331,7 +332,7 @@ export function DemandPage() {
       <ErpOwnedNotice entity="demand_orders" label="Demand orders (except priority)" />
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
       {status === "draft" && order ? (
-        <Banner tone="warn" title="Draft: not planned yet">
+        <Banner tone="warn" title={t("mfg.demandPage.title.draftNotPlannedYet")}>
           Open the order when it is confirmed; MRP plans only open orders.
         </Banner>
       ) : null}
@@ -339,7 +340,7 @@ export function DemandPage() {
 
       <section className="card">
         <div className="card-body form-grid">
-          <TextField label="Number" value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder="Next free number" disabled={!editable || !isNew} testId="demand-number" />
+          <TextField label="Number" value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder={t("mfg.demandPage.ph.nextFreeNumber")} disabled={!editable || !isNew} testId="demand-number" />
           <SelectField label="Type" value={head.demand_type} onChange={(v) => setHead({ ...head, demand_type: v })} options={DEMAND_TYPES.map((t) => ({ value: t, label: DEMAND_TYPE_LABEL[t] }))} disabled={!editable} testId="demand-type" />
           <TextField label="Customer" value={head.customer} onChange={(v) => setHead({ ...head, customer: v })} disabled={!editable} testId="demand-customer" />
           <TextField label="Programme" value={head.program} onChange={(v) => setHead({ ...head, program: v.toUpperCase() })} maxLength={32} disabled={!editable} hint="e.g. KVP-27; MRP can protect programmes" />
@@ -397,8 +398,8 @@ export function DemandPage() {
                       serialText(numOrNull(l.serial_from), numOrNull(l.serial_to)) || <span className="faint">-</span>
                     ) : (
                       <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
-                        <input className="input sm num" type="number" aria-label={`Line ${n} serial from`} placeholder="from" value={l.serial_from} onChange={(e) => patch(i, { serial_from: e.target.value })} style={{ width: 72 }} />
-                        <input className="input sm num" type="number" aria-label={`Line ${n} serial to`} placeholder="to" value={l.serial_to} onChange={(e) => patch(i, { serial_to: e.target.value })} style={{ width: 72 }} />
+                        <input className="input sm num" type="number" aria-label={`Line ${n} serial from`} placeholder={t("mfg.demandPage.ph.from")} value={l.serial_from} onChange={(e) => patch(i, { serial_from: e.target.value })} style={{ width: 72 }} />
+                        <input className="input sm num" type="number" aria-label={`Line ${n} serial to`} placeholder={t("mfg.demandPage.ph.to")} value={l.serial_to} onChange={(e) => patch(i, { serial_to: e.target.value })} style={{ width: 72 }} />
                       </div>
                     )}
                     {!locked ? <SerialHint item={l.item} /> : null}
@@ -432,7 +433,7 @@ export function DemandPage() {
                           to={`${mfgPaths.workOrderNew()}?item=${encodeURIComponent(l.item.id)}&qty=${l.rec.open_qty}&due=${l.rec.due_date}&demand_line=${encodeURIComponent(l.rec.id)}${l.rec.serial_from !== null ? `&serial_from=${l.rec.serial_from}&serial_to=${l.rec.serial_to}` : ""}`}
                           title="Create a work order for this line"
                         >
-                          <Icon name="plus" /> WO
+                          <Icon name="plus" /> {t("mfg.demandPage.btn.wo")}
                         </Link>
                       ) : null}
                       {editable && !locked ? (
@@ -450,7 +451,7 @@ export function DemandPage() {
         {editable ? (
           <div className="card-footer row">
             <button type="button" className="btn sm" onClick={() => setLines((ls) => [...ls, blank()])} disabled={lines.length >= 500} data-testid="demand-add-line">
-              <Icon name="plus" /> Add line
+              <Icon name="plus" /> {t("mfg.demandPage.btn.addLine")}
             </button>
             <span className="faint small">Serial numbers (optional, serialized items): the BOM valid for those units is used.</span>
           </div>
@@ -472,7 +473,7 @@ export function DemandPage() {
             </button>
             {order ? (
               <button type="button" className="btn" disabled={!dirty || busy} onClick={() => reset(order)}>
-                Undo changes
+                {t("mfg.demandPage.btn.undoChanges")}
               </button>
             ) : null}
           </div>
@@ -483,7 +484,7 @@ export function DemandPage() {
         <ConfirmDialog
           title={confirm === "close" ? "Close this order?" : confirm === "cancel" ? "Cancel this order?" : "Delete this order?"}
           confirmLabel={confirm === "close" ? "Close" : confirm === "cancel" ? "Cancel order" : "Delete"}
-          cancelLabel="Keep"
+          cancelLabel={t("mfg.demandPage.btn.keep")}
           danger={confirm !== "close"}
           onCancel={() => setConfirm(null)}
           onConfirm={() => {

@@ -16,6 +16,7 @@ import { numOrNull, numText } from "./Field";
 import { ItemPicker } from "./ItemPicker";
 import { OverdueBadge } from "./StatusM2";
 import { DateInput } from "../../components/DateInput";
+import { t } from "../../lib/i18n";
 
 export interface ScheduleDraft {
   key: number;
@@ -214,7 +215,7 @@ export function DocLinesEditor({
                       step="any"
                       aria-label={`Line ${lineNo} unit price`}
                       value={l.unit_price}
-                      placeholder="From supplier"
+                      placeholder={t("mfg.docLinesEditor.ph.fromSupplier")}
                       onChange={(e) => setLine(i, { unit_price: e.target.value })}
                     />
                   )}
@@ -310,7 +311,7 @@ export function DocLinesEditor({
                       data-testid="doc-add-schedule"
                       disabled={l.schedules.length >= 100}
                     >
-                      <Icon name="plus" /> Add delivery (staggered)
+                      <Icon name="plus" /> {t("mfg.docLinesEditor.btn.addDeliveryStaggered")}
                     </button>
                   </td>
                 </tr>
@@ -322,7 +323,7 @@ export function DocLinesEditor({
       {!readOnly ? (
         <div className="card-footer row">
           <button type="button" className="btn sm" onClick={() => onChange([...lines, newDocLine()])} disabled={lines.length >= 500} data-testid="doc-add-line">
-            <Icon name="plus" /> Add line
+            <Icon name="plus" /> {t("mfg.docLinesEditor.btn.addLine")}
           </button>
           <span className="faint small">
             {docType === "po" ? "Price empty = the supplier price of the part." : "A request can have its supplier chosen later, at conversion."}

@@ -17,7 +17,7 @@ import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
-import { plural } from "../../../lib/i18n";
+import { plural, t } from "../../../lib/i18n";
 import { PageHeader } from "../../../components/PageHeader";
 
 const active = (s: Simulation) => s.status === "queued" || s.status === "running";
@@ -26,13 +26,13 @@ function SimStatus({ s }: { s: Simulation }) {
   if (s.status === "completed")
     return (
       <span className="badge ok">
-        <Icon name="check" /> Done
+        <Icon name="check" /> {t("mfg.simulationsPage.btn.done")}
       </span>
     );
   if (s.status === "failed")
     return (
       <span className="badge danger">
-        <Icon name="alert" /> Failed
+        <Icon name="alert" /> {t("mfg.simulationsPage.btn.failed")}
       </span>
     );
   return (
@@ -85,7 +85,7 @@ export function SimulationsPage() {
       <nav className="breadcrumb" aria-label="Breadcrumb">
         <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <span>Risk</span>
       </nav>
-      <PageHeader title="Delivery risk" />
+      <PageHeader title={t("mfg.simulationsPage.title.deliveryRisk")} />
       <section className="card">
         <div className="card-header">
           <h2>Check a plan against real-world delays</h2>
@@ -96,7 +96,7 @@ export function SimulationsPage() {
           </p>
           <div className="row wrap">
             <div className="field" style={{ minWidth: 320 }}>
-              <label htmlFor="sim-base">Plan</label>
+              <label htmlFor="sim-base">{t("mfg.simulationsPage.label.plan")}</label>
               <select id="sim-base" className="select" value={baseId} onChange={(e) => setBase(e.target.value)} data-testid="sim-base">
                 {!baseId ? <option value="">Choose a schedule…</option> : null}
                 {(runs.data?.items ?? []).map((r) => (
@@ -109,30 +109,30 @@ export function SimulationsPage() {
               </select>
             </div>
             <div className="field" style={{ width: 140 }}>
-              <label htmlFor="sim-samples">Replays</label>
+              <label htmlFor="sim-samples">{t("mfg.simulationsPage.label.replays")}</label>
               <input id="sim-samples" className="input" type="number" min={1} max={50} value={samples} onChange={(e) => setSamples(e.target.value)} />
             </div>
           </div>
           <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={expert} onClick={() => setExpert((v) => !v)}>
-            <Icon name="settings" /> Expert settings
+            <Icon name="settings" /> {t("mfg.simulationsPage.btn.expertSettings")}
           </button>
           {expert ? (
             <div className="row wrap">
               <div className="field" style={{ width: 160 }}>
-                <label htmlFor="sim-seed">Random seed</label>
-                <input id="sim-seed" className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="automatic" />
+                <label htmlFor="sim-seed">{t("mfg.simulationsPage.label.randomSeed")}</label>
+                <input id="sim-seed" className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder={t("mfg.simulationsPage.ph.automatic")} />
                 <span className="faint small">Same seed, same result.</span>
               </div>
               <div className="field" style={{ width: 160 }}>
-                <label htmlFor="sim-h">Horizon (days)</label>
-                <input id="sim-h" className="input" type="number" min={1} value={horizon} onChange={(e) => setHorizon(e.target.value)} placeholder="as the plan" />
+                <label htmlFor="sim-h">{t("mfg.simulationsPage.label.horizonDays")}</label>
+                <input id="sim-h" className="input" type="number" min={1} value={horizon} onChange={(e) => setHorizon(e.target.value)} placeholder={t("mfg.simulationsPage.ph.asThePlan")} />
               </div>
             </div>
           ) : null}
           <MfgError error={error} />
           <div>
             <button type="button" className="btn primary" disabled={!canRun || !baseId || busy} title={canRun ? undefined : needsText("schedule_run")} onClick={() => void start()} data-testid="sim-start">
-              <Icon name="play" /> Check the risk
+              <Icon name="play" /> {t("mfg.simulationsPage.btn.checkTheRisk")}
             </button>
           </div>
         </div>
@@ -152,7 +152,7 @@ export function SimulationsPage() {
         testId="sim-list"
         loading={sims.loading && !sims.data}
         exportName="risk-checks"
-        empty="No risk checks yet. Pick a plan above and check the risk."
+        empty={t("mfg.simulationsPage.empty.noRiskChecksYetPick")}
       />
     </div>
   );
@@ -257,7 +257,7 @@ export function SimulationPage() {
         <span>Check {sim.id.slice(-6)}</span>
       </nav>
       <PageHeader
-        title="Delivery risk"
+        title={t("mfg.simulationsPage.title.deliveryRisk")}
         actions={
           <>
             <SimStatus s={sim} />
@@ -333,7 +333,7 @@ export function SimulationPage() {
                         <td className="small">{l.p90 ? clock.dateTime(l.p90) : "not finished"}</td>
                         <td>
                           <button type="button" className="btn sm ghost" aria-expanded={open === l.demand_line_id} onClick={() => setOpen(open === l.demand_line_id ? null : l.demand_line_id)}>
-                            Spread
+                            {t("mfg.simulationsPage.btn.spread")}
                           </button>
                         </td>
                       </tr>,

@@ -14,6 +14,7 @@ import { mfgPaths } from "../lib/paths";
 import { collapseAll, collapseToLevel, revealAll, revealRow, searchRows, visibleRows } from "../lib/tree";
 import { MakeBuyBadge } from "./StatusChip";
 import { VirtualTable, type Column } from "./VirtualTable";
+import { t } from "../../lib/i18n";
 
 export interface BomTreeProps {
   rows: ExplosionRow[];
@@ -139,17 +140,17 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
           </Link>
           {r.is_phantom ? (
             <span className="chip" title="Phantom: never stocked, its parts are used directly">
-              <Icon name="layers" size={12} /> Phantom
+              <Icon name="layers" size={12} /> {t("mfg.bomTree.btn.phantom")}
             </span>
           ) : null}
           {r.is_shared ? (
             <span className="chip" title="Used under more than one parent in this structure">
-              <Icon name="copy" size={12} /> Shared
+              <Icon name="copy" size={12} /> {t("mfg.bomTree.btn.shared")}
             </span>
           ) : null}
           {!r.active ? (
             <span className="badge warn" title="Inactive item">
-              <Icon name="ban" /> Inactive
+              <Icon name="ban" /> {t("mfg.bomTree.btn.inactive")}
             </span>
           ) : null}
         </span>
@@ -208,10 +209,10 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
     <div className="col" style={{ gap: 8 }}>
       <div className="toolbar" style={{ marginBottom: 0 }}>
         <button type="button" className="btn sm" onClick={() => setCollapsed(new Set())} data-testid="bom-expand-all">
-          <Icon name="chevron-down" /> Expand all
+          <Icon name="chevron-down" /> {t("mfg.bomTree.btn.expandAll")}
         </button>
         <button type="button" className="btn sm" onClick={() => setCollapsed(collapseAll(rows))} data-testid="bom-collapse-all">
-          <Icon name="chevron-right" /> Collapse all
+          <Icon name="chevron-right" /> {t("mfg.bomTree.btn.collapseAll")}
         </button>
         <label className="row small">
           <span className="muted">Show levels</span>
@@ -236,7 +237,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
             className="input sm"
             type="search"
             style={{ width: 220 }}
-            placeholder="Find part number or description"
+            placeholder={t("mfg.bomTree.ph.findPartNumberOrDescription")}
             aria-label="Find in structure"
             value={q}
             onChange={(e) => {
@@ -310,7 +311,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
           onClose={() => setAlts(null)}
           footer={
             <button type="button" className="btn" onClick={() => setAlts(null)} data-dialog-close>
-              Close
+              {t("mfg.bomTree.btn.close")}
             </button>
           }
         >

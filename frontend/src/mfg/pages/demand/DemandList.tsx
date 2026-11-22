@@ -18,6 +18,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { BulkActions, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
 import { useCan } from "../../lib/permissions";
+import { t } from "../../../lib/i18n";
 
 export function DemandList() {
   const [params, setParams] = useSearchParams();
@@ -74,7 +75,7 @@ export function DemandList() {
             </span>
           ) : o.status === "open" ? (
             <span className="faint">
-              <Icon name="check" size={12} /> none
+              <Icon name="check" size={12} /> {t("mfg.demandList.btn.none")}
             </span>
           ) : null,
       },
@@ -99,14 +100,14 @@ export function DemandList() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Demand"
-        description="Customer orders, spares, internal and project demand. MRP plans open orders only."
+        title={t("mfg.demandList.title.demand")}
+        description={t("mfg.demandList.desc.customerOrdersSparesInternalAnd")}
         actions={
           <>
             <ImportShortcut what="demand" />
             <PermissionGate perm="demand_edit">
               <Link className="btn primary" to={mfgPaths.demandNew()} data-testid="demand-new">
-                <Icon name="plus" /> New demand order
+                <Icon name="plus" /> {t("mfg.demandList.btn.newDemandOrder")}
               </Link>
             </PermissionGate>
           </>
@@ -123,7 +124,7 @@ export function DemandList() {
         pageKey="demand"
       >
         <div className="field">
-          <label htmlFor="dm-status">Status</label>
+          <label htmlFor="dm-status">{t("mfg.demandList.label.status")}</label>
           <select id="dm-status" className="select" value={status} onChange={(e) => set("status", e.target.value)} data-testid="demand-status">
             <option value="">All</option>
             <option value="draft">Draft</option>
@@ -133,7 +134,7 @@ export function DemandList() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="dm-type">Type</label>
+          <label htmlFor="dm-type">{t("mfg.demandList.label.type")}</label>
           <select id="dm-type" className="select" value={type} onChange={(e) => set("type", e.target.value)}>
             <option value="">All types</option>
             {DEMAND_TYPES.map((t) => (
@@ -144,7 +145,7 @@ export function DemandList() {
           </select>
         </div>
         <div className="field" style={{ width: 140 }}>
-          <label htmlFor="dm-prog">Programme</label>
+          <label htmlFor="dm-prog">{t("mfg.demandList.label.programme")}</label>
           <input id="dm-prog" className="input" value={program} onChange={(e) => setProgram(e.target.value)} />
         </div>
         <label className="checkbox" style={{ alignSelf: "flex-end", height: "var(--control-h)" }}>

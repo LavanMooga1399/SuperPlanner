@@ -10,6 +10,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { mfgPaths } from "../../lib/paths";
 import { orderLink } from "./ApsOrdersTab";
 import { useApsRun } from "./ApsRunShell";
+import { t } from "../../../lib/i18n";
 
 const csv = (v: string | null) => (v ?? "").split(",").filter(Boolean);
 
@@ -64,7 +65,7 @@ export function ApsExceptionsTab() {
                   ) : null}
                   {x.op_no != null ? (
                     <Link to={mfgPaths.apsGantt(run.id, { op: String(x.op_no) })} className="small" style={{ marginLeft: 6 }}>
-                      show in Gantt
+                      {t("mfg.apsExceptionsTab.btn.showInGantt")}
                     </Link>
                   ) : null}
                 </span>

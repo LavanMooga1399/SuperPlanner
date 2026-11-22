@@ -10,6 +10,7 @@ import type { AssistantPlantSettings } from "../../api/typesM6";
 import { MfgError } from "../../components/Feedback";
 import { useAccess } from "../../lib/permissions";
 import { useLoad } from "../../lib/useMfg";
+import { t } from "../../../lib/i18n";
 
 export function AssistantPlantCard() {
   const access = useAccess();
@@ -83,7 +84,7 @@ export function AssistantPlantCard() {
           </div>
         ) : (
           <span className="hint">
-            <Icon name="lock" size={12} /> Only the owner or a plant admin can change these.
+            <Icon name="lock" size={12} /> {t("mfg.assistantPlantCard.btn.onlyTheOwnerOrA")}
           </span>
         )}
         <MfgError error={err} title="Could not save" />

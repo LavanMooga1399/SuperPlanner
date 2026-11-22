@@ -20,6 +20,7 @@ import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { orderLink } from "./ApsOrdersTab";
 import { useApsRun } from "./ApsRunShell";
+import { t as tr } from "../../../lib/i18n";
 
 const STATUS: Record<OvertimeWindow["status"], { label: string; tone: string; icon: "check" | "help" | "lock" }> = {
   opened: { label: "Opened by the scheduler", tone: "warn", icon: "check" },
@@ -88,7 +89,7 @@ export function ApsOvertimeTab() {
       ) : null}
 
       {policy === "off" ? (
-        <Banner tone="info" title="This run used regular shifts only">
+        <Banner tone="info" title={tr("mfg.apsOvertimeTab.title.thisRunUsedRegularShifts")}>
           Nothing was opened or suggested. Run with "Suggest overtime" to see which extra shifts would help.
         </Banner>
       ) : null}
@@ -135,7 +136,7 @@ export function ApsOvertimeTab() {
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} Re-run with these opened ({acceptedRows.length})
               </button>
               <button type="button" className="btn ghost" disabled={!canRun} onClick={() => setAccepted(new Set(suggested.map(keyOf)))}>
-                Accept all
+                {tr("mfg.apsOvertimeTab.btn.acceptAll")}
               </button>
               <span className="faint small">
                 Creates a new run with exactly the accepted shifts opened, then compares it with this one. Either run can be published.

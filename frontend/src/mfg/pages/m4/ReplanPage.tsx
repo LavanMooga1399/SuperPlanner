@@ -21,6 +21,7 @@ import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
 import { ReasonDialog } from "./FloorEvents";
 import { PageHeader } from "../../../components/PageHeader";
+import { t as tr } from "../../../lib/i18n";
 
 const POLICY_TEXT: Record<string, string> = {
   notify: "Changes wait for you; make a proposal when you want one.",
@@ -95,7 +96,7 @@ export function ReplanPage() {
   return (
     <div className="col gap-lg" data-testid="replan-page">
       <PageHeader
-        title="Replanning"
+        title={tr("mfg.replanPage.title.replanning")}
         actions={
           <>
             {published.data ? (
@@ -212,10 +213,10 @@ export function ReplanPage() {
                     {canManage && (t.status === "open" || t.status === "attached") ? (
                       <span className="row">
                         <button type="button" className="btn sm" onClick={() => setClosing({ t, action: "handle" })} data-testid="trigger-handle">
-                          Handled
+                          {tr("mfg.replanPage.btn.handled")}
                         </button>
                         <button type="button" className="btn sm ghost" onClick={() => setClosing({ t, action: "ignore" })} data-testid="trigger-ignore">
-                          Ignore
+                          {tr("mfg.replanPage.btn.ignore")}
                         </button>
                       </span>
                     ) : null}
@@ -264,7 +265,7 @@ export function ReplanPage() {
                   <td>
                     {published.data && r.status === "completed" ? (
                       <Link className="btn sm" to={mfgPaths.apsCompare(r.id, published.data.id)}>
-                        <Icon name="compare" /> Compare with published
+                        <Icon name="compare" /> {tr("mfg.replanPage.btn.compareWithPublished")}
                       </Link>
                     ) : null}
                   </td>
@@ -317,7 +318,7 @@ export function NotificationList({ items, onAck, clock, compact }: { items: impo
           </div>
           {n.acknowledged_at ? (
             <span className="faint small">
-              <Icon name="check" size={12} /> seen
+              <Icon name="check" size={12} /> {tr("mfg.replanPage.btn.seen")}
             </span>
           ) : (
             <button

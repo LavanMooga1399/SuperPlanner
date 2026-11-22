@@ -8,6 +8,7 @@ import { rowErrorsCsv } from "../lib/importMapping";
 import { saveBlob } from "../api/client";
 import { sheetLabel } from "./ImportUpload";
 import { VirtualTable, type Column } from "./VirtualTable";
+import { t } from "../../lib/i18n";
 
 const ACTION_LABEL: Record<string, string> = { create: "New", update: "Changed", delete: "Removed", unchanged: "Same" };
 
@@ -73,7 +74,7 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
               {preview.row_errors.length < preview.error_count ? <span className="muted small">first {preview.row_errors.length} shown</span> : null}
             </h3>
             <button type="button" className="btn sm" onClick={download} data-testid="import-errors-csv">
-              <Icon name="download" /> Download errors as CSV
+              <Icon name="download" /> {t("mfg.importPreview.btn.downloadErrorsAsCsv")}
             </button>
           </div>
           <div className="card-body">

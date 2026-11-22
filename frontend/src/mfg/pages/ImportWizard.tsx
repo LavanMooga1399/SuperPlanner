@@ -21,6 +21,7 @@ import { initialMapping, remapByHeaders } from "../lib/importMapping";
 import { mfgPaths } from "../lib/paths";
 import { isConflict, isForbidden, isNotFound, useLoad, useMeta } from "../lib/useMfg";
 import { PageHeader } from "../../components/PageHeader";
+import { t } from "../../lib/i18n";
 
 type Step = "upload" | "map" | "preview" | "done";
 
@@ -128,8 +129,8 @@ export function ImportWizard() {
 function Header() {
   return (
     <PageHeader
-      title="Import / export"
-      description="Bring in items, BOMs, routings, plant data, suppliers, stock, purchase orders and requests, demand and work orders from Excel or CSV. Nothing is saved until you confirm the preview." />
+      title={t("mfg.importWizard.title.importExport")}
+      description={t("mfg.importWizard.desc.bringInItemsBomsRoutings")} />
   );
 }
 
@@ -159,11 +160,11 @@ function ImportSession({ importId }: { importId: string }) {
         <Header />
         <Banner
           tone="warn"
-          title="This import is no longer available"
+          title={t("mfg.importWizard.title.thisImportIsNoLonger")}
           testId="import-expired"
           actions={
             <Link className="btn sm primary" to={mfgPaths.importStart()}>
-              Start a new import
+              {t("mfg.importWizard.btn.startANewImport")}
             </Link>
           }
         >
@@ -282,7 +283,7 @@ function ImportSession({ importId }: { importId: string }) {
             {!anyTarget ? <span className="small muted">Choose what at least one sheet contains.</span> : null}
             <span className="grow" />
             <button type="button" className="btn ghost" onClick={() => void discard()} data-testid="import-discard">
-              <Icon name="x" /> Cancel import
+              <Icon name="x" /> {t("mfg.importWizard.btn.cancelImport")}
             </button>
           </div>
         </>
@@ -291,12 +292,12 @@ function ImportSession({ importId }: { importId: string }) {
       {step === "preview" && rec.preview ? (
         <>
           {errors > 0 ? (
-            <Banner tone="danger" icon="x" title="Fix these rows before importing" testId="import-has-errors">
+            <Banner tone="danger" icon="x" title={t("mfg.importWizard.title.fixTheseRowsBeforeImporting")} testId="import-has-errors">
               {staleCommit ? "The data changed after the preview, so these rows can no longer be imported. Nothing was saved. " : null}
               Nothing is saved while the file has errors. Correct them in your file and upload it again (your column mapping is kept), or change the mapping.
             </Banner>
           ) : (
-            <Banner tone="ok" title="Ready to import">
+            <Banner tone="ok" title={t("mfg.importWizard.title.readyToImport")}>
               All rows can be imported. Everything is saved in one step; if anything fails nothing is changed.
             </Banner>
           )}
@@ -314,14 +315,14 @@ function ImportSession({ importId }: { importId: string }) {
               {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Import now
             </button>
             <button type="button" className="btn" onClick={() => go("map")} data-testid="import-back-to-map">
-              Change the mapping
+              {t("mfg.importWizard.btn.changeTheMapping")}
             </button>
             <Link className="btn" to={mfgPaths.importStart(rec.id)} data-testid="import-reupload">
-              <Icon name="upload" /> Fix the file and upload again
+              <Icon name="upload" /> {t("mfg.importWizard.btn.fixTheFileAndUpload")}
             </Link>
             <span className="grow" />
             <button type="button" className="btn ghost" onClick={() => void discard()} data-testid="import-discard">
-              <Icon name="x" /> Cancel import
+              <Icon name="x" /> {t("mfg.importWizard.btn.cancelImport")}
             </button>
           </div>
         </>

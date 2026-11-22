@@ -9,6 +9,7 @@ import { POSTING_LABEL } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { SectionTabs } from "../MfgLayout";
 import { PageHeader } from "../../../components/PageHeader";
+import { t } from "../../../lib/i18n";
 
 export const FORM_TYPES: PostingType[] = ["receipt_misc", "issue_misc", "transfer", "adjust", "count"];
 
@@ -59,8 +60,8 @@ export function InventoryLayout() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Inventory"
-        description="Stock by location and lot. Every change is a posting in the ledger; corrections are reversals."
+        title={t("mfg.inventoryLayout.title.inventory")}
+        description={t("mfg.inventoryLayout.desc.stockByLocationAndLot")}
         actions={
           <>
             <ImportShortcut what="stock"

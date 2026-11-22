@@ -16,6 +16,7 @@ import { ActiveBadge } from "../components/StatusChip";
 import { DataTable } from "../components/DataTable";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 export function SkillsPage() {
   const [params, setParams] = useSearchParams();
@@ -33,7 +34,7 @@ export function SkillsPage() {
         <div className="card-header">
           <h2 id="skills-title">Skills</h2>
           <button type="button" className="btn sm primary" onClick={() => setEditing("new")} data-testid="skill-new">
-            <Icon name="plus" /> New skill
+            <Icon name="plus" /> {t("mfg.skillsPage.btn.newSkill")}
           </button>
         </div>
         <MfgError error={skills.error} onRetry={skills.reload} />
@@ -45,7 +46,7 @@ export function SkillsPage() {
             selectedId={skillParam}
             onSelect={(id) => setParams((p) => withParam(p, "skill", id))}
             testId="skill-row"
-            empty="No skills yet. Skills say which operators may run which operations."
+            empty={t("mfg.skillsPage.empty.noSkillsYetSkillsSay")}
             render={(s) => (
               <>
                 <strong className="mono">{s.code}</strong>
@@ -83,7 +84,7 @@ export function SkillsPage() {
       {del ? (
         <ConfirmDialog
           title={`Delete skill ${del.code}?`}
-          confirmLabel="Delete"
+          confirmLabel={t("mfg.skillsPage.btn.delete")}
           danger
           onCancel={() => setDel(null)}
           onConfirm={() => {
@@ -113,7 +114,7 @@ function SkillHolders({ skill, onEdit, onDelete }: { skill: SkillRecord; onEdit(
         </h2>
         <span className="row">
           <button type="button" className="btn sm" onClick={onEdit} data-testid="skill-edit">
-            Edit
+            {t("mfg.skillsPage.btn.edit")}
           </button>
           <button type="button" className="btn sm ghost icon" onClick={onDelete} aria-label={`Delete skill ${skill.code}`}>
             <Icon name="trash" />
@@ -176,7 +177,7 @@ function SkillDialog({ skill, onClose, onSaved }: { skill: SkillRecord | null; o
   return (
     <EntityFormDialog
       title={skill ? `Edit skill ${skill.code}` : "New skill"}
-      submitLabel="Save"
+      submitLabel={t("mfg.skillsPage.btn.save")}
       onClose={onClose}
       testId="skill-form"
       disabled={!code.trim() || !name.trim()}

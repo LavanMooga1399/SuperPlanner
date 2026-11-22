@@ -8,6 +8,7 @@ import { getTimePreview } from "../api/client";
 import { fmtHours, fmtMinutes, fmtPct } from "../lib/format";
 import { useDebounced, useLoad } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
+import { t } from "../../lib/i18n";
 
 export function OperationTimePreview({ routingId, version }: { routingId: string; version: number }) {
   const [qty, setQty] = useState("100");
@@ -106,7 +107,7 @@ export function OperationTimePreview({ routingId, version }: { routingId: string
                           <td className="small">
                             {l.eligible ? (
                               <span className="mfg-yes">
-                                <Icon name="check" size={12} /> Yes
+                                <Icon name="check" size={12} /> {t("mfg.operationTimePreview.btn.yes")}
                               </span>
                             ) : (
                               <span className="muted">
@@ -120,7 +121,7 @@ export function OperationTimePreview({ routingId, version }: { routingId: string
                         <tr>
                           <td />
                           <td colSpan={7} className="small muted">
-                            <Icon name="alert" size={12} /> This stage has no lines yet.
+                            <Icon name="alert" size={12} /> {t("mfg.operationTimePreview.btn.thisStageHasNoLines")}
                           </td>
                         </tr>
                       ) : null}

@@ -20,7 +20,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { isNotFound, useDebounced, useLoad } from "../../lib/useMfg";
 import { ItemSupplierTable } from "../ItemSuppliersTab";
-import { plural } from "../../../lib/i18n";
+import { plural, t } from "../../../lib/i18n";
 import { FilterBar } from "../../../components/FilterBar";
 
 const SUPPLIER_COLS: Column<SupplierRecord>[] = [
@@ -98,7 +98,7 @@ export function SuppliersPage() {
         <span className="grow" />
         <PermissionGate perm="supplier_edit">
           <button type="button" className="btn primary" style={{ alignSelf: "flex-end" }} onClick={() => setCreating(true)} data-testid="supplier-new">
-            <Icon name="plus" /> New supplier
+            <Icon name="plus" /> {t("mfg.suppliersPage.btn.newSupplier")}
           </button>
         </PermissionGate>
       </FilterBar>
@@ -157,10 +157,10 @@ export function SupplierPage() {
           {canEdit ? (
             <div className="mfg-actions">
               <button type="button" className="btn" onClick={() => setEditing(true)} data-testid="supplier-edit">
-                Edit
+                {t("mfg.suppliersPage.btn.edit")}
               </button>
               <button type="button" className="btn ghost" onClick={() => setDeleting("supplier")}>
-                <Icon name="trash" /> Delete
+                <Icon name="trash" /> {t("mfg.suppliersPage.btn.delete")}
               </button>
             </div>
           ) : null}
@@ -193,11 +193,11 @@ export function SupplierPage() {
         <h3 style={{ margin: 0 }}>Parts supplied ({s.items.length})</h3>
         <div className="mfg-actions">
           <Link className="btn sm" to={`${mfgPaths.purchaseDocs("po")}?supplier=${encodeURIComponent(s.id)}`}>
-            Purchase orders
+            {t("mfg.suppliersPage.btn.purchaseOrders")}
           </Link>
           <PermissionGate perm="supplier_edit">
             <button type="button" className="btn sm primary" onClick={() => setRow("new")} data-testid="item-supplier-new">
-              <Icon name="plus" /> Add part
+              <Icon name="plus" /> {t("mfg.suppliersPage.btn.addPart")}
             </button>
           </PermissionGate>
         </div>
@@ -227,7 +227,7 @@ export function SupplierPage() {
       {deleting ? (
         <ConfirmDialog
           title={deleting === "supplier" ? `Delete supplier ${s.code}?` : `Remove ${deleting.item.part_number}?`}
-          confirmLabel="Delete"
+          confirmLabel={t("mfg.suppliersPage.btn.delete")}
           danger
           onCancel={() => setDeleting(null)}
           onConfirm={() => {

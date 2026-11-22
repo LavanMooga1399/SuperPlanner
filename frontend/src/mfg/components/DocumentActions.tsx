@@ -11,6 +11,7 @@ import type { HealthIssue, ReleaseRequest } from "../api/types";
 import { CheckField, TextField } from "./Field";
 import { MfgError } from "./Feedback";
 import { SeverityBadge } from "./StatusChip";
+import { t } from "../../lib/i18n";
 
 function blockedIssues(err: unknown): HealthIssue[] {
   if (!(err instanceof ApiError) || err.code !== "MFG_RELEASE_BLOCKED") return [];
@@ -55,7 +56,7 @@ export function ReleaseDialog({
       footer={
         <>
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.documentActions.btn.cancel")}
           </button>
           <button type="button" className="btn primary" disabled={busy || needsDate} onClick={() => void run()} data-testid="release-confirm">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Release
@@ -97,7 +98,7 @@ export function ReleaseDialog({
                 </div>
                 {i.link ? (
                   <Link className="btn sm" to={i.link} onClick={onClose}>
-                    Fix
+                    {t("mfg.documentActions.btn.fix")}
                   </Link>
                 ) : null}
               </li>

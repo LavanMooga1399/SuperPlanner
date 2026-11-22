@@ -4,6 +4,7 @@ import { UOM_CODES, type ItemRecord, type MakeBuy } from "../api/types";
 import { EntityFormDialog } from "./EntityFormDialog";
 import { numOrNull, SelectField, strOrNull, TextField } from "./Field";
 import { useMeta } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 export const MAKE_BUY_OPTIONS: { value: MakeBuy; label: string }[] = [
   { value: "make", label: "Make - produced in this plant" },
@@ -30,8 +31,8 @@ export function NewItemDialog({ onClose, onCreated }: { onClose(): void; onCreat
   const uoms = useUomOptions();
   return (
     <EntityFormDialog
-      title="New item"
-      submitLabel="Create item"
+      title={t("mfg.newItemDialog.title.newItem")}
+      submitLabel={t("mfg.newItemDialog.btn.createItem")}
       onClose={onClose}
       testId="new-item-form"
       disabled={!pn.trim()}

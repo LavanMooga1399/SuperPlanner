@@ -18,6 +18,7 @@ import { numOrNull } from "./Field";
 import { LocationSelect, useLocations } from "./PickersM2";
 import { OverdueBadge } from "./StatusM2";
 import { DateInput } from "../../components/DateInput";
+import { t } from "../../lib/i18n";
 
 interface Row {
   schedule_id: string;
@@ -41,7 +42,7 @@ function LotCells({ row, onChange }: { row: Row; onChange(p: Partial<Row>): void
   return (
     <>
       <td>
-        <input className="input sm" aria-label={`Lot for ${row.label}`} value={row.lot_code} maxLength={64} onChange={(e) => onChange({ lot_code: e.target.value })} placeholder="Required" aria-invalid={!row.lot_code.trim() && Boolean(numOrNull(row.qty))} data-testid="receive-lot" />
+        <input className="input sm" aria-label={`Lot for ${row.label}`} value={row.lot_code} maxLength={64} onChange={(e) => onChange({ lot_code: e.target.value })} placeholder={t("mfg.receiveDialog.ph.required")} aria-invalid={!row.lot_code.trim() && Boolean(numOrNull(row.qty))} data-testid="receive-lot" />
       </td>
       <td>
         <DateInput small ariaLabel={`Expiry for ${row.label}`} value={row.expires_on} onChange={(v) => onChange({ expires_on: v })} />
@@ -141,11 +142,11 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
       footer={
         <>
           <button type="button" className="btn ghost" onClick={() => setRows((rs) => rs.map((r) => ({ ...r, qty: String(r.open) })))} data-testid="receive-all">
-            Fill all open quantities
+            {t("mfg.receiveDialog.btn.fillAllOpenQuantities")}
           </button>
           <span className="grow" />
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.receiveDialog.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || !lines.length || problems.length > 0 || erp.goodsReceiptsByErp} data-testid="receive-submit">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Post goods receipt
@@ -164,20 +165,20 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
             </div>
           ) : (
             <p className="small muted" style={{ margin: 0 }} data-testid="receipts-owner">
-              <Icon name="info" size={12} /> Receipts are booked here and sent to the ERP.
+              <Icon name="info" size={12} /> {t("mfg.receiveDialog.btn.receiptsAreBookedHereAnd")}
             </p>
           )
         ) : null}
         {rows.length === 0 ? <p className="muted">Nothing is open on this order.</p> : null}
         <div className="form-grid">
           <div className="field">
-            <label htmlFor="rcv-date">Receipt date</label>
+            <label htmlFor="rcv-date">{t("mfg.receiveDialog.label.receiptDate")}</label>
             <DateInput id="rcv-date" max={today} value={date} onChange={(v) => setDate(v)} />
             <span className="hint">Empty = today</span>
           </div>
           <div className="field" style={{ gridColumn: "span 2" }}>
-            <label htmlFor="rcv-note">Note</label>
-            <input id="rcv-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. GRN or delivery note number" />
+            <label htmlFor="rcv-note">{t("mfg.receiveDialog.label.note")}</label>
+            <input id="rcv-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("mfg.receiveDialog.ph.egGrnOrDeliveryNote")} />
           </div>
         </div>
         <div className="table-wrap">

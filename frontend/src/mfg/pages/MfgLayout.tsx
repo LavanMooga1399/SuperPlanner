@@ -10,6 +10,7 @@ import { mfgPaths } from "../lib/paths";
 import { MFG_NAV, sectionFor, type NavGroupDef } from "../lib/nav";
 import { AccessProvider, useAccess } from "../lib/permissions";
 import { useStoredState } from "../../lib/useAsync";
+import { t } from "../../lib/i18n";
 
 function NavGroup({ group, ownerVisible, collapsed }: { group: NavGroupDef; ownerVisible: boolean; collapsed: boolean }) {
   const sections = group.sections.filter((s) => !s.ownerOnly || ownerVisible);
@@ -146,7 +147,7 @@ export function MfgNotFound() {
       <h2>Page not found</h2>
       <p>This manufacturing page does not exist.</p>
       <Link className="btn" to={mfgPaths.home()}>
-        Back to Manufacturing
+        {t("mfg.mfgLayout.btn.backToManufacturing")}
       </Link>
     </div>
   );

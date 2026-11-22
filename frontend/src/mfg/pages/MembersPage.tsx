@@ -20,6 +20,7 @@ import { ROLE_HELP, ROLE_LABEL, useAccess } from "../lib/permissions";
 import { fmtTimestamp } from "../lib/format";
 import { useLoad } from "../lib/useMfg";
 import { PageHeader } from "../../components/PageHeader";
+import { t } from "../../lib/i18n";
 
 function RolePicker({ value, onChange }: { value: Role[]; onChange(r: Role[]): void }) {
   return (
@@ -61,7 +62,7 @@ function MemberDialog({ member, onClose, onSaved }: { member: MemberRecord | nul
       }}
     >
       {member ? null : (
-        <TextField label="Email of an existing account" value={email} onChange={setEmail} maxLength={254} placeholder="name@company.com" hint="The person must already have a SuperPlanner account." testId="member-email" />
+        <TextField label="Email of an existing account" value={email} onChange={setEmail} maxLength={254} placeholder={t("mfg.membersPage.ph.namecompanycom")} hint="The person must already have a SuperPlanner account." testId="member-email" />
       )}
       <RolePicker value={roles} onChange={setRoles} />
       {member ? (
@@ -106,11 +107,11 @@ export function MembersPage() {
       render: (m) =>
         m.active ? (
           <span className="badge ok">
-            <Icon name="check" /> Active
+            <Icon name="check" /> {t("mfg.membersPage.btn.active")}
           </span>
         ) : (
           <span className="badge info">
-            <Icon name="ban" /> Inactive
+            <Icon name="ban" /> {t("mfg.membersPage.btn.inactive")}
           </span>
         ),
     },
@@ -126,7 +127,7 @@ export function MembersPage() {
       render: (m) => (
         <span className="row" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
           <button type="button" className="btn sm" onClick={() => setEditing(m)} data-testid="member-edit">
-            Edit
+            {t("mfg.membersPage.btn.edit")}
           </button>
           <button type="button" className="btn sm ghost icon" aria-label={`Remove ${m.user.email}`} onClick={() => setRemoving(m)} data-testid="member-remove">
             <Icon name="trash" />
@@ -138,7 +139,7 @@ export function MembersPage() {
   if (loading) return <Spinner />;
   if (!isOwner || assumed)
   return (
-      <Banner tone="warn" icon="lock" title="Only the owner of this plant manages members" testId="forbidden-banner">
+      <Banner tone="warn" icon="lock" title={t("mfg.membersPage.title.onlyTheOwnerOfThis")} testId="forbidden-banner">
         Members and their roles are set by the account that owns the plant.
       </Banner>
     );
@@ -146,20 +147,20 @@ export function MembersPage() {
   return (
     <div className="col gap-lg" data-testid="members-page">
       <PageHeader
-        title="Members"
-        description="Let colleagues work in your plant: store keepers post stock, purchasers handle orders, approvers approve requests, planners plan."
+        title={t("mfg.membersPage.title.members")}
+        description={t("mfg.membersPage.desc.letColleaguesWorkInYour")}
         actions={
           <>
             {!unavailable ? (
           <button type="button" className="btn primary" onClick={() => setEditing("new")} data-testid="member-add">
-            <Icon name="plus" /> Add member
+            <Icon name="plus" /> {t("mfg.membersPage.btn.addMember")}
           </button>
         ) : null}
           </>
         }
       />
       {unavailable ? (
-        <Banner tone="info" title="Members need accounts mode">
+        <Banner tone="info" title={t("mfg.membersPage.title.membersNeedAccountsMode")}>
           This server runs in single-user mode, so there are no other accounts to add.
         </Banner>
       ) : (
@@ -175,7 +176,7 @@ export function MembersPage() {
           loading={list.loading && !list.data}
           exportName="plant-members"
           rowExtras={(m) => ({ testId: "member-row", data: { email: m.user.email, roles: m.roles.join(",") } })}
-          empty="Only you work in this plant so far. Add a member to share it."
+          empty={t("mfg.membersPage.empty.onlyYouWorkInThis")}
           card={{ title: "name", status: "status", actions: "actions", fields: ["email", "roles"] }}
         />
       ) : null}
@@ -192,7 +193,7 @@ export function MembersPage() {
       {removing ? (
         <ConfirmDialog
           title={`Remove ${removing.user.email}?`}
-          confirmLabel="Remove member"
+          confirmLabel={t("mfg.membersPage.btn.removeMember")}
           danger
           onCancel={() => setRemoving(null)}
           onConfirm={() => {

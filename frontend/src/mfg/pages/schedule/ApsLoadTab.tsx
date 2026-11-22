@@ -15,6 +15,7 @@ import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { FilterBar } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 const H = 90;
 
@@ -67,7 +68,7 @@ export function ApsLoadTab() {
           ))}
         </div>
         <div className="field">
-          <label htmlFor="ld-group">Show</label>
+          <label htmlFor="ld-group">{t("mfg.apsLoadTab.label.show")}</label>
           <select id="ld-group" className="select sm" value={group} onChange={(e) => setGroup(e.target.value)}>
             <option value="">All stages</option>
             {groups.map(([id, label]) => (

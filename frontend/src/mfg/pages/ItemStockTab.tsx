@@ -12,6 +12,7 @@ import { fmtMoney, fmtNum } from "../lib/formatM2";
 import { mfgPaths } from "../lib/paths";
 import { useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
+import { t as tr } from "../../lib/i18n";
 
 function flowLink(f: StockFlow): string | null {
   const r = f.ref;
@@ -50,7 +51,7 @@ function FlowTable({ title, rows, testId, uom }: { title: string; rows: StockFlo
         label={title}
         tableId={testId}
         columnSettings={false}
-        empty="None."
+        empty={tr("mfg.itemStockTab.empty.none")}
       />
     </section>
   );
@@ -115,11 +116,11 @@ export function ItemStockTab() {
           <h3>Stock by location</h3>
           <div className="mfg-actions">
             <Link className="btn sm" to={mfgPaths.transactions({ item: item.id })}>
-              <Icon name="list" /> Ledger
+              <Icon name="list" /> {tr("mfg.itemStockTab.btn.ledger")}
             </Link>
             <PermissionGate perm="inventory">
               <Link className="btn sm primary" to={mfgPaths.post({ item: item.id })} data-testid="item-stock-post">
-                <Icon name="plus" /> Post
+                <Icon name="plus" /> {tr("mfg.itemStockTab.btn.post")}
               </Link>
             </PermissionGate>
           </div>
@@ -151,7 +152,7 @@ export function ItemStockTab() {
           tableId="item-stock-balances"
           exportName={`${item.part_number}-stock`}
           rowExtras={(b) => ({ testId: "balance-row", data: { item: b.item.part_number, location: b.location.code, qty: b.qty_on_hand } })}
-          empty="No stock."
+          empty={tr("mfg.itemStockTab.empty.noStock")}
           card={{ title: "location", fields: ["lot", "on_hand", "available"] }}
         />
       </section>

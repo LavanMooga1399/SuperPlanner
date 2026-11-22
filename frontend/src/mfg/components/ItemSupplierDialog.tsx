@@ -8,6 +8,7 @@ import { EntityFormDialog } from "./EntityFormDialog";
 import { CheckField, numOr, numOrNull, numText, strOrNull, TextField } from "./Field";
 import { ItemPicker } from "./ItemPicker";
 import { SupplierPicker } from "./PickersM2";
+import { t } from "../../lib/i18n";
 
 export function ItemSupplierDialog({
   row,
@@ -87,7 +88,7 @@ export function ItemSupplierDialog({
         <TextField label="Currency" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} />
         <TextField label="Minimum order quantity" type="number" value={f.min_order_qty} onChange={(v) => setF({ ...f, min_order_qty: v })} hint="0 = the item's value" />
         <TextField label="Order multiple" type="number" value={f.order_multiple} onChange={(v) => setF({ ...f, order_multiple: v })} hint="0 = the item's value" />
-        <TextField label="Pack name" value={f.purchase_unit} onChange={(v) => setF({ ...f, purchase_unit: v.toUpperCase() })} maxLength={32} placeholder="e.g. REEL" />
+        <TextField label="Pack name" value={f.purchase_unit} onChange={(v) => setF({ ...f, purchase_unit: v.toUpperCase() })} maxLength={32} placeholder={t("mfg.itemSupplierDialog.ph.egReel")} />
         <TextField
           label="Units per pack"
           type="number"

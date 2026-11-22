@@ -7,6 +7,7 @@ import { Dialog } from "../../components/Dialog";
 import { Icon } from "../../components/Icon";
 import { MfgError } from "./Feedback";
 import { FormErrors } from "./Field";
+import { t } from "../../lib/i18n";
 
 export interface EntityFormDialogProps {
   title: string;
@@ -59,7 +60,7 @@ export function EntityFormDialog({
           {extraFooter}
           <span className="grow" />
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.entityFormDialog.btn.cancel")}
           </button>
           <button
             type="submit"

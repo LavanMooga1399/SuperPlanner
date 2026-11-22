@@ -21,6 +21,7 @@ import { orderLink } from "./ApsOrdersTab";
 import { PublishButton, useApsRun } from "./ApsRunShell";
 import { apsRunTitle, isActive } from "./ApsRunsPage";
 import { FilterBar } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 function policyOf(r: ApsRunRecord) {
   return r.policy ?? r.summary?.policy ?? r.params?.overtime ?? null;
@@ -168,7 +169,7 @@ export function ApsCompareTab() {
                       <PublishButton run={rec} testId={`aps-publish-${r.policy === "allow" ? "allow" : "base"}`} onDone={(x) => (x.id === run.id ? setRun(x) : other.setData(x))} />
                     ) : (
                       <Link to={mfgPaths.apsRun(r.id)} className="btn sm">
-                        Open to publish
+                        {t("mfg.apsCompareTab.btn.openToPublish")}
                       </Link>
                     )}
                   </div>

@@ -37,6 +37,7 @@ import { needsText, useAccess } from "../../lib/permissions";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
 import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
+import { t } from "../../../lib/i18n";
 
 const EDITABLE: Record<DocType, PurchaseStatus[]> = { pr: ["draft", "rejected"], po: ["draft", "open", "partially_received"] };
 
@@ -122,7 +123,7 @@ function ConvertDialog({ pr, onClose, onDone }: { pr: PurchaseDocRecord; onClose
       footer={
         <>
           <button type="button" className="btn" onClick={onClose} data-dialog-close>
-            Cancel
+            {t("mfg.purchaseDocPage.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || ids.size === 0} data-testid="convert-pr-submit">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="briefcase" />} Create purchase order
@@ -156,7 +157,7 @@ function ConvertDialog({ pr, onClose, onDone }: { pr: PurchaseDocRecord; onClose
         </fieldset>
         <div className="form-grid">
           <SupplierPicker label="Supplier" value={supplier} onChange={setSupplier} allowClear testId="convert-pr-supplier" />
-          <TextField label="Order number" value={number} onChange={setNumber} maxLength={32} placeholder="Next free number" hint="Empty = next number of the series" />
+          <TextField label="Order number" value={number} onChange={setNumber} maxLength={32} placeholder={t("mfg.purchaseDocPage.ph.nextFreeNumber")} hint="Empty = next number of the series" />
         </div>
         {!supplier ? <p className="hint" style={{ margin: 0 }}>Without a supplier, the preferred supplier common to all chosen parts is used.</p> : null}
         <label className="checkbox">
@@ -236,7 +237,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
         navigate(mfgPaths.purchaseDoc(docType, created.id), { replace: true });
       } else if (doc) {
         reset(await updatePurchaseDoc(docType, doc.id, body, doc.row_version));
-        toast("Changes saved");
+        toast(t("mfg.purchaseDocPage.toast.changesSaved"));
         setNotice("Saved.");
       }
     } catch (e) {
@@ -325,14 +326,14 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
       <MfgError error={error} title="That did not work" />
       {doc?.status === "rejected" && doc.rejected_reason ? (
-        <Banner tone="danger" icon="x" title="Rejected">
+        <Banner tone="danger" icon="x" title={t("mfg.purchaseDocPage.title.rejected")}>
           {doc.rejected_reason}
         </Banner>
       ) : null}
 
       <section className="card">
         <div className="card-body form-grid">
-          <TextField label="Number" value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder="Next free number" disabled={!editable || !isNew} testId="doc-number" />
+          <TextField label="Number" value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder={t("mfg.purchaseDocPage.ph.nextFreeNumber")} disabled={!editable || !isNew} testId="doc-number" />
           <SupplierPicker
             label={docType === "po" ? "Supplier *" : "Suggested supplier"}
             value={head.supplier}
@@ -376,7 +377,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
             </button>
             {!isNew && doc ? (
               <button type="button" className="btn" disabled={!dirty || busy} onClick={() => reset(doc)}>
-                Undo changes
+                {t("mfg.purchaseDocPage.btn.undoChanges")}
               </button>
             ) : null}
           </div>
@@ -431,7 +432,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
           footer={
             <>
               <button type="button" className="btn" onClick={() => setRejecting(false)} data-dialog-close>
-                Cancel
+                {t("mfg.purchaseDocPage.btn.cancel")}
               </button>
               <button
                 type="button"
@@ -443,13 +444,13 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
                 }}
                 data-testid="doc-reject-submit"
               >
-                Reject
+                {t("mfg.purchaseDocPage.btn.reject")}
               </button>
             </>
           }
         >
           <div className="field">
-            <label htmlFor="rej-reason">Reason (shown to the requester)</label>
+            <label htmlFor="rej-reason">{t("mfg.purchaseDocPage.label.reasonShownToTheRequester")}</label>
             <textarea id="rej-reason" className="textarea" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="doc-reject-reason" />
           </div>
         </Dialog>

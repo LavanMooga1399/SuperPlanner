@@ -17,6 +17,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
 import { PageHeader } from "../../../components/PageHeader";
+import { t } from "../../../lib/i18n";
 
 export function FloorOverview() {
   const clock = usePlantClock();
@@ -52,14 +53,14 @@ export function FloorOverview() {
   return (
     <div className="col gap-lg" data-testid="floor-overview">
       <PageHeader
-        title="Shop floor"
+        title={t("mfg.floorOverview.title.shopFloor")}
         actions={
           <>
             <Link className="btn" to={mfgPaths.floorEvents()}>
-            <Icon name="list" /> Event log
+            <Icon name="list" /> {t("mfg.floorOverview.btn.eventLog")}
             </Link>
             <Link className="btn primary" to={mfgPaths.floor()}>
-            <Icon name="factory" /> Open the floor screens
+            <Icon name="factory" /> {t("mfg.floorOverview.btn.openTheFloorScreens")}
             </Link>
           </>
         }
@@ -122,7 +123,7 @@ export function FloorOverview() {
                       <OpStatusChip status={cur.status} />
                     ) : (
                       <span className="badge info">
-                        <Icon name="clock" /> Idle
+                        <Icon name="clock" /> {t("mfg.floorOverview.btn.idle")}
                       </span>
                     )}
                     {dt ? (
@@ -156,7 +157,7 @@ export function FloorOverview() {
                       </span>
                     ) : (
                       <span className="badge ok">
-                        <Icon name="check" /> on plan
+                        <Icon name="check" /> {t("mfg.floorOverview.btn.onPlan")}
                       </span>
                     )}
                   </td>

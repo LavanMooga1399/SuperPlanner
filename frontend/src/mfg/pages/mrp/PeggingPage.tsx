@@ -11,6 +11,7 @@ import { PeggingTree } from "../../components/PeggingTree";
 import { mfgPaths } from "../../lib/paths";
 import { useLoad } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
+import { t } from "../../../lib/i18n";
 
 export function PeggingPage() {
   const { run } = useRun();
@@ -23,14 +24,14 @@ export function PeggingPage() {
   const valid = Boolean(item) && Number.isInteger(node);
   const peg = useLoad((signal) => (valid ? getPegging(run.id, { item_id: item, node, kind, direction, max_depth: 20 }, signal) : null), [run.id, item, node, kind, direction]);
   const go = (d: "up" | "down") => navigate(mfgPaths.runPegging(run.id, { item, node, kind, direction: d }), { replace: true });
-  if (!valid) return <Banner tone="info" title="Choose a requirement or supply">Open an item plan and use "Peg up" or "Peg down" on a row.</Banner>;
+  if (!valid) return <Banner tone="info" title={t("mfg.peggingPage.title.chooseARequirementOrSupply")}>Open an item plan and use "Peg up" or "Peg down" on a row.</Banner>;
   const root = peg.data?.rows[0];
   return (
     <div className="col gap-lg" data-testid="pegging-page" data-direction={direction}>
       <div className="row between wrap">
         <div className="row wrap">
           <Link to={mfgPaths.runItem(run.id, item)} className="small">
-            <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> Item plan
+            <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {t("mfg.peggingPage.btn.itemPlan")}
           </Link>
           <h3 style={{ margin: 0 }}>
             {direction === "up" ? "Who needs" : "What covers"} {root ? <span className="mono">{root.item.part_number}</span> : null} {root?.label}
@@ -38,16 +39,16 @@ export function PeggingPage() {
         </div>
         <div className="row" role="group" aria-label="Direction">
           <button type="button" className={`btn sm${direction === "up" ? " primary" : ""}`} aria-pressed={direction === "up"} onClick={() => go("up")} data-testid="peg-up">
-            Up to demand
+            {t("mfg.peggingPage.btn.upToDemand")}
           </button>
           <button type="button" className={`btn sm${direction === "down" ? " primary" : ""}`} aria-pressed={direction === "down"} onClick={() => go("down")} data-testid="peg-down">
-            Down to supply
+            {t("mfg.peggingPage.btn.downToSupply")}
           </button>
         </div>
       </div>
       <MfgError error={peg.error} onRetry={peg.reload} />
       {peg.loading && !peg.data ? <Spinner label="Following the pegs…" /> : null}
-      {peg.data?.truncated ? <Banner tone="warn" title="Only the first 2,000 rows are shown">Peg from a lower row to see the rest.</Banner> : null}
+      {peg.data?.truncated ? <Banner tone="warn" title={t("mfg.peggingPage.title.onlyTheFirst2000Rows")}>Peg from a lower row to see the rest.</Banner> : null}
       {peg.data ? (
         <PeggingTree
           rows={peg.data.rows}

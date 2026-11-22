@@ -16,7 +16,7 @@ import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
 import { LimitingPath } from "./mrp/DemandProjectionTab";
 import { ItemsShortTable } from "./workorders/KittingCheckPage";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
 
 export function ShortagesPage() {
@@ -27,12 +27,12 @@ export function ShortagesPage() {
   return (
     <div className="col gap-lg" data-testid="shortages-page">
       <PageHeader
-        title="Shortages"
-        description="What will be late, which parts are missing, which deliveries are overdue and which work orders cannot be kitted."
+        title={t("mfg.shortagesPage.title.shortages")}
+        description={t("mfg.shortagesPage.desc.whatWillBeLateWhich")}
         actions={
           <>
             <div className="field">
-            <label htmlFor="sh-h">Work orders starting within</label>
+            <label htmlFor="sh-h">{t("mfg.shortagesPage.label.workOrdersStartingWithin")}</label>
             <select id="sh-h" className="select" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
               {[7, 14, 30, 60, 90].map((n) => (
                 <option key={n} value={n}>
@@ -56,13 +56,13 @@ export function ShortagesPage() {
               Late demand and short parts from <Link to={mfgPaths.run(s.run.id)}>MRP run #{s.run.run_no}</Link> (as of {fmtDate(s.run.as_of)})
               {stale ? (
                 <span className="badge warn" style={{ marginLeft: 6 }}>
-                  <Icon name="clock" /> data changed since
+                  <Icon name="clock" /> {t("mfg.shortagesPage.btn.dataChangedSince")}
                 </span>
               ) : null}
               ; deliveries and work orders are live.
             </p>
           ) : (
-            <Banner tone="info" title="No MRP run yet">
+            <Banner tone="info" title={t("mfg.shortagesPage.title.noMrpRunYet")}>
               Late demand and short parts appear after the first <Link to={mfgPaths.mrp()}>MRP run</Link>. Deliveries and work orders below are live.
             </Banner>
           )}
@@ -88,14 +88,14 @@ export function ShortagesPage() {
               <h3>Late demand</h3>
               {s.run ? (
                 <Link to={mfgPaths.runDemand(s.run.id)} className="small">
-                  All demand
+                  {t("mfg.shortagesPage.btn.allDemand")}
                 </Link>
               ) : null}
             </div>
             <ul className="mfg-plain-list">
               {s.late_demand.length === 0 ? (
                 <li className="issue muted">
-                  <Icon name="check" /> Nothing late.
+                  <Icon name="check" /> {t("mfg.shortagesPage.btn.nothingLate")}
                 </li>
               ) : null}
               {s.late_demand.map((x, i) => (
@@ -129,7 +129,7 @@ export function ShortagesPage() {
                 <h3>Short parts</h3>
                 {s.run ? (
                   <Link to={`${mfgPaths.runItems(s.run.id)}?short=1`} className="small">
-                    All
+                    {t("mfg.shortagesPage.btn.all")}
                   </Link>
                 ) : null}
               </div>
@@ -160,7 +160,7 @@ export function ShortagesPage() {
                 height="420px"
                 exportName="short-parts"
                 rowExtras={() => ({ testId: "short-item-row" })}
-                empty="No parts short in the latest MRP run."
+                empty={t("mfg.shortagesPage.empty.noPartsShortInThe")}
                 card={{ title: "part", fields: ["short", "from"] }}
               />
             </section>
@@ -168,7 +168,7 @@ export function ShortagesPage() {
               <div className="card-header">
                 <h3>Overdue deliveries</h3>
                 <Link to={mfgPaths.deliveryBoard({ overdue: "1" })} className="small">
-                  Delivery schedule
+                  {t("mfg.shortagesPage.btn.deliverySchedule")}
                 </Link>
               </div>
               <VirtualTable
@@ -199,7 +199,7 @@ export function ShortagesPage() {
                 height="420px"
                 exportName="overdue-deliveries"
                 rowExtras={() => ({ testId: "overdue-row" })}
-                empty="No overdue deliveries."
+                empty={t("mfg.shortagesPage.empty.noOverdueDeliveries")}
                 card={{ title: "delivery", status: "overdue", fields: ["supplier", "open"] }}
               />
             </section>

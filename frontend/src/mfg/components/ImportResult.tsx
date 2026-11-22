@@ -6,6 +6,7 @@ import type { ImportRecord } from "../api/types";
 import { fmtTimestamp } from "../lib/format";
 import { mfgPaths } from "../lib/paths";
 import { sheetLabel } from "./ImportUpload";
+import { t } from "../../lib/i18n";
 
 export function ImportResult({ record }: { record: ImportRecord }) {
   const r = record.result;
@@ -44,13 +45,13 @@ export function ImportResult({ record }: { record: ImportRecord }) {
       ) : null}
       <div className="row wrap">
         <Link className="btn primary" to={mfgPaths.health()} data-testid="import-done-health">
-          <Icon name="check" /> Check data health
+          <Icon name="check" /> {t("mfg.importResult.btn.checkDataHealth")}
         </Link>
         <Link className="btn" to={mfgPaths.items()}>
-          Browse items
+          {t("mfg.importResult.btn.browseItems")}
         </Link>
         <Link className="btn ghost" to={mfgPaths.importStart()}>
-          Import another file
+          {t("mfg.importResult.btn.importAnotherFile")}
         </Link>
       </div>
     </div>

@@ -26,6 +26,7 @@ import { useApsRun } from "./ApsRunShell";
 import { DateInput } from "../../../components/DateInput";
 import { InfoTip } from "../../../components/InfoTip";
 import { FilterBar } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 const VIEWS: { key: GanttView; label: string }[] = [
   { key: "line", label: "By line" },
@@ -152,7 +153,7 @@ export function ApsGanttTab() {
           </div>
         </div>
         <div className="field">
-          <label htmlFor="gg-group">Stage</label>
+          <label htmlFor="gg-group">{t("mfg.apsGanttTab.label.stage")}</label>
           <select id="gg-group" className="select sm" value={group} onChange={(e) => set("group", e.target.value)} data-testid="gantt-group">
             <option value="">All stages</option>
             {(groups.data?.items ?? []).map((x) => (
@@ -163,11 +164,11 @@ export function ApsGanttTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="gg-from">From</label>
+          <label htmlFor="gg-from">{t("mfg.apsGanttTab.label.from")}</label>
           <DateInput id="gg-from" small value={fromDay} onChange={(v) => v && set("from", v)} />
         </div>
         <div className="field">
-          <label htmlFor="gg-to">To</label>
+          <label htmlFor="gg-to">{t("mfg.apsGanttTab.label.to")}</label>
           <DateInput id="gg-to" small value={toDay} min={addDays(fromDay, 1)} onChange={(v) => v && set("to", v)} />
         </div>
         <div className="field">
@@ -203,14 +204,14 @@ export function ApsGanttTab() {
               )
             }
           >
-            <Icon name="x" /> Clear line/order filter
+            <Icon name="x" /> {t("mfg.apsGanttTab.btn.clearLineorderFilter")}
           </button>
         ) : null}
       </FilterBar>
       <div className="legend-bar">
         <details className="grow">
           <summary>
-            <Icon name="chevron-right" size={12} /> Legend
+            <Icon name="chevron-right" size={12} /> {t("mfg.apsGanttTab.btn.legend")}
             <span className="legend-key" aria-hidden>
               <span>
                 <span className="pg-swatch" style={{ background: "var(--bar)" }} /> Scheduled
@@ -276,7 +277,7 @@ export function ApsGanttTab() {
         ) : null}
       </div>
       <MfgError error={gantt.error} onRetry={gantt.reload} />
-      {g?.truncated ? <Banner tone="warn" title="Only the first 5,000 operations are drawn">Narrow the dates or pick a stage.</Banner> : null}
+      {g?.truncated ? <Banner tone="warn" title={t("mfg.apsGanttTab.title.onlyTheFirst5000Operations")}>Narrow the dates or pick a stage.</Banner> : null}
       {gantt.loading && !g ? <Spinner label="Loading the Gantt…" /> : null}
       {g && g.bars.length === 0 ? (
         <div className="card card-body row wrap" role="status" data-testid="gantt-empty">
@@ -385,7 +386,7 @@ export function ApsGanttTab() {
                 }}
                 data-testid="gantt-drop-cancel"
               >
-                Cancel
+                {t("mfg.apsGanttTab.btn.cancel")}
               </button>
             </div>
           </div>

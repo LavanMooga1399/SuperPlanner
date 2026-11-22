@@ -23,6 +23,7 @@ import { usePolling } from "../../lib/usePolling";
 import { useLoad } from "../../lib/useMfg";
 import { ApsRunForm } from "./ApsRunForm";
 import { PageHeader } from "../../../components/PageHeader";
+import { t } from "../../../lib/i18n";
 
 export function apsRunTitle(r: Pick<ApsRunRecord, "run_no" | "label">): string {
   return `Schedule #${r.run_no}${r.label ? ` · ${r.label}` : ""}`;
@@ -72,16 +73,16 @@ export function ApsRunsPage() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Production schedule"
-        description="Finite-capacity plan of every operation on the lines, shift by shift, for all orders at once. Publish one run as the plant plan."
+        title={t("mfg.apsRunsPage.title.productionSchedule")}
+        description={t("mfg.apsRunsPage.desc.finitecapacityPlanOfEveryOperation")}
         actions={
           <>
             <Link className="btn" to={mfgPaths.simulations()} data-testid="aps-risk-link">
-          <Icon name="graph" /> Delivery risk
+          <Icon name="graph" /> {t("mfg.apsRunsPage.btn.deliveryRisk")}
         </Link>
         <PermissionGate perm="schedule_run">
           <button type="button" className="btn primary" onClick={() => setForm(true)} disabled={form} data-testid="aps-new-run">
-            <Icon name="play" /> New schedule
+            <Icon name="play" /> {t("mfg.apsRunsPage.btn.newSchedule")}
           </button>
         </PermissionGate>
           </>
@@ -99,7 +100,7 @@ export function ApsRunsPage() {
       ) : null}
       <MfgError error={runs.error} onRetry={runs.reload} />
       {runs.data && items.length === 0 && !form ? (
-        <Banner tone="info" title="No schedule yet" testId="aps-empty">
+        <Banner tone="info" title={t("mfg.apsRunsPage.title.noScheduleYet")} testId="aps-empty">
           {canRun ? "Create a schedule to place every operation on the lines." : "Nobody has scheduled this plant yet."} It uses the latest MRP run for planned orders and
           material dates.
         </Banner>

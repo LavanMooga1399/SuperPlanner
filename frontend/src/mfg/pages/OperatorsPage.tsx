@@ -24,6 +24,7 @@ import { CheckField, SelectField, TextField } from "../components/Field";
 import { RecordList, withParam } from "../components/RecordList";
 import { ActiveBadge } from "../components/StatusChip";
 import { isConflict, useDebounced, useLoad } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 export function OperatorsPage() {
   const [params, setParams] = useSearchParams();
@@ -43,7 +44,7 @@ export function OperatorsPage() {
         <div className="card-header">
           <h2 id="ops-title">Operators</h2>
           <Link className="btn sm" to={mfgPaths.printLabels({ type: "badge" })} data-testid="print-badges">
-            <Icon name="file" /> Print badges
+            <Icon name="file" /> {t("mfg.operatorsPage.btn.printBadges")}
           </Link>
           <button
             type="button"
@@ -54,11 +55,11 @@ export function OperatorsPage() {
             }}
             data-testid="operator-new"
           >
-            <Icon name="plus" /> New operator
+            <Icon name="plus" /> {t("mfg.operatorsPage.btn.newOperator")}
           </button>
         </div>
         <div style={{ padding: "8px 16px 0" }}>
-          <input className="input sm" type="search" placeholder="Search code or name" aria-label="Search operators" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input sm" type="search" placeholder={t("mfg.operatorsPage.ph.searchCodeOrName")} aria-label="Search operators" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <MfgError error={operators.error} onRetry={operators.reload} />
         {operators.loading && !operators.data ? <Spinner /> : null}
@@ -71,7 +72,7 @@ export function OperatorsPage() {
               setParams((p) => withParam(p, "operator", id));
             }}
             testId="operator-row"
-            empty="No operators yet."
+            empty={t("mfg.operatorsPage.empty.noOperatorsYet")}
             render={(o) => (
               <>
                 <strong className="mono">{o.code}</strong>
@@ -215,7 +216,7 @@ function OperatorForm({
         </div>
         <div className="field">
           <span className="field-label">Skills</span>
-          <MultiSelect options={skillOptions} value={f.skill_ids} onChange={(v) => setF({ ...f, skill_ids: v })} label="Skills" placeholder="No skills" />
+          <MultiSelect options={skillOptions} value={f.skill_ids} onChange={(v) => setF({ ...f, skill_ids: v })} label="Skills" placeholder={t("mfg.operatorsPage.ph.noSkills")} />
         </div>
         <div className="form-grid">
           <SelectField
@@ -261,13 +262,13 @@ function OperatorForm({
           </button>
           {onCancel ? (
             <button type="button" className="btn sm" onClick={onCancel}>
-              Cancel
+              {t("mfg.operatorsPage.btn.cancel")}
             </button>
           ) : null}
           <span className="grow" />
           {base && onDeleted ? (
             <button type="button" className="btn sm danger" onClick={() => setConfirm(true)} data-testid="operator-delete">
-              <Icon name="trash" /> Delete
+              <Icon name="trash" /> {t("mfg.operatorsPage.btn.delete")}
             </button>
           ) : null}
         </div>
@@ -275,7 +276,7 @@ function OperatorForm({
       {confirm && base && onDeleted ? (
         <ConfirmDialog
           title={`Delete operator ${base.code}?`}
-          confirmLabel="Delete"
+          confirmLabel={t("mfg.operatorsPage.btn.delete")}
           danger
           onCancel={() => setConfirm(false)}
           onConfirm={() => {

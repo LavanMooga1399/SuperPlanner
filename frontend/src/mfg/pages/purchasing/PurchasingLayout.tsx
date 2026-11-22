@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 import { mfgPaths } from "../../lib/paths";
 import { SectionTabs } from "../MfgLayout";
 import { PageHeader } from "../../../components/PageHeader";
+import { t } from "../../../lib/i18n";
 
 export function PurchasingLayout() {
   const { pathname } = useLocation();
@@ -10,8 +11,8 @@ export function PurchasingLayout() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Purchasing"
-        description="Purchase requests, purchase orders with staggered deliveries, the delivery schedule and suppliers." />
+        title={t("mfg.purchasingLayout.title.purchasing")}
+        description={t("mfg.purchasingLayout.desc.purchaseRequestsPurchaseOrdersWith")} />
       <SectionTabs
         label="Purchasing sections"
         tabs={[

@@ -17,6 +17,7 @@ import { formatDateTime } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 export function AuditPage() {
   const [from, setFrom] = useState("");
@@ -78,7 +79,7 @@ export function AuditPage() {
                 setOpen(open === e.id ? null : e.id);
               }}
             >
-              Details
+              {t("mfg.auditPage.btn.details")}
             </button>
           ) : null}
         </>
@@ -102,15 +103,15 @@ export function AuditPage() {
   return (
     <div className="col gap-lg" data-testid="audit-page">
       <PageHeader
-        title="Audit trail"
-        description="Every change in this plant: who, when, what. Entries are chained by a hash so later tampering shows up."
+        title={t("mfg.auditPage.title.auditTrail")}
+        description={t("mfg.auditPage.desc.everyChangeInThisPlant")}
         actions={
           <>
             <button type="button" className="btn" disabled={busy !== null} onClick={() => void download("csv")} data-testid="audit-export-csv">
-            <Icon name="download" /> CSV
+            <Icon name="download" /> {t("mfg.auditPage.btn.csv")}
             </button>
             <button type="button" className="btn" disabled={busy !== null} onClick={() => void download("jsonl")} data-testid="audit-export-jsonl">
-            <Icon name="download" /> JSON lines
+            <Icon name="download" /> {t("mfg.auditPage.btn.jsonLines")}
             </button>
             <button
             type="button"
@@ -130,40 +131,40 @@ export function AuditPage() {
             }}
             data-testid="audit-verify"
             >
-            <Icon name="check" /> Check the chain
+            <Icon name="check" /> {t("mfg.auditPage.btn.checkTheChain")}
             </button>
           </>
         }
       />
       {verify === "unavailable" ? (
-        <Banner tone="info" title="The chain check runs on the server">An administrator runs manage.py audit-verify; the exports include each entry's chain hash so an auditor can check them independently.</Banner>
+        <Banner tone="info" title={t("mfg.auditPage.title.theChainCheckRunsOn")}>An administrator runs manage.py audit-verify; the exports include each entry's chain hash so an auditor can check them independently.</Banner>
       ) : verify ? (
         verify.ok ? (
-          <Banner tone="ok" title="The audit chain is intact" testId="audit-verify-ok">
+          <Banner tone="ok" title={t("mfg.auditPage.title.theAuditChainIsIntact")} testId="audit-verify-ok">
             {verify.checked} entries checked; none was changed or removed.
           </Banner>
         ) : (
-          <Banner tone="danger" title="The audit chain is broken" testId="audit-verify-broken">
+          <Banner tone="danger" title={t("mfg.auditPage.title.theAuditChainIsBroken")} testId="audit-verify-broken">
             The first entry that does not match its chain is {verify.first_broken ? `${verify.first_broken.id} (${formatDateTime(verify.first_broken.at)})` : "unknown"}. Entries from there on cannot be trusted; contact your administrator.
           </Banner>
         )
       ) : null}
       <FilterBar>
         <div className="field">
-          <label htmlFor="au-from">From</label>
+          <label htmlFor="au-from">{t("mfg.auditPage.label.from")}</label>
           <DateInput id="au-from" value={from} onChange={(v) => setFrom(v)} />
         </div>
         <div className="field">
-          <label htmlFor="au-to">To</label>
+          <label htmlFor="au-to">{t("mfg.auditPage.label.to")}</label>
           <DateInput id="au-to" value={to} onChange={(v) => setTo(v)} />
         </div>
         <div className="field">
-          <label htmlFor="au-entity">What (kind)</label>
-          <input id="au-entity" className="input" value={entity} onChange={(e) => setEntity(e.target.value)} placeholder="e.g. item, work_order" />
+          <label htmlFor="au-entity">{t("mfg.auditPage.label.whatKind")}</label>
+          <input id="au-entity" className="input" value={entity} onChange={(e) => setEntity(e.target.value)} placeholder={t("mfg.auditPage.ph.egItemWorkorder")} />
         </div>
         <div className="field">
-          <label htmlFor="au-actor">Who (user or token id)</label>
-          <input id="au-actor" className="input mono" value={actor} onChange={(e) => setActor(e.target.value)} placeholder="usr_… or tok_…" />
+          <label htmlFor="au-actor">{t("mfg.auditPage.label.whoUserOrTokenId")}</label>
+          <input id="au-actor" className="input mono" value={actor} onChange={(e) => setActor(e.target.value)} placeholder={t("mfg.auditPage.ph.usrOrTok")} />
         </div>
       </FilterBar>
       <MfgError error={error ?? data.error} onRetry={data.reload} />
@@ -179,7 +180,7 @@ export function AuditPage() {
         onRowClick={(e) => (e.details && Object.keys(e.details).length ? setOpen(e.id) : undefined)}
         onActivate={(e) => (e.details && Object.keys(e.details).length ? setOpen(open === e.id ? null : e.id) : undefined)}
         rowExtras={(e) => ({ testId: "audit-row", className: open === e.id ? "mfg-selected" : undefined })}
-        empty="No entries. Changes in this plant appear here as soon as someone makes them."
+        empty={t("mfg.auditPage.empty.noEntriesChangesInThis")}
         footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} entries, newest first</span>}
         card={{ title: "when", fields: ["who", "did", "what"] }}
       />
@@ -190,7 +191,7 @@ export function AuditPage() {
               {openEvent.action.replace(/_/g, " ")} · {openEvent.entity_type.replace(/_/g, " ")} <span className="mono faint">{openEvent.entity_id ?? ""}</span>
             </h2>
             <button type="button" className="btn sm ghost" onClick={() => setOpen(null)}>
-              <Icon name="x" /> Close
+              <Icon name="x" /> {t("mfg.auditPage.btn.close")}
             </button>
           </div>
           <pre className="int-json" style={{ margin: 0, border: 0 }}>

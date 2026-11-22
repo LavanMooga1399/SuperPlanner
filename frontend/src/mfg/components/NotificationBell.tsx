@@ -8,6 +8,7 @@ import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
 import { usePolling } from "../lib/usePolling";
 import { NotificationList } from "../pages/m4/ReplanPage";
+import { t } from "../../lib/i18n";
 
 export function NotificationBell() {
   const clock = usePlantClock();
@@ -50,7 +51,7 @@ export function NotificationBell() {
           <div className="card-header row" style={{ justifyContent: "space-between" }}>
             <strong>New notifications</strong>
             <Link to={mfgPaths.replan()} onClick={() => setOpen(false)}>
-              All and replanning
+              {t("mfg.notificationBell.btn.allAndReplanning")}
             </Link>
           </div>
           <NotificationList items={n.data?.items ?? []} onAck={n.reload} clock={clock} compact />

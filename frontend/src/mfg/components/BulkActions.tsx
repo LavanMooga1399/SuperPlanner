@@ -8,7 +8,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Dialog } from "../../components/Dialog";
 import { Icon, type IconName } from "../../components/Icon";
 import { toast } from "../../components/Toast";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 import { ApiError } from "../../api/client";
 import { newIdempotencyKey } from "../api/clientM2";
 import { runBulk, type BulkAction, type BulkResponse } from "../api/clientUx";
@@ -94,7 +94,7 @@ export function BulkActions({ rows, noun, actions, onDone, onClear }: { rows: Bu
             ))}
           </div>
           <button type="button" className="btn ghost sm" onClick={onClear} data-testid="bulk-clear">
-            <Icon name="x" size={14} /> Clear selection
+            <Icon name="x" size={14} /> {t("mfg.bulkActions.btn.clearSelection")}
           </button>
         </div>
       ) : null}
@@ -142,7 +142,7 @@ export function BulkActions({ rows, noun, actions, onDone, onClear }: { rows: Bu
           onClose={() => setResult(null)}
           footer={
             <button type="button" className="btn primary" onClick={() => setResult(null)} data-testid="bulk-result-close">
-              Close
+              {t("mfg.bulkActions.btn.close")}
             </button>
           }
         >

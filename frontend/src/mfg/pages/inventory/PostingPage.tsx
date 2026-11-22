@@ -12,6 +12,7 @@ import { fmtNum, POSTING_LABEL } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { isNotFound, useLoad } from "../../lib/useMfg";
 import { docRefLink } from "./TransactionsTab";
+import { t } from "../../../lib/i18n";
 
 export function PostingPage() {
   const { postingId = "" } = useParams();
@@ -73,7 +74,7 @@ export function PostingPage() {
             {!p.reversed_by && !p.reversal_of ? (
               <PermissionGate perm="inventory">
                 <button type="button" className="btn" onClick={() => setReversing(true)} data-testid="posting-reverse">
-                  <Icon name="refresh" /> Reverse
+                  <Icon name="refresh" /> {t("mfg.postingPage.btn.reverse")}
                 </button>
               </PermissionGate>
             ) : null}
@@ -155,7 +156,7 @@ export function PostingPage() {
       </div>
       <div className="row">
         <Link className="btn" to={mfgPaths.transactions()}>
-          <Icon name="list" /> Back to the ledger
+          <Icon name="list" /> {t("mfg.postingPage.btn.backToTheLedger")}
         </Link>
       </div>
 
@@ -166,7 +167,7 @@ export function PostingPage() {
           footer={
             <>
               <button type="button" className="btn" onClick={() => setReversing(false)} data-dialog-close>
-                Cancel
+                {t("mfg.postingPage.btn.cancel")}
               </button>
               <button type="button" className="btn primary" onClick={() => void reverse()} disabled={busy} data-testid="posting-reverse-confirm">
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Post the reversal
@@ -179,8 +180,8 @@ export function PostingPage() {
               Posts the exact opposite movement today. Received, issued, shipped or completed quantities on the linked documents go back as well. A posting can be reversed only once; stock may not go below zero.
             </p>
             <div className="field">
-              <label htmlFor="rev-note">Note</label>
-              <input id="rev-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Why is this reversed?" />
+              <label htmlFor="rev-note">{t("mfg.postingPage.label.note")}</label>
+              <input id="rev-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("mfg.postingPage.ph.whyIsThisReversed")} />
             </div>
             <MfgError error={error} title="Could not reverse" />
           </div>

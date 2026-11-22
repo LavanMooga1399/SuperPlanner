@@ -16,6 +16,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useLoad } from "../../lib/useMfg";
 import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 export function KittingCheckPage() {
   const [order, setOrder] = useState<KittingCheckRequest["order"]>("priority");
@@ -30,18 +31,18 @@ export function KittingCheckPage() {
         <Link to={mfgPaths.workOrders()}>Work orders</Link> <Icon name="chevron-right" size={12} /> <span>Kitting check</span>
       </nav>
       <PageHeader
-        title="Kitting check"
-        description="Which released and soon-starting work orders can be kitted from today's stock, taking stock in turn by the order you choose." />
+        title={t("mfg.kittingCheckPage.title.kittingCheck")}
+        description={t("mfg.kittingCheckPage.desc.whichReleasedAndSoonstartingWork")} />
       <FilterBar>
         <div className="field">
-          <label htmlFor="kc-order">Who gets stock first</label>
+          <label htmlFor="kc-order">{t("mfg.kittingCheckPage.label.whoGetsStockFirst")}</label>
           <select id="kc-order" className="select" value={order} onChange={(e) => setOrder(e.target.value as KittingCheckRequest["order"])} data-testid="kitting-order">
             <option value="priority">Highest priority first</option>
             <option value="start_date">Earliest start first</option>
           </select>
         </div>
         <div className="field" style={{ width: 160 }}>
-          <label htmlFor="kc-h">Planned orders starting within (days)</label>
+          <label htmlFor="kc-h">{t("mfg.kittingCheckPage.label.plannedOrdersStartingWithinDays")}</label>
           <input id="kc-h" className="input" type="number" min={0} max={365} value={horizon} aria-invalid={!valid} onChange={(e) => setHorizon(e.target.value)} />
         </div>
         <button type="button" className="btn" style={{ alignSelf: "flex-end" }} onClick={res.reload} disabled={res.loading}>
@@ -87,7 +88,7 @@ export function KittingCheckPage() {
                   render: (x) =>
                     x.kit_complete ? (
                       <span className="badge ok">
-                        <Icon name="check" /> Complete
+                        <Icon name="check" /> {t("mfg.kittingCheckPage.btn.complete")}
                       </span>
                     ) : (
                       <span className="badge danger">
@@ -119,7 +120,7 @@ export function KittingCheckPage() {
               tableId="kitting-check-wos"
               exportName="kitting-check"
               rowExtras={(x) => ({ testId: "kitting-row", data: { shortage: x.short_components, wo: x.wo.number } })}
-              empty="No work orders in range."
+              empty={t("mfg.kittingCheckPage.empty.noWorkOrdersInRange")}
               card={{ title: "wo", status: "kit", fields: ["start", "prio", "missing"] }}
             />
           </section>
@@ -172,7 +173,7 @@ export function ItemsShortTable({ rows, testId = "kitting-items-short", title = 
                 </Link>
               ) : (
                 <span className="badge danger">
-                  <Icon name="x" /> No open supply
+                  <Icon name="x" /> {t("mfg.kittingCheckPage.btn.noOpenSupply")}
                 </span>
               ),
           },
@@ -182,7 +183,7 @@ export function ItemsShortTable({ rows, testId = "kitting-items-short", title = 
         tableId={`${testId}-table`}
         exportName="component-shortages"
         rowExtras={(s) => ({ testId: "item-short-row", data: { item: s.item.part_number } })}
-        empty="Nothing missing."
+        empty={t("mfg.kittingCheckPage.empty.nothingMissing")}
         card={{ title: "part", fields: ["missing", "first", "supply"] }}
       />
     </section>

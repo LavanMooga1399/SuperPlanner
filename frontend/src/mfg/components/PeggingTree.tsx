@@ -11,6 +11,7 @@ import { fmtDate } from "../lib/format";
 import { fmtNum } from "../lib/formatM2";
 import { LateBadge } from "./StatusM2";
 import { VirtualTable, type Column } from "./VirtualTable";
+import { t } from "../../lib/i18n";
 
 export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: PeggingRow): void }) {
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
@@ -76,7 +77,7 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
         <span className="row" style={{ gap: 4 }}>
           {r.link ? (
             <Link to={r.link} className="btn sm ghost" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
-              Open
+              {t("mfg.peggingTree.btn.open")}
             </Link>
           ) : null}
           {onPeg ? (
@@ -110,7 +111,7 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
         else return false;
         return true;
       }}
-      empty="Nothing is pegged to this."
+      empty={t("mfg.peggingTree.empty.nothingIsPeggedToThis")}
       footer={<span className="muted small">{visible.length.toLocaleString("en-IN")} of {rows.length.toLocaleString("en-IN")} rows · Left/Right collapse and expand</span>}
     />
   );

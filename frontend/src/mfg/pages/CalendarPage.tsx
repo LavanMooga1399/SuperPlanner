@@ -29,6 +29,7 @@ import { CheckField, SelectField, TextField } from "../components/Field";
 import { LineCalendar } from "../components/LineCalendar";
 import { addDays, fmtLocalDateTime, isoToLocal, localToIso } from "../lib/format";
 import { isConflict, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 const KIND_LABEL: Record<ExceptionKind, string> = { holiday: "Holiday", shutdown: "Shutdown", maintenance: "Maintenance" };
 
@@ -120,7 +121,7 @@ export function CalendarPage() {
         <div className="card-header">
           <h2 id="exc-title">Holidays, shutdowns and maintenance</h2>
           <button type="button" className="btn sm primary" onClick={() => setEditing("new")} data-testid="exception-new">
-            <Icon name="plus" /> Add
+            <Icon name="plus" /> {t("mfg.calendarPage.btn.add")}
           </button>
         </div>
         <div className="card-body col">
@@ -169,7 +170,7 @@ export function CalendarPage() {
                           setEditing(x);
                         }}
                       >
-                        Edit
+                        {t("mfg.calendarPage.btn.edit")}
                       </button>
                       <button type="button" className="btn sm ghost icon" aria-label={`Delete ${x.label || x.kind}`} onClick={() => setDel(x)}>
                         <Icon name="trash" />
@@ -183,7 +184,7 @@ export function CalendarPage() {
               testId="exceptions-table"
               exportName="calendar-exceptions"
               rowExtras={(x) => ({ testId: "exception-row", data: { "exception-id": x.id }, className: x.id === exceptionParam ? "mfg-selected" : undefined })}
-              empty="Nothing planned. Add holidays, shutdowns or maintenance windows here."
+              empty={t("mfg.calendarPage.empty.nothingPlannedAddHolidaysShutdowns")}
             />
           </div>
           {editing ? (
@@ -210,8 +211,8 @@ export function CalendarPage() {
       </section>
       {del ? (
         <ConfirmDialog
-          title="Delete this entry?"
-          confirmLabel="Delete"
+          title={t("mfg.calendarPage.title.deleteThisEntry")}
+          confirmLabel={t("mfg.calendarPage.btn.delete")}
           danger
           onCancel={() => setDel(null)}
           onConfirm={() => {
@@ -317,7 +318,7 @@ function ExceptionForm({
           />
           {scope === "group" ? <SelectField label="Stage" value={groupId} onChange={setGroupId} options={groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))} /> : null}
           {scope === "line" ? <SelectField label="Line" value={lineId} onChange={setLineId} options={lines.map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))} testId="exception-line" /> : null}
-          <TextField label="Label" value={label} onChange={setLabel} maxLength={100} placeholder="e.g. Plant holiday" testId="exception-label" />
+          <TextField label="Label" value={label} onChange={setLabel} maxLength={100} placeholder={t("mfg.calendarPage.ph.egPlantHoliday")} testId="exception-label" />
         </div>
         <CheckField label="Whole days" checked={allDay} onChange={setAllDay} />
         {allDay ? (
@@ -336,7 +337,7 @@ function ExceptionForm({
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save
           </button>
           <button type="button" className="btn sm" onClick={onClose}>
-            Cancel
+            {t("mfg.calendarPage.btn.cancel")}
           </button>
           {invalid ? <span className="field-error">The end must be after the start.</span> : null}
         </div>

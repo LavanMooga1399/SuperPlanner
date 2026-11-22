@@ -18,6 +18,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { BulkActions, ReasonField, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
 import { useCan } from "../../lib/permissions";
+import { t } from "../../../lib/i18n";
 
 const STATUS_SETS: Record<string, string | undefined> = {
   active: "planned,released,in_progress",
@@ -117,17 +118,17 @@ export function WorkOrderList() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Work orders"
-        description="Production orders with quantities, dates, frozen component lists, reservations and kitting."
+        title={t("mfg.workOrderList.title.workOrders")}
+        description={t("mfg.workOrderList.desc.productionOrdersWithQuantitiesDates")}
         actions={
           <>
             <Link className="btn" to={mfgPaths.kitting()} data-testid="wo-kitting-check">
-              <Icon name="check" /> Kitting check
+              <Icon name="check" /> {t("mfg.workOrderList.btn.kittingCheck")}
             </Link>
             <ImportShortcut what="work orders" />
             <PermissionGate perm="wo_edit">
               <Link className="btn primary" to={mfgPaths.workOrderNew()} data-testid="wo-new">
-                <Icon name="plus" /> New work order
+                <Icon name="plus" /> {t("mfg.workOrderList.btn.newWorkOrder")}
               </Link>
             </PermissionGate>
           </>
@@ -143,7 +144,7 @@ export function WorkOrderList() {
         pageKey="work-orders"
       >
         <div className="field">
-          <label htmlFor="wo-status">Status</label>
+          <label htmlFor="wo-status">{t("mfg.workOrderList.label.status")}</label>
           <select id="wo-status" className="select" value={st} onChange={(e) => set("status", e.target.value === "active" ? "" : e.target.value)} data-testid="wo-status">
             <option value="active">Not finished</option>
             <option value="planned">Planned (firm)</option>
@@ -154,7 +155,7 @@ export function WorkOrderList() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="wo-src">Source</label>
+          <label htmlFor="wo-src">{t("mfg.workOrderList.label.source")}</label>
           <select id="wo-src" className="select" value={source} onChange={(e) => set("source", e.target.value)}>
             <option value="">Any</option>
             <option value="manual">Entered by hand</option>
@@ -163,7 +164,7 @@ export function WorkOrderList() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="wo-sort">Sort by</label>
+          <label htmlFor="wo-sort">{t("mfg.workOrderList.label.sortBy")}</label>
           <select id="wo-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "start_date" ? "" : e.target.value)}>
             <option value="start_date">Start date</option>
             <option value="due_date">Due date</option>

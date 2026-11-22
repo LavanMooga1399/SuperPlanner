@@ -17,6 +17,7 @@ import { DEMAND_TYPE_LABEL, fmtNum } from "../../lib/formatM2";
 import { isAbortError, todayInOffset, usePlant } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
 import { DateInput } from "../../../components/DateInput";
+import { t } from "../../../lib/i18n";
 
 interface Extra {
   key: number;
@@ -145,7 +146,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
     setError(null);
     try {
       onDone(await createMrpRun(params));
-      toast("MRP run started");
+      toast(t("mfg.mrpRunForm.toast.mrpRunStarted"));
     } catch (e) {
       setError(e);
       setBusy(false);
@@ -157,7 +158,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
       <div className="card-header">
         <h2 id="mrp-form-title">Plan materials for the whole plant</h2>
         <button type="button" className="btn sm ghost" onClick={onClose}>
-          <Icon name="x" /> Close
+          <Icon name="x" /> {t("mfg.mrpRunForm.btn.close")}
         </button>
       </div>
       <div className="card-body col">
@@ -166,15 +167,15 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
           Usually takes a few seconds.
         </p>
         <div className="field" style={{ maxWidth: 420 }}>
-          <label htmlFor="mrp-label">Name (optional)</label>
-          <input id="mrp-label" className="input" maxLength={100} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Weekly plan" data-testid="mrp-label" />
+          <label htmlFor="mrp-label">{t("mfg.mrpRunForm.label.nameOptional")}</label>
+          <input id="mrp-label" className="input" maxLength={100} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("mfg.mrpRunForm.ph.egWeeklyPlan")} data-testid="mrp-label" />
         </div>
         <div className="row wrap">
           <button type="button" className="btn sm ghost" aria-expanded={expert} onClick={() => setExpert((x) => !x)} data-testid="mrp-expert-toggle">
-            <Icon name={expert ? "chevron-down" : "chevron-right"} /> Planning options
+            <Icon name={expert ? "chevron-down" : "chevron-right"} /> {t("mfg.mrpRunForm.btn.planningOptions")}
           </button>
           <button type="button" className="btn sm ghost" aria-expanded={whatIf} onClick={() => setWhatIf((x) => !x)} data-testid="mrp-whatif-toggle">
-            <Icon name={whatIf ? "chevron-down" : "chevron-right"} /> What-if scenario
+            <Icon name={whatIf ? "chevron-down" : "chevron-right"} /> {t("mfg.mrpRunForm.btn.whatifScenario")}
           </button>
         </div>
         {expert ? (
@@ -182,27 +183,27 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
             <legend>Planning options</legend>
             <div className="form-grid">
               <div className="field">
-                <label htmlFor="mrp-alloc">When stock is not enough for everyone</label>
+                <label htmlFor="mrp-alloc">{t("mfg.mrpRunForm.label.whenStockIsNotEnough")}</label>
                 <select id="mrp-alloc" className="select" value={allocation} onChange={(e) => setAllocation(e.target.value as "priority" | "due_date")}>
                   <option value="priority">Higher priority orders get it first</option>
                   <option value="due_date">Earliest due date gets it first</option>
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="mrp-alt">Alternate parts</label>
+                <label htmlFor="mrp-alt">{t("mfg.mrpRunForm.label.alternateParts")}</label>
                 <select id="mrp-alt" className="select" value={alternates} onChange={(e) => setAlternates(e.target.value as "when_short" | "never")}>
                   <option value="when_short">Use stock of alternates when the main part is late</option>
                   <option value="never">Never use alternates</option>
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="mrp-h">Horizon (days)</label>
+                <label htmlFor="mrp-h">{t("mfg.mrpRunForm.label.horizonDays")}</label>
                 <input id="mrp-h" className="input" type="number" min={7} max={730} value={horizon} onChange={(e) => setHorizon(e.target.value)} placeholder={String(plant.data?.planning_horizon_days ?? 90)} aria-invalid={hBad} />
                 <span className="hint">{hBad ? "7 to 730 days." : "Demand due later is not planned."}</span>
               </div>
               <div className="field">
-                <label htmlFor="mrp-protect">Protect programmes</label>
-                <input id="mrp-protect" className="input" value={protect} onChange={(e) => setProtect(e.target.value)} placeholder="e.g. KVP-26, KVP-PROTO" />
+                <label htmlFor="mrp-protect">{t("mfg.mrpRunForm.label.protectProgrammes")}</label>
+                <input id="mrp-protect" className="input" value={protect} onChange={(e) => setProtect(e.target.value)} placeholder={t("mfg.mrpRunForm.ph.egKvp26Kvpproto")} />
                 <span className="hint">Their demand is served before everything else.</span>
               </div>
             </div>
@@ -219,7 +220,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
             </p>
             <div className="form-grid">
               <div className="field">
-                <label htmlFor="mrp-asof">Plan as of</label>
+                <label htmlFor="mrp-asof">{t("mfg.mrpRunForm.label.planAsOf")}</label>
                 <DateInput id="mrp-asof" value={asOf} testId="whatif-as-of" onChange={(v) => setAsOf(v)} />
                 <span className="hint">Empty = today ({fmtDate(today)})</span>
               </div>
@@ -304,7 +305,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
                   <div style={{ width: 220 }}>
                     <ItemPicker label="Item" hideLabel value={r.item} onChange={(it) => set({ item: it })} />
                   </div>
-                  <input className="input sm num" type="number" aria-label="Quantity" placeholder="Qty" value={r.qty} onChange={(e) => set({ qty: e.target.value })} style={{ width: 90 }} />
+                  <input className="input sm num" type="number" aria-label="Quantity" placeholder={t("mfg.mrpRunForm.ph.qty")} value={r.qty} onChange={(e) => set({ qty: e.target.value })} style={{ width: 90 }} />
                   <DateInput small ariaLabel="Due date" value={r.due} onChange={(v) => set({ due: v })} />
                   <input className="input sm num" type="number" min={1} max={9} aria-label="Priority" value={r.priority} onChange={(e) => set({ priority: e.target.value })} style={{ width: 64 }} />
                 </>
@@ -322,7 +323,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
                   <div style={{ width: 220 }}>
                     <ItemPicker label="Item" hideLabel value={r.item} onChange={(it) => set({ item: it })} />
                   </div>
-                  <input className="input sm num" type="number" min={0} aria-label="Lead time days" placeholder="days" value={r.days} onChange={(e) => set({ days: e.target.value })} style={{ width: 90 }} />
+                  <input className="input sm num" type="number" min={0} aria-label="Lead time days" placeholder={t("mfg.mrpRunForm.ph.days")} value={r.days} onChange={(e) => set({ days: e.target.value })} style={{ width: 90 }} />
                   <span className="faint small">{r.item?.make_buy === "make" ? "working days" : "calendar days"}</span>
                 </>
               )}
@@ -340,7 +341,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} {busy ? "Planning…" : isWhatIf ? "Run what-if" : "Run MRP"}
           </button>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t("mfg.mrpRunForm.btn.cancel")}
           </button>
         </div>
       </div>

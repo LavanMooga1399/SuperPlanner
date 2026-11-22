@@ -23,6 +23,7 @@ import { useCan } from "../../lib/permissions";
 import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { formatDate } from "../../../lib/locale";
+import { t } from "../../../lib/i18n";
 
 const KIND: Record<TraceKind, { label: string; icon: IconName }> = {
   serial: { label: "Unit", icon: "circle" },
@@ -36,11 +37,11 @@ const KIND: Record<TraceKind, { label: string; icon: IconName }> = {
 export function PrecisionTag({ p }: { p: Precision }) {
   return p === "exact" ? (
     <span className="badge ok trace-exact" title="Recorded unit by unit" data-precision="exact">
-      <Icon name="check" size={12} /> exact
+      <Icon name="check" size={12} /> {t("mfg.tracePages.btn.exact")}
     </span>
   ) : (
     <span className="badge warn trace-possible" title="Lot level: any unit made from this lot or work order may contain it" data-precision="possible">
-      <Icon name="help" size={12} /> possible
+      <Icon name="help" size={12} /> {t("mfg.tracePages.btn.possible")}
     </span>
   );
 }
@@ -156,11 +157,11 @@ export function TracePage() {
       <TraceTabs />
       <form className="toolbar mfg-filters" onSubmit={find} role="search">
         <div className="field" style={{ flex: "1 1 320px" }}>
-          <label htmlFor="tr-code">Unit, lot or work order</label>
-          <input id="tr-code" className="input mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Scan a label, or S:KV-TPU-1000:TPU-0123, L:part:lot, WO-000143" data-testid="trace-code" />
+          <label htmlFor="tr-code">{t("mfg.tracePages.label.unitLotOrWorkOrder")}</label>
+          <input id="tr-code" className="input mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("mfg.tracePages.ph.scanALabelOrSkvtpu1000tpu0123")} data-testid="trace-code" />
         </div>
         <button type="submit" className="btn primary" disabled={finding} style={{ alignSelf: "flex-end" }} data-testid="trace-find">
-          <Icon name="zoom-in" /> Trace
+          <Icon name="zoom-in" /> {t("mfg.tracePages.btn.trace")}
         </button>
       </form>
       {findError ? <div className="banner warn" role="alert">{findError}</div> : null}
@@ -174,7 +175,7 @@ export function TracePage() {
               </strong>
               <div className="row" role="group" aria-label="Direction">
                 <button type="button" className={`btn sm${dir === "backward" ? " primary" : ""}`} aria-pressed={dir === "backward"} onClick={() => setSearchParam(setParams, "dir", "backward")} data-testid="trace-backward">
-                  <Icon name="arrow-right" style={{ transform: "rotate(180deg)" }} /> What went into it
+                  <Icon name="arrow-right" style={{ transform: "rotate(180deg)" }} /> {t("mfg.tracePages.btn.whatWentIntoIt")}
                 </button>
                 <button type="button" className={`btn sm${dir === "forward" ? " primary" : ""}`} aria-pressed={dir === "forward"} onClick={() => setSearchParam(setParams, "dir", "forward")} data-testid="trace-forward">
                   Where it went <Icon name="arrow-right" />
@@ -187,20 +188,20 @@ export function TracePage() {
             <div className="row">
               <div className="row" role="group" aria-label="View">
                 <button type="button" className={`btn sm${view === "tree" ? " primary" : ""}`} aria-pressed={view === "tree"} onClick={() => setView("tree")}>
-                  <Icon name="list" /> Tree
+                  <Icon name="list" /> {t("mfg.tracePages.btn.tree")}
                 </button>
                 <button type="button" className={`btn sm${view === "graph" ? " primary" : ""}`} aria-pressed={view === "graph"} onClick={() => setView("graph")} data-testid="trace-view-graph">
-                  <Icon name="graph" /> Graph
+                  <Icon name="graph" /> {t("mfg.tracePages.btn.graph")}
                 </button>
               </div>
               <button type="button" className="btn sm ghost" aria-expanded={expert} onClick={() => setExpert((v) => !v)}>
-                <Icon name="settings" /> Depth
+                <Icon name="settings" /> {t("mfg.tracePages.btn.depth")}
               </button>
             </div>
           </div>
           {expert ? (
             <div className="field" style={{ maxWidth: 200 }}>
-              <label htmlFor="tr-depth">Levels to follow (1-30)</label>
+              <label htmlFor="tr-depth">{t("mfg.tracePages.label.levelsToFollow130")}</label>
               <input id="tr-depth" className="input" type="number" min={1} max={30} value={depth} onChange={(e) => setDepth(Math.min(30, Math.max(1, Number(e.target.value) || 1)))} />
             </div>
           ) : null}
@@ -275,12 +276,12 @@ function TreeNode({ n, level, isRoot, onRetrace, onRecall }: { n: TraceNode; lev
         {n.plant && !n.plant.visible ? <span className="badge info">in plant {n.plant.code}, not visible to you</span> : n.plant ? <span className="badge info">plant {n.plant.code}</span> : null}
         {!isRoot && onRetrace && (n.kind === "serial" || n.kind === "lot" || n.kind === "wo") ? (
           <button type="button" className="btn sm ghost" onClick={() => onRetrace(n)}>
-            Trace from here
+            {t("mfg.tracePages.btn.traceFromHere")}
           </button>
         ) : null}
         {onRecall && canRecall && (n.kind === "lot" || n.kind === "serial") ? (
           <button type="button" className="btn sm ghost" onClick={() => onRecall(n)} data-testid="trace-recall">
-            Recall
+            {t("mfg.tracePages.btn.recall")}
           </button>
         ) : null}
       </div>
@@ -410,7 +411,7 @@ export function WhereUsedPage() {
         )}
         <div>
           <Link className="btn" to={`${mfgPaths.recalls()}?new=1&item=${encodeURIComponent(itemId)}&supplier_lot=${encodeURIComponent(supplierLot || lot)}&label=${encodeURIComponent(`${item?.part_number ?? ""} ${supplierLot || lot}`.trim())}`} data-testid="whereused-recall">
-            <Icon name="alert" /> Start a recall for this lot
+            <Icon name="alert" /> {t("mfg.tracePages.btn.startARecallForThis")}
           </Link>
         </div>
       </>
@@ -429,18 +430,18 @@ export function WhereUsedPage() {
           <ItemPicker value={item} onChange={setItem} label="Item" />
         </div>
         <div className="field">
-          <label htmlFor="wu-mode">Lot number from</label>
+          <label htmlFor="wu-mode">{t("mfg.tracePages.label.lotNumberFrom")}</label>
           <select id="wu-mode" className="select" value={mode} onChange={(e) => setMode(e.target.value as "lot" | "supplier")}>
             <option value="lot">Our lot code</option>
             <option value="supplier">The supplier's lot</option>
           </select>
         </div>
         <div className="field">
-          <label htmlFor="wu-lot">Lot</label>
+          <label htmlFor="wu-lot">{t("mfg.tracePages.label.lot")}</label>
           <input id="wu-lot" className="input mono" value={text} onChange={(e) => setText(e.target.value)} data-testid="whereused-lot" />
         </div>
         <button type="submit" className="btn primary" style={{ alignSelf: "flex-end" }} disabled={!itemId || !text.trim()} data-testid="whereused-go">
-          <Icon name="zoom-in" /> Find
+          <Icon name="zoom-in" /> {t("mfg.tracePages.btn.find")}
         </button>
       </form>
       <MfgError error={wu.error} onRetry={wu.reload} />

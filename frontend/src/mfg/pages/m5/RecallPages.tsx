@@ -25,6 +25,7 @@ import { useLoad } from "../../lib/useMfg";
 import { PrecisionTag } from "./TracePages";
 import { formatDate, formatDateTime } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
+import { t } from "../../../lib/i18n";
 
 const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "play" | "flag" | "circle" }> = {
   in_stock: { label: "In stock", tone: "warn", icon: "layers" },
@@ -72,7 +73,7 @@ const QUARANTINE_COLS: Column<LotRow>[] = [
     render: (l) =>
       l.on_hold ? (
         <span className="badge warn">
-          <Icon name="lock" /> on hold
+          <Icon name="lock" /> {t("mfg.recallPages.btn.onHold")}
         </span>
       ) : null,
   },
@@ -136,12 +137,12 @@ export function RecallsPage() {
   return (
     <div className="col gap-lg" data-testid="recalls-page">
       <PageHeader
-        title="Recalls"
-        description="Everything a suspect lot or unit may have reached, and where it is now."
+        title={t("mfg.recallPages.title.recalls")}
+        description={t("mfg.recallPages.desc.everythingASuspectLotOr")}
         actions={
           <>
             <Link className="btn" to={mfgPaths.trace()}>
-            <Icon name="zoom-in" /> Trace something first
+            <Icon name="zoom-in" /> {t("mfg.recallPages.btn.traceSomethingFirst")}
             </Link>
           </>
         }
@@ -156,7 +157,7 @@ export function RecallsPage() {
               Starting from <strong className="mono">{params.get("label") ?? source.id ?? source.supplier_lot}</strong>.
             </p>
             <div className="field" style={{ maxWidth: 480 }}>
-              <label htmlFor="rc-name">Name</label>
+              <label htmlFor="rc-name">{t("mfg.recallPages.label.name")}</label>
               <input id="rc-name" className="input" value={name} onChange={(e) => setName(e.target.value)} data-testid="recall-name" />
             </div>
             <label className="checkbox">
@@ -185,7 +186,7 @@ export function RecallsPage() {
                 }}
                 data-testid="recall-create"
               >
-                <Icon name="alert" /> Build the recall report
+                <Icon name="alert" /> {t("mfg.recallPages.btn.buildTheRecallReport")}
               </button>
             </div>
           </div>
@@ -203,7 +204,7 @@ export function RecallsPage() {
         onEndReached={data.onEndReached}
         exportName="recalls"
         rowExtras={() => ({ testId: "recall-row" })}
-        empty="No recalls. Start one from a trace or with New recall."
+        empty={t("mfg.recallPages.empty.noRecallsStartOneFrom")}
         card={{ title: "recall", fields: ["created", "units", "shipped"] }}
       />
     </div>
@@ -245,10 +246,10 @@ export function RecallPage() {
         </h1>
         <span className="row no-print">
           <button type="button" className="btn" onClick={async () => saveBlob(await exportRecall(r.id))} data-testid="recall-export">
-            <Icon name="download" /> Excel
+            <Icon name="download" /> {t("mfg.recallPages.btn.excel")}
           </button>
           <button type="button" className="btn" onClick={() => window.print()}>
-            <Icon name="file" /> Print
+            <Icon name="file" /> {t("mfg.recallPages.btn.print")}
           </button>
         </span>
       </div>
@@ -292,12 +293,12 @@ export function RecallPage() {
         </div>
         <div className="card-body col">
           {r.quarantined_at ? (
-            <Banner tone="ok" title="Quarantined">
+            <Banner tone="ok" title={t("mfg.recallPages.title.quarantined")}>
               Affected stock was moved and put on hold on {formatDateTime(r.quarantined_at)}.
             </Banner>
           ) : null}
           {qResult ? (
-            <Banner tone="ok" title="Quarantine done" testId="quarantine-done">
+            <Banner tone="ok" title={t("mfg.recallPages.title.quarantineDone")} testId="quarantine-done">
               {qResult.moved !== undefined ? `${qResult.moved} balances moved` : "Stock moved"}
               {qResult.lots_on_hold !== undefined ? `, ${qResult.lots_on_hold} lots on hold` : ""}.
             </Banner>
@@ -309,7 +310,7 @@ export function RecallPage() {
             label="Affected stock"
             tableId="recall-lots"
             rowExtras={() => ({ testId: "quarantine-lot" })}
-            empty="No affected stock on hand."
+            empty={t("mfg.recallPages.empty.noAffectedStockOnHand")}
             card={{ title: "item", status: "hold", fields: ["lot", "on_hand", "location"] }}
           />
           {rep?.open_pos.length ? (
@@ -320,7 +321,7 @@ export function RecallPage() {
           {lotsToMove.length && !r.quarantined_at ? (
             <div className="row wrap" style={{ alignItems: "flex-end" }}>
               <div className="field">
-                <label htmlFor="rc-loc">Move to</label>
+                <label htmlFor="rc-loc">{t("mfg.recallPages.label.moveTo")}</label>
                 <select id="rc-loc" className="select" value={loc} onChange={(e) => setLoc(e.target.value)} data-testid="quarantine-location">
                   {quarantineLocs.length === 0 ? <option value="">No quarantine location: add one under Inventory, Locations</option> : null}
                   {quarantineLocs.map((l) => (
@@ -408,14 +409,14 @@ export function RecallPage() {
           testId="recall-units"
           exportName="recall-units"
           rowExtras={(u) => ({ testId: "recall-unit", data: { status: u.status, precision: u.precision } })}
-          empty="No affected units match these filters."
+          empty={t("mfg.recallPages.empty.noAffectedUnitsMatchThese")}
           card={{ title: "unit", status: "status", fields: ["item", "where", "link"] }}
         />
       </section>
       {confirm ? (
         <ConfirmDialog
           title={`Quarantine ${lotsToMove.length} lot${lotsToMove.length === 1 ? "" : "s"}?`}
-          confirmLabel="Move and hold"
+          confirmLabel={t("mfg.recallPages.btn.moveAndHold")}
           danger
           onCancel={() => setConfirm(false)}
           onConfirm={async () => {

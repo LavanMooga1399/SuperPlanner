@@ -19,6 +19,7 @@ import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
 import { isConflict, useLoad } from "../../lib/useMfg";
 import { formatDateTime, formatTime } from "../../../lib/locale";
+import { t } from "../../../lib/i18n";
 
 export const SOR_LABEL: Record<SorEntity, { label: string; help: string; allowed: SorValue[] }> = {
   items: { label: "Items", help: "Part number, description, unit, make/buy, cost. Planning settings (lot sizes, safety stock, families) always stay here.", allowed: ["erp", "superplanner", "shared"] },
@@ -65,7 +66,7 @@ export function IntegrationLayout() {
         </div>
       </div>
       {!can ? (
-        <Banner tone="info" title="Plant admins manage the integration">
+        <Banner tone="info" title={t("mfg.integrationPages.title.plantAdminsManageTheIntegration")}>
           {needsText("integration_admin")}
         </Banner>
       ) : null}
@@ -95,7 +96,7 @@ export function IntegrationOverview() {
   return (
     <div className="col gap-lg" data-testid="int-overview" data-enabled={s.enabled}>
       {!s.enabled ? (
-        <Banner tone="info" title="The integration is off for this plant" actions={<Link className="btn sm primary" to={mfgPaths.integration("settings")}>Set it up</Link>}>
+        <Banner tone="info" title={t("mfg.integrationPages.title.theIntegrationIsOffFor")} actions={<Link className="btn sm primary" to={mfgPaths.integration("settings")}>Set it up</Link>}>
           Nothing is sent to an ERP and ERP data is not accepted. Turn it on under Settings.
         </Banner>
       ) : null}
@@ -131,7 +132,7 @@ export function IntegrationOverview() {
         <div className="card-header">
           <h2>Who owns what</h2>
           <Link to={mfgPaths.integration("settings")} className="small">
-            Change
+            {t("mfg.integrationPages.btn.change")}
           </Link>
         </div>
         <SorSummary s={s} />
@@ -151,15 +152,15 @@ function SorSummary({ s }: { s: IntegrationSettings }) {
               <td>
                 {(s.sor[e] ?? "superplanner") === "erp" ? (
                   <span className="badge info">
-                    <Icon name="lock" size={12} /> ERP
+                    <Icon name="lock" size={12} /> {t("mfg.integrationPages.btn.erp")}
                   </span>
                 ) : (s.sor[e] ?? "superplanner") === "shared" ? (
                   <span className="badge warn">
-                    <Icon name="refresh" size={12} /> Both
+                    <Icon name="refresh" size={12} /> {t("mfg.integrationPages.btn.both")}
                   </span>
                 ) : (
                   <span className="badge ok">
-                    <Icon name="check" size={12} /> SuperPlanner
+                    <Icon name="check" size={12} /> {t("mfg.integrationPages.btn.superplanner")}
                   </span>
                 )}
               </td>
@@ -214,7 +215,7 @@ export function IntegrationSettingsTab() {
       data-testid="int-settings"
     >
       {conflict ? (
-        <Banner tone="warn" title="Someone else changed the settings" actions={<button type="button" className="btn sm" onClick={() => { setConflict(false); st.reload(); }}>Reload</button>}>
+        <Banner tone="warn" title={t("mfg.integrationPages.title.someoneElseChangedTheSettings")} actions={<button type="button" className="btn sm" onClick={() => { setConflict(false); st.reload(); }}>Reload</button>}>
           Your changes were not saved.
         </Banner>
       ) : null}
@@ -227,12 +228,12 @@ export function IntegrationSettingsTab() {
             </span>
           </label>
           <div className="field" style={{ maxWidth: 320 }}>
-            <label htmlFor="int-code">Plant code for files and events</label>
+            <label htmlFor="int-code">{t("mfg.integrationPages.label.plantCodeForFilesAnd")}</label>
             <input id="int-code" className="input mono" value={f.plant_code} disabled={!can} onChange={(e) => setF({ ...f, plant_code: e.target.value.replace(/[^A-Za-z0-9_.-]/g, "") })} maxLength={32} required data-testid="int-plant-code" />
             <span className="hint">Letters, digits, - _ . : names this plant's folder on the integration volume and appears in every event.</span>
           </div>
           <div className="field" style={{ maxWidth: 320 }}>
-            <label htmlFor="int-adapter">Format</label>
+            <label htmlFor="int-adapter">{t("mfg.integrationPages.label.format")}</label>
             <select id="int-adapter" className="select" value={f.adapter} disabled={!can} onChange={(e) => setF({ ...f, adapter: e.target.value })}>
               {(f.adapters?.length ? f.adapters : ["generic_v1"]).map((a) => (
                 <option key={a} value={a}>
@@ -309,7 +310,7 @@ export function IntegrationSettingsTab() {
       </section>
 
       <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={expert} onClick={() => setExpert((v) => !v)}>
-        <Icon name="settings" /> Files (file drop and export)
+        <Icon name="settings" /> {t("mfg.integrationPages.btn.filesFileDropAndExport")}
       </button>
       {expert ? (
         <section className="card">
@@ -328,7 +329,7 @@ export function IntegrationSettingsTab() {
             </label>
             {f.export_enabled ? (
               <div className="field" style={{ maxWidth: 220 }}>
-                <label htmlFor="int-every">Every (minutes, 5-1440)</label>
+                <label htmlFor="int-every">{t("mfg.integrationPages.label.everyMinutes51440")}</label>
                 <input id="int-every" className="input" type="number" min={5} max={1440} value={f.export_interval_minutes} disabled={!can} onChange={(e) => setF({ ...f, export_interval_minutes: Number(e.target.value) || 15 })} />
               </div>
             ) : null}
@@ -339,11 +340,11 @@ export function IntegrationSettingsTab() {
       {can ? (
         <div className="row">
           <button type="submit" className="btn primary" disabled={busy || !f.plant_code.trim()} data-testid="int-settings-save">
-            <Icon name="save" /> Save
+            <Icon name="save" /> {t("mfg.integrationPages.btn.save")}
           </button>
           {saved ? (
             <span className="badge ok">
-              <Icon name="check" /> Saved
+              <Icon name="check" /> {t("mfg.integrationPages.btn.saved")}
             </span>
           ) : null}
         </div>

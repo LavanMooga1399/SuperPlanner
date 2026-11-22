@@ -20,6 +20,7 @@ import { mfgPaths } from "../lib/paths";
 import { useCan } from "../lib/permissions";
 import { isNotFound, useLoad } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
+import { t } from "../../lib/i18n";
 
 type AnyOp = WoOperationRow | WoOperation;
 const isM4 = (o: AnyOp): o is WoOperation => "status" in o;
@@ -60,14 +61,14 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
         <h3>Operations on the floor</h3>
         <span className="row wrap">
           <Link className="btn sm" to={mfgPaths.printTraveller(woId)} data-testid="wo-print-traveller">
-            <Icon name="file" /> Print traveller
+            <Icon name="file" /> {t("mfg.woOperations.btn.printTraveller")}
           </Link>
           <Link className="btn sm ghost" to={mfgPaths.floorEvents({ wo: woId })}>
-            <Icon name="list" /> Event log
+            <Icon name="list" /> {t("mfg.woOperations.btn.eventLog")}
           </Link>
           {canEdit && !anyRecorded && !notReleased ? (
             <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => void run("refresh", () => refreshWoOperations(woId, woVersion))} title="Re-derive from the routing (only while nothing was recorded)">
-              <Icon name="refresh" /> Re-derive from routing
+              <Icon name="refresh" /> {t("mfg.woOperations.btn.rederiveFromRouting")}
             </button>
           ) : null}
         </span>
@@ -115,19 +116,19 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
                   <span className="row" style={{ gap: 4 }}>
                     {o.id ? (
                       <Link className="btn sm" to={mfgPaths.floorOp(o.id)} data-testid="wo-op-floor">
-                        Open on floor
+                        {t("mfg.woOperations.btn.openOnFloor")}
                       </Link>
                     ) : (
                       <span className="faint small">created at release</span>
                     )}
                     {o.id && canSupervise && o.status !== "completed" && o.status !== "skipped" ? (
                       <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => void run(o.id, () => setWoOperationDone(woId, o.seq, true, woVersion))} data-testid="op-done" title="Complete with the full available quantity (supervisor)">
-                        Done
+                        {t("mfg.woOperations.btn.done")}
                       </button>
                     ) : null}
                     {o.id && canSupervise && (o.status === "pending" || o.status === "ready") ? (
                       <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => setSkipping(o)} data-testid="op-skip">
-                        Skip
+                        {t("mfg.woOperations.btn.skip")}
                       </button>
                     ) : null}
                   </span>
@@ -214,7 +215,7 @@ function M3Ops({ woId, woVersion, ops, onChanged }: { woId: string; woVersion: n
                       </span>
                       {canEdit ? (
                         <button type="button" className="btn sm ghost" onClick={() => void toggle(o)} disabled={busy === o.seq} data-testid="op-reopen">
-                          Reopen
+                          {t("mfg.woOperations.btn.reopen")}
                         </button>
                       ) : null}
                     </span>

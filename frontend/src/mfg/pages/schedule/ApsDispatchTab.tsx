@@ -20,7 +20,7 @@ import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { formatDateTime } from "../../../lib/locale";
-import { plural } from "../../../lib/i18n";
+import { plural, t } from "../../../lib/i18n";
 import { DateInput } from "../../../components/DateInput";
 
 const MATERIAL: Record<string, { label: string; tone: string; icon: "check" | "alert" | "help" }> = {
@@ -86,7 +86,7 @@ export function ApsDispatchTab() {
     <div className="col gap-lg" data-testid="aps-dispatch">
       <div className="toolbar mfg-filters no-print">
         <div className="field">
-          <label htmlFor="dp-line">Line</label>
+          <label htmlFor="dp-line">{t("mfg.apsDispatchTab.label.line")}</label>
           <select id="dp-line" className="select" value={lineId} onChange={(e) => set("line", e.target.value)} data-testid="dispatch-line">
             {(lines.data?.items ?? []).map((l) => (
               <option key={l.id} value={l.id}>
@@ -96,7 +96,7 @@ export function ApsDispatchTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="dp-date">Day</label>
+          <label htmlFor="dp-date">{t("mfg.apsDispatchTab.label.day")}</label>
           <div className="row" style={{ gap: 4 }}>
             <button type="button" className="btn sm icon" aria-label="Previous day" onClick={() => set("date", addDays(date, -1))}>
               <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} />
@@ -108,7 +108,7 @@ export function ApsDispatchTab() {
           </div>
         </div>
         <div className="field">
-          <label htmlFor="dp-shift">Shift</label>
+          <label htmlFor="dp-shift">{t("mfg.apsDispatchTab.label.shift")}</label>
           <select id="dp-shift" className="select" value={shift} onChange={(e) => set("shift", e.target.value)} data-testid="dispatch-shift">
             <option value="">Whole day</option>
             {dayShifts.map((s) => (
@@ -121,11 +121,11 @@ export function ApsDispatchTab() {
           </select>
         </div>
         <button type="button" className="btn" style={{ alignSelf: "flex-end" }} onClick={() => window.print()} data-testid="dispatch-print">
-          <Icon name="file" /> Print
+          <Icon name="file" /> {t("mfg.apsDispatchTab.btn.print")}
         </button>
       </div>
       {!run.is_published ? (
-        <Banner tone="info" title="This run is not the published plan" >
+        <Banner tone="info" title={t("mfg.apsDispatchTab.title.thisRunIsNotThe")} >
           The shop floor works from the published schedule; this list shows what this run would ask for.
         </Banner>
       ) : null}
@@ -206,7 +206,7 @@ export function ApsDispatchTab() {
                       <td className="no-print">
                         {done ? (
                           <span className="badge ok">
-                            <Icon name="check" /> Done
+                            <Icon name="check" /> {t("mfg.apsDispatchTab.btn.done")}
                           </span>
                         ) : canDone && r.order.type === "wo" && r.wo_row_version != null ? (
                           <button type="button" className="btn sm" onClick={() => void markDone(r)} disabled={busyOp === r.op_no} data-testid="op-done">

@@ -36,7 +36,7 @@ import { isConflict, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 interface RHeader {
   code: string;
@@ -197,7 +197,7 @@ export function RoutingTab() {
             }
             data-testid="routing-new"
           >
-            <Icon name="plus" /> New routing
+            <Icon name="plus" /> {t("mfg.routingTab.btn.newRouting")}
           </button>
         </div>
         <MfgError error={list.error} onRetry={list.reload} />
@@ -226,7 +226,7 @@ export function RoutingTab() {
               <span className="row">
                 {r.status === "draft" ? (
                   <button type="button" className="btn sm" onClick={() => setPending({ kind: "release", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} data-testid="routing-release">
-                    <Icon name="check" /> Release
+                    <Icon name="check" /> {t("mfg.routingTab.btn.release")}
                   </button>
                 ) : null}
                 <button
@@ -242,11 +242,11 @@ export function RoutingTab() {
                   }
                   data-testid="routing-copy"
                 >
-                  <Icon name="copy" /> Copy
+                  <Icon name="copy" /> {t("mfg.routingTab.btn.copy")}
                 </button>
                 {r.status === "released" ? (
                   <button type="button" className="btn sm ghost" onClick={() => setPending({ kind: "obsolete", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} data-testid="routing-obsolete">
-                    <Icon name="ban" /> Make obsolete
+                    <Icon name="ban" /> {t("mfg.routingTab.btn.makeObsolete")}
                   </button>
                 ) : (
                   <button type="button" className="btn sm ghost icon" onClick={() => setPending({ kind: "delete", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} aria-label={`Delete ${r.code} v${r.version}`} data-testid="routing-delete">
@@ -281,8 +281,8 @@ export function RoutingTab() {
 
       {discardFor ? (
         <ConfirmDialog
-          title="Discard unsaved changes?"
-          confirmLabel="Discard changes"
+          title={t("mfg.routingTab.title.discardUnsavedChanges")}
+          confirmLabel={t("mfg.routingTab.btn.discardChanges")}
           danger
           onCancel={() => setDiscardFor(null)}
           onConfirm={() => {
@@ -303,19 +303,19 @@ export function RoutingTab() {
           onClose={() => setPending(null)}
           onRelease={async (body) => {
             await releaseRouting(pending.r.id, body, pending.r.row_version);
-            toast("Routing released");
+            toast(t("mfg.routingTab.toast.routingReleased"));
             setPending(null);
             list.reload();
           }}
         />
       ) : null}
       {pending?.kind === "obsolete" ? (
-        <ConfirmDialog title={`Make ${pending.r.code} v${pending.r.version} obsolete?`} confirmLabel="Make obsolete" busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => obsoleteRouting(pending.r.id, pending.r.row_version))}>
+        <ConfirmDialog title={`Make ${pending.r.code} v${pending.r.version} obsolete?`} confirmLabel={t("mfg.routingTab.btn.makeObsolete")} busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => obsoleteRouting(pending.r.id, pending.r.row_version))}>
           <p style={{ margin: 0 }}>It stops being used for planning and stays in the history (read-only).</p>
         </ConfirmDialog>
       ) : null}
       {pending?.kind === "delete" ? (
-        <ConfirmDialog title={`Delete ${pending.r.code} v${pending.r.version}?`} confirmLabel="Delete" danger busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => deleteRouting(pending.r.id, pending.r.row_version))}>
+        <ConfirmDialog title={`Delete ${pending.r.code} v${pending.r.version}?`} confirmLabel={t("mfg.routingTab.btn.delete")} danger busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => deleteRouting(pending.r.id, pending.r.row_version))}>
           <p style={{ margin: 0 }}>The routing and its operations are deleted.</p>
         </ConfirmDialog>
       ) : null}
@@ -428,7 +428,7 @@ function RoutingDocument({
           <span className="row">
             <StatusChip status={base.status} />
             <button type="button" className="btn sm ghost" aria-expanded={settings} onClick={() => setSettings((s) => !s)}>
-              <Icon name="settings" /> Routing settings
+              <Icon name="settings" /> {t("mfg.routingTab.btn.routingSettings")}
             </button>
           </span>
         </div>
@@ -441,7 +441,7 @@ function RoutingDocument({
               title={base.status === "released" ? "Released - copy to a new version to edit" : "Obsolete - copy to a new version to edit"}
               actions={
                 <button type="button" className="btn sm primary" onClick={() => void copy()} data-testid="routing-copy-banner">
-                  <Icon name="copy" /> Copy to a new version
+                  <Icon name="copy" /> {t("mfg.routingTab.btn.copyToANewVersion")}
                 </button>
               }
             />
@@ -459,7 +459,7 @@ function RoutingDocument({
             </div>
           ) : null}
           {movedRefs.length ? (
-            <Banner tone="warn" testId="routing-renumber-warning" title="Check the BOM after reordering">
+            <Banner tone="warn" testId="routing-renumber-warning" title={t("mfg.routingTab.title.checkTheBomAfterReordering")}>
               BOM lines of this item are consumed at operation {movedRefs.join(", ")}. After renumbering, that number now
               belongs to a different step. Update the "At op." column of the BOM if needed.
             </Banner>
@@ -481,7 +481,7 @@ function RoutingDocument({
           {!readOnly ? (
             <div className="row wrap">
               <button type="button" className="btn sm" onClick={() => setOps([...ops, blankOp(ops, groups[0]?.id ?? "")])} data-testid="op-add">
-                <Icon name="plus" /> Add operation
+                <Icon name="plus" /> {t("mfg.routingTab.btn.addOperation")}
               </button>
               {groups.length === 0 ? <span className="small muted">Create stages under Plant first; every operation runs on a stage.</span> : null}
             </div>
@@ -490,7 +490,7 @@ function RoutingDocument({
             <ul className="small mfg-problem-list" role="status">
               {duplicateSeq ? (
                 <li>
-                  <Icon name="alert" size={12} /> Two operations have the same number.
+                  <Icon name="alert" size={12} /> {t("mfg.routingTab.btn.twoOperationsHaveTheSame")}
                 </li>
               ) : null}
               {problems.map((x) => (
@@ -507,7 +507,7 @@ function RoutingDocument({
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save routing
               </button>
               <button type="button" className="btn" onClick={() => reset(base)} disabled={!dirty || busy}>
-                Undo changes
+                {t("mfg.routingTab.btn.undoChanges")}
               </button>
               <SaveState busy={false} saved={saved && !dirty} />
             </div>

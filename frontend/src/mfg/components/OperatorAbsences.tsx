@@ -13,6 +13,7 @@ import { useLoad } from "../lib/useMfg";
 import { EntityFormDialog } from "./EntityFormDialog";
 import { MfgError } from "./Feedback";
 import { SelectField, TextField } from "./Field";
+import { t } from "../../lib/i18n";
 
 const KIND_LABEL: Record<AbsenceKind, string> = { leave: "Leave", training: "Training", sick: "Sick", other: "Other" };
 
@@ -29,7 +30,7 @@ export function OperatorAbsences({ operatorId }: { operatorId: string }) {
         <h3>Absences</h3>
         {canEdit ? (
           <button type="button" className="btn sm" onClick={() => setEditing("new")} data-testid="absence-new">
-            <Icon name="plus" /> Add absence
+            <Icon name="plus" /> {t("mfg.operatorAbsences.btn.addAbsence")}
           </button>
         ) : null}
       </div>
@@ -46,7 +47,7 @@ export function OperatorAbsences({ operatorId }: { operatorId: string }) {
             {canEdit ? (
               <>
                 <button type="button" className="btn sm" onClick={() => setEditing(a)}>
-                  Edit
+                  {t("mfg.operatorAbsences.btn.edit")}
                 </button>
                 <button type="button" className="btn sm ghost icon" aria-label="Delete absence" onClick={() => setDeleting(a)}>
                   <Icon name="trash" />
@@ -69,8 +70,8 @@ export function OperatorAbsences({ operatorId }: { operatorId: string }) {
       ) : null}
       {deleting ? (
         <ConfirmDialog
-          title="Delete this absence?"
-          confirmLabel="Delete"
+          title={t("mfg.operatorAbsences.title.deleteThisAbsence")}
+          confirmLabel={t("mfg.operatorAbsences.btn.delete")}
           danger
           onCancel={() => setDeleting(null)}
           onConfirm={() => {

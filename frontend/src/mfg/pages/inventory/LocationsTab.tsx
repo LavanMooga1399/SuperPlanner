@@ -18,6 +18,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { useLoad } from "../../lib/useMfg";
 import { Link } from "react-router";
+import { t } from "../../../lib/i18n";
 
 const KIND_HELP: Record<LocationKind, string> = {
   stores: "Usable stock: counted by MRP and kitting.",
@@ -114,7 +115,7 @@ export function LocationsTab() {
       render: (l) =>
         l.receipt_default ? (
           <span className="badge accent">
-            <Icon name="download" /> Default
+            <Icon name="download" /> {t("mfg.locationsTab.btn.default")}
           </span>
         ) : null,
     },
@@ -131,7 +132,7 @@ export function LocationsTab() {
       render: (l) => (
         <span className="row" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
           <button type="button" className="btn sm" onClick={() => setEditing(l)} aria-label={`Edit location ${l.code}`}>
-            Edit
+            {t("mfg.locationsTab.btn.edit")}
           </button>
           <button type="button" className="btn sm ghost icon" onClick={() => setDeleting(l)} aria-label={`Delete location ${l.code}`}>
             <Icon name="trash" />
@@ -148,7 +149,7 @@ export function LocationsTab() {
         </p>
         <PermissionGate perm="master_edit">
           <button type="button" className="btn primary" onClick={() => setEditing("new")} data-testid="location-new">
-            <Icon name="plus" /> New location
+            <Icon name="plus" /> {t("mfg.locationsTab.btn.newLocation")}
           </button>
         </PermissionGate>
       </div>
@@ -162,7 +163,7 @@ export function LocationsTab() {
         loading={list.loading && !list.data}
         exportName="locations"
         rowExtras={(l) => ({ testId: "location-row", data: { code: l.code }, className: l.id === selected ? "mfg-highlight" : undefined })}
-        empty="No locations yet. Add at least one stores location before posting stock."
+        empty={t("mfg.locationsTab.empty.noLocationsYetAddAt")}
         card={{ title: "code", status: "status", actions: canEdit ? "actions" : undefined, fields: ["name", "kind", "receipts"] }}
       />
       {editing ? (
@@ -176,7 +177,7 @@ export function LocationsTab() {
         />
       ) : null}
       {deleting ? (
-        <ConfirmDialog title={`Delete ${deleting.code}?`} confirmLabel="Delete location" danger onCancel={() => setDeleting(null)} onConfirm={() => void remove(deleting)}>
+        <ConfirmDialog title={`Delete ${deleting.code}?`} confirmLabel={t("mfg.locationsTab.btn.deleteLocation")} danger onCancel={() => setDeleting(null)} onConfirm={() => void remove(deleting)}>
           <p style={{ margin: 0 }}>A location that has stock or ledger history cannot be deleted; make it inactive instead.</p>
         </ConfirmDialog>
       ) : null}

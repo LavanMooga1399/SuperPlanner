@@ -40,6 +40,7 @@ import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { ComponentsEditor, IssueDialog, OutputDialog } from "./WoDialogs";
 import { toast } from "../../../components/Toast";
 import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
+import { t } from "../../../lib/i18n";
 
 interface Form {
   number: string;
@@ -231,7 +232,7 @@ export function WorkOrderPage() {
               </span>
             ) : kitting.data ? (
               <span className="badge ok" data-testid="wo-kit-status" data-kit="complete">
-                <Icon name="check" /> Kit complete
+                <Icon name="check" /> {t("mfg.workOrderPage.btn.kitComplete")}
               </span>
             ) : null
           ) : null}
@@ -240,34 +241,34 @@ export function WorkOrderPage() {
           <div className="mfg-actions" role="group" aria-label="Actions">
             {status === "planned" ? (
               <button type="button" className="btn primary" onClick={() => setDlg("release")} disabled={busy || dirty} data-testid="wo-action-release">
-                <Icon name="play" /> Release
+                <Icon name="play" /> {t("mfg.workOrderPage.btn.release")}
               </button>
             ) : null}
             {active ? (
               <>
                 <button type="button" className="btn" onClick={() => void guard(() => reserveWorkOrder(wo.id, wo.row_version), "Free stock reserved for the open components.")} disabled={busy || dirty} data-testid="wo-reserve">
-                  <Icon name="lock" /> Reserve stock
+                  <Icon name="lock" /> {t("mfg.workOrderPage.btn.reserveStock")}
                 </button>
                 {reservedTotal > 0 ? (
                   <button type="button" className="btn ghost" onClick={() => void guard(() => unreserveWorkOrder(wo.id, wo.row_version), "Reservations released.")} disabled={busy || dirty} data-testid="wo-unreserve">
-                    <Icon name="unlock" /> Release reservations
+                    <Icon name="unlock" /> {t("mfg.workOrderPage.btn.releaseReservations")}
                   </button>
                 ) : null}
               </>
             ) : null}
             {status === "released" || status === "in_progress" ? (
               <button type="button" className="btn" onClick={() => setDlg("complete")} disabled={busy} data-testid="wo-action-complete">
-                <Icon name="check" /> Complete
+                <Icon name="check" /> {t("mfg.workOrderPage.btn.complete")}
               </button>
             ) : null}
             {status === "completed" ? (
               <button type="button" className="btn" onClick={() => setDlg("close")} disabled={busy} data-testid="wo-action-close">
-                <Icon name="lock" /> Close
+                <Icon name="lock" /> {t("mfg.workOrderPage.btn.close")}
               </button>
             ) : null}
             {status === "planned" || status === "released" ? (
               <button type="button" className="btn ghost" onClick={() => setDlg("cancel")} disabled={busy} data-testid="wo-action-cancel">
-                <Icon name="ban" /> Cancel
+                <Icon name="ban" /> {t("mfg.workOrderPage.btn.cancel")}
               </button>
             ) : null}
             {status === "planned" || status === "cancelled" ? (
@@ -282,13 +283,13 @@ export function WorkOrderPage() {
       {wo && (status === "released" || status === "in_progress") && can("inventory") ? (
         <div className="row wrap" role="group" aria-label="Stock postings">
           <button type="button" className="btn primary" onClick={() => setDlg("issue")} data-testid="wo-issue-open">
-            <Icon name="arrow-right" /> Issue components
+            <Icon name="arrow-right" /> {t("mfg.workOrderPage.btn.issueComponents")}
           </button>
           <button type="button" className="btn" onClick={() => setDlg("return")} disabled={!wo.components.some((c) => c.issued_qty > 0)} data-testid="wo-return-open">
-            <Icon name="refresh" /> Return components
+            <Icon name="refresh" /> {t("mfg.workOrderPage.btn.returnComponents")}
           </button>
           <button type="button" className="btn" onClick={() => setDlg("output")} data-testid="wo-receipt-open">
-            <Icon name="download" /> Report output
+            <Icon name="download" /> {t("mfg.workOrderPage.btn.reportOutput")}
           </button>
         </div>
       ) : null}
@@ -296,7 +297,7 @@ export function WorkOrderPage() {
       {conflict ? <ConflictBanner onReload={() => void getWorkOrder(woId).then(reset, setError)} what="this work order" /> : null}
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
       {wo?.reserved?.some((r) => r.shortage > 0) ? (
-        <Banner tone="warn" title="Not everything could be reserved">
+        <Banner tone="warn" title={t("mfg.workOrderPage.title.notEverythingCouldBeReserved")}>
           {wo.reserved.filter((r) => r.shortage > 0).length} components lack free stock; see the Kit column.
         </Banner>
       ) : null}
@@ -337,12 +338,12 @@ export function WorkOrderPage() {
             testId="wo-start"
           />
           <TextField label="Priority (1 = most important)" type="number" value={f.priority} onChange={(v) => setF({ ...f, priority: v })} disabled={!partEdit && !isNew} />
-          <TextField label="Number" value={f.number} onChange={(v) => setF({ ...f, number: v })} maxLength={32} placeholder="Next free number" disabled={!isNew} />
+          <TextField label="Number" value={f.number} onChange={(v) => setF({ ...f, number: v })} maxLength={32} placeholder={t("mfg.workOrderPage.ph.nextFreeNumber")} disabled={!isNew} />
           <div className="field">
             <span className="field-label">Unit serials</span>
             <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
-              <input className="input num" type="number" aria-label="Serial from" placeholder="from" value={f.serial_from} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_from: e.target.value })} />
-              <input className="input num" type="number" aria-label="Serial to" placeholder="to" value={f.serial_to} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_to: e.target.value })} />
+              <input className="input num" type="number" aria-label="Serial from" placeholder={t("mfg.workOrderPage.ph.from")} value={f.serial_from} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_from: e.target.value })} />
+              <input className="input num" type="number" aria-label="Serial to" placeholder={t("mfg.workOrderPage.ph.to")} value={f.serial_to} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_to: e.target.value })} />
             </div>
             <span className="hint">Serialized items: selects the BOM valid for these units.</span>
           </div>
@@ -388,11 +389,11 @@ export function WorkOrderPage() {
               <div className="mfg-actions">
                 {status === "planned" ? (
                   <button type="button" className="btn sm" onClick={() => setDlg("refresh")} disabled={busy}>
-                    <Icon name="refresh" /> Refresh from BOM
+                    <Icon name="refresh" /> {t("mfg.workOrderPage.btn.refreshFromBom")}
                   </button>
                 ) : null}
                 <button type="button" className="btn sm" onClick={() => setDlg("components")} disabled={busy || dirty} data-testid="wo-components-edit">
-                  Edit components
+                  {t("mfg.workOrderPage.btn.editComponents")}
                 </button>
               </div>
             ) : null}
@@ -409,7 +410,7 @@ export function WorkOrderPage() {
           <div className="card-header">
             <h3>Stock movements</h3>
             <Link to={mfgPaths.transactions()} className="small">
-              Ledger
+              {t("mfg.workOrderPage.btn.ledger")}
             </Link>
           </div>
           <DataTable
@@ -435,7 +436,7 @@ export function WorkOrderPage() {
       {dlg === "release" && wo ? (
         <ConfirmDialog
           title={`Release ${wo.number}?`}
-          confirmLabel="Release"
+          confirmLabel={t("mfg.workOrderPage.btn.release")}
           onCancel={() => setDlg(null)}
           onConfirm={() => {
             setDlg(null);
@@ -461,8 +462,8 @@ export function WorkOrderPage() {
       ) : null}
       {kitBlock && wo ? (
         <ConfirmDialog
-          title="Components are short for the first operation"
-          confirmLabel="Release anyway"
+          title={t("mfg.workOrderPage.title.componentsAreShortForThe")}
+          confirmLabel={t("mfg.workOrderPage.btn.releaseAnyway")}
           busy={busy}
           confirmDisabled={!overrideReason.trim()}
           onCancel={() => {
@@ -502,7 +503,7 @@ export function WorkOrderPage() {
             ) : null}
             <p style={{ marginTop: 0 }}>The floor can still start; the shortage is recorded with your reason.</p>
             <div className="field">
-              <label htmlFor="wo-override">Reason (required)</label>
+              <label htmlFor="wo-override">{t("mfg.workOrderPage.label.reasonRequired")}</label>
               <input id="wo-override" className="input" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} maxLength={200} data-testid="wo-release-override" />
             </div>
           </div>
@@ -512,7 +513,7 @@ export function WorkOrderPage() {
         <ConfirmDialog
           title={dlg === "complete" ? "Complete now (short close)?" : dlg === "close" ? "Close the work order?" : dlg === "cancel" ? "Cancel the work order?" : dlg === "refresh" ? "Regenerate components?" : "Delete the work order?"}
           confirmLabel={dlg === "complete" ? "Complete" : dlg === "close" ? "Close" : dlg === "cancel" ? "Cancel work order" : dlg === "refresh" ? "Regenerate" : "Delete"}
-          cancelLabel="Keep"
+          cancelLabel={t("mfg.workOrderPage.btn.keep")}
           danger={dlg === "cancel" || dlg === "delete"}
           onCancel={() => setDlg(null)}
           onConfirm={() => {

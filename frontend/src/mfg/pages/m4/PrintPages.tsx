@@ -17,6 +17,7 @@ import { fmtDate } from "../../lib/format";
 import { fmtNum } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { useLoad } from "../../lib/useMfg";
+import { t } from "../../../lib/i18n";
 
 function PrintBar({ title, back }: { title: string; back?: string }) {
   useEffect(() => {
@@ -28,11 +29,11 @@ function PrintBar({ title, back }: { title: string; back?: string }) {
       <span className="row">
         {back ? (
           <Link className="btn" to={back}>
-            Back
+            {t("mfg.printPages.btn.back")}
           </Link>
         ) : null}
         <button type="button" className="btn primary" onClick={() => window.print()} data-testid="print-now">
-          <Icon name="file" /> Print
+          <Icon name="file" /> {t("mfg.printPages.btn.print")}
         </button>
       </span>
     </div>
@@ -52,7 +53,7 @@ export function TravellerPage() {
       <PrintBar title={`Traveller ${w.number}`} back={mfgPaths.workOrder(w.id)} />
       {(!opRows.length || opRows.every((o) => !o.id)) && !ops.loading ? (
         <div className="banner warn no-print">
-          <Icon name="alert" /> This work order has no floor operations yet. Release it to the floor first; the traveller then lists every operation.
+          <Icon name="alert" /> {t("mfg.printPages.btn.thisWorkOrderHasNo")}
         </div>
       ) : null}
       <section className="traveller">

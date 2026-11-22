@@ -38,6 +38,7 @@ import { ShiftWeekPreview } from "../components/ShiftWeekPreview";
 import { KindBadge } from "../components/StatusChip";
 import { fmtQty } from "../lib/format";
 import { isConflict, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 export function ShiftsPage() {
   const [params, setParams] = useSearchParams();
@@ -77,7 +78,7 @@ export function ShiftsPage() {
               }}
               data-testid="template-new"
             >
-              <Icon name="plus" /> New template
+              <Icon name="plus" /> {t("mfg.shiftsPage.btn.newTemplate")}
             </button>
           </div>
           <MfgError error={templates.error} onRetry={templates.reload} />
@@ -204,7 +205,7 @@ function TemplateDocument({ template, onSaved, onCancel, onDeleted }: { template
         <MfgError error={error} title="Could not save the template" />
         {!template ? (
           <div className="field">
-            <label htmlFor="tpl-pattern">Start from</label>
+            <label htmlFor="tpl-pattern">{t("mfg.shiftsPage.label.startFrom")}</label>
             <select id="tpl-pattern" className="select" defaultValue="day" onChange={(e) => setShifts(SHIFT_PATTERNS.find((p) => p.id === e.target.value)?.shifts ?? [])} data-testid="template-pattern">
               {SHIFT_PATTERNS.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -228,13 +229,13 @@ function TemplateDocument({ template, onSaved, onCancel, onDeleted }: { template
           </button>
           {onCancel ? (
             <button type="button" className="btn" onClick={onCancel}>
-              Cancel
+              {t("mfg.shiftsPage.btn.cancel")}
             </button>
           ) : null}
           <span className="grow" />
           {template && onDeleted ? (
             <button type="button" className="btn danger sm" onClick={() => setConfirm(true)} data-testid="template-delete">
-              <Icon name="trash" /> Delete
+              <Icon name="trash" /> {t("mfg.shiftsPage.btn.delete")}
             </button>
           ) : null}
         </div>
@@ -242,7 +243,7 @@ function TemplateDocument({ template, onSaved, onCancel, onDeleted }: { template
       {confirm && template && onDeleted ? (
         <ConfirmDialog
           title={`Delete template ${template.code}?`}
-          confirmLabel="Delete template"
+          confirmLabel={t("mfg.shiftsPage.btn.deleteTemplate")}
           danger
           onCancel={() => setConfirm(false)}
           onConfirm={() => {
@@ -309,9 +310,9 @@ function AssignmentsCard({
       <div className="card-header">
         <h2 id="asg-title">Who works which shifts</h2>
         <div className="row">
-          <input className="input sm" type="search" placeholder="Filter by stage, line or template" aria-label="Filter assignments" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 240 }} />
+          <input className="input sm" type="search" placeholder={t("mfg.shiftsPage.ph.filterByStageLineOr")} aria-label="Filter assignments" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 240 }} />
           <button type="button" className="btn sm primary" onClick={() => setEditing("new")} disabled={templates.length === 0} data-testid="assignment-new">
-            <Icon name="plus" /> Assign shifts
+            <Icon name="plus" /> {t("mfg.shiftsPage.btn.assignShifts")}
           </button>
         </div>
       </div>
@@ -372,7 +373,7 @@ function AssignmentsCard({
                       }}
                       data-testid="assignment-edit"
                     >
-                      Edit
+                      {t("mfg.shiftsPage.btn.edit")}
                     </button>
                     <button type="button" className="btn sm ghost icon" aria-label={`Delete assignment of ${a.template.code} to ${a.target.code}`} onClick={() => setDel(a)}>
                       <Icon name="trash" />
@@ -402,8 +403,8 @@ function AssignmentsCard({
       <OpenSelected selectedId={selectedId} assignments={assignments} editing={editing} handled={handled} onOpen={setEditing} />
       {del ? (
         <ConfirmDialog
-          title="Remove this shift assignment?"
-          confirmLabel="Remove"
+          title={t("mfg.shiftsPage.title.removeThisShiftAssignment")}
+          confirmLabel={t("mfg.shiftsPage.btn.remove")}
           danger
           onCancel={() => setDel(null)}
           onConfirm={() => {

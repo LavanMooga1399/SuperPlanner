@@ -36,6 +36,7 @@ import { useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
+import { t } from "../../../lib/i18n";
 
 const EVENT_TYPES = [
   "work_order.created",
@@ -81,10 +82,10 @@ export function EndpointsTab() {
             <code className="totp-secret">{created.secret}</code>
             <div className="row">
               <button type="button" className="btn sm" onClick={() => void navigator.clipboard?.writeText(created.secret)}>
-                <Icon name="copy" /> Copy
+                <Icon name="copy" /> {t("mfg.integrationPages2.btn.copy")}
               </button>
               <button type="button" className="btn sm ghost" onClick={() => setCreated(null)}>
-                Done
+                {t("mfg.integrationPages2.btn.done")}
               </button>
             </div>
           </div>
@@ -95,7 +96,7 @@ export function EndpointsTab() {
           <h2>Webhooks</h2>
           {can ? (
             <button type="button" className="btn sm primary" onClick={() => setEdit("new")} data-testid="endpoint-new">
-              <Icon name="plus" /> Add webhook
+              <Icon name="plus" /> {t("mfg.integrationPages2.btn.addWebhook")}
             </button>
           ) : null}
         </div>
@@ -140,7 +141,7 @@ export function EndpointsTab() {
                       </span>
                     ) : (
                       <span className="badge ok">
-                        <Icon name="check" /> up to date
+                        <Icon name="check" /> {t("mfg.integrationPages2.btn.upToDate")}
                       </span>
                     )}
                     <div className="faint">sent up to event #{e.cursor}</div>
@@ -171,10 +172,10 @@ export function EndpointsTab() {
                           Send now
                         </button>
                         <button type="button" className="btn sm ghost" onClick={() => setEdit(e)}>
-                          Edit
+                          {t("mfg.integrationPages2.btn.edit")}
                         </button>
                         <button type="button" className="btn sm ghost" onClick={() => setDel(e)}>
-                          Remove
+                          {t("mfg.integrationPages2.btn.remove")}
                         </button>
                       </span>
                     ) : null}
@@ -199,7 +200,7 @@ export function EndpointsTab() {
       {del ? (
         <ConfirmDialog
           title={`Remove webhook "${del.name}"?`}
-          confirmLabel="Remove"
+          confirmLabel={t("mfg.integrationPages2.btn.remove")}
           danger
           onCancel={() => setDel(null)}
           onConfirm={async () => {
@@ -238,7 +239,7 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t("mfg.integrationPages2.btn.cancel")}
           </button>
           <button
             type="button"
@@ -265,11 +266,11 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
     >
       <div className="col">
         <div className="field">
-          <label htmlFor="ep-name">Name</label>
-          <input id="ep-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. ERP middleware" data-testid="endpoint-name" />
+          <label htmlFor="ep-name">{t("mfg.integrationPages2.label.name")}</label>
+          <input id="ep-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("mfg.integrationPages2.ph.egErpMiddleware")} data-testid="endpoint-name" />
         </div>
         <div className="field">
-          <label htmlFor="ep-url">Address (https)</label>
+          <label htmlFor="ep-url">{t("mfg.integrationPages2.label.addressHttps")}</label>
           <input id="ep-url" className="input mono" value={url} onChange={(e) => setUrl(e.target.value)} aria-invalid={!urlOk} data-testid="endpoint-url" />
           <span className="hint">{urlOk ? "Each event is sent as a signed POST, in order; a failing event holds back later ones for this address." : "Use an https:// address."}</span>
         </div>
@@ -402,7 +403,7 @@ export function DeliveriesTab() {
             render: (d) =>
               can && (d.status === "dead" || viewOf(d) === "retrying") ? (
                 <button type="button" className="btn sm" disabled={busy === d.id} onClick={() => void act(d.id, () => retryDelivery(d.id))} data-testid="delivery-retry">
-                  <Icon name="refresh" /> Retry now
+                  <Icon name="refresh" /> {t("mfg.integrationPages2.btn.retryNow")}
                 </button>
               ) : null,
           },
@@ -466,7 +467,7 @@ export function BatchesTab() {
         loading={data.loading}
         exportName="integration-batches"
         rowExtras={(b) => ({ testId: "batch-row", data: { status: b.status } })}
-        empty="No data received yet. Batches from the ERP, file drop or another plant appear here."
+        empty={t("mfg.integrationPages2.empty.noDataReceivedYetBatches")}
         footer={<ShowMore shown={data.rows.length} total={data.total} noun="batches" loading={data.loading} onMore={data.onEndReached} />}
         card={{ title: "received", status: "status", fields: ["data", "from", "rejected"] }}
       />
@@ -571,7 +572,7 @@ export function EventsTab() {
       </p>
       <div className="toolbar">
         <div className="field">
-          <label htmlFor="ev-type">Type</label>
+          <label htmlFor="ev-type">{t("mfg.integrationPages2.label.type")}</label>
           <select id="ev-type" className="select sm" value={type} onChange={(e) => { setType(e.target.value); setAfter(0); }}>
             <option value="">All</option>
             {EVENT_TYPES.map((t) => (
@@ -582,7 +583,7 @@ export function EventsTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="ev-after">After event #</label>
+          <label htmlFor="ev-after">{t("mfg.integrationPages2.label.afterEvent")}</label>
           <input id="ev-after" className="input sm" type="number" min={0} value={after} onChange={(e) => setAfter(Math.max(0, Number(e.target.value) || 0))} />
         </div>
       </div>
@@ -603,7 +604,7 @@ export function EventsTab() {
             exportValue: () => "",
             render: (e) => (
               <button type="button" className="btn sm ghost" aria-expanded={open === e.seq} onClick={() => setOpen(open === e.seq ? null : e.seq)}>
-                Data
+                {t("mfg.integrationPages2.btn.data")}
               </button>
             ),
           },
@@ -614,11 +615,11 @@ export function EventsTab() {
         loading={ev.loading && !ev.data}
         exportName="integration-events"
         rowExtras={(e) => ({ testId: "event-row", className: open === e.seq ? "mfg-selected" : undefined })}
-        empty="No events after this number."
+        empty={t("mfg.integrationPages2.empty.noEventsAfterThisNumber")}
         footer={
           ev.data && ev.data.items.length ? (
             <button type="button" className="btn sm" onClick={() => setAfter(ev.data!.next_after)}>
-              Next events
+              {t("mfg.integrationPages2.btn.nextEvents")}
             </button>
           ) : undefined
         }
@@ -628,7 +629,7 @@ export function EventsTab() {
           <div className="card-header">
             <h2>Event #{open}</h2>
             <button type="button" className="btn sm ghost" onClick={() => setOpen(null)}>
-              <Icon name="x" /> Close
+              <Icon name="x" /> {t("mfg.integrationPages2.btn.close")}
             </button>
           </div>
           <pre className="int-json" style={{ margin: 0, border: 0 }}>
@@ -653,7 +654,7 @@ export function FiledropTab() {
       <MfgError error={st.error} onRetry={st.reload} />
       {s ? (
         <>
-          {!s.enabled ? <Banner tone="info" title="File drop is off">Turn it on under Settings, Files.</Banner> : null}
+          {!s.enabled ? <Banner tone="info" title={t("mfg.integrationPages2.title.fileDropIsOff")}>Turn it on under Settings, Files.</Banner> : null}
           <p className="muted small" style={{ margin: 0 }}>
             Folder <span className="mono">{s.root ? `${s.root}/` : ""}{code}/inbox</span>. Files are read once their size stops changing (or a .done file appears), checked like an import, then moved to archive with a .result.json, or to error with a report.
             {s.last_poll_at ? ` Last check ${when(s.last_poll_at)}.` : ""}
@@ -811,7 +812,7 @@ export function ValueMapsTab() {
       {can ? (
         <div className="card-footer row">
           <button type="button" className="btn sm" onClick={() => setRows((r) => [...r, { domain: "uom", external_value: "", internal_value: "" }])} data-testid="value-map-add">
-            <Icon name="plus" /> Add mapping
+            <Icon name="plus" /> {t("mfg.integrationPages2.btn.addMapping")}
           </button>
           <button
             type="button"
@@ -832,11 +833,11 @@ export function ValueMapsTab() {
             }}
             data-testid="value-map-save"
           >
-            <Icon name="save" /> Save
+            <Icon name="save" /> {t("mfg.integrationPages2.btn.save")}
           </button>
           {saved ? (
             <span className="badge ok">
-              <Icon name="check" /> Saved
+              <Icon name="check" /> {t("mfg.integrationPages2.btn.saved")}
             </span>
           ) : null}
         </div>
@@ -895,7 +896,7 @@ export function ReconciliationTab() {
             Load the ERP's stock list (CSV with item_ref, location_code, lot_code, qty, or superplanner.v1 JSON). It is compared by item, location and lot with this plant. Nothing is changed; differences can be turned into a count posting after review.
           </p>
           <div className="field">
-            <label htmlFor="rc-file">ERP stock file</label>
+            <label htmlFor="rc-file">{t("mfg.integrationPages2.label.erpStockFile")}</label>
             <input
               id="rc-file"
               type="file"
@@ -935,7 +936,7 @@ export function ReconciliationTab() {
               }}
               data-testid="recon-start"
             >
-              <Icon name="compare" /> Compare
+              <Icon name="compare" /> {t("mfg.integrationPages2.btn.compare")}
             </button>
           </div>
         </div>
@@ -953,7 +954,7 @@ export function ReconciliationTab() {
         testId="recon-list"
         loading={list.loading && !list.data}
         exportName="reconciliations"
-        empty="No comparisons yet. Upload an ERP stock file above to compare."
+        empty={t("mfg.integrationPages2.empty.noComparisonsYetUploadAn")}
       />
     </div>
   );
@@ -995,7 +996,7 @@ export function ReconciliationPage() {
         <Link to={mfgPaths.integration("reconciliation")}>Reconciliation</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.created_at)}</span>
       </nav>
       {d.status === "queued" || d.status === "running" ? <Spinner label="Comparing…" /> : null}
-      {d.status === "failed" ? <Banner tone="danger" title="The comparison failed">Try again; if it keeps failing, check the file.</Banner> : null}
+      {d.status === "failed" ? <Banner tone="danger" title={t("mfg.integrationPages2.title.theComparisonFailed")}>Try again; if it keeps failing, check the file.</Banner> : null}
       {d.status === "completed" ? (
         <div className="row wrap" role="group" aria-label="Show">
           <button type="button" className={`btn sm${!kind ? " primary" : ""}`} aria-pressed={!kind} onClick={() => setKind("")}>
@@ -1015,7 +1016,7 @@ export function ReconciliationPage() {
         </div>
       ) : null}
       {d.status === "completed" && !rows.length ? (
-        <Banner tone="ok" title="Everything matches" testId="recon-clean">
+        <Banner tone="ok" title={t("mfg.integrationPages2.title.everythingMatches")} testId="recon-clean">
           No differences between the ERP and this plant.
         </Banner>
       ) : null}

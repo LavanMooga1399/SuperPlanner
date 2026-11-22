@@ -28,7 +28,7 @@ import { ActiveBadge, KindBadge } from "../components/StatusChip";
 import { effectivityText } from "../components/EffectivityBadge";
 import { mfgPaths } from "../lib/paths";
 import { isConflict, useLoad } from "../lib/useMfg";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 type Panel = { kind: "group"; id: string } | { kind: "line"; id: string } | { kind: "new-group" } | { kind: "new-line"; groupId: string } | null;
 
@@ -75,7 +75,7 @@ export function GroupsPage() {
         <div className="card-header">
           <h2 id="groups-title">Stages and lines</h2>
           <button type="button" className="btn sm primary" onClick={() => setCreating({ kind: "new-group" })} data-testid="group-new">
-            <Icon name="plus" /> New stage
+            <Icon name="plus" /> {t("mfg.groupsPage.btn.newStage")}
           </button>
         </div>
         <p className="muted small" style={{ margin: "8px 16px 0" }}>
@@ -195,7 +195,7 @@ function GroupPanel({ id, onChanged, onDeleted, onAddLine }: { id: string; onCha
         <div className="card-header">
           <h3>Lines of {d.code}</h3>
           <button type="button" className="btn sm" onClick={onAddLine} data-testid="line-new">
-            <Icon name="plus" /> Add line
+            <Icon name="plus" /> {t("mfg.groupsPage.btn.addLine")}
           </button>
         </div>
         <div className="card-body">
@@ -306,14 +306,14 @@ function GroupEditor({ group, onSaved, onCancel, onDeleted }: { group: GroupReco
           </button>
           {onCancel ? (
             <button type="button" className="btn sm" onClick={onCancel}>
-              Cancel
+              {t("mfg.groupsPage.btn.cancel")}
             </button>
           ) : null}
           <SaveState busy={false} saved={saved} />
           <span className="grow" />
           {group && onDeleted ? (
             <button type="button" className="btn sm danger" onClick={() => setConfirm(true)} data-testid="group-delete">
-              <Icon name="trash" /> Delete
+              <Icon name="trash" /> {t("mfg.groupsPage.btn.delete")}
             </button>
           ) : null}
         </div>
@@ -321,7 +321,7 @@ function GroupEditor({ group, onSaved, onCancel, onDeleted }: { group: GroupReco
       {confirm && group && onDeleted ? (
         <ConfirmDialog
           title={`Delete stage ${group.code}?`}
-          confirmLabel="Delete stage"
+          confirmLabel={t("mfg.groupsPage.btn.deleteStage")}
           danger
           onCancel={() => setConfirm(false)}
           onConfirm={() => {
@@ -491,13 +491,13 @@ function LineEditor({
               ))}
             </ul>
             <div style={{ maxWidth: 320 }}>
-              <ItemPicker value={null} label="Add an item" hideLabel placeholder="Add an item…" onChange={(it) => !f.items.some((x) => x.id === it.id) && setF({ ...f, items: [...f.items, it] })} />
+              <ItemPicker value={null} label="Add an item" hideLabel placeholder={t("mfg.groupsPage.ph.addAnItem")} onChange={(it) => !f.items.some((x) => x.id === it.id) && setF({ ...f, items: [...f.items, it] })} />
             </div>
           </div>
         </fieldset>
         <div>
           <button type="button" className="btn ghost sm" aria-expanded={more} onClick={() => setMore((m) => !m)}>
-            <Icon name={more ? "chevron-down" : "chevron-right"} /> More settings (cost, setup family, line-side stock, batching)
+            <Icon name={more ? "chevron-down" : "chevron-right"} /> {t("mfg.groupsPage.btn.moreSettingsCostSetupFamily")}
           </button>
         </div>
         {more ? (
@@ -527,14 +527,14 @@ function LineEditor({
           </button>
           {onCancel ? (
             <button type="button" className="btn sm" onClick={onCancel}>
-              Cancel
+              {t("mfg.groupsPage.btn.cancel")}
             </button>
           ) : null}
           <SaveState busy={false} saved={saved} />
           <span className="grow" />
           {line && onDeleted ? (
             <button type="button" className="btn sm danger" onClick={() => setConfirm(true)} data-testid="line-delete">
-              <Icon name="trash" /> Delete
+              <Icon name="trash" /> {t("mfg.groupsPage.btn.delete")}
             </button>
           ) : null}
         </div>
@@ -542,7 +542,7 @@ function LineEditor({
       {confirm && line && onDeleted ? (
         <ConfirmDialog
           title={`Delete line ${line.code}?`}
-          confirmLabel="Delete line"
+          confirmLabel={t("mfg.groupsPage.btn.deleteLine")}
           danger
           onCancel={() => setConfirm(false)}
           onConfirm={() => {

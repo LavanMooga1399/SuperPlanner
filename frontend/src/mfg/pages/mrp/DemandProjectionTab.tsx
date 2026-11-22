@@ -13,6 +13,7 @@ import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useRun } from "./RunShell";
 import { FilterBar } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 /** "KV-TPU-1000 (16 working days) <- KV-VCU-2000 <- ... <- KV-IC-FPGA-V1: PO-KV-0101/10/1 available 24 Nov". */
 export function LimitingPath({ steps, runId }: { steps: LimitingStep[]; runId?: string }) {
@@ -60,7 +61,7 @@ export function DemandProjectionTab() {
     <div className="col gap-lg">
       <FilterBar pageKey="DemandProjectionTab">
         <div className="field">
-          <label htmlFor="dp-status">Show</label>
+          <label htmlFor="dp-status">{t("mfg.demandProjectionTab.label.show")}</label>
           <select id="dp-status" className="select" value={status} onChange={(e) => set("status", e.target.value)} data-testid="demand-proj-status">
             <option value="">All demand lines</option>
             <option value="late">Late</option>
@@ -69,7 +70,7 @@ export function DemandProjectionTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="dp-sort">Sort by</label>
+          <label htmlFor="dp-sort">{t("mfg.demandProjectionTab.label.sortBy")}</label>
           <select id="dp-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "-late_days" ? "" : e.target.value)}>
             <option value="-late_days">Most late first</option>
             <option value="due_date">Due date</option>

@@ -1,9 +1,15 @@
 /**
- * i18n-ready strings for the shared components (UX-STANDARD 4/8). English only for now: every user-visible
- * string of the shell, tables, filters and dialogs comes from here, so a later translation replaces one map.
+ * i18n-ready strings (UX-STANDARD 4/8). English only for now: the shell, tables, filters and dialogs (below), the
+ * navigation (`strings/nav.ts`) and the manufacturing page copy (`strings/mfg.ts`) all come from this one
+ * dictionary, so a later translation replaces one map.
  * `t("table.showing", { shown: "3", total: "10" })` fills `{name}` placeholders.
  */
+import { mfgStrings } from "./strings/mfg";
+import { navStrings } from "./strings/nav";
+
 const en = {
+  ...navStrings,
+  ...mfgStrings,
   "common.cancel": "Cancel",
   "common.close": "Close",
   "common.dismiss": "Dismiss notification",

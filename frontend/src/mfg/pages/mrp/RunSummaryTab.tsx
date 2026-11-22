@@ -12,6 +12,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useLoad } from "../../lib/useMfg";
 import { LimitingPath } from "./DemandProjectionTab";
 import { useRun } from "./RunShell";
+import { t } from "../../../lib/i18n";
 
 const CODE_SEVERITY: Record<string, MrpSeverity> = {
   MRP_DEMAND_LATE: "critical",
@@ -52,7 +53,7 @@ export function RunSummaryTab() {
           {late.data && late.data.items.length === 0 ? (
             <div className="card-body">
               <span className="badge ok">
-                <Icon name="check" /> Every demand line is on time
+                <Icon name="check" /> {t("mfg.runSummaryTab.btn.everyDemandLineIsOn")}
               </span>
             </div>
           ) : null}

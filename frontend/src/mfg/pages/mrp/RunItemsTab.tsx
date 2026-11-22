@@ -16,6 +16,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
 import { FilterBar } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 export function mrpItemColumns(runId: string): Column<MrpItemRow>[] {
   return [
@@ -47,7 +48,7 @@ export function mrpItemColumns(runId: string): Column<MrpItemRow>[] {
           </span>
         ) : (
           <span className="faint">
-            <Icon name="check" size={12} /> No
+            <Icon name="check" size={12} /> {t("mfg.runItemsTab.btn.no")}
           </span>
         ),
     },
@@ -80,7 +81,7 @@ export function RunItemsTab() {
     <div className="col gap-lg">
       <FilterBar search={{ id: "ri-q", value: q, onChange: setQ, placeholder: "Part number or description", testId: "run-items-search" }} pageKey="RunItemsTab">
         <div className="field">
-          <label htmlFor="ri-mb">Make / buy</label>
+          <label htmlFor="ri-mb">{t("mfg.runItemsTab.label.makeBuy")}</label>
           <select id="ri-mb" className="select" value={makeBuy} onChange={(e) => set("make_buy", e.target.value)}>
             <option value="">All</option>
             <option value="make">Make</option>
@@ -88,7 +89,7 @@ export function RunItemsTab() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="ri-sort">Sort by</label>
+          <label htmlFor="ri-sort">{t("mfg.runItemsTab.label.sortBy")}</label>
           <select id="ri-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "llc" ? "" : e.target.value)}>
             <option value="llc">BOM level</option>
             <option value="part_number">Part number</option>
