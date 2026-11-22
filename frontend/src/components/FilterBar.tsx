@@ -6,6 +6,7 @@
 import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Icon } from "./Icon";
+import { savePref, syncPref } from "../lib/serverPrefs";
 import { t } from "../lib/i18n";
 
 export interface FilterChip {
@@ -137,13 +138,10 @@ function SavedViews({ pageKey }: { pageKey: string }) {
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+  useEffect(() => syncPref<SavedView[]>(`views.${pageKey}`, `sp.views.${pageKey}`, (v) => setViews(Array.isArray(v) ? v : [])), [pageKey]);
   const store = (v: SavedView[]) => {
     setViews(v);
-    try {
-      window.localStorage.setItem(`sp.views.${pageKey}`, JSON.stringify(v));
-    } catch {
-      /* storage unavailable */
-    }
+    savePref(`views.${pageKey}`, `sp.views.${pageKey}`, v.length ? v : undefined);
   };
   const current = views.find((v) => v.search === location.search);
   const save = () => {

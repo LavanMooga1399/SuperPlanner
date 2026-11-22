@@ -6,6 +6,7 @@ import { CommandPalette } from "./components/shell/CommandPalette";
 import { GlobalShortcuts, ShortcutsDialog } from "./components/shell/Shortcuts";
 import { MOD, openPalette, openShortcuts } from "./components/shell/commands";
 import { Toaster } from "./components/Toast";
+import { syncDisplayPrefs } from "./lib/prefs";
 import { NETWORK_MESSAGE, getHealth } from "./api/client";
 import type { Health } from "./api/types";
 import { Banner } from "./components/Banner";
@@ -102,6 +103,10 @@ export function App() {
   const server = useServerHealth();
   const auth = useAuth();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  // display settings follow the person (server preferences), once signed in
+  useEffect(() => {
+    if (auth.status === "authenticated") syncDisplayPrefs();
+  }, [auth.status]);
   // Accounts mode, nobody signed in (sign-in / sign-up pages): no section links to pages that need a session.
   const showNav = !(auth.mode === "accounts" && auth.status !== "authenticated");
   return (

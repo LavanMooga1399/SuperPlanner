@@ -4,6 +4,7 @@
  * any component (tables, header) re-renders when they change.
  */
 import { useSyncExternalStore } from "react";
+import { savePref, syncPref } from "./serverPrefs";
 
 export type ThemePref = "light" | "dark" | "system";
 export type Density = "compact" | "comfortable";
@@ -81,14 +82,39 @@ export function initPrefs(): void {
   });
 }
 
-export function setTheme(theme: ThemePref): void {
+const DISPLAY_PREF = "display";
+const DISPLAY_LOCAL = "sp.display";
+
+function pushDisplay(): void {
+  savePref(DISPLAY_PREF, DISPLAY_LOCAL, { theme: state.theme, density: state.density });
+}
+
+function applyLocal(theme: ThemePref, density: Density): void {
   write(THEME_KEY, theme === "system" ? null : theme);
-  emit({ ...state, theme, resolved: theme === "system" ? (systemDark() ? "dark" : "light") : theme });
+  write(DENSITY_KEY, density);
+  emit({ theme, resolved: theme === "system" ? (systemDark() ? "dark" : "light") : theme, density });
+}
+
+export function setTheme(theme: ThemePref): void {
+  applyLocal(theme, state.density);
+  pushDisplay();
 }
 
 export function setDensity(density: Density): void {
-  write(DENSITY_KEY, density);
-  emit({ ...state, density });
+  applyLocal(state.theme, density);
+  pushDisplay();
+}
+
+/** After sign-in: take the person's server display settings (or upload this browser's once). */
+export function syncDisplayPrefs(): void {
+  // seed the local cache from the two legacy keys so the one-time migration has something to upload
+  if (window.localStorage.getItem(DISPLAY_LOCAL) === null && (window.localStorage.getItem(THEME_KEY) !== null || window.localStorage.getItem(DENSITY_KEY) !== null))
+    write(DISPLAY_LOCAL, { theme: state.theme, density: state.density });
+  syncPref<{ theme?: ThemePref; density?: Density }>(DISPLAY_PREF, DISPLAY_LOCAL, (v) => {
+    const theme = v?.theme === "light" || v?.theme === "dark" || v?.theme === "system" ? v.theme : state.theme;
+    const density = v?.density === "comfortable" || v?.density === "compact" ? v.density : state.density;
+    applyLocal(theme, density);
+  });
 }
 
 const subscribe = (l: () => void) => {

@@ -25,6 +25,7 @@ import {
 } from "react";
 import { Icon } from "../../components/Icon";
 import { useRowHeight } from "../../lib/prefs";
+import { savePref, syncPref } from "../../lib/serverPrefs";
 import { t } from "../../lib/i18n";
 
 /** Default (compact) row height; the live value follows the density preference (`useRowHeight`). */
@@ -148,13 +149,13 @@ function loadPrefs(id: string): ColumnPrefs {
   }
 }
 
+/** Server preference key of a table layout (allowed characters only). */
+const prefKey = (id: string) => `table.${id.replace(/[^A-Za-z0-9._:-]+/g, "-")}`.slice(0, 128);
+
 function savePrefs(id: string, p: ColumnPrefs): void {
-  try {
-    if (!p.hidden.length && !p.order.length && !Object.keys(p.widths).length) window.localStorage.removeItem(`sp.table.${id}`);
-    else window.localStorage.setItem(`sp.table.${id}`, JSON.stringify(p));
-  } catch {
-    /* storage unavailable */
-  }
+  const empty = !p.hidden.length && !p.order.length && !Object.keys(p.widths).length;
+  // local cache now, the person's server preferences shortly after (UX-STANDARD "Backend support")
+  savePref(prefKey(id), `sp.table.${id}`, empty ? undefined : p);
 }
 
 /** Plain text of a rendered cell (for CSV export and tooltips). */
@@ -214,6 +215,9 @@ export function VirtualTable<T>({
   const HEAD_H = cardMode ? 0 : ROW_HEIGHT;
   const prefsId = tableId ?? testId ?? label;
   const [colPrefs, setColPrefs] = useState<ColumnPrefs>(() => loadPrefs(prefsId));
+  useEffect(() => {
+    syncPref<ColumnPrefs>(prefKey(prefsId), `sp.table.${prefsId}`, (v) => setColPrefs({ hidden: v?.hidden ?? [], order: v?.order ?? [], widths: v?.widths ?? {} }));
+  }, [prefsId]);
   const updatePrefs = (p: ColumnPrefs) => {
     setColPrefs(p);
     savePrefs(prefsId, p);
