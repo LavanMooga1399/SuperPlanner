@@ -12,6 +12,7 @@ import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { runTitle } from "./MrpRunsPage";
 import { useRun } from "./RunShell";
+import { FilterBar } from "../../../components/FilterBar";
 
 function Delta({ a, b, invert, days }: { a: number | null; b: number | null; invert?: boolean; days?: boolean }) {
   if (a === null || b === null) return null;
@@ -37,7 +38,7 @@ export function CompareView() {
   const c = cmp.data;
   return (
     <div className="col gap-lg" data-testid="compare-view">
-      <div className="toolbar mfg-filters">
+      <FilterBar>
         <div className="field" style={{ minWidth: 320 }}>
           <label htmlFor="cmp-with">Compare run #{run.run_no} with</label>
           <select id="cmp-with" className="select" value={withId} onChange={(e) => setSearchParam(setParams, "with", e.target.value)} data-testid="compare-with">
@@ -49,7 +50,7 @@ export function CompareView() {
             ))}
           </select>
         </div>
-      </div>
+      </FilterBar>
       <MfgError error={runs.error ?? cmp.error} onRetry={cmp.reload} />
       {cmp.loading && withId && !c ? <Spinner label="Comparing…" /> : null}
       {c ? (

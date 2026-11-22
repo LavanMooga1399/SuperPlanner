@@ -20,6 +20,7 @@ import { useCan } from "../../lib/permissions";
 import { usePolling } from "../../lib/usePolling";
 import { useLoad } from "../../lib/useMfg";
 import { ApsRunForm } from "./ApsRunForm";
+import { PageHeader } from "../../../components/PageHeader";
 
 export function apsRunTitle(r: Pick<ApsRunRecord, "run_no" | "label">): string {
   return `Schedule #${r.run_no}${r.label ? ` · ${r.label}` : ""}`;
@@ -42,12 +43,12 @@ export function ApsRunsPage() {
 
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Production schedule</h1>
-          <p>Finite-capacity plan of every operation on the lines, shift by shift, for all orders at once. Publish one run as the plant plan.</p>
-        </div>
-        <Link className="btn" to={mfgPaths.simulations()} data-testid="aps-risk-link">
+      <PageHeader
+        title="Production schedule"
+        description="Finite-capacity plan of every operation on the lines, shift by shift, for all orders at once. Publish one run as the plant plan."
+        actions={
+          <>
+            <Link className="btn" to={mfgPaths.simulations()} data-testid="aps-risk-link">
           <Icon name="graph" /> Delivery risk
         </Link>
         <PermissionGate perm="schedule_run">
@@ -55,7 +56,9 @@ export function ApsRunsPage() {
             <Icon name="play" /> New schedule
           </button>
         </PermissionGate>
-      </div>
+          </>
+        }
+      />
       {form ? (
         <ApsRunForm
           initial={prefill}

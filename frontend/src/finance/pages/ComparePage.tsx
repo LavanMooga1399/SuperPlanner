@@ -10,6 +10,7 @@ import type { FinanceComparison, FinanceResultSummary } from "../api/types";
 import { EngineVersionBanner } from "../components/EngineVersionBanner";
 import { ScenarioCompareTable } from "../components/ScenarioCompareTable";
 import { useLoadedFinancePlan } from "../state/FinancePlanContext";
+import { PageHeader } from "../../components/PageHeader";
 
 const resultLabel = (r: FinanceResultSummary) =>
   `${r.kind === "what_if" ? `What-if${r.label ? `: ${r.label}` : ""}` : `Plan v${r.base_plan_version}`} (${fmtLocal(r.created_at)})`;
@@ -58,12 +59,10 @@ export function ComparePage() {
 
   return (
     <div className="col gap-lg">
-      <div className="fin-header">
-        <div className="col" style={{ gap: 4 }}>
-          <h1>Compare scenarios</h1>
-          <span className="muted">Changes are shown as B compared with A.</span>
-        </div>
-      </div>
+      <PageHeader
+        title="Compare scenarios"
+        description="Changes are shown as B compared with A."
+      />
       {list.loading && !list.data ? <Loading label="Loading results…" /> : null}
       <ErrorBanner error={list.error} onRetry={list.reload} />
       {list.data && items.length < 2 ? (

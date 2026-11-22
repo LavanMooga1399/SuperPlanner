@@ -305,3 +305,6 @@ h2.mono { font-size: var(--fs-md); }
 .bulk-count { color: var(--text); }
 .bulk-bar > .btn.ghost { margin-left: auto; }
 .bulk-list { margin: 0; padding-left: 18px; max-height: 160px; overflow: auto; columns: 2; }
+@media print { .page-header .page-actions { display: none !important; } }
+.field > .date-input { width: 100%; }
+.mfg-filters .field > .date-input, .filter-bar .field > .date-input { width: 140px; }

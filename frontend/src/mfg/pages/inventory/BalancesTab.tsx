@@ -17,6 +17,7 @@ import { useItemInfo } from "../../lib/itemCache";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, usePlant } from "../../lib/useMfg";
+import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 
 export function BalancesTab() {
   const [params, setParams] = useSearchParams();
@@ -123,13 +124,17 @@ export function BalancesTab() {
   const totals = data.last?.totals;
   const filtered = Boolean(dq || itemId || locationId || kind || nettable);
 
+  const chips: FilterChip[] = [];
+  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
+  if (itemId) chips.push({ key: "item", label: "Item", value: "One item", onClear: () => set("item", "") });
+  if (locationId) chips.push({ key: "loc", label: "Location", value: "One location", onClear: () => set("location", "") });
+  if (kind) chips.push({ key: "kind", label: "Kind", value: LOCATION_KIND_LABEL[kind], onClear: () => set("kind", "") });
+  if (nettable) chips.push({ key: "net", label: "Plannable", value: nettable === "true" ? "Yes" : "No", onClear: () => set("nettable", "") });
+  if (showZero) chips.push({ key: "zero", label: "Balances", value: "Including empty", onClear: () => set("zero", "") });
+
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 240px" }}>
-          <label htmlFor="bal-q">Search</label>
-          <input id="bal-q" className="input" type="search" placeholder="Part number, description or lot" value={q} onChange={(e) => setQ(e.target.value)} data-testid="balances-search" />
-        </div>
+      <FilterBar chips={chips} onClearAll={() => (setQ(""), setParams({}, { replace: true }))} search={{ id: "bal-q", value: q, onChange: setQ, placeholder: "Part number, description or lot", testId: "balances-search" }} pageKey="BalancesTab">
         <div style={{ minWidth: 220 }}>
           <LocationSelect label="Location" value={locationId} onChange={(v) => set("location", v)} allowEmpty emptyLabel="All locations" includeInactive testId="balances-location" />
         </div>
@@ -163,7 +168,7 @@ export function BalancesTab() {
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
           <input type="checkbox" checked={showZero} onChange={(e) => set("zero", e.target.checked ? "1" : "")} /> Show empty balances
         </label>
-      </div>
+      </FilterBar>
 
       {itemId ? (
         <div className="card card-body row wrap between" data-testid="balances-item-filter">

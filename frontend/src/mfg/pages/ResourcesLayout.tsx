@@ -1,16 +1,14 @@
 import { Outlet } from "react-router";
 import { mfgPaths } from "../lib/paths";
 import { SectionTabs } from "./MfgLayout";
+import { PageHeader } from "../../components/PageHeader";
 
 export function ResourcesLayout() {
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>People &amp; tooling</h1>
-          <p>Skills, the operators who hold them and the shifts they work, and shared tooling such as stencils and jigs.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="People &amp; tooling"
+        description="Skills, the operators who hold them and the shifts they work, and shared tooling such as stencils and jigs." />
       <SectionTabs
         label="People and tooling sections"
         tabs={[

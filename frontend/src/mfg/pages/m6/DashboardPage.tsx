@@ -16,6 +16,7 @@ import { useAccess } from "../../lib/permissions";
 import { errorText, useLoad } from "../../lib/useMfg";
 import { isPeriod, orderedTiles, PeriodSelect, TileCard } from "./dashboardBits";
 import { formatDateTime } from "../../../lib/locale";
+import { PageHeader } from "../../../components/PageHeader";
 
 export const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -45,26 +46,24 @@ export function DashboardPage() {
   const d = dash.data;
   return (
     <div className="col gap-lg dash-print" data-testid="dashboard">
-      <div className="row wrap" style={{ justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Plant dashboard</h1>
-          <span className="muted small">
-            {d ? `${d.plant.name ? `${d.plant.name} · ` : ""}as of ${formatDateTime(d.as_of)}` : ""}
-          </span>
-        </div>
-        <div className="row wrap no-print" style={{ gap: 8 }}>
-          <PeriodSelect value={period} onChange={(v) => setParams({ period: v }, { replace: true })} />
-          <button type="button" className="btn" onClick={() => void exp("xlsx")} disabled={busy !== null} data-testid="dash-export-xlsx">
+      <PageHeader
+        title="Plant dashboard"
+        description={<>{d ? `${d.plant.name ? `${d.plant.name} · ` : ""}as of ${formatDateTime(d.as_of)}` : ""}</>}
+        actions={
+          <>
+            <PeriodSelect value={period} onChange={(v) => setParams({ period: v }, { replace: true })} />
+            <button type="button" className="btn" onClick={() => void exp("xlsx")} disabled={busy !== null} data-testid="dash-export-xlsx">
             {busy === "xlsx" ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Excel
-          </button>
-          <button type="button" className="btn ghost" onClick={() => void exp("csv")} disabled={busy !== null} data-testid="dash-export-csv">
+            </button>
+            <button type="button" className="btn ghost" onClick={() => void exp("csv")} disabled={busy !== null} data-testid="dash-export-csv">
             {busy === "csv" ? <span className="spinner" aria-hidden /> : <Icon name="download" />} CSV
-          </button>
-          <button type="button" className="btn ghost" onClick={() => window.print()} data-testid="dash-print">
+            </button>
+            <button type="button" className="btn ghost" onClick={() => window.print()} data-testid="dash-print">
             <Icon name="file" /> Print
-          </button>
-        </div>
-      </div>
+            </button>
+          </>
+        }
+      />
       <MfgError error={exportErr} title="Export failed" />
       {dash.error && !d ? <MfgError error={dash.error} onRetry={dash.reload} /> : null}
       {dash.loading && !d ? <Spinner /> : null}

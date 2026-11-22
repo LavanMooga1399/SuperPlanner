@@ -4,6 +4,7 @@ import { Link, Navigate } from "react-router";
 import { ApiError } from "../api/client";
 import { Icon } from "../components/Icon";
 import { useAuth } from "./AuthContext";
+import { PageHeader } from "../components/PageHeader";
 import { FormError, MAX_PASSWORD, MIN_PASSWORD, PasswordInput, authFailureText } from "./AuthFields";
 import "./auth.css";
 
@@ -63,10 +64,7 @@ export function AccountPage() {
 
   return (
     <div className="account-page">
-      <div>
-        <h1 style={{ margin: "0 0 4px" }}>Account settings</h1>
-        <p className="muted" style={{ margin: 0 }}>Your plans and runs are visible only to this account.</p>
-      </div>
+      <PageHeader title="Account settings" description="Your plans and runs are visible only to this account." />
 
       <section className="card" aria-labelledby="account-details">
         <div className="card-header">

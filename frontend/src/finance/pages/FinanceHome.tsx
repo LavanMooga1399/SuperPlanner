@@ -11,6 +11,7 @@ import type { FinanceExportFile, FinancePlan, FinancePlanSummary } from "../api/
 import { FinanceTemplateCards } from "../components/FinanceTemplateCards";
 import { StatusPill } from "../components/StatusPill";
 import { startBlankFinancePlan } from "../lib/startBlank";
+import { PageHeader } from "../../components/PageHeader";
 
 function toExportFile(data: unknown): FinanceExportFile {
   if (typeof data !== "object" || data === null) throw new Error("The file does not contain a JSON object.");
@@ -58,21 +59,18 @@ export function FinanceHome() {
 
   return (
     <div className="col gap-lg">
-      <div className="page-header">
-        <div>
-          <h1>Financial plans</h1>
-          <p>Plan where, when and how much to save for each goal, with an honest estimate of the chance of reaching it.</p>
-        </div>
-        <div className="row wrap">
-          <input ref={fileRef} type="file" accept=".json,application/json" className="sr-only" onChange={onFile} id="fin-import-file" aria-label="Import financial plan JSON file" />
+      <PageHeader
+        title="Financial plans"
+        description="Plan where, when and how much to save for each goal, with an honest estimate of the chance of reaching it."
+        actions={
+          <>
+            <input ref={fileRef} type="file" accept=".json,application/json" className="sr-only" onChange={onFile} id="fin-import-file" aria-label="Import financial plan JSON file" />
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={busy !== null}>
             {busy === "import" ? <span className="spinner" aria-hidden /> : <Icon name="upload" />} Import JSON
           </button>
           <button className="btn primary" onClick={() => void startBlank()} disabled={busy !== null} data-testid="fin-start-blank">
             {busy === "blank" ? <span className="spinner" aria-hidden /> : <Icon name="plus" />} Start from scratch
-          </button>
-        </div>
-      </div>
+          </button></>} />
       <ErrorBanner error={error} />
 
       {plans.loading && !plans.data ? (

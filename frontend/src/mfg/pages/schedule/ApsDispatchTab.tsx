@@ -21,6 +21,7 @@ import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { formatDateTime } from "../../../lib/locale";
 import { plural } from "../../../lib/i18n";
+import { DateInput } from "../../../components/DateInput";
 
 const MATERIAL: Record<string, { label: string; tone: string; icon: "check" | "alert" | "help" }> = {
   kitted: { label: "kit complete", tone: "ok", icon: "check" },
@@ -100,7 +101,7 @@ export function ApsDispatchTab() {
             <button type="button" className="btn sm icon" aria-label="Previous day" onClick={() => set("date", addDays(date, -1))}>
               <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} />
             </button>
-            <input id="dp-date" className="input sm" type="date" value={date} onChange={(e) => e.target.value && set("date", e.target.value)} data-testid="dispatch-date" />
+            <DateInput id="dp-date" small value={date} testId="dispatch-date" onChange={(v) => v && set("date", v)} />
             <button type="button" className="btn sm icon" aria-label="Next day" onClick={() => set("date", addDays(date, 1))}>
               <Icon name="chevron-right" />
             </button>

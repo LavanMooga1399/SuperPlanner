@@ -25,6 +25,7 @@ import { useCan } from "../../lib/permissions";
 import { fieldErrors, isAbortError, todayInOffset, usePlant } from "../../lib/useMfg";
 import { FORM_TYPES } from "./InventoryLayout";
 import { toast } from "../../../components/Toast";
+import { DateInput } from "../../../components/DateInput";
 
 const MAX_BACKDATE = 31;
 const REASONS = ["SCRAP", "RTV", "SAMPLE", "DAMAGE", "FOUND", "LOST", "CORRECTION"];
@@ -232,7 +233,7 @@ function PostLineRow({
       <td className="faint small">{uom}</td>
       {type === "receipt_misc" || ((type === "adjust" || type === "count") && lotTracked) ? (
         <td style={{ width: 150 }}>
-          <input className="input sm" type="date" aria-label={`Line ${n} expires on`} value={line.expires_on} onChange={(e) => onChange({ expires_on: e.target.value })} disabled={!lotTracked && type !== "receipt_misc"} />
+          <DateInput small ariaLabel={`Line ${n} expires on`} value={line.expires_on} disabled={!lotTracked && type !== "receipt_misc"} onChange={(v) => onChange({ expires_on: v })} />
         </td>
       ) : type === "adjust" || type === "count" ? (
         <td />

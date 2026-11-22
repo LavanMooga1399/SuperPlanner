@@ -12,6 +12,7 @@ import { LIMITING_REASON } from "../../lib/mrpText";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useRun } from "./RunShell";
+import { FilterBar } from "../../../components/FilterBar";
 
 /** "KV-TPU-1000 (16 working days) <- KV-VCU-2000 <- ... <- KV-IC-FPGA-V1: PO-KV-0101/10/1 available 24 Nov". */
 export function LimitingPath({ steps, runId }: { steps: LimitingStep[]; runId?: string }) {
@@ -57,7 +58,7 @@ export function DemandProjectionTab() {
   const rows = useMemo(() => data.rows, [data.rows]);
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters">
+      <FilterBar pageKey="DemandProjectionTab">
         <div className="field">
           <label htmlFor="dp-status">Show</label>
           <select id="dp-status" className="select" value={status} onChange={(e) => set("status", e.target.value)} data-testid="demand-proj-status">
@@ -74,7 +75,7 @@ export function DemandProjectionTab() {
             <option value="due_date">Due date</option>
           </select>
         </div>
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <div className="table-wrap card">
         <table className="table" data-testid="demand-projection">

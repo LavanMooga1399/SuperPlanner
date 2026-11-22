@@ -9,6 +9,7 @@ import { FinanceTemplateCards } from "../finance/components/FinanceTemplateCards
 import "../finance/finance.css";
 import { useAsync } from "../lib/useAsync";
 import { KINDS, isPlanKind, type KindInfo } from "./kinds";
+import { PageHeader } from "../components/PageHeader";
 
 function SchedulingExample({ info }: { info: KindInfo }) {
   const templates = useAsync((s) => listTemplates(s), []);
@@ -45,16 +46,14 @@ export function ExamplePage() {
           <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> Other ways to start
         </Link>
       </nav>
-      <div className="page-header" style={{ marginBottom: 0 }}>
-        <div>
-          <h1>Start from an example</h1>
-          <p>
-            {info.scheduling
-              ? "The example is filled in for you. Adjust it under Options, create it, then change anything you like."
-              : "Examples come with sensible defaults; you can change everything in the next steps."}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Start from an example"
+        description={
+          info.scheduling
+            ? "The example is filled in for you. Adjust it under Options, create it, then change anything you like."
+            : "Examples come with sensible defaults; you can change everything in the next steps."
+        }
+      />
       {info.scheduling ? <SchedulingExample info={info} /> : <FinanceTemplateCards />}
       {info.scheduling ? null : <DisclaimerDialog />}
     </div>

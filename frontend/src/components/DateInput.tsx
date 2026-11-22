@@ -15,8 +15,14 @@ export function DateInput({
   small,
   testId,
   disabled,
+  ariaLabel,
+  required,
+  className,
 }: {
-  id: string;
+  id?: string;
+  ariaLabel?: string;
+  required?: boolean;
+  className?: string;
   /** `YYYY-MM-DD` or "" */
   value: string;
   onChange(v: string): void;
@@ -27,7 +33,7 @@ export function DateInput({
   disabled?: boolean;
 }) {
   return (
-    <div className={`date-input input${small ? " sm" : ""}${disabled ? " disabled" : ""}`}>
+    <div className={`date-input input${small ? " sm" : ""}${disabled ? " disabled" : ""}${className ? ` ${className}` : ""}`}>
       <span className="date-text" aria-hidden>
         {value ? formatDate(`${value}T00:00:00`) : <span className="faint">dd MMM yyyy</span>}
       </span>
@@ -40,6 +46,9 @@ export function DateInput({
         min={min}
         max={max}
         disabled={disabled}
+        required={required}
+        aria-required={required || undefined}
+        aria-label={ariaLabel}
         onChange={(e) => onChange(e.target.value)}
         onClick={(e) => {
           try {

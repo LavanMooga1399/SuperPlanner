@@ -18,6 +18,7 @@ import { MakeBuyBadge } from "../components/StatusChip";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
 import { plural } from "../../lib/i18n";
+import { PageHeader } from "../../components/PageHeader";
 
 const KPIS: { key: keyof SummaryCounts; label: string; sub?: (c: SummaryCounts) => string; to: string }[] = [
   { key: "items", label: "Items", sub: (c) => `${c.make} make · ${c.buy} buy · ${c.phantom} phantom`, to: mfgPaths.items() },
@@ -236,18 +237,18 @@ export function MfgHome() {
 
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Manufacturing</h1>
-          <p>Master data, planning, stores and shop-floor status for this plant.</p>
-        </div>
-        <div className="row wrap page-actions">
-          <Link className="btn" to={mfgPaths.importStart()}>
+      <PageHeader
+        title="Manufacturing"
+        description="Master data, planning, stores and shop-floor status for this plant."
+        actions={
+          <>
+            <Link className="btn" to={mfgPaths.importStart()}>
             <Icon name="upload" /> Import
           </Link>
           <ExportButtons grouped />
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {loaded ? (
         <Banner

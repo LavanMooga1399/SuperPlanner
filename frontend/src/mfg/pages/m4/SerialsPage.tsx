@@ -13,6 +13,8 @@ import { usePlantClock } from "../../lib/plantTime";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, useLoad } from "../../lib/useMfg";
+import { PageHeader } from "../../../components/PageHeader";
+import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 
 const STATUS: Record<SerialStatus, { label: string; tone: string; icon: "check" | "clock" | "layers" | "arrow-right" | "trash" }> = {
   wip: { label: "In production", tone: "accent", icon: "clock" },
@@ -39,14 +41,15 @@ export function SerialsPage() {
   const status = (params.get("status") ?? "") as SerialStatus | "";
   const wo = params.get("wo") ?? "";
   const data = usePaged<UnitSerial>((offset, limit, signal) => listSerials({ q: dq || undefined, status: status || undefined, wo_id: wo || undefined, limit, offset }, signal), [dq, status, wo]);
+  const chips: FilterChip[] = [];
+  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
+  if (status) chips.push({ key: "st", label: "Status", value: status.replace(/_/g, " "), onClear: () => setSearchParam(setParams, "status", "") });
+  if (wo) chips.push({ key: "wo", label: "Work order", value: "One work order", onClear: () => setSearchParam(setParams, "wo", "") });
+
   return (
     <div className="col gap-lg" data-testid="serials-page">
-      <h1 style={{ margin: 0 }}>Unit serials</h1>
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 260px" }}>
-          <label htmlFor="sr-q">Serial, part or work order</label>
-          <input id="sr-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. TPU-000123" data-testid="serial-search" />
-        </div>
+      <PageHeader title="Unit serials" />
+      <FilterBar chips={chips} onClearAll={() => (setQ(""), setParams({}, { replace: true }))} search={{ id: "sr-q", value: q, onChange: setQ, placeholder: "e.g. TPU-000123", label: "Serial, part or work order", testId: "serial-search" }} pageKey="SerialsPage">
         <div className="field">
           <label htmlFor="sr-status">Status</label>
           <select id="sr-status" className="select" value={status} onChange={(e) => setSearchParam(setParams, "status", e.target.value)}>
@@ -58,7 +61,7 @@ export function SerialsPage() {
             ))}
           </select>
         </div>
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <div className="table-wrap card">
         <table className="table" data-testid="serials-table">

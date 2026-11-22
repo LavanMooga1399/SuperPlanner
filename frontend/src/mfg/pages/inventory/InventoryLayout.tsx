@@ -8,6 +8,7 @@ import { PermissionGate } from "../../components/PermissionGate";
 import { POSTING_LABEL } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { SectionTabs } from "../MfgLayout";
+import { PageHeader } from "../../../components/PageHeader";
 
 export const FORM_TYPES: PostingType[] = ["receipt_misc", "issue_misc", "transfer", "adjust", "count"];
 
@@ -57,16 +58,14 @@ export function PostMenu() {
 export function InventoryLayout() {
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Inventory</h1>
-          <p>Stock by location and lot. Every change is a posting in the ledger; corrections are reversals.</p>
-        </div>
-        <div className="row" style={{ alignItems: "flex-start" }}>
-          <ImportShortcut what="stock" testId="inventory-import" />
-          <PostMenu />
-        </div>
-      </div>
+      <PageHeader
+        title="Inventory"
+        description="Stock by location and lot. Every change is a posting in the ledger; corrections are reversals."
+        actions={
+          <>
+            <ImportShortcut what="stock"
+        testId="inventory-import" />
+          <PostMenu /></>} />
       <SectionTabs
         label="Inventory sections"
         tabs={[

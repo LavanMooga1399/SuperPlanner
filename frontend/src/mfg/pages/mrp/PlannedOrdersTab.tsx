@@ -22,6 +22,8 @@ import { needsText, useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
+import { FilterBar } from "../../../components/FilterBar";
+import { DateInput } from "../../../components/DateInput";
 
 const MAX_SELECT = 500;
 
@@ -137,13 +139,7 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
                       />
                     </td>
                     <td style={{ width: 170 }}>
-                      <input
-                        className="input sm"
-                        type="date"
-                        aria-label={`Date P-${o.planned_no}`}
-                        value={over[o.id]?.date || (o.kind === "make" ? o.start_date : o.need_date)}
-                        onChange={(e) => setOver((m) => ({ ...m, [o.id]: { qty: m[o.id]?.qty ?? String(o.qty), date: e.target.value } }))}
-                      />
+                      <DateInput small ariaLabel={`Date P-${o.planned_no}`} value={over[o.id]?.date || (o.kind === "make" ? o.start_date : o.need_date)} onChange={(v) => setOver((m) => ({ ...m, [o.id]: { qty: m[o.id]?.qty ?? String(o.qty), date: v } }))} />
                     </td>
                   </tr>
                 ))}
@@ -292,11 +288,7 @@ export function PlannedOrdersTab() {
           Run MRP again to see them as supply.
         </Banner>
       ) : null}
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 200px" }}>
-          <label htmlFor="po-q">Search</label>
-          <input id="po-q" className="input" type="search" placeholder="Part number" value={q} onChange={(e) => setQ(e.target.value)} data-testid="planned-search" />
-        </div>
+      <FilterBar search={{ id: "po-q", value: q, onChange: setQ, placeholder: "Part number", testId: "planned-search" }} pageKey="PlannedOrdersTab">
         <div className="field">
           <label htmlFor="po-kind">Make / buy</label>
           <select id="po-kind" className="select" value={kind} onChange={(e) => set("kind", e.target.value)} data-testid="planned-kind">
@@ -331,7 +323,7 @@ export function PlannedOrdersTab() {
             <option value="supplier">Supplier</option>
           </select>
         </div>
-      </div>
+      </FilterBar>
       {canConvert ? (
         <div className="row wrap">
           <button type="button" className="btn sm" onClick={selectShown} disabled={!data.rows.length}>

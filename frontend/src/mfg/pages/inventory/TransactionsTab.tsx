@@ -14,6 +14,8 @@ import { fmtNum, POSTING_LABEL } from "../../lib/formatM2";
 import { useItemInfo } from "../../lib/itemCache";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
+import { FilterBar, type FilterChip } from "../../../components/FilterBar";
+import { DateInput } from "../../../components/DateInput";
 
 /** Link of a document reference on a ledger line. */
 export function docRefLink(ref: TransactionRow["ref"]): string | null {
@@ -126,9 +128,17 @@ export function TransactionsTab() {
     [],
   );
 
+  const chips: FilterChip[] = [];
+  if (itemId) chips.push({ key: "item", label: "Item", value: "One item", onClear: () => set("item", "") });
+  if (postingId) chips.push({ key: "posting", label: "Posting", value: "One posting", onClear: () => set("posting", "") });
+  if (locationId) chips.push({ key: "loc", label: "Location", value: "One location", onClear: () => set("location", "") });
+  if (txnType) chips.push({ key: "type", label: "Type", value: POSTING_LABEL[txnType] ?? txnType, onClear: () => set("type", "") });
+  if (from) chips.push({ key: "from", label: "From", value: fmtDate(from), onClear: () => set("from", "") });
+  if (to) chips.push({ key: "to", label: "To", value: fmtDate(to), onClear: () => set("to", "") });
+
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters" role="search">
+      <FilterBar chips={chips} onClearAll={() => setParams({}, { replace: true })} pageKey="TransactionsTab">
         <div style={{ width: 240 }}>
           <ItemPicker label="Item" value={itemRef} onChange={(it) => set("item", it.id)} testId="txn-item" placeholder="All items" />
         </div>
@@ -153,18 +163,18 @@ export function TransactionsTab() {
         </div>
         <div className="field">
           <label htmlFor="txn-from">From</label>
-          <input id="txn-from" className="input" type="date" value={from} onChange={(e) => set("from", e.target.value)} />
+          <DateInput id="txn-from" value={from} onChange={(v) => set("from", v)} />
         </div>
         <div className="field">
           <label htmlFor="txn-to">To</label>
-          <input id="txn-to" className="input" type="date" value={to} onChange={(e) => set("to", e.target.value)} />
+          <DateInput id="txn-to" value={to} onChange={(v) => set("to", v)} />
         </div>
         {postingId ? (
           <button type="button" className="btn sm" style={{ alignSelf: "flex-end" }} onClick={() => set("posting", "")}>
             <Icon name="x" /> Only posting {data.rows[0]?.posting_number ?? ""}
           </button>
         ) : null}
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
         rows={data.rows}

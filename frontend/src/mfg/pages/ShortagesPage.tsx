@@ -16,6 +16,7 @@ import { useLoad } from "../lib/useMfg";
 import { LimitingPath } from "./mrp/DemandProjectionTab";
 import { ItemsShortTable } from "./workorders/KittingCheckPage";
 import { plural } from "../../lib/i18n";
+import { PageHeader } from "../../components/PageHeader";
 
 export function ShortagesPage() {
   const [horizon, setHorizon] = useState(30);
@@ -24,13 +25,12 @@ export function ShortagesPage() {
   const stale = s?.run && (typeof s.run.stale === "boolean" ? s.run.stale : s.run.stale.is_stale);
   return (
     <div className="col gap-lg" data-testid="shortages-page">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Shortages</h1>
-          <p>What will be late, which parts are missing, which deliveries are overdue and which work orders cannot be kitted.</p>
-        </div>
-        <div className="row" style={{ alignItems: "flex-end" }}>
-          <div className="field">
+      <PageHeader
+        title="Shortages"
+        description="What will be late, which parts are missing, which deliveries are overdue and which work orders cannot be kitted."
+        actions={
+          <>
+            <div className="field">
             <label htmlFor="sh-h">Work orders starting within</label>
             <select id="sh-h" className="select" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
               {[7, 14, 30, 60, 90].map((n) => (
@@ -43,8 +43,9 @@ export function ShortagesPage() {
           <button type="button" className="btn" onClick={d.reload} disabled={d.loading}>
             {d.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Refresh
           </button>
-        </div>
-      </div>
+          </>
+        }
+      />
       <MfgError error={d.error} onRetry={d.reload} />
       {d.loading && !s ? <Spinner /> : null}
       {s ? (

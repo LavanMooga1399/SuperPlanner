@@ -17,6 +17,7 @@ import { ROLE_OPTIONS } from "../lib/formatM2";
 import { ROLE_HELP, ROLE_LABEL, useAccess } from "../lib/permissions";
 import { fmtTimestamp } from "../lib/format";
 import { useLoad } from "../lib/useMfg";
+import { PageHeader } from "../../components/PageHeader";
 
 function RolePicker({ value, onChange }: { value: Role[]; onChange(r: Role[]): void }) {
   return (
@@ -86,17 +87,19 @@ export function MembersPage() {
   const unavailable = list.error instanceof ApiError && list.error.code === "MBR_UNAVAILABLE";
   return (
     <div className="col gap-lg" data-testid="members-page">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Members</h1>
-          <p>Let colleagues work in your plant: store keepers post stock, purchasers handle orders, approvers approve requests, planners plan.</p>
-        </div>
-        {!unavailable ? (
+      <PageHeader
+        title="Members"
+        description="Let colleagues work in your plant: store keepers post stock, purchasers handle orders, approvers approve requests, planners plan."
+        actions={
+          <>
+            {!unavailable ? (
           <button type="button" className="btn primary" onClick={() => setEditing("new")} data-testid="member-add">
             <Icon name="plus" /> Add member
           </button>
         ) : null}
-      </div>
+          </>
+        }
+      />
       {unavailable ? (
         <Banner tone="info" title="Members need accounts mode">
           This server runs in single-user mode, so there are no other accounts to add.

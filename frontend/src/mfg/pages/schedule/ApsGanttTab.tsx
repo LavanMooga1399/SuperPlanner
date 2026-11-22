@@ -25,6 +25,7 @@ import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { DateInput } from "../../../components/DateInput";
 import { InfoTip } from "../../../components/InfoTip";
+import { FilterBar } from "../../../components/FilterBar";
 
 const VIEWS: { key: GanttView; label: string }[] = [
   { key: "line", label: "By line" },
@@ -139,7 +140,7 @@ export function ApsGanttTab() {
 
   return (
     <div className="col gap-lg" data-testid="aps-gantt">
-      <div className="toolbar mfg-filters">
+      <FilterBar>
         <div className="field">
           <span className="field-label">Rows</span>
           <div className="btn-group" role="group" aria-label="Rows">
@@ -205,7 +206,7 @@ export function ApsGanttTab() {
             <Icon name="x" /> Clear line/order filter
           </button>
         ) : null}
-      </div>
+      </FilterBar>
       <div className="legend-bar">
         <details className="grow">
           <summary>

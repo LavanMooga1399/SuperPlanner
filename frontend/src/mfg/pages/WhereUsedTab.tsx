@@ -13,6 +13,7 @@ import { mfgPaths } from "../lib/paths";
 import { errorText, useLoad } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
 import { plural } from "../../lib/i18n";
+import { DateInput } from "../../components/DateInput";
 
 export function WhereUsedTab() {
   const { item } = useItem();
@@ -77,7 +78,7 @@ export function WhereUsedTab() {
         </div>
         <label className="row small">
           <span className="muted">On date</span>
-          <input type="date" className="input sm" value={on} onChange={(e) => setOn(e.target.value)} aria-label="On date (empty = any date)" />
+          <DateInput small value={on} ariaLabel="On date (empty = any date)" onChange={(v) => setOn(v)} />
         </label>
       </div>
       {tooLarge ? (

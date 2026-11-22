@@ -8,6 +8,7 @@ export function PageHeader({
   facts,
   actions,
   testId,
+  titleId,
 }: {
   title: ReactNode;
   /** Badges next to the title (status, version). */
@@ -17,12 +18,14 @@ export function PageHeader({
   facts?: [string, ReactNode][];
   actions?: ReactNode;
   testId?: string;
+  /** id of the h1 (for aria-labelledby / focus management). */
+  titleId?: string;
 }) {
   return (
     <div className="page-header mfg-header" data-testid={testId}>
       <div>
         <div className="row wrap" style={{ gap: 8 }}>
-          <h1>{title}</h1>
+          <h1 id={titleId}>{title}</h1>
           {meta}
         </div>
         {description ? <p>{description}</p> : null}

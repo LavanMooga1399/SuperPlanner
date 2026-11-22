@@ -13,6 +13,9 @@ import { MfgError } from "../../components/Feedback";
 import { usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { formatDateTime } from "../../../lib/locale";
+import { PageHeader } from "../../../components/PageHeader";
+import { FilterBar } from "../../../components/FilterBar";
+import { DateInput } from "../../../components/DateInput";
 
 export function AuditPage() {
   const [from, setFrom] = useState("");
@@ -43,40 +46,40 @@ export function AuditPage() {
   };
   return (
     <div className="col gap-lg" data-testid="audit-page">
-      <div className="mfg-page-head">
-        <div>
-          <h1>Audit trail</h1>
-          <p>Every change in this plant: who, when, what. Entries are chained by a hash so later tampering shows up.</p>
-        </div>
-        <div className="row wrap">
-          <button type="button" className="btn" disabled={busy !== null} onClick={() => void download("csv")} data-testid="audit-export-csv">
+      <PageHeader
+        title="Audit trail"
+        description="Every change in this plant: who, when, what. Entries are chained by a hash so later tampering shows up."
+        actions={
+          <>
+            <button type="button" className="btn" disabled={busy !== null} onClick={() => void download("csv")} data-testid="audit-export-csv">
             <Icon name="download" /> CSV
-          </button>
-          <button type="button" className="btn" disabled={busy !== null} onClick={() => void download("jsonl")} data-testid="audit-export-jsonl">
+            </button>
+            <button type="button" className="btn" disabled={busy !== null} onClick={() => void download("jsonl")} data-testid="audit-export-jsonl">
             <Icon name="download" /> JSON lines
-          </button>
-          <button
+            </button>
+            <button
             type="button"
             className="btn"
             disabled={busy !== null}
             onClick={async () => {
-              setBusy("verify");
-              setError(null);
-              try {
-                setVerify(await verifyAudit({ from: q.from, to: q.to }));
-              } catch (e) {
-                if (e instanceof ApiError && (e.status === 404 || e.status === 405)) setVerify("unavailable");
-                else setError(e);
-              } finally {
-                setBusy(null);
-              }
+            setBusy("verify");
+            setError(null);
+            try {
+            setVerify(await verifyAudit({ from: q.from, to: q.to }));
+            } catch (e) {
+            if (e instanceof ApiError && (e.status === 404 || e.status === 405)) setVerify("unavailable");
+            else setError(e);
+            } finally {
+            setBusy(null);
+            }
             }}
             data-testid="audit-verify"
-          >
+            >
             <Icon name="check" /> Check the chain
-          </button>
-        </div>
-      </div>
+            </button>
+          </>
+        }
+      />
       {verify === "unavailable" ? (
         <Banner tone="info" title="The chain check runs on the server">An administrator runs manage.py audit-verify; the exports include each entry's chain hash so an auditor can check them independently.</Banner>
       ) : verify ? (
@@ -90,14 +93,14 @@ export function AuditPage() {
           </Banner>
         )
       ) : null}
-      <div className="toolbar mfg-filters" role="search">
+      <FilterBar>
         <div className="field">
           <label htmlFor="au-from">From</label>
-          <input id="au-from" className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <DateInput id="au-from" value={from} onChange={(v) => setFrom(v)} />
         </div>
         <div className="field">
           <label htmlFor="au-to">To</label>
-          <input id="au-to" className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DateInput id="au-to" value={to} onChange={(v) => setTo(v)} />
         </div>
         <div className="field">
           <label htmlFor="au-entity">What (kind)</label>
@@ -107,7 +110,7 @@ export function AuditPage() {
           <label htmlFor="au-actor">Who (user or token id)</label>
           <input id="au-actor" className="input mono" value={actor} onChange={(e) => setActor(e.target.value)} placeholder="usr_… or tok_…" />
         </div>
-      </div>
+      </FilterBar>
       <MfgError error={error ?? data.error} onRetry={data.reload} />
       <div className="table-wrap card">
         <table className="table" data-testid="audit-table">

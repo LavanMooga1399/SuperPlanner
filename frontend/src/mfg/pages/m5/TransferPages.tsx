@@ -23,6 +23,8 @@ import { mfgPaths } from "../../lib/paths";
 import { needsText, useAccess, useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
+import { PageHeader } from "../../../components/PageHeader";
+import { DateInput } from "../../../components/DateInput";
 
 /** part number of an item id (transfer lines carry ids only) */
 function ItemCode({ id }: { id: string }) {
@@ -61,15 +63,17 @@ export function TransfersPage() {
   }, []);
   return (
     <div className="col gap-lg" data-testid="transfers-page">
-      <div className="mfg-page-head">
-        <div>
-          <h1>Transfers between plants</h1>
-          <p>Send stock to another plant of your organisation. Lots and serial numbers go with it.</p>
-        </div>
-        <button type="button" className="btn primary" disabled={!canEdit} title={canEdit ? undefined : needsText("transfer_edit")} onClick={() => setCreating(true)} data-testid="transfer-new">
-          <Icon name="plus" /> New transfer
-        </button>
-      </div>
+      <PageHeader
+        title="Transfers between plants"
+        description="Send stock to another plant of your organisation. Lots and serial numbers go with it."
+        actions={
+          <>
+            <button type="button" className="btn primary" disabled={!canEdit} title={canEdit ? undefined : needsText("transfer_edit")} onClick={() => setCreating(true)} data-testid="transfer-new">
+            <Icon name="plus" /> New transfer
+            </button>
+          </>
+        }
+      />
       <div className="row" role="group" aria-label="Direction">
         <button type="button" className={`btn sm${dir === "outbound" ? " primary" : ""}`} aria-pressed={dir === "outbound"} onClick={() => setSearchParam(setParams, "dir", "outbound")}>
           Outgoing
@@ -203,10 +207,10 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
                   <input className="input sm" inputMode="decimal" aria-label="Quantity" value={l.qty} onChange={(e) => setLines((x) => x.map((y, k) => (k === i ? { ...y, qty: e.target.value } : y)))} data-testid="transfer-qty" />
                 </td>
                 <td>
-                  <input className="input sm" type="date" aria-label="Ship date" value={l.ship} onChange={(e) => setLines((x) => x.map((y, k) => (k === i ? { ...y, ship: e.target.value } : y)))} />
+                  <DateInput small ariaLabel="Ship date" value={l.ship} onChange={(v) => setLines((x) => x.map((y, k) => (k === i ? { ...y, ship: v } : y)))} />
                 </td>
                 <td>
-                  <input className="input sm" type="date" aria-label="Arrival date" value={l.recv} onChange={(e) => setLines((x) => x.map((y, k) => (k === i ? { ...y, recv: e.target.value } : y)))} />
+                  <DateInput small ariaLabel="Arrival date" value={l.recv} onChange={(v) => setLines((x) => x.map((y, k) => (k === i ? { ...y, recv: v } : y)))} />
                 </td>
                 <td>
                   {lines.length > 1 ? (

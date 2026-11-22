@@ -17,6 +17,7 @@ import { useLoad } from "../mfg/lib/useMfg";
 import { currentWorkspace } from "../mfg/lib/workspace";
 import "./auth.css";
 import { formatDateTime } from "../lib/locale";
+import { PageHeader } from "../components/PageHeader";
 
 const PRESETS: { key: string; label: string; help: string; scopes: TokenScope[] }[] = [
   { key: "read", label: "Read only", help: "Reports and dashboards: read everything, change nothing.", scopes: ["view", "floor_view", "trace_view"] },
@@ -281,14 +282,16 @@ export function TokensPage() {
   }, []);
   return (
     <div className="col gap-lg" style={{ maxWidth: 960, margin: "0 auto", width: "100%" }}>
-      <div className="row wrap" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: 0 }}>Personal API tokens</h1>
-        <span className="row">
-          <Link to="/account">Account</Link>
-          <span className="faint">·</span>
-          <Link to="/account/security">Two-step verification</Link>
-        </span>
-      </div>
+      <PageHeader
+        title="Personal API tokens"
+        actions={
+          <>
+            <Link to="/account">Account</Link>
+            <span className="faint">·</span>
+            <Link to="/account/security">Two-step verification</Link>
+          </>
+        }
+      />
       <p className="muted" style={{ margin: 0 }}>
         For scripts and reports that call SuperPlanner as you. For an ERP connection, a plant admin creates a plant token under Manufacturing, Integration.
       </p>

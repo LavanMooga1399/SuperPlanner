@@ -32,6 +32,7 @@ import { errorText, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
 import { plural } from "../../lib/i18n";
+import { DateInput } from "../../components/DateInput";
 
 type Pending = { kind: "release" | "obsolete" | "delete"; bom: BomSummary } | null;
 
@@ -210,7 +211,7 @@ export function BomTab() {
           <div className="toolbar" style={{ marginBottom: 0 }}>
             <div className="field">
               <label htmlFor="bom-on">Effective on</label>
-              <input id="bom-on" type="date" className="input sm" value={on} onChange={(e) => setParam("on", e.target.value)} />
+              <DateInput id="bom-on" small value={on} onChange={(v) => setParam("on", v)} />
             </div>
             <div className="field" style={{ width: 120 }}>
               <label htmlFor="bom-qty">Quantity to build</label>

@@ -17,6 +17,7 @@ import { needsText, useCan } from "../../lib/permissions";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
 import { plural } from "../../../lib/i18n";
+import { PageHeader } from "../../../components/PageHeader";
 
 const active = (s: Simulation) => s.status === "queued" || s.status === "running";
 
@@ -83,7 +84,7 @@ export function SimulationsPage() {
       <nav className="breadcrumb" aria-label="Breadcrumb">
         <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <span>Risk</span>
       </nav>
-      <h1 style={{ margin: 0 }}>Delivery risk</h1>
+      <PageHeader title="Delivery risk" />
       <section className="card">
         <div className="card-header">
           <h2>Check a plan against real-world delays</h2>
@@ -273,16 +274,18 @@ export function SimulationPage() {
         <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <Link to={mfgPaths.simulations()}>Risk</Link> <Icon name="chevron-right" size={12} />{" "}
         <span>Check {sim.id.slice(-6)}</span>
       </nav>
-      <div className="row wrap" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: 0 }}>Delivery risk</h1>
-        <span className="row wrap">
-          <SimStatus s={sim} />
-          <Link to={mfgPaths.apsRun(sim.base_run_id)}>Plan: {base.data ? `schedule #${base.data.run_no}${base.data.label ? ` · ${base.data.label}` : ""}` : "schedule"}</Link>
-          <span className="faint small">
+      <PageHeader
+        title="Delivery risk"
+        actions={
+          <>
+            <SimStatus s={sim} />
+            <Link to={mfgPaths.apsRun(sim.base_run_id)}>Plan: {base.data ? `schedule #${base.data.run_no}${base.data.label ? ` · ${base.data.label}` : ""}` : "schedule"}</Link>
+            <span className="faint small">
             {sim.samples} replays{sim.params.seed !== undefined ? ` · seed ${sim.params.seed}` : ""}
-          </span>
-        </span>
-      </div>
+            </span>
+          </>
+        }
+      />
       {sim.status === "failed" ? <div className="banner danger">{sim.error?.message ?? "The risk check failed."}</div> : null}
       {active(sim) ? <Spinner label="Replaying the plan…" /> : null}
       {res ? (

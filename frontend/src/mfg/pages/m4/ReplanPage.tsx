@@ -20,6 +20,7 @@ import { needsText, useCan } from "../../lib/permissions";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
 import { ReasonDialog } from "./FloorEvents";
+import { PageHeader } from "../../../components/PageHeader";
 
 const POLICY_TEXT: Record<string, string> = {
   notify: "Changes wait for you; make a proposal when you want one.",
@@ -93,18 +94,20 @@ export function ReplanPage() {
 
   return (
     <div className="col gap-lg" data-testid="replan-page">
-      <div className="row wrap" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: 0 }}>Replanning</h1>
-        <span className="row wrap">
-          {published.data ? (
+      <PageHeader
+        title="Replanning"
+        actions={
+          <>
+            {published.data ? (
             <Link className="btn" to={mfgPaths.apsRun(published.data.id)}>
-              Published: schedule #{published.data.run_no}
+            Published: schedule #{published.data.run_no}
             </Link>
-          ) : (
+            ) : (
             <span className="muted">No published schedule yet</span>
-          )}
-        </span>
-      </div>
+            )}
+          </>
+        }
+      />
       <div className="banner" data-testid="replan-policy" data-policy={policy}>
         <Icon name="info" />
         <div>

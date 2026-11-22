@@ -13,6 +13,8 @@ import { fmtDate } from "../../lib/format";
 import { fmtNum } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { useLoad } from "../../lib/useMfg";
+import { PageHeader } from "../../../components/PageHeader";
+import { FilterBar } from "../../../components/FilterBar";
 
 export function KittingCheckPage() {
   const [order, setOrder] = useState<KittingCheckRequest["order"]>("priority");
@@ -26,13 +28,10 @@ export function KittingCheckPage() {
       <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.workOrders()}>Work orders</Link> <Icon name="chevron-right" size={12} /> <span>Kitting check</span>
       </nav>
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Kitting check</h1>
-          <p>Which released and soon-starting work orders can be kitted from today's stock, taking stock in turn by the order you choose.</p>
-        </div>
-      </div>
-      <div className="toolbar mfg-filters">
+      <PageHeader
+        title="Kitting check"
+        description="Which released and soon-starting work orders can be kitted from today's stock, taking stock in turn by the order you choose." />
+      <FilterBar>
         <div className="field">
           <label htmlFor="kc-order">Who gets stock first</label>
           <select id="kc-order" className="select" value={order} onChange={(e) => setOrder(e.target.value as KittingCheckRequest["order"])} data-testid="kitting-order">
@@ -47,7 +46,7 @@ export function KittingCheckPage() {
         <button type="button" className="btn" style={{ alignSelf: "flex-end" }} onClick={res.reload} disabled={res.loading}>
           {res.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Check again
         </button>
-      </div>
+      </FilterBar>
       <MfgError error={res.error} onRetry={res.reload} />
       {res.loading && !r ? <Spinner label="Checking kits…" /> : null}
       {r ? (

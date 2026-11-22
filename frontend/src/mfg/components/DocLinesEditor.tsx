@@ -15,6 +15,7 @@ import { mfgPaths } from "../lib/paths";
 import { numOrNull, numText } from "./Field";
 import { ItemPicker } from "./ItemPicker";
 import { OverdueBadge } from "./StatusM2";
+import { DateInput } from "../../components/DateInput";
 
 export interface ScheduleDraft {
   key: number;
@@ -248,14 +249,14 @@ export function DocLinesEditor({
                       {locked ? (
                         fmtDate(s.requested_date)
                       ) : (
-                        <input className="input sm" type="date" aria-label={`Line ${lineNo} delivery ${k + 1} requested dock date`} value={s.requested_date} onChange={(e) => setSched(i, k, { requested_date: e.target.value })} data-testid="doc-schedule-requested" />
+                        <DateInput small ariaLabel={`Line ${lineNo} delivery ${k + 1} requested dock date`} value={s.requested_date} testId="doc-schedule-requested" onChange={(v) => setSched(i, k, { requested_date: v })} />
                       )}
                     </td>
                     <td>
                       {locked ? (
                         s.confirmed_date ? fmtDate(s.confirmed_date) : <span className="faint">not confirmed</span>
                       ) : (
-                        <input className="input sm" type="date" aria-label={`Line ${lineNo} delivery ${k + 1} confirmed dock date`} value={s.confirmed_date} onChange={(e) => setSched(i, k, { confirmed_date: e.target.value })} data-testid="doc-schedule-confirmed" />
+                        <DateInput small ariaLabel={`Line ${lineNo} delivery ${k + 1} confirmed dock date`} value={s.confirmed_date} testId="doc-schedule-confirmed" onChange={(v) => setSched(i, k, { confirmed_date: v })} />
                       )}
                     </td>
                     <td className="right" style={{ width: 110 }}>

@@ -24,6 +24,7 @@ import { needsText, useAccess, useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { isConflict, useLoad } from "../../lib/useMfg";
 import { formatDate } from "../../../lib/locale";
+import { PageHeader } from "../../../components/PageHeader";
 
 const STATUS: Record<CrStatus, { label: string; tone: string; icon: IconName }> = {
   draft: { label: "Draft", tone: "info", icon: "file" },
@@ -85,15 +86,17 @@ export function EcoListPage() {
   }, []);
   return (
     <div className="col gap-lg" data-testid="eco-list">
-      <div className="mfg-page-head">
-        <div>
-          <h1>Engineering changes</h1>
-          <p>Change BOMs and routings in a controlled way: see the impact, get approval, switch over on a date or serial number.</p>
-        </div>
-        <button type="button" className="btn primary" disabled={!canEdit} title={canEdit ? undefined : needsText("eco_edit")} onClick={() => setCreating(true)} data-testid="eco-new">
-          <Icon name="plus" /> New change request
-        </button>
-      </div>
+      <PageHeader
+        title="Engineering changes"
+        description="Change BOMs and routings in a controlled way: see the impact, get approval, switch over on a date or serial number."
+        actions={
+          <>
+            <button type="button" className="btn primary" disabled={!canEdit} title={canEdit ? undefined : needsText("eco_edit")} onClick={() => setCreating(true)} data-testid="eco-new">
+            <Icon name="plus" /> New change request
+            </button>
+          </>
+        }
+      />
       <div className="row wrap" role="group" aria-label="Status">
         {(["", "draft", "submitted", "approved", "implemented"] as const).map((s) => (
           <button key={s || "all"} type="button" className={`btn sm${status === s ? " primary" : ""}`} aria-pressed={status === s} onClick={() => setSearchParam(setParams, "status", s)}>

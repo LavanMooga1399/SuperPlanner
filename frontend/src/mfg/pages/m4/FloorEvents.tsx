@@ -18,6 +18,8 @@ import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
+import { FilterBar } from "../../../components/FilterBar";
+import { DateInput } from "../../../components/DateInput";
 
 const TYPES = Object.keys(EVENT_LABEL) as FloorEventType[];
 
@@ -48,7 +50,7 @@ export function FloorEvents() {
           Shop floor overview
         </Link>
       </div>
-      <div className="toolbar mfg-filters" role="search">
+      <FilterBar pageKey="FloorEvents">
         <div className="field">
           <label htmlFor="fe-line">Line</label>
           <select id="fe-line" className="select" value={line} onChange={(e) => set("line", e.target.value)}>
@@ -73,18 +75,18 @@ export function FloorEvents() {
         </div>
         <div className="field">
           <label htmlFor="fe-from">From</label>
-          <input id="fe-from" className="input" type="date" value={from} onChange={(e) => set("from", e.target.value)} />
+          <DateInput id="fe-from" value={from} onChange={(v) => set("from", v)} />
         </div>
         <div className="field">
           <label htmlFor="fe-to">To</label>
-          <input id="fe-to" className="input" type="date" value={to} onChange={(e) => set("to", e.target.value)} />
+          <DateInput id="fe-to" value={to} onChange={(v) => set("to", v)} />
         </div>
         {wo ? (
           <button type="button" className="btn ghost" style={{ alignSelf: "flex-end" }} onClick={() => set("wo", "")}>
             <Icon name="x" /> Work order filter
           </button>
         ) : null}
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <div className="table-wrap card">
         <table className="table" data-testid="floor-event-table">

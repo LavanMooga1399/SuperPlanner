@@ -17,6 +17,7 @@ import { MfgError } from "./Feedback";
 import { numOrNull } from "./Field";
 import { LocationSelect, useLocations } from "./PickersM2";
 import { OverdueBadge } from "./StatusM2";
+import { DateInput } from "../../components/DateInput";
 
 interface Row {
   schedule_id: string;
@@ -43,7 +44,7 @@ function LotCells({ row, onChange }: { row: Row; onChange(p: Partial<Row>): void
         <input className="input sm" aria-label={`Lot for ${row.label}`} value={row.lot_code} maxLength={64} onChange={(e) => onChange({ lot_code: e.target.value })} placeholder="Required" aria-invalid={!row.lot_code.trim() && Boolean(numOrNull(row.qty))} data-testid="receive-lot" />
       </td>
       <td>
-        <input className="input sm" type="date" aria-label={`Expiry for ${row.label}`} value={row.expires_on} onChange={(e) => onChange({ expires_on: e.target.value })} />
+        <DateInput small ariaLabel={`Expiry for ${row.label}`} value={row.expires_on} onChange={(v) => onChange({ expires_on: v })} />
       </td>
       <td>
         <input className="input sm" aria-label={`Supplier lot for ${row.label}`} value={row.supplier_lot} maxLength={64} onChange={(e) => onChange({ supplier_lot: e.target.value })} />
@@ -171,7 +172,7 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
         <div className="form-grid">
           <div className="field">
             <label htmlFor="rcv-date">Receipt date</label>
-            <input id="rcv-date" className="input" type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput id="rcv-date" max={today} value={date} onChange={(v) => setDate(v)} />
             <span className="hint">Empty = today</span>
           </div>
           <div className="field" style={{ gridColumn: "span 2" }}>

@@ -4,6 +4,7 @@
  */
 import { createContext, useContext, useEffect, useId, useMemo, type ReactNode } from "react";
 import { Icon } from "../../components/Icon";
+import { DateInput } from "../../components/DateInput";
 import { fieldErrors, type FieldError } from "../lib/useMfg";
 import { nodeText } from "./VirtualTable";
 
@@ -117,7 +118,10 @@ export function TextField({
 }) {
   return (
     <Field label={label} hint={hint} required={required} className={className} name={name}>
-      {(id) => (
+      {(id) =>
+        type === "date" ? (
+          <DateInput id={id} value={value} onChange={onChange} disabled={disabled} required={required} testId={testId} />
+        ) : (
         <input
           id={id}
           className="input"
@@ -132,7 +136,8 @@ export function TextField({
           step={type === "number" ? "any" : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
-      )}
+        )
+      }
     </Field>
   );
 }

@@ -1,16 +1,12 @@
 import { Outlet } from "react-router";
 import { mfgPaths } from "../lib/paths";
 import { SectionTabs } from "./MfgLayout";
+import { PageHeader } from "../../components/PageHeader";
 
 export function PlantLayout() {
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Plant</h1>
-          <p>Stages (work-center groups) and their lines, working shifts, holidays and plant settings.</p>
-        </div>
-      </div>
+      <PageHeader title="Plant" description="Stages (work-center groups) and their lines, working shifts, holidays and plant settings." />
       <SectionTabs
         label="Plant sections"
         tabs={[

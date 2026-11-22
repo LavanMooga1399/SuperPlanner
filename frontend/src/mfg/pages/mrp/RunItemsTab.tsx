@@ -15,6 +15,7 @@ import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
+import { FilterBar } from "../../../components/FilterBar";
 
 export function mrpItemColumns(runId: string): Column<MrpItemRow>[] {
   return [
@@ -77,11 +78,7 @@ export function RunItemsTab() {
   const columns = useMemo(() => mrpItemColumns(run.id), [run.id]);
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 220px" }}>
-          <label htmlFor="ri-q">Search</label>
-          <input id="ri-q" className="input" type="search" placeholder="Part number or description" value={q} onChange={(e) => setQ(e.target.value)} data-testid="run-items-search" />
-        </div>
+      <FilterBar search={{ id: "ri-q", value: q, onChange: setQ, placeholder: "Part number or description", testId: "run-items-search" }} pageKey="RunItemsTab">
         <div className="field">
           <label htmlFor="ri-mb">Make / buy</label>
           <select id="ri-mb" className="select" value={makeBuy} onChange={(e) => set("make_buy", e.target.value)}>
@@ -108,7 +105,7 @@ export function RunItemsTab() {
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
           <input type="checkbox" checked={exOnly} onChange={(e) => set("ex", e.target.checked ? "1" : "")} /> With messages
         </label>
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
         rows={data.rows}

@@ -20,6 +20,7 @@ import { useCan } from "../../lib/permissions";
 import { isNotFound, useDebounced, useLoad } from "../../lib/useMfg";
 import { ItemSupplierTable } from "../ItemSuppliersTab";
 import { plural } from "../../../lib/i18n";
+import { FilterBar } from "../../../components/FilterBar";
 
 function SupplierDialog({ sup, onClose, onSaved }: { sup: SupplierRecord | null; onClose(): void; onSaved(s: SupplierRecord): void }) {
   const [f, setF] = useState({
@@ -83,18 +84,14 @@ export function SuppliersPage() {
   const [creating, setCreating] = useState(false);
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 260px" }}>
-          <label htmlFor="sup-q">Search</label>
-          <input id="sup-q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Code or name" data-testid="suppliers-search" />
-        </div>
+      <FilterBar search={{ id: "sup-q", value: q, onChange: setQ, placeholder: "Code or name", testId: "suppliers-search" }} pageKey="SuppliersPage">
         <span className="grow" />
         <PermissionGate perm="supplier_edit">
           <button type="button" className="btn primary" style={{ alignSelf: "flex-end" }} onClick={() => setCreating(true)} data-testid="supplier-new">
             <Icon name="plus" /> New supplier
           </button>
         </PermissionGate>
-      </div>
+      </FilterBar>
       <MfgError error={list.error} onRetry={list.reload} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (

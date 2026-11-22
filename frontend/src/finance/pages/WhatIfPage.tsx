@@ -20,6 +20,7 @@ import { isEmptyChanges, WhatIfControls } from "../components/WhatIfControls";
 import { nextId, WHATIF_PREFIX } from "../lib/ids";
 import { useLoadedFinancePlan } from "../state/FinancePlanContext";
 import { FinSaveIndicator } from "./FinancePlanShell";
+import { PageHeader } from "../../components/PageHeader";
 
 const DEBOUNCE_MS = 800;
 
@@ -260,26 +261,26 @@ export function WhatIfPage() {
 
   return (
     <div className="col gap-lg">
-      <div className="fin-header">
-        <div className="col" style={{ gap: 4 }}>
-          <h1>What if…?</h1>
-          <span className="muted">
-            Move a control to test a change. Your plan is not changed until you choose "Apply to my plan". Compared with the result from{" "}
-            <Link to={`/finance/${planId}/results?result=${base.id}`}>version {base.base_plan_version}</Link>.
-          </span>
-        </div>
-        <div className="fin-actions">
-          <FinSaveIndicator state={ctx.saveState} dirty={ctx.dirty} error={ctx.saveError} />
-          {showing ? (
+      <PageHeader
+        title="What if…?"
+        description={<>Move a control to test a change. Your plan is not changed until you choose "Apply to my plan". Compared with the result from{" "}
+            <Link to={`/finance/${planId}/results?result=${base.id}`}>version {base.base_plan_version}</Link>.</>}
+        actions={
+          <>
+            <div className="fin-actions">
+            <FinSaveIndicator state={ctx.saveState} dirty={ctx.dirty} error={ctx.saveError} />
+            {showing ? (
             <Link className="btn" to={`/finance/${planId}/compare?a=${base.id}&b=${showing.record.id}`}>
-              <Icon name="compare" /> Open in compare
+            <Icon name="compare" /> Open in compare
             </Link>
-          ) : null}
-          <button className="btn primary" onClick={() => void apply()} disabled={applying || isEmptyChanges(changes)} data-testid="whatif-apply">
+            ) : null}
+            <button className="btn primary" onClick={() => void apply()} disabled={applying || isEmptyChanges(changes)} data-testid="whatif-apply">
             {applying ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Apply to my plan
-          </button>
-        </div>
-      </div>
+            </button>
+            </div>
+          </>
+        }
+      />
       {changes.income_drop ? (
         <span className="small muted">
           <Icon name="info" /> An income drop is a test only; it is not added to your plan when you apply.

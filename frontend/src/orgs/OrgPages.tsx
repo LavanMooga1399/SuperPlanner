@@ -38,6 +38,7 @@ import { useLoad } from "../mfg/lib/useMfg";
 import { switchWorkspace } from "../mfg/lib/workspace";
 import "./orgs.css";
 import { formatDateTime } from "../lib/locale";
+import { PageHeader } from "../components/PageHeader";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
 const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer"];
@@ -65,12 +66,16 @@ export function OrgListPage() {
       .slice(0, 40);
   return (
     <div className="org-page col gap-lg" data-testid="org-list">
-      <div className="row wrap" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: 0 }}>Organisations</h1>
-        <button type="button" className="btn primary" onClick={() => setCreating(true)} data-testid="org-new">
-          <Icon name="plus" /> New organisation
-        </button>
-      </div>
+      <PageHeader
+        title="Organisations"
+        actions={
+          <>
+            <button type="button" className="btn primary" onClick={() => setCreating(true)} data-testid="org-new">
+            <Icon name="plus" /> New organisation
+            </button>
+          </>
+        }
+      />
       <p className="muted" style={{ margin: 0 }}>
         An organisation groups the plants of one company: people work in several plants, master data is published between them, and stock moves by transfer orders.
       </p>
@@ -218,7 +223,7 @@ export function OrgPage({ tab }: { tab: Tab }) {
       <nav className="breadcrumb" aria-label="Breadcrumb">
         <Link to="/orgs">Organisations</Link> <Icon name="chevron-right" size={12} /> <span>{o.name}</span>
       </nav>
-      <h1 style={{ margin: 0 }}>{o.name}</h1>
+      <PageHeader title={o.name} />
       <nav className="tabs" aria-label="Organisation sections">
         {tabs
           .filter((t) => admin || !t.admin)

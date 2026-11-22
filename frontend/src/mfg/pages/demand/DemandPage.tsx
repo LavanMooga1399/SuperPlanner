@@ -25,6 +25,7 @@ import { useAccess } from "../../lib/permissions";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
 import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
+import { DateInput } from "../../../components/DateInput";
 
 interface LineDraft {
   key: number;
@@ -389,7 +390,7 @@ export function DemandPage() {
                     {!editable ? fmtNum(numOrNull(l.qty)) : <input className="input sm num" type="number" aria-label={`Line ${n} quantity`} value={l.qty} onChange={(e) => patch(i, { qty: e.target.value })} data-testid="demand-line-qty" />}
                   </td>
                   <td style={{ width: 150 }}>
-                    {!editable ? fmtDate(l.due_date) : <input className="input sm" type="date" aria-label={`Line ${n} due date`} value={l.due_date} onChange={(e) => patch(i, { due_date: e.target.value })} data-testid="demand-line-due" />}
+                    {!editable ? fmtDate(l.due_date) : <DateInput small ariaLabel={`Line ${n} due date`} value={l.due_date} testId="demand-line-due" onChange={(v) => patch(i, { due_date: v })} />}
                   </td>
                   <td style={{ width: 170 }}>
                     {locked ? (

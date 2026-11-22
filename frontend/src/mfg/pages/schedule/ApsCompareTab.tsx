@@ -20,6 +20,7 @@ import { useLoad } from "../../lib/useMfg";
 import { orderLink } from "./ApsOrdersTab";
 import { PublishButton, useApsRun } from "./ApsRunShell";
 import { apsRunTitle, isActive } from "./ApsRunsPage";
+import { FilterBar } from "../../../components/FilterBar";
 
 function policyOf(r: ApsRunRecord) {
   return r.policy ?? r.summary?.policy ?? r.params?.overtime ?? null;
@@ -96,7 +97,7 @@ export function ApsCompareTab() {
 
   return (
     <div className="col gap-lg" data-testid="aps-compare">
-      <div className="toolbar mfg-filters">
+      <FilterBar>
         <div className="field" style={{ minWidth: 340 }}>
           <label htmlFor="ac-with">Compare {apsRunTitle(run)} with</label>
           <select id="ac-with" className="select" value={withId} onChange={(e) => setSearchParam(setParams, "with", e.target.value)} data-testid="aps-compare-with">
@@ -109,7 +110,7 @@ export function ApsCompareTab() {
             ))}
           </select>
         </div>
-      </div>
+      </FilterBar>
       <MfgError error={runs.error ?? other.error ?? cmp.error} onRetry={cmp.reload} />
       {other.data && isActive(other.data) ? (
         <div className="card card-body row wrap" role="status" data-testid="aps-compare-waiting">

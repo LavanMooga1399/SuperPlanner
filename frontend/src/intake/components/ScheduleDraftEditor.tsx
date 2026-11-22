@@ -10,6 +10,7 @@ import { useIntake } from "../state/IntakeContext";
 import { LinkedField } from "./LinkedField";
 import { DurationRangeInput } from "./fields";
 import { windowsText, WorkingTimeFields } from "./QuestionInput";
+import { DateInput } from "../../components/DateInput";
 
 const DEFAULT_UNIT: Record<string, DurationUnit> = { project: "days", study: "hours", production: "hours", generic: "days" };
 const DEFAULT_WT: Record<string, WorkingTime> = {
@@ -145,13 +146,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
           <LinkedField path="/start_date">
             <div className="field grow">
               <label htmlFor="draft-start">Start date</label>
-              <input
-                id="draft-start"
-                type="date"
-                className="input"
-                value={draft.start_date ?? ""}
-                onChange={(e) => editDraft({ ...draft, start_date: e.target.value || null }, ["/start_date"])}
-              />
+              <DateInput id="draft-start" value={draft.start_date ?? ""} onChange={(v) => editDraft({ ...draft, start_date: v || null }, ["/start_date"])} />
               {!draft.start_date ? <span className="hint">Empty: the next working day</span> : null}
             </div>
           </LinkedField>
@@ -376,19 +371,12 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                       <span className="field-label">{terms.deadline}</span>
                       <LinkedField path={`/tasks/${t.key}/deadline`}>
                         <span className="col" style={{ gap: 4 }}>
-                          <input
-                            type="date"
-                            className="input sm"
-                            aria-label={`${t.name}: ${terms.deadline.toLowerCase()}`}
-                            value={t.deadline ?? ""}
-                            onChange={(e) =>
-                              setTask(
+                          <DateInput small ariaLabel={`${t.name}: ${terms.deadline.toLowerCase()}`} value={t.deadline ?? ""} onChange={(v) => setTask(
                                 t.key,
-                                { deadline: e.target.value || null, deadline_hard: e.target.value ? t.deadline_hard : false },
+                                { deadline: v || null, deadline_hard: v ? t.deadline_hard : false },
                                 ["deadline"],
                               )
-                            }
-                          />
+                            } />
                           {t.deadline ? (
                             <label className="checkbox small">
                               <input

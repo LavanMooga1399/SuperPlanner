@@ -16,6 +16,7 @@ import { fmtDuration, usePlantClock } from "../../lib/plantTime";
 import { mfgPaths } from "../../lib/paths";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
+import { PageHeader } from "../../../components/PageHeader";
 
 export function FloorOverview() {
   const clock = usePlantClock();
@@ -50,17 +51,19 @@ export function FloorOverview() {
 
   return (
     <div className="col gap-lg" data-testid="floor-overview">
-      <div className="row wrap" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: 0 }}>Shop floor</h1>
-        <div className="row wrap">
-          <Link className="btn" to={mfgPaths.floorEvents()}>
+      <PageHeader
+        title="Shop floor"
+        actions={
+          <>
+            <Link className="btn" to={mfgPaths.floorEvents()}>
             <Icon name="list" /> Event log
-          </Link>
-          <Link className="btn primary" to={mfgPaths.floor()}>
+            </Link>
+            <Link className="btn primary" to={mfgPaths.floor()}>
             <Icon name="factory" /> Open the floor screens
-          </Link>
-        </div>
-      </div>
+            </Link>
+          </>
+        }
+      />
       <div className="kpis">
         <div className="card kpi">
           <div className="kpi-label">Running</div>

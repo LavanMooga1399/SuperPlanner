@@ -2,18 +2,16 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import { mfgPaths } from "../../lib/paths";
 import { SectionTabs } from "../MfgLayout";
+import { PageHeader } from "../../../components/PageHeader";
 
 export function PurchasingLayout() {
   const { pathname } = useLocation();
   if (/^\/mfg\/purchasing\/?$/.test(pathname)) return <Navigate to={mfgPaths.purchaseDocs("po")} replace />;
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Purchasing</h1>
-          <p>Purchase requests, purchase orders with staggered deliveries, the delivery schedule and suppliers.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Purchasing"
+        description="Purchase requests, purchase orders with staggered deliveries, the delivery schedule and suppliers." />
       <SectionTabs
         label="Purchasing sections"
         tabs={[

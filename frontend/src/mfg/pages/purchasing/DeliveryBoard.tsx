@@ -12,6 +12,8 @@ import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { fmtDate } from "../../lib/format";
 import { fmtNum } from "../../lib/formatM2";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
+import { FilterBar, type FilterChip } from "../../../components/FilterBar";
+import { DateInput } from "../../../components/DateInput";
 
 export function scheduleColumns(): Column<ScheduleRow>[] {
   return [
@@ -63,9 +65,16 @@ export function DeliveryBoard() {
     [overdue, supplier, docType, from, to],
   );
   const columns = useMemo(scheduleColumns, []);
+  const chips: FilterChip[] = [];
+  if (overdue) chips.push({ key: "od", label: "Deliveries", value: "Overdue only", onClear: () => set("overdue", "") });
+  if (supplier) chips.push({ key: "sup", label: "Supplier", value: supplierLabel || "One supplier", onClear: () => (set("supplier", ""), set("supplier_label", "")) });
+  if (docType) chips.push({ key: "dt", label: "Document", value: docType === "po" ? "Purchase orders" : "Purchase requests", onClear: () => set("doc_type", "") });
+  if (from) chips.push({ key: "from", label: "From", value: fmtDate(from), onClear: () => set("from", "") });
+  if (to) chips.push({ key: "to", label: "To", value: fmtDate(to), onClear: () => set("to", "") });
+
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters" role="search">
+      <FilterBar chips={chips} onClearAll={() => setParams({}, { replace: true })} pageKey="DeliveryBoard">
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
           <input type="checkbox" checked={overdue} onChange={(e) => set("overdue", e.target.checked ? "1" : "")} data-testid="board-overdue" /> Only overdue
         </label>
@@ -102,13 +111,13 @@ export function DeliveryBoard() {
         </div>
         <div className="field">
           <label htmlFor="board-from">Dock from</label>
-          <input id="board-from" type="date" className="input" value={from} onChange={(e) => set("from", e.target.value)} />
+          <DateInput id="board-from" value={from} onChange={(v) => set("from", v)} />
         </div>
         <div className="field">
           <label htmlFor="board-to">Dock to</label>
-          <input id="board-to" type="date" className="input" value={to} onChange={(e) => set("to", e.target.value)} />
+          <DateInput id="board-to" value={to} onChange={(v) => set("to", v)} />
         </div>
-      </div>
+      </FilterBar>
       <p className="muted small" style={{ margin: 0 }}>
         <Icon name="info" size={12} /> Dock date = confirmed date, else requested date. Available = dock date + the part's goods-in inspection days.
       </p>

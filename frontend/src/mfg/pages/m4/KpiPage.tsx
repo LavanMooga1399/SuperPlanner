@@ -18,6 +18,7 @@ import { fmtDuration, usePlantClock } from "../../lib/plantTime";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
+import { PageHeader } from "../../../components/PageHeader";
 
 interface TileDef {
   key: RatioKey | "wip" | "setup";
@@ -93,54 +94,56 @@ export function KpiPage() {
 
   return (
     <div className="col gap-lg" data-testid="kpi-page">
-      <div className="row wrap" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: 0 }}>KPIs</h1>
-        <div className="toolbar">
-          <div className="row" role="group" aria-label="Period">
+      <PageHeader
+        title="KPIs"
+        actions={
+          <>
+            <div className="row" role="group" aria-label="Period">
             {PERIODS.map((p) => (
-              <button key={p.key} type="button" className={`btn sm${period === p.key ? " primary" : ""}`} aria-pressed={period === p.key} onClick={() => set("period", p.key)}>
-                {p.label}
-              </button>
+            <button key={p.key} type="button" className={`btn sm${period === p.key ? " primary" : ""}`} aria-pressed={period === p.key} onClick={() => set("period", p.key)}>
+            {p.label}
+            </button>
             ))}
-          </div>
-          <select
+            </div>
+            <select
             className="select sm"
             aria-label="Scope"
             value={dim === "plant" ? "" : `${dim}:${dimId}`}
             onChange={(e) => {
-              const [a, b] = e.target.value.split(":");
-              setParams((prev) => {
-                const n = new URLSearchParams(prev);
-                if (!a) {
-                  n.delete("dim");
-                  n.delete("id");
-                } else {
-                  n.set("dim", a);
-                  n.set("id", b);
-                }
-                return n;
-              });
+            const [a, b] = e.target.value.split(":");
+            setParams((prev) => {
+            const n = new URLSearchParams(prev);
+            if (!a) {
+            n.delete("dim");
+            n.delete("id");
+            } else {
+            n.set("dim", a);
+            n.set("id", b);
+            }
+            return n;
+            });
             }}
             data-testid="kpi-scope"
-          >
+            >
             <option value="">Whole plant</option>
             <optgroup label="Stages">
-              {(groups.data?.items ?? []).map((g) => (
-                <option key={g.id} value={`group:${g.id}`}>
-                  {g.code} · {g.name}
-                </option>
-              ))}
+            {(groups.data?.items ?? []).map((g) => (
+            <option key={g.id} value={`group:${g.id}`}>
+            {g.code} · {g.name}
+            </option>
+            ))}
             </optgroup>
             <optgroup label="Lines">
-              {(lines.data?.items ?? []).map((l) => (
-                <option key={l.id} value={`line:${l.id}`}>
-                  {l.code}
-                </option>
-              ))}
+            {(lines.data?.items ?? []).map((l) => (
+            <option key={l.id} value={`line:${l.id}`}>
+            {l.code}
+            </option>
+            ))}
             </optgroup>
-          </select>
-        </div>
-      </div>
+            </select>
+          </>
+        }
+      />
       <p className="muted small" style={{ margin: 0 }}>
         {d?.period.from ?? from} to {d?.period.to ?? today} ({d?.period.time_zone ?? clock.zoneLabel}); today is live, earlier days are cached.
       </p>

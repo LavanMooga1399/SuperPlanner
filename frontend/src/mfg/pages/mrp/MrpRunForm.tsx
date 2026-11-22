@@ -16,6 +16,7 @@ import { fmtDate } from "../../lib/format";
 import { DEMAND_TYPE_LABEL, fmtNum } from "../../lib/formatM2";
 import { isAbortError, todayInOffset, usePlant } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
+import { DateInput } from "../../../components/DateInput";
 
 interface Extra {
   key: number;
@@ -219,7 +220,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
             <div className="form-grid">
               <div className="field">
                 <label htmlFor="mrp-asof">Plan as of</label>
-                <input id="mrp-asof" className="input" type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} data-testid="whatif-as-of" />
+                <DateInput id="mrp-asof" value={asOf} testId="whatif-as-of" onChange={(v) => setAsOf(v)} />
                 <span className="hint">Empty = today ({fmtDate(today)})</span>
               </div>
               <label className="checkbox" style={{ alignSelf: "flex-end" }}>
@@ -287,7 +288,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
                   <div style={{ minWidth: 260 }}>
                     <SupplyTargets item={r.item} value={r.target} onChange={(v) => set({ target: v })} />
                   </div>
-                  <input className="input sm" type="date" aria-label="New date" value={r.date} onChange={(e) => set({ date: e.target.value })} data-testid="whatif-supply-date" />
+                  <DateInput small ariaLabel="New date" value={r.date} testId="whatif-supply-date" onChange={(v) => set({ date: v })} />
                 </>
               )}
             />
@@ -304,7 +305,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
                     <ItemPicker label="Item" hideLabel value={r.item} onChange={(it) => set({ item: it })} />
                   </div>
                   <input className="input sm num" type="number" aria-label="Quantity" placeholder="Qty" value={r.qty} onChange={(e) => set({ qty: e.target.value })} style={{ width: 90 }} />
-                  <input className="input sm" type="date" aria-label="Due date" value={r.due} onChange={(e) => set({ due: e.target.value })} />
+                  <DateInput small ariaLabel="Due date" value={r.due} onChange={(v) => set({ due: v })} />
                   <input className="input sm num" type="number" min={1} max={9} aria-label="Priority" value={r.priority} onChange={(e) => set({ priority: e.target.value })} style={{ width: 64 }} />
                 </>
               )}

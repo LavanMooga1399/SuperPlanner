@@ -18,6 +18,8 @@ import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { isConflict, todayInOffset, useDebounced, usePlant } from "../../lib/useMfg";
+import { FilterBar, type FilterChip } from "../../../components/FilterBar";
+import { DateInput } from "../../../components/DateInput";
 
 function LotDialog({ lot, onClose, onSaved }: { lot: LotRecord; onClose(): void; onSaved(l: LotRecord): void }) {
   const [f, setF] = useState({ expires_on: lot.expires_on ?? "", supplier_lot: lot.supplier_lot, hold: lot.hold, note: lot.note });
@@ -145,16 +147,17 @@ export function LotsTab() {
     },
   ];
 
+  const chips: FilterChip[] = [];
+  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
+  if (before) chips.push({ key: "before", label: "Expiring before", value: fmtDate(before), onClear: () => set("before", "") });
+  if (hold) chips.push({ key: "hold", label: "Status", value: hold === "true" ? "On hold" : "Released", onClear: () => set("hold", "") });
+
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 240px" }}>
-          <label htmlFor="lots-q">Search</label>
-          <input id="lots-q" className="input" type="search" placeholder="Lot code or part number" value={q} onChange={(e) => setQ(e.target.value)} data-testid="lots-search" />
-        </div>
+      <FilterBar chips={chips} onClearAll={() => (setQ(""), setParams({}, { replace: true }))} search={{ id: "lots-q", value: q, onChange: setQ, placeholder: "Lot code or part number", testId: "lots-search" }} pageKey="LotsTab">
         <div className="field">
           <label htmlFor="lots-before">Expiring before</label>
-          <input id="lots-before" className="input" type="date" value={before} onChange={(e) => set("before", e.target.value)} />
+          <DateInput id="lots-before" value={before} onChange={(v) => set("before", v)} />
         </div>
         <div className="field">
           <label htmlFor="lots-hold">Status</label>
@@ -164,7 +167,7 @@ export function LotsTab() {
             <option value="false">Usable</option>
           </select>
         </div>
-      </div>
+      </FilterBar>
       <MfgError error={data.error ?? toggleError} onRetry={data.reload} />
       <VirtualTable
         rows={data.rows}

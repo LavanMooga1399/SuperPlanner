@@ -13,6 +13,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { useLoad } from "../../lib/useMfg";
 import { MrpRunForm } from "./MrpRunForm";
+import { PageHeader } from "../../../components/PageHeader";
 
 export function runTitle(r: MrpRunRecord): string {
   return `Run #${r.run_no}${r.label ? ` · ${r.label}` : ""}`;
@@ -39,17 +40,19 @@ export function MrpRunsPage() {
 
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Material planning (MRP)</h1>
-          <p>Plan what to make and buy for all open demand at once, see which orders will be late and why, then firm or release the planned orders.</p>
-        </div>
-        <PermissionGate perm="mrp_run">
+      <PageHeader
+        title="Material planning (MRP)"
+        description="Plan what to make and buy for all open demand at once, see which orders will be late and why, then firm or release the planned orders."
+        actions={
+          <>
+            <PermissionGate perm="mrp_run">
           <button type="button" className="btn primary" onClick={() => setForm(true)} disabled={form} data-testid="mrp-new-run">
             <Icon name="play" /> Run MRP
           </button>
         </PermissionGate>
-      </div>
+          </>
+        }
+      />
       {form ? <MrpRunForm onClose={() => setForm(false)} onDone={(r) => navigate(mfgPaths.run(r.id))} /> : null}
       <MfgError error={runs.error ?? error} onRetry={runs.reload} />
       {runs.loading && !runs.data ? <Spinner /> : null}

@@ -15,6 +15,7 @@ import { LocationSelect } from "../../components/PickersM2";
 import { fmtNum } from "../../lib/formatM2";
 import { isCountUom, useItemInfo } from "../../lib/itemCache";
 import { toast } from "../../../components/Toast";
+import { DateInput } from "../../../components/DateInput";
 
 function usePost() {
   const keyRef = useRef<{ body: string; key: string } | null>(null);
@@ -213,7 +214,7 @@ export function OutputDialog({ wo, onClose, onDone }: { wo: WorkOrderRecord; onC
               </div>
               <div className="field">
                 <label htmlFor="out-exp">Expires on</label>
-                <input id="out-exp" className="input" type="date" value={exp} onChange={(e) => setExp(e.target.value)} />
+                <DateInput id="out-exp" value={exp} onChange={(v) => setExp(v)} />
               </div>
             </>
           ) : null}

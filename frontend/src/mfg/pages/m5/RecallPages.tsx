@@ -22,6 +22,7 @@ import { usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { PrecisionTag } from "./TracePages";
 import { formatDate, formatDateTime } from "../../../lib/locale";
+import { PageHeader } from "../../../components/PageHeader";
 
 const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "play" | "flag" | "circle" }> = {
   in_stock: { label: "In stock", tone: "warn", icon: "layers" },
@@ -46,15 +47,17 @@ export function RecallsPage() {
   const source: RecallSource | null = params.get("kind") && params.get("id") ? { kind: params.get("kind") as RecallSource["kind"], id: params.get("id")! } : params.get("item") && params.get("supplier_lot") ? { item_id: params.get("item")!, supplier_lot: params.get("supplier_lot")! } : null;
   return (
     <div className="col gap-lg" data-testid="recalls-page">
-      <div className="mfg-page-head">
-        <div>
-          <h1>Recalls</h1>
-          <p>Everything a suspect lot or unit may have reached, and where it is now.</p>
-        </div>
-        <Link className="btn" to={mfgPaths.trace()}>
-          <Icon name="zoom-in" /> Trace something first
-        </Link>
-      </div>
+      <PageHeader
+        title="Recalls"
+        description="Everything a suspect lot or unit may have reached, and where it is now."
+        actions={
+          <>
+            <Link className="btn" to={mfgPaths.trace()}>
+            <Icon name="zoom-in" /> Trace something first
+            </Link>
+          </>
+        }
+      />
       {fromTrace && source ? (
         <section className="card" data-testid="recall-new">
           <div className="card-header">

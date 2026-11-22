@@ -14,6 +14,7 @@ import { mfgPaths } from "../../lib/paths";
 import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
+import { FilterBar } from "../../../components/FilterBar";
 
 const H = 90;
 
@@ -57,7 +58,7 @@ export function ApsLoadTab() {
 
   return (
     <div className="col gap-lg" data-testid="aps-load">
-      <div className="toolbar mfg-filters">
+      <FilterBar>
         <div className="row" role="group" aria-label="Period">
           {(["day", "week"] as const).map((b) => (
             <button key={b} type="button" className={`btn sm${bucket === b ? " primary" : ""}`} aria-pressed={bucket === b} onClick={() => setBucket(b)}>
@@ -76,7 +77,7 @@ export function ApsLoadTab() {
             ))}
           </select>
         </div>
-      </div>
+      </FilterBar>
       <div className="pg-legend">
         <span>
           <span className="pg-swatch" style={{ background: "var(--bar)" }} /> scheduled

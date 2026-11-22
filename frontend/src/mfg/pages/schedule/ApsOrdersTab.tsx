@@ -12,6 +12,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { plural } from "../../../lib/i18n";
+import { FilterBar } from "../../../components/FilterBar";
 
 const KIND_LABEL: Record<string, string> = {
   material: "material",
@@ -67,11 +68,7 @@ export function ApsOrdersTab() {
   );
   return (
     <div className="col gap-lg">
-      <div className="toolbar mfg-filters" role="search">
-        <div className="field" style={{ flex: "1 1 220px" }}>
-          <label htmlFor="ao-q">Search</label>
-          <input id="ao-q" className="input" type="search" placeholder="Order or part number" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
+      <FilterBar search={{ id: "ao-q", value: q, onChange: setQ, placeholder: "Order or part number" }} pageKey="ApsOrdersTab">
         <div className="field">
           <label htmlFor="ao-type">Orders</label>
           <select id="ao-type" className="select" value={type} onChange={(e) => setSearchParam(setParams, "type", e.target.value)}>
@@ -83,7 +80,7 @@ export function ApsOrdersTab() {
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
           <input type="checkbox" checked={lateOnly} onChange={(e) => setSearchParam(setParams, "late", e.target.checked ? "1" : "")} data-testid="aps-orders-late" /> Only late
         </label>
-      </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <div className="table-wrap card">
         <table className="table" data-testid="aps-orders">

@@ -6,6 +6,7 @@ import { Icon } from "../../components/Icon";
 import { KINDS, type PlanKind } from "../../landing/kinds";
 import { useIntake } from "../state/IntakeContext";
 import { StepIndicator } from "../components/StepIndicator";
+import { PageHeader } from "../../components/PageHeader";
 
 /** Page frame shared by the describe and import flows: breadcrumb, title, steps, error, Cancel. */
 export function IntakeShell({
@@ -39,15 +40,15 @@ export function IntakeShell({
           <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> New {KINDS[kind].label.toLowerCase()}
         </Link>
       </nav>
-      <div className="page-header" style={{ marginBottom: 0 }}>
-        <div>
-          <h1>{title}</h1>
-          <p>{intro}</p>
-        </div>
-        <button type="button" className="btn" data-testid="intake-cancel" onClick={() => (hasWork ? setConfirm(true) : cancel())}>
-          Cancel
-        </button>
-      </div>
+      <PageHeader
+        title={title}
+        description={intro}
+        actions={
+          <button type="button" className="btn" data-testid="intake-cancel" onClick={() => (hasWork ? setConfirm(true) : cancel())}>
+            Cancel
+          </button>
+        }
+      />
       <StepIndicator steps={steps} current={current} />
       <ErrorBanner error={error} />
       {error ? (

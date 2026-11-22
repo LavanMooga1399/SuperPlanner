@@ -13,6 +13,8 @@ import { SeverityBadge } from "../components/StatusChip";
 import { fmtDate } from "../lib/format";
 import { useDebounced, useLoad, usePlant } from "../lib/useMfg";
 import { plural } from "../../lib/i18n";
+import { PageHeader } from "../../components/PageHeader";
+import { DateInput } from "../../components/DateInput";
 
 const SEVERITIES: { key: Severity; label: string }[] = [
   { key: "error", label: "Errors" },
@@ -56,15 +58,15 @@ export function HealthPage() {
 
   return (
     <div className="col gap-lg">
-      <div className="page-header mfg-header">
-        <div>
-          <h1>Data health</h1>
-          <p>Checks that your items, BOMs, routings, plant and people fit together before anything is planned.</p>
-        </div>
-        <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
+      <PageHeader
+        title="Data health"
+        description="Checks that your items, BOMs, routings, plant and people fit together before anything is planned."
+        actions={
+          <>
+            <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
           <div className="field">
             <label htmlFor="health-asof">Check from</label>
-            <input id="health-asof" type="date" className="input sm" value={asOf} onChange={(e) => setAsOf(e.target.value)} data-testid="health-as-of" />
+            <DateInput id="health-asof" small value={asOf} testId="health-as-of" onChange={(v) => setAsOf(v)} />
           </div>
           <div className="field" style={{ width: 130 }}>
             <label htmlFor="health-horizon">Days ahead</label>
@@ -84,8 +86,7 @@ export function HealthPage() {
           <button type="button" className="btn" onClick={() => setTick((t) => t + 1)} disabled={report.loading} data-testid="health-run">
             {report.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Check again
           </button>
-        </div>
-      </div>
+        </div></>} />
       {!hValid ? <span className="field-error">Days ahead must be a whole number from 7 to 730.</span> : null}
       <MfgError error={report.error} onRetry={report.reload} />
       {report.loading && !r ? <Spinner label="Checking your data…" /> : null}

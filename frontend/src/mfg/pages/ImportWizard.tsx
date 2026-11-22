@@ -20,6 +20,7 @@ import { fmtTimestamp } from "../lib/format";
 import { initialMapping, remapByHeaders } from "../lib/importMapping";
 import { mfgPaths } from "../lib/paths";
 import { isConflict, isForbidden, isNotFound, useLoad, useMeta } from "../lib/useMfg";
+import { PageHeader } from "../../components/PageHeader";
 
 type Step = "upload" | "map" | "preview" | "done";
 
@@ -126,12 +127,9 @@ export function ImportWizard() {
 
 function Header() {
   return (
-    <div className="page-header mfg-header">
-      <div>
-        <h1>Import / export</h1>
-        <p>Bring in items, BOMs, routings, plant data, suppliers, stock, purchase orders and requests, demand and work orders from Excel or CSV. Nothing is saved until you confirm the preview.</p>
-      </div>
-    </div>
+    <PageHeader
+      title="Import / export"
+      description="Bring in items, BOMs, routings, plant data, suppliers, stock, purchase orders and requests, demand and work orders from Excel or CSV. Nothing is saved until you confirm the preview." />
   );
 }
 
