@@ -251,11 +251,11 @@ test("load Kavach through 'Replace my data' (confirm dialog) and browse to the t
   await expect(dlg).toContainText("Replace your data");
   const t0 = Date.now();
   await dlg.getByRole("button", { name: "Delete my data and load the sample" }).click();
-  await expect(page.getByTestId("mfg-count-items")).toContainText("1,199", { timeout: 60_000 });
+  await expect(page.getByTestId("mfg-count-items")).toContainText("1,200", { timeout: 60_000 });
   console.log(`[mfg-perf] Kavach load via the UI (replace): ${Date.now() - t0} ms`);
   await expect(page.getByTestId("mfg-home-health")).toHaveAttribute("data-ok", "true");
   const s = await mfgJson<{ counts: Record<string, number> }>(request, "/summary");
-  expect(s.counts.items).toBe(1199);
+  expect(s.counts.items).toBe(1200);
   const sm = await mfgJson<{ items: { part_number: string }[] }>(request, "/items?q=SM-1&limit=200");
   expect(sm.items.filter((i) => i.part_number.startsWith("SM-"))).toEqual([]); // small was replaced
   await page.getByTestId("mfg-subnav-items").click();

@@ -44,6 +44,10 @@ test("demand order -> work order -> release with reserve -> issue -> partial out
   await page.getByTestId("wo-action-release").click();
   await page.getByTestId("wo-release-reserve").check();
   await page.getByRole("dialog").getByRole("button", { name: "Release" }).click();
+  // the bare PCB is short for the first operation: the release asks for an override reason (intended, M4)
+  await expect(page.getByTestId("wo-kit-incomplete")).toBeVisible();
+  await page.getByTestId("wo-release-override").fill("e2e: release with the PCB short");
+  await page.getByRole("dialog").getByRole("button", { name: "Release anyway" }).click();
   await expect(page.getByTestId("wo-status")).toHaveAttribute("data-status", "released");
   // the bare PCB has no stock in `small`: it is short; the MCU is covered
   await expect(page.locator('[data-testid="kitting-row"][data-item="SM-BPCB-100"]')).toHaveAttribute("data-shortage", /^[1-9]/);

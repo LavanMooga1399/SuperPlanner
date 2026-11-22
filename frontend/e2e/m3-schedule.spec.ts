@@ -165,6 +165,8 @@ test.describe("M3 schedule UI", () => {
     const sug = page.getByTestId("overtime-suggested");
     await expect(sug).toBeVisible();
     const rows = sug.getByTestId("overtime-row");
+    // the list loads after the card appears: wait for either rows or the empty text before branching
+    await expect(rows.first().or(sug.getByText("No extra shift would reduce lateness"))).toBeVisible();
     if (await rows.count()) {
       // each suggested shift states the lateness it saves (text, not colour); accept -> prefilled what-if run
       await expect(rows.first()).toContainText(/weighted/);
