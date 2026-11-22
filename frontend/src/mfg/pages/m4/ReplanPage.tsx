@@ -21,7 +21,7 @@ import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
 import { ReasonDialog } from "./FloorEvents";
 import { PageHeader } from "../../../components/PageHeader";
-import { t as tr } from "../../../lib/i18n";
+import { t as tr, t } from "../../../lib/i18n";
 import { DataTable } from "../../components/DataTable";
 import type { Column } from "../../components/VirtualTable";
 
@@ -103,7 +103,7 @@ export function ReplanPage() {
           <>
             {published.data ? (
             <Link className="btn" to={mfgPaths.apsRun(published.data.id)}>
-            Published: schedule #{published.data.run_no}
+            Published: {tr("common.scheduleNoInline", { n: published.data.run_no })}
             </Link>
             ) : (
             <span className="muted">No published schedule yet</span>
@@ -124,11 +124,11 @@ export function ReplanPage() {
         <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
           <h2>What changed ({rows.length})</h2>
           <div className="row wrap">
-            <select className="select sm" style={{ width: "auto" }} aria-label="Show" value={status} onChange={(e) => setStatus(e.target.value as "active" | "all")}>
+            <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.replanPage.aria.show")} value={status} onChange={(e) => setStatus(e.target.value as "active" | "all")}>
               <option value="active">Open</option>
               <option value="all">All, incl. handled</option>
             </select>
-            <select className="select sm" style={{ width: "auto" }} aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value as TriggerKind | "")}>
+            <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.replanPage.aria.kind")} value={kind} onChange={(e) => setKind(e.target.value as TriggerKind | "")}>
               <option value="">All kinds</option>
               {(Object.keys(TRIGGER) as TriggerKind[]).map((k) => (
                 <option key={k} value={k}>
@@ -205,7 +205,7 @@ export function ReplanPage() {
                     <>
                       {" "}
                       <Link to={triggerLink(x)!} className="small">
-                        Open
+                        {t("mfg.replanPage.btn.open")}
                       </Link>
                     </>
                   ) : null}
@@ -252,19 +252,19 @@ export function ReplanPage() {
               : []),
           ]}
           rowKey={(x) => x.id}
-          label="What changed"
+          label={t("mfg.replanPage.label.whatChanged")}
           testId="trigger-table"
           loading={triggers.loading && !rows.length}
           exportName="replanning-changes"
           rowExtras={(x) => ({ testId: "trigger-row", data: { kind: x.kind, status: x.status, severity: x.severity } })}
-          empty="Nothing changed since the plan was published."
+          empty={t("mfg.replanPage.empty.nothingChangedSinceThePlan")}
           card={{ title: "what", status: "status", actions: "sel", fields: ["details", "when"] }}
         />
       </section>
 
       <section className="card card-table">
         <div className="card-header">
-          <h2>Proposals</h2>
+          <h2>{t("mfg.replanPage.head.proposals")}</h2>
         </div>
         <DataTable
           rows={proposals}
@@ -274,11 +274,11 @@ export function ReplanPage() {
               header: "Run",
               width: "minmax(240px, 2fr)",
               sortValue: (r) => r.run_no,
-              exportValue: (r) => `Schedule #${r.run_no} · ${r.label}`,
+              exportValue: (r) => `${tr("common.scheduleNo", { n: r.run_no })} · ${r.label}`,
               render: (r) => (
                 <span className="row" style={{ gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
                   <Link to={mfgPaths.apsRun(r.id)} className="mfg-ellipsis">
-                    Schedule #{r.run_no} · {r.label}
+                    {tr("common.scheduleNo", { n: r.run_no })} · {r.label}
                   </Link>
                   <PolicyBadge policy={r.policy} />
                 </span>
@@ -301,17 +301,17 @@ export function ReplanPage() {
             },
           ]}
           rowKey={(r) => r.id}
-          label="Proposals"
+          label={t("mfg.replanPage.label.proposals")}
           testId="replan-proposals"
           exportName="replanning-proposals"
           rowExtras={() => ({ testId: "replan-proposal" })}
-          empty="No proposals. Make one from the open changes above."
+          empty={t("mfg.replanPage.empty.noProposalsMakeOneFrom")}
         />
       </section>
 
       <section className="card">
         <div className="card-header">
-          <h2>Notifications</h2>
+          <h2>{t("mfg.replanPage.head.notifications")}</h2>
         </div>
         <NotificationList items={notes.data?.items ?? []} onAck={notes.reload} clock={clock} />
       </section>

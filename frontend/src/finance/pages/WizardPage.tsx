@@ -20,6 +20,7 @@ import { SavingsStep } from "../wizard/SavingsStep";
 import { Stepper } from "../wizard/Stepper";
 import { isStep, STEPS, stepOfIssue, type StepKey } from "../wizard/steps";
 import { FinSaveIndicator } from "./FinancePlanShell";
+import { t, plural } from "../../lib/i18n";
 
 function markCompleted(p: FinancePlan, step: StepKey): FinancePlan {
   const done = p.metadata?.wizard?.completed_steps ?? [];
@@ -145,7 +146,7 @@ function Wizard({ step }: { step: StepKey }) {
         <div className="row wrap between">
           <div className="col" style={{ gap: 2 }}>
             <span className="small muted">
-              Step {idx + 1} of {STEPS.length}
+              Step {t("common.nOfM", { n: idx + 1, m: STEPS.length })}
             </span>
             <h1 id="fin-step-title" ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
               {label}
@@ -183,7 +184,7 @@ function Wizard({ step }: { step: StepKey }) {
           <div className="row">
             {prev ? (
               <button type="button" className="btn" onClick={goBack} data-testid="wizard-back">
-                <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} /> Back
+                <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} /> {t("finance.wizardPage.btn.back")}
               </button>
             ) : null}
           </div>
@@ -191,7 +192,7 @@ function Wizard({ step }: { step: StepKey }) {
             {next ? (
               <>
                 <button type="button" className="btn ghost" onClick={skip} data-testid="wizard-skip">
-                  Skip - use defaults
+                  {t("finance.wizardPage.btn.skipUseDefaults")}
                 </button>
                 <button type="button" className="btn primary" onClick={() => void goNext()} disabled={navBusy} data-testid="wizard-next">
                   {navBusy ? <span className="spinner" aria-hidden /> : null} Next: {next.label} <Icon name="chevron-right" />
@@ -213,7 +214,7 @@ function Wizard({ step }: { step: StepKey }) {
         </div>
         {step === "review" && reviewErrors ? (
           <span id="fin-build-hint" className="small" style={{ color: "var(--danger)", textAlign: "right" }}>
-            <Icon name="alert" /> Fix the {reviewErrors} error{reviewErrors === 1 ? "" : "s"} above to build your plan.
+            <Icon name="alert" /> Fix the {plural(reviewErrors, "error")} above to build your plan.
           </span>
         ) : null}
       </section>

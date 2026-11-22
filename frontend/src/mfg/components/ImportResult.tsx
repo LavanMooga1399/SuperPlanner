@@ -22,11 +22,11 @@ export function ImportResult({ record }: { record: ImportRecord }) {
           <table className="table" data-testid="import-result-counts">
             <thead>
               <tr>
-                <th>Data</th>
-                <th className="num">New</th>
-                <th className="num">Changed</th>
-                <th className="num">Same</th>
-                <th className="num">Removed</th>
+                <th>{t("mfg.importResult.head.data")}</th>
+                <th className="num">{t("mfg.importResult.head.new")}</th>
+                <th className="num">{t("mfg.importResult.head.changed")}</th>
+                <th className="num">{t("mfg.importResult.head.same")}</th>
+                <th className="num">{t("mfg.importResult.head.removed")}</th>
               </tr>
             </thead>
             <tbody>

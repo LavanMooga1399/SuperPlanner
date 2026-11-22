@@ -53,7 +53,7 @@ export function ShortagesPage() {
         <>
           {s.run ? (
             <p className="small muted" style={{ margin: 0 }}>
-              Late demand and short parts from <Link to={mfgPaths.run(s.run.id)}>MRP run #{s.run.run_no}</Link> (as of {fmtDate(s.run.as_of)})
+              Late demand and short parts from <Link to={mfgPaths.run(s.run.id)}>{t("common.mrpRunNo", { n: s.run.run_no })}</Link> (as of {fmtDate(s.run.as_of)})
               {stale ? (
                 <span className="badge warn" style={{ marginLeft: 6 }}>
                   <Icon name="clock" /> {t("mfg.shortagesPage.btn.dataChangedSince")}
@@ -85,7 +85,7 @@ export function ShortagesPage() {
           </div>
           <section className="card" id="panel-demand" data-testid="shortage-panel-demand">
             <div className="card-header">
-              <h3>Late demand</h3>
+              <h3>{t("mfg.shortagesPage.head.lateDemand")}</h3>
               {s.run ? (
                 <Link to={mfgPaths.runDemand(s.run.id)} className="small">
                   {t("mfg.shortagesPage.btn.allDemand")}
@@ -126,7 +126,7 @@ export function ShortagesPage() {
           <div className="grid-2" style={{ alignItems: "start" }}>
             <section className="card card-table" id="panel-items" data-testid="shortage-panel-items">
               <div className="card-header">
-                <h3>Short parts</h3>
+                <h3>{t("mfg.shortagesPage.head.shortParts")}</h3>
                 {s.run ? (
                   <Link to={`${mfgPaths.runItems(s.run.id)}?short=1`} className="small">
                     {t("mfg.shortagesPage.btn.all")}
@@ -155,7 +155,7 @@ export function ShortagesPage() {
                   { key: "from", header: "From", width: "110px", sortValue: (x) => x.first_short_date, render: (x) => fmtDate(x.first_short_date) },
                 ]}
                 rowKey={(x) => x.item.id}
-                label="Short parts"
+                label={t("mfg.shortagesPage.label.shortParts")}
                 tableId="shortages-short-parts"
                 height="420px"
                 exportName="short-parts"
@@ -166,7 +166,7 @@ export function ShortagesPage() {
             </section>
             <section className="card card-table" id="panel-supply" data-testid="shortage-panel-supply">
               <div className="card-header">
-                <h3>Overdue deliveries</h3>
+                <h3>{t("mfg.shortagesPage.head.overdueDeliveries")}</h3>
                 <Link to={mfgPaths.deliveryBoard({ overdue: "1" })} className="small">
                   {t("mfg.shortagesPage.btn.deliverySchedule")}
                 </Link>
@@ -194,7 +194,7 @@ export function ShortagesPage() {
                   { key: "overdue", header: "Overdue", width: "110px", sortValue: (x) => x.overdue_days, exportValue: (x) => x.overdue_days, render: (x) => <OverdueBadge days={x.overdue_days} /> },
                 ]}
                 rowKey={(x) => x.schedule_id}
-                label="Overdue deliveries"
+                label={t("mfg.shortagesPage.label.overdueDeliveries")}
                 tableId="shortages-overdue"
                 height="420px"
                 exportName="overdue-deliveries"

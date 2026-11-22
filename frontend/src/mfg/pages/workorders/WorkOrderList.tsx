@@ -61,7 +61,7 @@ export function WorkOrderList() {
           <label className="checkbox">
             <input type="checkbox" checked={f.reserve === "1"} onChange={(e) => set("reserve", e.target.checked ? "1" : "")} /> Reserve available stock for the components
           </label>
-          <ReasonField id="bulk-override" label="Reason to release work orders that are short for their first operation (empty = leave those unreleased)" value={f.override ?? ""} onChange={(v) => set("override", v)} testId="bulk-override" />
+          <ReasonField id="bulk-override" label={t("mfg.workOrderList.label.reasonToReleaseWorkOrders")} value={f.override ?? ""} onChange={(v) => set("override", v)} testId="bulk-override" />
         </>
       ),
       params: (f) => ({ reserve: f.reserve === "1", ...(f.override?.trim() ? { override_reason: f.override.trim() } : {}) }),
@@ -179,7 +179,7 @@ export function WorkOrderList() {
         rows={data.rows}
         columns={columns}
         rowKey={(w) => w.id}
-        label="Work orders"
+        label={t("mfg.workOrderList.label.workOrders")}
         testId="wo-table"
         card={{ title: "no", status: "st", fields: ["pn", "qty", "due"] }}
         selection={canEdit ? { selected, onChange: setSelected, rowId: (w) => w.id, rowLabel: (w) => w.number } : undefined}
@@ -193,7 +193,7 @@ export function WorkOrderList() {
         onSortChange={(x) => set("sort", !x || x.key === "start_date" ? "" : x.key)}
         exportName="work-orders"
         empty={data.loading ? "Loading…" : "No work orders match these filters. Firm planned orders from an MRP run, or create one."}
-        footer={<span>Showing {fmtNum(data.rows.length)} of {fmtNum(data.total)} work orders</span>}
+        footer={<span>Showing {t("common.nOfM", { n: fmtNum(data.rows.length), m: fmtNum(data.total) })} work orders</span>}
       />
     </div>
   );

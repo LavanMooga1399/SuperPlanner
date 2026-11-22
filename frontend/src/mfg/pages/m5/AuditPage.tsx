@@ -172,7 +172,7 @@ export function AuditPage() {
         rows={data.rows}
         columns={columns}
         rowKey={(e) => e.id}
-        label="Audit trail"
+        label={t("mfg.auditPage.label.auditTrail")}
         testId="audit-table"
         totalCount={data.total}
         loading={data.loading}
@@ -181,7 +181,7 @@ export function AuditPage() {
         onActivate={(e) => (e.details && Object.keys(e.details).length ? setOpen(open === e.id ? null : e.id) : undefined)}
         rowExtras={(e) => ({ testId: "audit-row", className: open === e.id ? "mfg-selected" : undefined })}
         empty={t("mfg.auditPage.empty.noEntriesChangesInThis")}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} entries, newest first</span>}
+        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} entries, newest first</span>}
         card={{ title: "when", fields: ["who", "did", "what"] }}
       />
       {openEvent ? (

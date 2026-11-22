@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
 import type { MrpRunRecord } from "../api/typesM2";
 import { mfgPaths } from "../lib/paths";
+import { t as tr } from "../../lib/i18n";
 
 export function RunKpis({ run }: { run: MrpRunRecord }) {
   const s = run.summary;
@@ -12,7 +13,7 @@ export function RunKpis({ run }: { run: MrpRunRecord }) {
       key: "late",
       label: "Late demand lines",
       value: s.demand_late + s.demand_past_due,
-      sub: `${s.demand_on_time} of ${s.demand_lines} on time${s.max_late_days ? ` · worst ${s.max_late_days} d` : ""}`,
+      sub: `${tr("common.nOfM", { n: s.demand_on_time, m: s.demand_lines })} on time${s.max_late_days ? ` · worst ${s.max_late_days} d` : ""}`,
       icon: s.demand_late + s.demand_past_due ? "alert" : "check",
       bad: s.demand_late + s.demand_past_due > 0,
       to: mfgPaths.runDemand(run.id),

@@ -121,13 +121,13 @@ export function ApsCompareTab() {
           <ApsProgress run={other.data} />
         </div>
       ) : null}
-      {withId && ready && !c && cmp.loading ? <Spinner label="Comparing…" /> : null}
+      {withId && ready && !c && cmp.loading ? <Spinner label={t("mfg.apsCompareTab.label.comparing")} /> : null}
       {!withId ? <p className="muted">Pick a run to compare with, for example the same plan without overtime.</p> : null}
 
       {c && trade ? (
         <section className="card mfg-inline-form" data-testid="aps-tradeoff">
           <div className="card-header">
-            <h2>Automatic overtime: what it buys</h2>
+            <h2>{t("mfg.apsCompareTab.head.automaticOvertimeWhatItBuys")}</h2>
           </div>
           <div className="card-body col">
             <div className="kpis">
@@ -188,7 +188,7 @@ export function ApsCompareTab() {
         <>
           <section className="card">
             <div className="card-header">
-              <h3>Key figures</h3>
+              <h3>{t("mfg.apsCompareTab.head.keyFigures")}</h3>
               <span className="muted small">
                 A = {apsRunTitle(c.a)}, B = {apsRunTitle(c.b)}; change = B against A
               </span>
@@ -200,7 +200,7 @@ export function ApsCompareTab() {
                     <th />
                     <th className="right">A</th>
                     <th className="right">B</th>
-                    <th>Change</th>
+                    <th>{t("mfg.apsCompareTab.head.change")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -230,10 +230,10 @@ export function ApsCompareTab() {
                 <table className="table" data-testid="aps-compare-orders">
                   <thead>
                     <tr>
-                      <th>Order</th>
-                      <th>End A</th>
-                      <th>End B</th>
-                      <th>Change</th>
+                      <th>{t("mfg.apsCompareTab.head.order")}</th>
+                      <th>{t("mfg.apsCompareTab.head.endA")}</th>
+                      <th>{t("mfg.apsCompareTab.head.endB")}</th>
+                      <th>{t("mfg.apsCompareTab.head.change")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -262,12 +262,12 @@ export function ApsCompareTab() {
             </section>
             <section className="card">
               <div className="card-header">
-                <h3>Stage utilisation</h3>
+                <h3>{t("mfg.apsCompareTab.head.stageUtilisation")}</h3>
               </div>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Stage</th>
+                    <th>{t("mfg.apsCompareTab.head.stage")}</th>
                     <th className="right">A</th>
                     <th className="right">B</th>
                   </tr>

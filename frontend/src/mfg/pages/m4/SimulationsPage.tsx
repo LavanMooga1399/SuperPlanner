@@ -60,7 +60,7 @@ export function SimulationsPage() {
   const baseId = base || published.data?.id || "";
   const runLabel = (id: string) => {
     const r = (runs.data?.items ?? []).find((x) => x.id === id);
-    return r ? `Schedule #${r.run_no}${r.label ? ` · ${r.label}` : ""}` : "an earlier schedule";
+    return r ? `${t("common.scheduleNo", { n: r.run_no })}${r.label ? ` · ${r.label}` : ""}` : "an earlier schedule";
   };
 
   const start = async () => {
@@ -82,13 +82,13 @@ export function SimulationsPage() {
 
   return (
     <div className="col gap-lg" data-testid="sim-page">
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumb" aria-label={t("mfg.simulationsPage.aria.breadcrumb")}>
         <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <span>Risk</span>
       </nav>
       <PageHeader title={t("mfg.simulationsPage.title.deliveryRisk")} />
       <section className="card">
         <div className="card-header">
-          <h2>Check a plan against real-world delays</h2>
+          <h2>{t("mfg.simulationsPage.head.checkAPlanAgainstRealworld")}</h2>
         </div>
         <div className="card-body col">
           <p className="muted" style={{ margin: 0 }}>
@@ -101,7 +101,7 @@ export function SimulationsPage() {
                 {!baseId ? <option value="">Choose a schedule…</option> : null}
                 {(runs.data?.items ?? []).map((r) => (
                   <option key={r.id} value={r.id}>
-                    Schedule #{r.run_no}
+                    {t("common.scheduleNo", { n: r.run_no })}
                     {r.label ? ` · ${r.label}` : ""}
                     {r.is_published ? " (published)" : ""}
                   </option>
@@ -148,7 +148,7 @@ export function SimulationsPage() {
           { key: "started", header: "Started", width: "150px", sortValue: (s) => s.created_at, render: (s) => clock.dateTime(s.created_at) },
         ]}
         rowKey={(s) => s.id}
-        label="Risk checks"
+        label={t("mfg.simulationsPage.label.riskChecks")}
         testId="sim-list"
         loading={sims.loading && !sims.data}
         exportName="risk-checks"
@@ -252,7 +252,7 @@ export function SimulationPage() {
   const topSupplier = res ? [...res.suppliers].sort((a, b) => b.late_lines - a.late_lines)[0] ?? null : null;
   return (
     <div className="col gap-lg" data-testid="sim-detail" data-status={sim.status}>
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumb" aria-label={t("mfg.simulationsPage.aria.breadcrumb")}>
         <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <Link to={mfgPaths.simulations()}>Risk</Link> <Icon name="chevron-right" size={12} />{" "}
         <span>Check {sim.id.slice(-6)}</span>
       </nav>
@@ -261,7 +261,7 @@ export function SimulationPage() {
         actions={
           <>
             <SimStatus s={sim} />
-            <Link to={mfgPaths.apsRun(sim.base_run_id)}>Plan: {base.data ? `schedule #${base.data.run_no}${base.data.label ? ` · ${base.data.label}` : ""}` : "schedule"}</Link>
+            <Link to={mfgPaths.apsRun(sim.base_run_id)}>Plan: {base.data ? `${t("common.scheduleNoInline", { n: base.data.run_no })}${base.data.label ? ` · ${base.data.label}` : ""}` : "schedule"}</Link>
             <span className="faint small">
             {sim.samples} replays{sim.params.seed !== undefined ? ` · seed ${sim.params.seed}` : ""}
             </span>
@@ -269,7 +269,7 @@ export function SimulationPage() {
         }
       />
       {sim.status === "failed" ? <div className="banner danger">{sim.error?.message ?? "The risk check failed."}</div> : null}
-      {active(sim) ? <Spinner label="Replaying the plan…" /> : null}
+      {active(sim) ? <Spinner label={t("mfg.simulationsPage.label.replayingThePlan")} /> : null}
       {res ? (
         <>
           <div className="kpis">
@@ -296,8 +296,8 @@ export function SimulationPage() {
           </div>
           <section className="card">
             <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
-              <h2>Demand lines</h2>
-              <select className="select sm" style={{ width: "auto" }} aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as "risk" | "due")}>
+              <h2>{t("mfg.simulationsPage.head.demandLines")}</h2>
+              <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.simulationsPage.aria.sort")} value={sort} onChange={(e) => setSort(e.target.value as "risk" | "due")}>
                 <option value="risk">Most at risk first</option>
                 <option value="due">By due date</option>
               </select>
@@ -306,12 +306,12 @@ export function SimulationPage() {
               <table className="table" data-testid="sim-table">
                 <thead>
                   <tr>
-                    <th>Demand line</th>
-                    <th>Item</th>
-                    <th>Due</th>
-                    <th>Chance on time</th>
-                    <th>Typical finish (P50)</th>
-                    <th>Bad case (P90)</th>
+                    <th>{t("mfg.simulationsPage.head.demandLine")}</th>
+                    <th>{t("mfg.simulationsPage.head.item")}</th>
+                    <th>{t("mfg.simulationsPage.head.due")}</th>
+                    <th>{t("mfg.simulationsPage.head.chanceOnTime")}</th>
+                    <th>{t("mfg.simulationsPage.head.typicalFinishP50")}</th>
+                    <th>{t("mfg.simulationsPage.head.badCaseP90")}</th>
                     <th />
                   </tr>
                 </thead>
@@ -353,7 +353,7 @@ export function SimulationPage() {
           <div className="grid-2" style={{ alignItems: "start" }}>
             <section className="card">
               <div className="card-header">
-                <h2>Suppliers behind late lines</h2>
+                <h2>{t("mfg.simulationsPage.head.suppliersBehindLateLines")}</h2>
               </div>
               <table className="table">
                 <tbody>
@@ -380,7 +380,7 @@ export function SimulationPage() {
             </section>
             <section className="card">
               <div className="card-header">
-                <h2>Expected breakdown time per line</h2>
+                <h2>{t("mfg.simulationsPage.head.expectedBreakdownTimePerLine")}</h2>
               </div>
               <table className="table">
                 <tbody>

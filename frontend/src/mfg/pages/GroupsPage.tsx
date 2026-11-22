@@ -73,7 +73,7 @@ export function GroupsPage() {
     <div className="split mfg-split">
       <section className="card" aria-labelledby="groups-title">
         <div className="card-header">
-          <h2 id="groups-title">Stages and lines</h2>
+          <h2 id="groups-title">{t("mfg.groupsPage.head.stagesAndLines")}</h2>
           <button type="button" className="btn sm primary" onClick={() => setCreating({ kind: "new-group" })} data-testid="group-new">
             <Icon name="plus" /> {t("mfg.groupsPage.btn.newStage")}
           </button>
@@ -140,7 +140,7 @@ export function GroupsPage() {
         </div>
       </section>
 
-      <aside className="col" aria-label="Details">
+      <aside className="col" aria-label={t("mfg.groupsPage.aria.details")}>
         {panel === null ? (
           <div className="card card-body muted">Select a stage or a line to see and edit it.</div>
         ) : panel.kind === "new-group" ? (
@@ -215,7 +215,7 @@ function GroupPanel({ id, onChanged, onDeleted, onAddLine }: { id: string; onCha
       </section>
       <section className="card">
         <div className="card-header">
-          <h3>Shifts</h3>
+          <h3>{t("mfg.groupsPage.head.shifts")}</h3>
           <Link to={mfgPaths.shifts()} className="btn sm ghost">
             Manage shifts <Icon name="arrow-right" />
           </Link>
@@ -294,12 +294,12 @@ function GroupEditor({ group, onSaved, onCancel, onDeleted }: { group: GroupReco
         {conflict ? <ConflictBanner onReload={() => void reload()} what="this stage" /> : null}
         <MfgError error={error} title="Could not save" />
         <div className="form-grid">
-          <TextField label="Code" value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} testId="group-code" />
-          <TextField label="Name" value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="group-name" />
-          <TextField label="Kind" value={f.kind} onChange={(v) => setF({ ...f, kind: v })} maxLength={32} hint="Optional, e.g. machine, bench, oven, test" />
+          <TextField label={t("mfg.groupsPage.label.code")} value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} testId="group-code" />
+          <TextField label={t("mfg.groupsPage.label.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="group-name" />
+          <TextField label={t("mfg.groupsPage.label.kind")} value={f.kind} onChange={(v) => setF({ ...f, kind: v })} maxLength={32} hint={t("mfg.groupsPage.hint.optionalEgMachineBenchOven")} />
         </div>
-        <TextField label="Description" value={f.description} onChange={(v) => setF({ ...f, description: v })} maxLength={500} />
-        <CheckField label="Active" checked={f.active} onChange={(v) => setF({ ...f, active: v })} />
+        <TextField label={t("mfg.groupsPage.label.description")} value={f.description} onChange={(v) => setF({ ...f, description: v })} maxLength={500} />
+        <CheckField label={t("mfg.groupsPage.label.active")} checked={f.active} onChange={(v) => setF({ ...f, active: v })} />
         <div className="row">
           <button type="submit" className="btn primary sm" disabled={busy || !f.code.trim() || !f.name.trim()} data-testid="group-save">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {group ? "Save stage" : "Create stage"}
@@ -329,7 +329,7 @@ function GroupEditor({ group, onSaved, onCancel, onDeleted }: { group: GroupReco
             deleteGroup(group.id, version).then(onDeleted, setError);
           }}
         >
-          <p style={{ margin: 0 }}>A stage with lines, or used by operations, cannot be deleted. Its shift assignments and calendar entries are removed.</p>
+          <p style={{ margin: 0 }}>{t("mfg.groupsPage.text.aStageWithLinesOr")}</p>
         </ConfirmDialog>
       ) : null}
     </form>
@@ -465,19 +465,19 @@ function LineEditor({
         {conflict ? <ConflictBanner onReload={() => void reload()} what="this line" /> : null}
         <MfgError error={error} title="Could not save" />
         <div className="form-grid">
-          <TextField label="Code" value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} testId="line-code" />
-          <TextField label="Name" value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="line-name" />
-          <SelectField label="Stage" value={f.group_id} onChange={(v) => setF({ ...f, group_id: v })} options={groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))} />
-          <TextField label="Speed factor" type="number" value={f.speed_factor} onChange={(v) => setF({ ...f, speed_factor: v })} hint="1 = normal; 0.7 = 30 % slower; 1.2 = 20 % faster" testId="line-speed" />
-          <TextField label="Jobs at once" type="number" value={f.parallel_capacity} onChange={(v) => setF({ ...f, parallel_capacity: v })} hint="e.g. an oven holding 4 batches" />
+          <TextField label={t("mfg.groupsPage.label.code")} value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} testId="line-code" />
+          <TextField label={t("mfg.groupsPage.label.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="line-name" />
+          <SelectField label={t("mfg.groupsPage.label.stage")} value={f.group_id} onChange={(v) => setF({ ...f, group_id: v })} options={groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))} />
+          <TextField label={t("mfg.groupsPage.label.speedFactor")} type="number" value={f.speed_factor} onChange={(v) => setF({ ...f, speed_factor: v })} hint={t("mfg.groupsPage.hint.1Normal07")} testId="line-speed" />
+          <TextField label={t("mfg.groupsPage.label.jobsAtOnce")} type="number" value={f.parallel_capacity} onChange={(v) => setF({ ...f, parallel_capacity: v })} hint={t("mfg.groupsPage.hint.egAnOvenHolding4")} />
         </div>
-        <CheckField label="Active" checked={f.active} onChange={(v) => setF({ ...f, active: v })} testId="line-active" hint="Inactive lines are not used for planning." />
+        <CheckField label={t("mfg.groupsPage.label.active")} checked={f.active} onChange={(v) => setF({ ...f, active: v })} testId="line-active" hint={t("mfg.groupsPage.hint.inactiveLinesAreNotUsed")} />
         <fieldset className="mfg-fieldset">
-          <legend>What this line can make</legend>
+          <legend>{t("mfg.groupsPage.head.whatThisLineCanMake")}</legend>
           <p className="hint" style={{ margin: 0 }}>
             Leave both empty if the line can make everything of its stage.
           </p>
-          <TextField label="Item families" value={f.families} onChange={(v) => setF({ ...f, families: v })} hint="Comma separated, e.g. PCBA-STD, HARNESS" testId="line-families" />
+          <TextField label={t("mfg.groupsPage.label.itemFamilies")} value={f.families} onChange={(v) => setF({ ...f, families: v })} hint={t("mfg.groupsPage.hint.commaSeparatedEgPcbastdHarness")} testId="line-families" />
           <div className="col" style={{ gap: 4 }}>
             <span className="field-label">Specific items</span>
             <ul className="mfg-plain-list row wrap">
@@ -491,7 +491,7 @@ function LineEditor({
               ))}
             </ul>
             <div style={{ maxWidth: 320 }}>
-              <ItemPicker value={null} label="Add an item" hideLabel placeholder={t("mfg.groupsPage.ph.addAnItem")} onChange={(it) => !f.items.some((x) => x.id === it.id) && setF({ ...f, items: [...f.items, it] })} />
+              <ItemPicker value={null} label={t("mfg.groupsPage.label.addAnItem")} hideLabel placeholder={t("mfg.groupsPage.ph.addAnItem")} onChange={(it) => !f.items.some((x) => x.id === it.id) && setF({ ...f, items: [...f.items, it] })} />
             </div>
           </div>
         </fieldset>
@@ -502,20 +502,20 @@ function LineEditor({
         </div>
         {more ? (
           <div className="form-grid">
-            <TextField label="Running cost per hour" type="number" value={f.cost_per_hour} onChange={(v) => setF({ ...f, cost_per_hour: v })} />
-            <TextField label="Setup family" value={f.setup_family} onChange={(v) => setF({ ...f, setup_family: v })} maxLength={32} hint="Lines with the same value share changeover times." />
+            <TextField label={t("mfg.groupsPage.label.runningCostPerHour")} type="number" value={f.cost_per_hour} onChange={(v) => setF({ ...f, cost_per_hour: v })} />
+            <TextField label={t("mfg.groupsPage.label.setupFamily")} value={f.setup_family} onChange={(v) => setF({ ...f, setup_family: v })} maxLength={32} hint={t("mfg.groupsPage.hint.linesWithTheSameValue")} />
             {f.m4 ? (
               <>
                 <SelectField
-                  label="Line-side stock location"
+                  label={t("mfg.groupsPage.label.linesideStockLocation")}
                   value={f.location_id}
                   onChange={(v) => setF({ ...f, location_id: v })}
                   options={[{ value: "", label: "Plant default" }, ...locations.map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))]}
-                  hint="Backflushed components are taken from here."
+                  hint={t("mfg.groupsPage.hint.backflushedComponentsAreTakenFrom")}
                 />
-                <CheckField label="Combine orders into batch loads" checked={f.batch_merge} onChange={(v) => setF({ ...f, batch_merge: v })} hint="Ovens, burn-in: compatible batch operations of different work orders share one load." testId="line-batch-merge" />
+                <CheckField label={t("mfg.groupsPage.label.combineOrdersIntoBatchLoads")} checked={f.batch_merge} onChange={(v) => setF({ ...f, batch_merge: v })} hint={t("mfg.groupsPage.hint.ovensBurninCompatibleBatchOperations")} testId="line-batch-merge" />
                 {f.batch_merge ? (
-                  <TextField label="Wait for a fuller load (min)" type="number" value={f.batch_wait} onChange={(v) => setF({ ...f, batch_wait: v })} hint="How long a load may wait for more compatible units." />
+                  <TextField label={t("mfg.groupsPage.label.waitForAFullerLoad")} type="number" value={f.batch_wait} onChange={(v) => setF({ ...f, batch_wait: v })} hint={t("mfg.groupsPage.hint.howLongALoadMay")} />
                 ) : null}
               </>
             ) : null}
@@ -550,7 +550,7 @@ function LineEditor({
             deleteLine(line.id, version).then(onDeleted, setError);
           }}
         >
-          <p style={{ margin: 0 }}>Its shift assignments and calendar entries are removed too.</p>
+          <p style={{ margin: 0 }}>{t("mfg.groupsPage.text.itsShiftAssignmentsAndCalendar")}</p>
         </ConfirmDialog>
       ) : null}
     </form>

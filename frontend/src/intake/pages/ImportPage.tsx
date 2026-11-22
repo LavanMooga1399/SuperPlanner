@@ -8,6 +8,7 @@ import { IntakeReview } from "../components/IntakeReview";
 import { cpLength } from "../lib/codepoints";
 import { IntakeProvider, useIntake } from "../state/IntakeContext";
 import { IntakeShell } from "./IntakeShell";
+import { t as tr } from "../../lib/i18n";
 
 /** Files are read in the browser (PHASE2.md 2.13): at most 1 MB, .csv / .tsv / .txt. */
 export const MAX_FILE_BYTES = 1024 * 1024;
@@ -70,7 +71,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
       current={current}
     >
       {step === "write" ? (
-        <section className="card" aria-label="Your table">
+        <section className="card" aria-label={tr("studio.importPage.aria.yourTable")}>
           <div className="card-body col" style={{ gap: 12 }}>
             <div className="field">
               <label htmlFor={pasteId} style={{ fontSize: 14 }}>
@@ -132,7 +133,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
               </button>
               {state.response ? (
                 <button type="button" className="btn ghost" onClick={() => setStep("review")}>
-                  Back to the draft
+                  {tr("studio.importPage.btn.backToTheDraft")}
                 </button>
               ) : null}
             </div>
@@ -142,7 +143,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
         <>
           <div>
             <button type="button" className="btn sm" onClick={() => setStep("write")}>
-              <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> Change the table
+              <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {tr("studio.importPage.btn.changeTheTable")}
             </button>
           </div>
           <ColumnMapper />
@@ -151,7 +152,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
         <>
           <div>
             <button type="button" className="btn sm" onClick={() => setStep(t.parse ? "map" : "write")}>
-              <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> Change the columns
+              <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {tr("studio.importPage.btn.changeTheColumns")}
             </button>
           </div>
           <IntakeReview />

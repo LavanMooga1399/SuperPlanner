@@ -58,7 +58,7 @@ function SupplyTargets({ item, value, onChange }: { item: ItemRef | null; value:
     return () => ctl.abort();
   }, [item]);
   return (
-    <select className="select sm" aria-label="Delivery or work order" value={value} onChange={(e) => onChange(e.target.value)} disabled={!item} data-testid="whatif-supply-target">
+    <select className="select sm" aria-label={t("mfg.mrpRunForm.aria.deliveryOrWorkOrder")} value={value} onChange={(e) => onChange(e.target.value)} disabled={!item} data-testid="whatif-supply-target">
       <option value="">{item ? (opts.length ? "Choose…" : "No open supply") : "Choose a part first"}</option>
       {opts.map((o) => (
         <option key={o.value} value={o.value}>
@@ -156,7 +156,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
   return (
     <section className="card mfg-inline-form" data-testid="mrp-run-form" aria-labelledby="mrp-form-title">
       <div className="card-header">
-        <h2 id="mrp-form-title">Plan materials for the whole plant</h2>
+        <h2 id="mrp-form-title">{t("mfg.mrpRunForm.head.planMaterialsForTheWhole")}</h2>
         <button type="button" className="btn sm ghost" onClick={onClose}>
           <Icon name="x" /> {t("mfg.mrpRunForm.btn.close")}
         </button>
@@ -180,7 +180,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
         </div>
         {expert ? (
           <fieldset className="mfg-fieldset" data-testid="mrp-expert">
-            <legend>Planning options</legend>
+            <legend>{t("mfg.mrpRunForm.head.planningOptions")}</legend>
             <div className="form-grid">
               <div className="field">
                 <label htmlFor="mrp-alloc">{t("mfg.mrpRunForm.label.whenStockIsNotEnough")}</label>
@@ -214,7 +214,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
         ) : null}
         {whatIf ? (
           <fieldset className="mfg-fieldset" data-testid="mrp-whatif">
-            <legend>What-if scenario</legend>
+            <legend>{t("mfg.mrpRunForm.head.whatifScenario")}</legend>
             <p className="hint" style={{ margin: 0 }}>
               Changes here are only for this run; no data is changed. Compare the result with the live plan afterwards.
             </p>
@@ -284,7 +284,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
               render={(r, set) => (
                 <>
                   <div style={{ width: 220 }}>
-                    <ItemPicker label="Part" hideLabel value={r.item} onChange={(it) => set({ item: it, target: "" })} />
+                    <ItemPicker label={t("mfg.mrpRunForm.label.part")} hideLabel value={r.item} onChange={(it) => set({ item: it, target: "" })} />
                   </div>
                   <div style={{ minWidth: 260 }}>
                     <SupplyTargets item={r.item} value={r.target} onChange={(v) => set({ target: v })} />
@@ -303,11 +303,11 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
               render={(r, set) => (
                 <>
                   <div style={{ width: 220 }}>
-                    <ItemPicker label="Item" hideLabel value={r.item} onChange={(it) => set({ item: it })} />
+                    <ItemPicker label={t("mfg.mrpRunForm.label.item")} hideLabel value={r.item} onChange={(it) => set({ item: it })} />
                   </div>
-                  <input className="input sm num" type="number" aria-label="Quantity" placeholder={t("mfg.mrpRunForm.ph.qty")} value={r.qty} onChange={(e) => set({ qty: e.target.value })} style={{ width: 90 }} />
+                  <input className="input sm num" type="number" aria-label={t("mfg.mrpRunForm.aria.quantity")} placeholder={t("mfg.mrpRunForm.ph.qty")} value={r.qty} onChange={(e) => set({ qty: e.target.value })} style={{ width: 90 }} />
                   <DateInput small ariaLabel="Due date" value={r.due} onChange={(v) => set({ due: v })} />
-                  <input className="input sm num" type="number" min={1} max={9} aria-label="Priority" value={r.priority} onChange={(e) => set({ priority: e.target.value })} style={{ width: 64 }} />
+                  <input className="input sm num" type="number" min={1} max={9} aria-label={t("mfg.mrpRunForm.aria.priority")} value={r.priority} onChange={(e) => set({ priority: e.target.value })} style={{ width: 64 }} />
                 </>
               )}
             />
@@ -321,9 +321,9 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
               render={(r, set) => (
                 <>
                   <div style={{ width: 220 }}>
-                    <ItemPicker label="Item" hideLabel value={r.item} onChange={(it) => set({ item: it })} />
+                    <ItemPicker label={t("mfg.mrpRunForm.label.item")} hideLabel value={r.item} onChange={(it) => set({ item: it })} />
                   </div>
-                  <input className="input sm num" type="number" min={0} aria-label="Lead time days" placeholder={t("mfg.mrpRunForm.ph.days")} value={r.days} onChange={(e) => set({ days: e.target.value })} style={{ width: 90 }} />
+                  <input className="input sm num" type="number" min={0} aria-label={t("mfg.mrpRunForm.aria.leadTimeDays")} placeholder={t("mfg.mrpRunForm.ph.days")} value={r.days} onChange={(e) => set({ days: e.target.value })} style={{ width: 90 }} />
                   <span className="faint small">{r.item?.make_buy === "make" ? "working days" : "calendar days"}</span>
                 </>
               )}
@@ -372,7 +372,7 @@ function WhatIfRows<R extends { key: number }>({
       {rows.map((r, i) => (
         <div key={r.key} className="row wrap" style={{ gap: 6 }}>
           {render(r, (p) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, ...p } : x))))}
-          <button type="button" className="btn sm ghost icon" aria-label="Remove" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
+          <button type="button" className="btn sm ghost icon" aria-label={t("mfg.mrpRunForm.aria.remove")} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
             <Icon name="trash" />
           </button>
         </div>

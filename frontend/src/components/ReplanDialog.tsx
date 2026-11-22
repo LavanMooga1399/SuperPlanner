@@ -7,6 +7,7 @@ import { fmtDuration, isoToMs, msToIso, offsetLabel, offsetMinutesOf } from "../
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
 import { DurationInput, PlanDateTimeInput } from "./Inputs";
+import { t, t as tr } from "../lib/i18n";
 
 interface DurationRow {
   taskId: string;
@@ -96,7 +97,7 @@ export function ReplanDialog({
 
   return (
     <Dialog
-      title="Replan from now"
+      title={t("studio.replanDialog.title.replanFromNow")}
       wide
       onClose={onClose}
       footer={
@@ -116,14 +117,14 @@ export function ReplanDialog({
       <div className="field">
         <label htmlFor="replan-cutoff">Cut-off ({offsetLabel(off)})</label>
         <div className="row wrap">
-          <PlanDateTimeInput id="replan-cutoff" value={cutoff} offsetMin={off} allowEmpty={false} label="Cut-off" className="input" onChange={(v) => v && setCutoff(v)} />
-          <span className="small muted">{frozen} of {schedule.placements.length} {terms.tasksL} will be kept as they are.</span>
+          <PlanDateTimeInput id="replan-cutoff" value={cutoff} offsetMin={off} allowEmpty={false} label={t("studio.replanDialog.label.cutoff")} className="input" onChange={(v) => v && setCutoff(v)} />
+          <span className="small muted">{tr("common.nOfM", { n: frozen, m: schedule.placements.length })} {terms.tasksL} will be kept as they are.</span>
         </div>
         {!cutoffValid ? <span className="small" style={{ color: "var(--danger)" }}>The cut-off must lie inside the planning horizon.</span> : null}
       </div>
 
       <section className="col">
-        <h3>What changed?</h3>
+        <h3>{t("studio.replanDialog.head.whatChanged")}</h3>
         <div className="field-label">{terms.tasks} that take longer or shorter</div>
         {durations.map((d, i) => (
           <div className="row wrap" key={i}>
@@ -158,7 +159,7 @@ export function ReplanDialog({
               setDurations([...durations, { taskId: t.id, minutes: t.duration_minutes }]);
             }}
           >
-            <Icon name="plus" /> Changed duration
+            <Icon name="plus" /> {t("studio.replanDialog.btn.changedDuration")}
           </button>
         </div>
 
@@ -174,7 +175,7 @@ export function ReplanDialog({
             <PlanDateTimeInput value={o.start} offsetMin={off} allowEmpty={false} label={`Outage ${i + 1} start`} onChange={(v) => v && setOutages(outages.map((x, k) => (k === i ? { ...x, start: v } : x)))} />
             <span className="small muted">to</span>
             <PlanDateTimeInput value={o.end} offsetMin={off} allowEmpty={false} label={`Outage ${i + 1} end`} onChange={(v) => v && setOutages(outages.map((x, k) => (k === i ? { ...x, end: v } : x)))} />
-            <input className="input sm" style={{ width: 140 }} placeholder="Reason" aria-label={`Outage ${i + 1} reason`} value={o.reason} onChange={(e) => setOutages(outages.map((x, k) => (k === i ? { ...x, reason: e.target.value } : x)))} />
+            <input className="input sm" style={{ width: 140 }} placeholder={t("studio.replanDialog.ph.reason")} aria-label={`Outage ${i + 1} reason`} value={o.reason} onChange={(e) => setOutages(outages.map((x, k) => (k === i ? { ...x, reason: e.target.value } : x)))} />
             <button className="btn ghost sm icon" aria-label={`Remove outage ${i + 1}`} onClick={() => setOutages(outages.filter((_, k) => k !== i))}>
               <Icon name="x" />
             </button>
@@ -198,7 +199,7 @@ export function ReplanDialog({
       </section>
 
       <div className="field" style={{ maxWidth: 220 }}>
-        <label htmlFor="replan-budget">Search time (seconds)</label>
+        <label htmlFor="replan-budget">{t("studio.replanDialog.label.searchTimeSeconds")}</label>
         <input id="replan-budget" className="input" type="number" min={1} max={300} value={budget} onChange={(e) => setBudget(Math.max(1, Math.min(300, Number(e.target.value) || 1)))} />
       </div>
 

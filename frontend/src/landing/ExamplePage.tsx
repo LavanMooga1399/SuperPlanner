@@ -10,19 +10,20 @@ import "../finance/finance.css";
 import { useAsync } from "../lib/useAsync";
 import { KINDS, isPlanKind, type KindInfo } from "./kinds";
 import { PageHeader } from "../components/PageHeader";
+import { t } from "../lib/i18n";
 
 function SchedulingExample({ info }: { info: KindInfo }) {
   const templates = useAsync((s) => listTemplates(s), []);
-  if (templates.loading && !templates.data) return <Loading label="Loading the example…" />;
+  if (templates.loading && !templates.data) return <Loading label={t("studio.examplePage.label.loadingTheExample")} />;
   if (templates.error) return <ErrorBanner error={templates.error} onRetry={templates.reload} />;
   const tpl = (templates.data?.items ?? []).find((t) => t.id === info.templateId);
   if (!tpl)
     return (
       <div className="empty">
         <Icon name="help" size={28} />
-        <p>This server has no example for this kind of plan. Start from one of the other ways instead.</p>
+        <p>{t("studio.examplePage.text.thisServerHasNoExample")}</p>
         <Link className="btn" to={`/new/${info.kind}`}>
-          Other ways to start
+          {t("studio.examplePage.btn.otherWaysToStart")}
         </Link>
       </div>
     );
@@ -41,13 +42,13 @@ export function ExamplePage() {
   return (
     <div className="col gap-lg">
       {info.scheduling ? null : <DisclaimerBanner compact />}
-      <nav aria-label="Breadcrumb" className="small">
+      <nav aria-label={t("studio.examplePage.aria.breadcrumb")} className="small">
         <Link to={`/new/${kind}`}>
-          <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> Other ways to start
+          <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {t("studio.examplePage.btn.otherWaysToStart")}
         </Link>
       </nav>
       <PageHeader
-        title="Start from an example"
+        title={t("studio.examplePage.title.startFromAnExample")}
         description={
           info.scheduling
             ? "The example is filled in for you. Adjust it under Options, create it, then change anything you like."

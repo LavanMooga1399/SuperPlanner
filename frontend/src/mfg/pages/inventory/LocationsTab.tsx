@@ -53,10 +53,10 @@ function LocationDialog({ loc, onClose, onSaved }: { loc: LocationRecord | null;
       }}
     >
       <div className="form-grid">
-        <TextField label="Code" value={f.code} onChange={(v) => setF({ ...f, code: v.toUpperCase() })} required maxLength={32} testId="location-code" />
-        <TextField label="Name" value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="location-name" />
+        <TextField label={t("mfg.locationsTab.label.code")} value={f.code} onChange={(v) => setF({ ...f, code: v.toUpperCase() })} required maxLength={32} testId="location-code" />
+        <TextField label={t("mfg.locationsTab.label.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="location-name" />
         <SelectField
-          label="Kind"
+          label={t("mfg.locationsTab.label.kind")}
           value={f.kind}
           onChange={(v) => setF({ ...f, kind: v })}
           options={LOCATION_KINDS.map((k) => ({ value: k, label: LOCATION_KIND_LABEL[k] }))}
@@ -65,16 +65,16 @@ function LocationDialog({ loc, onClose, onSaved }: { loc: LocationRecord | null;
         />
       </div>
       <CheckField
-        label="Default location for goods receipts"
+        label={t("mfg.locationsTab.label.defaultLocationForGoodsReceipts")}
         checked={f.receipt_default}
         onChange={(v) => setF({ ...f, receipt_default: v })}
-        hint="Receipts without a location go here. Only one location can be the default."
+        hint={t("mfg.locationsTab.hint.receiptsWithoutALocationGo")}
         testId="location-receipt-default"
       />
-      <CheckField label="Active" checked={f.active} onChange={(v) => setF({ ...f, active: v })} hint="Nothing can be posted into an inactive location." />
+      <CheckField label={t("mfg.locationsTab.label.active")} checked={f.active} onChange={(v) => setF({ ...f, active: v })} hint={t("mfg.locationsTab.hint.nothingCanBePostedInto")} />
       <div className="form-grid">
-        <TextField label="External reference" value={f.external_ref} onChange={(v) => setF({ ...f, external_ref: v })} maxLength={64} hint="Code in your ERP" />
-        <TextField label="Note" value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
+        <TextField label={t("mfg.locationsTab.label.externalReference")} value={f.external_ref} onChange={(v) => setF({ ...f, external_ref: v })} maxLength={64} hint={t("mfg.locationsTab.hint.codeInYourErp")} />
+        <TextField label={t("mfg.locationsTab.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
       </div>
     </EntityFormDialog>
   );
@@ -158,7 +158,7 @@ export function LocationsTab() {
         rows={list.data?.items ?? []}
         columns={columns}
         rowKey={(l) => l.id}
-        label="Locations"
+        label={t("mfg.locationsTab.label.locations")}
         testId="locations-table"
         loading={list.loading && !list.data}
         exportName="locations"
@@ -178,7 +178,7 @@ export function LocationsTab() {
       ) : null}
       {deleting ? (
         <ConfirmDialog title={`Delete ${deleting.code}?`} confirmLabel={t("mfg.locationsTab.btn.deleteLocation")} danger onCancel={() => setDeleting(null)} onConfirm={() => void remove(deleting)}>
-          <p style={{ margin: 0 }}>A location that has stock or ledger history cannot be deleted; make it inactive instead.</p>
+          <p style={{ margin: 0 }}>{t("mfg.locationsTab.text.aLocationThatHasStock")}</p>
         </ConfirmDialog>
       ) : null}
     </div>

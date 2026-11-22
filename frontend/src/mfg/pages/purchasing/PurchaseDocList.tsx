@@ -118,7 +118,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
                   eligible: ["submitted"],
                   what: (n: number) => `Reject ${docNoun(n)}.`,
                   effect: "The requester sees your reason.",
-                  form: (f: Record<string, string>, set: (k: string, v: string) => void) => <ReasonField id="bulk-reject" label="Reason" required value={f.reason ?? ""} onChange={(v) => set("reason", v)} testId="bulk-reject-reason" />,
+                  form: (f: Record<string, string>, set: (k: string, v: string) => void) => <ReasonField id="bulk-reject" label={t("mfg.purchaseDocList.label.reason")} required value={f.reason ?? ""} onChange={(v) => set("reason", v)} testId="bulk-reject-reason" />,
                   params: (f: Record<string, string>) => ({ reason: (f.reason ?? "").trim() }),
                   ready: (f: Record<string, string>) => Boolean(f.reason?.trim()),
                 },
@@ -209,7 +209,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
         onSortChange={(x) => set("sort", !x || x.key === "-created_at" ? "" : x.key)}
         exportName={docType === "po" ? "purchase-orders" : "purchase-requests"}
         empty={data.loading ? "Loading…" : `No ${word} match these filters.`}
-        footer={<span>Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} {word}</span>}
+        footer={<span>Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} {word}</span>}
       />
     </div>
   );

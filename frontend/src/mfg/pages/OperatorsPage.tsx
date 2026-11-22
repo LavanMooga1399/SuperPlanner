@@ -42,7 +42,7 @@ export function OperatorsPage() {
     <div className="split mfg-split">
       <section className="card" aria-labelledby="ops-title">
         <div className="card-header">
-          <h2 id="ops-title">Operators</h2>
+          <h2 id="ops-title">{t("mfg.operatorsPage.head.operators")}</h2>
           <Link className="btn sm" to={mfgPaths.printLabels({ type: "badge" })} data-testid="print-badges">
             <Icon name="file" /> {t("mfg.operatorsPage.btn.printBadges")}
           </Link>
@@ -59,7 +59,7 @@ export function OperatorsPage() {
           </button>
         </div>
         <div style={{ padding: "8px 16px 0" }}>
-          <input className="input sm" type="search" placeholder={t("mfg.operatorsPage.ph.searchCodeOrName")} aria-label="Search operators" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input sm" type="search" placeholder={t("mfg.operatorsPage.ph.searchCodeOrName")} aria-label={t("mfg.operatorsPage.aria.searchOperators")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <MfgError error={operators.error} onRetry={operators.reload} />
         {operators.loading && !operators.data ? <Spinner /> : null}
@@ -87,7 +87,7 @@ export function OperatorsPage() {
           />
         ) : null}
       </section>
-      <aside aria-label="Operator details">
+      <aside aria-label={t("mfg.operatorsPage.aria.operatorDetails")}>
         {creating ? (
           <OperatorForm
             key="new"
@@ -211,25 +211,25 @@ function OperatorForm({
         {conflict && base ? <ConflictBanner onReload={() => void getOperator(base.id).then(reset, setError)} what="this operator" /> : null}
         <MfgError error={error} title="Could not save" />
         <div className="form-grid">
-          <TextField label="Code" value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} hint="e.g. badge number" testId="operator-code" />
-          <TextField label="Name" value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="operator-name" />
+          <TextField label={t("mfg.operatorsPage.label.code")} value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} hint={t("mfg.operatorsPage.hint.egBadgeNumber")} testId="operator-code" />
+          <TextField label={t("mfg.operatorsPage.label.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="operator-name" />
         </div>
         <div className="field">
           <span className="field-label">Skills</span>
-          <MultiSelect options={skillOptions} value={f.skill_ids} onChange={(v) => setF({ ...f, skill_ids: v })} label="Skills" placeholder={t("mfg.operatorsPage.ph.noSkills")} />
+          <MultiSelect options={skillOptions} value={f.skill_ids} onChange={(v) => setF({ ...f, skill_ids: v })} label={t("mfg.operatorsPage.label.skills")} placeholder={t("mfg.operatorsPage.ph.noSkills")} />
         </div>
         <div className="form-grid">
           <SelectField
-            label="Works shift template"
+            label={t("mfg.operatorsPage.label.worksShiftTemplate")}
             value={f.template}
             onChange={(v) => setF({ ...f, template: v, shift_names: [] })}
             options={[{ value: "", label: "None" }, ...templates.map((t) => ({ value: t.id, label: `${t.code} - ${t.name}` }))]}
             testId="operator-template"
           />
-          <SelectField label="Home stage" value={f.home} onChange={(v) => setF({ ...f, home: v })} options={[{ value: "", label: "None" }, ...groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))]} />
+          <SelectField label={t("mfg.operatorsPage.label.homeStage")} value={f.home} onChange={(v) => setF({ ...f, home: v })} options={[{ value: "", label: "None" }, ...groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))]} />
           {f.m4 ? (
             <SelectField
-              label="Personal login"
+              label={t("mfg.operatorsPage.label.personalLogin")}
               value={f.user}
               onChange={(v) => setF({ ...f, user: v })}
               options={[
@@ -237,7 +237,7 @@ function OperatorForm({
                 ...(members.data?.items ?? []).filter((m) => m.active).map((m) => ({ value: m.user.id, label: `${m.user.display_name || m.user.email}${m.user.email ? ` (${m.user.email})` : ""}` })),
                 ...(f.user && !(members.data?.items ?? []).some((m) => m.user.id === f.user) ? [{ value: f.user, label: "Linked account" }] : []),
               ]}
-              hint="An operator signed in with their own account needs no badge scan. Members are managed under Members."
+              hint={t("mfg.operatorsPage.hint.anOperatorSignedInWith")}
             />
           ) : null}
         </div>
@@ -255,7 +255,7 @@ function OperatorForm({
             <span className="hint">None ticked = all shifts of the template.</span>
           </fieldset>
         ) : null}
-        <CheckField label="Active" checked={f.active} onChange={(v) => setF({ ...f, active: v })} />
+        <CheckField label={t("mfg.operatorsPage.label.active")} checked={f.active} onChange={(v) => setF({ ...f, active: v })} />
         <div className="row">
           <button type="submit" className="btn primary sm" disabled={busy || !f.code.trim() || !f.name.trim()} data-testid="operator-save">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {base ? "Save operator" : "Create operator"}
@@ -284,7 +284,7 @@ function OperatorForm({
             deleteOperator(base.id, base.row_version).then(onDeleted, setError);
           }}
         >
-          <p style={{ margin: 0 }}>Consider marking the operator inactive instead.</p>
+          <p style={{ margin: 0 }}>{t("mfg.operatorsPage.text.considerMarkingTheOperatorInactive")}</p>
         </ConfirmDialog>
       ) : null}
     </form>

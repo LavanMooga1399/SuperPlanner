@@ -7,6 +7,7 @@ import { Link } from "react-router";
 import { Icon } from "../components/Icon";
 import { useAuth } from "./AuthContext";
 import "./auth.css";
+import { t } from "../lib/i18n";
 
 function initials(label: string): string {
   const parts = label.replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean);
@@ -114,29 +115,29 @@ export function AccountMenu() {
         <Icon name="chevron-down" size={14} />
       </button>
       {open ? (
-        <ul className="account-menu-list" role="menu" id={menuId} aria-label="Account" ref={listRef} onKeyDown={onMenuKey}>
+        <ul className="account-menu-list" role="menu" id={menuId} aria-label={t("account.accountMenu.aria.account")} ref={listRef} onKeyDown={onMenuKey}>
           <li role="none" className="account-menu-head">
             <strong>{user.display_name || "Signed in"}</strong>
             {user.email}
           </li>
           <li role="none">
             <Link role="menuitem" className="account-menu-item" to="/account" onClick={() => setOpen(false)} data-testid="account-settings">
-              <Icon name="settings" /> Account settings
+              <Icon name="settings" /> {t("account.accountMenu.btn.accountSettings")}
             </Link>
           </li>
           <li role="none">
             <Link role="menuitem" className="account-menu-item" to="/account/security" onClick={() => setOpen(false)} data-testid="account-security">
-              <Icon name="lock" /> Two-step verification
+              <Icon name="lock" /> {t("account.accountMenu.btn.twostepVerification")}
             </Link>
           </li>
           <li role="none">
             <Link role="menuitem" className="account-menu-item" to="/account/tokens" onClick={() => setOpen(false)} data-testid="account-tokens">
-              <Icon name="copy" /> API tokens
+              <Icon name="copy" /> {t("account.accountMenu.btn.apiTokens")}
             </Link>
           </li>
           <li role="none">
             <Link role="menuitem" className="account-menu-item" to="/orgs" onClick={() => setOpen(false)} data-testid="account-orgs">
-              <Icon name="briefcase" /> Organisations
+              <Icon name="briefcase" /> {t("account.accountMenu.btn.organisations")}
             </Link>
           </li>
           <li role="none">

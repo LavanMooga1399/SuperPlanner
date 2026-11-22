@@ -3,6 +3,7 @@ import { fmtMonth } from "../lib/months";
 import { ChartPoint, ChartTooltip } from "./ChartTooltip";
 import { Legend } from "./Legend";
 import { linearScale, niceTicks, useWidth } from "./scales";
+import { t } from "../../lib/i18n";
 
 export interface LineSeries {
   key: string;
@@ -99,7 +100,7 @@ export function LineChart({ months, series, yMax = 100, formatY, ariaLabel, capt
         <caption>{caption}</caption>
         <thead>
           <tr>
-            <th scope="col">Month</th>
+            <th scope="col">{t("finance.lineChart.head.month")}</th>
             {series.map((s) => (
               <th scope="col" key={s.key}>{s.label}</th>
             ))}

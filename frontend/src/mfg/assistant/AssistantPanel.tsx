@@ -34,6 +34,7 @@ import { AnswerText, CitationList, QuickView } from "./AnswerText";
 import { DraftCardView } from "./DraftCardView";
 import { aiCodeText, budgetText, contextFromPath, isLastingCode, LATE_CONTEXTS, stepView, SUGGESTED_QUESTIONS } from "./assistantText";
 import { formatDate } from "../../lib/locale";
+import { t } from "../../lib/i18n";
 
 const FINAL = new Set(["completed", "failed", "cancelled"]);
 const convKey = () => `sp.asst.conversation.${currentWorkspace() ?? "own"}`;
@@ -95,14 +96,14 @@ function QuickExplanations({ context, onNavigate }: { context: ReturnType<typeof
       <div className="row wrap" style={{ gap: 6 }}>
         {late ? (
           <button type="button" className="btn sm" onClick={() => run("why_late")} aria-pressed={res?.kind === "why_late"} data-testid="asst-quick-why_late">
-            <Icon name="clock" /> Why late?
+            <Icon name="clock" /> {t("assistant.assistantPanel.btn.whyLate")}
           </button>
         ) : null}
         <button type="button" className="btn sm" onClick={() => run("limits")} aria-pressed={res?.kind === "limits"} data-testid="asst-quick-limits">
-          <Icon name="graph" /> What limits this week?
+          <Icon name="graph" /> {t("assistant.assistantPanel.btn.whatLimitsThisWeek")}
         </button>
         <button type="button" className="btn sm" onClick={() => run("changes")} aria-pressed={res?.kind === "changes"} data-testid="asst-quick-changes">
-          <Icon name="refresh" /> What changed?
+          <Icon name="refresh" /> {t("assistant.assistantPanel.btn.whatChanged")}
         </button>
       </div>
       {!late ? <p className="muted small" style={{ margin: 0 }}>Open a demand order or work order for "Why late?".</p> : null}
@@ -152,7 +153,7 @@ function TurnView({ turn, onNavigate, onStop }: { turn: AssistantTurn; onNavigat
           </ol>
           {onStop ? (
             <button type="button" className="btn sm" onClick={onStop} data-testid="asst-stop">
-              <Icon name="stop" /> Stop
+              <Icon name="stop" /> {t("assistant.assistantPanel.btn.stop")}
             </button>
           ) : null}
         </div>
@@ -180,7 +181,7 @@ function TurnView({ turn, onNavigate, onStop }: { turn: AssistantTurn; onNavigat
           <AnswerText text={turn.answer} citations={turn.citations ?? []} onNavigate={onNavigate} />
           <CitationList citations={turn.citations ?? []} onNavigate={onNavigate} />
           <p className="muted small" style={{ margin: 0 }}>
-            <Icon name="info" size={12} /> Answers may be wrong; check the linked records.
+            <Icon name="info" size={12} /> {t("assistant.assistantPanel.btn.answersMayBeWrongCheck")}
           </p>
         </div>
       ) : null}
@@ -202,13 +203,13 @@ function Unavailable({ code, message, onRetry }: { code: string | null; message?
     <div className="asst-off" role="status" data-testid="asst-unavailable" data-code={code ?? ""}>
       <Icon name={code === "AI_PLANT_OPTED_OUT" ? "ban" : "info"} />
       <div>
-        <strong>Asking in your own words is not available</strong>
+        <strong>{t("assistant.assistantPanel.head.askingInYourOwnWords")}</strong>
         <p style={{ margin: "2px 0" }}>{aiCodeText(code, message || undefined)}</p>
         {code ? <span className="chip mono" data-testid="asst-code">{code}</span> : null}
-        <p className="muted small" style={{ margin: "4px 0 0" }}>The quick explanations above work without it.</p>
+        <p className="muted small" style={{ margin: "4px 0 0" }}>{t("assistant.assistantPanel.text.theQuickExplanationsAboveWork")}</p>
         {!isLastingCode(code) ? (
           <button type="button" className="btn sm mt" onClick={onRetry}>
-            <Icon name="refresh" /> Check again
+            <Icon name="refresh" /> {t("assistant.assistantPanel.btn.checkAgain")}
           </button>
         ) : null}
       </div>
@@ -220,11 +221,11 @@ function PrivacyNotice({ text, onAccept }: { text: string; onAccept(): void }) {
   return (
     <div className="asst-privacy" data-testid="asst-privacy">
       <strong>
-        <Icon name="lock" size={14} /> Before you ask
+        <Icon name="lock" size={14} /> {t("assistant.assistantPanel.btn.beforeYouAsk")}
       </strong>
       <p style={{ margin: "4px 0 8px" }}>{text}</p>
       <button type="button" className="btn primary sm" onClick={onAccept} data-testid="asst-privacy-accept">
-        I understand
+        {t("assistant.assistantPanel.btn.iUnderstand")}
       </button>
     </div>
   );
@@ -393,7 +394,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
           ))}
         </div>
       ) : (
-        <ol className="asst-turns" aria-label="Conversation">
+        <ol className="asst-turns" aria-label={t("assistant.assistantPanel.aria.conversation")}>
           {turns.map((t) => (
             <TurnView key={t.id} turn={t} onNavigate={onNavigate} onStop={t === running ? () => void stop() : undefined} />
           ))}
@@ -430,7 +431,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
               void send(text);
             }
           }}
-          placeholder="e.g. Why is DO-KV-003/10 late and what can I do?"
+          placeholder={t("assistant.assistantPanel.ph.egWhyIsDokv00310Late")}
           data-testid="asst-input"
         />
         {context ? (
@@ -446,7 +447,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
         </div>
       </form>
       <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={more} onClick={() => setMore((v) => !v)} data-testid="asst-more">
-        <Icon name={more ? "chevron-down" : "chevron-right"} /> More options
+        <Icon name={more ? "chevron-down" : "chevron-right"} /> {t("assistant.assistantPanel.btn.moreOptions")}
       </button>
       {more ? (
         <div className="col" style={{ gap: 8 }} data-testid="asst-options">
@@ -467,15 +468,15 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
           </span>
           <div className="row wrap" style={{ gap: 6 }}>
             <button type="button" className="btn sm" onClick={newConversation} disabled={Boolean(running)} data-testid="asst-new">
-              <Icon name="plus" /> New conversation
+              <Icon name="plus" /> {t("assistant.assistantPanel.btn.newConversation")}
             </button>
             <button type="button" className="btn sm" onClick={loadHistory} data-testid="asst-history">
-              <Icon name="list" /> Earlier conversations
+              <Icon name="list" /> {t("assistant.assistantPanel.btn.earlierConversations")}
             </button>
           </div>
           {history ? (
             history.length === 0 ? (
-              <p className="muted small">No earlier conversations. They are kept for 30 days.</p>
+              <p className="muted small">{t("assistant.assistantPanel.text.noEarlierConversationsTheyAre")}</p>
             ) : (
               <ul className="asst-history">
                 {history.map((c) => (
@@ -502,7 +503,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
               </ul>
             )
           ) : null}
-          <p className="muted small" style={{ margin: 0 }}>Conversations are stored in this plant for 30 days and only you can see them.</p>
+          <p className="muted small" style={{ margin: 0 }}>{t("assistant.assistantPanel.text.conversationsAreStoredInThis")}</p>
         </div>
       ) : null}
     </div>
@@ -562,7 +563,7 @@ export function AssistantDrawer({ onClose }: { onClose(): void }) {
           </h2>
           <span className="muted small">Explains your plan and suggests actions. It never changes anything by itself.</span>
         </div>
-        <button type="button" className="btn ghost icon" onClick={onClose} aria-label="Close the assistant" data-testid="asst-close">
+        <button type="button" className="btn ghost icon" onClick={onClose} aria-label={t("assistant.assistantPanel.aria.closeTheAssistant")} data-testid="asst-close">
           <Icon name="x" />
         </button>
       </div>
@@ -578,7 +579,7 @@ export function AssistantButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="btn ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Assistant" title="Assistant" data-testid="asst-open">
+      <button type="button" className="btn ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={t("assistant.assistantPanel.aria.assistant")} title="Assistant" data-testid="asst-open">
         <Icon name="chat" /> <span className="asst-label">Assistant</span>
       </button>
       {open ? <AssistantDrawer onClose={() => setOpen(false)} /> : null}

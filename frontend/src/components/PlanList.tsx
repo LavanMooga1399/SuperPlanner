@@ -6,6 +6,7 @@ import { fmtRelative } from "../lib/time";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Icon } from "./Icon";
 import { StatusBadge } from "./StatusBadge";
+import { t } from "../lib/i18n";
 
 const DOMAIN_LABEL: Record<string, string> = {
   manufacturing: "Manufacturing",
@@ -57,7 +58,7 @@ export function PlanList({ items, onChanged }: { items: ProblemSummary[]; onChan
       {items.length === 0 ? (
         <div className="empty">
           <Icon name="calendar" size={32} />
-          <strong>No plans yet</strong>
+          <strong>{t("studio.planList.head.noPlansYet")}</strong>
           <span>Create one from a template below, or import a JSON file.</span>
         </div>
       ) : (
@@ -80,7 +81,7 @@ export function PlanList({ items, onChanged }: { items: ProblemSummary[]; onChan
               </div>
             </div>
             <div className="row wrap hide-sm">
-              {p.approved_schedule_id ? <StatusBadge kind="approved" label="Has approved schedule" /> : null}
+              {p.approved_schedule_id ? <StatusBadge kind="approved" label={t("studio.planList.label.hasApprovedSchedule")} /> : null}
               {p.latest_run ? <StatusBadge kind={p.latest_run.status} label={`Last run: ${p.latest_run.status}`} /> : null}
             </div>
             <div className="row">
@@ -96,8 +97,8 @@ export function PlanList({ items, onChanged }: { items: ProblemSummary[]; onChan
       )}
       {toDelete ? (
         <ConfirmDialog
-          title="Delete plan?"
-          confirmLabel="Delete plan"
+          title={t("studio.planList.title.deletePlan")}
+          confirmLabel={t("studio.planList.btn.deletePlan")}
           danger
           busy={busy}
           onConfirm={doDelete}

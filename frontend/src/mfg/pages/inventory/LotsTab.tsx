@@ -45,11 +45,11 @@ function LotDialog({ lot, onClose, onSaved }: { lot: LotRecord; onClose(): void;
         <span className="mono">{lot.item.part_number}</span> {lot.item.description} · on hand {fmtNum(lot.on_hand)} {lot.item.uom}
       </p>
       <div className="form-grid">
-        <TextField label="Expires on" type="date" value={f.expires_on} onChange={(v) => setF({ ...f, expires_on: v })} testId="lot-expires" />
-        <TextField label="Supplier lot" value={f.supplier_lot} onChange={(v) => setF({ ...f, supplier_lot: v })} maxLength={64} />
+        <TextField label={t("mfg.lotsTab.label.expiresOn")} type="date" value={f.expires_on} onChange={(v) => setF({ ...f, expires_on: v })} testId="lot-expires" />
+        <TextField label={t("mfg.lotsTab.label.supplierLot")} value={f.supplier_lot} onChange={(v) => setF({ ...f, supplier_lot: v })} maxLength={64} />
       </div>
-      <CheckField label="On hold" checked={f.hold} onChange={(v) => setF({ ...f, hold: v })} hint="Held stock is not planned and cannot be issued or shipped." testId="lot-hold" />
-      <TextField label="Note" value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
+      <CheckField label={t("mfg.lotsTab.label.onHold")} checked={f.hold} onChange={(v) => setF({ ...f, hold: v })} hint={t("mfg.lotsTab.hint.heldStockIsNotPlanned")} testId="lot-hold" />
+      <TextField label={t("mfg.lotsTab.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
     </EntityFormDialog>
   );
 }
@@ -177,14 +177,14 @@ export function LotsTab() {
         rowKey={(l) => l.id}
         sort={{ key: sort, dir: sort.startsWith("-") ? "desc" : "asc" }}
         onSortChange={(x) => setSearchParam(setParams, "sort", !x || x.key === "expires_on" ? "" : x.key)}
-        label="Lots"
+        label={t("mfg.lotsTab.label.lots")}
         testId="lots-table"
         totalCount={data.total}
         scrollTo={scrollTo}
         rowExtras={(l) => ({ testId: "lot-row", data: { lot: l.lot_code, hold: l.hold }, className: l.id === lotParam ? "mfg-selected" : undefined })}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading lots…" : "No lots. Lots are created by receipts of lot-tracked items."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} lots, earliest expiry first</span>}
+        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} lots, earliest expiry first</span>}
       />
       {editing ? (
         <LotDialog

@@ -15,6 +15,7 @@ import { usePolling } from "../lib/usePolling";
 import { useLoad } from "../lib/useMfg";
 import { useOnline } from "./MobileLayout";
 import { formatDateTime } from "../../lib/locale";
+import { t } from "../../lib/i18n";
 
 const SEVERITY: Record<Severity, { label: string; tone: string; icon: "alert" | "info" }> = {
   critical: { label: "Critical", tone: "danger", icon: "alert" },
@@ -77,7 +78,7 @@ function AlertRow({ n }: { n: MfgNotification }) {
           </span>
         ) : waiting ? (
           <span className="m-state small" data-testid="m-alert-waiting">
-            <Icon name="clock" size={14} /> Acknowledged, waiting to sync
+            <Icon name="clock" size={14} /> {t("mobile.mobileAlerts.btn.acknowledgedWaitingToSync")}
           </span>
         ) : (
           <button type="button" className="btn primary" onClick={() => void ack()} disabled={busy} data-testid="m-alert-ack">
@@ -106,7 +107,7 @@ export function MobileAlerts() {
   const items = [...(list.data?.items ?? [])].sort((a, b) => Number(Boolean(a.acknowledged_at)) - Number(Boolean(b.acknowledged_at)) || b.created_at.localeCompare(a.created_at));
   return (
     <div className="col" style={{ gap: 12 }} data-testid="m-alerts">
-      <h1>Alerts</h1>
+      <h1>{t("mobile.mobileAlerts.head.alerts")}</h1>
       {list.error && !list.data ? <MfgError error={list.error} onRetry={list.reload} /> : null}
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data && !items.length ? <p className="muted">No alerts.</p> : null}

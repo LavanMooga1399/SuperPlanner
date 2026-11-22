@@ -62,7 +62,7 @@ export function ItemSupplierTable({
     { key: "lead", header: "Lead time", width: "90px", align: "right", sortValue: (r) => r.lead_time_days, render: (r) => (r.lead_time_days === null ? <span className="faint">default</span> : `${r.lead_time_days} d`) },
     { key: "moq", header: "Min. order", width: "96px", align: "right", sortValue: (r) => r.min_order_qty, render: (r) => (r.min_order_qty ? fmtNum(r.min_order_qty) : <span className="faint">item</span>) },
     { key: "mult", header: "Multiple", width: "88px", align: "right", sortValue: (r) => r.order_multiple, render: (r) => (r.order_multiple ? fmtNum(r.order_multiple) : <span className="faint">item</span>) },
-    { key: "pack", header: "Pack", width: "110px", render: (r) => (r.units_per_purchase_unit !== 1 || r.purchase_unit ? `${r.purchase_unit ?? "pack"} of ${fmtNum(r.units_per_purchase_unit)}` : "") },
+    { key: "pack", header: "Pack", width: "110px", render: (r) => (r.units_per_purchase_unit !== 1 || r.purchase_unit ? `${t("common.nOfM", { n: r.purchase_unit ?? "pack", m: fmtNum(r.units_per_purchase_unit) })}` : "") },
     { key: "price", header: "Unit price", width: "110px", align: "right", sortValue: (r) => r.unit_price, render: (r) => (r.unit_price === null ? "" : `${fmtNum(r.unit_price)} ${r.currency}`) },
     { key: "status", header: "Status", width: "96px", sortValue: (r) => (r.active ? 0 : 1), exportValue: (r) => (r.active ? "Active" : "Inactive"), render: (r) => <ActiveBadge active={r.active} /> },
   ];
@@ -80,7 +80,7 @@ export function ItemSupplierTable({
             {t("mfg.itemSuppliersTab.btn.edit")}
           </button>
           {onDelete ? (
-            <button type="button" className="btn sm ghost icon" aria-label="Remove" onClick={() => onDelete(r)}>
+            <button type="button" className="btn sm ghost icon" aria-label={t("mfg.itemSuppliersTab.aria.remove")} onClick={() => onDelete(r)}>
               <Icon name="trash" />
             </button>
           ) : null}
@@ -153,7 +153,7 @@ export function ItemSuppliersTab() {
             deleteItemSupplier(d.id, d.row_version).then(rows.reload, setError);
           }}
         >
-          <p style={{ margin: 0 }}>Existing purchase documents are not changed.</p>
+          <p style={{ margin: 0 }}>{t("mfg.itemSuppliersTab.text.existingPurchaseDocumentsAreNot")}</p>
         </ConfirmDialog>
       ) : null}
     </div>

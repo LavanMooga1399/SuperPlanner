@@ -11,6 +11,7 @@ import { EngineVersionBanner } from "../components/EngineVersionBanner";
 import { ScenarioCompareTable } from "../components/ScenarioCompareTable";
 import { useLoadedFinancePlan } from "../state/FinancePlanContext";
 import { PageHeader } from "../../components/PageHeader";
+import { t } from "../../lib/i18n";
 
 const resultLabel = (r: FinanceResultSummary) =>
   `${r.kind === "what_if" ? `What-if${r.label ? `: ${r.label}` : ""}` : `Plan v${r.base_plan_version}`} (${fmtLocal(r.created_at)})`;
@@ -60,15 +61,15 @@ export function ComparePage() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Compare scenarios"
-        description="Changes are shown as B compared with A."
+        title={t("finance.comparePage.title.compareScenarios")}
+        description={t("finance.comparePage.desc.changesAreShownAsB")}
       />
-      {list.loading && !list.data ? <Loading label="Loading results…" /> : null}
+      {list.loading && !list.data ? <Loading label={t("finance.comparePage.label.loadingResults")} /> : null}
       <ErrorBanner error={list.error} onRetry={list.reload} />
       {list.data && items.length < 2 ? (
         <div className="empty">
           <Icon name="compare" size={28} />
-          <p>You need at least two results to compare. Try a what-if scenario first.</p>
+          <p>{t("finance.comparePage.text.youNeedAtLeastTwo")}</p>
         </div>
       ) : null}
       {items.length ? (
@@ -91,7 +92,7 @@ export function ComparePage() {
         </div>
       ) : null}
       <ErrorBanner error={error} />
-      {loading && !cmp ? <Loading label="Comparing…" /> : null}
+      {loading && !cmp ? <Loading label={t("finance.comparePage.label.comparing")} /> : null}
       {cmp ? (
         <>
           <EngineVersionBanner show={cmp.engine_versions_differ} />

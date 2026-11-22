@@ -9,6 +9,7 @@ import { useAuth } from "./AuthContext";
 import { EMAIL_RE, FormError, PasswordInput, authFailureText } from "./AuthFields";
 import { safeNext } from "./nextPath";
 import "./auth.css";
+import { t } from "../lib/i18n";
 
 export function SignInPage() {
   const auth = useAuth();
@@ -90,7 +91,7 @@ export function SignInPage() {
     <div className="auth-page">
       <section className="card auth-card" aria-labelledby="signin-title">
         <div className="card-body">
-          <h1 id="signin-title">Sign in</h1>
+          <h1 id="signin-title">{t("account.signInPage.head.signIn")}</h1>
           <p className="auth-lead">
             {auth.expired ? "Your session has ended. Sign in again to continue where you left off." : "Sign in to see your plans."}
           </p>
@@ -120,7 +121,7 @@ export function SignInPage() {
               {error}
             </FormError>
             <div className="field">
-              <label htmlFor="signin-email">Email</label>
+              <label htmlFor="signin-email">{t("account.signInPage.label.email")}</label>
               <input
                 ref={emailRef}
                 id="signin-email"
@@ -139,7 +140,7 @@ export function SignInPage() {
               />
             </div>
             <div className="field">
-              <label htmlFor="signin-password">Password</label>
+              <label htmlFor="signin-password">{t("account.signInPage.label.password")}</label>
               <PasswordInput
                 id="signin-password"
                 testId="signin-password"
@@ -159,11 +160,11 @@ export function SignInPage() {
             <p className="auth-switch">
               New here?{" "}
               <Link to={signUpTo} data-testid="signin-to-signup">
-                Create an account
+                {t("account.signInPage.btn.createAnAccount")}
               </Link>
             </p>
           ) : (
-            <p className="auth-switch">Need an account? Ask your administrator.</p>
+            <p className="auth-switch">{t("account.signInPage.text.needAnAccountAskYour")}</p>
           )}
         </div>
       </section>
@@ -210,7 +211,7 @@ function TotpStep({ pending, onBack, next }: { pending: PendingLogin; onBack(): 
     <div className="auth-page">
       <section className="card auth-card" aria-labelledby="totp-title" data-testid="signin-totp">
         <div className="card-body">
-          <h1 id="totp-title">Two-step verification</h1>
+          <h1 id="totp-title">{t("account.signInPage.head.twostepVerification")}</h1>
           <p className="auth-lead">{useRecovery ? "Enter one of the recovery codes you saved when you turned on two-step verification. Each code works once." : "Open your authenticator app and enter the 6-digit code for SuperPlanner."}</p>
           <form className="auth-form" onSubmit={submit} noValidate aria-describedby={error ? "totp-error" : undefined}>
             <FormError id="totp-error" testId="totp-error">
@@ -243,7 +244,7 @@ function TotpStep({ pending, onBack, next }: { pending: PendingLogin; onBack(): 
             </button>
             {" · "}
             <button type="button" className="btn link" onClick={onBack}>
-              Start over
+              {t("account.signInPage.btn.startOver")}
             </button>
           </p>
         </div>

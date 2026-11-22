@@ -146,18 +146,18 @@ export function DocLinesEditor({
 
   return (
     <div className="table-wrap card">
-      <table className="table mfg-grid-table" aria-label="Lines and deliveries" data-testid="doc-lines">
+      <table className="table mfg-grid-table" aria-label={t("mfg.docLinesEditor.aria.linesAndDeliveries")} data-testid="doc-lines">
         <thead>
           <tr>
-            <th>Line</th>
-            <th>Part / delivery</th>
-            <th>Requested dock</th>
-            <th>Confirmed dock</th>
-            <th className="right">Quantity</th>
-            <th className="right">Received</th>
-            <th className="right">Open</th>
-            <th>Available</th>
-            <th className="right">Unit price</th>
+            <th>{t("mfg.docLinesEditor.head.line")}</th>
+            <th>{t("mfg.docLinesEditor.head.partDelivery")}</th>
+            <th>{t("mfg.docLinesEditor.head.requestedDock")}</th>
+            <th>{t("mfg.docLinesEditor.head.confirmedDock")}</th>
+            <th className="right">{t("mfg.docLinesEditor.head.quantity")}</th>
+            <th className="right">{t("mfg.docLinesEditor.head.received")}</th>
+            <th className="right">{t("mfg.docLinesEditor.head.open")}</th>
+            <th>{t("mfg.docLinesEditor.head.available")}</th>
+            <th className="right">{t("mfg.docLinesEditor.head.unitPrice")}</th>
             <th>
               <span className="sr-only">Actions</span>
             </th>

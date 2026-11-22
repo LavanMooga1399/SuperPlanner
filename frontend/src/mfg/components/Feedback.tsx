@@ -78,7 +78,7 @@ export function NotFoundPanel({ what, back }: { what: string; back?: ReactNode }
     <div className="empty" data-testid="mfg-not-found">
       <Icon name="help" size={32} />
       <h2>{what} not found</h2>
-      <p>It does not exist, or it belongs to another account.</p>
+      <p>{t("mfg.feedback.text.itDoesNotExistOr")}</p>
       {back}
     </div>
   );

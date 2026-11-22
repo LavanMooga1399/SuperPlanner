@@ -77,9 +77,9 @@ export function ImportMapping({
                   <table className="table">
                     <thead>
                       <tr>
-                        <th>Column in your file</th>
-                        <th>Example values</th>
-                        <th>Goes into</th>
+                        <th>{t("mfg.importMapping.head.columnInYourFile")}</th>
+                        <th>{t("mfg.importMapping.head.exampleValues")}</th>
+                        <th>{t("mfg.importMapping.head.goesInto")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -155,24 +155,24 @@ export function ImportMapping({
       {more ? (
         <section className="card card-body col" data-testid="import-options">
           <CheckField
-            label="BOM lines and operations in the file replace the existing ones of those BOMs and routings"
+            label={t("mfg.importMapping.label.bomLinesAndOperationsIn")}
             checked={value.options.replace_children}
             onChange={(v) => onChange({ ...value, options: { ...value.options, replace_children: v } })}
-            hint="Off = only add and update lines; nothing is removed."
+            hint={t("mfg.importMapping.hint.offOnlyAddAnd")}
           />
           <CheckField
-            label="Release new BOMs and routings right away"
+            label={t("mfg.importMapping.label.releaseNewBomsAndRoutings")}
             checked={value.options.release}
             onChange={(v) => onChange({ ...value, options: { ...value.options, release: v } })}
-            hint="Otherwise they are created as drafts that you release when checked."
+            hint={t("mfg.importMapping.hint.otherwiseTheyAreCreatedAs")}
           />
           <div style={{ maxWidth: 260 }}>
             <TextField
-              label="Start date for new BOMs and routings"
+              label={t("mfg.importMapping.label.startDateForNewBoms")}
               type="date"
               value={value.options.default_effective_from ?? ""}
               onChange={(v) => onChange({ ...value, options: { ...value.options, default_effective_from: v || null } })}
-              hint="Used when the file has no start date."
+              hint={t("mfg.importMapping.hint.usedWhenTheFileHas")}
             />
           </div>
         </section>

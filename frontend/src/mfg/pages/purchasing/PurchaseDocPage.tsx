@@ -136,7 +136,7 @@ function ConvertDialog({ pr, onClose, onDone }: { pr: PurchaseDocRecord; onClose
           One purchase order line is created per request line, with the same deliveries and the supplier's price.
         </p>
         <fieldset className="mfg-fieldset">
-          <legend>Lines</legend>
+          <legend>{t("mfg.purchaseDocPage.head.lines")}</legend>
           {open.map((l) => (
             <label key={l.id} className="checkbox">
               <input
@@ -156,8 +156,8 @@ function ConvertDialog({ pr, onClose, onDone }: { pr: PurchaseDocRecord; onClose
           ))}
         </fieldset>
         <div className="form-grid">
-          <SupplierPicker label="Supplier" value={supplier} onChange={setSupplier} allowClear testId="convert-pr-supplier" />
-          <TextField label="Order number" value={number} onChange={setNumber} maxLength={32} placeholder={t("mfg.purchaseDocPage.ph.nextFreeNumber")} hint="Empty = next number of the series" />
+          <SupplierPicker label={t("mfg.purchaseDocPage.label.supplier")} value={supplier} onChange={setSupplier} allowClear testId="convert-pr-supplier" />
+          <TextField label={t("mfg.purchaseDocPage.label.orderNumber")} value={number} onChange={setNumber} maxLength={32} placeholder={t("mfg.purchaseDocPage.ph.nextFreeNumber")} hint={t("mfg.purchaseDocPage.hint.emptyNextNumberOf")} />
         </div>
         {!supplier ? <p className="hint" style={{ margin: 0 }}>Without a supplier, the preferred supplier common to all chosen parts is used.</p> : null}
         <label className="checkbox">
@@ -283,7 +283,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
   return (
     <div className="col gap-lg" data-testid="doc-page" data-doc-type={docType} data-status={status}>
       <UnsavedChangesGuard when={!isNew && editable && dirty && !busy} what={`this ${docType === "po" ? "purchase order" : "purchase request"}`} />
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
+      <nav aria-label={t("mfg.purchaseDocPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.purchaseDocs(docType)}>{docType === "pr" ? "Purchase requests" : "Purchase orders"}</Link> <Icon name="chevron-right" size={12} />{" "}
         <span className="mono">{doc?.number ?? `New ${word}`}</span>
       </nav>
@@ -297,7 +297,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
           {doc && doc.overdue_count > 0 ? <OverdueBadge days={0} /> : null}
         </div>
         {doc ? (
-          <div className="mfg-actions" role="group" aria-label="Actions">
+          <div className="mfg-actions" role="group" aria-label={t("mfg.purchaseDocPage.aria.actions")}>
             {actions.map((a) =>
               can(a.perm) ? (
                 <button
@@ -322,7 +322,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
       </div>
 
       {conflict ? <ConflictBanner onReload={() => void getPurchaseDoc(docType, docId).then(reset, setError)} what={`this ${word}`} /> : null}
-      {docType === "po" ? <ErpOwnedNotice entity="purchase_orders" label="Purchase orders" /> : null}
+      {docType === "po" ? <ErpOwnedNotice entity="purchase_orders" label={t("mfg.purchaseDocPage.label.purchaseOrders")} /> : null}
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
       <MfgError error={error} title="That did not work" />
       {doc?.status === "rejected" && doc.rejected_reason ? (
@@ -333,7 +333,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
 
       <section className="card">
         <div className="card-body form-grid">
-          <TextField label="Number" value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder={t("mfg.purchaseDocPage.ph.nextFreeNumber")} disabled={!editable || !isNew} testId="doc-number" />
+          <TextField label={t("mfg.purchaseDocPage.label.number")} value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder={t("mfg.purchaseDocPage.ph.nextFreeNumber")} disabled={!editable || !isNew} testId="doc-number" />
           <SupplierPicker
             label={docType === "po" ? "Supplier *" : "Suggested supplier"}
             value={head.supplier}
@@ -342,11 +342,11 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
             disabled={!editable}
             testId="doc-supplier"
           />
-          <TextField label="Currency" value={head.currency} onChange={(v) => setHead({ ...head, currency: v })} maxLength={8} disabled={!editable} hint="Empty = the supplier's" />
-          {docType === "po" ? <TextField label="Order date" type="date" value={head.order_date} onChange={(v) => setHead({ ...head, order_date: v })} disabled={!editable} /> : null}
-          <TextField label="External reference" value={head.external_ref} onChange={(v) => setHead({ ...head, external_ref: v })} maxLength={64} disabled={!editable} hint="Number in your ERP" />
+          <TextField label={t("mfg.purchaseDocPage.label.currency")} value={head.currency} onChange={(v) => setHead({ ...head, currency: v })} maxLength={8} disabled={!editable} hint={t("mfg.purchaseDocPage.hint.emptyTheSuppliers")} />
+          {docType === "po" ? <TextField label={t("mfg.purchaseDocPage.label.orderDate")} type="date" value={head.order_date} onChange={(v) => setHead({ ...head, order_date: v })} disabled={!editable} /> : null}
+          <TextField label={t("mfg.purchaseDocPage.label.externalReference")} value={head.external_ref} onChange={(v) => setHead({ ...head, external_ref: v })} maxLength={64} disabled={!editable} hint={t("mfg.purchaseDocPage.hint.numberInYourErp")} />
           <div style={{ gridColumn: "span 2" }}>
-            <TextField label="Note" value={head.note} onChange={(v) => setHead({ ...head, note: v })} maxLength={500} disabled={!editable} />
+            <TextField label={t("mfg.purchaseDocPage.label.note")} value={head.note} onChange={(v) => setHead({ ...head, note: v })} maxLength={500} disabled={!editable} />
           </div>
         </div>
         {doc ? (
@@ -391,7 +391,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
       {doc?.receipts && doc.receipts.length ? (
         <section className="card" data-testid="doc-receipts">
           <div className="card-header">
-            <h3>Receipts</h3>
+            <h3>{t("mfg.purchaseDocPage.head.receipts")}</h3>
           </div>
           <ul className="mfg-plain-list">
             {doc.receipts.map((r) => (

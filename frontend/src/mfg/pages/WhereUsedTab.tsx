@@ -60,7 +60,7 @@ export function WhereUsedTab() {
   return (
     <div className="col">
       <div className="toolbar">
-        <div className="btn-group" role="group" aria-label="Depth">
+        <div className="btn-group" role="group" aria-label={t("mfg.whereUsedTab.aria.depth")}>
           <button type="button" className="btn sm" aria-pressed={mode === "single"} onClick={() => setMode("single")} data-testid="whereused-mode-single">
             {t("mfg.whereUsedTab.btn.directParents")}
           </button>
@@ -68,7 +68,7 @@ export function WhereUsedTab() {
             {t("mfg.whereUsedTab.btn.allLevelsUp")}
           </button>
         </div>
-        <div className="btn-group" role="group" aria-label="Versions">
+        <div className="btn-group" role="group" aria-label={t("mfg.whereUsedTab.aria.versions")}>
           <button type="button" className="btn sm" aria-pressed={include === "effective"} onClick={() => setInclude("effective")} data-testid="whereused-include-effective">
             {t("mfg.whereUsedTab.btn.releasedAndEffective")}
           </button>

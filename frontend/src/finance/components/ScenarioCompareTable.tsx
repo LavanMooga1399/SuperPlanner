@@ -3,6 +3,7 @@ import type { FinanceComparison } from "../api/types";
 import { formatMoney, formatProb } from "../lib/money";
 import { fmtMonth } from "../lib/months";
 import { goalStatusLabel } from "./StatusPill";
+import { t as tr } from "../../lib/i18n";
 
 function Delta({ v, fmt, higherIsBetter = true }: { v: number | null; fmt(v: number): string; higherIsBetter?: boolean }) {
   if (v === null || Math.abs(v) < 1e-9) return <span className="muted">no change</span>;
@@ -41,33 +42,33 @@ export function ScenarioCompareTable({
         <caption className="sr-only">Comparison of {labelA} and {labelB}</caption>
         <thead>
           <tr>
-            <th scope="col">Measure</th>
+            <th scope="col">{tr("finance.scenarioCompareTable.head.measure")}</th>
             <th scope="col" className="num">{labelA}</th>
             <th scope="col" className="num">{labelB}</th>
-            <th scope="col" className="num">Change</th>
+            <th scope="col" className="num">{tr("finance.scenarioCompareTable.head.change")}</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <th scope="row">Monthly contribution now</th>
+            <th scope="row">{tr("finance.scenarioCompareTable.head.monthlyContributionNow")}</th>
             <td className="num">{m(t.monthly_contribution_now_a)}</td>
             <td className="num">{m(t.monthly_contribution_now_b)}</td>
             <td className="num"><Delta v={t.monthly_contribution_now_delta} fmt={ms} higherIsBetter={false} /></td>
           </tr>
           <tr>
-            <th scope="row">Goals on track</th>
+            <th scope="row">{tr("finance.scenarioCompareTable.head.goalsOnTrack")}</th>
             <td className="num">{t.goals_on_track_a}</td>
             <td className="num">{t.goals_on_track_b}</td>
             <td className="num"><Delta v={t.goals_on_track_b - t.goals_on_track_a} fmt={(v) => `${v > 0 ? "+" : ""}${v}`} /></td>
           </tr>
           <tr>
-            <th scope="row">Emergency fund complete</th>
+            <th scope="row">{tr("finance.scenarioCompareTable.head.emergencyFundComplete")}</th>
             <td className="num">{fmtMonth(t.ef_complete_month_a)}</td>
             <td className="num">{fmtMonth(t.ef_complete_month_b)}</td>
             <td className="num">{t.ef_complete_month_a === t.ef_complete_month_b ? <span className="muted">no change</span> : "changed"}</td>
           </tr>
           <tr>
-            <th scope="row">Cash shortfall risk</th>
+            <th scope="row">{tr("finance.scenarioCompareTable.head.cashShortfallRisk")}</th>
             <td className="num">{formatProb(t.liquidity_risk_a)}</td>
             <td className="num">{formatProb(t.liquidity_risk_b)}</td>
             <td className="num"><Delta v={t.liquidity_risk_b - t.liquidity_risk_a} fmt={(v) => formatProb(v, true)} higherIsBetter={false} /></td>
@@ -89,25 +90,25 @@ function GoalRows({ g, m, ms }: { g: FinanceComparison["goals"][number]; m(v: nu
         <th scope="rowgroup" colSpan={4} style={{ background: "var(--surface-2)" }}>{g.name}</th>
       </tr>
       <tr>
-        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>Estimated chance</th>
+        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>{tr("finance.scenarioCompareTable.head.estimatedChance")}</th>
         <td className="num">{absent(g.in_a) ?? formatProb(g.success_a)}</td>
         <td className="num">{absent(g.in_b) ?? formatProb(g.success_b)}</td>
         <td className="num"><Delta v={g.success_delta} fmt={(v) => formatProb(v, true)} /></td>
       </tr>
       <tr>
-        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>Middle outcome (p50)</th>
+        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>{tr("finance.scenarioCompareTable.head.middleOutcomeP50")}</th>
         <td className="num">{absent(g.in_a) ?? m(g.p50_a)}</td>
         <td className="num">{absent(g.in_b) ?? m(g.p50_b)}</td>
         <td className="num"><Delta v={g.p50_delta} fmt={ms} /></td>
       </tr>
       <tr>
-        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>Due</th>
+        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>{tr("finance.scenarioCompareTable.head.due")}</th>
         <td className="num">{fmtMonth(g.target_month_a)}</td>
         <td className="num">{fmtMonth(g.target_month_b)}</td>
         <td className="num">{g.target_month_a === g.target_month_b ? <span className="muted">no change</span> : "moved"}</td>
       </tr>
       <tr>
-        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>Monthly now</th>
+        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>{tr("finance.scenarioCompareTable.head.monthlyNow")}</th>
         <td className="num">{m(g.monthly_now_a)}</td>
         <td className="num">{m(g.monthly_now_b)}</td>
         <td className="num">
@@ -117,7 +118,7 @@ function GoalRows({ g, m, ms }: { g: FinanceComparison["goals"][number]; m(v: nu
         </td>
       </tr>
       <tr>
-        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>Status</th>
+        <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>{tr("finance.scenarioCompareTable.head.status")}</th>
         <td className="num">{goalStatusLabel(g.status_a)}</td>
         <td className="num">{goalStatusLabel(g.status_b)}</td>
         <td className="num">{g.status_a === g.status_b ? <span className="muted">no change</span> : "changed"}</td>

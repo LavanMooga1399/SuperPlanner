@@ -154,7 +154,7 @@ export function FloorOverview() {
                   </Link>{" "}
                   / {r.cur.seq} {r.cur.name}
                   <span className="vt-sub">
-                    {fmtQty(r.cur.qty_good)} of {fmtQty(r.cur.qty_planned || r.cur.wo.qty)}
+                    {t("common.nOfM", { n: fmtQty(r.cur.qty_good), m: fmtQty(r.cur.qty_planned || r.cur.wo.qty) })}
                   </span>
                 </span>
               ) : (
@@ -184,12 +184,12 @@ export function FloorOverview() {
           { key: "material", header: "Material", width: "120px", exportValue: (r) => r.next?.kit ?? "", render: (r) => (r.next ? <KitChip kit={r.next.kit} /> : null) },
         ]}
         rowKey={(r) => r.l.id}
-        label="Lines on the shop floor"
+        label={t("mfg.floorOverview.label.linesOnTheShopFloor")}
         tableId="floor-overview"
         loading={(lines.loading || queues.loading) && !queues.data}
         exportName="shop-floor"
         rowExtras={(r) => ({ testId: "overview-line", data: { line: r.l.code, state: r.state } })}
-        empty="No lines yet. Add stages and lines under Plant."
+        empty={t("mfg.floorOverview.empty.noLinesYetAddStages")}
         card={{ title: "line", status: "state", fields: ["now", "plan", "next"] }}
       />
     </div>

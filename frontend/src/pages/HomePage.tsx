@@ -8,6 +8,7 @@ import { PlanList } from "../components/PlanList";
 import { TemplateCard } from "../components/TemplateCard";
 import { PlanChooser } from "../landing/PlanChooser";
 import { useAsync } from "../lib/useAsync";
+import { t } from "../lib/i18n";
 
 function toExportFile(data: unknown): ExportFile {
   if (typeof data !== "object" || data === null) throw new Error("The file does not contain a JSON object.");
@@ -50,11 +51,11 @@ export function HomePage() {
       <PlanChooser />
       <div className="page-header mt-lg" style={{ marginBottom: 0 }}>
         <div>
-          <h2 id="plans-title">Your plans</h2>
-          <p>Schedules you have made. Financial plans are under Finance.</p>
+          <h2 id="plans-title">{t("studio.homePage.head.yourPlans")}</h2>
+          <p>{t("studio.homePage.text.schedulesYouHaveMadeFinancial")}</p>
         </div>
         <div className="row">
-          <input ref={fileRef} type="file" accept=".json,application/json" className="sr-only" onChange={onFile} id="import-file" aria-label="Import plan JSON file" />
+          <input ref={fileRef} type="file" accept=".json,application/json" className="sr-only" onChange={onFile} id="import-file" aria-label={t("studio.homePage.aria.importPlanJsonFile")} />
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={importing}>
             {importing ? <span className="spinner" aria-hidden /> : <Icon name="upload" />}
             Import JSON
@@ -63,7 +64,7 @@ export function HomePage() {
       </div>
       <ErrorBanner error={importError} />
       {plans.loading && !plans.data ? (
-        <Loading label="Loading plans…" />
+        <Loading label={t("studio.homePage.label.loadingPlans")} />
       ) : plans.error ? (
         <ErrorBanner error={plans.error} onRetry={plans.reload} />
       ) : (
@@ -72,10 +73,10 @@ export function HomePage() {
 
       <section aria-labelledby="templates-title" className="mt">
         <div className="section-title">
-          <h2 id="templates-title">Start from an example</h2>
+          <h2 id="templates-title">{t("studio.homePage.head.startFromAnExample")}</h2>
         </div>
         {templates.loading && !templates.data ? (
-          <Loading label="Loading templates…" />
+          <Loading label={t("studio.homePage.label.loadingTemplates")} />
         ) : templates.error ? (
           <ErrorBanner error={templates.error} onRetry={templates.reload} />
         ) : (

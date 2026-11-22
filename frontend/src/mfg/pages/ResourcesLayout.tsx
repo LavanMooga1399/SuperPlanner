@@ -8,10 +8,10 @@ export function ResourcesLayout() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="People and tooling"
+        title={t("mfg.resourcesLayout.title.peopleAndTooling")}
         description={t("mfg.resourcesLayout.desc.skillsTheOperatorsWhoHold")} />
       <SectionTabs
-        label="People and tooling sections"
+        label={t("mfg.resourcesLayout.label.peopleAndToolingSections")}
         tabs={[
           { to: mfgPaths.skills(), label: "Skills", testId: "resources-tab-skills" },
           { to: mfgPaths.operators(), label: "Operators", testId: "resources-tab-operators" },

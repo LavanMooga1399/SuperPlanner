@@ -32,7 +32,7 @@ export function SkillsPage() {
     <div className="split mfg-split">
       <section className="card" aria-labelledby="skills-title">
         <div className="card-header">
-          <h2 id="skills-title">Skills</h2>
+          <h2 id="skills-title">{t("mfg.skillsPage.head.skills")}</h2>
           <button type="button" className="btn sm primary" onClick={() => setEditing("new")} data-testid="skill-new">
             <Icon name="plus" /> {t("mfg.skillsPage.btn.newSkill")}
           </button>
@@ -59,7 +59,7 @@ export function SkillsPage() {
           />
         ) : null}
       </section>
-      <aside className="col" aria-label="Skill details">
+      <aside className="col" aria-label={t("mfg.skillsPage.aria.skillDetails")}>
         {selected ? (
           <SkillHolders
             skill={selected}
@@ -97,7 +97,7 @@ export function SkillsPage() {
             }, setError);
           }}
         >
-          <p style={{ margin: 0 }}>A skill required by operations cannot be deleted. Operators lose it.</p>
+          <p style={{ margin: 0 }}>{t("mfg.skillsPage.text.aSkillRequiredByOperations")}</p>
         </ConfirmDialog>
       ) : null}
     </div>
@@ -123,7 +123,7 @@ function SkillHolders({ skill, onEdit, onDelete }: { skill: SkillRecord; onEdit(
       </div>
       <div className="card-body col">
         {skill.description ? <p style={{ margin: 0 }}>{skill.description}</p> : null}
-        <h3>Who holds this skill</h3>
+        <h3>{t("mfg.skillsPage.head.whoHoldsThisSkill")}</h3>
         <MfgError error={ops.error} onRetry={ops.reload} />
         {ops.loading && !ops.data ? <Spinner /> : null}
         {ops.data && ops.data.items.length === 0 ? (
@@ -187,10 +187,10 @@ function SkillDialog({ skill, onClose, onSaved }: { skill: SkillRecord | null; o
       }}
     >
       <div className="form-grid">
-        <TextField label="Code" value={code} onChange={setCode} required maxLength={32} testId="skill-code" />
-        <TextField label="Name" value={name} onChange={setName} required testId="skill-name" />
+        <TextField label={t("mfg.skillsPage.label.code")} value={code} onChange={setCode} required maxLength={32} testId="skill-code" />
+        <TextField label={t("mfg.skillsPage.label.name")} value={name} onChange={setName} required testId="skill-name" />
       </div>
-      <TextField label="Description" value={description} onChange={setDescription} maxLength={500} />
+      <TextField label={t("mfg.skillsPage.label.description")} value={description} onChange={setDescription} maxLength={500} />
     </EntityFormDialog>
   );
 }

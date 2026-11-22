@@ -1,6 +1,7 @@
 import { PRESET_WEIGHTS, type Objectives, type Preset, type Weights } from "../api/types";
 import type { Terms } from "../lib/terms";
 import { Icon, type IconName } from "./Icon";
+import { t } from "../lib/i18n";
 
 const PRESETS: Array<{ id: Exclude<Preset, "custom">; label: string; icon: IconName; desc: (t: Terms) => string }> = [
   { id: "balanced", label: "Balanced", icon: "star", desc: (t) => `Finish early, keep ${t.deadlineL}s and watch costs - a sensible default.` },
@@ -24,7 +25,7 @@ export function GoalPresetPicker({
   const allZero = value.preset === "custom" && value.weights.makespan <= 0 && value.weights.tardiness <= 0 && value.weights.cost <= 0;
   return (
     <div className="col">
-      <div className="preset-grid" role="radiogroup" aria-label="Goal">
+      <div className="preset-grid" role="radiogroup" aria-label={t("studio.goalPresetPicker.aria.goal")}>
         {PRESETS.map((p) => (
           <button
             key={p.id}

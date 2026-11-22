@@ -18,6 +18,7 @@ import { useTerms } from "../../lib/terms";
 import { fmtLocal, offsetLabel, offsetMinutesOf } from "../../lib/time";
 import { useAsync, useStoredState } from "../../lib/useAsync";
 import { useLoadedPlan } from "../../state/PlanContext";
+import { t, plural } from "../../lib/i18n";
 
 export function pickDefaultSchedule(items: ScheduleSummary[]): ScheduleSummary | null {
   return items.find((s) => s.status === "approved") ?? items.find((s) => s.rank === 0) ?? items[0] ?? null;
@@ -31,7 +32,7 @@ export function scheduleOptionLabel(s: ScheduleSummary): string {
 function approveBlockReason(s: Schedule, terms: ReturnType<typeof useTerms>): string | null {
   if (s.status === "approved") return null;
   if (s.status === "superseded") return `A newer ${terms.scheduleL} was approved after this one; superseded ${terms.scheduleL}s cannot be approved again.`;
-  if (s.feasibility === "unknown") return `This ${terms.scheduleL} breaks ${s.hard_violation_count} rule${s.hard_violation_count === 1 ? "" : "s"}; no valid ${terms.scheduleL} was found in time.`;
+  if (s.feasibility === "unknown") return `This ${terms.scheduleL} breaks ${plural(s.hard_violation_count, "rule")}; no valid ${terms.scheduleL} was found in time.`;
   if (s.feasibility === "infeasible") return `This plan cannot be scheduled without breaking a rule.`;
   return null;
 }
@@ -153,7 +154,7 @@ export function ScheduleTab() {
         <strong>No {terms.scheduleL} yet</strong>
         <span>Run the optimizer to create one.</span>
         <Link className="btn primary" to="../optimize">
-          <Icon name="play" /> Optimize
+          <Icon name="play" /> {t("studio.scheduleTab.btn.optimize")}
         </Link>
       </div>
     );
@@ -187,15 +188,15 @@ export function ScheduleTab() {
         {schedule ? (
           <>
             <a className="btn" href={scheduleCsvUrl(schedule.id)} download data-testid="export-csv">
-              <Icon name="download" /> Export CSV
+              <Icon name="download" /> {t("studio.scheduleTab.btn.exportCsv")}
             </a>
             {approved && approved.id !== schedule.id ? (
               <Link className="btn" to={`../compare?a=${encodeURIComponent(approved.id)}&b=${encodeURIComponent(schedule.id)}`}>
-                <Icon name="compare" /> Compare with approved
+                <Icon name="compare" /> {t("studio.scheduleTab.btn.compareWithApproved")}
               </Link>
             ) : null}
             <button className="btn" onClick={() => setReplanOpen(true)} disabled={schedule.feasibility !== "feasible"} title={schedule.feasibility !== "feasible" ? "Only valid schedules can be the base of a replan" : undefined}>
-              <Icon name="refresh" /> Replan…
+              <Icon name="refresh" /> {t("studio.scheduleTab.btn.replan")}
             </button>
             <button
               className="btn primary"
@@ -225,12 +226,12 @@ export function ScheduleTab() {
               A newer {terms.scheduleL} was approved. This one is kept for reference.
             </Banner>
           ) : (
-            <Banner tone="accent" icon="info" testId="approval-banner" title="Candidate - not yet approved">
+            <Banner tone="accent" icon="info" testId="approval-banner" title={t("studio.scheduleTab.title.candidateNotYetApproved")}>
               {approved ? `The approved ${terms.scheduleL} stays in effect until you approve this one.` : `Nothing is approved yet for this plan.`}
             </Banner>
           )}
           {blockReason ? (
-            <Banner tone="danger" role="status" title="Cannot be approved">
+            <Banner tone="danger" role="status" title={t("studio.scheduleTab.title.cannotBeApproved")}>
               <span id="approve-reason">{blockReason}</span>
             </Banner>
           ) : null}
@@ -241,7 +242,7 @@ export function ScheduleTab() {
           ) : null}
           {notice ? <Banner tone="ok" title={notice} actions={<button className="btn sm ghost" onClick={() => setNotice(null)}>Dismiss</button>} /> : null}
           {approveError ? (
-            <Banner tone="danger" role="alert" title="Approval refused">
+            <Banner tone="danger" role="alert" title={t("studio.scheduleTab.title.approvalRefused")}>
               <div>{approveError.message}</div>
               {[...approveError.violations.map((v) => v.message), ...approveError.issues.map((i) => i.message)].length ? (
                 <ul className="small" style={{ margin: "4px 0 0", paddingLeft: 18 }}>
@@ -275,7 +276,7 @@ export function ScheduleTab() {
           <ViolationsPanel violations={schedule.violations} open={violationsOpen} onToggle={() => setViolationsOpen(!violationsOpen)} onSelectTask={setSelected} />
 
           <div className="toolbar" style={{ marginBottom: 0 }}>
-            <div className="btn-group" role="group" aria-label="Timeline view">
+            <div className="btn-group" role="group" aria-label={t("studio.scheduleTab.aria.timelineView")}>
               <button className="btn sm" aria-pressed={mode === "tasks"} onClick={() => setMode("tasks")}>
                 <Icon name="list" /> {terms.tasks}
               </button>
@@ -283,14 +284,14 @@ export function ScheduleTab() {
                 <Icon name="layers" /> {terms.resources}
               </button>
             </div>
-            <div className="btn-group" role="group" aria-label="Zoom">
-              <button className="btn sm icon" aria-label="Zoom out" disabled={zoom <= ZOOM_LEVELS[0]} onClick={() => setZoom(ZOOM_LEVELS[Math.max(0, ZOOM_LEVELS.indexOf(zoom) - 1)] ?? 8)}>
+            <div className="btn-group" role="group" aria-label={t("studio.scheduleTab.aria.zoom")}>
+              <button className="btn sm icon" aria-label={t("studio.scheduleTab.aria.zoomOut")} disabled={zoom <= ZOOM_LEVELS[0]} onClick={() => setZoom(ZOOM_LEVELS[Math.max(0, ZOOM_LEVELS.indexOf(zoom) - 1)] ?? 8)}>
                 <Icon name="zoom-out" />
               </button>
               <button className="btn sm" disabled aria-label={`Zoom ${zoom} pixels per hour`} style={{ opacity: 1, minWidth: 64 }}>
                 {zoom} px/h
               </button>
-              <button className="btn sm icon" aria-label="Zoom in" disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]} onClick={() => setZoom(ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, ZOOM_LEVELS.indexOf(zoom) + 1)] ?? 8)}>
+              <button className="btn sm icon" aria-label={t("studio.scheduleTab.aria.zoomIn")} disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]} onClick={() => setZoom(ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, ZOOM_LEVELS.indexOf(zoom) + 1)] ?? 8)}>
                 <Icon name="zoom-in" />
               </button>
             </div>
@@ -351,7 +352,7 @@ export function ScheduleTab() {
       {confirm && schedule ? (
         <ConfirmDialog
           title={`Approve this ${terms.scheduleL}?`}
-          confirmLabel="Approve"
+          confirmLabel={t("studio.scheduleTab.btn.approve")}
           busy={approving}
           onCancel={() => setConfirm(false)}
           onConfirm={doApprove}

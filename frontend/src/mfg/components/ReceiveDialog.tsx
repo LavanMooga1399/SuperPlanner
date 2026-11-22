@@ -185,14 +185,14 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
           <table className="table mfg-grid-table">
             <thead>
               <tr>
-                <th>Delivery</th>
-                <th>Dock date</th>
-                <th className="right">Open</th>
-                <th>Receive now</th>
-                <th>Into location</th>
-                <th>Lot</th>
-                <th>Expires</th>
-                <th>Supplier lot</th>
+                <th>{t("mfg.receiveDialog.head.delivery")}</th>
+                <th>{t("mfg.receiveDialog.head.dockDate")}</th>
+                <th className="right">{t("mfg.receiveDialog.head.open")}</th>
+                <th>{t("mfg.receiveDialog.head.receiveNow")}</th>
+                <th>{t("mfg.receiveDialog.head.intoLocation")}</th>
+                <th>{t("mfg.receiveDialog.head.lot")}</th>
+                <th>{t("mfg.receiveDialog.head.expires")}</th>
+                <th>{t("mfg.receiveDialog.head.supplierLot")}</th>
               </tr>
             </thead>
             <tbody>

@@ -60,7 +60,7 @@ export function ApsLoadTab() {
   return (
     <div className="col gap-lg" data-testid="aps-load">
       <FilterBar>
-        <div className="row" role="group" aria-label="Period">
+        <div className="row" role="group" aria-label={t("mfg.apsLoadTab.aria.period")}>
           {(["day", "week"] as const).map((b) => (
             <button key={b} type="button" className={`btn sm${bucket === b ? " primary" : ""}`} aria-pressed={bucket === b} onClick={() => setBucket(b)}>
               {b === "day" ? "Days" : "Weeks"}

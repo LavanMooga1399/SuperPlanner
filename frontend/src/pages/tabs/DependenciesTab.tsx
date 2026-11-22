@@ -13,6 +13,7 @@ import { useTerms } from "../../lib/terms";
 import { fmtDuration } from "../../lib/time";
 import { useStoredState } from "../../lib/useAsync";
 import { useLoadedPlan } from "../../state/PlanContext";
+import { t } from "../../lib/i18n";
 
 export function DependenciesTab() {
   const { draft, update } = useLoadedPlan();
@@ -53,7 +54,7 @@ export function DependenciesTab() {
   return (
     <div className="col gap-lg">
       <div className="card card-body">
-        <h3 className="mb">Add a dependency</h3>
+        <h3 className="mb">{t("studio.dependenciesTab.head.addADependency")}</h3>
         <div className="row wrap" style={{ alignItems: "flex-end" }}>
           <div className="field" style={{ width: 220 }}>
             <label htmlFor="dep-succ">{terms.task}</label>
@@ -65,7 +66,7 @@ export function DependenciesTab() {
             </select>
           </div>
           <div className="field" style={{ width: 230 }}>
-            <label htmlFor="dep-type">Rule</label>
+            <label htmlFor="dep-type">{t("studio.dependenciesTab.label.rule")}</label>
             <select id="dep-type" className="select" value={type} onChange={(e) => setType(e.target.value as DependencyType)}>
               {(Object.keys(DEP_TYPE_LABEL) as DependencyType[]).map((t) => (
                 <option key={t} value={t}>{DEP_TYPE_HELP[t]}</option>
@@ -82,11 +83,11 @@ export function DependenciesTab() {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="dep-lag">Lag (min)</label>
-            <NumberInput id="dep-lag" className="input" value={lag} width={90} label="Lag in minutes" onChange={setLag} />
+            <label htmlFor="dep-lag">{t("studio.dependenciesTab.label.lagMin")}</label>
+            <NumberInput id="dep-lag" className="input" value={lag} width={90} label={t("studio.dependenciesTab.label.lagInMinutes")} onChange={setLag} />
           </div>
           <button className="btn primary" onClick={add} disabled={!canAdd} data-testid="add-dependency">
-            <Icon name="plus" /> Add dependency
+            <Icon name="plus" /> {t("studio.dependenciesTab.btn.addDependency")}
           </button>
         </div>
         {exists ? <div className="small mt" style={{ color: "var(--warn)" }}>This dependency already exists; edit it below.</div> : null}
@@ -94,7 +95,7 @@ export function DependenciesTab() {
       </div>
 
       {cyc.size ? (
-        <Banner tone="danger" role="alert" title="These dependencies form a loop.">
+        <Banner tone="danger" role="alert" title={t("studio.dependenciesTab.title.theseDependenciesFormALoop")}>
           {terms.tasks} on a loop wait for each other and can never start. Remove at least one of the red dashed dependencies.
         </Banner>
       ) : null}
@@ -103,7 +104,7 @@ export function DependenciesTab() {
       ) : null}
 
       <div className="toolbar" style={{ marginBottom: 0 }}>
-        <div className="btn-group" role="group" aria-label="View">
+        <div className="btn-group" role="group" aria-label={t("studio.dependenciesTab.aria.view")}>
           <button className="btn sm" aria-pressed={view === "graph"} onClick={() => setView("graph")}><Icon name="graph" /> Graph</button>
           <button className="btn sm" aria-pressed={view === "list"} onClick={() => setView("list")}><Icon name="list" /> List</button>
         </div>
@@ -123,7 +124,7 @@ export function DependenciesTab() {
         draft.tasks.length === 0 ? (
           <div className="card empty">
             <Icon name="graph" size={32} />
-            <strong>Nothing to connect yet</strong>
+            <strong>{t("studio.dependenciesTab.head.nothingToConnectYet")}</strong>
             <span>Dependencies say which {terms.taskL} waits for which. Add {terms.tasksL} first.</span>
             <Link className="btn primary" to="../tasks">
               <Icon name="plus" /> Add {terms.tasksL}
@@ -154,7 +155,7 @@ export function DependenciesTab() {
                 </>
               ) : (
                 <>
-                  <h3>Reading the graph</h3>
+                  <h3>{t("studio.dependenciesTab.head.readingTheGraph")}</h3>
                   <div className="small muted">Arrows point from a {terms.taskL} to the ones that wait for it. Click a box to see its neighbours.</div>
                   <div className="legend col" style={{ alignItems: "flex-start" }}>
                     <span className="legend-item"><span className="swatch" style={{ background: "var(--accent)" }} /> Critical path: any delay here delays the end</span>
@@ -177,9 +178,9 @@ export function DependenciesTab() {
             <thead>
               <tr>
                 <th>{terms.task}</th>
-                <th>Rule</th>
-                <th>Waits for</th>
-                <th>Lag (min)</th>
+                <th>{t("studio.dependenciesTab.head.rule")}</th>
+                <th>{t("studio.dependenciesTab.head.waitsFor")}</th>
+                <th>{t("studio.dependenciesTab.head.lagMin")}</th>
                 <th><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
@@ -207,7 +208,7 @@ export function DependenciesTab() {
                       {cyc.has(k) ? <span className="badge danger" style={{ marginLeft: 6 }}><Icon name="refresh" /> Loop</span> : null}
                     </td>
                     <td>
-                      <NumberInput value={d.lag_minutes} width={90} label="Lag in minutes" onChange={(v) => update((p) => setDependency(p, { ...d, lag_minutes: v }))} />
+                      <NumberInput value={d.lag_minutes} width={90} label={t("studio.dependenciesTab.label.lagInMinutes")} onChange={(v) => update((p) => setDependency(p, { ...d, lag_minutes: v }))} />
                     </td>
                     <td>
                       <button className="btn ghost sm icon" aria-label={`Remove dependency ${d.predecessor} to ${d.successor}`} onClick={() => update((p) => removeDependency(p, d.predecessor, d.successor))}>

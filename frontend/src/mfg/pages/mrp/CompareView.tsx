@@ -13,6 +13,7 @@ import { useLoad } from "../../lib/useMfg";
 import { runTitle } from "./MrpRunsPage";
 import { useRun } from "./RunShell";
 import { FilterBar } from "../../../components/FilterBar";
+import { t } from "../../../lib/i18n";
 
 function Delta({ a, b, invert, days }: { a: number | null; b: number | null; invert?: boolean; days?: boolean }) {
   if (a === null || b === null) return null;
@@ -40,7 +41,7 @@ export function CompareView() {
     <div className="col gap-lg" data-testid="compare-view">
       <FilterBar>
         <div className="field" style={{ minWidth: 320 }}>
-          <label htmlFor="cmp-with">Compare run #{run.run_no} with</label>
+          <label htmlFor="cmp-with">Compare {t("common.runNoInline", { n: run.run_no })} with</label>
           <select id="cmp-with" className="select" value={withId} onChange={(e) => setSearchParam(setParams, "with", e.target.value)} data-testid="compare-with">
             <option value="">Choose a run…</option>
             {others.map((r) => (
@@ -52,7 +53,7 @@ export function CompareView() {
         </div>
       </FilterBar>
       <MfgError error={runs.error ?? cmp.error} onRetry={cmp.reload} />
-      {cmp.loading && withId && !c ? <Spinner label="Comparing…" /> : null}
+      {cmp.loading && withId && !c ? <Spinner label={t("mfg.compareView.label.comparing")} /> : null}
       {c ? (
         <>
           <p className="small muted" style={{ margin: 0 }}>
@@ -60,7 +61,7 @@ export function CompareView() {
           </p>
           <section className="card">
             <div className="card-header">
-              <h3>Planned orders</h3>
+              <h3>{t("mfg.compareView.head.plannedOrders")}</h3>
             </div>
             <div className="table-wrap">
               <table className="table">
@@ -69,7 +70,7 @@ export function CompareView() {
                     <th />
                     <th className="right">A</th>
                     <th className="right">B</th>
-                    <th>Change</th>
+                    <th>{t("mfg.compareView.head.change")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -117,11 +118,11 @@ export function CompareView() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Demand line</th>
-                    <th>Due</th>
-                    <th>Projected A</th>
-                    <th>Projected B</th>
-                    <th>Change</th>
+                    <th>{t("mfg.compareView.head.demandLine")}</th>
+                    <th>{t("mfg.compareView.head.due")}</th>
+                    <th>{t("mfg.compareView.head.projectedA")}</th>
+                    <th>{t("mfg.compareView.head.projectedB")}</th>
+                    <th>{t("mfg.compareView.head.change")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -149,15 +150,15 @@ export function CompareView() {
           <div className="grid-2" style={{ alignItems: "start" }}>
             <section className="card">
               <div className="card-header">
-                <h3>Messages by kind</h3>
+                <h3>{t("mfg.compareView.head.messagesByKind")}</h3>
               </div>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Message</th>
+                    <th>{t("mfg.compareView.head.message")}</th>
                     <th className="right">A</th>
                     <th className="right">B</th>
-                    <th>Change</th>
+                    <th>{t("mfg.compareView.head.change")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -182,9 +183,9 @@ export function CompareView() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Part</th>
-                      <th className="right">Planned A → B</th>
-                      <th className="right">Short A → B</th>
+                      <th>{t("mfg.compareView.head.part")}</th>
+                      <th className="right">{t("mfg.compareView.head.plannedAB")}</th>
+                      <th className="right">{t("mfg.compareView.head.shortAB")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -211,7 +212,7 @@ export function CompareView() {
           </div>
         </>
       ) : !withId ? (
-        <p className="muted">Pick a run to compare with, for example the live plan against a what-if scenario.</p>
+        <p className="muted">{t("mfg.compareView.text.pickARunToCompare")}</p>
       ) : null}
     </div>
   );

@@ -95,7 +95,7 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
       columns={columns}
       role="treegrid"
       rowKey={(r) => r.row}
-      label="Pegging"
+      label={t("mfg.peggingTree.label.pegging")}
       testId="pegging-tree"
       height="min(66vh, 720px)"
       rowExtras={(r) => ({
@@ -112,7 +112,7 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
         return true;
       }}
       empty={t("mfg.peggingTree.empty.nothingIsPeggedToThis")}
-      footer={<span className="muted small">{visible.length.toLocaleString("en-IN")} of {rows.length.toLocaleString("en-IN")} rows · Left/Right collapse and expand</span>}
+      footer={<span className="muted small">{t("common.nOfM", { n: visible.length.toLocaleString("en-IN"), m: rows.length.toLocaleString("en-IN") })} rows · Left/Right collapse and expand</span>}
     />
   );
 }

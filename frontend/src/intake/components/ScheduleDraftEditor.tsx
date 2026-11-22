@@ -11,6 +11,7 @@ import { LinkedField } from "./LinkedField";
 import { DurationRangeInput } from "./fields";
 import { windowsText, WorkingTimeFields } from "./QuestionInput";
 import { DateInput } from "../../components/DateInput";
+import { t } from "../../lib/i18n";
 
 const DEFAULT_UNIT: Record<string, DurationUnit> = { project: "days", study: "hours", production: "hours", generic: "days" };
 const DEFAULT_WT: Record<string, WorkingTime> = {
@@ -132,11 +133,11 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
         <div className="form-grid">
           <LinkedField path="/name" error={errOf("/name")}>
             <div className="field grow">
-              <label htmlFor="draft-name">Plan name</label>
+              <label htmlFor="draft-name">{t("studio.scheduleDraftEditor.label.planName")}</label>
               <TextInput
                 id="draft-name"
                 className="input"
-                label="Plan name"
+                label={t("studio.scheduleDraftEditor.label.planName")}
                 value={draft.name}
                 required
                 onChange={(v) => editDraft({ ...draft, name: v }, ["/name"])}
@@ -145,7 +146,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
           </LinkedField>
           <LinkedField path="/start_date">
             <div className="field grow">
-              <label htmlFor="draft-start">Start date</label>
+              <label htmlFor="draft-start">{t("studio.scheduleDraftEditor.label.startDate")}</label>
               <DateInput id="draft-start" value={draft.start_date ?? ""} onChange={(v) => editDraft({ ...draft, start_date: v || null }, ["/start_date"])} />
               {!draft.start_date ? <span className="hint">Empty: the next working day</span> : null}
             </div>
@@ -400,7 +401,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
       {pending ? (
         <ConfirmDialog
           title={`Remove "${pending.name}"?`}
-          confirmLabel="Remove"
+          confirmLabel={t("studio.scheduleDraftEditor.btn.remove")}
           danger
           onCancel={() => setPending(null)}
           onConfirm={() => {

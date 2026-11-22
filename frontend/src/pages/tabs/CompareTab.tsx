@@ -9,6 +9,7 @@ import { useTerms } from "../../lib/terms";
 import { useAsync } from "../../lib/useAsync";
 import { useLoadedPlan } from "../../state/PlanContext";
 import { scheduleOptionLabel } from "./ScheduleTab";
+import { t } from "../../lib/i18n";
 
 export function CompareTab() {
   const { planId, draft } = useLoadedPlan();
@@ -46,7 +47,7 @@ export function CompareTab() {
     return (
       <div className="card empty">
         <Icon name="compare" size={32} />
-        <strong>Nothing to compare yet</strong>
+        <strong>{t("studio.compareTab.head.nothingToCompareYet")}</strong>
         <span>You need at least two {terms.scheduleL}s. Each optimization run creates a recommended one and usually some alternatives.</span>
       </div>
     );
@@ -62,16 +63,16 @@ export function CompareTab() {
     <div className="col gap-lg">
       <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
         <div className="field" style={{ minWidth: 280 }}>
-          <label htmlFor="cmp-a">A (baseline)</label>
+          <label htmlFor="cmp-a">{t("studio.compareTab.label.aBaseline")}</label>
           <select id="cmp-a" className="select" value={a} onChange={(e) => set("a", e.target.value)}>
             {items.map((s) => <option key={s.id} value={s.id}>{scheduleOptionLabel(s)}</option>)}
           </select>
         </div>
-        <button className="btn icon" aria-label="Swap A and B" title="Swap" onClick={() => setParams({ a: b, b: a })}>
+        <button className="btn icon" aria-label={t("studio.compareTab.aria.swapAAndB")} title="Swap" onClick={() => setParams({ a: b, b: a })}>
           <Icon name="refresh" />
         </button>
         <div className="field" style={{ minWidth: 280 }}>
-          <label htmlFor="cmp-b">B</label>
+          <label htmlFor="cmp-b">{t("studio.compareTab.label.b")}</label>
           <select id="cmp-b" className="select" value={b} onChange={(e) => set("b", e.target.value)}>
             {items.map((s) => <option key={s.id} value={s.id}>{scheduleOptionLabel(s)}</option>)}
           </select>
@@ -79,7 +80,7 @@ export function CompareTab() {
       </div>
       {a === b ? <div className="small muted">Choose two different {terms.scheduleL}s.</div> : null}
       <ErrorBanner error={error} />
-      {loading && !cmp ? <Loading label="Comparing…" /> : null}
+      {loading && !cmp ? <Loading label={t("studio.compareTab.label.comparing")} /> : null}
       {cmp ? <ScheduleComparison cmp={cmp} draft={draft} terms={terms} /> : null}
     </div>
   );

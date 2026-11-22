@@ -1,5 +1,6 @@
 import { Icon } from "../../components/Icon";
 import type { Capabilities } from "../api/types";
+import { t } from "../../lib/i18n";
 
 /**
  * Per-request opt-in for AI assist (PHASE2.md 3.3, 2.12). Shown only when the server offers it; off by
@@ -19,7 +20,7 @@ export function AiAssistToggle({
   if (!capabilities?.ai_available) {
     return (
       <p className="small muted row" data-testid="intake-ai-unavailable" style={{ margin: 0 }}>
-        <Icon name="info" size={14} /> AI assist is not available on this server; the built-in reader is used.
+        <Icon name="info" size={14} /> {t("studio.aiAssistToggle.btn.aiAssistIsNotAvailable")}
       </p>
     );
   }
@@ -41,7 +42,7 @@ export function AiAssistToggle({
         <div className="banner warn ai-notice" id="intake-ai-notice" data-testid="intake-ai-notice">
           <Icon name="lock" />
           <div className="banner-body">
-            <strong>Before you send</strong>
+            <strong>{t("studio.aiAssistToggle.head.beforeYouSend")}</strong>
             <div>{capabilities.privacy_notice}</div>
           </div>
         </div>

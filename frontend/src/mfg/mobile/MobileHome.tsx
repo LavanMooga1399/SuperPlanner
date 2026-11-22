@@ -15,6 +15,7 @@ import { countStates, plantGlance, type PlantGlance } from "./glance";
 import { useOnline } from "./MobileLayout";
 import { loadSnapshot, saveSnapshot } from "./snapshot";
 import { formatDateTime } from "../../lib/locale";
+import { t } from "../../lib/i18n";
 
 interface HomeRow {
   plant: { owner_id: string; plant_name: string; plant_code?: string | null };
@@ -54,16 +55,16 @@ function PlantCard({ row, current, userId }: { row: HomeRow; current: boolean; u
           <span className="chip">This plant</span>
         ) : (
           <button type="button" className="btn sm" onClick={() => switchWorkspace(row.plant.owner_id, userId, "/m")}>
-            Open
+            {t("mobile.mobileHome.btn.open")}
           </button>
         )}
       </div>
       <div className="m-stats">
-        <Stat to={current ? "/m/lines" : undefined} value={c ? c.down : null} label="lines down" icon="stop" testId="m-stat-down" />
+        <Stat to={current ? "/m/lines" : undefined} value={c ? c.down : null} label={t("mobile.mobileHome.label.linesDown")} icon="stop" testId="m-stat-down" />
         <Stat to={current ? "/m/lines" : undefined} value={c ? c.running : null} label={c ? `running, ${c.paused} paused` : "running"} icon="check" testId="m-stat-running" />
-        <Stat value={row.g.late_demand} label="late demand lines" icon="clock" testId="m-stat-late" />
-        <Stat to={current ? "/m/alerts" : undefined} value={row.g.open_triggers} label="open warnings" icon="alert" testId="m-stat-triggers" />
-        <Stat to={current ? "/m/approvals" : undefined} value={row.g.approvals} label="approvals waiting" icon="flag" testId="m-stat-approvals" />
+        <Stat value={row.g.late_demand} label={t("mobile.mobileHome.label.lateDemandLines")} icon="clock" testId="m-stat-late" />
+        <Stat to={current ? "/m/alerts" : undefined} value={row.g.open_triggers} label={t("mobile.mobileHome.label.openWarnings")} icon="alert" testId="m-stat-triggers" />
+        <Stat to={current ? "/m/approvals" : undefined} value={row.g.approvals} label={t("mobile.mobileHome.label.approvalsWaiting")} icon="flag" testId="m-stat-approvals" />
       </div>
     </section>
   );
@@ -102,7 +103,7 @@ export function MobileHome() {
   const d = home.data;
   return (
     <div className="col" style={{ gap: 12 }} data-testid="m-home">
-      <h1>My plants</h1>
+      <h1>{t("mobile.mobileHome.head.myPlants")}</h1>
       {d?.staleSince ? (
         <div className="m-banner warn" role="status" data-testid="m-stale">
           <Icon name="clock" size={16} /> Offline view: these figures are from {formatDateTime(d.staleSince)} (stale since then).
@@ -115,10 +116,10 @@ export function MobileHome() {
       ))}
       <div className="m-actions">
         <Link to="/m/scan" className="btn m-big">
-          <Icon name="zoom-in" /> Scan
+          <Icon name="zoom-in" /> {t("mobile.mobileHome.btn.scan")}
         </Link>
         <Link to="/mfg/dashboard" className="btn ghost m-big">
-          <Icon name="graph" /> Dashboard
+          <Icon name="graph" /> {t("mobile.mobileHome.btn.dashboard")}
         </Link>
       </div>
     </div>

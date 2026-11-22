@@ -16,7 +16,7 @@ import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 /** Link of a document reference on a ledger line. */
 export function docRefLink(ref: TransactionRow["ref"]): string | null {
@@ -141,7 +141,7 @@ export function TransactionsTab() {
     <div className="col gap-lg">
       <FilterBar chips={chips} onClearAll={() => setParams({}, { replace: true })} pageKey="TransactionsTab">
         <div style={{ width: 240 }}>
-          <ItemPicker label="Item" value={itemRef} onChange={(it) => set("item", it.id)} testId="txn-item" placeholder={t("mfg.transactionsTab.ph.allItems")} />
+          <ItemPicker label={t("mfg.transactionsTab.label.item")} value={itemRef} onChange={(it) => set("item", it.id)} testId="txn-item" placeholder={t("mfg.transactionsTab.ph.allItems")} />
         </div>
         {itemId ? (
           <button type="button" className="btn sm ghost" style={{ alignSelf: "flex-end" }} onClick={() => set("item", "")}>
@@ -149,7 +149,7 @@ export function TransactionsTab() {
           </button>
         ) : null}
         <div style={{ minWidth: 200 }}>
-          <LocationSelect label="Location" value={locationId} onChange={(v) => set("location", v)} allowEmpty emptyLabel="All locations" includeInactive />
+          <LocationSelect label={t("mfg.transactionsTab.label.location")} value={locationId} onChange={(v) => set("location", v)} allowEmpty emptyLabel="All locations" includeInactive />
         </div>
         <div className="field">
           <label htmlFor="txn-type">{t("mfg.transactionsTab.label.type")}</label>
@@ -184,7 +184,7 @@ export function TransactionsTab() {
         rowKey={(t) => t.id}
         sort={{ key: sort, dir: sort.startsWith("-") ? "desc" : "asc" }}
         onSortChange={(x) => setSearchParam(setParams, "sort", !x || x.key === "-seq" ? "" : x.key)}
-        label="Stock ledger"
+        label={t("mfg.transactionsTab.label.stockLedger")}
         testId="txn-table"
         totalCount={data.total}
         height="min(64vh, 700px)"
@@ -194,7 +194,7 @@ export function TransactionsTab() {
         empty={data.loading ? <span className="row" role="status"><span className="spinner" aria-hidden /> Loading the ledger…</span> : "No stock movements match these filters."}
         footer={
           <span className="muted small" role="status">
-            Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} movements, newest first · Enter opens the posting
+            Showing {tr("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} movements, newest first · Enter opens the posting
           </span>
         }
       />

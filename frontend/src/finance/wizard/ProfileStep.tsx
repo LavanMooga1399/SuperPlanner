@@ -3,6 +3,7 @@ import { compareMonths, currentUtcMonth, fmtMonth } from "../lib/months";
 import type { StepProps } from "./common";
 import { Field, FinOptionalNumber, FinNumber, FinText, MonthInput, Select } from "./fields";
 import { HelpText } from "./HelpText";
+import { t } from "../../lib/i18n";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AUD", "CAD", "SGD", "AED", "JPY", "CHF"];
 const LOCALES: Record<string, string> = { INR: "en-IN", USD: "en-US", EUR: "de-DE", GBP: "en-GB", AUD: "en-AU", CAD: "en-CA", SGD: "en-SG", AED: "en-AE", JPY: "ja-JP", CHF: "de-CH" };
@@ -24,7 +25,7 @@ export function ProfileStep({ plan, update, expert }: StepProps) {
           title={`This plan starts in ${fmtMonth(plan.start_month)}, which has already passed.`}
           actions={
             <button className="btn sm" onClick={() => update((p) => ({ ...p, start_month: now }))} data-testid="fin-move-start">
-              Move to this month
+              {t("finance.profileStep.btn.moveToThisMonth")}
             </button>
           }
         >
@@ -32,10 +33,10 @@ export function ProfileStep({ plan, update, expert }: StepProps) {
         </Banner>
       ) : null}
       <div className="fin-form">
-        <Field label="Plan name" wide>
+        <Field label={t("finance.profileStep.label.planName")} wide>
           {(id) => <FinText id={id} value={plan.name} onChange={(v) => update((p) => ({ ...p, name: v }))} testId="fin-plan-name" />}
         </Field>
-        <Field label="Currency" hint="Single currency for the whole plan">
+        <Field label={t("finance.profileStep.label.currency")} hint={t("finance.profileStep.hint.singleCurrencyForTheWhole")}>
           {(id) => (
             <Select
               id={id}
@@ -45,33 +46,33 @@ export function ProfileStep({ plan, update, expert }: StepProps) {
             />
           )}
         </Field>
-        <Field label="Your age" hint="Optional; helps with retirement dates">
+        <Field label={t("finance.profileStep.label.yourAge")} hint={t("finance.profileStep.hint.optionalHelpsWithRetirementDates")}>
           {(id) => (
             <FinOptionalNumber id={id} value={plan.profile.age} min={16} max={100} onChange={(v) => update((p) => ({ ...p, profile: { ...p.profile, age: v === null ? null : Math.round(v) } }))} />
           )}
         </Field>
-        <Field label="Retirement age">
+        <Field label={t("finance.profileStep.label.retirementAge")}>
           {(id) => (
             <FinNumber id={id} value={plan.profile.retirement_age} min={40} max={80} onChange={(v) => update((p) => ({ ...p, profile: { ...p.profile, retirement_age: Math.round(v) } }))} />
           )}
         </Field>
-        <Field label="Plan starts" hint="Amounts are in money of this month">
+        <Field label={t("finance.profileStep.label.planStarts")} hint={t("finance.profileStep.hint.amountsAreInMoneyOf")}>
           {(id) => <MonthInput id={id} value={plan.start_month} onChange={(v) => v && update((p) => ({ ...p, start_month: v }))} testId="fin-start-month" />}
         </Field>
-        <Field label="Plan until (optional)" hint="Leave empty to plan until your last goal">
+        <Field label={t("finance.profileStep.label.planUntilOptional")} hint={t("finance.profileStep.hint.leaveEmptyToPlanUntil")}>
           {(id) => (
             <MonthInput id={id} value={plan.horizon_end_month} optional min={plan.start_month ?? undefined} onChange={(v) => update((p) => ({ ...p, horizon_end_month: v }))} testId="fin-horizon-end" />
           )}
         </Field>
       </div>
       <div className="field">
-        <label htmlFor="fin-tax-note">Tax note (optional, not calculated)</label>
+        <label htmlFor="fin-tax-note">{t("finance.profileStep.label.taxNoteOptionalNotCalculated")}</label>
         <textarea
           id="fin-tax-note"
           className="textarea"
           maxLength={1000}
           value={plan.profile.tax_note}
-          placeholder="For example: salary is after tax; rental income is taxed at my slab rate."
+          placeholder={t("finance.profileStep.ph.forExampleSalaryIsAfter")}
           onChange={(e) => {
             const v = e.target.value;
             update((p) => ({ ...p, profile: { ...p.profile, tax_note: v } }));
@@ -81,7 +82,7 @@ export function ProfileStep({ plan, update, expert }: StepProps) {
       </div>
       {expert ? (
         <div className="fin-form">
-          <Field label="Number format (locale)">
+          <Field label={t("finance.profileStep.label.numberFormatLocale")}>
             {(id) => (
               <FinText id={id} value={plan.profile.locale} maxLength={16} onChange={(v) => update((p) => ({ ...p, profile: { ...p.profile, locale: v } }))} />
             )}

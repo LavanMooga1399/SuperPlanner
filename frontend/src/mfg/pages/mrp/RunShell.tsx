@@ -15,7 +15,7 @@ import { fmtDate, fmtTimestamp } from "../../lib/format";
 import { mfgPaths } from "../../lib/paths";
 import { isNotFound, useLoad } from "../../lib/useMfg";
 import { runTitle } from "./MrpRunsPage";
-import { plural, t } from "../../../lib/i18n";
+import { plural, t, t as tr } from "../../../lib/i18n";
 
 export interface RunContext {
   run: MrpRunRecord;
@@ -64,7 +64,7 @@ export function RunShell() {
   const r = run.data && run.data.id === runId ? run.data : null;
   if (run.error && isNotFound(run.error)) return <NotFoundPanel what="MRP run" back={<Link className="btn" to={mfgPaths.mrp()}>Back to MRP</Link>} />;
   if (run.error && !r) return <MfgError error={run.error} onRetry={run.reload} />;
-  if (!r) return <Spinner label="Loading plan…" />;
+  if (!r) return <Spinner label={t("mfg.runShell.label.loadingPlan")} />;
   const isLatestLive = r.kind === "live" && r.status === "completed" && latest.data?.id === r.id;
   const stale = r.stale;
   const tabs = [
@@ -78,8 +78,8 @@ export function RunShell() {
   const ctx: RunContext = { run: r, isLatestLive, reload: run.reload };
   return (
     <div className="col" style={{ gap: 12 }} data-testid="run-shell" data-run-no={r.run_no} data-kind={r.kind}>
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.mrp()}>MRP</Link> <Icon name="chevron-right" size={12} /> <span>Run #{r.run_no}</span>
+      <nav aria-label={t("mfg.runShell.aria.breadcrumb")} className="small muted mfg-breadcrumb">
+        <Link to={mfgPaths.mrp()}>MRP</Link> <Icon name="chevron-right" size={12} /> <span>{tr("common.runNo", { n: r.run_no })}</span>
       </nav>
       <div className="ws-header">
         <div className="ws-title">
@@ -118,7 +118,7 @@ export function RunShell() {
         </Banner>
       ) : null}
       {r.status === "failed" ? <Banner tone="danger" title={t("mfg.runShell.title.thisRunFailed")}>{r.error?.message ?? "Unexpected error."}</Banner> : null}
-      <nav className="tabs" aria-label="Plan sections">
+      <nav className="tabs" aria-label={t("mfg.runShell.aria.planSections")}>
         {tabs.map((t) => (
           <NavLink key={t.key} to={t.to} end={t.end} className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={`run-tab-${t.key}`}>
             {t.label}

@@ -2,6 +2,7 @@ import type React from "react";
 import type { FinancePlan, GoalOverride, WhatIfChanges } from "../api/types";
 import { formatMoney, formatPct } from "../lib/money";
 import { addMonths, fmtDurationMonths, fmtMonth, monthsBetween } from "../lib/months";
+import { t } from "../../lib/i18n";
 
 export interface WhatIfControlsProps {
   plan: FinancePlan;
@@ -65,7 +66,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
     <div className="col gap-lg" data-testid="whatif-controls">
       <div className="slider-field">
         <div className="slider-head">
-          <label htmlFor="wi-savings">Extra monthly savings</label>
+          <label htmlFor="wi-savings">{t("finance.whatIfControls.label.extraMonthlySavings")}</label>
           <span>{formatMoney(extra, cur, loc, { signed: true })} / month</span>
         </div>
         <input
@@ -138,7 +139,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
 
       <div className="slider-field">
         <div className="slider-head">
-          <label htmlFor="wi-risk">Risk level</label>
+          <label htmlFor="wi-risk">{t("finance.whatIfControls.label.riskLevel")}</label>
           <span>{risk} - {RISK_TEXT[risk]}{changes.risk_tolerance == null ? " (your plan)" : ""}</span>
         </div>
         <input
@@ -159,7 +160,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
 
       <div className="slider-field">
         <div className="slider-head">
-          <label htmlFor="wi-return">Market returns compared with your assumptions</label>
+          <label htmlFor="wi-return">{t("finance.whatIfControls.label.marketReturnsComparedWithYour")}</label>
           <span>{shift === 0 ? "as assumed" : `${formatPct(shift, 1, true)} a year`}</span>
         </div>
         <input
@@ -176,10 +177,10 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
       </div>
 
       <fieldset className="col" style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10, margin: 0 }}>
-        <legend className="small" style={{ fontWeight: 650, padding: "0 4px" }}>Income drop</legend>
+        <legend className="small" style={{ fontWeight: 650, padding: "0 4px" }}>{t("finance.whatIfControls.head.incomeDrop")}</legend>
         <div className="slider-field">
           <div className="slider-head">
-            <label htmlFor="wi-drop-months">How long</label>
+            <label htmlFor="wi-drop-months">{t("finance.whatIfControls.label.howLong")}</label>
             <span>{drop ? fmtDurationMonths(drop.months) : "no drop"}</span>
           </div>
           <input
@@ -203,7 +204,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
         {drop ? (
           <div className="fin-form">
             <div className="field">
-              <label htmlFor="wi-drop-start">Starting</label>
+              <label htmlFor="wi-drop-start">{t("finance.whatIfControls.label.starting")}</label>
               <input
                 id="wi-drop-start"
                 className="input sm"
@@ -214,7 +215,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
               />
             </div>
             <div className="field">
-              <label htmlFor="wi-drop-pct">Income lost (%)</label>
+              <label htmlFor="wi-drop-pct">{t("finance.whatIfControls.label.incomeLost")}</label>
               <input
                 id="wi-drop-pct"
                 className="input sm"

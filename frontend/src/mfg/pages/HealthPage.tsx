@@ -89,7 +89,7 @@ export function HealthPage() {
         </div></>} />
       {!hValid ? <span className="field-error">Days ahead must be a whole number from 7 to 730.</span> : null}
       <MfgError error={report.error} onRetry={report.reload} />
-      {report.loading && !r ? <Spinner label="Checking your data…" /> : null}
+      {report.loading && !r ? <Spinner label={t("mfg.healthPage.label.checkingYourData")} /> : null}
 
       {r ? (
         <>
@@ -105,7 +105,7 @@ export function HealthPage() {
             )}
           </div>
 
-          <div className="row wrap" role="group" aria-label="Filter by severity">
+          <div className="row wrap" role="group" aria-label={t("mfg.healthPage.aria.filterBySeverity")}>
             {SEVERITIES.map((s) => (
               <button key={s.key} type="button" className="btn sm" aria-pressed={sev.has(s.key)} onClick={() => setSev((x) => toggle(x, s.key))} data-testid={`health-filter-${s.key}`}>
                 <SeverityBadge severity={s.key} label={`${s.label}: ${r.counts[s.key]}`} />
@@ -125,7 +125,7 @@ export function HealthPage() {
             ) : null}
           </div>
           {Object.keys(r.by_code).length ? (
-            <div className="row wrap" role="group" aria-label="Filter by check">
+            <div className="row wrap" role="group" aria-label={t("mfg.healthPage.aria.filterByCheck")}>
               {Object.entries(r.by_code).map(([code, n]) => (
                 <button key={code} type="button" className="btn sm mfg-code-chip" aria-pressed={codes.has(code)} onClick={() => setCodes((x) => toggle(x, code))} data-testid="health-code-chip" data-code={code}>
                   <Icon name={severityOf.get(code) === "error" ? "x" : severityOf.get(code) === "warning" ? "alert" : "info"} size={12} />
@@ -142,7 +142,7 @@ export function HealthPage() {
           {r.issues.length === 0 ? (
             <div className="empty">
               <Icon name="check" size={32} />
-              <h2>Nothing to report</h2>
+              <h2>{t("mfg.healthPage.head.nothingToReport")}</h2>
             </div>
           ) : null}
           <HealthIssueList issues={issues} />

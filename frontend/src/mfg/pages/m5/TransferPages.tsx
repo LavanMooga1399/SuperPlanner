@@ -28,7 +28,7 @@ import { FilterBar } from "../../../components/FilterBar";
 import { DataTable } from "../../components/DataTable";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { DateInput } from "../../../components/DateInput";
-import { t as tr } from "../../../lib/i18n";
+import { t as tr, plural } from "../../../lib/i18n";
 
 type TransferLine = TransferOrder["lines"][number];
 const LINE_COLS: Column<TransferLine>[] = [
@@ -93,7 +93,7 @@ export function TransfersPage() {
     },
     { key: "plant", header: dir === "outbound" ? "To" : "From", label: "Plant", width: "minmax(200px, 1.5fr)", render: plantOf },
     { key: "status", header: "Status", width: "150px", exportValue: (t) => STATUS[t.status]?.label ?? t.status, render: (t) => <TrfStatus s={t.status} /> },
-    { key: "lines", header: "Lines", width: "minmax(150px, 1fr)", render: (t) => `${t.lines.length} line${t.lines.length === 1 ? "" : "s"}, ${fmtNum(t.lines.reduce((a, l) => a + l.qty, 0))} units` },
+    { key: "lines", header: "Lines", width: "minmax(150px, 1fr)", render: (t) => `${plural(t.lines.length, "line")}, ${fmtNum(t.lines.reduce((a, l) => a + l.qty, 0))} units` },
     { key: "dates", header: "Ship → arrives", width: "200px", render: (t) => (t.lines[0] ? `${fmtDate(t.lines[0].ship_date)} → ${fmtDate(t.lines[0].receive_date)}` : "") },
   ];
   return (
@@ -206,10 +206,10 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
         <table className="table">
           <thead>
             <tr>
-              <th>Item</th>
-              <th>Qty</th>
-              <th>Ship</th>
-              <th>Arrives</th>
+              <th>{tr("mfg.transferPages.head.item")}</th>
+              <th>{tr("mfg.transferPages.head.qty")}</th>
+              <th>{tr("mfg.transferPages.head.ship")}</th>
+              <th>{tr("mfg.transferPages.head.arrives")}</th>
               <th />
             </tr>
           </thead>
@@ -217,10 +217,10 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
             {lines.map((l, i) => (
               <tr key={i} data-testid="transfer-line">
                 <td style={{ minWidth: 240 }}>
-                  <ItemPicker value={l.item} onChange={(it) => setLines((x) => x.map((y, k) => (k === i ? { ...y, item: it } : y)))} label="Item" hideLabel />
+                  <ItemPicker value={l.item} onChange={(it) => setLines((x) => x.map((y, k) => (k === i ? { ...y, item: it } : y)))} label={tr("mfg.transferPages.label.item")} hideLabel />
                 </td>
                 <td>
-                  <input className="input sm" inputMode="decimal" aria-label="Quantity" value={l.qty} onChange={(e) => setLines((x) => x.map((y, k) => (k === i ? { ...y, qty: e.target.value } : y)))} data-testid="transfer-qty" />
+                  <input className="input sm" inputMode="decimal" aria-label={tr("mfg.transferPages.aria.quantity")} value={l.qty} onChange={(e) => setLines((x) => x.map((y, k) => (k === i ? { ...y, qty: e.target.value } : y)))} data-testid="transfer-qty" />
                 </td>
                 <td>
                   <DateInput small ariaLabel="Ship date" value={l.ship} onChange={(v) => setLines((x) => x.map((y, k) => (k === i ? { ...y, ship: v } : y)))} />
@@ -230,7 +230,7 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
                 </td>
                 <td>
                   {lines.length > 1 ? (
-                    <button type="button" className="btn sm ghost icon" aria-label="Remove line" onClick={() => setLines((x) => x.filter((_, k) => k !== i))}>
+                    <button type="button" className="btn sm ghost icon" aria-label={tr("mfg.transferPages.aria.removeLine")} onClick={() => setLines((x) => x.filter((_, k) => k !== i))}>
                       <Icon name="trash" />
                     </button>
                   ) : null}
@@ -280,7 +280,7 @@ export function TransferPage() {
   const toReceive = d.lines.some((l) => l.received_qty < l.shipped_qty);
   return (
     <div className="col gap-lg" data-testid="transfer-page" data-status={d.status} data-direction={d.direction}>
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumb" aria-label={tr("mfg.transferPages.aria.breadcrumb")}>
         <Link to={`${mfgPaths.transfers()}?dir=${out ? "outbound" : "inbound"}`}>Transfers</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{d.number}</span>
       </nav>
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
@@ -402,10 +402,10 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
       <table className="table">
         <thead>
           <tr>
-            <th>Item</th>
+            <th>{tr("mfg.transferPages.head.item")}</th>
             <th>{ship ? "From" : "Into"}</th>
-            <th>Lot</th>
-            <th>Qty</th>
+            <th>{tr("mfg.transferPages.head.lot")}</th>
+            <th>{tr("mfg.transferPages.head.qty")}</th>
           </tr>
         </thead>
         <tbody>
@@ -415,7 +415,7 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
                 <ItemCode id={r.line.item_id} />
               </td>
               <td>
-                <select className="select sm" aria-label="Location" value={r.loc} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, loc: e.target.value } : y)))}>
+                <select className="select sm" aria-label={tr("mfg.transferPages.aria.location")} value={r.loc} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, loc: e.target.value } : y)))}>
                   <option value="">Choose…</option>
                   {(locs.data?.items ?? []).map((l) => (
                     <option key={l.id} value={l.id}>
@@ -425,10 +425,10 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
                 </select>
               </td>
               <td>
-                <input className="input sm mono" aria-label="Lot" value={r.lot} placeholder={ship ? "FEFO if empty" : "as shipped"} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, lot: e.target.value } : y)))} />
+                <input className="input sm mono" aria-label={tr("mfg.transferPages.aria.lot")} value={r.lot} placeholder={ship ? "FEFO if empty" : "as shipped"} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, lot: e.target.value } : y)))} />
               </td>
               <td>
-                <input className="input sm" inputMode="decimal" aria-label="Quantity" value={r.qty} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, qty: e.target.value } : y)))} data-testid="transfer-move-qty" />
+                <input className="input sm" inputMode="decimal" aria-label={tr("mfg.transferPages.aria.quantity")} value={r.qty} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, qty: e.target.value } : y)))} data-testid="transfer-move-qty" />
               </td>
             </tr>
           ))}

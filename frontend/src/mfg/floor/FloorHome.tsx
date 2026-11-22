@@ -7,6 +7,7 @@ import { MfgError, Spinner } from "../components/Feedback";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
 import { useFloor } from "./FloorLayout";
+import { t } from "../../lib/i18n";
 
 export function FloorHome() {
   const { lineId, setLineId } = useFloor();
@@ -32,7 +33,7 @@ function LinePicker({ current, onPick }: { current: string | null; onPick(id: st
   }
   return (
     <section className="floor-card">
-      <h1>Which line is this tablet at?</h1>
+      <h1>{t("floor.floorHome.head.whichLineIsThisTablet")}</h1>
       <p className="muted" style={{ margin: 0 }}>
         The choice is remembered on this device. You can also scan the line's barcode (LIN:code).
       </p>
@@ -64,7 +65,7 @@ function LinePicker({ current, onPick }: { current: string | null; onPick(id: st
                   <span className="muted">{l.name}</span>
                   {current === l.id ? (
                     <span className="badge ok">
-                      <Icon name="check" /> This tablet
+                      <Icon name="check" /> {t("floor.floorHome.btn.thisTablet")}
                     </span>
                   ) : null}
                 </button>

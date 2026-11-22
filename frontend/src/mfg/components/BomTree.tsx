@@ -238,7 +238,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
             type="search"
             style={{ width: 220 }}
             placeholder={t("mfg.bomTree.ph.findPartNumberOrDescription")}
-            aria-label="Find in structure"
+            aria-label={t("mfg.bomTree.aria.findInStructure")}
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
@@ -260,13 +260,13 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
           />
           {q ? (
             <span className="small muted" role="status" aria-live="polite">
-              {matches.length ? `${matchPos + 1} of ${matches.length}` : "No match"}
+              {matches.length ? `${t("common.nOfM", { n: matchPos + 1, m: matches.length })}` : "No match"}
             </span>
           ) : null}
-          <button type="button" className="btn sm icon" aria-label="Previous match" disabled={!matches.length} onClick={() => goToMatch(matchPos - 1)}>
+          <button type="button" className="btn sm icon" aria-label={t("mfg.bomTree.aria.previousMatch")} disabled={!matches.length} onClick={() => goToMatch(matchPos - 1)}>
             <Icon name="chevron-right" style={{ transform: "rotate(-90deg)" }} />
           </button>
-          <button type="button" className="btn sm icon" aria-label="Next match" disabled={!matches.length} onClick={() => goToMatch(matchPos + 1)}>
+          <button type="button" className="btn sm icon" aria-label={t("mfg.bomTree.aria.nextMatch")} disabled={!matches.length} onClick={() => goToMatch(matchPos + 1)}>
             <Icon name="chevron-down" />
           </button>
         </div>
@@ -275,7 +275,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
         rows={visRows}
         columns={columns}
         rowKey={(r) => r.row}
-        label="BOM structure"
+        label={t("mfg.bomTree.label.bomStructure")}
         role="treegrid"
         testId="bom-tree"
         height={height}
@@ -301,7 +301,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
         })}
         footer={
           <span className="small muted" role="status">
-            {vis.length.toLocaleString("en-IN")} of {rows.length.toLocaleString("en-IN")} rows shown
+            {t("common.nOfM", { n: vis.length.toLocaleString("en-IN"), m: rows.length.toLocaleString("en-IN") })} rows shown
           </span>
         }
       />
@@ -321,10 +321,10 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
           <table className="table">
             <thead>
               <tr>
-                <th>Priority</th>
-                <th>Part number</th>
-                <th className="num">Qty per</th>
-                <th>Unit</th>
+                <th>{t("mfg.bomTree.head.priority")}</th>
+                <th>{t("mfg.bomTree.head.partNumber")}</th>
+                <th className="num">{t("mfg.bomTree.head.qtyPer")}</th>
+                <th>{t("mfg.bomTree.head.unit")}</th>
               </tr>
             </thead>
             <tbody>

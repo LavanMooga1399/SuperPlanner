@@ -85,12 +85,12 @@ export function TravellerPage() {
         <table className="traveller-table">
           <thead>
             <tr>
-              <th>Op</th>
-              <th>Operation</th>
-              <th>Scan to open</th>
-              <th>Good</th>
-              <th>Scrap</th>
-              <th>Operator / date</th>
+              <th>{t("mfg.printPages.head.op")}</th>
+              <th>{t("mfg.printPages.head.operation")}</th>
+              <th>{t("mfg.printPages.head.scanToOpen")}</th>
+              <th>{t("mfg.printPages.head.good")}</th>
+              <th>{t("mfg.printPages.head.scrap")}</th>
+              <th>{t("mfg.printPages.head.operatorDate")}</th>
             </tr>
           </thead>
           <tbody>
@@ -114,14 +114,14 @@ export function TravellerPage() {
         </table>
         {w.components.length ? (
           <>
-            <h2 style={{ fontSize: 16, margin: "12px 0 4px" }}>Components</h2>
+            <h2 style={{ fontSize: 16, margin: "12px 0 4px" }}>{t("mfg.printPages.head.components")}</h2>
             <table className="traveller-table">
               <thead>
                 <tr>
-                  <th>Part</th>
-                  <th>Description</th>
-                  <th>Qty</th>
-                  <th>At op</th>
+                  <th>{t("mfg.printPages.head.part")}</th>
+                  <th>{t("mfg.printPages.head.description")}</th>
+                  <th>{t("mfg.printPages.head.qty")}</th>
+                  <th>{t("mfg.printPages.head.atOp")}</th>
                 </tr>
               </thead>
               <tbody>

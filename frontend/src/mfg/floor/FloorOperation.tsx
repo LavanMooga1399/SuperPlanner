@@ -21,6 +21,7 @@ import { useLoad } from "../lib/useMfg";
 import { crewForEvent, useFloor, useScanHandler } from "./FloorLayout";
 import { ACTION, DEFAULT_REASONS, EVENT_LABEL, KitChip, OpStatusChip, floorErrorText, fmtQty, humanCode } from "./floorText";
 import { newClientEventId, submitFloorEvent } from "./offlineQueue";
+import { t, t as tr } from "../../lib/i18n";
 
 type Panel = null | "report" | "complete" | "pause";
 
@@ -92,7 +93,7 @@ export function FloorOperation() {
     }
   };
 
-  if (det.loading && !d) return <Spinner label="Loading the operation…" />;
+  if (det.loading && !d) return <Spinner label={t("floor.floorOperation.label.loadingTheOperation")} />;
   if (!d || !op) return <MfgError error={det.error} onRetry={det.reload} />;
 
   const remaining = Math.max(0, op.qty_available);
@@ -107,7 +108,7 @@ export function FloorOperation() {
             <span className="muted">
               {floor.lineId ? (
                 <Link to={mfgPaths.floorLine(floor.lineId)}>
-                  <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} /> Queue
+                  <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} /> {t("floor.floorOperation.btn.queue")}
                 </Link>
               ) : null}
             </span>
@@ -121,17 +122,17 @@ export function FloorOperation() {
           <OpStatusChip status={op.status} large />
         </div>
         <dl className="floor-kv">
-          <dt>Input here</dt>
+          <dt>{t("floor.floorOperation.head.inputHere")}</dt>
           <dd>
             {fmtQty(op.qty_input || d.expected_input)} {op.qty_rework_in ? `(incl. ${fmtQty(op.qty_rework_in)} rework)` : ""}
           </dd>
-          <dt>Done so far</dt>
+          <dt>{t("floor.floorOperation.head.doneSoFar")}</dt>
           <dd data-testid="floor-op-good" data-good={op.qty_good} data-scrap={op.qty_scrap}>
             {fmtQty(op.qty_good)} good · {fmtQty(op.qty_scrap)} scrap{op.qty_rework_out ? ` · ${fmtQty(op.qty_rework_out)} sent to rework` : ""} · {fmtQty(remaining)} to go
           </dd>
           {op.actual_start ? (
             <>
-              <dt>Started</dt>
+              <dt>{t("floor.floorOperation.head.started")}</dt>
               <dd>
                 {clock.dateTime(op.actual_start)}
                 {op.run_minutes_actual ? ` · run ${fmtDuration(op.run_minutes_actual)}` : ""}
@@ -141,7 +142,7 @@ export function FloorOperation() {
           ) : null}
           {plan ? (
             <>
-              <dt>Plan</dt>
+              <dt>{t("floor.floorOperation.head.plan")}</dt>
               <dd>
                 {plan.line?.code ? `${plan.line.code} · ` : ""}
                 {clock.dateTime(plan.start)} – {clock.time(plan.end)}
@@ -151,7 +152,7 @@ export function FloorOperation() {
         </dl>
         {op.started_short ? (
           <div className="badge warn">
-            <Icon name="alert" /> Started with material short
+            <Icon name="alert" /> {t("floor.floorOperation.btn.startedWithMaterialShort")}
           </div>
         ) : null}
       </section>
@@ -167,7 +168,7 @@ export function FloorOperation() {
         <section className="floor-card">
           {(allowed.includes("setup_start") || allowed.includes("start")) && d.eligible_lines.length > 1 ? (
             <div className="field">
-              <label htmlFor="fo-line">Line</label>
+              <label htmlFor="fo-line">{t("floor.floorOperation.label.line")}</label>
               <select id="fo-line" className="select" value={lineId} onChange={(e) => setLineId(e.target.value)} data-testid="floor-op-line">
                 {d.eligible_lines.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -180,7 +181,7 @@ export function FloorOperation() {
           ) : null}
           {lineDown && (allowed.includes("setup_start") || allowed.includes("start")) ? (
             <div className="badge danger">
-              <Icon name="alert" /> This line is reported down
+              <Icon name="alert" /> {t("floor.floorOperation.btn.thisLineIsReportedDown")}
             </div>
           ) : null}
           {!floor.crew.length && !floor.me ? (
@@ -207,9 +208,9 @@ export function FloorOperation() {
             {allowed.length === 0 ? <span className="muted">No action is possible in this state.</span> : null}
           </div>
           <details>
-            <summary className="muted">It happened earlier (up to 24 hours back)</summary>
+            <summary className="muted">{t("floor.floorOperation.head.itHappenedEarlierUpTo")}</summary>
             <div className="field" style={{ maxWidth: 320 }}>
-              <label htmlFor="fo-at">When</label>
+              <label htmlFor="fo-at">{t("floor.floorOperation.label.when")}</label>
               <input id="fo-at" className="input" type="datetime-local" value={eventAt} onChange={(e) => setEventAt(e.target.value)} max={clock.toLocal(new Date().toISOString())} />
             </div>
           </details>
@@ -246,13 +247,13 @@ export function FloorOperation() {
       <Components d={d} />
       {d.instructions ? (
         <section className="floor-card">
-          <h2>Instructions</h2>
+          <h2>{t("floor.floorOperation.head.instructions")}</h2>
           <div style={{ whiteSpace: "pre-wrap" }}>{d.instructions}</div>
         </section>
       ) : null}
       {d.tools.length ? (
         <section className="floor-card">
-          <h2>Tools</h2>
+          <h2>{t("floor.floorOperation.head.tools")}</h2>
           <ul style={{ margin: 0 }}>
             {d.tools.map((t) => (
               <li key={t.tool_pool.id}>
@@ -283,9 +284,9 @@ function PausePanel({ d, busy, onCancel, onSubmit }: { d: FloorOperationDetail; 
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   return (
-    <section className="floor-card" aria-label="Pause">
-      <h2>Why are you pausing?</h2>
-      <div className="floor-grid" role="radiogroup" aria-label="Pause reason" data-testid="floor-reason">
+    <section className="floor-card" aria-label={t("floor.floorOperation.aria.pause")}>
+      <h2>{t("floor.floorOperation.head.whyAreYouPausing")}</h2>
+      <div className="floor-grid" role="radiogroup" aria-label={t("floor.floorOperation.aria.pauseReason")} data-testid="floor-reason">
         {reasons.map((r) => (
           <button key={r.code} type="button" role="radio" aria-checked={reason === r.code} className={`floor-tile${reason === r.code ? " active" : ""}`} onClick={() => setReason(r.code)} data-code={r.code}>
             {r.label}
@@ -293,15 +294,15 @@ function PausePanel({ d, busy, onCancel, onSubmit }: { d: FloorOperationDetail; 
         ))}
       </div>
       <div className="field">
-        <label htmlFor="fp-note">Note (optional)</label>
+        <label htmlFor="fp-note">{t("floor.floorOperation.label.noteOptional")}</label>
         <input id="fp-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
       </div>
       <div className="row wrap">
         <button type="button" className="btn primary floor-action" disabled={!reason || busy} onClick={() => onSubmit(reason, note)} data-testid="floor-pause-submit">
-          <Icon name="stop" /> Pause now
+          <Icon name="stop" /> {t("floor.floorOperation.btn.pauseNow")}
         </button>
         <button type="button" className="btn floor-btn" onClick={onCancel}>
-          Cancel
+          {t("floor.floorOperation.btn.cancel")}
         </button>
       </div>
     </section>
@@ -426,9 +427,9 @@ function QtyPanel({
     <section className="floor-card" aria-label={mode === "complete" ? "Complete" : "Report quantity"} data-testid="floor-qty-panel">
       <h2>{mode === "complete" ? "Complete the operation" : "Report a quantity"}</h2>
       <div className="floor-qty">
-        <Stepper id="fq-good" label="Good" value={good} onChange={setGood} testId="floor-qty-good" max={remaining} />
-        <Stepper id="fq-scrap" label="Scrap" value={scrap} onChange={setScrap} testId="floor-qty-scrap" />
-        <Stepper id="fq-rework" label="Rework" value={rework} onChange={setRework} testId="floor-qty-rework" />
+        <Stepper id="fq-good" label={t("floor.floorOperation.label.good")} value={good} onChange={setGood} testId="floor-qty-good" max={remaining} />
+        <Stepper id="fq-scrap" label={t("floor.floorOperation.label.scrap")} value={scrap} onChange={setScrap} testId="floor-qty-scrap" />
+        <Stepper id="fq-rework" label={t("floor.floorOperation.label.rework")} value={rework} onChange={setRework} testId="floor-qty-rework" />
       </div>
       {needReason ? (
         <div className="field">
@@ -445,7 +446,7 @@ function QtyPanel({
       ) : null}
       {rw > 0 ? (
         <div className="field">
-          <label htmlFor="fq-rwto">Rework at operation</label>
+          <label htmlFor="fq-rwto">{t("floor.floorOperation.label.reworkAtOperation")}</label>
           <select id="fq-rwto" className="select" value={reworkTo} onChange={(e) => setReworkTo(Number(e.target.value))} data-testid="floor-rework-to">
             {(earlier.length ? earlier : [op]).map((o) => (
               <option key={o.seq} value={o.seq}>
@@ -460,7 +461,7 @@ function QtyPanel({
           <label htmlFor="fq-serial">
             <strong>Serial numbers</strong>{" "}
             <span className={serialsOk ? "badge ok" : "badge warn"} data-testid="floor-serial-count" data-count={serials.length}>
-              <Icon name={serialsOk ? "check" : "alert"} /> {serials.length} of {g} scanned
+              <Icon name={serialsOk ? "check" : "alert"} /> {tr("common.nOfM", { n: serials.length, m: g })} scanned
             </span>
           </label>
           <form
@@ -470,9 +471,9 @@ function QtyPanel({
               if (addSerial(serialText)) setSerialText("");
             }}
           >
-            <input id="fq-serial" className="input" style={{ flex: 1 }} value={serialText} onChange={(e) => setSerialText(e.target.value)} placeholder="Scan the unit label or type the serial, then Enter" autoComplete="off" data-testid="floor-serial-input" />
+            <input id="fq-serial" className="input" style={{ flex: 1 }} value={serialText} onChange={(e) => setSerialText(e.target.value)} placeholder={t("floor.floorOperation.ph.scanTheUnitLabelOr")} autoComplete="off" data-testid="floor-serial-input" />
             <button type="submit" className="btn floor-btn">
-              Add
+              {t("floor.floorOperation.btn.add")}
             </button>
           </form>
           <div className="floor-serials">
@@ -489,7 +490,7 @@ function QtyPanel({
       ) : null}
       {serialComps.length ? (
         <div className="col" style={{ gap: 4 }}>
-          <strong>Serials of components fitted here</strong>
+          <strong>{t("floor.floorOperation.head.serialsOfComponentsFittedHere")}</strong>
           <span className="faint small">Scan the child unit labels (S:part:serial). Optional.</span>
           <div className="floor-serials">
             {consumed.map((c) => (
@@ -504,12 +505,12 @@ function QtyPanel({
         </div>
       ) : null}
       <div className="field">
-        <label htmlFor="fq-note">Note (optional)</label>
+        <label htmlFor="fq-note">{t("floor.floorOperation.label.noteOptional")}</label>
         <input id="fq-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
       </div>
       {forceNeeded && canForce ? (
         <div className="field">
-          <label htmlFor="fq-force">Record anyway (supervisor): reason</label>
+          <label htmlFor="fq-force">{t("floor.floorOperation.label.recordAnywaySupervisorReason")}</label>
           <input id="fq-force" className="input" value={forceReason} onChange={(e) => setForceReason(e.target.value)} data-testid="floor-force-reason" />
         </div>
       ) : null}
@@ -525,7 +526,7 @@ function QtyPanel({
           {g ? ` ${fmtQty(g)} good` : ""}
         </button>
         <button type="button" className="btn floor-btn" onClick={onCancel}>
-          Cancel
+          {t("floor.floorOperation.btn.cancel")}
         </button>
       </div>
       {!serialsOk ? <span className="small">Scan one serial per good unit first.</span> : null}
@@ -537,15 +538,15 @@ function Components({ d }: { d: FloorOperationDetail }) {
   if (!d.components.length) return null;
   return (
     <section className="floor-card" data-testid="floor-components">
-      <h2>Components</h2>
+      <h2>{t("floor.floorOperation.head.components")}</h2>
       <table className="floor-table">
         <thead>
           <tr>
-            <th>Part</th>
-            <th>Needed</th>
-            <th>Issued</th>
-            <th>How</th>
-            <th>Status</th>
+            <th>{t("floor.floorOperation.head.part")}</th>
+            <th>{t("floor.floorOperation.head.needed")}</th>
+            <th>{t("floor.floorOperation.head.issued")}</th>
+            <th>{t("floor.floorOperation.head.how")}</th>
+            <th>{t("floor.floorOperation.head.status")}</th>
           </tr>
         </thead>
         <tbody>
@@ -578,7 +579,7 @@ function EventList({ d, clock }: { d: FloorOperationDetail; clock: ReturnType<ty
   const evs = [...d.events].sort((a, b) => b.seq - a.seq).slice(0, 20);
   return (
     <section className="floor-card" data-testid="floor-op-events">
-      <h2>What happened</h2>
+      <h2>{t("floor.floorOperation.head.whatHappened")}</h2>
       <table className="floor-table">
         <tbody>
           {evs.map((e) => (

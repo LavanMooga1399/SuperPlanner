@@ -3,6 +3,7 @@ import { fmtMonth } from "../lib/months";
 import { ChartPoint, ChartTooltip, type TooltipRow } from "./ChartTooltip";
 import { Legend } from "./Legend";
 import { linearScale, monthTickIndices, niceMax, niceTicks, useWidth } from "./scales";
+import { t } from "../../lib/i18n";
 
 export interface AreaLayer {
   key: string;
@@ -144,16 +145,16 @@ export function StackedAreaChart({ months, layers, band, format, formatAxis, ari
         <caption>{caption}</caption>
         <thead>
           <tr>
-            <th scope="col">Month</th>
+            <th scope="col">{t("finance.stackedAreaChart.head.month")}</th>
             {layers.map((l) => (
               <th scope="col" key={l.key}>{l.label}</th>
             ))}
-            <th scope="col">Total</th>
+            <th scope="col">{t("finance.stackedAreaChart.head.total")}</th>
             {band ? (
               <>
-                <th scope="col">p10</th>
-                <th scope="col">p50</th>
-                <th scope="col">p90</th>
+                <th scope="col">{t("finance.stackedAreaChart.head.p10")}</th>
+                <th scope="col">{t("finance.stackedAreaChart.head.p50")}</th>
+                <th scope="col">{t("finance.stackedAreaChart.head.p90")}</th>
               </>
             ) : null}
           </tr>

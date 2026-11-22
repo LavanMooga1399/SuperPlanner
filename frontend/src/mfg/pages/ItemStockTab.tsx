@@ -63,7 +63,7 @@ export function ItemStockTab() {
   const stock = useLoad((signal) => getItemStock(item.id, signal), [item.id]);
   const s = stock.data;
   if (stock.error && !s) return <MfgError error={stock.error} onRetry={stock.reload} />;
-  if (!s) return <Spinner label="Loading stock…" />;
+  if (!s) return <Spinner label={tr("mfg.itemStockTab.label.loadingStock")} />;
   const t = s.totals;
   const tiles: [string, string, string][] = [
     ["Available", fmtNum(t.available), "Plannable on hand minus reserved"],
@@ -96,7 +96,7 @@ export function ItemStockTab() {
                 Short {fmtNum(s.latest_run.short_qty)} {item.uom}
                 {s.latest_run.first_short_date ? ` from ${fmtDate(s.latest_run.first_short_date)}` : ""}
               </strong>
-              <div>In MRP run #{s.latest_run.run_no}, before planned orders.</div>
+              <div>In {tr("common.mrpRunNo", { n: s.latest_run.run_no })}, before planned orders.</div>
             </div>
             <div className="banner-actions">
               <Link className="btn sm" to={mfgPaths.runItem(s.latest_run.run_id, item.id)}>
@@ -106,14 +106,14 @@ export function ItemStockTab() {
           </div>
         ) : (
           <p className="muted small" style={{ margin: 0 }}>
-            <Icon name="check" size={12} /> Not short in MRP run #{s.latest_run.run_no}.{" "}
+            <Icon name="check" size={12} /> Not short in {tr("common.mrpRunNo", { n: s.latest_run.run_no })}.{" "}
             <Link to={mfgPaths.runItem(s.latest_run.run_id, item.id)}>Item plan</Link>
           </p>
         )
       ) : null}
       <section className="card card-table">
         <div className="card-header">
-          <h3>Stock by location</h3>
+          <h3>{tr("mfg.itemStockTab.head.stockByLocation")}</h3>
           <div className="mfg-actions">
             <Link className="btn sm" to={mfgPaths.transactions({ item: item.id })}>
               <Icon name="list" /> {tr("mfg.itemStockTab.btn.ledger")}
@@ -148,7 +148,7 @@ export function ItemStockTab() {
             { key: "available", header: "Available", width: "100px", align: "right", sortValue: (b) => b.qty_available, exportValue: (b) => b.qty_available, render: (b) => <strong>{fmtNum(b.qty_available)}</strong> },
           ]}
           rowKey={(b) => b.id}
-          label="Stock by location"
+          label={tr("mfg.itemStockTab.label.stockByLocation")}
           tableId="item-stock-balances"
           exportName={`${item.part_number}-stock`}
           rowExtras={(b) => ({ testId: "balance-row", data: { item: b.item.part_number, location: b.location.code, qty: b.qty_on_hand } })}

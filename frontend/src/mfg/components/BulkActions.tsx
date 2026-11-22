@@ -82,7 +82,7 @@ export function BulkActions({ rows, noun, actions, onDone, onClear }: { rows: Bu
   return (
     <>
       {rows.length ? (
-        <div className="bulk-bar" role="region" aria-label="Bulk actions" data-testid="bulk-bar">
+        <div className="bulk-bar" role="region" aria-label={t("mfg.bulkActions.aria.bulkActions")} data-testid="bulk-bar">
           <span className="bulk-count" aria-live="polite">
             <b>{plural(rows.length, noun[0], noun[1])}</b> selected
           </span>
@@ -154,7 +154,7 @@ export function BulkActions({ rows, noun, actions, onDone, onClear }: { rows: Bu
               <thead>
                 <tr>
                   <th>{noun[0][0].toUpperCase() + noun[0].slice(1)}</th>
-                  <th>Reason</th>
+                  <th>{t("mfg.bulkActions.head.reason")}</th>
                 </tr>
               </thead>
               <tbody>

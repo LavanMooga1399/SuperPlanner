@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Icon } from "../../components/Icon";
+import { t } from "../../lib/i18n";
 
 export interface ListEditorProps<T extends { id: string; name: string }> {
   items: T[];
@@ -32,7 +33,7 @@ export function ListEditor<T extends { id: string; name: string }>({ items, rowT
           <div className="list-row-head">
             <span className="grow">{it.name || "(unnamed)"}</span>
             <button type="button" className="btn sm ghost" onClick={() => setToRemove(i)} aria-label={`Remove ${it.name || "item"}`}>
-              <Icon name="trash" /> Remove
+              <Icon name="trash" /> {t("finance.listEditor.btn.remove")}
             </button>
           </div>
           {renderRow(it, i)}
@@ -48,7 +49,7 @@ export function ListEditor<T extends { id: string; name: string }>({ items, rowT
       {pending ? (
         <ConfirmDialog
           title={`Remove ${pending.name || "this item"}?`}
-          confirmLabel="Remove"
+          confirmLabel={t("finance.listEditor.btn.remove")}
           danger
           onConfirm={() => {
             onRemove(toRemove!);
@@ -56,7 +57,7 @@ export function ListEditor<T extends { id: string; name: string }>({ items, rowT
           }}
           onCancel={() => setToRemove(null)}
         >
-          <p style={{ margin: 0 }}>It is taken out of the plan with all its settings. You can add it again later.</p>
+          <p style={{ margin: 0 }}>{t("finance.listEditor.text.itIsTakenOutOf")}</p>
         </ConfirmDialog>
       ) : null}
     </div>

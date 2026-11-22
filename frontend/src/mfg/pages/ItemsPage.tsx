@@ -237,7 +237,7 @@ export function ItemsPage() {
         rows={items}
         columns={columns}
         rowKey={(it) => it.id}
-        label="Items"
+        label={t("mfg.itemsPage.label.items")}
         testId="items-table"
         card={{ title: "pn", status: "act", fields: ["desc", "mb", "used"] }}
         totalCount={total}

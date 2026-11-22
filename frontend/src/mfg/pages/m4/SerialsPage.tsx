@@ -76,7 +76,7 @@ export function SerialsPage() {
         rows={data.rows}
         columns={columns}
         rowKey={(s) => s.id}
-        label="Unit serials"
+        label={t("mfg.serialsPage.label.unitSerials")}
         testId="serials-table"
         totalCount={data.total}
         loading={data.loading}
@@ -84,7 +84,7 @@ export function SerialsPage() {
         exportName="serials"
         rowExtras={() => ({ testId: "serial-row" })}
         empty={chips.length ? "No serials match these filters." : "No serials yet. Serials are captured on the shop floor for serialised items."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} serials</span>}
+        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} serials</span>}
         card={{ title: "serial", status: "status", fields: ["item", "wo", "captured"] }}
       />
     </div>
@@ -112,7 +112,7 @@ export function SerialPage() {
   if (!u) return <MfgError error={s.error} onRetry={s.reload} />;
   return (
     <div className="col gap-lg" data-testid="serial-page">
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumb" aria-label={t("mfg.serialsPage.aria.breadcrumb")}>
         <Link to={mfgPaths.serials()}>Serials</Link> <Icon name="chevron-right" size={12} /> <span>{u.serial}</span>
       </nav>
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
@@ -125,7 +125,7 @@ export function SerialPage() {
       </div>
       <section className="card card-body">
         <dl className="floor-kv">
-          <dt>Item</dt>
+          <dt>{t("mfg.serialsPage.head.item")}</dt>
           <dd>
             {u.item ? (
               <Link to={mfgPaths.item(u.item.id)} className="mono">
@@ -134,16 +134,16 @@ export function SerialPage() {
             ) : null}{" "}
             {u.item?.description ?? ""}
           </dd>
-          <dt>Made in</dt>
+          <dt>{t("mfg.serialsPage.head.madeIn")}</dt>
           <dd>{u.wo ? <Link to={mfgPaths.workOrder(u.wo.id)} className="mono">{u.wo.number}</Link> : "-"}</dd>
-          <dt>Captured</dt>
+          <dt>{t("mfg.serialsPage.head.captured")}</dt>
           <dd>
             {clock.dateTime(u.captured_at)}
             {u.captured_op_seq ? ` at operation ${u.captured_op_seq}` : ""}
           </dd>
           {u.consumed_at ? (
             <>
-              <dt>Fitted</dt>
+              <dt>{t("mfg.serialsPage.head.fitted")}</dt>
               <dd>{clock.dateTime(u.consumed_at)}</dd>
             </>
           ) : null}
@@ -152,7 +152,7 @@ export function SerialPage() {
       <div className="grid-2" style={{ alignItems: "start" }}>
         <section className="card" data-testid="serial-parent">
           <div className="card-header">
-            <h2>Fitted into</h2>
+            <h2>{t("mfg.serialsPage.head.fittedInto")}</h2>
           </div>
           <div className="card-body">{u.parent ? <UnitLine u={u.parent} /> : <span className="muted">Not fitted into another unit.</span>}</div>
         </section>

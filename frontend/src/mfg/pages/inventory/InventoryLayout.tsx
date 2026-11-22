@@ -68,7 +68,7 @@ export function InventoryLayout() {
         testId="inventory-import" />
           <PostMenu /></>} />
       <SectionTabs
-        label="Inventory sections"
+        label={t("mfg.inventoryLayout.label.inventorySections")}
         tabs={[
           { to: mfgPaths.inventory(), label: "Stock", testId: "inv-tab-balances", end: true },
           { to: mfgPaths.transactions(), label: "Ledger", testId: "inv-tab-transactions" },

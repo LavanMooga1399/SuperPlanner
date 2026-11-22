@@ -59,7 +59,7 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
   return (
     <section className="card card-table" data-testid="wo-operations" data-m4="true">
       <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
-        <h3>Operations on the floor</h3>
+        <h3>{t("mfg.woOperations.head.operationsOnTheFloor")}</h3>
         <span className="row wrap">
           <Link className="btn sm" to={mfgPaths.printTraveller(woId)} data-testid="wo-print-traveller">
             <Icon name="file" /> {t("mfg.woOperations.btn.printTraveller")}
@@ -179,7 +179,7 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
           },
         ]}
         rowKey={(o) => o.id || `seq-${o.seq}`}
-        label="Operations on the floor"
+        label={t("mfg.woOperations.label.operationsOnTheFloor")}
         tableId="wo-operations-floor"
         exportName={`${woId}-operations`}
         rowExtras={(o) => ({ testId: "wo-op-row", data: { seq: o.seq, status: o.status } })}
@@ -224,7 +224,7 @@ function M3Ops({ woId, woVersion, ops, onChanged }: { woId: string; woVersion: n
   return (
     <section className="card card-table" data-testid="wo-operations">
       <div className="card-header">
-        <h3>Operations</h3>
+        <h3>{t("mfg.woOperations.head.operations")}</h3>
         <span className="muted small">From the routing; "done" tells the scheduler not to plan them again.</span>
       </div>
       <MfgError error={ops.error ?? error} onRetry={ops.reload} />
@@ -276,7 +276,7 @@ function M3Ops({ woId, woVersion, ops, onChanged }: { woId: string; woVersion: n
           },
         ]}
         rowKey={(o) => o.seq}
-        label="Operations"
+        label={t("mfg.woOperations.label.operations")}
         tableId="wo-operations"
         exportName={`${woId}-operations`}
         rowExtras={(o) => ({ testId: "wo-op-row", data: { seq: o.seq, done: o.done } })}

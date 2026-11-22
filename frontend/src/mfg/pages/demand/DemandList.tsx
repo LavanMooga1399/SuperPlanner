@@ -18,7 +18,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { BulkActions, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
 import { useCan } from "../../lib/permissions";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 export function DemandList() {
   const [params, setParams] = useSearchParams();
@@ -158,7 +158,7 @@ export function DemandList() {
         rows={data.rows}
         columns={columns}
         rowKey={(o) => o.id}
-        label="Demand orders"
+        label={t("mfg.demandList.label.demandOrders")}
         testId="demand-table"
         card={{ title: "no", status: "st", fields: ["cust", "open", "due"] }}
         selection={canEdit ? { selected, onChange: setSelected, rowId: (o) => o.id, rowLabel: (o) => o.number } : undefined}
@@ -172,7 +172,7 @@ export function DemandList() {
         onSortChange={(x) => set("sort", !x || x.key === "number" ? "" : x.key)}
         exportName="demand-orders"
         empty={data.loading ? "Loading…" : "No demand orders match these filters."}
-        footer={<span>Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} orders</span>}
+        footer={<span>Showing {tr("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} orders</span>}
       />
     </div>
   );

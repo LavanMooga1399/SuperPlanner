@@ -17,7 +17,7 @@ import { SampleLoader } from "../components/SampleLoader";
 import { MakeBuyBadge } from "../components/StatusChip";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
-import { plural, t as tr } from "../../lib/i18n";
+import { plural, t as tr, t } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
 
 const KPIS: { key: keyof SummaryCounts; label: string; sub?: (c: SummaryCounts) => string; to: string }[] = [
@@ -36,7 +36,7 @@ function HealthCard({ tick }: { tick: number }) {
   return (
     <div className="card" data-testid="mfg-home-health" data-ok={r ? String(r.ok) : undefined}>
       <div className="card-header">
-        <h2>Data health</h2>
+        <h2>{t("mfg.mfgHome.head.dataHealth")}</h2>
         <Link to={mfgPaths.health()} className="btn sm">
           Open data health <Icon name="arrow-right" />
         </Link>
@@ -146,7 +146,7 @@ function FloorCard({ summary }: { summary: Summary }) {
   return (
     <section className="card" data-testid="mfg-floor-card">
       <div className="card-header">
-        <h2>Shop floor</h2>
+        <h2>{t("mfg.mfgHome.head.shopFloor")}</h2>
         <Link to={mfgPaths.floor()} className="btn sm primary">
           <Icon name="factory" /> {tr("mfg.mfgHome.btn.floorScreens")}
         </Link>
@@ -189,7 +189,7 @@ function PlanningCard({ summary }: { summary: Summary }) {
         <span className="row" style={{ gap: 6 }}>
         {ps ? (
           <Link to={mfgPaths.apsRun(ps.id)} className="btn sm" data-testid="mfg-published-schedule">
-            Schedule #{ps.run_no}: {ps.late_orders ? `${ps.late_orders} late orders` : "all on time"}
+            {tr("common.scheduleNo", { n: ps.run_no })}: {ps.late_orders ? `${ps.late_orders} late orders` : "all on time"}
             {ps.stale ? " (out of date)" : ""} <Icon name="arrow-right" />
           </Link>
         ) : (
@@ -199,7 +199,7 @@ function PlanningCard({ summary }: { summary: Summary }) {
         )}
         {run ? (
           <Link to={mfgPaths.run(run.id)} className="btn sm">
-            MRP run #{run.run_no}: {run.demand_late ? `${run.demand_late} late` : "all on time"}
+            {tr("common.mrpRunNo", { n: run.run_no })}: {run.demand_late ? `${run.demand_late} late` : "all on time"}
             {run.stale ? " (out of date)" : ""} <Icon name="arrow-right" />
           </Link>
         ) : (
@@ -291,7 +291,7 @@ export function MfgHome() {
           ))}
         </div>
       ) : summary.loading ? (
-        <SkeletonPage label="Loading the plant summary…" rows={3} />
+        <SkeletonPage label={t("mfg.mfgHome.label.loadingThePlantSummary")} rows={3} />
       ) : null}
 
       {summary.data ? <PlanningCard summary={summary.data} /> : null}
@@ -301,7 +301,7 @@ export function MfgHome() {
         <HealthCard tick={tick} />
         <div className="card">
           <div className="card-header">
-            <h2>End items</h2>
+            <h2>{t("mfg.mfgHome.head.endItems")}</h2>
             <Link to={mfgPaths.items()} className="btn sm ghost">
               All items <Icon name="arrow-right" />
             </Link>

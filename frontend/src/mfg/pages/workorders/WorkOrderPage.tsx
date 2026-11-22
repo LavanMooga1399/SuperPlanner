@@ -215,7 +215,7 @@ export function WorkOrderPage() {
   return (
     <div className="col gap-lg" data-testid="wo-page" data-status={status}>
       <UnsavedChangesGuard when={!isNew && dirty && !busy} what="this work order" />
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
+      <nav aria-label={t("mfg.workOrderPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.workOrders()}>Work orders</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{wo?.number ?? "New work order"}</span>
       </nav>
       <div className="ws-header">
@@ -238,7 +238,7 @@ export function WorkOrderPage() {
           ) : null}
         </div>
         {wo && canEdit ? (
-          <div className="mfg-actions" role="group" aria-label="Actions">
+          <div className="mfg-actions" role="group" aria-label={t("mfg.workOrderPage.aria.actions")}>
             {status === "planned" ? (
               <button type="button" className="btn primary" onClick={() => setDlg("release")} disabled={busy || dirty} data-testid="wo-action-release">
                 <Icon name="play" /> {t("mfg.workOrderPage.btn.release")}
@@ -281,7 +281,7 @@ export function WorkOrderPage() {
         ) : null}
       </div>
       {wo && (status === "released" || status === "in_progress") && can("inventory") ? (
-        <div className="row wrap" role="group" aria-label="Stock postings">
+        <div className="row wrap" role="group" aria-label={t("mfg.workOrderPage.aria.stockPostings")}>
           <button type="button" className="btn primary" onClick={() => setDlg("issue")} data-testid="wo-issue-open">
             <Icon name="arrow-right" /> {t("mfg.workOrderPage.btn.issueComponents")}
           </button>
@@ -311,7 +311,7 @@ export function WorkOrderPage() {
       <section className="card">
         <div className="card-body form-grid">
           {isNew ? (
-            <ItemPicker label="Item to make" value={f.item} makeBuy="make" onChange={(it) => setF({ ...f, item: it })} testId="wo-item" />
+            <ItemPicker label={t("mfg.workOrderPage.label.itemToMake")} value={f.item} makeBuy="make" onChange={(it) => setF({ ...f, item: it })} testId="wo-item" />
           ) : (
             <div className="field">
               <span className="field-label">Item</span>
@@ -324,9 +324,9 @@ export function WorkOrderPage() {
             </div>
           )}
           <TextField label={`Good quantity${f.item ? ` (${f.item.uom})` : ""}`} type="number" value={f.qty} onChange={(v) => setF({ ...f, qty: v })} disabled={!partEdit && !isNew} testId="wo-qty" />
-          <TextField label="Due date" type="date" value={f.due_date} onChange={(v) => setF({ ...f, due_date: v })} disabled={!partEdit && !isNew} testId="wo-due" />
+          <TextField label={t("mfg.workOrderPage.label.dueDate")} type="date" value={f.due_date} onChange={(v) => setF({ ...f, due_date: v })} disabled={!partEdit && !isNew} testId="wo-due" />
           <TextField
-            label="Start date"
+            label={t("mfg.workOrderPage.label.startDate")}
             type="date"
             value={f.start_date}
             onChange={(v) => {
@@ -337,18 +337,18 @@ export function WorkOrderPage() {
             hint={isNew && !startTouched ? "Empty = due date minus the manufacturing lead time" : undefined}
             testId="wo-start"
           />
-          <TextField label="Priority (1 = most important)" type="number" value={f.priority} onChange={(v) => setF({ ...f, priority: v })} disabled={!partEdit && !isNew} />
-          <TextField label="Number" value={f.number} onChange={(v) => setF({ ...f, number: v })} maxLength={32} placeholder={t("mfg.workOrderPage.ph.nextFreeNumber")} disabled={!isNew} />
+          <TextField label={t("mfg.workOrderPage.label.priority1MostImportant")} type="number" value={f.priority} onChange={(v) => setF({ ...f, priority: v })} disabled={!partEdit && !isNew} />
+          <TextField label={t("mfg.workOrderPage.label.number")} value={f.number} onChange={(v) => setF({ ...f, number: v })} maxLength={32} placeholder={t("mfg.workOrderPage.ph.nextFreeNumber")} disabled={!isNew} />
           <div className="field">
             <span className="field-label">Unit serials</span>
             <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
-              <input className="input num" type="number" aria-label="Serial from" placeholder={t("mfg.workOrderPage.ph.from")} value={f.serial_from} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_from: e.target.value })} />
-              <input className="input num" type="number" aria-label="Serial to" placeholder={t("mfg.workOrderPage.ph.to")} value={f.serial_to} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_to: e.target.value })} />
+              <input className="input num" type="number" aria-label={t("mfg.workOrderPage.aria.serialFrom")} placeholder={t("mfg.workOrderPage.ph.from")} value={f.serial_from} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_from: e.target.value })} />
+              <input className="input num" type="number" aria-label={t("mfg.workOrderPage.aria.serialTo")} placeholder={t("mfg.workOrderPage.ph.to")} value={f.serial_to} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_to: e.target.value })} />
             </div>
             <span className="hint">Serialized items: selects the BOM valid for these units.</span>
           </div>
           <div style={{ gridColumn: "span 2" }}>
-            <TextField label="Note" value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} disabled={!partEdit && !isNew} />
+            <TextField label={t("mfg.workOrderPage.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} disabled={!partEdit && !isNew} />
           </div>
         </div>
         {wo ? (
@@ -408,7 +408,7 @@ export function WorkOrderPage() {
       {wo && txns.data && txns.data.items.length ? (
         <section className="card card-table" data-testid="wo-transactions">
           <div className="card-header">
-            <h3>Stock movements</h3>
+            <h3>{t("mfg.workOrderPage.head.stockMovements")}</h3>
             <Link to={mfgPaths.transactions()} className="small">
               {t("mfg.workOrderPage.btn.ledger")}
             </Link>
@@ -424,7 +424,7 @@ export function WorkOrderPage() {
               { key: "qty", header: "Change", width: "100px", align: "right", sortValue: (t) => t.qty, exportValue: (t) => t.qty, render: (t) => <span className={t.qty < 0 ? "mfg-neg" : "mfg-pos"}>{fmtNum(t.qty)}</span> },
             ]}
             rowKey={(t) => t.id}
-            label="Stock movements of this work order"
+            label={t("mfg.workOrderPage.label.stockMovementsOfThisWork")}
             tableId="wo-transactions"
             exportName={`${wo.number}-stock-movements`}
             rowExtras={() => ({ testId: "txn-row" })}
@@ -454,7 +454,7 @@ export function WorkOrderPage() {
             }, undefined);
           }}
         >
-          <p style={{ margin: 0 }}>The work order can then be issued and reported. Its component quantities stay as they are.</p>
+          <p style={{ margin: 0 }}>{t("mfg.workOrderPage.text.theWorkOrderCanThen")}</p>
           <label className="checkbox" style={{ marginTop: 8 }}>
             <input type="checkbox" checked={reserveOnRelease} onChange={(e) => setReserveOnRelease(e.target.checked)} data-testid="wo-release-reserve" /> Reserve free stock for the components now
           </label>
@@ -483,10 +483,10 @@ export function WorkOrderPage() {
               <table className="table" style={{ marginBottom: 8 }}>
                 <thead>
                   <tr>
-                    <th>Part</th>
-                    <th className="right">Needed</th>
-                    <th className="right">Available</th>
-                    <th className="right">Short</th>
+                    <th>{t("mfg.workOrderPage.head.part")}</th>
+                    <th className="right">{t("mfg.workOrderPage.head.needed")}</th>
+                    <th className="right">{t("mfg.workOrderPage.head.available")}</th>
+                    <th className="right">{t("mfg.workOrderPage.head.short")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -501,7 +501,7 @@ export function WorkOrderPage() {
                 </tbody>
               </table>
             ) : null}
-            <p style={{ marginTop: 0 }}>The floor can still start; the shortage is recorded with your reason.</p>
+            <p style={{ marginTop: 0 }}>{t("mfg.workOrderPage.text.theFloorCanStillStart")}</p>
             <div className="field">
               <label htmlFor="wo-override">{t("mfg.workOrderPage.label.reasonRequired")}</label>
               <input id="wo-override" className="input" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} maxLength={200} data-testid="wo-release-override" />

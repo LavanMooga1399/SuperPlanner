@@ -46,7 +46,7 @@ export function AssistantPlantCard() {
   return (
     <section className="card" style={{ maxWidth: 720 }} data-testid="plant-assistant">
       <div className="card-header">
-        <h2>Planning assistant</h2>
+        <h2>{t("mfg.assistantPlantCard.head.planningAssistant")}</h2>
         <span className="badge info" data-testid="plant-assistant-state">
           <Icon name={f.assistant_enabled ? "check" : "ban"} /> {f.assistant_enabled ? "On for this plant" : "Off for this plant"}
         </span>

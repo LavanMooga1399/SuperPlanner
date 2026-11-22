@@ -28,13 +28,13 @@ export function ToolingPage() {
     <div className="split mfg-split">
       <section className="card" aria-labelledby="tools-title">
         <div className="card-header">
-          <h2 id="tools-title">Tooling</h2>
+          <h2 id="tools-title">{t("mfg.toolingPage.head.tooling")}</h2>
           <button type="button" className="btn sm primary" onClick={() => setEditing("new")} data-testid="tool-new">
             <Icon name="plus" /> {t("mfg.toolingPage.btn.newToolPool")}
           </button>
         </div>
         <div style={{ padding: "8px 16px 0" }}>
-          <input className="input sm" type="search" placeholder={t("mfg.toolingPage.ph.searchCodeNameOrKind")} aria-label="Search tooling" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input sm" type="search" placeholder={t("mfg.toolingPage.ph.searchCodeNameOrKind")} aria-label={t("mfg.toolingPage.aria.searchTooling")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <MfgError error={tools.error} onRetry={tools.reload} />
         <MfgError error={error} title="The action failed" />
@@ -60,7 +60,7 @@ export function ToolingPage() {
           />
         ) : null}
       </section>
-      <aside aria-label="Tool pool details">
+      <aside aria-label={t("mfg.toolingPage.aria.toolPoolDetails")}>
         {selected ? (
           <section className="card" data-testid="tool-panel" data-tool-id={selected.id}>
             <div className="card-header">
@@ -78,13 +78,13 @@ export function ToolingPage() {
             </div>
             <div className="card-body">
               <dl className="dl">
-                <dt>Kind</dt>
+                <dt>{t("mfg.toolingPage.head.kind")}</dt>
                 <dd>{selected.kind ?? "-"}</dd>
-                <dt>Units available</dt>
+                <dt>{t("mfg.toolingPage.head.unitsAvailable")}</dt>
                 <dd>{selected.quantity}</dd>
-                <dt>Used by</dt>
+                <dt>{t("mfg.toolingPage.head.usedBy")}</dt>
                 <dd>{selected.operation_count} operations</dd>
-                <dt>Note</dt>
+                <dt>{t("mfg.toolingPage.head.note")}</dt>
                 <dd>{selected.note || "-"}</dd>
               </dl>
             </div>
@@ -120,7 +120,7 @@ export function ToolingPage() {
             }, setError);
           }}
         >
-          <p style={{ margin: 0 }}>Tooling used by operations cannot be deleted.</p>
+          <p style={{ margin: 0 }}>{t("mfg.toolingPage.text.toolingUsedByOperationsCannot")}</p>
         </ConfirmDialog>
       ) : null}
     </div>
@@ -146,12 +146,12 @@ function ToolDialog({ tool, onClose, onSaved }: { tool: ToolPoolRecord | null; o
       }}
     >
       <div className="form-grid">
-        <TextField label="Code" value={code} onChange={setCode} required maxLength={32} testId="tool-code" />
-        <TextField label="Name" value={name} onChange={setName} required testId="tool-name" />
-        <TextField label="Kind" value={kind} onChange={setKind} maxLength={32} hint="e.g. stencil, fixture, jig" />
-        <TextField label="Units available" type="number" value={quantity} onChange={setQuantity} hint="Identical units that can be used at the same time" testId="tool-quantity" />
+        <TextField label={t("mfg.toolingPage.label.code")} value={code} onChange={setCode} required maxLength={32} testId="tool-code" />
+        <TextField label={t("mfg.toolingPage.label.name")} value={name} onChange={setName} required testId="tool-name" />
+        <TextField label={t("mfg.toolingPage.label.kind")} value={kind} onChange={setKind} maxLength={32} hint={t("mfg.toolingPage.hint.egStencilFixtureJig")} />
+        <TextField label={t("mfg.toolingPage.label.unitsAvailable")} type="number" value={quantity} onChange={setQuantity} hint={t("mfg.toolingPage.hint.identicalUnitsThatCanBe")} testId="tool-quantity" />
       </div>
-      <TextField label="Note" value={note} onChange={setNote} maxLength={500} />
+      <TextField label={t("mfg.toolingPage.label.note")} value={note} onChange={setNote} maxLength={500} />
     </EntityFormDialog>
   );
 }

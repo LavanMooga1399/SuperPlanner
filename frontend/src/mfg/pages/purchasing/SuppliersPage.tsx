@@ -70,18 +70,18 @@ function SupplierDialog({ sup, onClose, onSaved }: { sup: SupplierRecord | null;
       onSubmit={async () => onSaved(sup ? await updateSupplier(sup.id, body, sup.row_version) : await createSupplier(body))}
     >
       <div className="form-grid">
-        <TextField label="Code" value={f.code} onChange={(v) => setF({ ...f, code: v.toUpperCase() })} required maxLength={32} testId="supplier-code" />
-        <TextField label="Name" value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="supplier-name" />
-        <TextField label="Default lead time (days)" type="number" value={f.lead} onChange={(v) => setF({ ...f, lead: v })} hint="Used when a part row has none." />
-        <TextField label="Currency" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} />
-        <TextField label="Contact" value={f.contact_name} onChange={(v) => setF({ ...f, contact_name: v })} />
-        <TextField label="Email" value={f.email} onChange={(v) => setF({ ...f, email: v })} />
-        <TextField label="Phone" value={f.phone} onChange={(v) => setF({ ...f, phone: v })} maxLength={50} />
-        <TextField label="External reference" value={f.external_ref} onChange={(v) => setF({ ...f, external_ref: v })} maxLength={64} hint="Vendor code in your ERP" />
+        <TextField label={t("mfg.suppliersPage.label.code")} value={f.code} onChange={(v) => setF({ ...f, code: v.toUpperCase() })} required maxLength={32} testId="supplier-code" />
+        <TextField label={t("mfg.suppliersPage.label.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="supplier-name" />
+        <TextField label={t("mfg.suppliersPage.label.defaultLeadTimeDays")} type="number" value={f.lead} onChange={(v) => setF({ ...f, lead: v })} hint={t("mfg.suppliersPage.hint.usedWhenAPartRow")} />
+        <TextField label={t("mfg.suppliersPage.label.currency")} value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} />
+        <TextField label={t("mfg.suppliersPage.label.contact")} value={f.contact_name} onChange={(v) => setF({ ...f, contact_name: v })} />
+        <TextField label={t("mfg.suppliersPage.label.email")} value={f.email} onChange={(v) => setF({ ...f, email: v })} />
+        <TextField label={t("mfg.suppliersPage.label.phone")} value={f.phone} onChange={(v) => setF({ ...f, phone: v })} maxLength={50} />
+        <TextField label={t("mfg.suppliersPage.label.externalReference")} value={f.external_ref} onChange={(v) => setF({ ...f, external_ref: v })} maxLength={64} hint={t("mfg.suppliersPage.hint.vendorCodeInYourErp")} />
       </div>
-      <TextField label="Address" value={f.address} onChange={(v) => setF({ ...f, address: v })} maxLength={500} />
-      <CheckField label="Active" checked={f.active} onChange={(v) => setF({ ...f, active: v })} hint="Inactive suppliers are not used by MRP." />
-      <TextField label="Note" value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
+      <TextField label={t("mfg.suppliersPage.label.address")} value={f.address} onChange={(v) => setF({ ...f, address: v })} maxLength={500} />
+      <CheckField label={t("mfg.suppliersPage.label.active")} checked={f.active} onChange={(v) => setF({ ...f, active: v })} hint={t("mfg.suppliersPage.hint.inactiveSuppliersAreNotUsed")} />
+      <TextField label={t("mfg.suppliersPage.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
     </EntityFormDialog>
   );
 }
@@ -107,7 +107,7 @@ export function SuppliersPage() {
         rows={list.data?.items ?? []}
         columns={SUPPLIER_COLS}
         rowKey={(s) => s.id}
-        label="Suppliers"
+        label={t("mfg.suppliersPage.label.suppliers")}
         testId="suppliers-table"
         loading={list.loading && !list.data}
         exportName="suppliers"
@@ -145,10 +145,10 @@ export function SupplierPage() {
 
   return (
     <div className="col gap-lg" data-testid="supplier-page">
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
+      <nav aria-label={t("mfg.suppliersPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.suppliers()}>Suppliers</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{s.code}</span>
       </nav>
-      <ErpOwnedNotice entity="suppliers" label="Suppliers (except the preferred flag)" />
+      <ErpOwnedNotice entity="suppliers" label={t("mfg.suppliersPage.label.suppliersExceptThePreferredFlag")} />
       <section className="card">
         <div className="card-header">
           <h2 className="row">
@@ -167,21 +167,21 @@ export function SupplierPage() {
         </div>
         <div className="card-body">
           <dl className="mfg-dl">
-            <dt>Default lead time</dt>
+            <dt>{t("mfg.suppliersPage.head.defaultLeadTime")}</dt>
             <dd>{s.lead_time_days === null ? "-" : plural(s.lead_time_days, "day")}</dd>
-            <dt>Currency</dt>
+            <dt>{t("mfg.suppliersPage.head.currency")}</dt>
             <dd>{s.currency || "-"}</dd>
-            <dt>Contact</dt>
+            <dt>{t("mfg.suppliersPage.head.contact")}</dt>
             <dd>{[s.contact_name, s.email, s.phone].filter(Boolean).join(" · ") || "-"}</dd>
             {s.address ? (
               <>
-                <dt>Address</dt>
+                <dt>{t("mfg.suppliersPage.head.address")}</dt>
                 <dd>{s.address}</dd>
               </>
             ) : null}
             {s.external_ref ? (
               <>
-                <dt>External reference</dt>
+                <dt>{t("mfg.suppliersPage.head.externalReference")}</dt>
                 <dd className="mono">{s.external_ref}</dd>
               </>
             ) : null}

@@ -78,18 +78,18 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
       }
     >
       <div className="col" data-testid="convert-dialog">
-        <div className="row wrap" role="radiogroup" aria-label="How to convert">
+        <div className="row wrap" role="radiogroup" aria-label={t("mfg.plannedOrdersTab.aria.howToConvert")}>
           <label className={`card card-body col${mode === "firm" ? " mfg-inline-form" : ""}`} style={{ flex: "1 1 240px", gap: 4, cursor: "pointer" }}>
             <span className="row">
               <input type="radio" name="conv-mode" checked={mode === "firm"} onChange={() => setMode("firm")} data-testid="convert-mode-firm" />
-              <strong>Firm</strong>
+              <strong>{t("mfg.plannedOrdersTab.head.firm")}</strong>
             </span>
             <span className="small muted">Work orders in status planned, purchase requests as drafts. Nothing goes to the floor or the supplier yet.</span>
           </label>
           <label className={`card card-body col${mode === "release" ? " mfg-inline-form" : ""}`} style={{ flex: "1 1 240px", gap: 4, cursor: "pointer" }}>
             <span className="row">
               <input type="radio" name="conv-mode" checked={mode === "release"} onChange={() => setMode("release")} data-testid="convert-mode-release" />
-              <strong>Release</strong>
+              <strong>{t("mfg.plannedOrdersTab.head.release")}</strong>
             </span>
             <span className="small muted">Work orders released to the floor, purchase requests submitted for approval.</span>
           </label>
@@ -119,10 +119,10 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
             <table className="table mfg-grid-table">
               <thead>
                 <tr>
-                  <th>Planned</th>
-                  <th>Item</th>
-                  <th>Quantity</th>
-                  <th>Start (make) / need date (buy)</th>
+                  <th>{t("mfg.plannedOrdersTab.head.planned")}</th>
+                  <th>{t("mfg.plannedOrdersTab.head.item")}</th>
+                  <th>{t("mfg.plannedOrdersTab.head.quantity")}</th>
+                  <th>{t("mfg.plannedOrdersTab.head.startMakeNeedDate")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -353,7 +353,7 @@ export function PlannedOrdersTab() {
         rows={data.rows}
         columns={columns}
         rowKey={(r) => r.id}
-        label="Planned orders"
+        label={t("mfg.plannedOrdersTab.label.plannedOrders")}
         testId="planned-table"
         totalCount={data.total}
         height="min(62vh, 680px)"
@@ -373,7 +373,7 @@ export function PlannedOrdersTab() {
         }}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading planned orders…" : "No planned orders match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} planned orders{canConvert ? " · Space selects the focused row" : ""}</span>}
+        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} planned orders{canConvert ? " · Space selects the focused row" : ""}</span>}
       />
       {converting ? (
         <ConvertDialog

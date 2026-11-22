@@ -28,7 +28,7 @@ export function ItemPlanPage() {
   const p = plan.data;
   if (plan.error && isNotFound(plan.error)) return <NotFoundPanel what="Item in this plan" back={<Link className="btn" to={mfgPaths.runItems(run.id)}>Back to the material plan</Link>} />;
   if (plan.error && !p) return <MfgError error={plan.error} onRetry={plan.reload} />;
-  if (!p) return <Spinner label="Loading the item plan…" />;
+  if (!p) return <Spinner label={t("mfg.itemPlanPage.label.loadingTheItemPlan")} />;
   const r = p.row;
   const uom = r.uom;
   const lotBits = [
@@ -40,7 +40,7 @@ export function ItemPlanPage() {
 
   return (
     <div className="col gap-lg" data-testid="item-plan" data-item={r.item.part_number}>
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
+      <nav aria-label={t("mfg.itemPlanPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.runItems(run.id)}>Material plan</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{r.item.part_number}</span>
       </nav>
       <div className="ws-header">
@@ -62,13 +62,13 @@ export function ItemPlanPage() {
       </div>
       <div className="card card-body">
         <dl className="mfg-dl">
-          <dt>Lead time</dt>
+          <dt>{t("mfg.itemPlanPage.head.leadTime")}</dt>
           <dd>{leadTimeText(r.lead_time)}</dd>
-          <dt>Ordering</dt>
+          <dt>{t("mfg.itemPlanPage.head.ordering")}</dt>
           <dd>{lotBits.join(" · ")}</dd>
           {p.supplier ? (
             <>
-              <dt>Supplier</dt>
+              <dt>{t("mfg.itemPlanPage.head.supplier")}</dt>
               <dd>
                 <Link to={mfgPaths.supplier(p.supplier.id)}>
                   {p.supplier.code} · {p.supplier.name}
@@ -76,7 +76,7 @@ export function ItemPlanPage() {
               </dd>
             </>
           ) : null}
-          <dt>Totals</dt>
+          <dt>{t("mfg.itemPlanPage.head.totals")}</dt>
           <dd>
             on hand {fmtNum(r.on_hand)} · needed {fmtNum(r.gross_qty)} · open supply {fmtNum(r.existing_supply_qty)} · planned {fmtNum(r.planned_qty)} {uom}
             {r.short_qty > 0 ? (
@@ -90,8 +90,8 @@ export function ItemPlanPage() {
 
       <section className="card card-body col">
         <div className="row between">
-          <h3 style={{ margin: 0 }}>Projected stock</h3>
-          <div className="row" role="group" aria-label="Period">
+          <h3 style={{ margin: 0 }}>{t("mfg.itemPlanPage.head.projectedStock")}</h3>
+          <div className="row" role="group" aria-label={t("mfg.itemPlanPage.aria.period")}>
             {(["day", "week", "month"] as BucketSize[]).map((b) => (
               <button key={b} type="button" className={`btn sm${b === bucket ? " primary" : ""}`} aria-pressed={b === bucket} onClick={() => setBucket(b)}>
                 {b === "day" ? "Days" : b === "week" ? "Weeks" : "Months"}
@@ -106,13 +106,13 @@ export function ItemPlanPage() {
         <table className="table" data-testid="item-plan-buckets">
           <thead>
             <tr>
-              <th>Period</th>
-              <th className="right">Needed</th>
-              <th className="right">Existing supply</th>
-              <th className="right">Planned</th>
-              <th className="right">End balance (existing)</th>
-              <th className="right">End balance (with planned)</th>
-              <th>Status</th>
+              <th>{t("mfg.itemPlanPage.head.period")}</th>
+              <th className="right">{t("mfg.itemPlanPage.head.needed")}</th>
+              <th className="right">{t("mfg.itemPlanPage.head.existingSupply")}</th>
+              <th className="right">{t("mfg.itemPlanPage.head.planned")}</th>
+              <th className="right">{t("mfg.itemPlanPage.head.endBalanceExisting")}</th>
+              <th className="right">{t("mfg.itemPlanPage.head.endBalanceWithPlanned")}</th>
+              <th>{t("mfg.itemPlanPage.head.status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -149,11 +149,11 @@ export function ItemPlanPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Needed</th>
-                <th>For</th>
-                <th className="right">Qty</th>
-                <th>Covered by</th>
-                <th>Covered on</th>
+                <th>{t("mfg.itemPlanPage.head.needed")}</th>
+                <th>{t("mfg.itemPlanPage.head.for")}</th>
+                <th className="right">{t("mfg.itemPlanPage.head.qty")}</th>
+                <th>{t("mfg.itemPlanPage.head.coveredBy")}</th>
+                <th>{t("mfg.itemPlanPage.head.coveredOn")}</th>
                 <th>
                   <span className="sr-only">Actions</span>
                 </th>
@@ -206,12 +206,12 @@ export function ItemPlanPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Supply</th>
-                <th>Available</th>
-                <th>Projected</th>
-                <th className="right">Qty</th>
-                <th className="right">Used</th>
-                <th>Messages</th>
+                <th>{t("mfg.itemPlanPage.head.supply")}</th>
+                <th>{t("mfg.itemPlanPage.head.available")}</th>
+                <th>{t("mfg.itemPlanPage.head.projected")}</th>
+                <th className="right">{t("mfg.itemPlanPage.head.qty")}</th>
+                <th className="right">{t("mfg.itemPlanPage.head.used")}</th>
+                <th>{t("mfg.itemPlanPage.head.messages")}</th>
                 <th>
                   <span className="sr-only">Actions</span>
                 </th>

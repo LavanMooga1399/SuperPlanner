@@ -23,7 +23,7 @@ import { useCan } from "../../lib/permissions";
 import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { formatDate } from "../../../lib/locale";
-import { t } from "../../../lib/i18n";
+import { t, plural } from "../../../lib/i18n";
 
 const KIND: Record<TraceKind, { label: string; icon: IconName }> = {
   serial: { label: "Unit", icon: "circle" },
@@ -75,7 +75,7 @@ function countNodes(n: TraceNode): { all: number; exact: number; possible: numbe
 
 function TraceTabs() {
   return (
-    <nav className="tabs" aria-label="Traceability">
+    <nav className="tabs" aria-label={t("mfg.tracePages.aria.traceability")}>
       <NavLink to={mfgPaths.trace()} end className={({ isActive }) => `tab${isActive ? " active" : ""}`}>
         Trace a unit, lot or order
       </NavLink>
@@ -150,8 +150,8 @@ export function TracePage() {
     <div className="col gap-lg" data-testid="trace-page">
       <div className="mfg-page-head">
         <div>
-          <h1>Traceability</h1>
-          <p>Follow units, lots and work orders back to their materials, or forward to the units and customers they went to.</p>
+          <h1>{t("mfg.tracePages.head.traceability")}</h1>
+          <p>{t("mfg.tracePages.text.followUnitsLotsAndWork")}</p>
         </div>
       </div>
       <TraceTabs />
@@ -173,7 +173,7 @@ export function TracePage() {
               <strong data-testid="trace-root">
                 {KIND[kind as TraceKind]?.label}: {label || root?.label || id}
               </strong>
-              <div className="row" role="group" aria-label="Direction">
+              <div className="row" role="group" aria-label={t("mfg.tracePages.aria.direction")}>
                 <button type="button" className={`btn sm${dir === "backward" ? " primary" : ""}`} aria-pressed={dir === "backward"} onClick={() => setSearchParam(setParams, "dir", "backward")} data-testid="trace-backward">
                   <Icon name="arrow-right" style={{ transform: "rotate(180deg)" }} /> {t("mfg.tracePages.btn.whatWentIntoIt")}
                 </button>
@@ -186,7 +186,7 @@ export function TracePage() {
               </label>
             </div>
             <div className="row">
-              <div className="row" role="group" aria-label="View">
+              <div className="row" role="group" aria-label={t("mfg.tracePages.aria.view")}>
                 <button type="button" className={`btn sm${view === "tree" ? " primary" : ""}`} aria-pressed={view === "tree"} onClick={() => setView("tree")}>
                   <Icon name="list" /> {t("mfg.tracePages.btn.tree")}
                 </button>
@@ -206,7 +206,7 @@ export function TracePage() {
             </div>
           ) : null}
           <MfgError error={tr.error} onRetry={tr.reload} />
-          {tr.loading && !root ? <Spinner label="Following the links…" /> : null}
+          {tr.loading && !root ? <Spinner label={t("mfg.tracePages.label.followingTheLinks")} /> : null}
           {root && counts ? (
             <>
               <p className="small muted" style={{ margin: 0 }} data-testid="trace-counts" data-nodes={counts.all}>
@@ -222,7 +222,7 @@ export function TracePage() {
           ) : null}
         </>
       ) : (
-        <p className="muted">Scan or type what to trace. A finished unit traced backward shows its work order, the units fitted into it and the lots used; a supplier lot traced forward shows every unit and customer it may have reached.</p>
+        <p className="muted">{t("mfg.tracePages.text.scanOrTypeWhatTo")}</p>
       )}
     </div>
   );
@@ -402,12 +402,12 @@ export function WhereUsedPage() {
     result = (
       <>
         <p className="small muted" style={{ margin: 0 }} data-testid="whereused-count">
-          {d.items.length} use{d.items.length === 1 ? "" : "s"} found{d.truncated ? " (list cut short)" : ""}.
+          {plural(d.items.length, "use")} found{d.truncated ? " (list cut short)" : ""}.
         </p>
         {d.items.length ? (
           <TraceTree root={root} showRoot={false} onRetrace={(n) => navigate(mfgPaths.trace({ kind: n.kind, id: n.id, dir: "forward", label: n.label }))} onRecall={(n) => navigate(`${mfgPaths.recalls()}?new=1&kind=${n.kind}&id=${encodeURIComponent(n.id)}&label=${encodeURIComponent(n.label)}`)} />
         ) : (
-          <p className="muted">Not used yet.</p>
+          <p className="muted">{t("mfg.tracePages.text.notUsedYet")}</p>
         )}
         <div>
           <Link className="btn" to={`${mfgPaths.recalls()}?new=1&item=${encodeURIComponent(itemId)}&supplier_lot=${encodeURIComponent(supplierLot || lot)}&label=${encodeURIComponent(`${item?.part_number ?? ""} ${supplierLot || lot}`.trim())}`} data-testid="whereused-recall">
@@ -420,14 +420,14 @@ export function WhereUsedPage() {
     <div className="col gap-lg" data-testid="whereused-page">
       <div className="mfg-page-head">
         <div>
-          <h1>Traceability</h1>
-          <p>Which work orders, units and shipments used a lot.</p>
+          <h1>{t("mfg.tracePages.head.traceability")}</h1>
+          <p>{t("mfg.tracePages.text.whichWorkOrdersUnitsAnd")}</p>
         </div>
       </div>
       <TraceTabs />
       <form className="toolbar mfg-filters" onSubmit={go}>
         <div className="field" style={{ minWidth: 280 }}>
-          <ItemPicker value={item} onChange={setItem} label="Item" />
+          <ItemPicker value={item} onChange={setItem} label={t("mfg.tracePages.label.item")} />
         </div>
         <div className="field">
           <label htmlFor="wu-mode">{t("mfg.tracePages.label.lotNumberFrom")}</label>

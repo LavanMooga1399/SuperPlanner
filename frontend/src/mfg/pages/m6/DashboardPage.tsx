@@ -114,7 +114,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
   return (
     <section className="card" data-testid="digest-settings" aria-labelledby="digest-h">
       <div className="card-header">
-        <h2 id="digest-h">Email digest</h2>
+        <h2 id="digest-h">{t("mfg.dashboardPage.head.emailDigest")}</h2>
       </div>
       <div className="card-body col">
         {list.error && !list.data ? <MfgError error={list.error} onRetry={list.reload} /> : null}
@@ -136,7 +136,7 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
                     {s.frequency === "daily" ? "Every day" : `Every ${WEEKDAY_NAMES[s.weekday ?? 0] ?? "week"}`} at {s.local_time}
                     {s.time_zone ? <span className="muted small">({s.time_zone})</span> : null}
                     {s.last_sent_at ? <span className="muted small">last sent {formatDateTime(s.last_sent_at)}</span> : null}
-                    <button type="button" className="btn ghost sm" onClick={() => void deleteDigest(s.id).then(list.reload, setErr)} aria-label="Stop this digest">
+                    <button type="button" className="btn ghost sm" onClick={() => void deleteDigest(s.id).then(list.reload, setErr)} aria-label={t("mfg.dashboardPage.aria.stopThisDigest")}>
                       <Icon name="trash" /> {t("mfg.dashboardPage.btn.stop")}
                     </button>
                   </li>
@@ -245,9 +245,9 @@ function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): voi
               <table className="table">
                 <thead>
                   <tr>
-                    <th scope="col">Measure</th>
-                    <th scope="col">Watch</th>
-                    <th scope="col">Needs attention</th>
+                    <th scope="col">{t("mfg.dashboardPage.head.measure")}</th>
+                    <th scope="col">{t("mfg.dashboardPage.head.watch")}</th>
+                    <th scope="col">{t("mfg.dashboardPage.head.needsAttention")}</th>
                   </tr>
                 </thead>
                 <tbody>

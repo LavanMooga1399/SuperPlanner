@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../Icon";
 import { setDensity, setTheme, usePrefs, type Density, type ThemePref } from "../../lib/prefs";
+import { t } from "../../lib/i18n";
 
 const THEMES: { v: ThemePref; label: string }[] = [
   { v: "system", label: "Match system" },
@@ -42,7 +43,7 @@ export function DisplayMenu() {
         className="btn ghost icon"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label="Display settings"
+        aria-label={t("studio.displayMenu.aria.displaySettings")}
         title="Display settings"
         onClick={() => setOpen((v) => !v)}
         data-testid="display-menu"
@@ -50,9 +51,9 @@ export function DisplayMenu() {
         <Icon name="eye" />
       </button>
       {open ? (
-        <div className="popover" role="dialog" aria-label="Display settings">
+        <div className="popover" role="dialog" aria-label={t("studio.displayMenu.aria.displaySettings")}>
           <fieldset className="popover-group">
-            <legend>Theme</legend>
+            <legend>{t("studio.displayMenu.head.theme")}</legend>
             {THEMES.map((t) => (
               <label key={t.v} className="popover-option">
                 <input type="radio" name="sp-theme" checked={prefs.theme === t.v} onChange={() => setTheme(t.v)} />
@@ -61,7 +62,7 @@ export function DisplayMenu() {
             ))}
           </fieldset>
           <fieldset className="popover-group">
-            <legend>Density</legend>
+            <legend>{t("studio.displayMenu.head.density")}</legend>
             {DENSITIES.map((d) => (
               <label key={d.v} className="popover-option">
                 <input type="radio" name="sp-density" checked={prefs.density === d.v} onChange={() => setDensity(d.v)} data-testid={`density-${d.v}`} />

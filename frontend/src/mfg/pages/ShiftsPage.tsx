@@ -68,7 +68,7 @@ export function ShiftsPage() {
       <div className="split mfg-split-wide">
         <section className="card" aria-labelledby="tpl-title">
           <div className="card-header">
-            <h2 id="tpl-title">Shift templates</h2>
+            <h2 id="tpl-title">{t("mfg.shiftsPage.head.shiftTemplates")}</h2>
             <button
               type="button"
               className="btn sm primary"
@@ -216,12 +216,12 @@ function TemplateDocument({ template, onSaved, onCancel, onDeleted }: { template
           </div>
         ) : null}
         <div className="form-grid">
-          <TextField label="Code" value={code} onChange={setCode} required maxLength={32} testId="template-code" />
-          <TextField label="Name" value={name} onChange={setName} required testId="template-name" />
-          <TextField label="Description" value={description} onChange={setDescription} maxLength={500} />
+          <TextField label={t("mfg.shiftsPage.label.code")} value={code} onChange={setCode} required maxLength={32} testId="template-code" />
+          <TextField label={t("mfg.shiftsPage.label.name")} value={name} onChange={setName} required testId="template-name" />
+          <TextField label={t("mfg.shiftsPage.label.description")} value={description} onChange={setDescription} maxLength={500} />
         </div>
         <ShiftTemplateEditor shifts={shifts} onChange={setShifts} />
-        <h3>Week preview</h3>
+        <h3>{t("mfg.shiftsPage.head.weekPreview")}</h3>
         <ShiftWeekPreview template={input} />
         <div className="row">
           <button type="submit" className="btn primary" disabled={busy || !code.trim() || !name.trim() || shifts.length === 0 || problems.length > 0} data-testid="template-save">
@@ -251,7 +251,7 @@ function TemplateDocument({ template, onSaved, onCancel, onDeleted }: { template
             deleteShiftTemplate(template.id, version).then(onDeleted, setError);
           }}
         >
-          <p style={{ margin: 0 }}>A template used by assignments or operators cannot be deleted.</p>
+          <p style={{ margin: 0 }}>{t("mfg.shiftsPage.text.aTemplateUsedByAssignments")}</p>
         </ConfirmDialog>
       ) : null}
     </form>
@@ -308,9 +308,9 @@ function AssignmentsCard({
   return (
     <section className="card" aria-labelledby="asg-title">
       <div className="card-header">
-        <h2 id="asg-title">Who works which shifts</h2>
+        <h2 id="asg-title">{t("mfg.shiftsPage.head.whoWorksWhichShifts")}</h2>
         <div className="row">
-          <input className="input sm" type="search" placeholder={t("mfg.shiftsPage.ph.filterByStageLineOr")} aria-label="Filter assignments" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 240 }} />
+          <input className="input sm" type="search" placeholder={t("mfg.shiftsPage.ph.filterByStageLineOr")} aria-label={t("mfg.shiftsPage.aria.filterAssignments")} value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 240 }} />
           <button type="button" className="btn sm primary" onClick={() => setEditing("new")} disabled={templates.length === 0} data-testid="assignment-new">
             <Icon name="plus" /> {t("mfg.shiftsPage.btn.assignShifts")}
           </button>
@@ -328,13 +328,13 @@ function AssignmentsCard({
           <table className="table" ref={tableRef} data-testid="assignments-table">
             <thead>
               <tr>
-                <th>Applies to</th>
-                <th>Kind</th>
-                <th>Template</th>
-                <th>Shifts</th>
-                <th>When</th>
-                <th className="num">Extra cost / h</th>
-                <th className="num">Max h / week</th>
+                <th>{t("mfg.shiftsPage.head.appliesTo")}</th>
+                <th>{t("mfg.shiftsPage.head.kind")}</th>
+                <th>{t("mfg.shiftsPage.head.template")}</th>
+                <th>{t("mfg.shiftsPage.head.shifts")}</th>
+                <th>{t("mfg.shiftsPage.head.when")}</th>
+                <th className="num">{t("mfg.shiftsPage.head.extraCostH")}</th>
+                <th className="num">{t("mfg.shiftsPage.head.maxHWeek")}</th>
                 <th>
                   <span className="sr-only">Actions</span>
                 </th>
@@ -519,9 +519,9 @@ function AssignmentDialog({
     >
       {conflict ? <ConflictBanner onReload={() => window.location.reload()} what="this assignment" /> : null}
       <div className="form-grid">
-        <SelectField label="Shift template" value={templateId} onChange={setTemplateId} options={templates.map((t) => ({ value: t.id, label: `${t.code} - ${t.name}` }))} testId="assignment-template" />
+        <SelectField label={t("mfg.shiftsPage.label.shiftTemplate")} value={templateId} onChange={setTemplateId} options={templates.map((t) => ({ value: t.id, label: `${t.code} - ${t.name}` }))} testId="assignment-template" />
         <SelectField
-          label="Applies to"
+          label={t("mfg.shiftsPage.label.appliesTo")}
           value={targetType}
           onChange={setTargetType}
           options={[
@@ -531,12 +531,12 @@ function AssignmentDialog({
           testId="assignment-target-type"
         />
         {targetType === "group" ? (
-          <SelectField label="Stage" value={groupId} onChange={setGroupId} options={groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))} testId="assignment-group" />
+          <SelectField label={t("mfg.shiftsPage.label.stage")} value={groupId} onChange={setGroupId} options={groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))} testId="assignment-group" />
         ) : (
-          <SelectField label="Line" value={lineId} onChange={setLineId} options={lines.map((l) => ({ value: l.id, label: `${l.code} - ${l.name} (${l.group.code})` }))} testId="assignment-line" />
+          <SelectField label={t("mfg.shiftsPage.label.line")} value={lineId} onChange={setLineId} options={lines.map((l) => ({ value: l.id, label: `${l.code} - ${l.name} (${l.group.code})` }))} testId="assignment-line" />
         )}
         <SelectField
-          label="Kind"
+          label={t("mfg.shiftsPage.label.kind")}
           value={kind}
           onChange={setKind}
           options={[
@@ -561,16 +561,16 @@ function AssignmentDialog({
         </fieldset>
       ) : null}
       <div className="form-grid">
-        <TextField label="From" type="date" value={from} onChange={setFrom} hint={from ? undefined : `Empty = today (${effFrom})`} testId="assignment-from" />
-        <TextField label="Until" type="date" value={to} onChange={setTo} hint="Exclusive; empty = no end" />
+        <TextField label={t("mfg.shiftsPage.label.from")} type="date" value={from} onChange={setFrom} hint={from ? undefined : `Empty = today (${effFrom})`} testId="assignment-from" />
+        <TextField label={t("mfg.shiftsPage.label.until")} type="date" value={to} onChange={setTo} hint={t("mfg.shiftsPage.hint.exclusiveEmptyNoEnd")} />
         {kind === "optional" ? (
           <>
-            <TextField label="Extra cost per hour" type="number" value={cost} onChange={setCost} hint="Lets the planner weigh overtime" testId="assignment-cost" />
-            <TextField label="Max hours per week" type="number" value={maxH} onChange={setMaxH} />
+            <TextField label={t("mfg.shiftsPage.label.extraCostPerHour")} type="number" value={cost} onChange={setCost} hint={t("mfg.shiftsPage.hint.letsThePlannerWeighOvertime")} testId="assignment-cost" />
+            <TextField label={t("mfg.shiftsPage.label.maxHoursPerWeek")} type="number" value={maxH} onChange={setMaxH} />
           </>
         ) : null}
       </div>
-      <TextField label="Note" value={note} onChange={setNote} maxLength={500} />
+      <TextField label={t("mfg.shiftsPage.label.note")} value={note} onChange={setNote} maxLength={500} />
     </EntityFormDialog>
   );
 }

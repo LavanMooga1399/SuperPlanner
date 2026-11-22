@@ -7,6 +7,7 @@ import { CalendarEditor } from "./CalendarEditor";
 import { Icon } from "./Icon";
 import { Term } from "./Term";
 import { NumberInput, TextInput } from "./Inputs";
+import { t, plural } from "../lib/i18n";
 
 const KINDS = ["generic", "person", "machine", "room", "team", "time"];
 
@@ -21,7 +22,7 @@ export function calendarSummary(cal: Calendar | null): string {
     if (w.length) days++;
     for (const [a, b] of w) minutes += Math.max(0, hhmmToMin(b) - hhmmToMin(a));
   }
-  return `${days} day${days === 1 ? "" : "s"}, ${fmtDuration(minutes)}/week${blocked}`;
+  return `${plural(days, "day")}, ${fmtDuration(minutes)}/week${blocked}`;
 }
 
 export function ResourceTable({
@@ -64,15 +65,15 @@ export function ResourceTable({
         <thead>
           <tr>
             <th style={{ width: 28 }}><span className="sr-only">Details</span></th>
-            <th>Id</th>
-            <th>Name</th>
-            <th>Kind</th>
-            <th className="num" title="How many can be used at the same time">Capacity</th>
+            <th>{t("studio.resourceTable.head.id")}</th>
+            <th>{t("studio.resourceTable.head.name")}</th>
+            <th>{t("studio.resourceTable.head.kind")}</th>
+            <th className="num" title="How many can be used at the same time">{t("studio.resourceTable.head.capacity")}</th>
             <th className="num">Cost / hour ({draft.currency})</th>
             <th>
               Availability <Term k="calendar_window" bare />
             </th>
-            <th className="num">Used by</th>
+            <th className="num">{t("studio.resourceTable.head.usedBy")}</th>
             <th><span className="sr-only">Actions</span></th>
           </tr>
         </thead>

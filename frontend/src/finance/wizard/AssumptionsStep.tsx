@@ -10,6 +10,7 @@ import { AssetClassTable } from "../components/AssetClassTable";
 import type { StepProps } from "./common";
 import { Field, FinNumber, FinOptionalNumber, MoneyInput, Select } from "./fields";
 import { HelpText } from "./HelpText";
+import { t } from "../../lib/i18n";
 
 /** Server defaults of PHASE2 1.5, used when a stored plan has no `caution` yet. */
 const DEFAULT_CAUTION: CautionSettings = { floor_share: 0.5, floor_start_years: 3, floor_full_years: 10, floor_step_pct_per_z: 2 };
@@ -76,7 +77,7 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
         market outcomes to estimate the chance of each goal. Change them to match your own view.
       </HelpText>
       <section className="col" aria-labelledby="fin-risk-h">
-        <h2 id="fin-risk-h">How much ups and downs can you live with?</h2>
+        <h2 id="fin-risk-h">{t("finance.assumptionsStep.head.howMuchUpsAndDowns")}</h2>
         <div className="risk-levels" role="radiogroup" aria-labelledby="fin-risk-h">
           {LEVELS.map((l) => (
             <button
@@ -101,15 +102,15 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
 
       <section className="col" aria-labelledby="fin-assume-h">
         <div className="row between wrap">
-          <h2 id="fin-assume-h">Assumptions</h2>
+          <h2 id="fin-assume-h">{t("finance.assumptionsStep.head.assumptions")}</h2>
           <button type="button" className="btn sm" onClick={() => setConfirmReset(true)} disabled={resetting} data-testid="fin-reset-assumptions">
-            <Icon name="refresh" /> Reset to current defaults
+            <Icon name="refresh" /> {t("finance.assumptionsStep.btn.resetToCurrentDefaults")}
           </button>
         </div>
         {confirmReset ? (
           <ConfirmDialog
-            title="Reset to current defaults?"
-            confirmLabel="Reset"
+            title={t("finance.assumptionsStep.title.resetToCurrentDefaults")}
+            confirmLabel={t("finance.assumptionsStep.btn.reset")}
             busy={resetting}
             onConfirm={() => void reset()}
             onCancel={() => setConfirmReset(false)}
@@ -123,11 +124,11 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
         ) : null}
         {error && !confirmReset ? <Banner tone="danger" role="alert">{error}</Banner> : null}
         <div className="fin-form">
-          <Field label="Inflation % a year" hint="Your assumption">
+          <Field label={t("finance.assumptionsStep.label.inflationAYear")} hint={t("finance.assumptionsStep.hint.yourAssumption")}>
             {(id) => <FinNumber id={id} value={a.inflation_pct} min={-2} max={25} step={0.1} onChange={(v) => update((p) => ({ ...p, assumptions: { ...p.assumptions, inflation_pct: v } }))} />}
           </Field>
           {expert ? (
-            <Field label="Inflation ups and downs %" hint="Used in the market tests">
+            <Field label={t("finance.assumptionsStep.label.inflationUpsAndDowns")} hint={t("finance.assumptionsStep.hint.usedInTheMarketTests")}>
               {(id) => (
                 <FinNumber id={id} value={a.inflation_volatility_pct} min={0} max={10} step={0.1} onChange={(v) => update((p) => ({ ...p, assumptions: { ...p.assumptions, inflation_volatility_pct: v } }))} />
               )}
@@ -146,17 +147,17 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
       {expert ? (
         <>
           <section className="col" aria-labelledby="fin-limits-h">
-            <h2 id="fin-limits-h">Limits</h2>
+            <h2 id="fin-limits-h">{t("finance.assumptionsStep.head.limits")}</h2>
             <div className="fin-form">
-              <Field label="Max equity share % (optional)" hint="Across all goals">
+              <Field label={t("finance.assumptionsStep.label.maxEquityShareOptional")} hint={t("finance.assumptionsStep.hint.acrossAllGoals")}>
                 {(id) => <FinOptionalNumber id={id} value={c.max_equity_pct} min={0} max={100} onChange={(v) => update((p) => ({ ...p, constraints: { ...p.constraints, max_equity_pct: v } }))} />}
               </Field>
-              <Field label="Always keep in cash" hint="Money that is never invested">
+              <Field label={t("finance.assumptionsStep.label.alwaysKeepInCash")} hint={t("finance.assumptionsStep.hint.moneyThatIsNeverInvested")}>
                 {(id) => (
                   <MoneyInput id={id} value={c.min_cash_buffer} currency={plan.profile.currency} locale={plan.profile.locale} onChange={(v) => update((p) => ({ ...p, constraints: { ...p.constraints, min_cash_buffer: v } }))} />
                 )}
               </Field>
-              <Field label="Change amounts every">
+              <Field label={t("finance.assumptionsStep.label.changeAmountsEvery")}>
                 {(id) => (
                   <Select
                     id={id}
@@ -166,7 +167,7 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
                   />
                 )}
               </Field>
-              <Field label="Cost when moving money %">
+              <Field label={t("finance.assumptionsStep.label.costWhenMovingMoney")}>
                 {(id) => <FinNumber id={id} value={c.rebalance_cost_pct} min={0} max={2} step={0.05} onChange={(v) => update((p) => ({ ...p, constraints: { ...p.constraints, rebalance_cost_pct: v } }))} />}
               </Field>
             </div>
@@ -187,28 +188,28 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
             </div>
           </section>
           <section className="col" aria-labelledby="fin-caution-h" data-testid="fin-caution-settings">
-            <h2 id="fin-caution-h">Advanced: how cautious the plan is</h2>
+            <h2 id="fin-caution-h">{t("finance.assumptionsStep.head.advancedHowCautiousThePlan")}</h2>
             <p className="small muted" style={{ margin: 0 }}>
               The plan assumes lower returns than expected so it does not rely on good luck. For long goals it still counts on part of the
               typical growth, so growth assets stay useful.
             </p>
             <div className="fin-form">
-              <Field label={`Keep at least this share of growth for goals ${Math.round(caution.floor_full_years)}+ years away (%)`} hint="0 = no minimum">
+              <Field label={`Keep at least this share of growth for goals ${Math.round(caution.floor_full_years)}+ years away (%)`} hint={t("finance.assumptionsStep.hint.0NoMinimum")}>
                 {(id) => <FinNumber id={id} value={Math.round(caution.floor_share * 100)} min={0} max={100} step={5} onChange={(v) => setCaution({ floor_share: v / 100 })} />}
               </Field>
-              <Field label="No minimum for goals up to this many years away">
+              <Field label={t("finance.assumptionsStep.label.noMinimumForGoalsUp")}>
                 {(id) => <FinNumber id={id} value={caution.floor_start_years} min={0} max={Math.min(49.5, caution.floor_full_years - 0.5)} step={0.5} onChange={(v) => setCaution({ floor_start_years: v })} />}
               </Field>
-              <Field label="Full minimum from this many years away">
+              <Field label={t("finance.assumptionsStep.label.fullMinimumFromThisMany")}>
                 {(id) => <FinNumber id={id} value={caution.floor_full_years} min={Math.max(0.5, caution.floor_start_years + 0.5)} max={50} step={0.5} onChange={(v) => setCaution({ floor_full_years: v })} />}
               </Field>
-              <Field label="Extra safety margin for more important goals (% points)" hint="Taken off the yearly growth for each step of extra caution">
+              <Field label={t("finance.assumptionsStep.label.extraSafetyMarginForMore")} hint={t("finance.assumptionsStep.hint.takenOffTheYearlyGrowth")}>
                 {(id) => <FinNumber id={id} value={caution.floor_step_pct_per_z} min={0} max={10} step={0.5} onChange={(v) => setCaution({ floor_step_pct_per_z: v })} />}
               </Field>
             </div>
           </section>
           <section className="col" aria-labelledby="fin-glide-h">
-            <h2 id="fin-glide-h">Getting safer near a goal (glide path)</h2>
+            <h2 id="fin-glide-h">{t("finance.assumptionsStep.head.gettingSaferNearAGoal")}</h2>
             <p className="small muted" style={{ margin: 0 }}>
               From the given number of months before a goal, the growth cap is multiplied by this factor. The 0-month step is required.
             </p>
@@ -217,8 +218,8 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
                 <caption className="sr-only">Glide path steps</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Months before the goal (at least)</th>
-                    <th scope="col">Share of the growth cap (%)</th>
+                    <th scope="col">{t("finance.assumptionsStep.head.monthsBeforeTheGoalAt")}</th>
+                    <th scope="col">{t("finance.assumptionsStep.head.shareOfTheGrowthCap")}</th>
                     <th scope="col"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
@@ -229,15 +230,15 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
                         {s.min_months_to_goal === 0 ? (
                           "0"
                         ) : (
-                          <FinNumber label="Months before the goal" value={s.min_months_to_goal} min={1} max={600} onChange={(v) => setGlide(a.glide_path.map((x, j) => (j === i ? { ...x, min_months_to_goal: Math.round(v) } : x)))} />
+                          <FinNumber label={t("finance.assumptionsStep.label.monthsBeforeTheGoal")} value={s.min_months_to_goal} min={1} max={600} onChange={(v) => setGlide(a.glide_path.map((x, j) => (j === i ? { ...x, min_months_to_goal: Math.round(v) } : x)))} />
                         )}
                       </td>
                       <td>
-                        <FinNumber label="Share of the growth cap" value={Math.round(s.multiplier * 100)} min={0} max={100} onChange={(v) => setGlide(a.glide_path.map((x, j) => (j === i ? { ...x, multiplier: v / 100 } : x)))} />
+                        <FinNumber label={t("finance.assumptionsStep.label.shareOfTheGrowthCap")} value={Math.round(s.multiplier * 100)} min={0} max={100} onChange={(v) => setGlide(a.glide_path.map((x, j) => (j === i ? { ...x, multiplier: v / 100 } : x)))} />
                       </td>
                       <td className="right">
                         {s.min_months_to_goal !== 0 ? (
-                          <button type="button" className="btn sm ghost" aria-label="Remove step" onClick={() => setGlide(a.glide_path.filter((_, j) => j !== i))}>
+                          <button type="button" className="btn sm ghost" aria-label={t("finance.assumptionsStep.aria.removeStep")} onClick={() => setGlide(a.glide_path.filter((_, j) => j !== i))}>
                             <Icon name="trash" />
                           </button>
                         ) : null}
@@ -259,13 +260,13 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
                   setGlide([...a.glide_path, { min_months_to_goal: m, multiplier: 0.5 }].sort((x, y) => y.min_months_to_goal - x.min_months_to_goal));
                 }}
               >
-                <Icon name="plus" /> Add step
+                <Icon name="plus" /> {t("finance.assumptionsStep.btn.addStep")}
               </button>
             </div>
           </section>
         </>
       ) : (
-        <p className="small muted" style={{ margin: 0 }}>Limits, caps, the glide path and the caution settings are under "Show expert settings".</p>
+        <p className="small muted" style={{ margin: 0 }}>{t("finance.assumptionsStep.text.limitsCapsTheGlidePath")}</p>
       )}
     </div>
   );

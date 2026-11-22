@@ -8,6 +8,7 @@ import { goalFromPreset, presets } from "./goalPresets";
 import { HelpText } from "./HelpText";
 import { RangeChip } from "./IncomeExpenseStep";
 import { ListEditor } from "./ListEditor";
+import { t } from "../../lib/i18n";
 
 const KINDS: { value: GoalKind; label: string }[] = [
   { value: "retirement", label: "Retirement" },
@@ -72,30 +73,30 @@ export function GoalsStep({ plan, update, expert }: StepProps) {
           return (
             <>
               <div className="fin-form">
-                <Field label="Name">{(id) => <FinText id={id} value={g.name} onChange={(v) => set({ name: v })} testId={`goal-name-${g.id}`} />}</Field>
-                <Field label="Type">{(id) => <Select id={id} value={g.kind} options={KINDS} onChange={(v) => set({ kind: v })} />}</Field>
-                <Field label="Cost in today's money">
+                <Field label={t("finance.goalsStep.label.name")}>{(id) => <FinText id={id} value={g.name} onChange={(v) => set({ name: v })} testId={`goal-name-${g.id}`} />}</Field>
+                <Field label={t("finance.goalsStep.label.type")}>{(id) => <Select id={id} value={g.kind} options={KINDS} onChange={(v) => set({ kind: v })} />}</Field>
+                <Field label={t("finance.goalsStep.label.costInTodaysMoney")}>
                   {(id) => <MoneyInput id={id} value={g.target_amount} min={1} currency={cur} locale={loc} onChange={(v) => v > 0 && set({ target_amount: v })} testId={`goal-amount-${g.id}`} />}
                 </Field>
                 <RangeChip range={g.target_range} used={g.target_amount} locale={loc} testId={`goal-range-${g.id}`} />
-                <Field label="In how many years" hint={`Needed by ${fmtMonth(g.target_month)}`}>
+                <Field label={t("finance.goalsStep.label.inHowManyYears")} hint={`Needed by ${fmtMonth(g.target_month)}`}>
                   {(id) => <FinNumber id={id} value={years} min={0.1} max={50} step={0.5} onChange={(v) => set({ target_month: monthInYears(start, v) })} testId={`goal-years-${g.id}`} />}
                 </Field>
-                <Field label="Or the exact month">
+                <Field label={t("finance.goalsStep.label.orTheExactMonth")}>
                   {(id) => <MonthInput id={id} value={g.target_month} onChange={(v) => v && set({ target_month: v })} testId={`goal-month-${g.id}`} />}
                 </Field>
-                <Field label="Priority">{(id) => <Select id={id} value={g.priority} options={PRIORITIES} onChange={(v) => set({ priority: v })} testId={`goal-priority-${g.id}`} />}</Field>
-                <Field label="Could wait (months)" hint="Acceptable delay if money is short">
+                <Field label={t("finance.goalsStep.label.priority")}>{(id) => <Select id={id} value={g.priority} options={PRIORITIES} onChange={(v) => set({ priority: v })} testId={`goal-priority-${g.id}`} />}</Field>
+                <Field label={t("finance.goalsStep.label.couldWaitMonths")} hint={t("finance.goalsStep.hint.acceptableDelayIfMoneyIs")}>
                   {(id) => <FinNumber id={id} value={g.flexibility_months} min={0} max={120} onChange={(v) => set({ flexibility_months: Math.round(v) })} />}
                 </Field>
                 <div className="fin-check-row">
-                  <Toggle checked={g.enabled} onChange={(v) => set({ enabled: v })} label="Include in the plan" />
+                  <Toggle checked={g.enabled} onChange={(v) => set({ enabled: v })} label={t("finance.goalsStep.label.includeInThePlan")} />
                 </div>
               </div>
               {expert ? (
                 <>
                   <div className="fin-form">
-                    <Field label="Minimum chance (%)" hint={`Empty = default for ${g.priority === "must" ? "must have (85)" : g.priority === "should" ? "should have (70)" : "nice to have (50)"}`}>
+                    <Field label={t("finance.goalsStep.label.minimumChance")} hint={`Empty = default for ${g.priority === "must" ? "must have (85)" : g.priority === "should" ? "should have (70)" : "nice to have (50)"}`}>
                       {(id) => (
                         <FinOptionalNumber
                           id={id}
@@ -106,10 +107,10 @@ export function GoalsStep({ plan, update, expert }: StepProps) {
                         />
                       )}
                     </Field>
-                    <Field label="Own inflation % (optional)">
+                    <Field label={t("finance.goalsStep.label.ownInflationOptional")}>
                       {(id) => <FinOptionalNumber id={id} value={g.inflation_pct} min={-5} max={30} step={0.5} onChange={(v) => set({ inflation_pct: v })} />}
                     </Field>
-                    <Field label="Own risk level 1-5 (optional)">
+                    <Field label={t("finance.goalsStep.label.ownRiskLevel15Optional")}>
                       {(id) => (
                         <FinOptionalNumber id={id} value={g.risk_tolerance} min={1} max={5} onChange={(v) => set({ risk_tolerance: v === null ? null : Math.round(v) })} />
                       )}
@@ -145,16 +146,16 @@ function EarmarkEditor({
       <span className="field-label">Existing savings set aside for this goal</span>
       {goal.earmarked.map((e, i) => (
         <div className="row wrap" key={i}>
-          <Select label="Savings" value={e.holding_id} options={holdings} onChange={(v) => onChange(goal.earmarked.map((x, j) => (j === i ? { ...x, holding_id: v } : x)))} />
-          <MoneyInput label="Amount set aside" value={e.amount} currency={currency} locale={locale} onChange={(v) => onChange(goal.earmarked.map((x, j) => (j === i ? { ...x, amount: v } : x)))} />
-          <button type="button" className="btn sm ghost" aria-label="Remove set-aside amount" onClick={() => onChange(goal.earmarked.filter((_, j) => j !== i))}>
+          <Select label={t("finance.goalsStep.label.savings")} value={e.holding_id} options={holdings} onChange={(v) => onChange(goal.earmarked.map((x, j) => (j === i ? { ...x, holding_id: v } : x)))} />
+          <MoneyInput label={t("finance.goalsStep.label.amountSetAside")} value={e.amount} currency={currency} locale={locale} onChange={(v) => onChange(goal.earmarked.map((x, j) => (j === i ? { ...x, amount: v } : x)))} />
+          <button type="button" className="btn sm ghost" aria-label={t("finance.goalsStep.aria.removeSetasideAmount")} onClick={() => onChange(goal.earmarked.filter((_, j) => j !== i))}>
             <Icon name="trash" />
           </button>
         </div>
       ))}
       <div>
         <button type="button" className="btn sm" disabled={goal.earmarked.length >= 20} onClick={() => onChange([...goal.earmarked, { holding_id: holdings[0].value, amount: 0 }])}>
-          <Icon name="plus" /> Set aside savings
+          <Icon name="plus" /> {t("finance.goalsStep.btn.setAsideSavings")}
         </button>
       </div>
     </div>

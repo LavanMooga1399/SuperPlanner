@@ -95,7 +95,7 @@ export function KittingTable({ components, kitting, highlight, showKitting }: { 
       rows={rows}
       columns={columns}
       rowKey={(r) => r.c.id}
-      label="Components and kitting"
+      label={t("mfg.kittingTable.label.componentsAndKitting")}
       testId="kitting-table"
       height="min(56vh, 600px)"
       scrollTo={scrollTo}

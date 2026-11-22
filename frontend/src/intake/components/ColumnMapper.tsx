@@ -4,6 +4,7 @@ import { KINDS } from "../../landing/kinds";
 import type { Delimiter, DurationUnit, Frequency, TableOptions } from "../api/types";
 import { UNIT_LABEL } from "../lib/pert";
 import { useIntake } from "../state/IntakeContext";
+import { t as tr } from "../../lib/i18n";
 
 export function fieldOptions(domain: "schedule" | "finance", kind: keyof typeof KINDS): { value: string; label: string }[] {
   if (domain === "finance") {
@@ -117,7 +118,7 @@ export function ColumnMapper() {
           </label>
         </div>
         {parse.warnings.length ? (
-          <ul className="intake-notes" aria-label="Table warnings">
+          <ul className="intake-notes" aria-label={tr("studio.columnMapper.aria.tableWarnings")}>
             {parse.warnings.map((w, i) => (
               <li key={i} className="issue-line warning">
                 <Icon name="alert" size={14} /> {w}
@@ -184,7 +185,7 @@ export function ColumnMapper() {
         ) : null}
 
         <fieldset className="plain-fieldset">
-          <legend className="field-label">Options</legend>
+          <legend className="field-label">{tr("studio.columnMapper.head.options")}</legend>
           <div className="row" style={{ gap: 16, flexWrap: "wrap" }}>
             {domain === "schedule" ? (
               <>
@@ -239,7 +240,7 @@ export function ColumnMapper() {
           <div className="banner danger error-summary" role="alert" data-testid="import-map-errors">
             <Icon name="alert" />
             <div className="banner-body">
-              <strong>Check the columns</strong>
+              <strong>{tr("studio.columnMapper.head.checkTheColumns")}</strong>
               <ul>
                 {problems.map((p) => (
                   <li key={p}>{p}</li>

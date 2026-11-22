@@ -27,7 +27,7 @@ export function KittingCheckPage() {
   const r = res.data;
   return (
     <div className="col gap-lg">
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
+      <nav aria-label={t("mfg.kittingCheckPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.workOrders()}>Work orders</Link> <Icon name="chevron-right" size={12} /> <span>Kitting check</span>
       </nav>
       <PageHeader
@@ -50,7 +50,7 @@ export function KittingCheckPage() {
         </button>
       </FilterBar>
       <MfgError error={res.error} onRetry={res.reload} />
-      {res.loading && !r ? <Spinner label="Checking kits…" /> : null}
+      {res.loading && !r ? <Spinner label={t("mfg.kittingCheckPage.label.checkingKits")} /> : null}
       {r ? (
         <div className="grid-2" style={{ alignItems: "start" }}>
           <section className="card card-table" data-testid="kitting-check-rows">
@@ -116,7 +116,7 @@ export function KittingCheckPage() {
                 },
               ]}
               rowKey={(x) => x.wo.id}
-              label="Work orders to kit"
+              label={t("mfg.kittingCheckPage.label.workOrdersToKit")}
               tableId="kitting-check-wos"
               exportName="kitting-check"
               rowExtras={(x) => ({ testId: "kitting-row", data: { shortage: x.short_components, wo: x.wo.number } })}

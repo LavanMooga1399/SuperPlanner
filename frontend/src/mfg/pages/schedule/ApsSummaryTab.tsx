@@ -10,7 +10,7 @@ import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { LateChain } from "./ApsOrdersTab";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 export function ApsSummaryTab() {
   const { run } = useApsRun();
@@ -27,7 +27,7 @@ export function ApsSummaryTab() {
       key: "late",
       label: "Late demand lines",
       value: String(s.demand_lines_late),
-      sub: `${s.demand_lines_on_time} of ${s.demand_lines} on time · ${s.late_orders} late orders${s.max_lateness_minutes ? ` · worst ${fmtDuration(s.max_lateness_minutes)}` : ""}`,
+      sub: `${tr("common.nOfM", { n: s.demand_lines_on_time, m: s.demand_lines })} on time · ${s.late_orders} late orders${s.max_lateness_minutes ? ` · worst ${fmtDuration(s.max_lateness_minutes)}` : ""}`,
       icon: s.demand_lines_late ? "alert" : "check",
       bad: s.demand_lines_late > 0,
       to: mfgPaths.apsDemand(run.id),
@@ -82,7 +82,7 @@ export function ApsSummaryTab() {
           </span>
         )}
         <span>
-          {s.scheduled_operations} of {s.operations} operations placed
+          {tr("common.nOfM", { n: s.scheduled_operations, m: s.operations })} operations placed
           {unscheduled.length ? ` · not placed: ${unscheduled.map(([k, n]) => `${n} ${k.replace(/_/g, " ")}`).join(", ")}` : ""}
         </span>
         {s.avg_flow_days !== null ? <span>· average work order flow {s.avg_flow_days.toFixed(1)} days</span> : null}
@@ -91,7 +91,7 @@ export function ApsSummaryTab() {
       <div className="grid-2" style={{ alignItems: "start" }}>
         <section className="card" data-testid="aps-late-orders">
           <div className="card-header">
-            <h3>Latest orders</h3>
+            <h3>{t("mfg.apsSummaryTab.head.latestOrders")}</h3>
             <Link to={mfgPaths.apsOrders(run.id)} className="small">
               All orders <Icon name="arrow-right" size={12} />
             </Link>
@@ -131,7 +131,7 @@ export function ApsSummaryTab() {
         </section>
         <section className="card" data-testid="aps-bottlenecks">
           <div className="card-header">
-            <h3>Bottlenecks</h3>
+            <h3>{t("mfg.apsSummaryTab.head.bottlenecks")}</h3>
           </div>
           <MfgError error={bn.error} onRetry={bn.reload} />
           <ul className="mfg-plain-list">

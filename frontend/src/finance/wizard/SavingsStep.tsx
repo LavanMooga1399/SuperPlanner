@@ -7,6 +7,7 @@ import { addItem, patchItem, removeItem, type StepProps } from "./common";
 import { Field, FinNumber, FinText, MonthInput, MoneyInput, Select } from "./fields";
 import { HelpText } from "./HelpText";
 import { ListEditor } from "./ListEditor";
+import { t } from "../../lib/i18n";
 
 export function SavingsStep({ plan, update, preview, expert }: StepProps) {
   const cur = plan.profile.currency;
@@ -30,7 +31,7 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
         Existing savings first fill your <Term k="emergency_fund">emergency fund</Term>; the rest can go towards goals.
       </HelpText>
       <section className="col" aria-labelledby="fin-holdings-h">
-        <h2 id="fin-holdings-h">Savings and investments you have</h2>
+        <h2 id="fin-holdings-h">{t("finance.savingsStep.head.savingsAndInvestmentsYouHave")}</h2>
         <ListEditor
           items={plan.holdings}
           rowTestId="holding"
@@ -43,10 +44,10 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
             const set = (patch: Partial<Holding>) => update((p) => patchItem(p, "holdings", i, patch));
             return (
               <div className="fin-form">
-                <Field label="Name">{(id) => <FinText id={id} value={it.name} onChange={(v) => set({ name: v })} />}</Field>
-                <Field label="Asset class">{(id) => <Select id={id} value={it.asset_class_id} options={classOptions} onChange={(v) => set({ asset_class_id: v })} />}</Field>
-                <Field label="Current value">{(id) => <MoneyInput id={id} value={it.amount} currency={cur} locale={loc} onChange={(v) => set({ amount: v })} />}</Field>
-                <Field label="Locked until (optional)" hint="Cannot be sold before this month">
+                <Field label={t("finance.savingsStep.label.name")}>{(id) => <FinText id={id} value={it.name} onChange={(v) => set({ name: v })} />}</Field>
+                <Field label={t("finance.savingsStep.label.assetClass")}>{(id) => <Select id={id} value={it.asset_class_id} options={classOptions} onChange={(v) => set({ asset_class_id: v })} />}</Field>
+                <Field label={t("finance.savingsStep.label.currentValue")}>{(id) => <MoneyInput id={id} value={it.amount} currency={cur} locale={loc} onChange={(v) => set({ amount: v })} />}</Field>
+                <Field label={t("finance.savingsStep.label.lockedUntilOptional")} hint={t("finance.savingsStep.hint.cannotBeSoldBeforeThis")}>
                   {(id) => <MonthInput id={id} value={it.locked_until_month} optional onChange={(v) => set({ locked_until_month: v })} />}
                 </Field>
               </div>
@@ -55,7 +56,7 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
         />
       </section>
       <section className="col" aria-labelledby="fin-ef-h">
-        <h2 id="fin-ef-h">Emergency fund</h2>
+        <h2 id="fin-ef-h">{t("finance.savingsStep.head.emergencyFund")}</h2>
         <p className="muted" style={{ margin: 0 }} role="status" aria-live="polite" data-testid="fin-ef-target">
           {cf
             ? cf.ef_target > 0
@@ -66,12 +67,12 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
             : "The emergency fund target appears after a moment."}
         </p>
         <div className="fin-form">
-          <Field label="Months of essentials" hint="6 is a common choice; 0 turns it off">
+          <Field label={t("finance.savingsStep.label.monthsOfEssentials")} hint={t("finance.savingsStep.hint.6IsACommonChoice")}>
             {(id) => (
               <FinNumber id={id} value={ef.months_of_essentials} min={0} max={24} step={0.5} onChange={(v) => update((p) => ({ ...p, emergency_fund: { ...p.emergency_fund, months_of_essentials: v } }))} />
             )}
           </Field>
-          <Field label="Kept in">
+          <Field label={t("finance.savingsStep.label.keptIn")}>
             {(id) => (
               <Select
                 id={id}
@@ -82,7 +83,7 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
             )}
           </Field>
           {expert ? (
-            <Field label="Share of savings while building (%)" hint="100 = build it as fast as possible">
+            <Field label={t("finance.savingsStep.label.shareOfSavingsWhileBuilding")} hint={t("finance.savingsStep.hint.100BuildItAs")}>
               {(id) => (
                 <FinNumber
                   id={id}

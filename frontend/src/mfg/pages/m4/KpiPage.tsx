@@ -23,7 +23,7 @@ import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
 import { DataTable, ShowMore } from "../../components/DataTable";
 import type { Column } from "../../components/VirtualTable";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 interface TileDef {
   key: RatioKey | "wip" | "setup";
@@ -191,7 +191,7 @@ export function KpiPage() {
         {formatDateRange(d?.period.from ?? from, d?.period.to ?? today)} ({d?.period.time_zone ?? clock.zoneLabel}); today is live, earlier days are cached.
       </p>
       <MfgError error={k.error} onRetry={k.reload} />
-      {k.loading && !d ? <Spinner label="Calculating…" /> : null}
+      {k.loading && !d ? <Spinner label={t("mfg.kpiPage.label.calculating")} /> : null}
       {d ? (
         <>
           <div className="kpi-tiles">
@@ -216,13 +216,13 @@ export function KpiPage() {
           <div className="grid-2" style={{ alignItems: "start" }}>
             <section className="card card-table">
               <div className="card-header">
-                <h2>Top scrap reasons</h2>
+                <h2>{t("mfg.kpiPage.head.topScrapReasons")}</h2>
               </div>
               <DataTable
                 rows={d.top_scrap}
                 columns={SCRAP_COLS}
                 rowKey={(_, i) => i}
-                label="Top scrap reasons"
+                label={t("mfg.kpiPage.label.topScrapReasons")}
                 testId="kpi-top-scrap"
                 columnSettings={false}
                 empty={t("mfg.kpiPage.empty.noScrapRecorded")}
@@ -230,13 +230,13 @@ export function KpiPage() {
             </section>
             <section className="card card-table">
               <div className="card-header">
-                <h2>Top downtime reasons</h2>
+                <h2>{t("mfg.kpiPage.head.topDowntimeReasons")}</h2>
               </div>
               <DataTable
                 rows={d.top_downtime}
                 columns={DOWNTIME_COLS}
                 rowKey={(_, i) => i}
-                label="Top downtime reasons"
+                label={t("mfg.kpiPage.label.topDowntimeReasons")}
                 testId="kpi-top-downtime"
                 columnSettings={false}
                 empty={t("mfg.kpiPage.empty.noDowntimeRecorded")}
@@ -246,7 +246,7 @@ export function KpiPage() {
           {d.worst_adherence_lines.length ? (
             <section className="card card-table">
               <div className="card-header">
-                <h2>Lines furthest from the plan</h2>
+                <h2>{t("mfg.kpiPage.head.linesFurthestFromThePlan")}</h2>
               </div>
               <DataTable
                 rows={d.worst_adherence_lines}
@@ -274,10 +274,10 @@ export function KpiPage() {
                     ),
                   },
                   { key: "value", header: "Adherence", width: "120px", align: "right", sortValue: (w) => w.value, render: (w) => pct(w.value) },
-                  { key: "ops", header: "Operations on plan", width: "180px", align: "right", sortValue: (w) => w.den, render: (w) => `${fmtNum(w.num)} of ${fmtNum(w.den)}` },
+                  { key: "ops", header: "Operations on plan", width: "180px", align: "right", sortValue: (w) => w.den, render: (w) => `${tr("common.nOfM", { n: fmtNum(w.num), m: fmtNum(w.den) })}` },
                 ]}
                 rowKey={(w) => w.line.id}
-                label="Lines furthest from the plan"
+                label={t("mfg.kpiPage.label.linesFurthestFromThePlan")}
                 tableId="kpi-worst-lines"
                 columnSettings={false}
               />
@@ -309,7 +309,7 @@ function Tile({ t, d, trend }: { t: TileDef; d: KpiResponse; trend: KpiResponse 
     const r = m[t.key];
     v = r?.value ?? null;
     main = pct(v);
-    if (r?.den && t.key !== "oee") sub = `${fmtNum(r.num)} of ${fmtNum(r.den)}`;
+    if (r?.den && t.key !== "oee") sub = `${tr("common.nOfM", { n: fmtNum(r.num), m: fmtNum(r.den) })}`;
     if (t.key === "oee") sub = `availability ${pct(m.availability?.value)} · speed ${pct(m.performance?.value)} · FPY ${pct(m.fpy?.value)}`;
   }
   const values = (trend?.series?.[t.key] ?? []).map((p) => p.value);
@@ -416,14 +416,14 @@ function AdherenceList({ lineId, from, to }: { lineId: string; from: string; to:
   return (
     <section className="card card-table">
       <div className="card-header">
-        <h2>Planned against actual</h2>
+        <h2>{t("mfg.kpiPage.head.plannedAgainstActual")}</h2>
       </div>
       <MfgError error={data.error} onRetry={data.reload} />
       <DataTable
         rows={data.rows}
         columns={columns}
         rowKey={(r) => r.wo_operation_id}
-        label="Planned against actual"
+        label={t("mfg.kpiPage.label.plannedAgainstActual")}
         testId="kpi-adherence"
         totalCount={data.total}
         loading={data.loading}

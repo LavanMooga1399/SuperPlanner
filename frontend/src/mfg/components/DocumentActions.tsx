@@ -69,16 +69,16 @@ export function ReleaseDialog({
         to a new version.
       </p>
       <TextField
-        label="Use from"
+        label={t("mfg.documentActions.label.useFrom")}
         type="date"
         value={from}
         onChange={setFrom}
         testId="release-from"
-        hint="Empty = valid from the start (no start date)."
+        hint={t("mfg.documentActions.hint.emptyValidFromThe")}
       />
       {hasReleased ? (
         <CheckField
-          label="Replace the current released version from this date"
+          label={t("mfg.documentActions.label.replaceTheCurrentReleasedVersion")}
           checked={supersede}
           onChange={setSupersede}
           testId="release-supersede"

@@ -37,7 +37,7 @@ export function PeggingPage() {
             {direction === "up" ? "Who needs" : "What covers"} {root ? <span className="mono">{root.item.part_number}</span> : null} {root?.label}
           </h3>
         </div>
-        <div className="row" role="group" aria-label="Direction">
+        <div className="row" role="group" aria-label={t("mfg.peggingPage.aria.direction")}>
           <button type="button" className={`btn sm${direction === "up" ? " primary" : ""}`} aria-pressed={direction === "up"} onClick={() => go("up")} data-testid="peg-up">
             {t("mfg.peggingPage.btn.upToDemand")}
           </button>
@@ -47,7 +47,7 @@ export function PeggingPage() {
         </div>
       </div>
       <MfgError error={peg.error} onRetry={peg.reload} />
-      {peg.loading && !peg.data ? <Spinner label="Following the pegs…" /> : null}
+      {peg.loading && !peg.data ? <Spinner label={t("mfg.peggingPage.label.followingThePegs")} /> : null}
       {peg.data?.truncated ? <Banner tone="warn" title={t("mfg.peggingPage.title.onlyTheFirst2000Rows")}>Peg from a lower row to see the rest.</Banner> : null}
       {peg.data ? (
         <PeggingTree

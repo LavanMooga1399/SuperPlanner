@@ -50,21 +50,21 @@ export function NewItemDialog({ onClose, onCreated }: { onClose(): void; onCreat
       }}
     >
       <div className="form-grid">
-        <TextField label="Part number" value={pn} onChange={setPn} required maxLength={64} testId="new-item-pn" />
-        <TextField label="Revision" value={revision} onChange={setRevision} maxLength={16} />
+        <TextField label={t("mfg.newItemDialog.label.partNumber")} value={pn} onChange={setPn} required maxLength={64} testId="new-item-pn" />
+        <TextField label={t("mfg.newItemDialog.label.revision")} value={revision} onChange={setRevision} maxLength={16} />
       </div>
-      <TextField label="Description" value={description} onChange={setDescription} maxLength={500} testId="new-item-description" />
-      <SelectField label="Make or buy" value={makeBuy} onChange={setMakeBuy} options={MAKE_BUY_OPTIONS} testId="new-item-make-buy" />
+      <TextField label={t("mfg.newItemDialog.label.description")} value={description} onChange={setDescription} maxLength={500} testId="new-item-description" />
+      <SelectField label={t("mfg.newItemDialog.label.makeOrBuy")} value={makeBuy} onChange={setMakeBuy} options={MAKE_BUY_OPTIONS} testId="new-item-make-buy" />
       <div className="form-grid">
-        <SelectField label="Unit" value={uom} onChange={setUom} options={uoms} hint="All quantities of this item use this unit." />
-        <TextField label="Family" value={family} onChange={setFamily} maxLength={32} hint="Optional group, e.g. PCBA-HDI. Lines can be limited to families." />
+        <SelectField label={t("mfg.newItemDialog.label.unit")} value={uom} onChange={setUom} options={uoms} hint={t("mfg.newItemDialog.hint.allQuantitiesOfThisItem")} />
+        <TextField label={t("mfg.newItemDialog.label.family")} value={family} onChange={setFamily} maxLength={32} hint={t("mfg.newItemDialog.hint.optionalGroupEgPcbahdiLines")} />
         {makeBuy === "buy" ? (
           <TextField
-            label="Supplier lead time (days)"
+            label={t("mfg.newItemDialog.label.supplierLeadTimeDays")}
             type="number"
             value={lead}
             onChange={setLead}
-            hint="Needed before planning; 0 if kept in stock locally."
+            hint={t("mfg.newItemDialog.hint.neededBeforePlanning0If")}
           />
         ) : null}
       </div>

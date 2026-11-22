@@ -8,6 +8,7 @@ import { EMAIL_RE, FormError, MAX_PASSWORD, MIN_PASSWORD, PasswordInput, authFai
 import { AuthLoading } from "./SignInPage";
 import { safeNext } from "./nextPath";
 import "./auth.css";
+import { t } from "../lib/i18n";
 
 export function SignUpPage() {
   const auth = useAuth();
@@ -66,7 +67,7 @@ export function SignUpPage() {
       <div className="auth-page">
         <section className="card auth-card" aria-labelledby="signup-title">
           <div className="card-body">
-            <h1 id="signup-title">Create an account</h1>
+            <h1 id="signup-title">{t("account.signUpPage.head.createAnAccount")}</h1>
             <div className="banner warn" role="status" data-testid="signup-disabled">
               <Icon name="lock" />
               <div className="banner-body">New accounts cannot be created on this server. Ask your administrator for an account.</div>
@@ -84,8 +85,8 @@ export function SignUpPage() {
     <div className="auth-page">
       <section className="card auth-card" aria-labelledby="signup-title">
         <div className="card-body">
-          <h1 id="signup-title">Create an account</h1>
-          <p className="auth-lead">Your plans are private to your account.</p>
+          <h1 id="signup-title">{t("account.signUpPage.head.createAnAccount")}</h1>
+          <p className="auth-lead">{t("account.signUpPage.text.yourPlansArePrivateTo")}</p>
           <form className="auth-form" onSubmit={submit} noValidate>
             <FormError id="signup-error" testId="signup-error">
               {error}
@@ -109,7 +110,7 @@ export function SignUpPage() {
               />
             </div>
             <div className="field">
-              <label htmlFor="signup-email">Email</label>
+              <label htmlFor="signup-email">{t("account.signUpPage.label.email")}</label>
               <input
                 ref={emailRef}
                 id="signup-email"
@@ -129,7 +130,7 @@ export function SignUpPage() {
               />
             </div>
             <div className="field">
-              <label htmlFor="signup-password">Password</label>
+              <label htmlFor="signup-password">{t("account.signUpPage.label.password")}</label>
               <PasswordInput
                 id="signup-password"
                 testId="signup-password"

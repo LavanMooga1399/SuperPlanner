@@ -9,6 +9,7 @@ import { draftProblems } from "../lib/draft";
 import { pathLabel } from "../lib/paths";
 import { formatWorkMinutes } from "../lib/pert";
 import { useIntake } from "../state/IntakeContext";
+import { t } from "../../lib/i18n";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -135,7 +136,7 @@ export function CreatePlanBar() {
           )
         ) : null}
         {lines.length ? (
-          <ul className="intake-issues" data-testid="intake-issues" aria-label="Points to check">
+          <ul className="intake-issues" data-testid="intake-issues" aria-label={t("studio.createPlanBar.aria.pointsToCheck")}>
             {lines.map((l, i) => (
               <li key={i} className={`issue-line ${l.severity}`} data-severity={l.severity}>
                 <Icon name={l.severity === "warning" ? "info" : "alert"} size={14} />
@@ -147,8 +148,8 @@ export function CreatePlanBar() {
             ))}
           </ul>
         ) : build ? (
-          <div className="small row" data-testid="intake-issues" data-empty="true">
-            <Icon name="check" size={14} /> No problems found.
+          <div className="small row" data-testid="intake-issues" data-empty={t("studio.createPlanBar.empty.true")}>
+            <Icon name="check" size={14} /> {t("studio.createPlanBar.btn.noProblemsFound")}
           </div>
         ) : null}
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
@@ -156,11 +157,11 @@ export function CreatePlanBar() {
             {busy === "create" ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Create plan
           </button>
           <button type="button" className="btn" data-testid="intake-build" disabled={busy !== null || checking} onClick={() => void checkDraft()}>
-            <Icon name="refresh" /> Check draft
+            <Icon name="refresh" /> {t("studio.createPlanBar.btn.checkDraft")}
           </button>
           <div className="grow" />
           <button type="button" className="btn ghost" data-testid="intake-start-over" disabled={busy !== null} onClick={() => setConfirmReset(true)}>
-            Start over
+            {t("studio.createPlanBar.btn.startOver")}
           </button>
         </div>
         <span id="intake-create-why" className="small muted">
@@ -169,8 +170,8 @@ export function CreatePlanBar() {
       </div>
       {confirmReset ? (
         <ConfirmDialog
-          title="Start over?"
-          confirmLabel="Start over"
+          title={t("studio.createPlanBar.title.startOver")}
+          confirmLabel={t("studio.createPlanBar.btn.startOver")}
           danger
           onCancel={() => setConfirmReset(false)}
           onConfirm={() => {

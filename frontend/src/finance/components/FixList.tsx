@@ -6,6 +6,7 @@ import { Icon } from "../../components/Icon";
 import { createWhatIfRun } from "../api/client";
 import type { FinanceResult, Fix } from "../api/types";
 import { formatProb } from "../lib/money";
+import { t } from "../../lib/i18n";
 
 const KIND_LABEL: Record<Fix["kind"], string> = {
   DELAY_GOAL: "Move the date",
@@ -41,7 +42,7 @@ export function FixList({ planId, resultId, result }: { planId: string; resultId
   return (
     <section className="card" aria-labelledby="fin-fixes-title" data-testid="fin-fixes">
       <div className="card-header">
-        <h2 id="fin-fixes-title">Ways to close the gap</h2>
+        <h2 id="fin-fixes-title">{t("finance.fixList.head.waysToCloseTheGap")}</h2>
         <span className="small muted">Each option was tested by re-planning; try one to see the full effect.</span>
       </div>
       <div className="card-body col gap-lg">
@@ -58,7 +59,7 @@ export function FixList({ planId, resultId, result }: { planId: string; resultId
                       <strong>{KIND_LABEL[f.kind]}</strong>
                       {f.smallest ? (
                         <span className="badge accent">
-                          <Icon name="star" /> Smallest change
+                          <Icon name="star" /> {t("finance.fixList.btn.smallestChange")}
                         </span>
                       ) : null}
                     </div>

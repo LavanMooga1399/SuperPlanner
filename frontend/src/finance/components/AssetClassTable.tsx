@@ -3,6 +3,7 @@ import { Term } from "../../components/Term";
 import { formatPct } from "../lib/money";
 import { realReturnPct } from "../lib/resultView";
 import { FinNumber } from "../wizard/fields";
+import { t } from "../../lib/i18n";
 
 const CATEGORY_LABEL: Record<AssetClass["category"], string> = {
   cash: "Cash",
@@ -31,8 +32,8 @@ export function AssetClassTable({
         <caption className="sr-only">Asset class assumptions</caption>
         <thead>
           <tr>
-            <th scope="col">Asset class</th>
-            <th scope="col">Type</th>
+            <th scope="col">{t("finance.assetClassTable.head.assetClass")}</th>
+            <th scope="col">{t("finance.assetClassTable.head.type")}</th>
             <th scope="col" className="num">Expected return % a year<br /><span className="label-tag">Your assumption</span></th>
             <th scope="col" className="num">Ups and downs %<br /><span className="label-tag">Your assumption</span></th>
             {expert ? (

@@ -1,5 +1,6 @@
 import type { Violation } from "../api/types";
 import { Icon } from "./Icon";
+import { t } from "../lib/i18n";
 
 export function ViolationsPanel({
   violations,
@@ -46,7 +47,7 @@ export function ViolationsPanel({
               </div>
               {v.task_ids.length ? (
                 <button className="btn sm" onClick={() => onSelectTask(v.task_ids[0])}>
-                  Show
+                  {t("studio.violationsPanel.btn.show")}
                 </button>
               ) : null}
             </div>

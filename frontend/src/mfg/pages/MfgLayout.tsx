@@ -58,8 +58,8 @@ function MfgSidebar({ collapsed, onToggle, open, onClose }: { collapsed: boolean
   return (
     <>
       {open ? <div className="side-scrim" onClick={onClose} aria-hidden /> : null}
-      <aside className={`side${collapsed ? " collapsed" : ""}${open ? " open" : ""}`} aria-label="Manufacturing">
-        <nav className="side-scroll" aria-label="Manufacturing sections">
+      <aside className={`side${collapsed ? " collapsed" : ""}${open ? " open" : ""}`} aria-label={t("mfg.mfgLayout.aria.manufacturing")}>
+        <nav className="side-scroll" aria-label={t("mfg.mfgLayout.aria.manufacturingSections")}>
           {MFG_NAV.map((g) => (
             <NavGroup key={g.key} group={g} ownerVisible={isOwner && !assumed} collapsed={collapsed} />
           ))}
@@ -80,10 +80,10 @@ function MfgBreadcrumbs({ onMenu }: { onMenu(): void }) {
   const atSection = hit && pathname.replace(/\/$/, "") === hit.section.to.split("?")[0];
   return (
     <div className="crumb-bar">
-      <button type="button" className="btn ghost sm icon side-menu-btn" onClick={onMenu} aria-label="Open navigation" data-testid="side-open">
+      <button type="button" className="btn ghost sm icon side-menu-btn" onClick={onMenu} aria-label={t("mfg.mfgLayout.aria.openNavigation")} data-testid="side-open">
         <Icon name="menu" />
       </button>
-      <nav aria-label="Breadcrumb" className="crumbs auto-crumbs">
+      <nav aria-label={t("mfg.mfgLayout.aria.breadcrumb")} className="crumbs auto-crumbs">
         <ol>
           <li>
             <Link to={mfgPaths.home()}>Manufacturing</Link>
@@ -144,8 +144,8 @@ export function MfgNotFound() {
   return (
     <div className="empty" data-testid="mfg-not-found">
       <Icon name="help" size={32} />
-      <h2>Page not found</h2>
-      <p>This manufacturing page does not exist.</p>
+      <h2>{t("mfg.mfgLayout.head.pageNotFound")}</h2>
+      <p>{t("mfg.mfgLayout.text.thisManufacturingPageDoesNot")}</p>
       <Link className="btn" to={mfgPaths.home()}>
         {t("mfg.mfgLayout.btn.backToManufacturing")}
       </Link>

@@ -26,7 +26,7 @@ import { useApsRun } from "./ApsRunShell";
 import { DateInput } from "../../../components/DateInput";
 import { InfoTip } from "../../../components/InfoTip";
 import { FilterBar } from "../../../components/FilterBar";
-import { t } from "../../../lib/i18n";
+import { t, t as tr, plural } from "../../../lib/i18n";
 
 const VIEWS: { key: GanttView; label: string }[] = [
   { key: "line", label: "By line" },
@@ -144,7 +144,7 @@ export function ApsGanttTab() {
       <FilterBar>
         <div className="field">
           <span className="field-label">Rows</span>
-          <div className="btn-group" role="group" aria-label="Rows">
+          <div className="btn-group" role="group" aria-label={t("mfg.apsGanttTab.aria.rows")}>
           {VIEWS.map((v) => (
             <button key={v.key} type="button" className="btn sm" aria-pressed={v.key === view} onClick={() => set("view", v.key === "line" ? "" : v.key)} data-testid={`gantt-view-${v.key}`}>
               {v.label}
@@ -176,13 +176,13 @@ export function ApsGanttTab() {
             Zoom
           </span>
           <div className="btn-group" role="group" aria-labelledby="gg-zoom-label">
-            <button type="button" className="btn sm icon" aria-label="Zoom out" title="Zoom out (-)" onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0} data-testid="gantt-zoom-out">
+            <button type="button" className="btn sm icon" aria-label={t("mfg.apsGanttTab.aria.zoomOut")} title="Zoom out (-)" onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0} data-testid="gantt-zoom-out">
               <Icon name="zoom-out" size={14} />
             </button>
             <span className="btn sm seg-label" role="status" aria-live="polite" aria-label={`Zoom level: ${zoomLabel}`}>
               {zoomLabel}
             </span>
-            <button type="button" className="btn sm icon" aria-label="Zoom in" title="Zoom in (+)" onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1} data-testid="gantt-zoom-in">
+            <button type="button" className="btn sm icon" aria-label={t("mfg.apsGanttTab.aria.zoomIn")} title="Zoom in (+)" onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1} data-testid="gantt-zoom-in">
               <Icon name="zoom-in" size={14} />
             </button>
           </div>
@@ -233,7 +233,7 @@ export function ApsGanttTab() {
               </span>
             </span>
           </summary>
-          <div className="legend-more" aria-label="Legend">
+          <div className="legend-more" aria-label={t("mfg.apsGanttTab.aria.legend")}>
             <span>
               <span className="pg-swatch" style={{ background: "var(--bar)" }} /> Scheduled operation
             </span>
@@ -269,7 +269,7 @@ export function ApsGanttTab() {
           </div>
         </details>
         {canEdit ? (
-          <InfoTip label="How to change the plan">
+          <InfoTip label={t("mfg.apsGanttTab.label.howToChangeThePlan")}>
             Drag a bar to another line or time to change the plan; drop it on its own line to change the order. Nothing changes until you apply; applying creates an edited copy of this run.
           </InfoTip>
         ) : !canRun ? (
@@ -278,7 +278,7 @@ export function ApsGanttTab() {
       </div>
       <MfgError error={gantt.error} onRetry={gantt.reload} />
       {g?.truncated ? <Banner tone="warn" title={t("mfg.apsGanttTab.title.onlyTheFirst5000Operations")}>Narrow the dates or pick a stage.</Banner> : null}
-      {gantt.loading && !g ? <Spinner label="Loading the Gantt…" /> : null}
+      {gantt.loading && !g ? <Spinner label={t("mfg.apsGanttTab.label.loadingTheGantt")} /> : null}
       {g && g.bars.length === 0 ? (
         <div className="card card-body row wrap" role="status" data-testid="gantt-empty">
           <span>
@@ -327,7 +327,7 @@ export function ApsGanttTab() {
       {preview ? (
         <section className="card mfg-inline-form" data-testid="gantt-drop-preview" aria-live="polite">
           <div className="card-header">
-            <h3>Change the plan?</h3>
+            <h3>{t("mfg.apsGanttTab.head.changeThePlan")}</h3>
           </div>
           <div className="card-body col">
             <p style={{ margin: 0 }}>
@@ -342,7 +342,7 @@ export function ApsGanttTab() {
               The other operations are re-placed around it and the result is fully checked.
             </p>
             {preview.sameRow && lineIdOfRow(preview.row.key) ? (
-              <div className="row wrap" role="radiogroup" aria-label="Meaning of the drop">
+              <div className="row wrap" role="radiogroup" aria-label={t("mfg.apsGanttTab.aria.meaningOfTheDrop")}>
                 <label className="checkbox">
                   <input type="radio" name="drop-kind" checked={asOrder} onChange={() => setAsOrder(true)} data-testid="gantt-drop-resequence" /> Change the order on this line
                 </label>
@@ -360,7 +360,7 @@ export function ApsGanttTab() {
               <div className="banner danger" role="alert" data-testid="edit-violations">
                 <Icon name="x" />
                 <div className="banner-body">
-                  <strong>Not possible: it would break these rules</strong>
+                  <strong>{t("mfg.apsGanttTab.head.notPossibleItWouldBreak")}</strong>
                   <ul className="mfg-plain-list">
                     {violations.map((v, i) => (
                       <li key={i} data-code={v.code}>
@@ -406,7 +406,7 @@ export function ApsGanttTab() {
                   <Icon name={d.locked ? "unlock" : "lock"} /> {d.locked ? "Unlock" : "Lock here"}
                 </button>
               ) : null}
-              <button type="button" className="btn sm ghost" onClick={() => setSelected(null)} aria-label="Close details">
+              <button type="button" className="btn sm ghost" onClick={() => setSelected(null)} aria-label={t("mfg.apsGanttTab.aria.closeDetails")}>
                 <Icon name="x" />
               </button>
             </div>
@@ -415,16 +415,16 @@ export function ApsGanttTab() {
             <MfgError error={detail.error} />
             {d ? (
               <dl className="mfg-dl">
-                <dt>Item</dt>
+                <dt>{t("mfg.apsGanttTab.head.item")}</dt>
                 <dd>
-                  <span className="mono">{d.item.part_number}</span> x {fmtNum(d.qty)} {d.split.count > 1 ? `(part ${d.split.index + 1} of ${d.split.count})` : ""}
+                  <span className="mono">{d.item.part_number}</span> x {fmtNum(d.qty)} {d.split.count > 1 ? `(part ${tr("common.nOfM", { n: d.split.index + 1, m: d.split.count })})` : ""}
                 </dd>
-                <dt>Where and when</dt>
+                <dt>{t("mfg.apsGanttTab.head.whereAndWhen")}</dt>
                 <dd>
                   {d.line?.code ?? "not scheduled"} · {clock.dateTime(d.start)} – {clock.dateTime(d.end)} · setup {fmtDuration(d.setup_minutes) || "0"}, run {fmtDuration(d.run_minutes)}
                   {d.pieces.length > 1 ? ` · in ${d.pieces.length} pieces (pauses outside shifts)` : ""}
                 </dd>
-                <dt>Why it starts then</dt>
+                <dt>{t("mfg.apsGanttTab.head.whyItStartsThen")}</dt>
                 <dd data-testid="gantt-op-reason" data-reason={reason?.code}>
                   {reason?.text}
                   {reason?.refs?.length ? (
@@ -433,20 +433,20 @@ export function ApsGanttTab() {
                 </dd>
                 {release?.material_at ? (
                   <>
-                    <dt>Material ready</dt>
+                    <dt>{t("mfg.apsGanttTab.head.materialReady")}</dt>
                     <dd>
                       {clock.dateTime(release.material_at)}
                       {release.refs.length ? <span className="faint small"> ({release.refs.map((x) => x.label).join(", ")})</span> : null}
                     </dd>
                   </>
                 ) : null}
-                <dt>Crew and tools</dt>
+                <dt>{t("mfg.apsGanttTab.head.crewAndTools")}</dt>
                 <dd>
-                  {d.crew.length ? `${d.crew.length} operator${d.crew.length === 1 ? "" : "s"}` : "none (unattended)"}
+                  {d.crew.length ? `${plural(d.crew.length, "operator")}` : "none (unattended)"}
                   {d.tools.length ? ` · ${d.tools.length} tool pool${d.tools.length === 1 ? "" : "s"} (${d.tools.map((t) => `x${t.qty}`).join(", ")})` : ""}
                   {d.family ? ` · family ${d.family}${d.setup_from_family ? ` (changeover from ${d.setup_from_family})` : ""}` : ""}
                 </dd>
-                <dt>Due</dt>
+                <dt>{t("mfg.apsGanttTab.head.due")}</dt>
                 <dd>
                   {clock.dateTime(d.due)} {d.late_minutes > 0 ? <span className="badge danger">{fmtDuration(d.late_minutes)} late</span> : null}
                   {d.frozen ? <span className="badge info">Frozen</span> : null}
@@ -454,7 +454,7 @@ export function ApsGanttTab() {
                 </dd>
                 {nb ? (
                   <>
-                    <dt>On the line</dt>
+                    <dt>{t("mfg.apsGanttTab.head.onTheLine")}</dt>
                     <dd className="small">
                       before: {nb.before ? `${nb.before.order.number}/${nb.before.seq}` : "nothing"} · after: {nb.after ? `${nb.after.order.number}/${nb.after.seq}` : "nothing"}
                     </dd>

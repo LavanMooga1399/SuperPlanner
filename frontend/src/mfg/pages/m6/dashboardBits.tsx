@@ -7,6 +7,7 @@ import { Link } from "react-router";
 import { Icon, type IconName } from "../../../components/Icon";
 import type { DashboardPeriod, DashboardTile, TileStatus } from "../../api/typesM6";
 import { safeInternalLink } from "../../assistant/AnswerText";
+import { t } from "../../../lib/i18n";
 
 export const PERIODS: { value: DashboardPeriod; label: string }[] = [
   { value: "4w", label: "Last 4 weeks" },
@@ -178,7 +179,7 @@ function DetailList({ details, currency }: { details: Record<string, unknown>; c
       ))}
       {note ? (
         <div>
-          <dt>Turns</dt>
+          <dt>{t("mfg.dashboardBits.head.turns")}</dt>
           <dd>n/a ({note})</dd>
         </div>
       ) : null}

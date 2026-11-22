@@ -18,6 +18,7 @@ import { useAccess, useCan } from "../lib/permissions";
 import { useAuth } from "../../auth/AuthContext";
 import { errorText, useLoad } from "../lib/useMfg";
 import { mobileLink } from "./MobileAlerts";
+import { t, t as tr } from "../../lib/i18n";
 
 // ---------------------------------------------------------------- work order quick view
 export function MobileWo() {
@@ -34,21 +35,21 @@ export function MobileWo() {
           <h1>{w.number}</h1>
           <section className="m-card">
             <dl className="m-dl">
-              <dt>Item</dt>
+              <dt>{t("mobile.mobileMisc.head.item")}</dt>
               <dd>
                 {w.item.part_number} {w.item.description ? <span className="muted">{w.item.description}</span> : null}
               </dd>
-              <dt>Status</dt>
+              <dt>{t("mobile.mobileMisc.head.status")}</dt>
               <dd>{w.status.replace(/_/g, " ")}</dd>
-              <dt>Quantity</dt>
+              <dt>{t("mobile.mobileMisc.head.quantity")}</dt>
               <dd>
-                {w.qty_completed} of {w.qty} done{w.qty_scrapped ? `, ${w.qty_scrapped} scrapped` : ""}
+                {tr("common.nOfM", { n: w.qty_completed, m: w.qty })} done{w.qty_scrapped ? `, ${w.qty_scrapped} scrapped` : ""}
               </dd>
-              <dt>Due</dt>
+              <dt>{t("mobile.mobileMisc.head.due")}</dt>
               <dd>{formatDay(w.due_date)}</dd>
               {w.demand_line ? (
                 <>
-                  <dt>For</dt>
+                  <dt>{t("mobile.mobileMisc.head.for")}</dt>
                   <dd>
                     {w.demand_line.order_number}/{w.demand_line.line_no}
                   </dd>
@@ -56,7 +57,7 @@ export function MobileWo() {
               ) : null}
               {w.shortage_count ? (
                 <>
-                  <dt>Shortages</dt>
+                  <dt>{t("mobile.mobileMisc.head.shortages")}</dt>
                   <dd className="m-state">
                     <Icon name="alert" size={14} /> {w.shortage_count} components short
                   </dd>
@@ -66,7 +67,7 @@ export function MobileWo() {
           </section>
           {ops.data?.items.length ? (
             <section className="m-card" aria-labelledby="m-wo-ops">
-              <h2 id="m-wo-ops">Operations</h2>
+              <h2 id="m-wo-ops">{t("mobile.mobileMisc.head.operations")}</h2>
               <ul className="m-list">
                 {ops.data.items.map((o) => (
                   <li key={o.id} className="m-row">
@@ -168,7 +169,7 @@ export function MobileScan() {
 
   return (
     <div className="col" style={{ gap: 12 }} data-testid="m-scan">
-      <h1>Scan</h1>
+      <h1>{t("mobile.mobileMisc.head.scan")}</h1>
       <form
         className="col"
         style={{ gap: 8 }}
@@ -188,7 +189,7 @@ export function MobileScan() {
           autoCapitalize="characters"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="Scan or type, then Enter"
+          placeholder={t("mobile.mobileMisc.ph.scanOrTypeThenEnter")}
           data-testid="m-scan-input"
         />
         <div className="m-actions">
@@ -204,7 +205,7 @@ export function MobileScan() {
           )}
         </div>
       </form>
-      {camera ? <video ref={video} className="m-video" muted playsInline aria-label="Camera preview" /> : null}
+      {camera ? <video ref={video} className="m-video" muted playsInline aria-label={t("mobile.mobileMisc.aria.cameraPreview")} /> : null}
       {err ? (
         <p className="field-error" role="alert" style={{ margin: 0 }} data-testid="m-scan-error">
           {err}
@@ -235,12 +236,12 @@ function PushSettings() {
   const [saved, setSaved] = useState(false);
   const support = pushSupport();
 
-  if (server.loading && !server.data) return <Spinner label="Checking notifications…" />;
+  if (server.loading && !server.data) return <Spinner label={t("mobile.mobileMisc.label.checkingNotifications")} />;
   if (server.error) return <MfgError error={server.error} onRetry={server.reload} />;
   if (!server.data?.available) {
     return (
       <p className="muted" style={{ margin: 0 }} data-testid="m-push-off">
-        <Icon name="info" size={14} /> Push notifications are not set up on this server.
+        <Icon name="info" size={14} /> {t("mobile.mobileMisc.btn.pushNotificationsAreNotSet")}
       </p>
     );
   }
@@ -276,7 +277,7 @@ function PushSettings() {
         {sub && mine.data?.items.find((x) => x.id === sub.id)?.active === false ? " Deliveries stopped working; turn them off and on again." : ""}
       </span>
       <fieldset className="mfg-fieldset">
-        <legend>Tell me about</legend>
+        <legend>{t("mobile.mobileMisc.head.tellMeAbout")}</legend>
         {ALL_TOPICS.map((t) => (
           <label key={t} className="checkbox" style={{ alignItems: "flex-start", minHeight: 44 }}>
             <input
@@ -299,7 +300,7 @@ function PushSettings() {
         </button>
         {sub ? (
           <button type="button" className="btn" disabled={busy} onClick={() => void save(null)} data-testid="m-push-off-btn">
-            Turn off
+            {t("mobile.mobileMisc.btn.turnOff")}
           </button>
         ) : null}
       </div>
@@ -326,8 +327,8 @@ export function MobileMore() {
   };
   return (
     <div className="col" style={{ gap: 12 }} data-testid="m-more">
-      <h1>More</h1>
-      <nav className="m-list" aria-label="More">
+      <h1>{t("mobile.mobileMisc.head.more")}</h1>
+      <nav className="m-list" aria-label={t("mobile.mobileMisc.aria.more")}>
         <Link to="/m/scan" className="m-row">
           <Icon name="zoom-in" /> <span className="grow">Scan a code</span> <Icon name="chevron-right" />
         </Link>
@@ -344,17 +345,17 @@ export function MobileMore() {
         </Link>
       </nav>
       <section className="m-card" aria-labelledby="m-push-h">
-        <h2 id="m-push-h">Notifications</h2>
+        <h2 id="m-push-h">{t("mobile.mobileMisc.head.notifications")}</h2>
         <PushSettings />
       </section>
       <section className="m-card" aria-labelledby="m-theme-h">
-        <h2 id="m-theme-h">Appearance</h2>
+        <h2 id="m-theme-h">{t("mobile.mobileMisc.head.appearance")}</h2>
         <div className="m-actions">
           <button type="button" className="btn" onClick={() => setTheme("light")}>
-            <Icon name="sun" /> Light
+            <Icon name="sun" /> {t("mobile.mobileMisc.btn.light")}
           </button>
           <button type="button" className="btn" onClick={() => setTheme("dark")}>
-            <Icon name="moon" /> Dark
+            <Icon name="moon" /> {t("mobile.mobileMisc.btn.dark")}
           </button>
         </div>
       </section>
@@ -365,7 +366,7 @@ export function MobileMore() {
 export function MobileAssistant() {
   return (
     <div className="col" style={{ gap: 12 }} data-testid="m-assistant">
-      <h1>Planning assistant</h1>
+      <h1>{t("mobile.mobileMisc.head.planningAssistant")}</h1>
       <p className="muted small" style={{ margin: 0 }}>
         Explains your plan and suggests actions. It never changes anything by itself.
       </p>

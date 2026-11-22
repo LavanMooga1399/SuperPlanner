@@ -44,7 +44,7 @@ export function RunSummaryTab() {
       <div className="grid-2" style={{ alignItems: "start" }}>
         <section className="card" data-testid="run-late-demand">
           <div className="card-header">
-            <h3>Latest demand lines</h3>
+            <h3>{t("mfg.runSummaryTab.head.latestDemandLines")}</h3>
             <Link to={mfgPaths.runDemand(run.id)} className="small">
               All demand <Icon name="arrow-right" size={12} />
             </Link>
@@ -90,7 +90,7 @@ export function RunSummaryTab() {
         </section>
         <section className="card" data-testid="run-exception-codes">
           <div className="card-header">
-            <h3>Exceptions</h3>
+            <h3>{t("mfg.runSummaryTab.head.exceptions")}</h3>
             <span className="row" style={{ gap: 4 }}>
               {MRP_SEVERITIES.map((sev) => (
                 <Link key={sev} to={mfgPaths.runExceptions(run.id, { severity: sev })}>

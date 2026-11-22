@@ -86,7 +86,7 @@ export function CalendarPage() {
     <div className="col gap-lg">
       <section className="card" aria-labelledby="cal-title">
         <div className="card-header">
-          <h2 id="cal-title">Working time of a line</h2>
+          <h2 id="cal-title">{t("mfg.calendarPage.head.workingTimeOfALine")}</h2>
           <div className="row wrap">
             <label className="row small">
               <span className="muted">Line</span>
@@ -98,12 +98,12 @@ export function CalendarPage() {
                 ))}
               </select>
             </label>
-            <div className="btn-group" role="group" aria-label="Month">
-              <button type="button" className="btn sm" onClick={() => shiftMonth(-1)} aria-label="Previous month" data-testid="calendar-prev">
+            <div className="btn-group" role="group" aria-label={t("mfg.calendarPage.aria.month")}>
+              <button type="button" className="btn sm" onClick={() => shiftMonth(-1)} aria-label={t("mfg.calendarPage.aria.previousMonth")} data-testid="calendar-prev">
                 <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} />
               </button>
-              <input type="month" className="input sm" style={{ width: 150, borderRadius: 0 }} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} aria-label="Month" data-testid="calendar-month" />
-              <button type="button" className="btn sm" onClick={() => shiftMonth(1)} aria-label="Next month" data-testid="calendar-next">
+              <input type="month" className="input sm" style={{ width: 150, borderRadius: 0 }} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} aria-label={t("mfg.calendarPage.aria.month")} data-testid="calendar-month" />
+              <button type="button" className="btn sm" onClick={() => shiftMonth(1)} aria-label={t("mfg.calendarPage.aria.nextMonth")} data-testid="calendar-next">
                 <Icon name="chevron-right" />
               </button>
             </div>
@@ -119,7 +119,7 @@ export function CalendarPage() {
 
       <section className="card" aria-labelledby="exc-title">
         <div className="card-header">
-          <h2 id="exc-title">Holidays, shutdowns and maintenance</h2>
+          <h2 id="exc-title">{t("mfg.calendarPage.head.holidaysShutdownsAndMaintenance")}</h2>
           <button type="button" className="btn sm primary" onClick={() => setEditing("new")} data-testid="exception-new">
             <Icon name="plus" /> {t("mfg.calendarPage.btn.add")}
           </button>
@@ -180,7 +180,7 @@ export function CalendarPage() {
                 },
               ]}
               rowKey={(x) => x.id}
-              label="Holidays, shutdowns and maintenance"
+              label={t("mfg.calendarPage.label.holidaysShutdownsAndMaintenance")}
               testId="exceptions-table"
               exportName="calendar-exceptions"
               rowExtras={(x) => ({ testId: "exception-row", data: { "exception-id": x.id }, className: x.id === exceptionParam ? "mfg-selected" : undefined })}
@@ -222,7 +222,7 @@ export function CalendarPage() {
             deleteCalendarException(x.id, x.row_version).then(() => setTick((t) => t + 1), setDelError);
           }}
         >
-          <p style={{ margin: 0 }}>The working time comes back for that period.</p>
+          <p style={{ margin: 0 }}>{t("mfg.calendarPage.text.theWorkingTimeComesBack")}</p>
         </ConfirmDialog>
       ) : null}
     </div>
@@ -304,9 +304,9 @@ function ExceptionForm({
         {conflict ? <ConflictBanner onReload={() => window.location.reload()} what="this entry" /> : null}
         <MfgError error={error} title="Could not save" />
         <div className="form-grid">
-          <SelectField label="What" value={kind} onChange={setKind} options={(Object.keys(KIND_LABEL) as ExceptionKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))} testId="exception-kind" />
+          <SelectField label={t("mfg.calendarPage.label.what")} value={kind} onChange={setKind} options={(Object.keys(KIND_LABEL) as ExceptionKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))} testId="exception-kind" />
           <SelectField
-            label="Applies to"
+            label={t("mfg.calendarPage.label.appliesTo")}
             value={scope}
             onChange={setScope}
             options={[
@@ -316,20 +316,20 @@ function ExceptionForm({
             ]}
             testId="exception-scope"
           />
-          {scope === "group" ? <SelectField label="Stage" value={groupId} onChange={setGroupId} options={groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))} /> : null}
-          {scope === "line" ? <SelectField label="Line" value={lineId} onChange={setLineId} options={lines.map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))} testId="exception-line" /> : null}
-          <TextField label="Label" value={label} onChange={setLabel} maxLength={100} placeholder={t("mfg.calendarPage.ph.egPlantHoliday")} testId="exception-label" />
+          {scope === "group" ? <SelectField label={t("mfg.calendarPage.label.stage")} value={groupId} onChange={setGroupId} options={groups.map((g) => ({ value: g.id, label: `${g.code} - ${g.name}` }))} /> : null}
+          {scope === "line" ? <SelectField label={t("mfg.calendarPage.label.line")} value={lineId} onChange={setLineId} options={lines.map((l) => ({ value: l.id, label: `${l.code} - ${l.name}` }))} testId="exception-line" /> : null}
+          <TextField label={t("mfg.calendarPage.label.label")} value={label} onChange={setLabel} maxLength={100} placeholder={t("mfg.calendarPage.ph.egPlantHoliday")} testId="exception-label" />
         </div>
-        <CheckField label="Whole days" checked={allDay} onChange={setAllDay} />
+        <CheckField label={t("mfg.calendarPage.label.wholeDays")} checked={allDay} onChange={setAllDay} />
         {allDay ? (
           <div className="form-grid">
-            <TextField label="First day" type="date" value={fromDate} onChange={setFromDate} testId="exception-from" />
-            <TextField label="Last day (included)" type="date" value={toDate} onChange={setToDate} testId="exception-to" />
+            <TextField label={t("mfg.calendarPage.label.firstDay")} type="date" value={fromDate} onChange={setFromDate} testId="exception-from" />
+            <TextField label={t("mfg.calendarPage.label.lastDayIncluded")} type="date" value={toDate} onChange={setToDate} testId="exception-to" />
           </div>
         ) : (
           <div className="form-grid">
-            <TextField label="Starts" type="datetime-local" value={start} onChange={setStart} testId="exception-start" />
-            <TextField label="Ends" type="datetime-local" value={end} onChange={setEnd} testId="exception-end" />
+            <TextField label={t("mfg.calendarPage.label.starts")} type="datetime-local" value={start} onChange={setStart} testId="exception-start" />
+            <TextField label={t("mfg.calendarPage.label.ends")} type="datetime-local" value={end} onChange={setEnd} testId="exception-end" />
           </div>
         )}
         <div className="row">

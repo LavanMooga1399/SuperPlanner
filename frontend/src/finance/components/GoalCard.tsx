@@ -4,6 +4,7 @@ import type { GoalResult, Reason } from "../api/types";
 import { formatMoney, formatProb, roundDisplay } from "../lib/money";
 import { fmtMonth } from "../lib/months";
 import { StatusPill } from "./StatusPill";
+import { t } from "../../lib/i18n";
 
 const PRIORITY_LABEL = { must: "Must have", should: "Should have", nice: "Nice to have" } as const;
 
@@ -84,21 +85,21 @@ export function GoalCard({ goal, currency, locale, reason }: { goal: GoalResult;
           </div>
         ) : null}
         <dl className="goal-facts">
-          <dt>Target (today's money)</dt>
+          <dt>{t("finance.goalCard.head.targetTodaysMoney")}</dt>
           <dd>{m(goal.target_real)}</dd>
-          <dt>Expected future cost</dt>
+          <dt>{t("finance.goalCard.head.expectedFutureCost")}</dt>
           <dd>{m(goal.target_nominal_expected)}</dd>
-          <dt>Likely range (p10 - p90)</dt>
+          <dt>{t("finance.goalCard.head.likelyRangeP10P90")}</dt>
           <dd>
             {formatMoney(goal.p10_real, currency, locale, { compact: true })} - {formatMoney(goal.p90_real, currency, locale, { compact: true })}
           </dd>
-          <dt>Projected (expected returns)</dt>
+          <dt>{t("finance.goalCard.head.projectedExpectedReturns")}</dt>
           <dd>{m(goal.projected_central_real)}</dd>
-          <dt>In a weak market</dt>
+          <dt>{t("finance.goalCard.head.inAWeakMarket")}</dt>
           <dd>{m(goal.scenario_low_real)}</dd>
-          <dt>Monthly now</dt>
+          <dt>{t("finance.goalCard.head.monthlyNow")}</dt>
           <dd>{m(goal.monthly_contribution_now)}</dd>
-          <dt>Contributions</dt>
+          <dt>{t("finance.goalCard.head.contributions")}</dt>
           <dd>
             {goal.contribution_start_month
               ? `${fmtMonth(goal.contribution_start_month)} - ${fmtMonth(goal.contribution_end_month)}`
@@ -106,7 +107,7 @@ export function GoalCard({ goal, currency, locale, reason }: { goal: GoalResult;
           </dd>
           {goal.holdings_used_real > 0 ? (
             <>
-              <dt>Existing savings used</dt>
+              <dt>{t("finance.goalCard.head.existingSavingsUsed")}</dt>
               <dd>{m(goal.holdings_used_real)}</dd>
             </>
           ) : null}

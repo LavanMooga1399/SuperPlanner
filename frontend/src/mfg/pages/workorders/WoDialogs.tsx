@@ -112,12 +112,12 @@ export function IssueDialog({
           <table className="table mfg-grid-table">
             <thead>
               <tr>
-                <th>Part</th>
+                <th>{t("mfg.woDialogs.head.part")}</th>
                 <th className="right">{mode === "issue" ? "Open" : "Issued"}</th>
-                <th className="right">Reserved</th>
+                <th className="right">{t("mfg.woDialogs.head.reserved")}</th>
                 <th>{mode === "issue" ? "Issue now" : "Return"}</th>
-                <th>Location</th>
-                <th>Lot</th>
+                <th>{t("mfg.woDialogs.head.location")}</th>
+                <th>{t("mfg.woDialogs.head.lot")}</th>
                 {mode === "issue" ? <th>Over-issue</th> : null}
               </tr>
             </thead>
@@ -195,7 +195,7 @@ export function OutputDialog({ wo, onClose, onDone }: { wo: WorkOrderRecord; onC
     >
       <div className="col">
         <p className="muted small" style={{ margin: 0 }}>
-          {fmtNum(wo.qty_completed)} of {fmtNum(wo.qty)} {wo.item.uom} done so far. Reaching the full quantity completes the work order and releases its reservations.
+          {t("common.nOfM", { n: fmtNum(wo.qty_completed), m: fmtNum(wo.qty) })} {wo.item.uom} done so far. Reaching the full quantity completes the work order and releases its reservations.
         </p>
         <div className="form-grid">
           <div className="field">
@@ -206,7 +206,7 @@ export function OutputDialog({ wo, onClose, onDone }: { wo: WorkOrderRecord; onC
             <label htmlFor="out-scrap">{t("mfg.woDialogs.label.scrapped")}</label>
             <input id="out-scrap" className="input num" type="number" min={0} value={scrap} onChange={(e) => setScrap(e.target.value)} />
           </div>
-          <LocationSelect label="Into location" value={loc} onChange={setLoc} testId="wo-receipt-location" />
+          <LocationSelect label={t("mfg.woDialogs.label.intoLocation")} value={loc} onChange={setLoc} testId="wo-receipt-location" />
           {info?.lot_controlled ? (
             <>
               <div className="field">
@@ -311,11 +311,11 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
           <table className="table mfg-grid-table">
             <thead>
               <tr>
-                <th>Pos.</th>
-                <th>Part</th>
-                <th>Required</th>
-                <th className="right">Issued</th>
-                <th>Op.</th>
+                <th>{t("mfg.woDialogs.head.pos")}</th>
+                <th>{t("mfg.woDialogs.head.part")}</th>
+                <th>{t("mfg.woDialogs.head.required")}</th>
+                <th className="right">{t("mfg.woDialogs.head.issued")}</th>
+                <th>{t("mfg.woDialogs.head.op")}</th>
                 <th>
                   <span className="sr-only">Remove</span>
                 </th>

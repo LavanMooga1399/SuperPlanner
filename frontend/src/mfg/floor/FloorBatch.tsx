@@ -16,6 +16,7 @@ import { useLoad } from "../lib/useMfg";
 import { crewForEvent, useFloor } from "./FloorLayout";
 import { OpStatusChip, floorErrorText, fmtQty } from "./floorText";
 import { newClientEventId, submitFloorEvent } from "./offlineQueue";
+import { t } from "../../lib/i18n";
 
 export function FloorBatch() {
   const { lineId = "" } = useParams();
@@ -85,7 +86,7 @@ export function FloorBatch() {
         <div className="row wrap" style={{ justifyContent: "space-between" }}>
           <h1>Batch loads{queue.data ? ` · ${queue.data.line.code}` : ""}</h1>
           <Link className="btn floor-btn" to={mfgPaths.floorLine(lineId)}>
-            Back to the queue
+            {t("floor.floorBatch.btn.backToTheQueue")}
           </Link>
         </div>
       </section>
@@ -106,11 +107,11 @@ export function FloorBatch() {
               <div className="row">
                 {l.status === "open" ? (
                   <button type="button" className="btn primary floor-action" disabled={busy} onClick={() => void act(l, "start")} data-testid="floor-batch-start">
-                    <Icon name="play" /> Start load
+                    <Icon name="play" /> {t("floor.floorBatch.btn.startLoad")}
                   </button>
                 ) : (
                   <button type="button" className="btn primary floor-action" disabled={busy} onClick={() => void act(l, "complete")} data-testid="floor-batch-complete">
-                    <Icon name="check" /> Complete load
+                    <Icon name="check" /> {t("floor.floorBatch.btn.completeLoad")}
                   </button>
                 )}
               </div>
@@ -132,7 +133,7 @@ export function FloorBatch() {
       ))}
       {canReport ? (
         <section className="floor-card">
-          <h2>New load</h2>
+          <h2>{t("floor.floorBatch.head.newLoad")}</h2>
           {waiting.length === 0 ? <span className="muted">No waiting operations on this line.</span> : null}
           <table className="floor-table">
             <tbody>
@@ -160,7 +161,7 @@ export function FloorBatch() {
                   </td>
                   <td>
                     <button type="button" className="btn" onClick={() => setPick({ ...pick, [r.wo_operation_id]: String((r.qty_planned || r.wo.qty) - r.qty_good) })}>
-                      All
+                      {t("floor.floorBatch.btn.all")}
                     </button>
                   </td>
                 </tr>
@@ -168,7 +169,7 @@ export function FloorBatch() {
             </tbody>
           </table>
           <button type="button" className="btn primary floor-action" disabled={busy || !Object.values(pick).some((q) => Number(q) > 0)} onClick={() => void build()} data-testid="floor-batch-create">
-            <Icon name="layers" /> Create load
+            <Icon name="layers" /> {t("floor.floorBatch.btn.createLoad")}
           </button>
         </section>
       ) : null}

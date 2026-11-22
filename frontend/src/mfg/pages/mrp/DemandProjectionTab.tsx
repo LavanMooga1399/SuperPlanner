@@ -19,7 +19,7 @@ import { t } from "../../../lib/i18n";
 export function LimitingPath({ steps, runId }: { steps: LimitingStep[]; runId?: string }) {
   if (!steps.length) return null;
   return (
-    <div className="mfg-chip-row" aria-label="Why it is late (limiting path)" data-testid="limiting-path">
+    <div className="mfg-chip-row" aria-label={t("mfg.demandProjectionTab.aria.whyItIsLateLimiting")} data-testid="limiting-path">
       <span className="faint small">Why:</span>
       {steps.map((s, i) => (
         <span key={i} className="row" style={{ gap: 4 }}>
@@ -82,13 +82,13 @@ export function DemandProjectionTab() {
         <table className="table" data-testid="demand-projection">
           <thead>
             <tr>
-              <th>Demand line</th>
-              <th>Item</th>
-              <th className="right">Qty</th>
-              <th>Prio.</th>
-              <th>Due</th>
-              <th>Projected</th>
-              <th>Status</th>
+              <th>{t("mfg.demandProjectionTab.head.demandLine")}</th>
+              <th>{t("mfg.demandProjectionTab.head.item")}</th>
+              <th className="right">{t("mfg.demandProjectionTab.head.qty")}</th>
+              <th>{t("mfg.demandProjectionTab.head.prio")}</th>
+              <th>{t("mfg.demandProjectionTab.head.due")}</th>
+              <th>{t("mfg.demandProjectionTab.head.projected")}</th>
+              <th>{t("mfg.demandProjectionTab.head.status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -138,7 +138,7 @@ export function DemandProjectionTab() {
         {data.rows.length < data.total ? (
           <div className="card-footer">
             <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              <Icon name="chevron-down" /> Show more ({data.rows.length} of {data.total})
+              <Icon name="chevron-down" /> Show more ({t("common.nOfM", { n: data.rows.length, m: data.total })})
             </button>
           </div>
         ) : null}

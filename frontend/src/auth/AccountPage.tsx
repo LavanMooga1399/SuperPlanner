@@ -7,6 +7,7 @@ import { useAuth } from "./AuthContext";
 import { PageHeader } from "../components/PageHeader";
 import { FormError, MAX_PASSWORD, MIN_PASSWORD, PasswordInput, authFailureText } from "./AuthFields";
 import "./auth.css";
+import { t } from "../lib/i18n";
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "-";
@@ -64,43 +65,43 @@ export function AccountPage() {
 
   return (
     <div className="account-page">
-      <PageHeader title="Account settings" description="Your plans and runs are visible only to this account." />
+      <PageHeader title={t("account.accountPage.title.accountSettings")} description={t("account.accountPage.desc.yourPlansAndRunsAre")} />
 
       <section className="card" aria-labelledby="account-details">
         <div className="card-header">
-          <h2 id="account-details" style={{ margin: 0, fontSize: 15 }}>Your account</h2>
+          <h2 id="account-details" style={{ margin: 0, fontSize: 15 }}>{t("account.accountPage.head.yourAccount")}</h2>
         </div>
         <div className="card-body">
           <dl className="account-facts">
-            <dt>Name</dt>
+            <dt>{t("account.accountPage.head.name")}</dt>
             <dd>{user?.display_name || <span className="faint">Not set</span>}</dd>
-            <dt>Email</dt>
+            <dt>{t("account.accountPage.head.email")}</dt>
             <dd>{user?.email ?? "-"}</dd>
-            <dt>Member since</dt>
+            <dt>{t("account.accountPage.head.memberSince")}</dt>
             <dd>{fmtDate(user?.created_at)}</dd>
-            <dt>Signed in until</dt>
+            <dt>{t("account.accountPage.head.signedInUntil")}</dt>
             <dd>{auth.expiresAt ? `${fmtDate(auth.expiresAt)} at the latest` : "-"}</dd>
           </dl>
         </div>
       </section>
-      <section className="card auth-card" aria-label="Security">
+      <section className="card auth-card" aria-label={t("account.accountPage.aria.security")}>
         <div className="card-body col" style={{ gap: 8 }}>
-          <h2 style={{ margin: 0 }}>Security</h2>
+          <h2 style={{ margin: 0 }}>{t("account.accountPage.head.security")}</h2>
           <Link to="/account/security" data-testid="account-to-security">
             <Icon name="lock" /> Two-step verification{user?.totp_enabled ? " (on)" : ""}
           </Link>
           <Link to="/account/tokens" data-testid="account-to-tokens">
-            <Icon name="copy" /> API tokens
+            <Icon name="copy" /> {t("account.accountPage.btn.apiTokens")}
           </Link>
           <Link to="/orgs">
-            <Icon name="briefcase" /> Organisations and plants
+            <Icon name="briefcase" /> {t("account.accountPage.btn.organisationsAndPlants")}
           </Link>
         </div>
       </section>
 
       <section className="card" aria-labelledby="account-password">
         <div className="card-header">
-          <h2 id="account-password" style={{ margin: 0, fontSize: 15 }}>Change password</h2>
+          <h2 id="account-password" style={{ margin: 0, fontSize: 15 }}>{t("account.accountPage.head.changePassword")}</h2>
         </div>
         <div className="card-body">
           <form className="auth-form" onSubmit={submit} noValidate>
@@ -116,7 +117,7 @@ export function AccountPage() {
               {error}
             </FormError>
             <div className="field">
-              <label htmlFor="pw-current">Current password</label>
+              <label htmlFor="pw-current">{t("account.accountPage.label.currentPassword")}</label>
               <PasswordInput
                 id="pw-current"
                 testId="pw-current"
@@ -129,7 +130,7 @@ export function AccountPage() {
               />
             </div>
             <div className="field">
-              <label htmlFor="pw-new">New password</label>
+              <label htmlFor="pw-new">{t("account.accountPage.label.newPassword")}</label>
               <PasswordInput
                 id="pw-new"
                 testId="pw-new"

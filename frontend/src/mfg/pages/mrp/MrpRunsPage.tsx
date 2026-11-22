@@ -19,7 +19,7 @@ import { PageHeader } from "../../../components/PageHeader";
 import { t } from "../../../lib/i18n";
 
 export function runTitle(r: MrpRunRecord): string {
-  return `Run #${r.run_no}${r.label ? ` · ${r.label}` : ""}`;
+  return `${t("common.runNo", { n: r.run_no })}${r.label ? ` · ${r.label}` : ""}`;
 }
 
 export function MrpRunsPage() {
@@ -82,7 +82,7 @@ export function MrpRunsPage() {
       sortValue: (r) => (r.summary ? r.summary.demand_late + r.summary.demand_past_due : null),
       render: (r) => {
         const s = r.summary;
-        return s ? <span className={s.demand_late + s.demand_past_due ? "mfg-neg" : undefined}>{s.demand_late + s.demand_past_due} of {s.demand_lines}</span> : "";
+        return s ? <span className={s.demand_late + s.demand_past_due ? "mfg-neg" : undefined}>{t("common.nOfM", { n: s.demand_late + s.demand_past_due, m: s.demand_lines })}</span> : "";
       },
     },
     { key: "short", header: "Parts short", width: "88px", align: "right", sortValue: (r) => r.summary?.items_short, render: (r) => (r.summary ? r.summary.items_short.toLocaleString("en-IN") : "") },
@@ -139,7 +139,7 @@ export function MrpRunsPage() {
           rows={items}
           columns={columns}
           rowKey={(r) => r.id}
-          label="MRP runs"
+          label={t("mfg.mrpRunsPage.label.mrpRuns")}
           testId="mrp-runs"
           loading={runs.loading && !runs.data}
           exportName="mrp-runs"

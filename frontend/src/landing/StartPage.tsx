@@ -6,6 +6,7 @@ import { KindCard } from "./KindCard";
 import { KINDS, isPlanKind } from "./kinds";
 import { useStepByStep } from "./startPlan";
 import { PageHeader } from "../components/PageHeader";
+import { t } from "../lib/i18n";
 
 /** `/new/:kind`: the four ways to start one kind of plan, as large buttons (PHASE2.md 3.1). */
 export function StartPage() {
@@ -22,12 +23,12 @@ export function StartPage() {
   const info = KINDS[kind];
   return (
     <div className="col gap-lg start-page">
-      <nav aria-label="Breadcrumb" className="small">
+      <nav aria-label={t("studio.startPage.aria.breadcrumb")} className="small">
         <Link to="/">
-          <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> All kinds of plan
+          <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {t("studio.startPage.btn.allKindsOfPlan")}
         </Link>
       </nav>
-      <PageHeader title={`New ${info.label.toLowerCase()}`} description="How do you want to start? Every way leads to a plan you can edit before anything is calculated." />
+      <PageHeader title={`New ${info.label.toLowerCase()}`} description={t("studio.startPage.desc.howDoYouWantTo")} />
       <KindCard kind={kind} steps={steps} headingLevel={2} large />
     </div>
   );

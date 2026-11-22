@@ -34,7 +34,7 @@ export function ApsProgress({ run }: { run: ApsRunRecord }) {
   const pct = Math.max(0, Math.min(100, run.progress?.percent ?? 0));
   return (
     <div className="col" style={{ gap: 2, minWidth: 180 }} data-testid="aps-progress" data-percent={pct} data-phase={run.progress?.phase ?? run.status}>
-      <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Schedule run progress">
+      <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={t("mfg.apsBits.aria.scheduleRunProgress")}>
         <div style={{ width: `${pct}%` }} />
       </div>
       <span className="faint small">

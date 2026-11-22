@@ -15,6 +15,7 @@ import { fmtDuration, fmtMoney, fmtSeconds } from "../lib/time";
 import { Banner, ErrorBanner, Loading } from "./Banner";
 import { Icon } from "./Icon";
 import { StatusBadge } from "./StatusBadge";
+import { t, t as tr } from "../lib/i18n";
 
 export const PHASE_LABEL: Record<string, string> = {
   heuristic: "Priority rules",
@@ -56,7 +57,7 @@ interface PhaseView {
 
 /** PHASE2B 2.11: shown when a run was handed to another worker (`run_requeued`). */
 export function requeueNote(ev: { attempt: number; max_attempts: number }): string {
-  return `Restarting on another worker (attempt ${ev.attempt} of ${ev.max_attempts})`;
+  return `Restarting on another worker (attempt ${tr("common.nOfM", { n: ev.attempt, m: ev.max_attempts })})`;
 }
 
 export function lastRequeue(events: RunEvent[]): RunRequeuedEvent | null {
@@ -260,7 +261,7 @@ export function RunProgress({
   }, [events]);
 
   if (error) return <ErrorBanner error={error} />;
-  if (!run) return <Loading label="Loading run…" />;
+  if (!run) return <Loading label={t("studio.runProgress.label.loadingRun")} />;
 
   const limit = Number(run.request?.time_limit_seconds ?? 10);
   const terminal = [...events].reverse().find((e) => e.type === "run_completed" || e.type === "run_cancelled" || e.type === "run_failed");
@@ -290,7 +291,7 @@ export function RunProgress({
     <div className="card" data-testid="run-progress" data-run-id={run.id} data-run-state={run.status}>
       <div className="card-header">
         <div className="row wrap">
-          <h3>Optimization run</h3>
+          <h3>{t("studio.runProgress.head.optimizationRun")}</h3>
           <StatusBadge kind={run.status} testId="run-status" />
           {active ? (
             <span className="small muted">
@@ -311,28 +312,28 @@ export function RunProgress({
         <ErrorBanner error={cancelError} />
         {requeue ? (
           <div className="small muted row" role="status" data-testid="run-requeued">
-            <Icon name="refresh" /> {active ? requeueNote(requeue) : `Finished after a restart on another worker (attempt ${requeue.attempt} of ${requeue.max_attempts}).`}
+            <Icon name="refresh" /> {active ? requeueNote(requeue) : `Finished after a restart on another worker (attempt ${tr("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts })}).`}
           </div>
         ) : null}
         <div className="col" style={{ gap: 4 }}>
           <div className="row between small">
             <span className="muted">
-              {active ? "Searching" : "Took"} {fmtSeconds(elapsed)} of {fmtSeconds(limit)} budget
+              {active ? "Searching" : "Took"} {tr("common.nOfM", { n: fmtSeconds(elapsed), m: fmtSeconds(limit) })} budget
             </span>
             <span className="muted">{run.request?.strategy ? `Method: ${String(run.request.strategy)}` : null}</span>
           </div>
-          <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(active ? pct : 100)} aria-label="Time budget used">
+          <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(active ? pct : 100)} aria-label={t("studio.runProgress.aria.timeBudgetUsed")}>
             <div style={{ width: `${active ? pct : 100}%` }} />
           </div>
         </div>
 
         <div className="grid-2">
           <div className="col">
-            <h3>Phases</h3>
+            <h3>{t("studio.runProgress.head.phases")}</h3>
             {phases.length === 0 ? (
               <div className="small muted row">{active ? <><span className="spinner" aria-hidden /> Waiting for the solver to start…</> : "No phase information recorded."}</div>
             ) : (
-              <ol className="phase-list" aria-label="Solver phases">
+              <ol className="phase-list" aria-label={t("studio.runProgress.aria.solverPhases")}>
                 {phases.map((p, i) => {
                   const isActive = active && !p.done && i === phases.length - 1;
                   return (
@@ -364,7 +365,7 @@ export function RunProgress({
             )}
           </div>
           <div className="col">
-            <h3>Best so far</h3>
+            <h3>{t("studio.runProgress.head.bestSoFar")}</h3>
             <div className="kpis" style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))" }}>
               <div className="card kpi">
                 <div className="kpi-label">Duration</div>
@@ -418,13 +419,13 @@ export function RunProgress({
                 </div>
               </Banner>
             ) : run.status === "failed" ? (
-              <Banner tone="danger" title="The run failed." role="alert">
+              <Banner tone="danger" title={t("studio.runProgress.title.theRunFailed")} role="alert">
                 {run.error ?? "Unknown error"}
               </Banner>
             ) : null}
             {run.selection?.reasons.length ? (
               <div className="small">
-                <strong>Why this method:</strong>
+                <strong>{t("studio.runProgress.head.whyThisMethod")}</strong>
                 <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
                   {run.selection.reasons.map((r, i) => (
                     <li key={i}>{r}</li>
@@ -434,7 +435,7 @@ export function RunProgress({
             ) : null}
             {run.diagnostics.length ? (
               <div className="small">
-                <strong>Notes:</strong>
+                <strong>{t("studio.runProgress.head.notes")}</strong>
                 <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
                   {run.diagnostics.map((r, i) => (
                     <li key={i}>{r}</li>

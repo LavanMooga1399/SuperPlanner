@@ -73,33 +73,33 @@ export function ItemSupplierDialog({
       }}
     >
       <div className="form-grid">
-        <ItemPicker label="Part (buy item)" value={it} onChange={setIt} makeBuy="buy" disabled={Boolean(row) || Boolean(item)} testId="item-supplier-item" />
-        <SupplierPicker label="Supplier" value={sup} onChange={setSup} disabled={Boolean(row) || Boolean(supplier)} testId="item-supplier-supplier" />
-        <TextField label="Supplier part number" value={f.supplier_part_number} onChange={(v) => setF({ ...f, supplier_part_number: v })} maxLength={64} />
+        <ItemPicker label={t("mfg.itemSupplierDialog.label.partBuyItem")} value={it} onChange={setIt} makeBuy="buy" disabled={Boolean(row) || Boolean(item)} testId="item-supplier-item" />
+        <SupplierPicker label={t("mfg.itemSupplierDialog.label.supplier")} value={sup} onChange={setSup} disabled={Boolean(row) || Boolean(supplier)} testId="item-supplier-supplier" />
+        <TextField label={t("mfg.itemSupplierDialog.label.supplierPartNumber")} value={f.supplier_part_number} onChange={(v) => setF({ ...f, supplier_part_number: v })} maxLength={64} />
         <TextField
-          label="Lead time (days)"
+          label={t("mfg.itemSupplierDialog.label.leadTimeDays")}
           type="number"
           value={f.lead_time_days}
           onChange={(v) => setF({ ...f, lead_time_days: v })}
-          hint="Calendar days from order to dock. Empty = the supplier's, else the item's."
+          hint={t("mfg.itemSupplierDialog.hint.calendarDaysFromOrderTo")}
           testId="item-supplier-lead"
         />
-        <TextField label="Unit price" type="number" value={f.unit_price} onChange={(v) => setF({ ...f, unit_price: v })} hint={`Per ${it?.uom ?? "stock unit"}`} testId="item-supplier-price" />
-        <TextField label="Currency" value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} />
-        <TextField label="Minimum order quantity" type="number" value={f.min_order_qty} onChange={(v) => setF({ ...f, min_order_qty: v })} hint="0 = the item's value" />
-        <TextField label="Order multiple" type="number" value={f.order_multiple} onChange={(v) => setF({ ...f, order_multiple: v })} hint="0 = the item's value" />
-        <TextField label="Pack name" value={f.purchase_unit} onChange={(v) => setF({ ...f, purchase_unit: v.toUpperCase() })} maxLength={32} placeholder={t("mfg.itemSupplierDialog.ph.egReel")} />
+        <TextField label={t("mfg.itemSupplierDialog.label.unitPrice")} type="number" value={f.unit_price} onChange={(v) => setF({ ...f, unit_price: v })} hint={`Per ${it?.uom ?? "stock unit"}`} testId="item-supplier-price" />
+        <TextField label={t("mfg.itemSupplierDialog.label.currency")} value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} />
+        <TextField label={t("mfg.itemSupplierDialog.label.minimumOrderQuantity")} type="number" value={f.min_order_qty} onChange={(v) => setF({ ...f, min_order_qty: v })} hint={t("mfg.itemSupplierDialog.hint.0TheItemsValue")} />
+        <TextField label={t("mfg.itemSupplierDialog.label.orderMultiple")} type="number" value={f.order_multiple} onChange={(v) => setF({ ...f, order_multiple: v })} hint={t("mfg.itemSupplierDialog.hint.0TheItemsValue")} />
+        <TextField label={t("mfg.itemSupplierDialog.label.packName")} value={f.purchase_unit} onChange={(v) => setF({ ...f, purchase_unit: v.toUpperCase() })} maxLength={32} placeholder={t("mfg.itemSupplierDialog.ph.egReel")} />
         <TextField
-          label="Units per pack"
+          label={t("mfg.itemSupplierDialog.label.unitsPerPack")}
           type="number"
           value={f.units_per_purchase_unit}
           onChange={(v) => setF({ ...f, units_per_purchase_unit: v })}
           hint={packBad ? "A whole number greater than 0." : "Orders are rounded up to whole packs."}
         />
       </div>
-      <CheckField label="Preferred supplier" checked={f.preferred} onChange={(v) => setF({ ...f, preferred: v })} hint="MRP orders from the preferred supplier. Only one per part." testId="item-supplier-preferred" />
-      <CheckField label="Active" checked={f.active} onChange={(v) => setF({ ...f, active: v })} />
-      <TextField label="Note" value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
+      <CheckField label={t("mfg.itemSupplierDialog.label.preferredSupplier")} checked={f.preferred} onChange={(v) => setF({ ...f, preferred: v })} hint={t("mfg.itemSupplierDialog.hint.mrpOrdersFromThePreferred")} testId="item-supplier-preferred" />
+      <CheckField label={t("mfg.itemSupplierDialog.label.active")} checked={f.active} onChange={(v) => setF({ ...f, active: v })} />
+      <TextField label={t("mfg.itemSupplierDialog.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
     </EntityFormDialog>
   );
 }

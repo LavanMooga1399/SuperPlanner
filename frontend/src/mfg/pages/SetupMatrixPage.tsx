@@ -51,10 +51,10 @@ function RowDialog({ row, family, families, onClose, onSaved }: { row: SetupMatr
         ))}
       </datalist>
       <div className="form-grid">
-        <TextField label="Line setup family" value={f.line_setup_family} onChange={(v) => setF({ ...f, line_setup_family: v })} maxLength={32} hint="The 'setup family' of the lines this applies to, e.g. SMT" testId="setup-line-family" />
-        <TextField label="From item family" value={f.from_family} onChange={(v) => setF({ ...f, from_family: v })} maxLength={32} hint="* = any" testId="setup-from" />
-        <TextField label="To item family" value={f.to_family} onChange={(v) => setF({ ...f, to_family: v })} maxLength={32} hint="* = any" testId="setup-to" />
-        <TextField label="Changeover (minutes)" type="number" value={f.minutes} onChange={(v) => setF({ ...f, minutes: v })} testId="setup-minutes" />
+        <TextField label={t("mfg.setupMatrixPage.label.lineSetupFamily")} value={f.line_setup_family} onChange={(v) => setF({ ...f, line_setup_family: v })} maxLength={32} hint={t("mfg.setupMatrixPage.hint.theSetupFamilyOfThe")} testId="setup-line-family" />
+        <TextField label={t("mfg.setupMatrixPage.label.fromItemFamily")} value={f.from_family} onChange={(v) => setF({ ...f, from_family: v })} maxLength={32} hint="* = any" testId="setup-from" />
+        <TextField label={t("mfg.setupMatrixPage.label.toItemFamily")} value={f.to_family} onChange={(v) => setF({ ...f, to_family: v })} maxLength={32} hint="* = any" testId="setup-to" />
+        <TextField label={t("mfg.setupMatrixPage.label.changeoverMinutes")} type="number" value={f.minutes} onChange={(v) => setF({ ...f, minutes: v })} testId="setup-minutes" />
       </div>
     </EntityFormDialog>
   );
@@ -104,9 +104,9 @@ export function SetupMatrixPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>From item family</th>
-                <th>To item family</th>
-                <th className="right">Changeover</th>
+                <th>{t("mfg.setupMatrixPage.head.fromItemFamily")}</th>
+                <th>{t("mfg.setupMatrixPage.head.toItemFamily")}</th>
+                <th className="right">{t("mfg.setupMatrixPage.head.changeover")}</th>
                 <th>
                   <span className="sr-only">Actions</span>
                 </th>
@@ -175,7 +175,7 @@ export function SetupMatrixPage() {
             deleteSetupRow(d.id, d.row_version).then(rows.reload, setError);
           }}
         >
-          <p style={{ margin: 0 }}>The next schedule run uses the next most specific row or the operation's setup time.</p>
+          <p style={{ margin: 0 }}>{t("mfg.setupMatrixPage.text.theNextScheduleRunUses")}</p>
         </ConfirmDialog>
       ) : null}
     </div>

@@ -7,6 +7,7 @@ import { Icon } from "./Icon";
 import { methodLabel } from "./RunProgress";
 import { StatusBadge } from "./StatusBadge";
 import { VirtualTable } from "../mfg/components/VirtualTable";
+import { t, t as tr } from "../lib/i18n";
 
 function DeltaCell({ v, kind, currency }: { v: number | null; kind: "min" | "count" | "money"; currency: string }) {
   if (v === null || v === undefined) return <span className="faint">-</span>;
@@ -92,10 +93,10 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
         <table className="table">
           <thead>
             <tr>
-              <th style={{ width: "22%" }}>Measure</th>
+              <th style={{ width: "22%" }}>{t("studio.scheduleComparison.head.measure")}</th>
               <th>{head(cmp.a, "A")}</th>
               <th>{head(cmp.b, "B")}</th>
-              <th>Change (B - A)</th>
+              <th>{t("studio.scheduleComparison.head.changeBA")}</th>
             </tr>
           </thead>
           <tbody>
@@ -122,7 +123,7 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
 
       <div className="col">
         <div className="toolbar" style={{ marginBottom: 0 }}>
-          <h3>{cmp.changed_task_count} of {cmp.task_deltas.length} {terms.tasksL} changed</h3>
+          <h3>{tr("common.nOfM", { n: cmp.changed_task_count, m: cmp.task_deltas.length })} {terms.tasksL} changed</h3>
           <div className="grow" />
           <label className="checkbox small">
             <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} /> Only changed
@@ -158,7 +159,7 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
                   <span className="mfg-ellipsis">{d.resources_b.map(resName).join(", ") || <span className="faint">-</span>}</span>
                   {d.resource_changed ? (
                     <span className="badge warn">
-                      <Icon name="refresh" /> changed
+                      <Icon name="refresh" /> {t("studio.scheduleComparison.btn.changed")}
                     </span>
                   ) : null}
                 </span>
@@ -166,12 +167,12 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
             },
           ]}
           rowKey={(d) => d.task_id}
-          label="Differences per task"
+          label={t("studio.scheduleComparison.label.differencesPerTask")}
           testId="compare-table"
           height="60vh"
           exportName="schedule-comparison"
           rowExtras={(d) => ({ testId: `compare-row-${d.task_id}` })}
-          empty="No differences."
+          empty={t("studio.scheduleComparison.empty.noDifferences")}
           card={{ title: "task", fields: ["start", "end", "rb"] }}
         />
       </div>

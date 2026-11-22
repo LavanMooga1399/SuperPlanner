@@ -10,6 +10,7 @@ import { WEEKDAYS, type ShiftTemplateInput, type WeekWindow, type Weekday } from
 import { fmtHours, WEEKDAY_LABEL } from "../lib/format";
 import { fieldErrors, useDebounced, useLoad } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
+import { t } from "../../lib/i18n";
 
 const DAY = 1440;
 const WEEK = 7 * DAY;
@@ -82,7 +83,7 @@ export function ShiftWeekPreview({ template }: { template: Pick<ShiftTemplateInp
       {errors.length ? (
         <div className="banner danger" role="alert">
           <div className="banner-body">
-            <strong>These shifts do not fit together</strong>
+            <strong>{t("mfg.shiftWeekPreview.head.theseShiftsDoNotFit")}</strong>
             <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
               {errors.map((e, i) => (
                 <li key={i}>{e.field ? `${e.field}: ${e.message}` : e.message}</li>
@@ -141,7 +142,7 @@ export function ShiftWeekPreview({ template }: { template: Pick<ShiftTemplateInp
         </svg>
       </div>
       {preview.data ? (
-        <ul className="mfg-plain-list row wrap small" data-testid="shift-week-totals" aria-label="Working time per day">
+        <ul className="mfg-plain-list row wrap small" data-testid="shift-week-totals" aria-label={t("mfg.shiftWeekPreview.aria.workingTimePerDay")}>
           {WEEKDAYS.map((d: Weekday) => (
             <li key={d} className="chip">
               {WEEKDAY_LABEL[d]}: {fmtHours(preview.data?.minutes_per_day[d] ?? 0)}

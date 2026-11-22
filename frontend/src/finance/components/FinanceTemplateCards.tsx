@@ -7,6 +7,7 @@ import { instantiateFinanceTemplate, listFinanceTemplates } from "../api/client"
 import type { FinanceTemplateInfo, FinanceTemplateParameter } from "../api/types";
 import { useAsync } from "../../lib/useAsync";
 import { currentUtcMonth } from "../lib/months";
+import { t } from "../../lib/i18n";
 
 const ICONS: Record<string, IconName> = {
   young_professional: "briefcase",
@@ -19,7 +20,7 @@ const ICONS: Record<string, IconName> = {
 export function FinanceTemplateCards() {
   const templates = useAsync((s) => listFinanceTemplates(s), []);
   const visible = (templates.data?.items ?? []).filter((t) => t.id !== "blank");
-  if (templates.loading && !templates.data) return <Loading label="Loading examples…" />;
+  if (templates.loading && !templates.data) return <Loading label={t("finance.financeTemplateCards.label.loadingExamples")} />;
   if (templates.error) return <ErrorBanner error={templates.error} onRetry={templates.reload} />;
   return (
     <div className="grid-3">

@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type KeyboardEvent, type ReactElement } from "react";
 import type { DraftDuration, Question, WorkingTime, WindowHM, Weekday } from "../api/types";
 import { num, unitWord } from "../lib/pert";
+import { t } from "../../lib/i18n";
 
 /** Local editing value of one question (strings for text-like kinds). */
 export type QValue = string | string[] | boolean | WorkingTime | null;
@@ -140,7 +141,7 @@ export function WorkingTimeFields({
   return (
     <div className="col" style={{ gap: 8 }}>
       <fieldset className="plain-fieldset">
-        <legend className="field-label">Working days</legend>
+        <legend className="field-label">{t("studio.questionInput.head.workingDays")}</legend>
         <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
           {DAYS.map(({ d, label }) => (
             <label key={d} className="checkbox day-check">
@@ -157,7 +158,7 @@ export function WorkingTimeFields({
           ))}
         </div>
       </fieldset>
-      <WindowsInput id={winId} errId={errId} label="Hours on those days" initial={winText} onValid={(windows) => onChange({ ...value, windows })} />
+      <WindowsInput id={winId} errId={errId} label={t("studio.questionInput.label.hoursOnThoseDays")} initial={winText} onValid={(windows) => onChange({ ...value, windows })} />
       <label className="checkbox">
         <input
           type="checkbox"
@@ -170,7 +171,7 @@ export function WorkingTimeFields({
         <WindowsInput
           id={wkId}
           errId={`${errId}-wk`}
-          label="Hours on Saturday and Sunday"
+          label={t("studio.questionInput.label.hoursOnSaturdayAndSunday")}
           initial={wkText}
           onValid={(weekend_windows) => onChange({ ...value, weekend_windows })}
         />
@@ -200,7 +201,7 @@ function WindowsInput({ id, errId, label, initial, onValid }: { id: string; errI
         id={id}
         className="input"
         value={text}
-        placeholder="09:00-13:00, 14:00-18:00"
+        placeholder={t("studio.questionInput.ph.0900130014001800")}
         aria-invalid={bad}
         aria-describedby={bad ? errId : undefined}
         onChange={(e) => setText(e.target.value)}

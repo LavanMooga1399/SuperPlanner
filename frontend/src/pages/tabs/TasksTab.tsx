@@ -8,6 +8,7 @@ import { makeTask, removeTask } from "../../lib/planEdit";
 import { useTerms } from "../../lib/terms";
 import { fmtDuration } from "../../lib/time";
 import { useLoadedPlan } from "../../state/PlanContext";
+import { t } from "../../lib/i18n";
 
 export function TasksTab() {
   const { draft, update } = useLoadedPlan();
@@ -97,7 +98,7 @@ export function TasksTab() {
       {toDelete ? (
         <ConfirmDialog
           title={`Delete ${terms.taskL}?`}
-          confirmLabel="Delete"
+          confirmLabel={t("studio.tasksTab.btn.delete")}
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {

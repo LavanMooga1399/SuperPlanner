@@ -81,7 +81,7 @@ export function DeliveryBoard() {
         </label>
         <div style={{ width: 260 }}>
           <SupplierPicker
-            label="Supplier"
+            label={t("mfg.deliveryBoard.label.supplier")}
             value={supRef}
             allowClear
             onChange={(s) =>
@@ -128,7 +128,7 @@ export function DeliveryBoard() {
         rows={data.rows}
         columns={columns}
         rowKey={(s) => s.schedule_id}
-        label="Delivery schedule"
+        label={t("mfg.deliveryBoard.label.deliverySchedule")}
         testId="board-table"
         totalCount={data.total}
         height="min(66vh, 720px)"
@@ -136,7 +136,7 @@ export function DeliveryBoard() {
         onActivate={(s) => navigate(s.link)}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading deliveries…" : "No open deliveries match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} open deliveries</span>}
+        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} open deliveries</span>}
       />
     </div>
   );

@@ -23,6 +23,7 @@ import { currentWorkspace } from "../lib/workspace";
 import { floorErrorText } from "./floorText";
 import { discardFailed, retryFailed, syncNow, useAutoSync, useFloorQueue } from "./offlineQueue";
 import { formatTime } from "../../lib/locale";
+import { t, plural } from "../../lib/i18n";
 
 export interface CrewMember {
   id?: string;
@@ -256,7 +257,7 @@ function FloorShell({ children }: { children: ReactNode }) {
     <Ctx.Provider value={ctx}>
       <div className="floor" data-testid="floor-shell">
         <header className="floor-head">
-          <Link to={lineId ? mfgPaths.floorLine(lineId) : mfgPaths.floor()} className="floor-home" aria-label="Floor home">
+          <Link to={lineId ? mfgPaths.floorLine(lineId) : mfgPaths.floor()} className="floor-home" aria-label={t("floor.floorLayout.aria.floorHome")}>
             <Icon name="factory" size={22} />
             <span>Floor</span>
           </Link>
@@ -277,7 +278,7 @@ function FloorShell({ children }: { children: ReactNode }) {
               className="floor-scan"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Scan or type a traveller, operation, badge or line"
+              placeholder={t("floor.floorLayout.ph.scanOrTypeATraveller")}
               autoComplete="off"
               autoCapitalize="characters"
               spellCheck={false}
@@ -289,20 +290,20 @@ function FloorShell({ children }: { children: ReactNode }) {
           <div className="floor-head-side">
             {!online ? (
               <span className="badge warn" role="status">
-                <Icon name="alert" /> Offline
+                <Icon name="alert" /> {t("floor.floorLayout.btn.offline")}
               </span>
             ) : null}
             {waiting || queue.failed.length ? (
               <button type="button" className={`btn floor-sync ${queue.failed.length ? "danger" : ""}`} onClick={() => setShowQueue((v) => !v)} data-testid="floor-sync-pending" data-count={waiting} data-failed={queue.failed.length} aria-expanded={showQueue}>
                 <Icon name={queue.syncing ? "loader" : "refresh"} />
-                {waiting ? `${waiting} action${waiting === 1 ? "" : "s"} waiting to sync` : ""}
+                {waiting ? `${plural(waiting, "action")} waiting to sync` : ""}
                 {waiting && queue.failed.length ? " · " : ""}
                 {queue.failed.length ? `${queue.failed.length} need${queue.failed.length === 1 ? "s" : ""} attention` : ""}
               </button>
             ) : null}
             {canSupervise ? (
               <Link className="btn ghost" to={mfgPaths.floorOverview()}>
-                Overview
+                {t("floor.floorLayout.btn.overview")}
               </Link>
             ) : null}
           </div>
@@ -316,9 +317,9 @@ function FloorShell({ children }: { children: ReactNode }) {
         {showQueue ? (
           <section className="floor-card" data-testid="floor-sync-list">
             <div className="row wrap" style={{ justifyContent: "space-between" }}>
-              <h2 style={{ margin: 0 }}>Actions on this tablet</h2>
+              <h2 style={{ margin: 0 }}>{t("floor.floorLayout.head.actionsOnThisTablet")}</h2>
               <button type="button" className="btn floor-btn" onClick={() => void syncNow()} disabled={!waiting || queue.syncing}>
-                <Icon name="refresh" /> Sync now
+                <Icon name="refresh" /> {t("floor.floorLayout.btn.syncNow")}
               </button>
             </div>
             {queue.pending.map((a) => (
@@ -331,10 +332,10 @@ function FloorShell({ children }: { children: ReactNode }) {
                 <Icon name="alert" /> {a.label}: <strong>{a.error?.message}</strong>
                 <span className="row" style={{ marginLeft: "auto" }}>
                   <button type="button" className="btn" onClick={() => retryFailed(a.id)}>
-                    Try again
+                    {t("floor.floorLayout.btn.tryAgain")}
                   </button>
                   <button type="button" className="btn ghost" onClick={() => discardFailed(a.id)}>
-                    Discard
+                    {t("floor.floorLayout.btn.discard")}
                   </button>
                 </span>
               </div>
@@ -369,7 +370,7 @@ function CrewBar() {
           ))}
           {crew.length > 1 ? (
             <button type="button" className="btn ghost" onClick={clearCrew}>
-              Sign out all
+              {t("floor.floorLayout.btn.signOutAll")}
             </button>
           ) : null}
         </>

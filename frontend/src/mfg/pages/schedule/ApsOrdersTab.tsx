@@ -144,7 +144,7 @@ export function ApsOrdersTab() {
           },
         ]}
         rowKey={(o) => o.order.id}
-        label="Orders in this schedule"
+        label={t("mfg.apsOrdersTab.label.ordersInThisSchedule")}
         testId="aps-orders"
         totalCount={data.total}
         loading={data.loading}
@@ -243,7 +243,7 @@ export function ApsDemandTab() {
           },
         ]}
         rowKey={(x) => x.demand_line_id}
-        label="Demand lines in this schedule"
+        label={t("mfg.apsOrdersTab.label.demandLinesInThisSchedule")}
         testId="aps-demand"
         loading={d.loading && !d.data}
         exportName={`schedule-${run.run_no}-demand`}

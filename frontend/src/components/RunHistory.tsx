@@ -6,6 +6,7 @@ import { Icon } from "./Icon";
 import { methodLabel } from "./RunProgress";
 import { StatusBadge } from "./StatusBadge";
 import { DataTable } from "../mfg/components/DataTable";
+import { t } from "../lib/i18n";
 
 export function RunHistory({
   runs,
@@ -23,8 +24,8 @@ export function RunHistory({
   return (
     <div className="card card-table" data-testid="run-history">
       <div className="card-header">
-        <h3>Run history</h3>
-        <button className="btn ghost sm" onClick={onRefresh} aria-label="Refresh run history">
+        <h3>{t("studio.runHistory.head.runHistory")}</h3>
+        <button className="btn ghost sm" onClick={onRefresh} aria-label={t("studio.runHistory.aria.refreshRunHistory")}>
           <Icon name="refresh" />
         </button>
       </div>
@@ -59,7 +60,7 @@ export function RunHistory({
             render: (r) => (
               <span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
                 <Link className="btn ghost sm" to={`?run=${encodeURIComponent(r.id)}`}>
-                  Details
+                  {t("studio.runHistory.btn.details")}
                 </Link>
                 {r.primary_schedule_id ? (
                   <Link className="btn ghost sm" to={`../schedule?id=${encodeURIComponent(r.primary_schedule_id)}`}>
@@ -71,11 +72,11 @@ export function RunHistory({
           },
         ]}
         rowKey={(r) => r.id}
-        label="Run history"
+        label={t("studio.runHistory.label.runHistory")}
         tableId="studio-run-history"
         exportName="run-history"
         rowExtras={(r) => ({ testId: `run-row-${r.id}`, className: r.id === currentRunId ? "mfg-selected" : undefined })}
-        empty="No runs yet. Each time you press Optimize, the run and its result are listed here."
+        empty={t("studio.runHistory.empty.noRunsYetEachTime")}
         card={{ title: "started", status: "status", actions: "actions", fields: ["result", "duration", "cost"] }}
       />
     </div>

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { DraftAmount, DraftDuration, DurationUnit } from "../api/types";
 import { formatRange, isRange, num, UNIT_LABEL } from "../lib/pert";
+import { t } from "../../lib/i18n";
 
 function parseNum(s: string): number | null {
   const t = s.replace(/[,\s₹$€]/g, "");
@@ -140,7 +141,7 @@ export function DurationRangeInput({
   if (!value) {
     return (
       <button type="button" className="btn sm" onClick={() => onChange({ optimistic: 1, likely: 1, pessimistic: 1, unit: defaultUnit })}>
-        Set duration
+        {t("studio.fields.btn.setDuration")}
       </button>
     );
   }
@@ -174,7 +175,7 @@ export function DurationRangeInput({
           {unitSel}
         </span>
         <button type="button" className="link-btn small" onClick={() => setExpanded(true)}>
-          Not sure? Add a range
+          {t("studio.fields.btn.notSureAddARange")}
         </button>
       </span>
     );
@@ -200,7 +201,7 @@ export function DurationRangeInput({
       </span>
       {!isRange(value) ? (
         <button type="button" className="link-btn small" onClick={() => setExpanded(false)}>
-          Use one value
+          {t("studio.fields.btn.useOneValue")}
         </button>
       ) : null}
     </span>

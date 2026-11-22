@@ -130,7 +130,7 @@ export function BomTab() {
     <div className="col gap-lg">
       <section className="card" aria-labelledby="bom-versions-title">
         <div className="card-header">
-          <h2 id="bom-versions-title">BOM versions</h2>
+          <h2 id="bom-versions-title">{t("mfg.bomTab.head.bomVersions")}</h2>
           <button type="button" className="btn sm primary" onClick={() => void newBom()} disabled={busy} data-testid="bom-new">
             <Icon name="plus" /> {t("mfg.bomTab.btn.newBomVersion")}
           </button>
@@ -197,8 +197,8 @@ export function BomTab() {
 
       <section className="card" aria-labelledby="bom-structure-title">
         <div className="card-header">
-          <h2 id="bom-structure-title">Structure</h2>
-          <div className="btn-group" role="group" aria-label="View">
+          <h2 id="bom-structure-title">{t("mfg.bomTab.head.structure")}</h2>
+          <div className="btn-group" role="group" aria-label={t("mfg.bomTab.aria.view")}>
             <button type="button" className="btn sm" aria-pressed={mode === "indented"} onClick={() => setMode("indented")} data-testid="bom-mode-indented">
               {t("mfg.bomTab.btn.allLevels")}
             </button>
@@ -251,7 +251,7 @@ export function BomTab() {
               </ul>
             </Banner>
           ) : null}
-          {explosion.loading && !explosion.data ? <Spinner label="Loading structure…" /> : null}
+          {explosion.loading && !explosion.data ? <Spinner label={t("mfg.bomTab.label.loadingStructure")} /> : null}
           {explosion.data && explosion.data.mode === "indented" && mode === "indented" ? (
             explosion.data.rows.length <= 1 && !explosion.data.rows[0]?.has_children ? (
               <p className="muted" style={{ margin: 0 }}>
@@ -293,7 +293,7 @@ export function BomTab() {
           onCancel={() => setPending(null)}
           onConfirm={() => void act(() => obsoleteBom(pending.bom.id, pending.bom.row_version))}
         >
-          <p style={{ margin: 0 }}>It stops being used for planning and stays in the history (read-only).</p>
+          <p style={{ margin: 0 }}>{t("mfg.bomTab.text.itStopsBeingUsedFor")}</p>
         </ConfirmDialog>
       ) : null}
       {pending?.kind === "delete" ? (
@@ -310,7 +310,7 @@ export function BomTab() {
             })
           }
         >
-          <p style={{ margin: 0 }}>The version and its lines are deleted.</p>
+          <p style={{ margin: 0 }}>{t("mfg.bomTab.text.theVersionAndItsLines")}</p>
         </ConfirmDialog>
       ) : null}
     </div>
@@ -370,7 +370,7 @@ function SelectedLines({
               <Icon name="settings" /> {t("mfg.bomTab.btn.editLines")}
             </Link>
           ) : null}
-          <button type="button" className="btn sm ghost icon" aria-label="Close lines" onClick={onClose}>
+          <button type="button" className="btn sm ghost icon" aria-label={t("mfg.bomTab.aria.closeLines")} onClick={onClose}>
             <Icon name="x" />
           </button>
         </span>
@@ -414,5 +414,5 @@ function SummaryTable({ rows }: { rows: SummarizedRow[] }) {
     { key: "occ", header: "Used", width: "70px", align: "right", render: (r) => `${r.occurrences}x` },
     { key: "lt", header: "Lead time", width: "80px", align: "right", render: (r) => (r.lead_time_days === null ? "" : `${r.lead_time_days} d`) },
   ];
-  return <VirtualTable rows={rows} columns={columns} rowKey={(r) => r.item_id} label="Total quantities" testId="bom-summary" rowExtras={(r) => ({ testId: "bom-summary-row", data: { "part-number": r.part_number } })} />;
+  return <VirtualTable rows={rows} columns={columns} rowKey={(r) => r.item_id} label={t("mfg.bomTab.label.totalQuantities")} testId="bom-summary" rowExtras={(r) => ({ testId: "bom-summary-row", data: { "part-number": r.part_number } })} />;
 }

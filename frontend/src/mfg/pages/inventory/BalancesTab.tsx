@@ -137,7 +137,7 @@ export function BalancesTab() {
     <div className="col gap-lg">
       <FilterBar chips={chips} onClearAll={() => (setQ(""), setParams({}, { replace: true }))} search={{ id: "bal-q", value: q, onChange: setQ, placeholder: "Part number, description or lot", testId: "balances-search" }} pageKey="BalancesTab">
         <div style={{ minWidth: 220 }}>
-          <LocationSelect label="Location" value={locationId} onChange={(v) => set("location", v)} allowEmpty emptyLabel="All locations" includeInactive testId="balances-location" />
+          <LocationSelect label={t("mfg.balancesTab.label.location")} value={locationId} onChange={(v) => set("location", v)} allowEmpty emptyLabel="All locations" includeInactive testId="balances-location" />
         </div>
         <div className="field">
           <label htmlFor="bal-kind">{t("mfg.balancesTab.label.kind")}</label>
@@ -208,7 +208,7 @@ export function BalancesTab() {
         rows={data.rows}
         columns={columns}
         rowKey={(b) => b.id}
-        label="Stock balances"
+        label={t("mfg.balancesTab.label.stockBalances")}
         testId="balances-table"
         totalCount={data.total}
         height="min(64vh, 700px)"

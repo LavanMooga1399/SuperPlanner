@@ -36,7 +36,7 @@ export function ItemShell() {
       />
     );
   if (item.error && !it) return <MfgError error={item.error} onRetry={item.reload} />;
-  if (!it) return <Spinner label="Loading item…" />;
+  if (!it) return <Spinner label={t("mfg.itemShell.label.loadingItem")} />;
 
   const tabs = [
     { to: mfgPaths.item(it.id), label: "Details", end: true as boolean, testId: "item-tab-details" },
@@ -50,7 +50,7 @@ export function ItemShell() {
 
   return (
     <div className="col" style={{ gap: 12 }}>
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
+      <nav aria-label={t("mfg.itemShell.aria.breadcrumb")} className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.items()}>Items</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{it.part_number}</span>
       </nav>
       <div className="ws-header">
@@ -68,7 +68,7 @@ export function ItemShell() {
           </span>
         </div>
       </div>
-      <nav className="tabs" aria-label="Item sections">
+      <nav className="tabs" aria-label={t("mfg.itemShell.aria.itemSections")}>
         {tabs.map((t) => (
           <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={t.testId}>
             {t.label}

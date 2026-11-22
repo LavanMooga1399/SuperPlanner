@@ -53,7 +53,7 @@ export function LineRates({ operationId, groupId, readOnly }: { operationId: str
   };
   return (
     <fieldset className="mfg-fieldset" data-testid="line-rates">
-      <legend>Line rates (optional)</legend>
+      <legend>{t("mfg.lineRates.head.lineRatesOptional")}</legend>
       <p className="hint" style={{ margin: 0 }}>
         Own times on a particular line. An own run time replaces "run time / speed factor" for that line. Empty = the operation's times.
       </p>
@@ -61,10 +61,10 @@ export function LineRates({ operationId, groupId, readOnly }: { operationId: str
       <table className="table mfg-grid-table">
         <thead>
           <tr>
-            <th>Line</th>
-            <th>Speed</th>
-            <th>Setup (min)</th>
-            <th>Run (min per load)</th>
+            <th>{t("mfg.lineRates.head.line")}</th>
+            <th>{t("mfg.lineRates.head.speed")}</th>
+            <th>{t("mfg.lineRates.head.setupMin")}</th>
+            <th>{t("mfg.lineRates.head.runMinPerLoad")}</th>
             <th>
               <span className="sr-only">Save</span>
             </th>

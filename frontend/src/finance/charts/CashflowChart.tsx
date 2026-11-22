@@ -3,6 +3,7 @@ import type { ResultCashflow } from "../api/types";
 import { ChartPoint, ChartTooltip, type TooltipRow } from "./ChartTooltip";
 import { Legend } from "./Legend";
 import { linearScale, niceTicks, useWidth } from "./scales";
+import { t } from "../../lib/i18n";
 
 interface YearRow {
   label: string;
@@ -166,13 +167,13 @@ export function CashflowChart({
         <caption>Cash flow per plan year, today's money</caption>
         <thead>
           <tr>
-            <th scope="col">Year from</th>
-            <th scope="col">Income</th>
-            <th scope="col">One-off net</th>
+            <th scope="col">{t("finance.cashflowChart.head.yearFrom")}</th>
+            <th scope="col">{t("finance.cashflowChart.head.income")}</th>
+            <th scope="col">{t("finance.cashflowChart.head.oneoffNet")}</th>
             {OUT_KEYS.map((k) => (
               <th scope="col" key={k.key}>{k.label}</th>
             ))}
-            <th scope="col">Surplus</th>
+            <th scope="col">{t("finance.cashflowChart.head.surplus")}</th>
           </tr>
         </thead>
         <tbody>

@@ -186,7 +186,7 @@ function PaletteDialog() {
   let lastGroup = "";
   return (
     <div className="overlay palette-overlay" onMouseDown={(e) => e.target === e.currentTarget && closePalette()}>
-      <div className="palette" role="dialog" aria-modal="true" aria-label="Search and commands" data-testid="command-palette">
+      <div className="palette" role="dialog" aria-modal="true" aria-label={t("studio.commandPalette.aria.searchAndCommands")} data-testid="command-palette">
         <div className="palette-input">
           <Icon name="search" />
           <input
@@ -196,7 +196,7 @@ function PaletteDialog() {
             aria-controls={listId}
             aria-activedescendant={shown[active] ? `${listId}-${active}` : undefined}
             aria-autocomplete="list"
-            aria-label="Search pages, actions and records"
+            aria-label={t("studio.commandPalette.aria.searchPagesActionsAndRecords")}
             placeholder={t("palette.placeholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -205,7 +205,7 @@ function PaletteDialog() {
           />
           {records.busy ? <span className="spinner" aria-hidden /> : <kbd>Esc</kbd>}
         </div>
-        <ul className="palette-list" role="listbox" id={listId} ref={listRef} aria-label="Results">
+        <ul className="palette-list" role="listbox" id={listId} ref={listRef} aria-label={t("studio.commandPalette.aria.results")}>
           {shown.length === 0 ? (
             <li className="palette-empty" role="presentation">
               {records.busy ? t("palette.searching") : t("palette.none", { q: q.trim() })}

@@ -2,6 +2,7 @@ import type { Requirement, Resource } from "../api/types";
 import type { Terms } from "../lib/terms";
 import { Icon } from "./Icon";
 import { MultiSelect, NumberInput } from "./Inputs";
+import { t } from "../lib/i18n";
 
 /**
  * One row per requirement: which resources may do it (alternatives, in preference
@@ -64,7 +65,7 @@ export function RequirementEditor({
             <button
               type="button"
               className="btn ghost sm icon"
-              aria-label={`Remove requirement ${i + 1} of ${taskName}`}
+              aria-label={`Remove requirement ${t("common.nOfM", { n: i + 1, m: taskName })}`}
               onClick={() => onChange(value.filter((_, k) => k !== i))}
             >
               <Icon name="x" />

@@ -151,7 +151,7 @@ export function FloorEvents() {
   return (
     <div className="col gap-lg" data-testid="floor-events">
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: 0 }}>Floor event log</h1>
+        <h1 style={{ margin: 0 }}>{t("mfg.floorEvents.head.floorEventLog")}</h1>
         <Link className="btn" to={mfgPaths.floorOverview()}>
           {t("mfg.floorEvents.btn.shopFloorOverview")}
         </Link>
@@ -198,7 +198,7 @@ export function FloorEvents() {
         rows={data.rows}
         columns={columns}
         rowKey={(e) => e.id}
-        label="Shop floor events"
+        label={t("mfg.floorEvents.label.shopFloorEvents")}
         testId="floor-event-table"
         totalCount={data.total}
         loading={data.loading}

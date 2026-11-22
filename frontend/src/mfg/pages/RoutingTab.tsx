@@ -183,7 +183,7 @@ export function RoutingTab() {
     <div className="col gap-lg">
       <section className="card" aria-labelledby="rtg-list-title">
         <div className="card-header">
-          <h2 id="rtg-list-title">Routings</h2>
+          <h2 id="rtg-list-title">{t("mfg.routingTab.head.routings")}</h2>
           <button
             type="button"
             className="btn sm primary"
@@ -259,7 +259,7 @@ export function RoutingTab() {
         </ul>
       </section>
 
-      {selected.loading && !selected.data ? <Spinner label="Loading routing…" /> : null}
+      {selected.loading && !selected.data ? <Spinner label={t("mfg.routingTab.label.loadingRouting")} /> : null}
       <MfgError error={selected.error} onRetry={selected.reload} />
       {selected.data && selected.data.id === selectedId ? (
         <RoutingDocument
@@ -292,7 +292,7 @@ export function RoutingTab() {
             select(id);
           }}
         >
-          <p style={{ margin: 0 }}>The open routing has operation edits that are not saved yet.</p>
+          <p style={{ margin: 0 }}>{t("mfg.routingTab.text.theOpenRoutingHasOperation")}</p>
         </ConfirmDialog>
       ) : null}
       {pending?.kind === "release" ? (
@@ -311,12 +311,12 @@ export function RoutingTab() {
       ) : null}
       {pending?.kind === "obsolete" ? (
         <ConfirmDialog title={`Make ${pending.r.code} v${pending.r.version} obsolete?`} confirmLabel={t("mfg.routingTab.btn.makeObsolete")} busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => obsoleteRouting(pending.r.id, pending.r.row_version))}>
-          <p style={{ margin: 0 }}>It stops being used for planning and stays in the history (read-only).</p>
+          <p style={{ margin: 0 }}>{t("mfg.routingTab.text.itStopsBeingUsedFor")}</p>
         </ConfirmDialog>
       ) : null}
       {pending?.kind === "delete" ? (
         <ConfirmDialog title={`Delete ${pending.r.code} v${pending.r.version}?`} confirmLabel={t("mfg.routingTab.btn.delete")} danger busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => deleteRouting(pending.r.id, pending.r.row_version))}>
-          <p style={{ margin: 0 }}>The routing and its operations are deleted.</p>
+          <p style={{ margin: 0 }}>{t("mfg.routingTab.text.theRoutingAndItsOperations")}</p>
         </ConfirmDialog>
       ) : null}
     </div>
@@ -447,15 +447,15 @@ function RoutingDocument({
             />
           ) : null}
           {conflict ? <ConflictBanner onReload={() => void reload()} what="this routing" /> : null}
-          <ErpOwnedNotice entity="routings" label="Routings" />
+          <ErpOwnedNotice entity="routings" label={t("mfg.routingTab.label.routings")} />
           <MfgError error={error} title="Could not save the routing" />
           {settings ? (
             <div className="form-grid">
-              <TextField label="Routing code" value={header.code} onChange={(v) => setHeader({ ...header, code: v })} maxLength={32} disabled={readOnly} hint="Tells alternate routings apart, e.g. STD, WAVE." />
-              <TextField label="Priority" type="number" value={header.priority} onChange={(v) => setHeader({ ...header, priority: v })} disabled={readOnly} hint="1 = primary; 2-9 = alternates." />
-              <TextField label="Revision" value={header.revision} onChange={(v) => setHeader({ ...header, revision: v })} maxLength={16} disabled={readOnly} />
-              <TextField label="Version" type="number" value={header.version} onChange={(v) => setHeader({ ...header, version: v })} disabled={readOnly} />
-              <TextField label="Note" value={header.note} onChange={(v) => setHeader({ ...header, note: v })} maxLength={500} disabled={readOnly} />
+              <TextField label={t("mfg.routingTab.label.routingCode")} value={header.code} onChange={(v) => setHeader({ ...header, code: v })} maxLength={32} disabled={readOnly} hint={t("mfg.routingTab.hint.tellsAlternateRoutingsApartEg")} />
+              <TextField label={t("mfg.routingTab.label.priority")} type="number" value={header.priority} onChange={(v) => setHeader({ ...header, priority: v })} disabled={readOnly} hint={t("mfg.routingTab.hint.1Primary29")} />
+              <TextField label={t("mfg.routingTab.label.revision")} value={header.revision} onChange={(v) => setHeader({ ...header, revision: v })} maxLength={16} disabled={readOnly} />
+              <TextField label={t("mfg.routingTab.label.version")} type="number" value={header.version} onChange={(v) => setHeader({ ...header, version: v })} disabled={readOnly} />
+              <TextField label={t("mfg.routingTab.label.note")} value={header.note} onChange={(v) => setHeader({ ...header, note: v })} maxLength={500} disabled={readOnly} />
             </div>
           ) : null}
           {movedRefs.length ? (

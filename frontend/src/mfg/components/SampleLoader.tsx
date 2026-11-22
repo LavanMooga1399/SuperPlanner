@@ -51,7 +51,7 @@ export function SampleLoader({ onLoaded }: { onLoaded(res: SampleLoadResponse): 
     <section className="col" aria-labelledby="mfg-samples-title">
       <div className="section-title">
         <Icon name="book" />
-        <h2 id="mfg-samples-title">Sample data</h2>
+        <h2 id="mfg-samples-title">{t("mfg.sampleLoader.head.sampleData")}</h2>
       </div>
       <p className="muted small" style={{ margin: 0 }}>
         Fictional, ready-to-use plants and products to explore the screens. "Load" adds the sample next to your

@@ -39,6 +39,7 @@ import { switchWorkspace } from "../mfg/lib/workspace";
 import "./orgs.css";
 import { formatDateTime } from "../lib/locale";
 import { PageHeader } from "../components/PageHeader";
+import { t } from "../lib/i18n";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
 const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer"];
@@ -67,11 +68,11 @@ export function OrgListPage() {
   return (
     <div className="org-page col gap-lg" data-testid="org-list">
       <PageHeader
-        title="Organisations"
+        title={t("account.orgPages.title.organisations")}
         actions={
           <>
             <button type="button" className="btn primary" onClick={() => setCreating(true)} data-testid="org-new">
-            <Icon name="plus" /> New organisation
+            <Icon name="plus" /> {t("account.orgPages.btn.newOrganisation")}
             </button>
           </>
         }
@@ -120,7 +121,7 @@ export function OrgListPage() {
             <span className="row" style={{ gap: 6 }}>
               {o.my_role === "org_admin" ? (
                 <span className="badge accent">
-                  <Icon name="star" /> Admin
+                  <Icon name="star" /> {t("account.orgPages.btn.admin")}
                 </span>
               ) : (
                 <span className="badge info">Member</span>
@@ -136,12 +137,12 @@ export function OrgListPage() {
       </div>
       {creating ? (
         <Dialog
-          title="New organisation"
+          title={t("account.orgPages.title.newOrganisation")}
           onClose={() => setCreating(false)}
           footer={
             <>
               <button type="button" className="btn" onClick={() => setCreating(false)}>
-                Cancel
+                {t("account.orgPages.btn.cancel")}
               </button>
               <button
                 type="button"
@@ -167,7 +168,7 @@ export function OrgListPage() {
         >
           <div className="col">
             <div className="field">
-              <label htmlFor="org-name">Name</label>
+              <label htmlFor="org-name">{t("account.orgPages.label.name")}</label>
               <input
                 id="org-name"
                 className="input"
@@ -180,7 +181,7 @@ export function OrgListPage() {
               />
             </div>
             <div className="field">
-              <label htmlFor="org-slug">Short name (in links)</label>
+              <label htmlFor="org-slug">{t("account.orgPages.label.shortNameInLinks")}</label>
               <input id="org-slug" className="input mono" value={slug} onChange={(e) => setSlug(autoSlug(e.target.value))} />
             </div>
             {error instanceof ApiError && error.code === "ORG_CREATE_DISABLED" ? (
@@ -220,11 +221,11 @@ export function OrgPage({ tab }: { tab: Tab }) {
   ];
   return (
     <div className="org-page col gap-lg" data-testid="org-page" data-slug={o.slug}>
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumb" aria-label={t("account.orgPages.aria.breadcrumb")}>
         <Link to="/orgs">Organisations</Link> <Icon name="chevron-right" size={12} /> <span>{o.name}</span>
       </nav>
       <PageHeader title={o.name} />
-      <nav className="tabs" aria-label="Organisation sections">
+      <nav className="tabs" aria-label={t("account.orgPages.aria.organisationSections")}>
         {tabs
           .filter((t) => admin || !t.admin)
           .map((t) => (
@@ -253,13 +254,13 @@ function OrgOverviewTab({ org }: { org: Org }) {
         <table className="table">
           <thead>
             <tr>
-              <th>Plant</th>
-              <th className="right">On-time delivery</th>
-              <th className="right">OEE</th>
-              <th className="right">Schedule adherence</th>
-              <th className="right">Late demand lines</th>
-              <th className="right">Changes to replan</th>
-              <th>ERP connection</th>
+              <th>{t("account.orgPages.head.plant")}</th>
+              <th className="right">{t("account.orgPages.head.ontimeDelivery")}</th>
+              <th className="right">{t("account.orgPages.head.oee")}</th>
+              <th className="right">{t("account.orgPages.head.scheduleAdherence")}</th>
+              <th className="right">{t("account.orgPages.head.lateDemandLines")}</th>
+              <th className="right">{t("account.orgPages.head.changesToReplan")}</th>
+              <th>{t("account.orgPages.head.erpConnection")}</th>
               <th />
             </tr>
           </thead>
@@ -295,14 +296,14 @@ function OrgOverviewTab({ org }: { org: Org }) {
                         </span>
                       ) : (
                         <span className="badge ok">
-                          <Icon name="check" /> healthy
+                          <Icon name="check" /> {t("account.orgPages.btn.healthy")}
                         </span>
                       )}
                       {p.integration?.last_batch_at ? <div className="faint">last data in {formatDateTime(p.integration.last_batch_at)}</div> : null}
                     </td>
                     <td>
                       <button type="button" className="btn sm" onClick={() => openPlant(p.plant.owner_id)}>
-                        Open
+                        {t("account.orgPages.btn.open")}
                       </button>
                     </td>
                   </>
@@ -328,10 +329,10 @@ function PlantsTab({ org, admin }: { org: Org; admin: boolean }) {
   return (
     <section className="card" data-testid="org-plants">
       <div className="card-header row" style={{ justifyContent: "space-between" }}>
-        <h2>Plants</h2>
+        <h2>{t("account.orgPages.head.plants")}</h2>
         {admin ? (
           <button type="button" className="btn sm primary" onClick={() => setEdit("new")} data-testid="plant-new">
-            <Icon name="plus" /> New plant
+            <Icon name="plus" /> {t("account.orgPages.btn.newPlant")}
           </button>
         ) : null}
       </div>
@@ -347,15 +348,15 @@ function PlantsTab({ org, admin }: { org: Org; admin: boolean }) {
               <td className="right">
                 <span className="row" style={{ justifyContent: "flex-end" }}>
                   <button type="button" className="btn sm" onClick={() => openPlant(p.plant_owner_id)} data-testid="plant-open">
-                    Open
+                    {t("account.orgPages.btn.open")}
                   </button>
                   {admin ? (
                     <>
                       <button type="button" className="btn sm ghost" onClick={() => setRoles(p)} data-testid="plant-roles">
-                        People and roles
+                        {t("account.orgPages.btn.peopleAndRoles")}
                       </button>
                       <button type="button" className="btn sm ghost" onClick={() => setEdit(p)}>
-                        Rename
+                        {t("account.orgPages.btn.rename")}
                       </button>
                     </>
                   ) : null}
@@ -383,7 +384,7 @@ function PlantDialog({ org, plant, onClose, onSaved }: { org: Org; plant: OrgPla
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t("account.orgPages.btn.cancel")}
           </button>
           <button
             type="button"
@@ -409,11 +410,11 @@ function PlantDialog({ org, plant, onClose, onSaved }: { org: Org; plant: OrgPla
     >
       <div className="col">
         <div className="field">
-          <label htmlFor="pl-code">Code</label>
-          <input id="pl-code" className="input mono" value={code} disabled={Boolean(plant)} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={16} placeholder="e.g. BLR" data-testid="plant-code" />
+          <label htmlFor="pl-code">{t("account.orgPages.label.code")}</label>
+          <input id="pl-code" className="input mono" value={code} disabled={Boolean(plant)} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={16} placeholder={t("account.orgPages.ph.egBlr")} data-testid="plant-code" />
         </div>
         <div className="field">
-          <label htmlFor="pl-name">Name</label>
+          <label htmlFor="pl-name">{t("account.orgPages.label.name")}</label>
           <input id="pl-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} data-testid="plant-name" />
         </div>
         {!plant ? <span className="faint small">The new plant starts empty: publish master data to it, or load a sample, then add people.</span> : null}
@@ -439,7 +440,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
-            Close
+            {t("account.orgPages.btn.close")}
           </button>
           <button
             type="button"
@@ -466,7 +467,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
     >
       <div className="col">
         <div className="field">
-          <label htmlFor="rl-user">Person</label>
+          <label htmlFor="rl-user">{t("account.orgPages.label.person")}</label>
           <select id="rl-user" className="select" value={userId} onChange={(e) => { setUserId(e.target.value); setDone(null); }} data-testid="roles-user">
             <option value="">Choose a member of the organisation…</option>
             {members.map((m) => (
@@ -478,7 +479,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
           </select>
         </div>
         {userId ? (
-          <div className="col" style={{ gap: 4 }} role="group" aria-label="Roles">
+          <div className="col" style={{ gap: 4 }} role="group" aria-label={t("account.orgPages.aria.roles")}>
             {PLANT_ROLES.map((r) => (
               <label key={r} className="checkbox">
                 <input
@@ -535,7 +536,7 @@ function MembersTab({ org }: { org: Org }) {
   return (
     <section className="card" data-testid="org-members">
       <div className="card-header">
-        <h2>People</h2>
+        <h2>{t("account.orgPages.head.people")}</h2>
       </div>
       <div className="card-body col">
         <form
@@ -550,18 +551,18 @@ function MembersTab({ org }: { org: Org }) {
           }}
         >
           <div className="field" style={{ flex: "1 1 260px" }}>
-            <label htmlFor="mb-email">Add a person by email</label>
-            <input id="mb-email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" data-testid="member-email" />
+            <label htmlFor="mb-email">{t("account.orgPages.label.addAPersonByEmail")}</label>
+            <input id="mb-email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("account.orgPages.ph.namecompanycom")} data-testid="member-email" />
           </div>
           <div className="field">
-            <label htmlFor="mb-role">As</label>
+            <label htmlFor="mb-role">{t("account.orgPages.label.as")}</label>
             <select id="mb-role" className="select" value={role} onChange={(e) => setRole(e.target.value as OrgRole)}>
               <option value="org_member">Member</option>
               <option value="org_admin">Admin (manages plants and people)</option>
             </select>
           </div>
           <button type="submit" className="btn primary" disabled={busy || !email.includes("@")} data-testid="member-add">
-            <Icon name="plus" /> Add
+            <Icon name="plus" /> {t("account.orgPages.btn.add")}
           </button>
         </form>
         <span className="faint small">People with a company account (single sign-on) can also join on their first sign-in. Plant access is given under Plants.</span>
@@ -580,7 +581,7 @@ function MembersTab({ org }: { org: Org }) {
                 <td className="small">
                   {disabled ? (
                     <span className="badge warn">
-                      <Icon name="ban" /> disabled
+                      <Icon name="ban" /> {t("account.orgPages.btn.disabled")}
                     </span>
                   ) : null}
                   {m.plants?.length ? <div className="faint">{m.plants.map((p) => `${p.code}: ${p.roles.map((r) => ROLE_LABEL[r as Role] ?? r).join(", ")}`).join(" · ")}</div> : null}
@@ -593,7 +594,7 @@ function MembersTab({ org }: { org: Org }) {
                 </td>
                 <td className="right">
                   <button type="button" className="btn sm ghost" disabled={busy} onClick={() => setRemoving(m)}>
-                    Remove
+                    {t("account.orgPages.btn.remove")}
                   </button>
                 </td>
               </tr>
@@ -604,7 +605,7 @@ function MembersTab({ org }: { org: Org }) {
       {removing ? (
         <ConfirmDialog
           title={`Remove ${removing.user.email ?? "this person"}?`}
-          confirmLabel="Remove"
+          confirmLabel={t("account.orgPages.btn.remove")}
           danger
           onCancel={() => setRemoving(null)}
           onConfirm={() => {
@@ -634,7 +635,7 @@ function PublishTab({ org }: { org: Org }) {
   return (
     <section className="card" data-testid="org-publish">
       <div className="card-header">
-        <h2>Publish master data</h2>
+        <h2>{t("account.orgPages.head.publishMasterData")}</h2>
       </div>
       <div className="card-body col">
         <p className="muted" style={{ margin: 0 }}>
@@ -642,7 +643,7 @@ function PublishTab({ org }: { org: Org }) {
         </p>
         <div className="form-grid">
           <div className="field">
-            <label htmlFor="pb-src">From plant</label>
+            <label htmlFor="pb-src">{t("account.orgPages.label.fromPlant")}</label>
             <select id="pb-src" className="select" value={source} onChange={(e) => setSource(e.target.value)} data-testid="publish-source">
               <option value="">Choose…</option>
               {list.map((p) => (
@@ -653,19 +654,19 @@ function PublishTab({ org }: { org: Org }) {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="pb-scope">What</label>
+            <label htmlFor="pb-scope">{t("account.orgPages.label.what")}</label>
             <select id="pb-scope" className="select" value={scope} onChange={(e) => setScope(e.target.value as "items" | "master")}>
               <option value="items">Items only</option>
               <option value="master">All master data</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="pb-prefix">Only part numbers starting with (optional)</label>
+            <label htmlFor="pb-prefix">{t("account.orgPages.label.onlyPartNumbersStartingWith")}</label>
             <input id="pb-prefix" className="input mono" value={prefix} onChange={(e) => setPrefix(e.target.value)} />
           </div>
         </div>
         <fieldset className="mfg-fieldset">
-          <legend>To plants</legend>
+          <legend>{t("account.orgPages.head.toPlants")}</legend>
           {list
             .filter((p) => p.plant_owner_id !== source)
             .map((p) => (
@@ -706,12 +707,12 @@ function PublishTab({ org }: { org: Org }) {
             }}
             data-testid="publish-run"
           >
-            <Icon name="upload" /> Publish
+            <Icon name="upload" /> {t("account.orgPages.btn.publish")}
           </button>
         </div>
         {job ? (
           <div data-testid="publish-result" data-status={job.status}>
-            {job.status === "queued" || job.status === "running" ? <Banner tone="info" title="Publishing in the background">Each target plant is updated in its own step; the results also appear in each plant's Integration, Batches.</Banner> : null}
+            {job.status === "queued" || job.status === "running" ? <Banner tone="info" title={t("account.orgPages.title.publishingInTheBackground")}>Each target plant is updated in its own step; the results also appear in each plant's Integration, Batches.</Banner> : null}
             {job.results && Object.keys(job.results).length ? (
               <table className="table">
                 <tbody>
@@ -743,7 +744,7 @@ function SettingsTab({ org, onSaved }: { org: Org; onSaved(o: Org): void }) {
     <section className="card" data-testid="org-settings">
       <div className="card-body col">
         <div className="field" style={{ maxWidth: 420 }}>
-          <label htmlFor="os-name">Name</label>
+          <label htmlFor="os-name">{t("account.orgPages.label.name")}</label>
           <input id="os-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <label className="checkbox">
@@ -772,11 +773,11 @@ function SettingsTab({ org, onSaved }: { org: Org; onSaved(o: Org): void }) {
             }}
             data-testid="org-settings-save"
           >
-            <Icon name="save" /> Save
+            <Icon name="save" /> {t("account.orgPages.btn.save")}
           </button>
           {saved ? (
             <span className="badge ok">
-              <Icon name="check" /> Saved
+              <Icon name="check" /> {t("account.orgPages.btn.saved")}
             </span>
           ) : null}
         </div>

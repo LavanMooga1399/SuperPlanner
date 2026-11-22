@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { Dialog } from "../Dialog";
 import { GO_KEYS, MOD, closeShortcuts, isTyping, openShortcuts, togglePalette, useCommandState } from "./commands";
+import { t } from "../../lib/i18n";
 
 export function GlobalShortcuts() {
   const navigate = useNavigate();
@@ -76,10 +77,10 @@ export function ShortcutsDialog() {
   const { shortcuts } = useCommandState();
   if (!shortcuts) return null;
   return (
-    <Dialog title="Keyboard shortcuts" onClose={closeShortcuts} wide>
+    <Dialog title={t("studio.shortcuts.title.keyboardShortcuts")} onClose={closeShortcuts} wide>
       <div className="shortcut-cols">
         <section>
-          <h3>General</h3>
+          <h3>{t("studio.shortcuts.head.general")}</h3>
           <dl className="shortcut-list">
             {GENERAL.map(([k, d]) => (
               <div key={d}>
@@ -88,7 +89,7 @@ export function ShortcutsDialog() {
               </div>
             ))}
           </dl>
-          <h3 className="mt">Tables and Gantt</h3>
+          <h3 className="mt">{t("studio.shortcuts.head.tablesAndGantt")}</h3>
           <dl className="shortcut-list">
             {TABLES.map(([k, d]) => (
               <div key={d}>
@@ -99,7 +100,7 @@ export function ShortcutsDialog() {
           </dl>
         </section>
         <section>
-          <h3>Go to (press G, then)</h3>
+          <h3>{t("studio.shortcuts.head.goToPressGThen")}</h3>
           <dl className="shortcut-list">
             {GO_KEYS.map((g) => (
               <div key={g.key}>

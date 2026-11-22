@@ -4,6 +4,7 @@ import { contributionsCsvUrl } from "../api/client";
 import type { FinanceResultRecord } from "../api/types";
 import { fmtLocal } from "../../lib/time";
 import { StatusPill } from "./StatusPill";
+import { t, plural } from "../../lib/i18n";
 
 export interface ResultHeaderProps {
   planId: string;
@@ -38,18 +39,18 @@ export function ResultHeader({ planId, record, planVersion, onRerun, rerunning, 
           </div>
           <span className="muted">{verdict}</span>
           <span className="small faint">
-            Made {fmtLocal(record.created_at)} for version {record.base_plan_version} · {r.goals.length} goal{r.goals.length === 1 ? "" : "s"} · {r.horizon_months} months
+            Made {fmtLocal(record.created_at)} for version {record.base_plan_version} · {plural(r.goals.length, "goal")} · {r.horizon_months} months
           </span>
         </div>
         <div className="fin-actions">
           <Link className="btn" to={`/finance/${planId}/what-if${record.kind === "baseline" ? `?base=${record.id}` : ""}`} data-testid="open-what-if">
-            <Icon name="refresh" /> What-if
+            <Icon name="refresh" /> {t("finance.resultHeader.btn.whatif")}
           </Link>
           <Link className="btn" to={`/finance/${planId}/compare?a=${record.id}`} data-testid="open-compare">
-            <Icon name="compare" /> Compare
+            <Icon name="compare" /> {t("finance.resultHeader.btn.compare")}
           </Link>
           <a className="btn" href={contributionsCsvUrl(record.id)} download data-testid="fin-export-csv">
-            <Icon name="download" /> Export CSV
+            <Icon name="download" /> {t("finance.resultHeader.btn.exportCsv")}
           </a>
           <button
             className="btn"
@@ -58,7 +59,7 @@ export function ResultHeader({ planId, record, planVersion, onRerun, rerunning, 
             disabled={r.feasibility !== "feasible"}
             title={r.feasibility !== "feasible" ? "Only valid plans can be sent to the planner" : "Create a money calendar in the scheduler"}
           >
-            <Icon name="calendar" /> Send to planner
+            <Icon name="calendar" /> {t("finance.resultHeader.btn.sendToPlanner")}
           </button>
           <button className="btn primary" onClick={onRerun} disabled={rerunning} data-testid="fin-rerun">
             {rerunning ? <span className="spinner" aria-hidden /> : <Icon name="play" />} Re-run

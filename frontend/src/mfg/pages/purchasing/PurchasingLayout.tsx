@@ -14,7 +14,7 @@ export function PurchasingLayout() {
         title={t("mfg.purchasingLayout.title.purchasing")}
         description={t("mfg.purchasingLayout.desc.purchaseRequestsPurchaseOrdersWith")} />
       <SectionTabs
-        label="Purchasing sections"
+        label={t("mfg.purchasingLayout.label.purchasingSections")}
         tabs={[
           { to: mfgPaths.purchaseDocs("po"), label: "Purchase orders", testId: "pur-tab-orders" },
           { to: mfgPaths.purchaseDocs("pr"), label: "Purchase requests", testId: "pur-tab-requests" },

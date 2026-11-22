@@ -19,6 +19,7 @@ import "./auth.css";
 import { formatDateTime } from "../lib/locale";
 import { PageHeader } from "../components/PageHeader";
 import { DataTable } from "../mfg/components/DataTable";
+import { t } from "../lib/i18n";
 
 const PRESETS: { key: string; label: string; help: string; scopes: TokenScope[] }[] = [
   { key: "read", label: "Read only", help: "Reports and dashboards: read everything, change nothing.", scopes: ["view", "floor_view", "trace_view"] },
@@ -98,7 +99,7 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
                 <Icon name="copy" /> {copied ? "Copied" : "Copy"}
               </button>
               <button type="button" className="btn sm ghost" onClick={() => setCreated(null)}>
-                I have stored it
+                {t("account.tokensPage.btn.iHaveStoredIt")}
               </button>
             </div>
             <span className="faint small">
@@ -114,12 +115,12 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
         <div className="card-body col">
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="tk-name">Name</label>
+              <label htmlFor="tk-name">{t("account.tokensPage.label.name")}</label>
               <input id="tk-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder={kind === "plant" ? "e.g. ERP middleware" : "e.g. Power BI report"} data-testid="token-name" />
             </div>
             {kind === "personal" && workspaces.length > 1 ? (
               <div className="field">
-                <label htmlFor="tk-ws">Plant</label>
+                <label htmlFor="tk-ws">{t("account.tokensPage.label.plant")}</label>
                 <select id="tk-ws" className="select" value={workspace} onChange={(e) => setWorkspace(e.target.value)}>
                   {workspaces.map((w) => (
                     <option key={w.owner_id} value={w.is_owner ? "" : w.owner_id}>
@@ -131,7 +132,7 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
               </div>
             ) : null}
             <div className="field">
-              <label htmlFor="tk-days">Valid for</label>
+              <label htmlFor="tk-days">{t("account.tokensPage.label.validFor")}</label>
               <select id="tk-days" className="select" value={days} onChange={(e) => setDays(Number(e.target.value))} data-testid="token-days">
                 <option value={30}>30 days</option>
                 <option value={90}>90 days (recommended)</option>
@@ -141,9 +142,9 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
             </div>
           </div>
           <fieldset className="mfg-fieldset">
-            <legend>What it may do</legend>
+            <legend>{t("account.tokensPage.head.whatItMayDo")}</legend>
             {!custom ? (
-              <div className="col" style={{ gap: 6 }} role="radiogroup" aria-label="Token purpose">
+              <div className="col" style={{ gap: 6 }} role="radiogroup" aria-label={t("account.tokensPage.aria.tokenPurpose")}>
                 {PRESETS.map((p) => (
                   <label key={p.key} className="checkbox">
                     <input type="radio" name="tk-preset" checked={preset === p.key} onChange={() => setPreset(p.key)} data-testid={`token-preset-${p.key}`} />
@@ -184,14 +185,14 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
           <MfgError error={error} />
           <div>
             <button type="button" className="btn primary" disabled={busy || !name.trim() || scopes.size === 0} onClick={() => void create()} data-testid="token-create">
-              <Icon name="plus" /> Create token
+              <Icon name="plus" /> {t("account.tokensPage.btn.createToken")}
             </button>
           </div>
         </div>
       </section>
       <section className="card card-table">
         <div className="card-header">
-          <h2>Tokens</h2>
+          <h2>{t("account.tokensPage.head.tokens")}</h2>
         </div>
         <MfgError error={tokens.error} onRetry={tokens.reload} />
         <DataTable
@@ -220,11 +221,11 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
               render: (x) =>
                 x.revoked_at ? (
                   <span className="badge info">
-                    <Icon name="ban" /> revoked
+                    <Icon name="ban" /> {t("account.tokensPage.btn.revoked")}
                   </span>
                 ) : Date.parse(x.expires_at) < Date.now() ? (
                   <span className="badge warn">
-                    <Icon name="clock" /> expired
+                    <Icon name="clock" /> {t("account.tokensPage.btn.expired")}
                   </span>
                 ) : (
                   fmt(x.expires_at)
@@ -253,24 +254,24 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
               render: (x) =>
                 !x.revoked_at ? (
                   <button type="button" className="btn sm ghost" onClick={() => setRevoking(x)} data-testid="token-revoke">
-                    Revoke
+                    {t("account.tokensPage.btn.revoke")}
                   </button>
                 ) : null,
             },
           ]}
           rowKey={(x) => x.id}
-          label="Tokens"
+          label={t("account.tokensPage.label.tokens")}
           testId="token-table"
           loading={tokens.loading && !items.length}
           rowExtras={(x) => ({ testId: "token-row", data: { revoked: Boolean(x.revoked_at) }, className: x.revoked_at || Date.parse(x.expires_at) < Date.now() ? "faint" : undefined })}
-          empty="No tokens yet."
+          empty={t("account.tokensPage.empty.noTokensYet")}
           card={{ title: "name", status: "expires", actions: "actions", fields: ["scopes", "used"] }}
         />
       </section>
       {revoking ? (
         <ConfirmDialog
           title={`Revoke "${revoking.name}"?`}
-          confirmLabel="Revoke"
+          confirmLabel={t("account.tokensPage.btn.revoke")}
           danger
           onCancel={() => setRevoking(null)}
           onConfirm={async () => {
@@ -283,7 +284,7 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
             tokens.reload();
           }}
         >
-          <p style={{ margin: 0 }}>Anything still using it stops working at once.</p>
+          <p style={{ margin: 0 }}>{t("account.tokensPage.text.anythingStillUsingItStops")}</p>
         </ConfirmDialog>
       ) : null}
     </div>
@@ -297,7 +298,7 @@ export function TokensPage() {
   return (
     <div className="col gap-lg" style={{ maxWidth: 960, margin: "0 auto", width: "100%" }}>
       <PageHeader
-        title="Personal API tokens"
+        title={t("account.tokensPage.title.personalApiTokens")}
         actions={
           <>
             <Link to="/account">Account</Link>

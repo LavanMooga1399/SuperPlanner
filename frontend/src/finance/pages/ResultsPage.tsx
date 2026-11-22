@@ -23,6 +23,7 @@ import { SendToPlannerDialog } from "../components/SendToPlannerDialog";
 import { formatMoney } from "../lib/money";
 import { classInfos } from "../lib/resultView";
 import { useLoadedFinancePlan } from "../state/FinancePlanContext";
+import { t } from "../../lib/i18n";
 
 export function ResultsPage() {
   const ctx = useLoadedFinancePlan();
@@ -124,12 +125,12 @@ export function ResultsPage() {
       {!showRun && noResults && !record ? (
         <div className="empty">
           <Icon name="layers" size={32} />
-          <h2>No results yet</h2>
-          <p>Finish the setup and build your plan to see results here.</p>
+          <h2>{t("finance.resultsPage.head.noResultsYet")}</h2>
+          <p>{t("finance.resultsPage.text.finishTheSetupAndBuild")}</p>
           <Link className="btn primary" to={`/finance/${planId}/setup/review`}>Go to review</Link>
         </div>
       ) : null}
-      {loading && !record ? <Loading label="Loading result…" /> : null}
+      {loading && !record ? <Loading label={t("finance.resultsPage.label.loadingResult")} /> : null}
       {record && !showRun ? (
         <ResultView
           planId={planId}
@@ -173,7 +174,7 @@ function ResultView({
       <ResultHeader planId={planId} record={record} planVersion={planVersion} onRerun={onRerun} rerunning={rerunning} onSend={onSend} />
       <ResultKpis result={r} locale={locale} />
       <section aria-labelledby="fin-goals-title" className="col">
-        <h2 id="fin-goals-title">Goals</h2>
+        <h2 id="fin-goals-title">{t("finance.resultsPage.head.goals")}</h2>
         {r.goals.length ? (
           <div className="goal-cards">
             {r.goals.map((g) => (
@@ -181,13 +182,13 @@ function ResultView({
             ))}
           </div>
         ) : (
-          <p className="muted">No goals in this plan. Add goals in Setup to see what to invest in.</p>
+          <p className="muted">{t("finance.resultsPage.text.noGoalsInThisPlan")}</p>
         )}
       </section>
       <CorpusCard result={r} locale={locale} />
       <section className="card" aria-labelledby="fin-contrib-title">
         <div className="card-header">
-          <h2 id="fin-contrib-title">Monthly contributions</h2>
+          <h2 id="fin-contrib-title">{t("finance.resultsPage.head.monthlyContributions")}</h2>
           <RealNominalToggle value={basis} onChange={setBasis} />
         </div>
         <div className="card-body col">
@@ -203,7 +204,7 @@ function ResultView({
         <GlideCard result={r} />
         <section className="card chart-card" aria-labelledby="fin-cf-title">
           <div className="card-header">
-            <h2 id="fin-cf-title">Cash flow per year</h2>
+            <h2 id="fin-cf-title">{t("finance.resultsPage.head.cashFlowPerYear")}</h2>
             <span className="small muted">today's money</span>
           </div>
           <div className="card-body">
@@ -248,7 +249,7 @@ export function CorpusCard({ result: r, locale }: { result: FinanceResult; local
   return (
     <section className="card chart-card" aria-labelledby="fin-corpus-title">
       <div className="card-header">
-        <h2 id="fin-corpus-title">Your money over time</h2>
+        <h2 id="fin-corpus-title">{t("finance.resultsPage.head.yourMoneyOverTime")}</h2>
         <span className="small muted">today's money</span>
       </div>
       <div className="card-body">
@@ -282,9 +283,9 @@ function GlideCard({ result: r }: { result: FinanceResult }) {
   return (
     <section className="card chart-card" aria-labelledby="fin-glide-title">
       <div className="card-header">
-        <h2 id="fin-glide-title">Growth assets as the goal gets closer</h2>
+        <h2 id="fin-glide-title">{t("finance.resultsPage.head.growthAssetsAsTheGoal")}</h2>
         {ids.length > 1 ? (
-          <select className="select sm" style={{ width: "auto" }} value={goalId ?? ""} onChange={(e) => setStored(e.target.value)} aria-label="Goal shown in the chart" data-testid="glide-goal-select">
+          <select className="select sm" style={{ width: "auto" }} value={goalId ?? ""} onChange={(e) => setStored(e.target.value)} aria-label={t("finance.resultsPage.aria.goalShownInTheChart")} data-testid="glide-goal-select">
             {ids.map((id) => (
               <option key={id} value={id}>
                 {r.goals.find((g) => g.goal_id === id)?.name ?? id}
@@ -308,7 +309,7 @@ function GlideCard({ result: r }: { result: FinanceResult }) {
           />
         ) : (
           <div className="empty" data-testid="glide-chart">
-            <p>No investment buckets to show yet.</p>
+            <p>{t("finance.resultsPage.text.noInvestmentBucketsToShow")}</p>
           </div>
         )}
         <p className="small muted" style={{ margin: "8px 0 0" }}>

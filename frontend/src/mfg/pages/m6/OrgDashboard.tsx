@@ -62,14 +62,14 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
               <caption className="sr-only">Tiles per plant</caption>
               <thead>
                 <tr>
-                  <th scope="col">Tile</th>
+                  <th scope="col">{t("mfg.orgDashboard.head.tile")}</th>
                   {d.plants.map((p) => (
                     <th key={p.plant.owner_id} scope="col" data-testid="org-dash-plant">
                       {p.plant.code ? `${p.plant.code} ` : ""}
                       {p.plant.name}
                     </th>
                   ))}
-                  <th scope="col">All plants</th>
+                  <th scope="col">{t("mfg.orgDashboard.head.allPlants")}</th>
                 </tr>
               </thead>
               <tbody>

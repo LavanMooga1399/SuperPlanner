@@ -27,7 +27,7 @@ export function OperatorAbsences({ operatorId }: { operatorId: string }) {
   return (
     <section className="card" data-testid="operator-absences" style={{ marginTop: 12 }}>
       <div className="card-header">
-        <h3>Absences</h3>
+        <h3>{t("mfg.operatorAbsences.head.absences")}</h3>
         {canEdit ? (
           <button type="button" className="btn sm" onClick={() => setEditing("new")} data-testid="absence-new">
             <Icon name="plus" /> {t("mfg.operatorAbsences.btn.addAbsence")}
@@ -49,7 +49,7 @@ export function OperatorAbsences({ operatorId }: { operatorId: string }) {
                 <button type="button" className="btn sm" onClick={() => setEditing(a)}>
                   {t("mfg.operatorAbsences.btn.edit")}
                 </button>
-                <button type="button" className="btn sm ghost icon" aria-label="Delete absence" onClick={() => setDeleting(a)}>
+                <button type="button" className="btn sm ghost icon" aria-label={t("mfg.operatorAbsences.aria.deleteAbsence")} onClick={() => setDeleting(a)}>
                   <Icon name="trash" />
                 </button>
               </>
@@ -81,7 +81,7 @@ export function OperatorAbsences({ operatorId }: { operatorId: string }) {
             deleteAbsence(d.id, d.row_version).then(list.reload, setError);
           }}
         >
-          <p style={{ margin: 0 }}>The operator counts as available again in the next schedule run.</p>
+          <p style={{ margin: 0 }}>{t("mfg.operatorAbsences.text.theOperatorCountsAsAvailable")}</p>
         </ConfirmDialog>
       ) : null}
     </section>
@@ -113,10 +113,10 @@ function AbsenceDialog({ operatorId, row, onClose, onSaved }: { operatorId: stri
     >
       <div className="form-grid">
         <TextField label={`From (${clock.zoneLabel})`} type="datetime-local" value={f.start} onChange={(v) => setF({ ...f, start: v })} testId="absence-start" />
-        <TextField label="Until" type="datetime-local" value={f.end} onChange={(v) => setF({ ...f, end: v })} testId="absence-end" hint={f.start && f.end && f.start >= f.end ? "Must be after the start." : undefined} />
-        <SelectField label="Kind" value={f.kind} onChange={(v) => setF({ ...f, kind: v })} options={ABSENCE_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))} testId="absence-kind" />
+        <TextField label={t("mfg.operatorAbsences.label.until")} type="datetime-local" value={f.end} onChange={(v) => setF({ ...f, end: v })} testId="absence-end" hint={f.start && f.end && f.start >= f.end ? "Must be after the start." : undefined} />
+        <SelectField label={t("mfg.operatorAbsences.label.kind")} value={f.kind} onChange={(v) => setF({ ...f, kind: v })} options={ABSENCE_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))} testId="absence-kind" />
       </div>
-      <TextField label="Note" value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
+      <TextField label={t("mfg.operatorAbsences.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
     </EntityFormDialog>
   );
 }

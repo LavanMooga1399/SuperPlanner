@@ -16,6 +16,7 @@ import { usePolling } from "../lib/usePolling";
 import { useLoad } from "../lib/useMfg";
 import { currentWorkspace, switchWorkspace } from "../lib/workspace";
 import "./mobile.css";
+import { t } from "../../lib/i18n";
 
 function useStoredTheme() {
   useEffect(() => {
@@ -85,10 +86,10 @@ function QueueStatus({ online }: { online: boolean }) {
               </span>
               <span className="row" style={{ gap: 6 }}>
                 <button type="button" className="btn sm" onClick={() => retryFailed(a.id)}>
-                  Retry
+                  {t("mobile.mobileLayout.btn.retry")}
                 </button>
                 <button type="button" className="btn ghost sm" onClick={() => discardFailed(a.id)}>
-                  Discard
+                  {t("mobile.mobileLayout.btn.discard")}
                 </button>
               </span>
             </li>
@@ -125,7 +126,7 @@ function BottomNav() {
   }, [appr.reload]);
   const n = appr.data?.items.length ?? 0;
   return (
-    <nav className="m-tabs" aria-label="Mobile sections">
+    <nav className="m-tabs" aria-label={t("mobile.mobileLayout.aria.mobileSections")}>
       {TABS.map((t) => (
         <NavLink key={t.key} to={t.to} end={t.end} className={({ isActive }) => `m-tab${isActive ? " active" : ""}`} data-testid={`m-tab-${t.key}`}>
           <Icon name={t.icon} size={20} />
@@ -162,7 +163,7 @@ function Shell() {
   return (
     <div className="m-shell" data-testid="m-shell">
       <header className="m-head">
-        <Link to="/m" className="m-brand" aria-label="SuperPlanner mobile home">
+        <Link to="/m" className="m-brand" aria-label={t("mobile.mobileLayout.aria.superplannerMobileHome")}>
           <svg viewBox="0 0 22 22" width="26" height="26" aria-hidden>
             <rect x="1" y="1" width="20" height="20" rx="5" fill="var(--accent)" />
             <rect x="5" y="6" width="7" height="3" rx="1.2" fill="var(--accent-contrast)" />
@@ -179,7 +180,7 @@ function Shell() {
         <SessionExpiredBanner />
         {!online ? (
           <div className="m-banner warn" role="status" data-testid="m-offline">
-            <Icon name="alert" size={16} /> You are offline. Acknowledgements are kept and sent when you are back online. Approvals need a connection.
+            <Icon name="alert" size={16} /> {t("mobile.mobileLayout.btn.youAreOfflineAcknowledgementsAre")}
           </div>
         ) : null}
         <QueueStatus online={online} />

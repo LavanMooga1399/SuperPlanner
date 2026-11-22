@@ -8,6 +8,7 @@ import { ResourceTable } from "../../components/ResourceTable";
 import { makeResource, removeResource } from "../../lib/planEdit";
 import { useTerms } from "../../lib/terms";
 import { useLoadedPlan } from "../../state/PlanContext";
+import { t } from "../../lib/i18n";
 
 export function ResourcesTab() {
   const { draft, update } = useLoadedPlan();
@@ -50,7 +51,7 @@ export function ResourcesTab() {
       {toDelete ? (
         <ConfirmDialog
           title={`Delete ${terms.resourceL}?`}
-          confirmLabel="Delete"
+          confirmLabel={t("studio.resourcesTab.btn.delete")}
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {

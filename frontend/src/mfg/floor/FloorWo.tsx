@@ -5,13 +5,14 @@ import { MfgError, Spinner } from "../components/Feedback";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
 import { OpStatusChip, fmtQty } from "./floorText";
+import { t } from "../../lib/i18n";
 
 export function FloorWo() {
   const { woId = "" } = useParams();
   const ops = useLoad((signal) => listWoOperationsM4(woId, signal), [woId]);
   return (
     <section className="floor-card">
-      <h1>Operations of this work order</h1>
+      <h1>{t("floor.floorWo.head.operationsOfThisWorkOrder")}</h1>
       <MfgError error={ops.error} onRetry={ops.reload} />
       {ops.loading && !ops.data ? <Spinner /> : null}
       <div className="floor-queue">
@@ -21,7 +22,7 @@ export function FloorWo() {
             <span className="floor-qmain">
               <span className="floor-qtitle">{o.name}</span>
               <span className="muted">
-                {fmtQty(o.qty_good)} of {fmtQty(o.qty_planned)} good{o.qty_scrap ? ` · ${fmtQty(o.qty_scrap)} scrap` : ""}
+                {t("common.nOfM", { n: fmtQty(o.qty_good), m: fmtQty(o.qty_planned) })} good{o.qty_scrap ? ` · ${fmtQty(o.qty_scrap)} scrap` : ""}
               </span>
             </span>
             <span className="floor-qside">

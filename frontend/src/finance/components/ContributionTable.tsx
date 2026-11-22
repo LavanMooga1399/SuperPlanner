@@ -5,6 +5,7 @@ import { formatMoney } from "../lib/money";
 import { addMonths, fmtMonthShort, monthsBetween } from "../lib/months";
 import { classInfos, className, goalLabel, priceIndex } from "../lib/resultView";
 import type { MoneyBasis } from "./RealNominalToggle";
+import { t } from "../../lib/i18n";
 
 /** Rows goal x class; columns = next 24 months, then the first month of each later plan year (FINANCE.md 20.4). */
 export function ContributionTable({ result, basis, locale }: { result: FinanceResult; basis: MoneyBasis; locale: string }) {
@@ -45,7 +46,7 @@ export function ContributionTable({ result, basis, locale }: { result: FinanceRe
   if (!rows.length) {
     return (
       <div className="empty" data-testid="contribution-table">
-        <p>No contributions are planned.</p>
+        <p>{t("finance.contributionTable.text.noContributionsArePlanned")}</p>
       </div>
     );
   }
@@ -58,7 +59,7 @@ export function ContributionTable({ result, basis, locale }: { result: FinanceRe
         </caption>
         <thead>
           <tr>
-            <th className="sticky" scope="col">Goal · asset class</th>
+            <th className="sticky" scope="col">{t("finance.contributionTable.head.goalAssetClass")}</th>
             {cols.map((t) => (
               <th key={t} className="num" scope="col">
                 {t >= 24 ? "from " : ""}
@@ -83,7 +84,7 @@ export function ContributionTable({ result, basis, locale }: { result: FinanceRe
             </tr>
           ))}
           <tr className="total">
-            <th className="sticky" scope="row">Total per month</th>
+            <th className="sticky" scope="row">{t("finance.contributionTable.head.totalPerMonth")}</th>
             {cols.map((t) => (
               <td key={t} className="num">{fmt(rows.reduce((a, r) => a + amountAt(r.lines, t), 0))}</td>
             ))}

@@ -3,6 +3,7 @@ import { Icon } from "../../components/Icon";
 import type { Question } from "../api/types";
 import { quickAnswer, useIntake } from "../state/IntakeContext";
 import { answerValue, initialValue, QuestionInput, type QValue } from "./QuestionInput";
+import { t } from "../../lib/i18n";
 
 function valueLabel(q: Question, v: unknown): string {
   if (v === undefined || v === null) return "";
@@ -73,7 +74,7 @@ export function QuestionPanel() {
       </div>
       <div className="card-body col" style={{ gap: 10 }}>
         {state.history.length ? (
-          <ol className="chat-log" ref={listRef} aria-label="Questions answered so far">
+          <ol className="chat-log" ref={listRef} aria-label={t("studio.questionPanel.aria.questionsAnsweredSoFar")}>
             {state.history.map((h, i) => (
               <li key={`${h.id}-${i}`} className="chat-pair">
                 <div className="bubble ask">{h.prompt}</div>
@@ -135,7 +136,7 @@ export function QuestionPanel() {
                           ])
                         }
                       >
-                        Use suggestion
+                        {t("studio.questionPanel.btn.useSuggestion")}
                       </button>
                     ) : null}
                     {!q.required ? (
@@ -146,7 +147,7 @@ export function QuestionPanel() {
                         disabled={working}
                         onClick={() => void answer([{ question_id: q.id, skip: true }], [{ id: q.id, prompt: q.prompt, answer: "Skipped" }])}
                       >
-                        Skip
+                        {t("studio.questionPanel.btn.skip")}
                       </button>
                     ) : null}
                   </div>
@@ -156,7 +157,7 @@ export function QuestionPanel() {
           </div>
         ) : (
           <div className="small muted row" data-testid="intake-no-questions">
-            <Icon name="check" /> No open questions. Check the draft, then create the plan.
+            <Icon name="check" /> {t("studio.questionPanel.btn.noOpenQuestionsCheckThe")}
           </div>
         )}
 
@@ -168,7 +169,7 @@ export function QuestionPanel() {
             disabled={working}
             onClick={() => void useAllSuggestions()}
           >
-            <Icon name="check" /> Use suggestions for all remaining
+            <Icon name="check" /> {t("studio.questionPanel.btn.useSuggestionsForAllRemaining")}
           </button>
         ) : null}
       </div>

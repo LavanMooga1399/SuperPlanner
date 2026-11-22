@@ -1,20 +1,40 @@
 /**
  * i18n-ready strings (UX-STANDARD 4/8). English only for now: the shell, tables, filters and dialogs (below), the
- * navigation (`strings/nav.ts`) and the manufacturing page copy (`strings/mfg.ts`) all come from this one
+ * navigation (`strings/nav.ts`) and the page copy per area (`strings/mfg.ts`, `floor`, `mobile`, `assistant`,
+ * `studio`, `finance`, `account`) all come from this one
  * dictionary, so a later translation replaces one map.
- * `t("table.showing", { shown: "3", total: "10" })` fills `{name}` placeholders.
+ * `t("common.runNo", { n: 3 })` -> "Run #3": values are passed as `{name}` placeholders, so a translation can move
+ * them (a language can say "{m}: {n}" instead of "{n} of {m}"); counts with nouns go through `plural()`.
  */
+import { accountStrings } from "./strings/account";
+import { assistantStrings } from "./strings/assistant";
+import { financeStrings } from "./strings/finance";
+import { floorStrings } from "./strings/floor";
 import { mfgStrings } from "./strings/mfg";
+import { mobileStrings } from "./strings/mobile";
 import { navStrings } from "./strings/nav";
+import { studioStrings } from "./strings/studio";
 
 const en = {
   ...navStrings,
   ...mfgStrings,
+  ...floorStrings,
+  ...mobileStrings,
+  ...assistantStrings,
+  ...studioStrings,
+  ...financeStrings,
+  ...accountStrings,
   "common.cancel": "Cancel",
   "common.close": "Close",
   "common.dismiss": "Dismiss notification",
   "common.loading": "Loading…",
   "common.search": "Search",
+  "common.runNo": "Run #{n}",
+  "common.runNoInline": "run #{n}",
+  "common.mrpRunNo": "MRP run #{n}",
+  "common.scheduleNo": "Schedule #{n}",
+  "common.scheduleNoInline": "schedule #{n}",
+  "common.nOfM": "{n} of {m}",
   "table.rows": "{count} rows",
   "table.csv": "CSV",
   "table.csvTitle": "Download the rows loaded so far as CSV",

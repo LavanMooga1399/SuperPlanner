@@ -14,6 +14,7 @@ import { useLoad } from "../lib/useMfg";
 import { useFloor } from "./FloorLayout";
 import { DOWNTIME, floorErrorText } from "./floorText";
 import { submitDowntimeOpen, submitDowntimeUpdate } from "./offlineQueue";
+import { t } from "../../lib/i18n";
 
 const QUICK = [30, 60, 120, 240];
 
@@ -62,12 +63,12 @@ export function FloorDowntime() {
 
   if (!can) return <div className="floor-card muted">Your role cannot report downtime.</div>;
   return (
-    <section className="floor-card" aria-label="Report downtime" data-testid="floor-downtime">
+    <section className="floor-card" aria-label={t("floor.floorDowntime.aria.reportDowntime")} data-testid="floor-downtime">
       <h1>{editing ? "Change when the line is expected back" : "Report the line down"}</h1>
       {!editing ? (
         <>
-          <h2 style={{ fontSize: 18 }}>What happened?</h2>
-          <div className="floor-grid" role="radiogroup" aria-label="Kind">
+          <h2 style={{ fontSize: 18 }}>{t("floor.floorDowntime.head.whatHappened")}</h2>
+          <div className="floor-grid" role="radiogroup" aria-label={t("floor.floorDowntime.aria.kind")}>
             {DOWNTIME_KINDS.map((k) => (
               <button key={k} type="button" role="radio" aria-checked={kind === k} className={`floor-tile${kind === k ? " active" : ""}`} onClick={() => setKind(k)} data-testid={`downtime-kind-${k}`}>
                 <Icon name={DOWNTIME[k].icon} size={22} />
@@ -81,11 +82,11 @@ export function FloorDowntime() {
         </>
       ) : null}
       <div className="field">
-        <label htmlFor="dt-reason">Reason</label>
+        <label htmlFor="dt-reason">{t("floor.floorDowntime.label.reason")}</label>
         <input id="dt-reason" className="input" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder={editing?.reason || "e.g. conveyor jam, nozzle broken"} data-testid="downtime-reason" />
       </div>
-      <h2 style={{ fontSize: 18 }}>Expected back</h2>
-      <div className="floor-grid" role="radiogroup" aria-label="Expected back">
+      <h2 style={{ fontSize: 18 }}>{t("floor.floorDowntime.head.expectedBack")}</h2>
+      <div className="floor-grid" role="radiogroup" aria-label={t("floor.floorDowntime.aria.expectedBack")}>
         {QUICK.map((m) => (
           <button
             key={m}
@@ -111,12 +112,12 @@ export function FloorDowntime() {
             setCustom("");
           }}
         >
-          <strong style={{ fontSize: 18 }}>Not known</strong>
+          <strong style={{ fontSize: 18 }}>{t("floor.floorDowntime.head.notKnown")}</strong>
           <span className="small muted">the plan assumes 4 h</span>
         </button>
       </div>
       <div className="field" style={{ maxWidth: 320 }}>
-        <label htmlFor="dt-custom">Or a time</label>
+        <label htmlFor="dt-custom">{t("floor.floorDowntime.label.orATime")}</label>
         <input id="dt-custom" className="input" type="datetime-local" value={custom} onChange={(e) => setCustom(e.target.value)} />
       </div>
       {error ? (
@@ -129,7 +130,7 @@ export function FloorDowntime() {
           <Icon name={editing ? "save" : "alert"} /> {editing ? "Save" : "Line is down"}
         </button>
         <button type="button" className="btn floor-btn" onClick={() => navigate(mfgPaths.floorLine(lineId))}>
-          Cancel
+          {t("floor.floorDowntime.btn.cancel")}
         </button>
       </div>
     </section>

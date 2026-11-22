@@ -18,6 +18,7 @@ import { useLoad } from "../lib/useMfg";
 import { loadLines, lineState, type LineState } from "./glance";
 import { useOnline } from "./MobileLayout";
 import { formatDateTime, formatTime } from "../../lib/locale";
+import { t } from "../../lib/i18n";
 
 export const LINE_STATE: Record<LineState, { label: string; icon: IconName; tone: string }> = {
   running: { label: "Running", icon: "play", tone: "ok" },
@@ -41,7 +42,7 @@ export function MobileLines() {
   usePolling(lines.reload, online, 30000);
   return (
     <div className="col" style={{ gap: 12 }} data-testid="m-lines">
-      <h1>Lines</h1>
+      <h1>{t("mobile.mobileLines.head.lines")}</h1>
       {lines.error && !lines.data ? <MfgError error={lines.error} onRetry={lines.reload} /> : null}
       {lines.loading && !lines.data ? <Spinner /> : null}
       {lines.data && !lines.data.length ? <p className="muted">No active lines.</p> : null}
@@ -89,32 +90,32 @@ function DowntimeCard({ d, onChanged }: { d: DowntimeM6; onChanged(): void }) {
     }
   };
   return (
-    <section className="m-card" data-testid="m-downtime" aria-label="Open downtime">
+    <section className="m-card" data-testid="m-downtime" aria-label={t("mobile.mobileLines.aria.openDowntime")}>
       <h2>
         <Icon name={kind.icon} /> Down: {kind.label}
       </h2>
       <dl className="m-dl">
-        <dt>Since</dt>
+        <dt>{t("mobile.mobileLines.head.since")}</dt>
         <dd>{formatDateTime(d.start_at)}</dd>
         {d.expected_end_at ? (
           <>
-            <dt>Expected back</dt>
+            <dt>{t("mobile.mobileLines.head.expectedBack")}</dt>
             <dd>{formatDateTime(d.expected_end_at)}</dd>
           </>
         ) : null}
         {d.reason ? (
           <>
-            <dt>Reason</dt>
+            <dt>{t("mobile.mobileLines.head.reason")}</dt>
             <dd>{d.reason}</dd>
           </>
         ) : null}
         {d.reported_by ? (
           <>
-            <dt>Reported by</dt>
+            <dt>{t("mobile.mobileLines.head.reportedBy")}</dt>
             <dd>{d.reported_by.name ?? d.reported_by.code}</dd>
           </>
         ) : null}
-        <dt>Seen by</dt>
+        <dt>{t("mobile.mobileLines.head.seenBy")}</dt>
         <dd data-testid="m-downtime-ack">
           {d.acknowledged_at ? (
             <span className="m-state">
@@ -122,11 +123,11 @@ function DowntimeCard({ d, onChanged }: { d: DowntimeM6; onChanged(): void }) {
             </span>
           ) : ackWaiting ? (
             <span className="m-state">
-              <Icon name="clock" size={14} /> You (waiting to sync)
+              <Icon name="clock" size={14} /> {t("mobile.mobileLines.btn.youWaitingToSync")}
             </span>
           ) : (
             <span className="m-state">
-              <Icon name="circle" size={14} /> Not yet acknowledged
+              <Icon name="circle" size={14} /> {t("mobile.mobileLines.btn.notYetAcknowledged")}
             </span>
           )}
         </dd>
@@ -144,7 +145,7 @@ function DowntimeCard({ d, onChanged }: { d: DowntimeM6; onChanged(): void }) {
         ) : null}
         {closeWaiting ? (
           <span className="m-state">
-            <Icon name="clock" size={14} /> Close waiting to sync
+            <Icon name="clock" size={14} /> {t("mobile.mobileLines.btn.closeWaitingToSync")}
           </span>
         ) : null}
       </div>
@@ -172,7 +173,7 @@ export function MobileLine() {
   return (
     <div className="col" style={{ gap: 12 }} data-testid="m-line">
       <Link to="/m/lines" className="small">
-        <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> All lines
+        <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {t("mobile.mobileLines.btn.allLines")}
       </Link>
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
         <h1>{q.data?.line.code ?? "Line"}</h1>
@@ -183,7 +184,7 @@ export function MobileLine() {
       {d && d.open !== false ? <DowntimeCard d={d} onChanged={() => down.reload()} /> : null}
       {q.data ? (
         <section className="m-card" aria-labelledby="m-ops-h">
-          <h2 id="m-ops-h">Current and next operations</h2>
+          <h2 id="m-ops-h">{t("mobile.mobileLines.head.currentAndNextOperations")}</h2>
           {open.length === 0 ? <p className="muted" style={{ margin: 0 }}>Nothing planned for this shift.</p> : null}
           <ul className="m-list">
             {open.slice(0, 6).map((r, i) => (

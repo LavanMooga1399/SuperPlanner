@@ -1,5 +1,6 @@
 /** Month arithmetic on "YYYY-MM" strings (FINANCE.md 3). */
 import type { Month } from "../api/types";
+import { plural } from "../../lib/i18n";
 
 export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -60,8 +61,8 @@ export function fmtDurationMonths(n: number): string {
   const a = Math.abs(Math.round(n));
   const y = Math.floor(a / 12);
   const m = a % 12;
-  const ys = y ? `${y} year${y === 1 ? "" : "s"}` : "";
-  const ms = m ? `${m} month${m === 1 ? "" : "s"}` : "";
+  const ys = y ? `${plural(y, "year")}` : "";
+  const ms = m ? `${plural(m, "month")}` : "";
   return sign + ([ys, ms].filter(Boolean).join(" ") || "0 months");
 }
 

@@ -15,6 +15,7 @@ import type { WoOpStatus } from "../api/typesM4";
 import { OP_STATUS } from "../floor/floorText";
 import type { PlantClock } from "../lib/plantTime";
 import { fmtDuration } from "../lib/plantTime";
+import { t, t as tr } from "../../lib/i18n";
 
 export const ZOOMS = [1.5, 3, 6, 12, 24, 48, 96, 160]; // px per hour: ~month .. ~hour
 const ROW_H = 28;
@@ -654,7 +655,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
         </div>
       </div>
       <span className="sr-only" aria-live="polite">{kbMsg || selectedText}</span>
-      <div ref={scrollRef} className="pg-scroll" onScroll={onScroll} onWheel={onWheel} onKeyDown={onKeyDown} tabIndex={0} aria-label="Gantt chart: arrow keys scroll, ] and [ select the next or previous operation, Alt+Left/Right moves it in time, Shift+Alt+Up/Down moves it to another line, + and - zoom, Escape clears the selection">
+      <div ref={scrollRef} className="pg-scroll" onScroll={onScroll} onWheel={onWheel} onKeyDown={onKeyDown} tabIndex={0} aria-label={t("mfg.prodGantt.aria.ganttChartArrowKeysScroll")}>
         <div style={{ width: totalW, height: totalH + HEAD_H, position: "relative" }}>
           <canvas
             ref={canvasRef}
@@ -697,7 +698,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
           ) : null}
           {hover.bar.split && hover.bar.split.count > 1 ? (
             <div className="small">
-              Split part {hover.bar.split.index + 1} of {hover.bar.split.count}
+              Split part {tr("common.nOfM", { n: hover.bar.split.index + 1, m: hover.bar.split.count })}
             </div>
           ) : null}
           <div className="small muted">{hoverReason ?? "Why it starts here: loading…"}</div>

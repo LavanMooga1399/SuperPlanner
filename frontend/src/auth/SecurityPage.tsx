@@ -20,6 +20,7 @@ import { safeNext } from "./nextPath";
 import { AuthLoading } from "./SignInPage";
 import "./auth.css";
 import { formatDate } from "../lib/locale";
+import { t } from "../lib/i18n";
 
 const groups = (s: string) => s.replace(/\s+/g, "").match(/.{1,4}/g)?.join(" ") ?? s;
 
@@ -144,12 +145,12 @@ export function SecurityPage() {
             ) : null}
           </div>
           {required || status?.required_by_org ? (
-            <Banner tone="warn" title="Required by your organisation" testId="security-required">
+            <Banner tone="warn" title={t("account.securityPage.title.requiredByYourOrganisation")} testId="security-required">
               Turn on two-step verification to continue. You will need your phone (or another authenticator app) each time you sign in with your password.
             </Banner>
           ) : null}
           {sso ? (
-            <p style={{ margin: 0 }}>You sign in with your company account. Your company's sign-in page handles the second step, so there is nothing to set up here.</p>
+            <p style={{ margin: 0 }}>{t("account.securityPage.text.youSignInWithYour")}</p>
           ) : null}
           <FormError id="sec-error" testId="security-error">
             {error}
@@ -176,16 +177,16 @@ export function SecurityPage() {
                 }
               }}
             >
-              <Banner tone="ok" title="Two-step verification is on">
+              <Banner tone="ok" title={t("account.securityPage.title.twostepVerificationIsOn")}>
                 Finish signing in with the next code your app shows (wait for it to change if you just used one).
               </Banner>
               <div className="field" style={{ maxWidth: 240 }}>
-                <label htmlFor="totp-finish">Code</label>
+                <label htmlFor="totp-finish">{t("account.securityPage.label.code")}</label>
                 <input id="totp-finish" className="input auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} autoFocus data-testid="totp-finish-code" />
               </div>
               <div>
                 <button type="submit" className="btn primary" disabled={busy} data-testid="totp-finish-submit">
-                  <Icon name="arrow-right" /> Sign in
+                  <Icon name="arrow-right" /> {t("account.securityPage.btn.signIn")}
                 </button>
               </div>
             </form>
@@ -201,10 +202,10 @@ export function SecurityPage() {
               </ol>
               <div className="row wrap">
                 <button type="button" className="btn" onClick={() => void navigator.clipboard?.writeText(codes.join("\n"))}>
-                  <Icon name="copy" /> Copy
+                  <Icon name="copy" /> {t("account.securityPage.btn.copy")}
                 </button>
                 <button type="button" className="btn" onClick={download}>
-                  <Icon name="download" /> Download
+                  <Icon name="download" /> {t("account.securityPage.btn.download")}
                 </button>
               </div>
               <label className="checkbox">
@@ -233,7 +234,7 @@ export function SecurityPage() {
                 <li>Add an account and scan this code.</li>
               </ol>
               <div className="row wrap" style={{ gap: 20, alignItems: "flex-start" }}>
-                <QrCode text={setup.otpauth_uri} size={196} label="QR code to add SuperPlanner to your authenticator app" testId="totp-qr" />
+                <QrCode text={setup.otpauth_uri} size={196} label={t("account.securityPage.label.qrCodeToAddSuperplanner")} testId="totp-qr" />
                 <div className="col" style={{ gap: 6, maxWidth: 320 }}>
                   <span className="muted small">Cannot scan? Enter this key by hand (time-based, 6 digits):</span>
                   <code className="totp-secret" data-testid="totp-secret" data-secret={setup.secret}>
@@ -242,7 +243,7 @@ export function SecurityPage() {
                 </div>
               </div>
               <div className="field" style={{ maxWidth: 240 }}>
-                <label htmlFor="totp-confirm">3. Enter the 6-digit code the app shows</label>
+                <label htmlFor="totp-confirm">{t("account.securityPage.label.3EnterThe6digitCode")}</label>
                 <input id="totp-confirm" className="input auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} autoFocus data-testid="totp-confirm" />
               </div>
               <div className="row">
@@ -250,7 +251,7 @@ export function SecurityPage() {
                   {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Turn on
                 </button>
                 <button type="button" className="btn" onClick={() => setSetup(null)}>
-                  Cancel
+                  {t("account.securityPage.btn.cancel")}
                 </button>
               </div>
             </form>
@@ -258,7 +259,7 @@ export function SecurityPage() {
             <div className="col" style={{ gap: 10 }} data-testid="totp-on">
               <p style={{ margin: 0 }}>
                 <span className="badge ok">
-                  <Icon name="check" /> On
+                  <Icon name="check" /> {t("account.securityPage.btn.on")}
                 </span>{" "}
                 {status.enabled_at ? `since ${formatDate(status.enabled_at)}` : ""}
                 {status.recovery_codes_left !== null ? ` · ${status.recovery_codes_left} recovery codes left` : ""}
@@ -266,24 +267,24 @@ export function SecurityPage() {
               {mode ? (
                 <form className="row wrap" style={{ alignItems: "flex-end" }} onSubmit={withCode}>
                   <div className="field" style={{ maxWidth: 220 }}>
-                    <label htmlFor="totp-current">Current code from your app</label>
+                    <label htmlFor="totp-current">{t("account.securityPage.label.currentCodeFromYourApp")}</label>
                     <input id="totp-current" className="input auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} autoFocus data-testid="totp-current" />
                   </div>
                   <button type="submit" className={`btn ${mode === "disable" ? "danger" : "primary"}`} disabled={busy} data-testid="totp-confirm-action">
                     {mode === "disable" ? "Turn off" : "Make new codes"}
                   </button>
                   <button type="button" className="btn" onClick={() => setMode(null)}>
-                    Cancel
+                    {t("account.securityPage.btn.cancel")}
                   </button>
                 </form>
               ) : (
                 <div className="row wrap">
                   <button type="button" className="btn" onClick={() => setMode("recovery")} data-testid="totp-new-codes">
-                    <Icon name="refresh" /> New recovery codes
+                    <Icon name="refresh" /> {t("account.securityPage.btn.newRecoveryCodes")}
                   </button>
                   {!status.required_by_org ? (
                     <button type="button" className="btn ghost" onClick={() => setMode("disable")} data-testid="totp-disable">
-                      Turn off
+                      {t("account.securityPage.btn.turnOff")}
                     </button>
                   ) : (
                     <span className="faint small">Your organisation requires two-step verification.</span>
@@ -295,13 +296,13 @@ export function SecurityPage() {
             <div className="col" style={{ gap: 10 }}>
               <p style={{ margin: 0 }}>
                 <span className="badge info">
-                  <Icon name="lock" /> Off
+                  <Icon name="lock" /> {t("account.securityPage.btn.off")}
                 </span>{" "}
                 Add a second step to signing in: after your password, a 6-digit code from an app on your phone.
               </p>
               <div>
                 <button type="button" className="btn primary" onClick={() => void begin()} disabled={busy} data-testid="totp-begin">
-                  <Icon name="lock" /> Turn on two-step verification
+                  <Icon name="lock" /> {t("account.securityPage.btn.turnOnTwostepVerification")}
                 </button>
               </div>
             </div>

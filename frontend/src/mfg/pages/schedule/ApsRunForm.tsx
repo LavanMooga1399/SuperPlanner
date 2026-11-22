@@ -29,8 +29,8 @@ export const POLICY_TEXT: Record<OvertimePolicy, { label: string; help: string }
 export function PolicyPicker({ value, onChange, name = "aps-policy" }: { value: OvertimePolicy; onChange(v: OvertimePolicy): void; name?: string }) {
   return (
     <fieldset className="mfg-fieldset" data-testid="aps-policy">
-      <legend>Overtime</legend>
-      <div className="row wrap" role="radiogroup" aria-label="Overtime policy">
+      <legend>{t("mfg.apsRunForm.head.overtime")}</legend>
+      <div className="row wrap" role="radiogroup" aria-label={t("mfg.apsRunForm.aria.overtimePolicy")}>
         {(["suggest", "allow", "off"] as OvertimePolicy[]).map((p) => (
           <label key={p} className={`card card-body col${value === p ? " mfg-inline-form" : ""}`} style={{ flex: "1 1 220px", gap: 4, cursor: "pointer" }}>
             <span className="row">
@@ -121,7 +121,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
   return (
     <section className="card mfg-inline-form" data-testid="aps-run-form" aria-labelledby="aps-form-title">
       <div className="card-header">
-        <h2 id="aps-form-title">Schedule the whole plant</h2>
+        <h2 id="aps-form-title">{t("mfg.apsRunForm.head.scheduleTheWholePlant")}</h2>
         <button type="button" className="btn sm ghost" onClick={onClose}>
           <Icon name="x" /> {t("mfg.apsRunForm.btn.close")}
         </button>
@@ -152,7 +152,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
         </div>
         {expert ? (
           <fieldset className="mfg-fieldset" data-testid="aps-expert">
-            <legend>Planning options</legend>
+            <legend>{t("mfg.apsRunForm.head.planningOptions")}</legend>
             <div className="form-grid">
               <div className="field">
                 <label htmlFor="aps-h">{t("mfg.apsRunForm.label.horizonDays")}</label>
@@ -167,7 +167,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
                     .filter((r: MrpRunRecord) => r.status === "completed")
                     .map((r) => (
                       <option key={r.id} value={r.id}>
-                        Run #{r.run_no}
+                        {t("common.runNo", { n: r.run_no })}
                         {r.label ? ` · ${r.label}` : ""}
                       </option>
                     ))}
@@ -190,7 +190,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
         ) : null}
         {whatIf ? (
           <fieldset className="mfg-fieldset" data-testid="aps-whatif">
-            <legend>What-if scenario</legend>
+            <legend>{t("mfg.apsRunForm.head.whatifScenario")}</legend>
             <p className="hint" style={{ margin: 0 }}>
               Only for this run, for comparison; a what-if run cannot be published.
             </p>
@@ -208,7 +208,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
               <span className="field-label">Capacity changes</span>
               {ovs.map((o, i) => (
                 <div key={o.key} className="row wrap" style={{ gap: 6 }} data-testid="aps-override-row">
-                  <select className="select sm" aria-label="Line" value={o.target_id} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, target_id: e.target.value } : y)))}>
+                  <select className="select sm" aria-label={t("mfg.apsRunForm.aria.line")} value={o.target_id} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, target_id: e.target.value } : y)))}>
                     <option value="">Choose a line</option>
                     {(lines.data?.items ?? []).map((l: LineRecord) => (
                       <option key={l.id} value={l.id}>
@@ -216,13 +216,13 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
                       </option>
                     ))}
                   </select>
-                  <select className="select sm" aria-label="Change" value={o.mode} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, mode: e.target.value as CapacityOverride["mode"] } : y)))}>
+                  <select className="select sm" aria-label={t("mfg.apsRunForm.aria.change")} value={o.mode} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, mode: e.target.value as CapacityOverride["mode"] } : y)))}>
                     <option value="open_optional">Open extra shift time</option>
                     <option value="close">Close (breakdown, maintenance)</option>
                   </select>
-                  <input className="input sm" type="datetime-local" aria-label="From" value={o.start} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, start: e.target.value } : y)))} />
-                  <input className="input sm" type="datetime-local" aria-label="Until" value={o.end} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, end: e.target.value } : y)))} />
-                  <button type="button" className="btn sm ghost icon" aria-label="Remove" onClick={() => setOvs((x) => x.filter((_, j) => j !== i))}>
+                  <input className="input sm" type="datetime-local" aria-label={t("mfg.apsRunForm.aria.from")} value={o.start} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, start: e.target.value } : y)))} />
+                  <input className="input sm" type="datetime-local" aria-label={t("mfg.apsRunForm.aria.until")} value={o.end} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, end: e.target.value } : y)))} />
+                  <button type="button" className="btn sm ghost icon" aria-label={t("mfg.apsRunForm.aria.remove")} onClick={() => setOvs((x) => x.filter((_, j) => j !== i))}>
                     <Icon name="trash" />
                   </button>
                 </div>

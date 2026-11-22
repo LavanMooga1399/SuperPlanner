@@ -53,7 +53,7 @@ const STEPS: { key: Step; label: string }[] = [
 function Stepper({ current }: { current: Step }) {
   const idx = STEPS.findIndex((s) => s.key === current);
   return (
-    <ol className="mfg-stepper" aria-label="Import steps" data-testid="import-stepper" data-step={current}>
+    <ol className="mfg-stepper" aria-label={t("mfg.importWizard.aria.importSteps")} data-testid="import-stepper" data-step={current}>
       {STEPS.map((s, i) => (
         <li key={s.key} className={i === idx ? "current" : i < idx ? "done" : undefined} aria-current={i === idx ? "step" : undefined}>
           <span className="mfg-step-num" aria-hidden>
@@ -106,14 +106,14 @@ export function ImportWizard() {
         />
         <div className="grid-2">
           <section className="card card-body col">
-            <h3>Start from a template</h3>
+            <h3>{t("mfg.importWizard.head.startFromATemplate")}</h3>
             <p className="muted small" style={{ margin: 0 }}>
               One sheet per kind of data with the expected columns, an example row and a README sheet explaining each field.
             </p>
             <TemplateButtons />
           </section>
           <section className="card card-body col">
-            <h3>Export your data</h3>
+            <h3>{t("mfg.importWizard.head.exportYourData")}</h3>
             <p className="muted small" style={{ margin: 0 }}>
               Everything in the same format, ready to edit in Excel and import again.
             </p>
@@ -173,7 +173,7 @@ function ImportSession({ importId }: { importId: string }) {
       </div>
     );
   if (loaded.error && !rec) return <MfgError error={loaded.error} onRetry={loaded.reload} />;
-  if (!rec || !mapping) return <Spinner label="Loading import…" />;
+  if (!rec || !mapping) return <Spinner label={t("mfg.importWizard.label.loadingImport")} />;
 
   const step = resolveStep(rec, params.get("step"));
   const go = (s: "map" | "preview" | "done") => navigate(mfgPaths.importStep(rec.id, s));

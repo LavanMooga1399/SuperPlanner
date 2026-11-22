@@ -24,6 +24,7 @@ import { draftProblems, dropProvenance, nextKey } from "../lib/draft";
 import { useIntake } from "../state/IntakeContext";
 import { LinkedField } from "./LinkedField";
 import { AmountRangeInput, NumField } from "./fields";
+import { t } from "../../lib/i18n";
 
 const FREQ: { v: Frequency; label: string }[] = [
   { v: "monthly", label: "Each month" },
@@ -231,11 +232,11 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
         <div className="form-grid">
           <LinkedField path="/name" error={errOf("/name")}>
             <div className="field grow">
-              <label htmlFor="fin-draft-name">Plan name</label>
+              <label htmlFor="fin-draft-name">{t("studio.financeDraftEditor.label.planName")}</label>
               <TextInput
                 id="fin-draft-name"
                 className="input"
-                label="Plan name"
+                label={t("studio.financeDraftEditor.label.planName")}
                 value={draft.name}
                 required
                 onChange={(v) => editDraft({ ...draft, name: v }, ["/name"])}
@@ -246,7 +247,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
             <div className="field">
               <span className="field-label">Your age</span>
               <NumField
-                label="Your age"
+                label={t("studio.financeDraftEditor.label.yourAge")}
                 value={draft.profile.age}
                 onChange={(v) => setProfile({ age: v === null ? null : Math.round(v) }, "age")}
               />
@@ -256,7 +257,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
             <div className="field">
               <span className="field-label">Retire at age</span>
               <NumField
-                label="Retire at age"
+                label={t("studio.financeDraftEditor.label.retireAtAge")}
                 value={draft.profile.retirement_age}
                 onChange={(v) => setProfile({ retirement_age: v === null ? null : Math.round(v) }, "retirement_age")}
               />
@@ -268,7 +269,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
                 Risk level <Term k="risk_level" bare />
               </span>
               <Select
-                label="Risk level"
+                label={t("studio.financeDraftEditor.label.riskLevel")}
                 value={draft.profile.risk_tolerance}
                 options={RISK}
                 onChange={(v) => setProfile({ risk_tolerance: v }, "risk_tolerance")}
@@ -281,7 +282,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
                 Emergency fund (months) <Term k="emergency_fund" bare />
               </span>
               <NumField
-                label="Emergency fund in months of essential spending"
+                label={t("studio.financeDraftEditor.label.emergencyFundInMonthsOf")}
                 value={draft.emergency_fund_months}
                 onChange={(v) => editDraft({ ...draft, emergency_fund_months: v }, ["/emergency_fund_months"])}
               />
@@ -610,7 +611,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
       {pending ? (
         <ConfirmDialog
           title={`Remove "${pending.name}"?`}
-          confirmLabel="Remove"
+          confirmLabel={t("studio.financeDraftEditor.btn.remove")}
           danger
           onCancel={() => setPending(null)}
           onConfirm={() => {

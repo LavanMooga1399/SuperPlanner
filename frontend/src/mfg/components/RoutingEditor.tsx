@@ -202,14 +202,14 @@ export function RoutingEditor({
                 <span className="sr-only">Reorder</span>
               </th>
             )}
-            <th>Op.</th>
-            <th>Name</th>
-            <th>Stage</th>
-            <th className="num">Setup (min)</th>
-            <th className="num">Run (min)</th>
-            <th>Per</th>
-            <th className="num">Yield %</th>
-            <th>Work</th>
+            <th>{tr("mfg.routingEditor.head.op")}</th>
+            <th>{tr("mfg.routingEditor.head.name")}</th>
+            <th>{tr("mfg.routingEditor.head.stage")}</th>
+            <th className="num">{tr("mfg.routingEditor.head.setupMin")}</th>
+            <th className="num">{tr("mfg.routingEditor.head.runMin")}</th>
+            <th>{tr("mfg.routingEditor.head.per")}</th>
+            <th className="num">{tr("mfg.routingEditor.head.yield")}</th>
+            <th>{tr("mfg.routingEditor.head.work")}</th>
             <th>
               <span className="sr-only">Actions</span>
             </th>
@@ -456,7 +456,7 @@ function OpDetails({
         <input id={`${id}-desc`} className="input sm" value={o.description} maxLength={500} readOnly={readOnly} onChange={(e) => onPatch({ description: e.target.value })} />
       </div>
       <fieldset className="mfg-fieldset">
-        <legend>Tooling held during the operation</legend>
+        <legend>{tr("mfg.routingEditor.head.toolingHeldDuringTheOperation")}</legend>
         {o.tools.map((tl, j) => (
           <div className="row" key={j}>
             <select

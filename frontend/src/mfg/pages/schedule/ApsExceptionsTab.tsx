@@ -27,7 +27,7 @@ export function ApsExceptionsTab() {
   const toggle = (k: "code" | "severity", list: string[], v: string) => setSearchParam(setParams, k, (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]).join(","));
   return (
     <div className="col gap-lg" data-testid="aps-exceptions">
-      <div className="row wrap" role="group" aria-label="Filter by severity">
+      <div className="row wrap" role="group" aria-label={t("mfg.apsExceptionsTab.aria.filterBySeverity")}>
         {MRP_SEVERITIES.map((s) => (
           <button key={s} type="button" className="btn sm" aria-pressed={sevs.includes(s)} onClick={() => toggle("severity", sevs, s)}>
             <MrpSeverityBadge severity={s} label={`${s === "critical" ? "Critical" : s === "warning" ? "Warnings" : "Info"}: ${counts?.by_severity?.[s] ?? 0}`} />
@@ -35,7 +35,7 @@ export function ApsExceptionsTab() {
         ))}
       </div>
       {counts ? (
-        <div className="row wrap" role="group" aria-label="Filter by message">
+        <div className="row wrap" role="group" aria-label={t("mfg.apsExceptionsTab.aria.filterByMessage")}>
           {Object.entries(counts.by_code).map(([c, n]) => (
             <button key={c} type="button" className="btn sm mfg-code-chip" aria-pressed={codes.includes(c)} onClick={() => toggle("code", codes, c)} title={c} data-code={c}>
               {exceptionLabel(c)} {n}
@@ -86,7 +86,7 @@ export function ApsExceptionsTab() {
         {data.rows.length < data.total ? (
           <div className="card-footer">
             <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              Show more ({data.rows.length} of {data.total})
+              Show more ({t("common.nOfM", { n: data.rows.length, m: data.total })})
             </button>
           </div>
         ) : null}

@@ -9,6 +9,7 @@ import type { ItemRef } from "../api/types";
 import { useMeta } from "../lib/useMfg";
 import { ItemPicker } from "./ItemPicker";
 import { VirtualTable, type Column } from "./VirtualTable";
+import { t } from "../../lib/i18n";
 
 export interface LineDraft {
   key: string;
@@ -200,7 +201,7 @@ export function BomLinesGrid({
       rows={lines}
       columns={columns}
       rowKey={(l) => l.key}
-      label="BOM lines"
+      label={t("mfg.bomLinesGrid.label.bomLines")}
       testId="bom-lines-grid"
       height={lines.length > 100 ? "min(60vh, 640px)" : "100000px"}
       rowExtras={extras}

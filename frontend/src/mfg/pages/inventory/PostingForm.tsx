@@ -440,7 +440,7 @@ export function PostingForm() {
       data-testid="posting-form"
       data-type={type}
     >
-      <div className="row wrap" role="group" aria-label="Kind of stock movement">
+      <div className="row wrap" role="group" aria-label={t("mfg.postingForm.aria.kindOfStockMovement")}>
         {FORM_TYPES.map((t) => (
           <button key={t} type="button" className={`btn sm${t === type ? " primary" : ""}`} aria-pressed={t === type} onClick={() => setType(t)} data-testid={`post-type-${t}`}>
             {POSTING_LABEL[t]}
@@ -489,21 +489,21 @@ export function PostingForm() {
       </section>
 
       <div className="table-wrap card">
-        <table className="table mfg-grid-table" aria-label="Posting lines">
+        <table className="table mfg-grid-table" aria-label={t("mfg.postingForm.aria.postingLines")}>
           <thead>
             <tr>
               <th>#</th>
-              <th>Item</th>
+              <th>{t("mfg.postingForm.head.item")}</th>
               <th>{type === "transfer" ? "From" : "Location"}</th>
               {type === "transfer" ? <th>To</th> : null}
-              <th>Lot</th>
+              <th>{t("mfg.postingForm.head.lot")}</th>
               <th>{type === "count" ? "Counted" : type === "adjust" ? "Change (+/−)" : "Quantity"}</th>
-              <th>Unit</th>
+              <th>{t("mfg.postingForm.head.unit")}</th>
               {showExpiry ? <th>Expires on</th> : null}
               {type === "receipt_misc" ? (
                 <>
-                  <th>Supplier lot</th>
-                  <th>Unit cost</th>
+                  <th>{t("mfg.postingForm.head.supplierLot")}</th>
+                  <th>{t("mfg.postingForm.head.unitCost")}</th>
                 </>
               ) : null}
               <th>

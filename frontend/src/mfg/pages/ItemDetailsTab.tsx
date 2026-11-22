@@ -248,7 +248,7 @@ export function ItemDetailsTab() {
 
       <section className="card">
         <div className="card-header">
-          <h2>Item</h2>
+          <h2>{t("mfg.itemDetailsTab.head.item")}</h2>
           <span className="muted small">Last changed {fmtTimestamp(base.updated_at)}</span>
         </div>
         <div className="card-body col">
@@ -260,9 +260,9 @@ export function ItemDetailsTab() {
           </div>
           <TextField name="description" label={erpLabel("Description", "description")} value={form.description} onChange={(v) => set("description", v)} maxLength={500} testId="item-description" disabled={erp.ownsField("items", "description")} />
           <div className="form-grid">
-            <TextField name="family" label="Family" value={form.family} onChange={(v) => set("family", v)} maxLength={32} hint="Groups similar items; lines can be limited to families." />
+            <TextField name="family" label={t("mfg.itemDetailsTab.label.family")} value={form.family} onChange={(v) => set("family", v)} maxLength={32} hint={t("mfg.itemDetailsTab.hint.groupsSimilarItemsLinesCan")} />
             <TextField name="lead_time_days"
-              label="Lead time (days)"
+              label={t("mfg.itemDetailsTab.label.leadTimeDays")}
               type="number"
               value={form.lead_time_days}
               onChange={(v) => set("lead_time_days", v)}
@@ -280,7 +280,7 @@ export function ItemDetailsTab() {
               disabled={erp.ownsField("items", "active")}
               checked={form.active}
               onChange={(v) => set("active", v)}
-              hint="Inactive items stay in old BOMs but are flagged when used."
+              hint={t("mfg.itemDetailsTab.hint.inactiveItemsStayInOld")}
               testId="item-active"
             />
           </div>
@@ -289,11 +289,11 @@ export function ItemDetailsTab() {
 
       <section className="card">
         <div className="card-header">
-          <h2>Ordering and stock</h2>
+          <h2>{t("mfg.itemDetailsTab.head.orderingAndStock")}</h2>
         </div>
         <div className="card-body form-grid">
           <SelectField name="lot_rule"
-            label="Lot size rule"
+            label={t("mfg.itemDetailsTab.label.lotSizeRule")}
             value={form.lot_rule}
             onChange={(v) => set("lot_rule", v)}
             options={[
@@ -305,7 +305,7 @@ export function ItemDetailsTab() {
           />
           {form.lot_rule === "period" ? (
             <TextField name="lot_period_days"
-              label="Period (days)"
+              label={t("mfg.itemDetailsTab.label.periodDays")}
               type="number"
               value={form.lot_period_days}
               onChange={(v) => set("lot_period_days", v)}
@@ -316,7 +316,7 @@ export function ItemDetailsTab() {
           ) : null}
           {form.lot_rule === "fixed" ? (
             <TextField name="fixed_lot_qty"
-              label="Fixed lot quantity"
+              label={t("mfg.itemDetailsTab.label.fixedLotQuantity")}
               type="number"
               value={form.fixed_lot_qty}
               onChange={(v) => set("fixed_lot_qty", v)}
@@ -324,10 +324,10 @@ export function ItemDetailsTab() {
               hint={fixedMissing ? "Required for a fixed lot size." : undefined}
             />
           ) : null}
-          <TextField name="min_order_qty" label="Minimum order quantity" type="number" value={form.min_order_qty} onChange={(v) => set("min_order_qty", v)} hint="0 = no minimum" />
-          <TextField name="order_multiple" label="Order multiple" type="number" value={form.order_multiple} onChange={(v) => set("order_multiple", v)} hint="e.g. reel of 5000; 0 = none" />
-          <TextField name="safety_stock" label="Safety stock" type="number" value={form.safety_stock} onChange={(v) => set("safety_stock", v)} />
-          <TextField name="receiving_days" label="Goods-in inspection (days)" type="number" value={form.receiving_days} onChange={(v) => set("receiving_days", v)} />
+          <TextField name="min_order_qty" label={t("mfg.itemDetailsTab.label.minimumOrderQuantity")} type="number" value={form.min_order_qty} onChange={(v) => set("min_order_qty", v)} hint={t("mfg.itemDetailsTab.hint.0NoMinimum")} />
+          <TextField name="order_multiple" label={t("mfg.itemDetailsTab.label.orderMultiple")} type="number" value={form.order_multiple} onChange={(v) => set("order_multiple", v)} hint={t("mfg.itemDetailsTab.hint.egReelOf50000")} />
+          <TextField name="safety_stock" label={t("mfg.itemDetailsTab.label.safetyStock")} type="number" value={form.safety_stock} onChange={(v) => set("safety_stock", v)} />
+          <TextField name="receiving_days" label={t("mfg.itemDetailsTab.label.goodsinInspectionDays")} type="number" value={form.receiving_days} onChange={(v) => set("receiving_days", v)} />
           {form.m2 ? (
             <>
               <TextField name="standard_cost"
@@ -336,14 +336,14 @@ export function ItemDetailsTab() {
                 type="number"
                 value={form.standard_cost}
                 onChange={(v) => set("standard_cost", v)}
-                hint="Per unit, in the plant currency; values stock."
+                hint={t("mfg.itemDetailsTab.hint.perUnitInThePlant")}
                 testId="item-standard-cost"
               />
               <CheckField name="lot_controlled"
-                label="Track lots"
+                label={t("mfg.itemDetailsTab.label.trackLots")}
                 checked={form.lot_controlled}
                 onChange={(v) => set("lot_controlled", v)}
-                hint="Receipts need a lot code; issues pick the earliest expiry first."
+                hint={t("mfg.itemDetailsTab.hint.receiptsNeedALotCode")}
                 testId="item-lot-controlled"
               />
             </>
@@ -361,24 +361,24 @@ export function ItemDetailsTab() {
           <div className="card-body col">
             <div className="form-grid">
               <TextField name="setup_family"
-                label="Setup family"
+                label={t("mfg.itemDetailsTab.label.setupFamily")}
                 value={form.setup_family}
                 onChange={(v) => set("setup_family", v)}
                 maxLength={32}
-                hint="Changeover class; empty = same as family."
+                hint={t("mfg.itemDetailsTab.hint.changeoverClassEmptySame")}
               />
-              <CheckField name="serialized" label="Serial numbers" checked={form.serialized} onChange={(v) => set("serialized", v)} hint="Units carry serial numbers (allows BOMs per serial range)." />
+              <CheckField name="serialized" label={t("mfg.itemDetailsTab.label.serialNumbers")} checked={form.serialized} onChange={(v) => set("serialized", v)} hint={t("mfg.itemDetailsTab.hint.unitsCarrySerialNumbersAllows")} />
               {form.m4 ? (
                 <CheckField name="backflush"
-                  label="Backflush from the line"
+                  label={t("mfg.itemDetailsTab.label.backflushFromTheLine")}
                   checked={form.backflush}
                   onChange={(v) => set("backflush", v)}
-                  hint="Issued automatically from the line-side stock when the operation reports output (e.g. reels, wire, labels). Off = issued by stores."
+                  hint={t("mfg.itemDetailsTab.hint.issuedAutomaticallyFromTheLineside")}
                   testId="item-backflush"
                 />
               ) : null}
-              <TextField name="shelf_life_days" label="Shelf life (days)" type="number" value={form.shelf_life_days} onChange={(v) => set("shelf_life_days", v)} />
-              <TextField name="handling_class" label="Handling class" value={form.handling_class} onChange={(v) => set("handling_class", v)} maxLength={32} hint="e.g. MSL3, ESD, HAZ" />
+              <TextField name="shelf_life_days" label={t("mfg.itemDetailsTab.label.shelfLifeDays")} type="number" value={form.shelf_life_days} onChange={(v) => set("shelf_life_days", v)} />
+              <TextField name="handling_class" label={t("mfg.itemDetailsTab.label.handlingClass")} value={form.handling_class} onChange={(v) => set("handling_class", v)} maxLength={32} hint={t("mfg.itemDetailsTab.hint.egMsl3EsdHaz")} />
             </div>
             {form.m2 ? (
               <TextField name="external_ref"
@@ -387,11 +387,11 @@ export function ItemDetailsTab() {
                 value={form.external_ref}
                 onChange={(v) => set("external_ref", v)}
                 maxLength={64}
-                hint="Code of this item in your ERP; must be unique."
+                hint={t("mfg.itemDetailsTab.hint.codeOfThisItemIn")}
                 testId="item-external-ref"
               />
             ) : null}
-            <TextField name="handling_note" label="Handling note" value={form.handling_note} onChange={(v) => set("handling_note", v)} maxLength={500} />
+            <TextField name="handling_note" label={t("mfg.itemDetailsTab.label.handlingNote")} value={form.handling_note} onChange={(v) => set("handling_note", v)} maxLength={500} />
             <AttributesEditor rows={form.attributes} onChange={(rows) => set("attributes", rows)} />
           </div>
         </section>
@@ -438,7 +438,7 @@ function AttributesEditor({ rows, onChange }: { rows: AttrRow[]; onChange(rows: 
   const update = (i: number, patch: Partial<AttrRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
     <fieldset className="mfg-fieldset">
-      <legend>Attributes</legend>
+      <legend>{t("mfg.itemDetailsTab.head.attributes")}</legend>
       <p className="hint" style={{ margin: 0 }}>
         Free fields such as manufacturer or manufacturer part number. Names use letters, digits and - _ . /
       </p>

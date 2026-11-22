@@ -5,6 +5,7 @@ import { Icon } from "../components/Icon";
 import { useAuth } from "./AuthContext";
 import { signInHref } from "./nextPath";
 import { SESSION_ENDED_MESSAGE } from "./types";
+import { t } from "../lib/i18n";
 
 export function SessionExpiredBanner() {
   const { mode, expired } = useAuth();
@@ -19,7 +20,7 @@ export function SessionExpiredBanner() {
         icon="lock"
         role="alert"
         testId="session-expired"
-        title="Session ended"
+        title={t("account.sessionExpiredBanner.title.sessionEnded")}
         actions={
           <button
             type="button"
@@ -27,7 +28,7 @@ export function SessionExpiredBanner() {
             data-testid="session-expired-signin"
             onClick={() => void navigate(signInHref(loc.pathname, loc.search))}
           >
-            <Icon name="arrow-right" /> Sign in again
+            <Icon name="arrow-right" /> {t("account.sessionExpiredBanner.btn.signInAgain")}
           </button>
         }
       >

@@ -5,6 +5,7 @@ import { Banner } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
 import { createFinanceRun } from "../api/client";
 import { useLoadedFinancePlan } from "../state/FinancePlanContext";
+import { t } from "../../lib/i18n";
 
 export const ENGINE_VERSIONS_DIFFER_TEXT =
   "These results come from different versions of the planner, so part of the difference is due to the update. Re-run your plan for a like-for-like comparison.";
@@ -44,7 +45,7 @@ export function EngineVersionBanner({ show }: { show: boolean | undefined }) {
       tone="warn"
       role="status"
       testId="fin-engine-versions-differ"
-      title="Results from different planner versions"
+      title={t("finance.engineVersionBanner.title.resultsFromDifferentPlannerVersions")}
       actions={
         <button type="button" className="btn sm" onClick={() => void rerun()} disabled={busy} data-testid="fin-engine-rerun">
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Re-run plan

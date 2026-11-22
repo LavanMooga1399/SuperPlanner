@@ -25,7 +25,7 @@ import { t } from "../../lib/i18n";
 function RolePicker({ value, onChange }: { value: Role[]; onChange(r: Role[]): void }) {
   return (
     <fieldset className="mfg-fieldset">
-      <legend>Roles (one or more)</legend>
+      <legend>{t("mfg.membersPage.head.rolesOneOrMore")}</legend>
       {ROLE_OPTIONS.map((o) => (
         <label key={o.value} className="checkbox" style={{ alignItems: "flex-start" }}>
           <input
@@ -62,7 +62,7 @@ function MemberDialog({ member, onClose, onSaved }: { member: MemberRecord | nul
       }}
     >
       {member ? null : (
-        <TextField label="Email of an existing account" value={email} onChange={setEmail} maxLength={254} placeholder={t("mfg.membersPage.ph.namecompanycom")} hint="The person must already have a SuperPlanner account." testId="member-email" />
+        <TextField label={t("mfg.membersPage.label.emailOfAnExistingAccount")} value={email} onChange={setEmail} maxLength={254} placeholder={t("mfg.membersPage.ph.namecompanycom")} hint={t("mfg.membersPage.hint.thePersonMustAlreadyHave")} testId="member-email" />
       )}
       <RolePicker value={roles} onChange={setRoles} />
       {member ? (
@@ -171,7 +171,7 @@ export function MembersPage() {
           rows={list.data?.items ?? []}
           columns={columns}
           rowKey={(m) => m.id}
-          label="Plant members"
+          label={t("mfg.membersPage.label.plantMembers")}
           testId="members-table"
           loading={list.loading && !list.data}
           exportName="plant-members"
@@ -203,7 +203,7 @@ export function MembersPage() {
             deleteMember(m.id, m.row_version).then(list.reload, setError);
           }}
         >
-          <p style={{ margin: 0 }}>They can no longer open this plant. Their past postings and approvals stay in the history.</p>
+          <p style={{ margin: 0 }}>{t("mfg.membersPage.text.theyCanNoLongerOpen")}</p>
         </ConfirmDialog>
       ) : null}
     </div>

@@ -7,6 +7,7 @@ import type { StepProps } from "./common";
 import { HelpText } from "./HelpText";
 import { STEPS, stepOfIssue } from "./steps";
 import { DataTable } from "../../mfg/components/DataTable";
+import { t, plural } from "../../lib/i18n";
 
 export interface ReviewStepProps extends StepProps {
   planId: string;
@@ -42,9 +43,9 @@ export function ReviewStep({ plan, planId, validation, validating, validateError
 
       <section className="card" aria-labelledby="fin-issues-h" data-testid="fin-review-issues">
         <div className="card-header">
-          <h2 id="fin-issues-h">Checks</h2>
+          <h2 id="fin-issues-h">{t("finance.reviewStep.head.checks")}</h2>
           <span className="small muted" role="status" aria-live="polite">
-            {validating ? "Checking…" : errors.length ? `${errors.length} error${errors.length === 1 ? "" : "s"} to fix` : "No errors"}
+            {validating ? "Checking…" : errors.length ? `${plural(errors.length, "error")} to fix` : "No errors"}
           </span>
         </div>
         {validateError ? <div className="card-body"><span style={{ color: "var(--danger)" }}><Icon name="alert" /> {validateError}</span></div> : null}
@@ -75,7 +76,7 @@ export function ReviewStep({ plan, planId, validation, validating, validateError
       {cf ? (
         <section className="card" aria-labelledby="fin-cfprev-h">
           <div className="card-header">
-            <h2 id="fin-cfprev-h">Cash-flow preview</h2>
+            <h2 id="fin-cfprev-h">{t("finance.reviewStep.head.cashflowPreview")}</h2>
             <span className="small muted">today's money</span>
           </div>
           <div className="card-body col">
@@ -106,7 +107,7 @@ export function ReviewStep({ plan, planId, validation, validating, validateError
                 { key: "surplus", header: "Surplus", width: "120px", align: "right", sortValue: (y) => y.surplus, render: (y) => <span className={y.surplus < 0 ? "mfg-neg" : undefined}>{formatMoney(y.surplus, cur, loc)}</span> },
               ]}
               rowKey={(y) => y.year}
-              label="Cash flow per plan year"
+              label={t("finance.reviewStep.label.cashFlowPerPlanYear")}
               tableId="finance-review-cashflow"
               exportName="cash-flow-per-year"
               card={{ title: "year", fields: ["income", "surplus"] }}

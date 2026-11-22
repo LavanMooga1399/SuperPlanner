@@ -93,7 +93,7 @@ export function EndpointsTab() {
       ) : null}
       <section className="card card-table">
         <div className="card-header">
-          <h2>Webhooks</h2>
+          <h2>{t("mfg.integrationPages2.head.webhooks")}</h2>
           {can ? (
             <button type="button" className="btn sm primary" onClick={() => setEdit("new")} data-testid="endpoint-new">
               <Icon name="plus" /> {t("mfg.integrationPages2.btn.addWebhook")}
@@ -194,11 +194,11 @@ export function EndpointsTab() {
               : []),
           ]}
           rowKey={(e) => e.id}
-          label="Webhooks"
+          label={t("mfg.integrationPages2.label.webhooks")}
           tableId="int-webhooks"
           loading={eps.loading && !eps.data}
           rowExtras={(e) => ({ testId: "endpoint-row", className: e.active ? undefined : "faint" })}
-          empty="No webhooks. Events can also be pulled by the ERP (Events out) or written as files."
+          empty={t("mfg.integrationPages2.empty.noWebhooksEventsCanAlso")}
           card={{ title: "name", status: "health", actions: can ? "actions" : undefined, fields: ["url", "events"] }}
         />
       </section>
@@ -230,7 +230,7 @@ export function EndpointsTab() {
             }
           }}
         >
-          <p style={{ margin: 0 }}>Waiting deliveries to it are dropped. Events stay available in the event feed.</p>
+          <p style={{ margin: 0 }}>{t("mfg.integrationPages2.text.waitingDeliveriesToItAre")}</p>
         </ConfirmDialog>
       ) : null}
     </div>
@@ -425,7 +425,7 @@ export function DeliveriesTab() {
           },
         ]}
         rowKey={(d) => d.id}
-        label="Webhook deliveries"
+        label={t("mfg.integrationPages2.label.webhookDeliveries")}
         testId="delivery-table"
         totalCount={data.total}
         loading={data.loading}
@@ -477,7 +477,7 @@ export function BatchesTab() {
           },
         ]}
         rowKey={(b) => b.id}
-        label="Data received"
+        label={t("mfg.integrationPages2.label.dataReceived")}
         testId="batch-table"
         totalCount={data.total}
         loading={data.loading}
@@ -516,7 +516,7 @@ export function BatchPage() {
   const rows = results.filter((r) => !only || r.status === only);
   return (
     <div className="col gap-lg" data-testid="batch-page" data-status={d.status}>
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumb" aria-label={t("mfg.integrationPages2.aria.breadcrumb")}>
         <Link to={mfgPaths.integration("batches")}>Data in</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.received_at)}</span>
       </nav>
       <h2 style={{ margin: 0 }}>
@@ -582,11 +582,11 @@ export function BatchPage() {
           },
         ]}
         rowKey={(r, i) => `${r.ref}-${i}`}
-        label="Records in this batch"
+        label={t("mfg.integrationPages2.label.recordsInThisBatch")}
         testId="batch-results"
         exportName={`batch-${d.id}`}
         rowExtras={(r) => ({ testId: "batch-record", data: { status: r.status } })}
-        empty="No records with this result."
+        empty={t("mfg.integrationPages2.empty.noRecordsWithThisResult")}
         card={{ title: "ref", status: "status", fields: ["why"] }}
       />
     </div>
@@ -644,7 +644,7 @@ export function EventsTab() {
           },
         ]}
         rowKey={(e) => e.seq}
-        label="Outgoing events"
+        label={t("mfg.integrationPages2.label.outgoingEvents")}
         testId="event-table"
         loading={ev.loading && !ev.data}
         exportName="integration-events"
@@ -705,15 +705,15 @@ export function FiledropTab() {
                 { key: "at", header: "Arrived", width: "160px", sortValue: (f) => f.at ?? null, render: (f) => when(f.at) },
               ]}
               rowKey={(_, i) => i}
-              label="Files waiting in the inbox"
+              label={t("mfg.integrationPages2.label.filesWaitingInTheInbox")}
               tableId="filedrop-inbox"
               columnSettings={false}
-              empty="Nothing waiting."
+              empty={t("mfg.integrationPages2.empty.nothingWaiting")}
             />
           </section>
           <section className="card card-table">
             <div className="card-header">
-              <h2>Recent files</h2>
+              <h2>{t("mfg.integrationPages2.head.recentFiles")}</h2>
             </div>
             <DataTable
               rows={s.recent}
@@ -737,10 +737,10 @@ export function FiledropTab() {
                 { key: "batch", header: <span className="sr-only">Results</span>, label: "Results", width: "90px", exportValue: () => "", render: (r) => (r.batch_id ? <Link to={mfgPaths.integrationBatch(r.batch_id)}>Results</Link> : null) },
               ]}
               rowKey={(_, i) => i}
-              label="Recent files"
+              label={t("mfg.integrationPages2.label.recentFiles")}
               testId="filedrop-recent"
               exportName="file-drop-recent"
-              empty="No files yet."
+              empty={t("mfg.integrationPages2.empty.noFilesYet")}
               card={{ title: "file", status: "status", actions: "batch", fields: ["counts", "at"] }}
             />
           </section>
@@ -750,7 +750,7 @@ export function FiledropTab() {
       ) : null}
       <section className="card card-table">
         <div className="card-header">
-          <h2>Mappings by file name</h2>
+          <h2>{t("mfg.integrationPages2.head.mappingsByFileName")}</h2>
         </div>
         <MfgError error={profiles.error} onRetry={profiles.reload} />
         <DataTable
@@ -760,7 +760,7 @@ export function FiledropTab() {
             { key: "pattern", header: "File names", width: "minmax(200px, 1.4fr)", sortValue: (p) => p.file_pattern, render: (p) => <span className="mono small">{p.file_pattern}</span> },
           ]}
           rowKey={(p) => p.id}
-          label="Mappings by file name"
+          label={t("mfg.integrationPages2.label.mappingsByFileName")}
           tableId="filedrop-mappings"
           columnSettings={false}
           loading={profiles.loading && !profiles.data}
@@ -802,16 +802,16 @@ export function ValueMapsTab() {
   return (
     <section className="card" data-testid="int-value-maps">
       <div className="card-header">
-        <h2>Code mappings</h2>
+        <h2>{t("mfg.integrationPages2.head.codeMappings")}</h2>
         <span className="muted small">Translate the ERP's codes to this plant's. Unmapped codes reject the record.</span>
       </div>
       <MfgError error={vm.error ?? error} onRetry={vm.reload} />
       <table className="table">
         <thead>
           <tr>
-            <th>Kind</th>
-            <th>ERP code</th>
-            <th>Code here</th>
+            <th>{t("mfg.integrationPages2.head.kind")}</th>
+            <th>{t("mfg.integrationPages2.head.erpCode")}</th>
+            <th>{t("mfg.integrationPages2.head.codeHere")}</th>
             <th />
           </tr>
         </thead>
@@ -819,7 +819,7 @@ export function ValueMapsTab() {
           {rows.map((r, i) => (
             <tr key={i} data-testid="value-map-row">
               <td>
-                <select className="select sm" aria-label="Kind" value={r.domain} disabled={!can} onChange={(e) => set(i, { domain: e.target.value })}>
+                <select className="select sm" aria-label={t("mfg.integrationPages2.aria.kind")} value={r.domain} disabled={!can} onChange={(e) => set(i, { domain: e.target.value })}>
                   {DOMAINS.map((d) => (
                     <option key={d.key} value={d.key}>
                       {d.label}
@@ -829,14 +829,14 @@ export function ValueMapsTab() {
                 </select>
               </td>
               <td>
-                <input className="input sm mono" aria-label="ERP code" value={r.external_value} disabled={!can} onChange={(e) => set(i, { external_value: e.target.value })} />
+                <input className="input sm mono" aria-label={t("mfg.integrationPages2.aria.erpCode")} value={r.external_value} disabled={!can} onChange={(e) => set(i, { external_value: e.target.value })} />
               </td>
               <td>
-                <input className="input sm mono" aria-label="Code here" value={r.internal_value} disabled={!can} onChange={(e) => set(i, { internal_value: e.target.value })} />
+                <input className="input sm mono" aria-label={t("mfg.integrationPages2.aria.codeHere")} value={r.internal_value} disabled={!can} onChange={(e) => set(i, { internal_value: e.target.value })} />
               </td>
               <td>
                 {can ? (
-                  <button type="button" className="btn sm ghost icon" aria-label="Remove mapping" onClick={() => setRows((x) => x.filter((_, k) => k !== i))}>
+                  <button type="button" className="btn sm ghost icon" aria-label={t("mfg.integrationPages2.aria.removeMapping")} onClick={() => setRows((x) => x.filter((_, k) => k !== i))}>
                     <Icon name="trash" />
                   </button>
                 ) : null}
@@ -925,7 +925,7 @@ export function ReconciliationTab() {
     <div className="col gap-lg" data-testid="int-recon">
       <section className="card">
         <div className="card-header">
-          <h2>Compare stock with the ERP</h2>
+          <h2>{t("mfg.integrationPages2.head.compareStockWithTheErp")}</h2>
         </div>
         <div className="card-body col">
           <p className="muted" style={{ margin: 0 }}>
@@ -986,7 +986,7 @@ export function ReconciliationTab() {
           { key: "summary", header: "Result", width: "minmax(240px, 2fr)", wrap: true, render: (r) => summaryText(r.summary) },
         ]}
         rowKey={(r) => r.id}
-        label="Earlier comparisons"
+        label={t("mfg.integrationPages2.label.earlierComparisons")}
         testId="recon-list"
         loading={list.loading && !list.data}
         exportName="reconciliations"
@@ -1028,13 +1028,13 @@ export function ReconciliationPage() {
   };
   return (
     <div className="col gap-lg" data-testid="recon-page" data-status={d.status}>
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumb" aria-label={t("mfg.integrationPages2.aria.breadcrumb")}>
         <Link to={mfgPaths.integration("reconciliation")}>Reconciliation</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.created_at)}</span>
       </nav>
-      {d.status === "queued" || d.status === "running" ? <Spinner label="Comparing…" /> : null}
+      {d.status === "queued" || d.status === "running" ? <Spinner label={t("mfg.integrationPages2.label.comparing")} /> : null}
       {d.status === "failed" ? <Banner tone="danger" title={t("mfg.integrationPages2.title.theComparisonFailed")}>Try again; if it keeps failing, check the file.</Banner> : null}
       {d.status === "completed" ? (
-        <div className="row wrap" role="group" aria-label="Show">
+        <div className="row wrap" role="group" aria-label={t("mfg.integrationPages2.aria.show")}>
           <button type="button" className={`btn sm${!kind ? " primary" : ""}`} aria-pressed={!kind} onClick={() => setKind("")}>
             All: {rows.length}
           </button>
@@ -1080,7 +1080,7 @@ export function ReconciliationPage() {
             { key: "erp", header: "ERP", width: "100px", align: "right", sortValue: (x) => x.erp_qty ?? null, render: (x) => x.erp_qty ?? "" },
           ]}
           rowKey={(_, i) => i}
-          label="Differences"
+          label={t("mfg.integrationPages2.label.differences")}
           testId="recon-results"
           exportName={`reconciliation-${d.id}`}
           rowExtras={(x) => ({ testId: "recon-row", data: { kind: x.kind } })}

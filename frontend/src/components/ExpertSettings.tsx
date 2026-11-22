@@ -1,5 +1,6 @@
 import { DEFAULT_CPSAT_PARAMS, DEFAULT_GA_PARAMS, type CpSatParams, type GaParams, type Strategy } from "../api/types";
 import { NumberInput } from "./Inputs";
+import { t } from "../lib/i18n";
 
 export interface ExpertValues {
   strategy: Strategy;
@@ -44,7 +45,7 @@ export function ExpertSettings({ value, onChange }: { value: ExpertValues; onCha
     <div className="col" data-testid="expert-settings">
       <div className="form-grid">
         <div className="field" style={{ gridColumn: "span 2" }}>
-          <label htmlFor="ex-strategy">Method</label>
+          <label htmlFor="ex-strategy">{t("studio.expertSettings.label.method")}</label>
           <select id="ex-strategy" className="select" value={value.strategy} onChange={(e) => onChange({ ...value, strategy: e.target.value as Strategy })}>
             {STRATEGIES.map((s) => (
               <option key={s.id} value={s.id}>
@@ -55,26 +56,26 @@ export function ExpertSettings({ value, onChange }: { value: ExpertValues; onCha
           <span className="hint">{STRATEGIES.find((s) => s.id === value.strategy)?.desc}</span>
         </div>
         <div className="field">
-          <label htmlFor="ex-seed">Random seed</label>
-          <NumberInput id="ex-seed" className="input" value={value.seed} width={120} label="Random seed" onChange={(v) => onChange({ ...value, seed: v })} />
+          <label htmlFor="ex-seed">{t("studio.expertSettings.label.randomSeed")}</label>
+          <NumberInput id="ex-seed" className="input" value={value.seed} width={120} label={t("studio.expertSettings.label.randomSeed")} onChange={(v) => onChange({ ...value, seed: v })} />
           <span className="hint">Same seed, same result (when stopped by generations).</span>
         </div>
         <div className="field">
-          <label htmlFor="ex-alt">Alternative schedules</label>
-          <NumberInput id="ex-alt" className="input" value={value.max_alternatives} min={0} max={5} width={120} label="Alternative schedules" onChange={(v) => onChange({ ...value, max_alternatives: v })} />
+          <label htmlFor="ex-alt">{t("studio.expertSettings.label.alternativeSchedules")}</label>
+          <NumberInput id="ex-alt" className="input" value={value.max_alternatives} min={0} max={5} width={120} label={t("studio.expertSettings.label.alternativeSchedules")} onChange={(v) => onChange({ ...value, max_alternatives: v })} />
         </div>
       </div>
       {showCp ? (
         <fieldset className="card card-body" style={{ margin: 0 }}>
-          <legend className="field-label">Constraint solver</legend>
+          <legend className="field-label">{t("studio.expertSettings.head.constraintSolver")}</legend>
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="ex-workers">Workers</label>
-              <NumberInput id="ex-workers" className="input" value={value.cpsat.num_workers} min={1} max={64} width={120} label="CP-SAT workers" onChange={(v) => onChange({ ...value, cpsat: { ...value.cpsat, num_workers: v } })} />
+              <label htmlFor="ex-workers">{t("studio.expertSettings.label.workers")}</label>
+              <NumberInput id="ex-workers" className="input" value={value.cpsat.num_workers} min={1} max={64} width={120} label={t("studio.expertSettings.label.cpsatWorkers")} onChange={(v) => onChange({ ...value, cpsat: { ...value.cpsat, num_workers: v } })} />
             </div>
             <div className="field">
-              <label htmlFor="ex-gap">Accept gap</label>
-              <NumberInput id="ex-gap" className="input" value={value.cpsat.relative_gap} min={0} max={1} step={0.01} width={120} label="CP-SAT relative gap" onChange={(v) => onChange({ ...value, cpsat: { ...value.cpsat, relative_gap: v } })} />
+              <label htmlFor="ex-gap">{t("studio.expertSettings.label.acceptGap")}</label>
+              <NumberInput id="ex-gap" className="input" value={value.cpsat.relative_gap} min={0} max={1} step={0.01} width={120} label={t("studio.expertSettings.label.cpsatRelativeGap")} onChange={(v) => onChange({ ...value, cpsat: { ...value.cpsat, relative_gap: v } })} />
               <span className="hint">0 = prove optimal</span>
             </div>
           </div>
@@ -82,17 +83,17 @@ export function ExpertSettings({ value, onChange }: { value: ExpertValues; onCha
       ) : null}
       {showGa ? (
         <fieldset className="card card-body" style={{ margin: 0 }}>
-          <legend className="field-label">Genetic algorithm</legend>
+          <legend className="field-label">{t("studio.expertSettings.head.geneticAlgorithm")}</legend>
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="ex-pop">Population size</label>
+              <label htmlFor="ex-pop">{t("studio.expertSettings.label.populationSize")}</label>
               <input
                 id="ex-pop"
                 className="input"
                 type="number"
                 min={10}
                 max={300}
-                placeholder="auto"
+                placeholder={t("studio.expertSettings.ph.auto")}
                 value={value.ga.population_size ?? ""}
                 onChange={(e) => onChange({ ...value, ga: { ...value.ga, population_size: e.target.value === "" ? null : Math.max(10, Math.min(300, Number(e.target.value))) } })}
               />
@@ -119,7 +120,7 @@ export function ExpertSettings({ value, onChange }: { value: ExpertValues; onCha
       ) : null}
       <div>
         <button type="button" className="btn sm ghost" onClick={() => onChange({ ...DEFAULT_EXPERT, ga: { ...DEFAULT_GA_PARAMS }, cpsat: { ...DEFAULT_CPSAT_PARAMS } })}>
-          Reset to defaults
+          {t("studio.expertSettings.btn.resetToDefaults")}
         </button>
       </div>
     </div>

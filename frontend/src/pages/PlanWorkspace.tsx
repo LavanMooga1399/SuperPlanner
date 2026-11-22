@@ -9,6 +9,7 @@ import { makeTerms } from "../lib/terms";
 import { inputToIso, isoToInput, offsetLabel, offsetMinutesOf, offsetText, parseOffsetText } from "../lib/time";
 import { PlanProvider, usePlan, type SaveState } from "../state/PlanContext";
 import { UnsavedChangesGuard } from "../components/UnsavedChangesGuard";
+import { t } from "../lib/i18n";
 
 export function PlanWorkspace() {
   const { planId } = useParams();
@@ -48,7 +49,7 @@ function PlanSettingsDialog({ draft, onClose, onApply }: { draft: Problem; onClo
   const valid = offMin !== null && startValid && daysValid;
   return (
     <Dialog
-      title="Plan settings"
+      title={t("studio.planWorkspace.title.planSettings")}
       onClose={onClose}
       footer={
         <>
@@ -63,50 +64,50 @@ function PlanSettingsDialog({ draft, onClose, onApply }: { draft: Problem; onClo
               onClose();
             }}
           >
-            Apply
+            {t("studio.planWorkspace.btn.apply")}
           </button>
         </>
       }
     >
       <div className="form-grid">
         <div className="field">
-          <label htmlFor="ps-start">Plan starts</label>
+          <label htmlFor="ps-start">{t("studio.planWorkspace.label.planStarts")}</label>
           <input id="ps-start" className="input" type="datetime-local" value={start} aria-invalid={!startValid && offMin !== null} onChange={(e) => setStart(e.target.value)} />
           {!start ? (
             <span className="hint" role="alert" style={{ color: "var(--danger)" }}>
-              <Icon name="alert" /> Choose when the plan starts.
+              <Icon name="alert" /> {t("studio.planWorkspace.btn.chooseWhenThePlanStarts")}
             </span>
           ) : null}
         </div>
         <div className="field">
-          <label htmlFor="ps-offset">UTC offset</label>
+          <label htmlFor="ps-offset">{t("studio.planWorkspace.label.utcOffset")}</label>
           <input id="ps-offset" className="input" value={offset} onChange={(e) => setOffset(e.target.value)} aria-invalid={offMin === null} aria-describedby="ps-offset-hint" placeholder="+05:30" />
           {offMin === null ? (
             <span id="ps-offset-hint" className="hint" role="alert" style={{ color: "var(--danger)" }}>
-              <Icon name="alert" /> Enter an offset between -12:00 and +14:00, e.g. +05:30.
+              <Icon name="alert" /> {t("studio.planWorkspace.btn.enterAnOffsetBetween1200")}
             </span>
           ) : (
             <span id="ps-offset-hint" className="hint">All plan times use this offset.</span>
           )}
         </div>
         <div className="field">
-          <label htmlFor="ps-days">Planning horizon (days)</label>
+          <label htmlFor="ps-days">{t("studio.planWorkspace.label.planningHorizonDays")}</label>
           <input id="ps-days" className="input" type="number" min={1} max={366} step={1} value={Number.isNaN(days) ? "" : days}
             aria-invalid={!daysValid} aria-describedby={!daysValid ? "ps-days-hint" : undefined}
             onChange={(e) => setDays(e.target.value === "" ? NaN : Number(e.target.value))} />
           {!daysValid ? (
             <span id="ps-days-hint" className="hint" role="alert" style={{ color: "var(--danger)" }}>
-              <Icon name="alert" /> Enter a whole number of days from 1 to 366.
+              <Icon name="alert" /> {t("studio.planWorkspace.btn.enterAWholeNumberOf")}
             </span>
           ) : null}
         </div>
         <div className="field">
-          <label htmlFor="ps-currency">Currency</label>
+          <label htmlFor="ps-currency">{t("studio.planWorkspace.label.currency")}</label>
           <input id="ps-currency" className="input" value={currency} maxLength={8} onChange={(e) => setCurrency(e.target.value)} />
         </div>
       </div>
       <div className="field">
-        <label htmlFor="ps-desc">Description</label>
+        <label htmlFor="ps-desc">{t("studio.planWorkspace.label.description")}</label>
         <textarea id="ps-desc" className="textarea" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
     </Dialog>
@@ -131,7 +132,7 @@ function WorkspaceInner() {
     };
   }, [draft?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading && !draft) return <Loading label="Loading plan…" />;
+  if (loading && !draft) return <Loading label={t("studio.planWorkspace.label.loadingPlan")} />;
   if (loadError && !draft) return <ErrorBanner error={loadError} onRetry={() => void plan.reload()} />;
   if (!draft || !record) return null;
 
@@ -168,7 +169,7 @@ function WorkspaceInner() {
     <div>
       <div className="ws-header">
         <div className="ws-title">
-          <label htmlFor="plan-name" className="sr-only">Plan name</label>
+          <label htmlFor="plan-name" className="sr-only">{t("studio.planWorkspace.label.planName")}</label>
           <input
             id="plan-name"
             className="ws-title-input"
@@ -190,13 +191,13 @@ function WorkspaceInner() {
         </div>
         <span className="small muted hide-sm">Times in {offsetLabel(offsetMinutesOf(draft.horizon_start))}</span>
         <button className="btn sm" onClick={() => setSettingsOpen(true)}>
-          <Icon name="settings" /> Plan settings
+          <Icon name="settings" /> {t("studio.planWorkspace.btn.planSettings")}
         </button>
         <button className="btn sm" onClick={doExport}>
-          <Icon name="download" /> Export
+          <Icon name="download" /> {t("studio.planWorkspace.btn.export")}
         </button>
         <button className="btn sm primary" onClick={() => void plan.save()} disabled={!dirty || saveState === "saving" || saveState === "conflict"}>
-          <Icon name="save" /> Save
+          <Icon name="save" /> {t("studio.planWorkspace.btn.save")}
         </button>
       </div>
 
@@ -205,14 +206,14 @@ function WorkspaceInner() {
           tone="danger"
           role="alert"
           testId="conflict-banner"
-          title="This plan was changed elsewhere."
+          title={t("studio.planWorkspace.title.thisPlanWasChangedElsewhere")}
           actions={
             <>
               <button className="btn sm" onClick={() => void plan.reload()}>
-                Reload (discard your edits)
+                {t("studio.planWorkspace.btn.reloadDiscardYourEdits")}
               </button>
               <button className="btn sm" onClick={() => void plan.keepEditing()}>
-                Keep editing
+                {t("studio.planWorkspace.btn.keepEditing")}
               </button>
             </>
           }
@@ -223,7 +224,7 @@ function WorkspaceInner() {
       ) : null}
       <ErrorBanner error={exportError} />
 
-      <nav className="tabs" aria-label="Plan sections">
+      <nav className="tabs" aria-label={t("studio.planWorkspace.aria.planSections")}>
         {tabs.map((t) => (
           <NavLink key={t.to} to={t.to} className={({ isActive }) => `tab${isActive ? " active" : ""}`}>
             <Icon name={t.icon} />

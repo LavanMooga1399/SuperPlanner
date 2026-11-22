@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Icon } from "./Icon";
+import { t } from "../lib/i18n";
 
 export interface DialogProps {
   title: string;
@@ -55,7 +56,7 @@ export function Dialog({ title, onClose, children, footer, wide, labelId }: Dial
       <div className={`dialog${wide ? " wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={id} ref={ref}>
         <div className="dialog-header">
           <h2 id={id}>{title}</h2>
-          <button type="button" className="btn ghost sm icon dialog-close" onClick={onClose} aria-label="Close" data-dialog-close>
+          <button type="button" className="btn ghost sm icon dialog-close" onClick={onClose} aria-label={t("studio.dialog.aria.close")} data-dialog-close>
             <Icon name="x" />
           </button>
         </div>

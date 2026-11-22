@@ -62,8 +62,8 @@ export function IntegrationLayout() {
     <div className="col gap-lg" data-testid="integration">
       <div className="mfg-page-head">
         <div>
-          <h1>ERP integration</h1>
-          <p>Data in from the ERP, events out to it, and who owns what. Uses the vendor-neutral format superplanner.v1.</p>
+          <h1>{t("mfg.integrationPages.head.erpIntegration")}</h1>
+          <p>{t("mfg.integrationPages.text.dataInFromTheErp")}</p>
         </div>
       </div>
       {!can ? (
@@ -71,7 +71,7 @@ export function IntegrationLayout() {
           {needsText("integration_admin")}
         </Banner>
       ) : null}
-      <nav className="tabs" aria-label="Integration sections">
+      <nav className="tabs" aria-label={t("mfg.integrationPages.aria.integrationSections")}>
         {TABS.map((t) => (
           <NavLink key={t.key} to={mfgPaths.integration(t.key || undefined)} end={!t.key} className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={`int-tab-${t.key || "overview"}`}>
             {t.label}
@@ -131,7 +131,7 @@ export function IntegrationOverview() {
       </div>
       <section className="card card-table">
         <div className="card-header">
-          <h2>Who owns what</h2>
+          <h2>{t("mfg.integrationPages.head.whoOwnsWhat")}</h2>
           <Link to={mfgPaths.integration("settings")} className="small">
             {t("mfg.integrationPages.btn.change")}
           </Link>
@@ -168,7 +168,7 @@ function SorSummary({ s }: { s: IntegrationSettings }) {
         { key: "notes", header: "Notes", width: "minmax(240px, 3fr)", wrap: true, render: (e) => <span className="small muted">{SOR_LABEL[e].help}</span> },
       ]}
       rowKey={(e) => e}
-      label="Who owns what"
+      label={t("mfg.integrationPages.label.whoOwnsWhat")}
       testId="sor-summary"
       columnSettings={false}
       rowExtras={(e) => ({ data: { entity: e, sor: s.sor[e] ?? "superplanner" } })}
@@ -252,7 +252,7 @@ export function IntegrationSettingsTab() {
 
       <section className="card card-table">
         <div className="card-header">
-          <h2>Who owns what</h2>
+          <h2>{t("mfg.integrationPages.head.whoOwnsWhat")}</h2>
           <span className="muted small">Data owned by the ERP is read-only here; data owned here is rejected when the ERP sends it.</span>
         </div>
         <DataTable
@@ -283,7 +283,7 @@ export function IntegrationSettingsTab() {
             { key: "notes", header: "Notes", width: "minmax(240px, 3fr)", wrap: true, render: (e) => <span className="small muted">{SOR_LABEL[e].help}</span> },
           ]}
           rowKey={(e) => e}
-          label="Who owns what"
+          label={t("mfg.integrationPages.label.whoOwnsWhat")}
           testId="sor-table"
           columnSettings={false}
           rowExtras={(e) => ({ data: { entity: e } })}
@@ -293,9 +293,9 @@ export function IntegrationSettingsTab() {
 
       <section className="card">
         <div className="card-header">
-          <h2>Goods receipts against purchase orders</h2>
+          <h2>{t("mfg.integrationPages.head.goodsReceiptsAgainstPurchaseOrders")}</h2>
         </div>
-        <div className="card-body col" role="radiogroup" aria-label="Who books goods receipts" data-testid="int-receipts-owner">
+        <div className="card-body col" role="radiogroup" aria-label={t("mfg.integrationPages.aria.whoBooksGoodsReceipts")} data-testid="int-receipts-owner">
           <label className="checkbox">
             <input type="radio" name="gr" checked={f.goods_receipts_owner === "superplanner"} disabled={!can} onChange={() => setF({ ...f, goods_receipts_owner: "superplanner", sor: { ...f.sor, po_receipts: "superplanner" } })} data-testid="gr-superplanner" />
             <span>

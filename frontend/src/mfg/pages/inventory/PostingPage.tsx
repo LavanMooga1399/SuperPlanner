@@ -29,7 +29,7 @@ export function PostingPage() {
   if (posting.error && isNotFound(posting.error))
     return <NotFoundPanel what="Posting" back={<Link className="btn" to={mfgPaths.transactions()}>Back to the ledger</Link>} />;
   if (posting.error && !p) return <MfgError error={posting.error} onRetry={posting.reload} />;
-  if (!p) return <Spinner label="Loading posting…" />;
+  if (!p) return <Spinner label={t("mfg.postingPage.label.loadingPosting")} />;
 
   const reverse = async () => {
     setBusy(true);
@@ -82,23 +82,23 @@ export function PostingPage() {
         </div>
         <div className="card-body">
           <dl className="mfg-dl">
-            <dt>Date</dt>
+            <dt>{t("mfg.postingPage.head.date")}</dt>
             <dd>{fmtDate(p.txn_date)}</dd>
             {p.reason_code ? (
               <>
-                <dt>Reason</dt>
+                <dt>{t("mfg.postingPage.head.reason")}</dt>
                 <dd className="mono">{p.reason_code}</dd>
               </>
             ) : null}
             {p.note ? (
               <>
-                <dt>Note</dt>
+                <dt>{t("mfg.postingPage.head.note")}</dt>
                 <dd>{p.note}</dd>
               </>
             ) : null}
             {p.reversal_of ? (
               <>
-                <dt>Reverses</dt>
+                <dt>{t("mfg.postingPage.head.reverses")}</dt>
                 <dd>
                   <Link to={mfgPaths.posting(p.reversal_of.id)} className="mono">
                     {p.reversal_of.number}
@@ -106,7 +106,7 @@ export function PostingPage() {
                 </dd>
               </>
             ) : null}
-            <dt>Posted by</dt>
+            <dt>{t("mfg.postingPage.head.postedBy")}</dt>
             <dd>
               {p.actor.name} · {fmtTimestamp(p.created_at)}
             </dd>
@@ -118,13 +118,13 @@ export function PostingPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>Part number</th>
-              <th>Location</th>
-              <th>Lot</th>
-              <th className="right">Change</th>
-              <th className="right">Balance after</th>
-              <th className="right">Unit cost</th>
-              <th>Document</th>
+              <th>{t("mfg.postingPage.head.partNumber")}</th>
+              <th>{t("mfg.postingPage.head.location")}</th>
+              <th>{t("mfg.postingPage.head.lot")}</th>
+              <th className="right">{t("mfg.postingPage.head.change")}</th>
+              <th className="right">{t("mfg.postingPage.head.balanceAfter")}</th>
+              <th className="right">{t("mfg.postingPage.head.unitCost")}</th>
+              <th>{t("mfg.postingPage.head.document")}</th>
             </tr>
           </thead>
           <tbody>

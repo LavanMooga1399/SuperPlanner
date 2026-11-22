@@ -4,6 +4,7 @@ import { Icon } from "../../components/Icon";
 import { downloadExport, downloadImportTemplate, saveBlob, type ExportScope } from "../api/client";
 import type { FileFormat } from "../api/types";
 import { MfgError } from "./Feedback";
+import { t } from "../../lib/i18n";
 
 const SCOPES: { value: ExportScope; label: string }[] = [
   { value: "master", label: "Master data" },
@@ -13,7 +14,7 @@ const SCOPES: { value: ExportScope; label: string }[] = [
 
 function ScopeSelect({ value, onChange, testId }: { value: ExportScope; onChange(v: ExportScope): void; testId: string }) {
   return (
-    <select className="select sm" style={{ width: "auto" }} aria-label="What to include" value={value} onChange={(e) => onChange(e.target.value as ExportScope)} data-testid={testId}>
+    <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.exportButtons.aria.whatToInclude")} value={value} onChange={(e) => onChange(e.target.value as ExportScope)} data-testid={testId}>
       {SCOPES.map((s) => (
         <option key={s.value} value={s.value}>
           {s.label}
@@ -43,14 +44,14 @@ export function ExportButtons({ compact, grouped }: { compact?: boolean; grouped
     // one grouped control: Export (Excel) | CSV (zip) | what to include
     return (
       <div className="col" style={{ gap: 6, alignItems: "flex-end" }}>
-        <div className="btn-group export-group" role="group" aria-label="Export">
+        <div className="btn-group export-group" role="group" aria-label={t("mfg.exportButtons.aria.export")}>
           <button type="button" className="btn" onClick={() => void exp("xlsx")} disabled={busy !== null} data-testid="mfg-export" title="Download as an Excel workbook (one sheet per kind of data)">
             {busy === "export-xlsx" ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Export
           </button>
           <button type="button" className="btn" onClick={() => void exp("zip")} disabled={busy !== null} data-testid="mfg-export-zip" title="Download as CSV files in a zip">
             {busy === "export-zip" ? <span className="spinner" aria-hidden /> : null} CSV (zip)
           </button>
-          <select className="btn seg-select" aria-label="What to export" value={scope} onChange={(e) => setScope(e.target.value as ExportScope)} data-testid="mfg-export-scope">
+          <select className="btn seg-select" aria-label={t("mfg.exportButtons.aria.whatToExport")} value={scope} onChange={(e) => setScope(e.target.value as ExportScope)} data-testid="mfg-export-scope">
             {SCOPES.map((x) => (
               <option key={x.value} value={x.value}>
                 {x.label}

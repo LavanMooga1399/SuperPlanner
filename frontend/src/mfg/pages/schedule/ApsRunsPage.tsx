@@ -26,7 +26,7 @@ import { PageHeader } from "../../../components/PageHeader";
 import { t } from "../../../lib/i18n";
 
 export function apsRunTitle(r: Pick<ApsRunRecord, "run_no" | "label">): string {
-  return `Schedule #${r.run_no}${r.label ? ` · ${r.label}` : ""}`;
+  return `${t("common.scheduleNo", { n: r.run_no })}${r.label ? ` · ${r.label}` : ""}`;
 }
 
 export function isActive(r: ApsRunRecord): boolean {
@@ -110,7 +110,7 @@ export function ApsRunsPage() {
           rows={items}
           columns={columns}
           rowKey={(r) => r.id}
-          label="Schedule runs"
+          label={t("mfg.apsRunsPage.label.scheduleRuns")}
           testId="aps-runs"
           loading={runs.loading && !runs.data}
           exportName="schedule-runs"

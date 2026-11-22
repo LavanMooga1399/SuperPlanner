@@ -102,7 +102,7 @@ export function ImportUpload({ onUploaded, reuseNote }: { onUploaded(rec: Import
   return (
     <section className="card" aria-labelledby="imp-up-title" data-testid="import-upload">
       <div className="card-header">
-        <h2 id="imp-up-title">1. Choose a file</h2>
+        <h2 id="imp-up-title">{t("mfg.importUpload.head.1ChooseAFile")}</h2>
       </div>
       <div className="card-body col">
         {reuseNote ? (

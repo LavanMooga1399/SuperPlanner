@@ -26,7 +26,7 @@ import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
 import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
 import { DateInput } from "../../../components/DateInput";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 interface LineDraft {
   key: number;
@@ -140,11 +140,11 @@ function ShipDialog({ order, onClose, onDone }: { order: DemandOrderRecord; onCl
         <table className="table mfg-grid-table">
           <thead>
             <tr>
-              <th>Line</th>
-              <th className="right">Open</th>
-              <th>Ship now</th>
-              <th>From location</th>
-              <th>Lot</th>
+              <th>{t("mfg.demandPage.head.line")}</th>
+              <th className="right">{t("mfg.demandPage.head.open")}</th>
+              <th>{t("mfg.demandPage.head.shipNow")}</th>
+              <th>{t("mfg.demandPage.head.fromLocation")}</th>
+              <th>{t("mfg.demandPage.head.lot")}</th>
             </tr>
           </thead>
           <tbody>
@@ -287,7 +287,7 @@ export function DemandPage() {
   return (
     <div className="col gap-lg" data-testid="demand-page" data-status={status}>
       <UnsavedChangesGuard when={!isNew && dirty && !busy} what="this demand order" />
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
+      <nav aria-label={t("mfg.demandPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.demand()}>Demand</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{order?.number ?? "New demand order"}</span>
       </nav>
       <div className="ws-header">
@@ -329,7 +329,7 @@ export function DemandPage() {
       </div>
 
       {conflict ? <ConflictBanner onReload={() => void getDemandOrder(orderId).then(reset, setError)} what="this demand order" /> : null}
-      <ErpOwnedNotice entity="demand_orders" label="Demand orders (except priority)" />
+      <ErpOwnedNotice entity="demand_orders" label={t("mfg.demandPage.label.demandOrdersExceptPriority")} />
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
       {status === "draft" && order ? (
         <Banner tone="warn" title={t("mfg.demandPage.title.draftNotPlannedYet")}>
@@ -340,14 +340,14 @@ export function DemandPage() {
 
       <section className="card">
         <div className="card-body form-grid">
-          <TextField label="Number" value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder={t("mfg.demandPage.ph.nextFreeNumber")} disabled={!editable || !isNew} testId="demand-number" />
-          <SelectField label="Type" value={head.demand_type} onChange={(v) => setHead({ ...head, demand_type: v })} options={DEMAND_TYPES.map((t) => ({ value: t, label: DEMAND_TYPE_LABEL[t] }))} disabled={!editable} testId="demand-type" />
-          <TextField label="Customer" value={head.customer} onChange={(v) => setHead({ ...head, customer: v })} disabled={!editable} testId="demand-customer" />
-          <TextField label="Programme" value={head.program} onChange={(v) => setHead({ ...head, program: v.toUpperCase() })} maxLength={32} disabled={!editable} hint="e.g. KVP-27; MRP can protect programmes" />
-          <TextField label="Priority (1 = most important)" type="number" value={head.priority} onChange={(v) => setHead({ ...head, priority: v })} disabled={!editable} hint="1 to 9; lines can override" testId="demand-priority" />
-          <TextField label="External reference" value={head.external_ref} onChange={(v) => setHead({ ...head, external_ref: v })} maxLength={64} disabled={!editable} />
+          <TextField label={t("mfg.demandPage.label.number")} value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder={t("mfg.demandPage.ph.nextFreeNumber")} disabled={!editable || !isNew} testId="demand-number" />
+          <SelectField label={t("mfg.demandPage.label.type")} value={head.demand_type} onChange={(v) => setHead({ ...head, demand_type: v })} options={DEMAND_TYPES.map((t) => ({ value: t, label: DEMAND_TYPE_LABEL[t] }))} disabled={!editable} testId="demand-type" />
+          <TextField label={t("mfg.demandPage.label.customer")} value={head.customer} onChange={(v) => setHead({ ...head, customer: v })} disabled={!editable} testId="demand-customer" />
+          <TextField label={t("mfg.demandPage.label.programme")} value={head.program} onChange={(v) => setHead({ ...head, program: v.toUpperCase() })} maxLength={32} disabled={!editable} hint={t("mfg.demandPage.hint.egKvp27MrpCanProtect")} />
+          <TextField label={t("mfg.demandPage.label.priority1MostImportant")} type="number" value={head.priority} onChange={(v) => setHead({ ...head, priority: v })} disabled={!editable} hint={t("mfg.demandPage.hint.1To9LinesCan")} testId="demand-priority" />
+          <TextField label={t("mfg.demandPage.label.externalReference")} value={head.external_ref} onChange={(v) => setHead({ ...head, external_ref: v })} maxLength={64} disabled={!editable} />
           <div style={{ gridColumn: "span 2" }}>
-            <TextField label="Note" value={head.note} onChange={(v) => setHead({ ...head, note: v })} maxLength={500} disabled={!editable} />
+            <TextField label={t("mfg.demandPage.label.note")} value={head.note} onChange={(v) => setHead({ ...head, note: v })} maxLength={500} disabled={!editable} />
           </div>
         </div>
       </section>
@@ -356,14 +356,14 @@ export function DemandPage() {
         <table className="table mfg-grid-table" data-testid="demand-lines">
           <thead>
             <tr>
-              <th>Line</th>
-              <th>Item</th>
-              <th className="right">Quantity</th>
-              <th>Due date</th>
-              <th>Unit serials</th>
-              <th>Priority</th>
-              <th className="right">Shipped</th>
-              <th>Latest plan</th>
+              <th>{t("mfg.demandPage.head.line")}</th>
+              <th>{t("mfg.demandPage.head.item")}</th>
+              <th className="right">{t("mfg.demandPage.head.quantity")}</th>
+              <th>{t("mfg.demandPage.head.dueDate")}</th>
+              <th>{t("mfg.demandPage.head.unitSerials")}</th>
+              <th>{t("mfg.demandPage.head.priority")}</th>
+              <th className="right">{t("mfg.demandPage.head.shipped")}</th>
+              <th>{t("mfg.demandPage.head.latestPlan")}</th>
               <th>
                 <span className="sr-only">Actions</span>
               </th>
@@ -418,7 +418,7 @@ export function DemandPage() {
                         <ProjectionChip status={pr.status} lateDays={pr.late_days} />
                         <span className="faint">
                           {pr.projected_date ? `Projected ${fmtDate(pr.projected_date)}` : ""} ·{" "}
-                          <Link to={mfgPaths.runDemand(pr.run_id, l.id ?? undefined)}>run #{pr.run_no}</Link>
+                          <Link to={mfgPaths.runDemand(pr.run_id, l.id ?? undefined)}>{tr("common.runNoInline", { n: pr.run_no })}</Link>
                         </span>
                       </span>
                     ) : l.rec ? (

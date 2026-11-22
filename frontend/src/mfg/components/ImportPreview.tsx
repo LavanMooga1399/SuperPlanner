@@ -34,18 +34,18 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
     <div className="col gap-lg" data-testid="import-preview" data-ok={String(preview.ok)} data-error-count={preview.error_count}>
       <section className="card">
         <div className="card-header">
-          <h3>What will change</h3>
+          <h3>{t("mfg.importPreview.head.whatWillChange")}</h3>
         </div>
         <div className="table-wrap" style={{ border: 0, borderRadius: 0 }}>
           <table className="table" data-testid="import-counts">
             <thead>
               <tr>
-                <th>Data</th>
-                <th className="num">New</th>
-                <th className="num">Changed</th>
-                <th className="num">Same</th>
-                <th className="num">Removed</th>
-                <th className="num">Errors</th>
+                <th>{t("mfg.importPreview.head.data")}</th>
+                <th className="num">{t("mfg.importPreview.head.new")}</th>
+                <th className="num">{t("mfg.importPreview.head.changed")}</th>
+                <th className="num">{t("mfg.importPreview.head.same")}</th>
+                <th className="num">{t("mfg.importPreview.head.removed")}</th>
+                <th className="num">{t("mfg.importPreview.head.errors")}</th>
               </tr>
             </thead>
             <tbody>
@@ -82,7 +82,7 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
               rows={preview.row_errors}
               columns={errorCols}
               rowKey={(e, i) => `${e.sheet}-${e.row}-${e.column ?? ""}-${i}`}
-              label="Row errors"
+              label={t("mfg.importPreview.label.rowErrors")}
               height="min(40vh, 420px)"
               testId="import-row-errors"
               rowExtras={(e) => ({ testId: "import-row-error", data: { sheet: e.sheet, row: e.row, code: e.code } })}
@@ -93,7 +93,7 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
 
       {preview.warnings.length ? (
         <section className="card card-body col">
-          <h3>Notes</h3>
+          <h3>{t("mfg.importPreview.head.notes")}</h3>
           <ul className="mfg-plain-list">
             {preview.warnings.map((w, i) => (
               <li key={i} className="row small" data-testid="import-warning">
@@ -113,10 +113,10 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
             <table className="table">
               <thead>
                 <tr>
-                  <th>Data</th>
-                  <th>Row</th>
-                  <th>Change</th>
-                  <th>Fields</th>
+                  <th>{t("mfg.importPreview.head.data")}</th>
+                  <th>{t("mfg.importPreview.head.row")}</th>
+                  <th>{t("mfg.importPreview.head.change")}</th>
+                  <th>{t("mfg.importPreview.head.fields")}</th>
                 </tr>
               </thead>
               <tbody>

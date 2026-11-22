@@ -6,6 +6,7 @@ import { cancelFinanceRun } from "../api/client";
 import { subscribeFinanceRunEvents, type FinStreamMode } from "../api/sse";
 import { FIN_STAGES, type FinanceRun, type FinRunEvent, type FinRunRequeuedEvent, type FinStage } from "../api/types";
 import { StatusPill } from "./StatusPill";
+import { t } from "../../lib/i18n";
 
 export const STAGE_LABEL: Record<FinStage, string> = {
   preflight: "Checking your inputs",
@@ -59,7 +60,7 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
       stages.clear();
       fraction = 0;
       status = "queued";
-      message = `Restarting on another worker (attempt ${ev.attempt} of ${ev.max_attempts})`;
+      message = `Restarting on another worker (attempt ${t("common.nOfM", { n: ev.attempt, m: ev.max_attempts })})`;
     } else if (ev.type === "run_started") {
       status = "running";
       message = "Started";
@@ -115,7 +116,7 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
           </span>
           {active ? (
             <button className="btn sm" onClick={cancel} disabled={cancelling} data-testid="fin-run-cancel">
-              <Icon name="stop" /> Cancel
+              <Icon name="stop" /> {t("finance.finRunProgress.btn.cancel")}
             </button>
           ) : null}
         </div>
@@ -124,7 +125,7 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
         <div
           className="progress-bar"
           role="progressbar"
-          aria-label="Run progress"
+          aria-label={t("finance.finRunProgress.aria.runProgress")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(overall * 100)}
@@ -132,7 +133,7 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
           <div style={{ width: `${Math.round(overall * 100)}%` }} />
         </div>
         {!compact ? (
-          <ol className="phase-list" aria-label="Stages">
+          <ol className="phase-list" aria-label={t("finance.finRunProgress.aria.stages")}>
             {FIN_STAGES.map((s) => {
               const st = stages.get(s) ?? "pending";
               return (
@@ -151,12 +152,12 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
           <span className="small muted row" data-testid="fin-run-requeued">
             <Icon name="refresh" />{" "}
             {active
-              ? `Restarting on another worker (attempt ${requeue.attempt} of ${requeue.max_attempts})`
-              : `Finished after a restart on another worker (attempt ${requeue.attempt} of ${requeue.max_attempts}).`}
+              ? `Restarting on another worker (attempt ${t("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts })})`
+              : `Finished after a restart on another worker (attempt ${t("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts })}).`}
           </span>
         ) : null}
         {mode === "polling" ? <span className="small muted">Live updates unavailable; checking every few seconds.</span> : null}
-        {error ? <Banner tone="danger" role="alert" title="The run failed">{error}</Banner> : null}
+        {error ? <Banner tone="danger" role="alert" title={t("finance.finRunProgress.title.theRunFailed")}>{error}</Banner> : null}
         {cancelError ? <Banner tone="danger" role="alert">{cancelError}</Banner> : null}
       </div>
     </section>

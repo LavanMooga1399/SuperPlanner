@@ -5,6 +5,7 @@ import { addItem, patchItem, removeItem, type StepProps } from "./common";
 import { Field, FinNumber, FinOptionalNumber, FinText, MoneyInput, Select } from "./fields";
 import { HelpText } from "./HelpText";
 import { ListEditor } from "./ListEditor";
+import { t } from "../../lib/i18n";
 
 const DEBT_KINDS: { value: DebtKind; label: string }[] = [
   { value: "home", label: "Home loan" },
@@ -48,13 +49,13 @@ export function DebtsStep({ plan, update, preview, expert }: StepProps) {
           return (
             <>
               <div className="fin-form">
-                <Field label="Name">{(id) => <FinText id={id} value={it.name} onChange={(v) => set({ name: v })} />}</Field>
-                <Field label="Type">{(id) => <Select id={id} value={it.kind} options={DEBT_KINDS} onChange={(v) => set({ kind: v })} />}</Field>
-                <Field label="Amount still owed">{(id) => <MoneyInput id={id} value={it.balance} currency={cur} locale={loc} onChange={(v) => set({ balance: v })} />}</Field>
-                <Field label="Interest % a year">{(id) => <FinNumber id={id} value={it.interest_rate_pct} min={0} max={60} step={0.1} onChange={(v) => set({ interest_rate_pct: v })} />}</Field>
-                <Field label="Monthly instalment (EMI)">{(id) => <MoneyInput id={id} value={it.emi} currency={cur} locale={loc} onChange={(v) => set({ emi: v })} />}</Field>
+                <Field label={t("finance.debtsStep.label.name")}>{(id) => <FinText id={id} value={it.name} onChange={(v) => set({ name: v })} />}</Field>
+                <Field label={t("finance.debtsStep.label.type")}>{(id) => <Select id={id} value={it.kind} options={DEBT_KINDS} onChange={(v) => set({ kind: v })} />}</Field>
+                <Field label={t("finance.debtsStep.label.amountStillOwed")}>{(id) => <MoneyInput id={id} value={it.balance} currency={cur} locale={loc} onChange={(v) => set({ balance: v })} />}</Field>
+                <Field label={t("finance.debtsStep.label.interestAYear")}>{(id) => <FinNumber id={id} value={it.interest_rate_pct} min={0} max={60} step={0.1} onChange={(v) => set({ interest_rate_pct: v })} />}</Field>
+                <Field label={t("finance.debtsStep.label.monthlyInstalmentEmi")}>{(id) => <MoneyInput id={id} value={it.emi} currency={cur} locale={loc} onChange={(v) => set({ emi: v })} />}</Field>
                 {expert ? (
-                  <Field label="Months left (optional)" hint="Only used to double-check">
+                  <Field label={t("finance.debtsStep.label.monthsLeftOptional")} hint={t("finance.debtsStep.hint.onlyUsedToDoublecheck")}>
                     {(id) => <FinOptionalNumber id={id} value={it.remaining_months} min={1} max={600} onChange={(v) => set({ remaining_months: v === null ? null : Math.round(v) })} />}
                   </Field>
                 ) : null}

@@ -12,6 +12,7 @@ import { FinanceTemplateCards } from "../components/FinanceTemplateCards";
 import { StatusPill } from "../components/StatusPill";
 import { startBlankFinancePlan } from "../lib/startBlank";
 import { PageHeader } from "../../components/PageHeader";
+import { t, plural } from "../../lib/i18n";
 
 function toExportFile(data: unknown): FinanceExportFile {
   if (typeof data !== "object" || data === null) throw new Error("The file does not contain a JSON object.");
@@ -60,11 +61,11 @@ export function FinanceHome() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="Financial plans"
-        description="Plan where, when and how much to save for each goal, with an honest estimate of the chance of reaching it."
+        title={t("finance.financeHome.title.financialPlans")}
+        description={t("finance.financeHome.desc.planWhereWhenAndHow")}
         actions={
           <>
-            <input ref={fileRef} type="file" accept=".json,application/json" className="sr-only" onChange={onFile} id="fin-import-file" aria-label="Import financial plan JSON file" />
+            <input ref={fileRef} type="file" accept=".json,application/json" className="sr-only" onChange={onFile} id="fin-import-file" aria-label={t("finance.financeHome.aria.importFinancialPlanJsonFile")} />
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={busy !== null}>
             {busy === "import" ? <span className="spinner" aria-hidden /> : <Icon name="upload" />} Import JSON
           </button>
@@ -74,7 +75,7 @@ export function FinanceHome() {
       <ErrorBanner error={error} />
 
       {plans.loading && !plans.data ? (
-        <Loading label="Loading financial plans…" />
+        <Loading label={t("finance.financeHome.label.loadingFinancialPlans")} />
       ) : plans.error ? (
         <ErrorBanner error={plans.error} onRetry={plans.reload} />
       ) : (
@@ -83,9 +84,9 @@ export function FinanceHome() {
 
       <section aria-labelledby="fin-templates-title" className="mt">
         <div className="section-title">
-          <h2 id="fin-templates-title">Start from an example</h2>
+          <h2 id="fin-templates-title">{t("finance.financeHome.head.startFromAnExample")}</h2>
         </div>
-        <p className="muted" style={{ marginTop: 0 }}>Examples come with sensible defaults; you can change everything in the next steps.</p>
+        <p className="muted" style={{ marginTop: 0 }}>{t("finance.financeHome.text.examplesComeWithSensibleDefaults")}</p>
         <FinanceTemplateCards />
       </section>
     </div>
@@ -113,15 +114,15 @@ function PlanList({ items, onChanged }: { items: FinancePlanSummary[]; onChanged
   return (
     <section className="card" aria-labelledby="fin-plans-title">
       <div className="card-header">
-        <h2 id="fin-plans-title">Your financial plans</h2>
-        <span className="small muted">{items.length} plan{items.length === 1 ? "" : "s"}</span>
+        <h2 id="fin-plans-title">{t("finance.financeHome.head.yourFinancialPlans")}</h2>
+        <span className="small muted">{plural(items.length, "plan")}</span>
       </div>
       {error ? <div className="card-body"><ErrorBanner error={error} /></div> : null}
       <div data-testid="fin-plan-list">
         {items.length === 0 ? (
           <div className="empty">
             <Icon name="briefcase" size={28} />
-            <p>No financial plans yet. Start from scratch or pick an example below.</p>
+            <p>{t("finance.financeHome.text.noFinancialPlansYetStart")}</p>
           </div>
         ) : (
           items.map((p) => (
@@ -131,14 +132,14 @@ function PlanList({ items, onChanged }: { items: FinancePlanSummary[]; onChanged
                   {p.name}
                 </Link>
                 <span className="small muted">
-                  {p.goal_count} goal{p.goal_count === 1 ? "" : "s"} · {p.currency} · edited {fmtRelative(p.updated_at)}
+                  {plural(p.goal_count, "goal")} · {p.currency} · edited {fmtRelative(p.updated_at)}
                 </span>
               </div>
               {p.latest_result ? (
                 <span className="row small">
                   <StatusPill kind={p.latest_result.feasibility} />
                   <span className="muted">
-                    {p.latest_result.goals_on_track} of {p.latest_result.goals_total} on track
+                    {t("common.nOfM", { n: p.latest_result.goals_on_track, m: p.latest_result.goals_total })} on track
                   </span>
                 </span>
               ) : (
@@ -153,7 +154,7 @@ function PlanList({ items, onChanged }: { items: FinancePlanSummary[]; onChanged
         )}
       </div>
       {toDelete ? (
-        <ConfirmDialog title="Delete financial plan?" confirmLabel="Delete" danger busy={busy} onConfirm={() => void doDelete()} onCancel={() => setToDelete(null)}>
+        <ConfirmDialog title={t("finance.financeHome.title.deleteFinancialPlan")} confirmLabel={t("finance.financeHome.btn.delete")} danger busy={busy} onConfirm={() => void doDelete()} onCancel={() => setToDelete(null)}>
           <p style={{ margin: 0 }}>
             "{toDelete.name}" and all its results will be deleted. This cannot be undone.
           </p>

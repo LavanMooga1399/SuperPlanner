@@ -113,7 +113,7 @@ export function RunItemsTab() {
         rows={data.rows}
         columns={columns}
         rowKey={(r) => r.item.id}
-        label="Material plan"
+        label={t("mfg.runItemsTab.label.materialPlan")}
         testId="run-items-table"
         totalCount={data.total}
         height="min(66vh, 720px)"
@@ -122,7 +122,7 @@ export function RunItemsTab() {
         onActivate={(r) => navigate(mfgPaths.runItem(run.id, r.item.id))}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading the plan…" : "No items match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} items · "Short" is before planned orders</span>}
+        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} items · "Short" is before planned orders</span>}
       />
     </div>
   );

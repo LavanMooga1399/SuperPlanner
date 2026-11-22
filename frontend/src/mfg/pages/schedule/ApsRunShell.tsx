@@ -23,7 +23,7 @@ import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { apsRunTitle, isActive } from "./ApsRunsPage";
 import { toast } from "../../../components/Toast";
 import { formatNumber } from "../../../lib/locale";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 export interface ApsRunContext {
   run: ApsRunRecord;
@@ -69,7 +69,7 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
     setError(null);
     try {
       onDone(await publishApsRun(run.id, run.row_version, staleBasis));
-      toast(`Schedule #${run.run_no} published to the shop floor`);
+      toast(`${tr("common.scheduleNo", { n: run.run_no })} published to the shop floor`);
       setConfirm(false);
     } catch (e) {
       setError(e);
@@ -84,7 +84,7 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
       </button>
       {confirm ? (
         <ConfirmDialog title={`Publish ${apsRunTitle(run)}?`} confirmLabel={staleBasis ? "Publish anyway" : "Publish"} busy={busy} onCancel={() => { setConfirm(false); setError(null); }} onConfirm={() => void go()}>
-          <p style={{ margin: 0 }}>It becomes the plant plan: dispatch lists, the freeze window of the next run and MRP dates use it. It replaces the currently published schedule.</p>
+          <p style={{ margin: 0 }}>{t("mfg.apsRunShell.text.itBecomesThePlantPlan")}</p>
           {staleBasis ? (
             <p style={{ margin: "8px 0 0" }} data-testid="aps-publish-stale-basis">
               <strong>Another schedule was published after this run was computed.</strong> This run froze the next hours
@@ -113,7 +113,7 @@ export function RerunAllowBanner({ run }: { run: ApsRunRecord }) {
     setBusy(true);
     setError(null);
     try {
-      const next = await rerunWithPolicy(run.id, "allow", `${run.label || `Schedule #${run.run_no}`} with overtime`);
+      const next = await rerunWithPolicy(run.id, "allow", `${run.label || `${tr("common.scheduleNo", { n: run.run_no })}`} with overtime`);
       navigate(mfgPaths.apsCompare(next.id, run.id));
     } catch (e) {
       setError(e);
@@ -151,7 +151,7 @@ export function ApsRunShell() {
 
   if (run.error && isNotFound(run.error)) return <NotFoundPanel what="Schedule run" back={<Link className="btn" to={mfgPaths.schedule()}>Back to schedules</Link>} />;
   if (run.error && !r) return <MfgError error={run.error} onRetry={run.reload} />;
-  if (!r) return <Spinner label="Loading schedule…" />;
+  if (!r) return <Spinner label={t("mfg.apsRunShell.label.loadingSchedule")} />;
 
   const cancel = async () => {
     setBusy(true);
@@ -189,8 +189,8 @@ export function ApsRunShell() {
 
   return (
     <div className="col" style={{ gap: 12 }} data-testid="aps-run-shell" data-run-no={r.run_no} data-status={r.status} data-kind={r.kind}>
-      <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <span>Run #{r.run_no}</span>
+      <nav aria-label={t("mfg.apsRunShell.aria.breadcrumb")} className="small muted mfg-breadcrumb">
+        <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <span>{tr("common.runNo", { n: r.run_no })}</span>
       </nav>
       <div className="ws-header">
         <div className="ws-title">
@@ -204,7 +204,7 @@ export function ApsRunShell() {
             </Link>
           ) : null}
           <span className="muted small">
-            From {clock.dateTime(r.as_of)} ({clock.zoneLabel}){r.mrp_run ? ` · MRP run #${r.mrp_run.run_no}` : ""} · {fmtTimestamp(r.finished_at ?? r.started_at)} by {r.actor.name}
+            From {clock.dateTime(r.as_of)} ({clock.zoneLabel}){r.mrp_run ? ` · ${tr("common.mrpRunNo", { n: r.mrp_run.run_no })}` : ""} · {fmtTimestamp(r.finished_at ?? r.started_at)} by {r.actor.name}
           </span>
         </div>
         <div className="mfg-actions">
@@ -274,7 +274,7 @@ export function ApsRunShell() {
         </Banner>
       ) : null}
       <RerunAllowBanner run={r} />
-      <nav className="tabs" aria-label="Schedule sections">
+      <nav className="tabs" aria-label={t("mfg.apsRunShell.aria.scheduleSections")}>
         {tabs.map((t) => (
           <NavLink key={t.key} to={t.to} end={t.end} className={({ isActive: a }) => `tab${a ? " active" : ""}`} data-testid={`aps-tab-${t.key}`}>
             {t.label}

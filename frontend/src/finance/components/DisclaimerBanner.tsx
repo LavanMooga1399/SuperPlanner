@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Dialog } from "../../components/Dialog";
 import { Icon } from "../../components/Icon";
 import { DISCLAIMER, DISCLAIMER_VERSION } from "../api/types";
+import { t } from "../../lib/i18n";
 
 export const DISCLAIMER_ACK_KEY = "sp.fin.disclaimerAck";
 
@@ -12,7 +13,7 @@ export function DisclaimerBanner({ compact = false, text = DISCLAIMER }: { compa
       className={`banner fin-disclaimer${compact ? " compact" : " accent"}`}
       data-testid="disclaimer-banner"
       role="note"
-      aria-label="Disclaimer"
+      aria-label={t("finance.disclaimerBanner.aria.disclaimer")}
     >
       <Icon name="info" />
       <div className="banner-body">{text}</div>
@@ -42,11 +43,11 @@ export function DisclaimerDialog() {
   };
   return (
     <Dialog
-      title="Before you start"
+      title={t("finance.disclaimerBanner.title.beforeYouStart")}
       onClose={accept}
       footer={
         <button className="btn primary" onClick={accept} data-testid="disclaimer-accept" data-autofocus>
-          I understand
+          {t("finance.disclaimerBanner.btn.iUnderstand")}
         </button>
       }
     >

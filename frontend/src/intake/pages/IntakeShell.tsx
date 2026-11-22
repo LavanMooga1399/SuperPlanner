@@ -7,6 +7,7 @@ import { KINDS, type PlanKind } from "../../landing/kinds";
 import { useIntake } from "../state/IntakeContext";
 import { StepIndicator } from "../components/StepIndicator";
 import { PageHeader } from "../../components/PageHeader";
+import { t } from "../../lib/i18n";
 
 /** Page frame shared by the describe and import flows: breadcrumb, title, steps, error, Cancel. */
 export function IntakeShell({
@@ -35,7 +36,7 @@ export function IntakeShell({
   const hasWork = !!state.response || !!state.text.trim() || !!state.table.text.trim();
   return (
     <div className="col gap-lg intake-page" data-testid={`intake-page-${kind}`}>
-      <nav aria-label="Breadcrumb" className="small">
+      <nav aria-label={t("studio.intakeShell.aria.breadcrumb")} className="small">
         <Link to={`/new/${kind}`}>
           <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> New {KINDS[kind].label.toLowerCase()}
         </Link>
@@ -45,7 +46,7 @@ export function IntakeShell({
         description={intro}
         actions={
           <button type="button" className="btn" data-testid="intake-cancel" onClick={() => (hasWork ? setConfirm(true) : cancel())}>
-            Cancel
+            {t("studio.intakeShell.btn.cancel")}
           </button>
         }
       />
@@ -54,15 +55,15 @@ export function IntakeShell({
       {error ? (
         <div>
           <button type="button" className="btn sm ghost" onClick={clearError}>
-            Dismiss message
+            {t("studio.intakeShell.btn.dismissMessage")}
           </button>
         </div>
       ) : null}
       {children}
       {confirm ? (
         <ConfirmDialog
-          title="Leave without creating a plan?"
-          confirmLabel="Leave"
+          title={t("studio.intakeShell.title.leaveWithoutCreatingAPlan")}
+          confirmLabel={t("studio.intakeShell.btn.leave")}
           danger
           onCancel={() => setConfirm(false)}
           onConfirm={() => {

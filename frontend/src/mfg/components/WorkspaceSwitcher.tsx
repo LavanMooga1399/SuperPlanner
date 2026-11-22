@@ -6,6 +6,7 @@ import { Icon } from "../../components/Icon";
 import type { WorkspaceInfo } from "../api/typesM2";
 import { ROLE_LABEL, useAccess } from "../lib/permissions";
 import { currentWorkspace, switchWorkspace } from "../lib/workspace";
+import { t } from "../../lib/i18n";
 
 export function WorkspaceSwitcher() {
   const { me, workspaces } = useAccess();
@@ -20,7 +21,7 @@ export function WorkspaceSwitcher() {
         className="select sm"
         value={selected}
         onChange={(e) => switchWorkspace(e.target.value, own?.owner_id ?? me?.user_id)}
-        aria-label="Plant workspace"
+        aria-label={t("mfg.workspaceSwitcher.aria.plantWorkspace")}
         data-testid="workspace-switcher"
       >
         {groupByOrg(workspaces).map(([org, list]) =>

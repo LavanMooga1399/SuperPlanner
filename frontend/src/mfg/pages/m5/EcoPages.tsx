@@ -28,7 +28,7 @@ import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
 import { DataTable } from "../../components/DataTable";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
-import { t } from "../../../lib/i18n";
+import { t, plural } from "../../../lib/i18n";
 
 const STATUS: Record<CrStatus, { label: string; tone: string; icon: IconName }> = {
   draft: { label: "Draft", tone: "info", icon: "file" },
@@ -120,7 +120,7 @@ export function EcoListPage() {
         rows={data.rows}
         columns={ECO_COLS}
         rowKey={(c) => c.id}
-        label="Change requests"
+        label={t("mfg.ecoPages.label.changeRequests")}
         testId="eco-table"
         totalCount={data.total}
         loading={data.loading}
@@ -152,7 +152,7 @@ const ECO_COLS: Column<ChangeRequest>[] = [
   },
   { key: "status", header: "Status", width: "130px", exportValue: (c) => STATUS[c.status]?.label ?? c.status, render: (c) => <CrStatusChip s={c.status} /> },
   { key: "effect", header: "Takes effect", width: "minmax(160px, 1fr)", render: (c) => effText(c) },
-  { key: "docs", header: "Documents", width: "120px", render: (c) => (c.items.length ? `${c.items.length} document${c.items.length === 1 ? "" : "s"}` : "none yet") },
+  { key: "docs", header: "Documents", width: "120px", render: (c) => (c.items.length ? `${plural(c.items.length, "document")}` : "none yet") },
   { key: "by", header: "Requested by", width: "minmax(140px, 1fr)", render: (c) => who(c.requested_by) },
 ];
 
@@ -209,8 +209,8 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
           <textarea id="cr-reason" className="input" rows={2} value={f.reason} onChange={(ev) => setF({ ...f, reason: ev.target.value })} />
         </div>
         <fieldset className="mfg-fieldset">
-          <legend>Takes effect</legend>
-          <div className="col" role="radiogroup" aria-label="Takes effect" style={{ gap: 4 }}>
+          <legend>{t("mfg.ecoPages.head.takesEffect")}</legend>
+          <div className="col" role="radiogroup" aria-label={t("mfg.ecoPages.aria.takesEffect")} style={{ gap: 4 }}>
             <label className="checkbox">
               <input type="radio" checked={e.mode === "date"} onChange={() => setF({ ...f, effectivity: { mode: "date", date: e.date ?? null } })} data-testid="eco-eff-date" /> On a date
             </label>
@@ -302,7 +302,7 @@ export function EcoPage() {
 
   return (
     <div className="col gap-lg" data-testid="eco-page" data-status={c.status}>
-      <nav className="breadcrumb" aria-label="Breadcrumb">
+      <nav className="breadcrumb" aria-label={t("mfg.ecoPages.aria.breadcrumb")}>
         <Link to={mfgPaths.ecos()}>Engineering changes</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{c.number}</span>
       </nav>
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
@@ -321,7 +321,7 @@ export function EcoPage() {
             </span>
           </span>
         </div>
-        <div className="row wrap" role="group" aria-label="Actions">
+        <div className="row wrap" role="group" aria-label={t("mfg.ecoPages.aria.actions")}>
           {draft && canEdit ? (
             <>
               <button type="button" className="btn" onClick={() => setEditing(true)}>
@@ -369,7 +369,7 @@ export function EcoPage() {
         </Banner>
       ) : null}
       <MfgError error={error} />
-      <nav className="tabs" aria-label="Change request">
+      <nav className="tabs" aria-label={t("mfg.ecoPages.aria.changeRequest")}>
         <button type="button" className={`tab${tab === "docs" ? " active" : ""}`} aria-pressed={tab === "docs"} onClick={() => setTab("docs")}>
           Documents ({c.items.length})
         </button>
@@ -380,7 +380,7 @@ export function EcoPage() {
       {tab === "docs" ? (
         <section className="card" data-testid="eco-docs">
           <div className="card-header">
-            <h2>Draft versions in this change</h2>
+            <h2>{t("mfg.ecoPages.head.draftVersionsInThisChange")}</h2>
             {draft && canEdit ? (
               <button type="button" className="btn sm primary" onClick={() => setAdding(true)} data-testid="eco-add-doc">
                 <Icon name="plus" /> {t("mfg.ecoPages.btn.addADraft")}
@@ -390,11 +390,11 @@ export function EcoPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Document</th>
-                <th>Replaces</th>
-                <th>Open work orders</th>
-                <th>Open purchase orders</th>
-                <th>Old stock</th>
+                <th>{t("mfg.ecoPages.head.document")}</th>
+                <th>{t("mfg.ecoPages.head.replaces")}</th>
+                <th>{t("mfg.ecoPages.head.openWorkOrders")}</th>
+                <th>{t("mfg.ecoPages.head.openPurchaseOrders")}</th>
+                <th>{t("mfg.ecoPages.head.oldStock")}</th>
                 <th />
               </tr>
             </thead>
@@ -472,20 +472,20 @@ function DocRow({ c, i, editable, onChanged }: { c: ChangeRequest; i: CrItem; ed
         <DocLabel type={i.doc_type} id={i.supersedes_doc_id} />
       </td>
       <td>
-        <select className="select sm" aria-label="Open work orders" value={D.open_wos} disabled={!editable || busy} onChange={(e) => void setDisp({ open_wos: e.target.value as CrItem["disposition"]["open_wos"] })}>
+        <select className="select sm" aria-label={t("mfg.ecoPages.aria.openWorkOrders")} value={D.open_wos} disabled={!editable || busy} onChange={(e) => void setDisp({ open_wos: e.target.value as CrItem["disposition"]["open_wos"] })}>
           <option value="keep">Keep as they are</option>
           <option value="refresh_planned">Update planned ones</option>
           <option value="flag">Flag for review</option>
         </select>
       </td>
       <td>
-        <select className="select sm" aria-label="Open purchase orders" value={D.open_pos} disabled={!editable || busy} onChange={(e) => void setDisp({ open_pos: e.target.value as CrItem["disposition"]["open_pos"] })}>
+        <select className="select sm" aria-label={t("mfg.ecoPages.aria.openPurchaseOrders")} value={D.open_pos} disabled={!editable || busy} onChange={(e) => void setDisp({ open_pos: e.target.value as CrItem["disposition"]["open_pos"] })}>
           <option value="keep">Keep</option>
           <option value="flag_cancel">Flag the ones no longer needed</option>
         </select>
       </td>
       <td>
-        <select className="select sm" aria-label="Old stock" value={D.stock} disabled={!editable || busy} onChange={(e) => void setDisp({ stock: e.target.value as CrItem["disposition"]["stock"] })}>
+        <select className="select sm" aria-label={t("mfg.ecoPages.aria.oldStock")} value={D.stock} disabled={!editable || busy} onChange={(e) => void setDisp({ stock: e.target.value as CrItem["disposition"]["stock"] })}>
           <option value="use_up">Use it up</option>
           <option value="scrap">Scrap it</option>
           <option value="rework">Rework it</option>
@@ -547,7 +547,7 @@ function AddDocDialog({ c, onClose, onSaved }: { c: ChangeRequest; onClose(): vo
       }
     >
       <div className="col">
-        <div className="row" role="radiogroup" aria-label="Document">
+        <div className="row" role="radiogroup" aria-label={t("mfg.ecoPages.aria.document")}>
           <label className="checkbox">
             <input type="radio" checked={type === "bom"} onChange={() => setType("bom")} /> BOM
           </label>
@@ -555,7 +555,7 @@ function AddDocDialog({ c, onClose, onSaved }: { c: ChangeRequest; onClose(): vo
             <input type="radio" checked={type === "routing"} onChange={() => setType("routing")} /> Routing
           </label>
         </div>
-        <ItemPicker value={item} onChange={(it) => { setItem(it); setDoc(""); }} label="Item" makeBuy="make" />
+        <ItemPicker value={item} onChange={(it) => { setItem(it); setDoc(""); }} label={t("mfg.ecoPages.label.item")} makeBuy="make" />
         {item ? (
           <div className="field">
             <label htmlFor="eco-doc">{t("mfg.ecoPages.label.draft")}</label>
@@ -583,7 +583,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
   const imp = useLoad((signal) => (c.items.length ? getEcoImpact(c.id, signal) : null), [c.id, c.row_version]);
   const d: EcoImpact | null = imp.data;
   if (!c.items.length) return <p className="muted">Add a draft to see what it changes.</p>;
-  if (imp.loading && !d) return <Spinner label="Working out the impact (incl. an MRP what-if)…" />;
+  if (imp.loading && !d) return <Spinner label={t("mfg.ecoPages.label.workingOutTheImpactIncl")} />;
   if (!d) return <MfgError error={imp.error} onRetry={imp.reload} />;
   return (
     <div className="col gap-lg" data-testid="eco-impact">
@@ -605,7 +605,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
       ) : null}
       <section className="card card-table">
         <div className="card-header">
-          <h2>What changes in the structure</h2>
+          <h2>{t("mfg.ecoPages.head.whatChangesInTheStructure")}</h2>
         </div>
         <DataTable
           rows={d.explosion_delta}
@@ -648,10 +648,10 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
             },
           ]}
           rowKey={(_, i) => i}
-          label="What changes in the structure"
+          label={t("mfg.ecoPages.label.whatChangesInTheStructure")}
           testId="eco-delta"
           exportName={`${c.number}-structure-changes`}
-          empty="No component changes."
+          empty={t("mfg.ecoPages.empty.noComponentChanges")}
         />
       </section>
       <div className="grid-2" style={{ alignItems: "start" }}>
@@ -670,10 +670,10 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
               { key: "qty", header: "Qty", width: "90px", align: "right", sortValue: (w) => w.qty ?? null, render: (w) => (w.qty !== undefined ? fmtNum(w.qty) : "") },
             ]}
             rowKey={(_, i) => i}
-            label="Open work orders using the old parts"
+            label={t("mfg.ecoPages.label.openWorkOrdersUsingThe")}
             testId="eco-open-wos"
             exportName={`${c.number}-open-orders`}
-            empty="None."
+            empty={t("mfg.ecoPages.empty.none")}
           />
         </section>
         <section className="card card-table">
@@ -689,16 +689,16 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
               { key: "due", header: "Due", width: "110px", sortValue: (p) => p.due ?? null, render: (p) => (p.due ? fmtDate(p.due) : "") },
             ]}
             rowKey={(_, i) => i}
-            label="Purchases no longer needed"
+            label={t("mfg.ecoPages.label.purchasesNoLongerNeeded")}
             tableId="eco-open-purchases"
             exportName={`${c.number}-purchases`}
-            empty="None."
+            empty={t("mfg.ecoPages.empty.none")}
           />
         </section>
       </div>
       <section className="card card-table">
         <div className="card-header">
-          <h2>Parts being phased out</h2>
+          <h2>{t("mfg.ecoPages.head.partsBeingPhasedOut")}</h2>
         </div>
         <DataTable
           rows={d.phase_out_stock}
@@ -709,16 +709,16 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
             { key: "value", header: "Value", width: "120px", align: "right", sortValue: (p) => p.value, render: (p) => (p.value === null ? "" : fmtNum(Math.round(p.value))) },
           ]}
           rowKey={(_, i) => i}
-          label="Parts being phased out"
+          label={t("mfg.ecoPages.label.partsBeingPhasedOut")}
           testId="eco-phased-out"
           exportName={`${c.number}-phase-out`}
-          empty="No parts are phased out."
+          empty={t("mfg.ecoPages.empty.noPartsArePhasedOut")}
         />
       </section>
       {d.mrp_delta.length ? (
         <section className="card card-table">
           <div className="card-header">
-            <h2>Customer dates that move (MRP what-if)</h2>
+            <h2>{t("mfg.ecoPages.head.customerDatesThatMoveMrp")}</h2>
           </div>
           <DataTable
             rows={d.mrp_delta}
@@ -728,7 +728,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
               { key: "after", header: "After", width: "130px", sortValue: (m) => m.after ?? null, render: (m) => (m.after ? fmtDate(m.after) : "not covered") },
             ]}
             rowKey={(_, i) => i}
-            label="Customer dates that move"
+            label={t("mfg.ecoPages.label.customerDatesThatMove")}
             testId="eco-mrp-delta"
             exportName={`${c.number}-date-changes`}
           />

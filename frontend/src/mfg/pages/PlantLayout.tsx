@@ -9,7 +9,7 @@ export function PlantLayout() {
     <div className="col gap-lg">
       <PageHeader title={t("mfg.plantLayout.title.plant")} description={t("mfg.plantLayout.desc.stagesWorkcenterGroupsAndTheir")} />
       <SectionTabs
-        label="Plant sections"
+        label={t("mfg.plantLayout.label.plantSections")}
         tabs={[
           { to: mfgPaths.groups(), label: "Stages & lines", testId: "plant-tab-groups" },
           { to: mfgPaths.shifts(), label: "Shifts", testId: "plant-tab-shifts" },

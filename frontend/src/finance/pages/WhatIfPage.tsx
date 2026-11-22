@@ -21,6 +21,7 @@ import { nextId, WHATIF_PREFIX } from "../lib/ids";
 import { useLoadedFinancePlan } from "../state/FinancePlanContext";
 import { FinSaveIndicator } from "./FinancePlanShell";
 import { PageHeader } from "../../components/PageHeader";
+import { t } from "../../lib/i18n";
 
 const DEBOUNCE_MS = 800;
 
@@ -247,13 +248,13 @@ export function WhatIfPage() {
     return (
       <div className="empty">
         <Icon name="refresh" size={32} />
-        <h2>Build your plan first</h2>
-        <p>What-if scenarios start from a built plan.</p>
+        <h2>{t("finance.whatIfPage.head.buildYourPlanFirst")}</h2>
+        <p>{t("finance.whatIfPage.text.whatifScenariosStartFromA")}</p>
         <Link className="btn primary" to={`/finance/${planId}/setup/review`}>Go to review</Link>
       </div>
     );
   }
-  if (!base) return <Loading label="Loading your plan result…" />;
+  if (!base) return <Loading label={t("finance.whatIfPage.label.loadingYourPlanResult")} />;
 
   const cur = base.result.currency;
   const loc = ctx.draft.profile.locale;
@@ -262,7 +263,7 @@ export function WhatIfPage() {
   return (
     <div className="col gap-lg">
       <PageHeader
-        title="What if…?"
+        title={t("finance.whatIfPage.title.whatIf")}
         description={<>Move a control to test a change. Your plan is not changed until you choose "Apply to my plan". Compared with the result from{" "}
             <Link to={`/finance/${planId}/results?result=${base.id}`}>version {base.base_plan_version}</Link>.</>}
         actions={
@@ -271,7 +272,7 @@ export function WhatIfPage() {
             <FinSaveIndicator state={ctx.saveState} dirty={ctx.dirty} error={ctx.saveError} />
             {showing ? (
             <Link className="btn" to={`/finance/${planId}/compare?a=${base.id}&b=${showing.record.id}`}>
-            <Icon name="compare" /> Open in compare
+            <Icon name="compare" /> {t("finance.whatIfPage.btn.openInCompare")}
             </Link>
             ) : null}
             <button className="btn primary" onClick={() => void apply()} disabled={applying || isEmptyChanges(changes)} data-testid="whatif-apply">
@@ -283,20 +284,20 @@ export function WhatIfPage() {
       />
       {changes.income_drop ? (
         <span className="small muted">
-          <Icon name="info" /> An income drop is a test only; it is not added to your plan when you apply.
+          <Icon name="info" /> {t("finance.whatIfPage.btn.anIncomeDropIsA")}
         </span>
       ) : null}
       <div className="whatif-grid">
         <section className="card" aria-labelledby="wi-controls-h">
           <div className="card-header">
-            <h2 id="wi-controls-h">Change</h2>
+            <h2 id="wi-controls-h">{t("finance.whatIfPage.head.change")}</h2>
             <button
               type="button"
               className="btn sm ghost"
               onClick={() => onChange({})}
               disabled={isEmptyChanges(changes)}
             >
-              <Icon name="refresh" /> Reset
+              <Icon name="refresh" /> {t("finance.whatIfPage.btn.reset")}
             </button>
           </div>
           <div className="card-body">
@@ -309,7 +310,7 @@ export function WhatIfPage() {
           {!activeRun ? (
             <div className="empty card">
               <Icon name="refresh" size={28} />
-              <p>Move a control on the left. A new estimate appears about a second after you stop.</p>
+              <p>{t("finance.whatIfPage.text.moveAControlOnThe")}</p>
             </div>
           ) : null}
           {showing ? (

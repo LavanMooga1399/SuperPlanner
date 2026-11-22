@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import type { Issue, Problem } from "../api/types";
 import type { Terms } from "../lib/terms";
 import { Icon } from "./Icon";
+import { t } from "../lib/i18n";
 
 function issueLink(issue: Issue): { to: string; label: string } | null {
   if (issue.task_ids.length && (issue.field?.startsWith("dependencies") || issue.code.includes("DEPENDENCY"))) {
@@ -66,7 +67,7 @@ export function IssueList({ issues, draft, terms }: { issues: Issue[]; draft: Pr
       {issues.length === 0 ? (
         <div className="empty">
           <Icon name="check" size={28} style={{ color: "var(--ok)" }} />
-          <strong>No problems found</strong>
+          <strong>{t("studio.issueList.head.noProblemsFound")}</strong>
           <span>The plan is ready to optimize. All {terms.tasksL}, {terms.resourcesL} and dependencies fit together.</span>
         </div>
       ) : (

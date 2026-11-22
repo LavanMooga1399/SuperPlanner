@@ -2,6 +2,7 @@ import type { FinanceResult } from "../api/types";
 import { formatPct } from "../lib/money";
 import { realReturnPct } from "../lib/resultView";
 import { DataTable } from "../../mfg/components/DataTable";
+import { t } from "../../lib/i18n";
 
 const REASON_LABEL: Record<string, string> = {
   ALLOCATION_SPLIT: "Where the money goes",
@@ -24,11 +25,11 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
   return (
     <section className="card" data-testid="fin-explanations" aria-labelledby="fin-expl-title">
       <div className="card-header">
-        <h2 id="fin-expl-title">Why the plan looks like this</h2>
+        <h2 id="fin-expl-title">{t("finance.explanationPanel.head.whyThePlanLooksLike")}</h2>
       </div>
       <div className="card-body">
         <details className="explain-section" open>
-          <summary>Summary</summary>
+          <summary>{t("finance.explanationPanel.head.summary")}</summary>
           <ul className="explain-list">
             {ex.summary.map((s, i) => (
               <li key={i}>{s}</li>
@@ -53,7 +54,7 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
         })}
         {ex.binding_constraints.length ? (
           <details className="explain-section">
-            <summary>What limits the plan</summary>
+            <summary>{t("finance.explanationPanel.head.whatLimitsThePlan")}</summary>
             <ul className="explain-list">
               {ex.binding_constraints.map((b, i) => (
                 <li key={i}>{b.message}</li>
@@ -62,7 +63,7 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
           </details>
         ) : null}
         <details className="explain-section">
-          <summary>Assumptions</summary>
+          <summary>{t("finance.explanationPanel.head.assumptions")}</summary>
           <ul className="explain-list">
             {ex.assumptions.map((s, i) => (
               <li key={i}>{s}</li>
@@ -78,7 +79,7 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
                 { key: "real", header: "After costs and inflation", label: "After costs and inflation (calculated)", width: "190px", align: "right", sortValue: (c) => realReturnPct(c, used.inflation_pct), render: (c) => formatPct(realReturnPct(c, used.inflation_pct), 1) },
               ]}
               rowKey={(c) => c.id}
-              label="Assumptions used for this result"
+              label={t("finance.explanationPanel.label.assumptionsUsedForThisResult")}
               tableId="finance-explain-assumptions"
               exportName="assumptions-used"
             />
@@ -91,7 +92,7 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
           ) : null}
         </details>
         <details className="explain-section">
-          <summary>Limitations</summary>
+          <summary>{t("finance.explanationPanel.head.limitations")}</summary>
           <ul className="explain-list">
             {ex.limitations.map((s, i) => (
               <li key={i}>{s}</li>
@@ -99,7 +100,7 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
           </ul>
         </details>
         <details className="explain-section">
-          <summary>When to re-plan</summary>
+          <summary>{t("finance.explanationPanel.head.whenToReplan")}</summary>
           <ul className="explain-list">
             {ex.replanning_triggers.map((s, i) => (
               <li key={i}>{s}</li>

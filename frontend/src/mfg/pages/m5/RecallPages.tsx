@@ -25,7 +25,7 @@ import { useLoad } from "../../lib/useMfg";
 import { PrecisionTag } from "./TracePages";
 import { formatDate, formatDateTime, formatDay } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
-import { t } from "../../../lib/i18n";
+import { t, plural } from "../../../lib/i18n";
 
 const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "play" | "flag" | "circle" }> = {
   in_stock: { label: "In stock", tone: "warn", icon: "layers" },
@@ -150,7 +150,7 @@ export function RecallsPage() {
       {fromTrace && source ? (
         <section className="card" data-testid="recall-new">
           <div className="card-header">
-            <h2>New recall</h2>
+            <h2>{t("mfg.recallPages.head.newRecall")}</h2>
           </div>
           <div className="card-body col">
             <p style={{ margin: 0 }}>
@@ -197,7 +197,7 @@ export function RecallsPage() {
         rows={data.rows}
         columns={RECALL_LIST_COLS}
         rowKey={(r) => r.id}
-        label="Recalls"
+        label={t("mfg.recallPages.label.recalls")}
         testId="recall-list"
         totalCount={data.total}
         loading={data.loading}
@@ -229,7 +229,7 @@ export function RecallPage() {
   useEffect(() => {
     if (!loc && quarantineLocs[0]) setLoc(quarantineLocs[0].id);
   }, [quarantineLocs, loc]);
-  if (rc.loading && !r) return <Spinner label="Building the recall report…" />;
+  if (rc.loading && !r) return <Spinner label={t("mfg.recallPages.label.buildingTheRecallReport")} />;
   if (!r) return <MfgError error={rc.error} onRetry={rc.reload} />;
   const all = rep?.units ?? [];
   const by = (st: string) => all.filter((u) => u.status === st).length;
@@ -237,7 +237,7 @@ export function RecallPage() {
   const lotsToMove = (rep?.lots ?? []).filter((l) => l.on_hand > 0 && !l.on_hold);
   return (
     <div className="col gap-lg print-page" data-testid="recall-page">
-      <nav className="breadcrumb no-print" aria-label="Breadcrumb">
+      <nav className="breadcrumb no-print" aria-label={t("mfg.recallPages.aria.breadcrumb")}>
         <Link to={mfgPaths.recalls()}>Recalls</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{r.number}</span>
       </nav>
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
@@ -289,7 +289,7 @@ export function RecallPage() {
 
       <section className="card no-print" data-testid="recall-quarantine">
         <div className="card-header">
-          <h2>Stop it moving</h2>
+          <h2>{t("mfg.recallPages.head.stopItMoving")}</h2>
         </div>
         <div className="card-body col">
           {r.quarantined_at ? (
@@ -307,7 +307,7 @@ export function RecallPage() {
             rows={rep?.lots ?? []}
             columns={QUARANTINE_COLS}
             rowKey={(_, i) => i}
-            label="Affected stock"
+            label={t("mfg.recallPages.label.affectedStock")}
             tableId="recall-lots"
             rowExtras={() => ({ testId: "quarantine-lot" })}
             empty={t("mfg.recallPages.empty.noAffectedStockOnHand")}
@@ -332,7 +332,7 @@ export function RecallPage() {
                 </select>
               </div>
               <button type="button" className="btn danger" disabled={!canQuarantine || !loc} title={canQuarantine ? undefined : needsText("inventory")} onClick={() => setConfirm(true)} data-testid="quarantine-run">
-                <Icon name="lock" /> Quarantine {lotsToMove.length} lot{lotsToMove.length === 1 ? "" : "s"}
+                <Icon name="lock" /> Quarantine {plural(lotsToMove.length, "lot")}
               </button>
             </div>
           ) : null}
@@ -344,7 +344,7 @@ export function RecallPage() {
         <div className="grid-2" style={{ alignItems: "start" }}>
           <section className="card card-table">
             <div className="card-header">
-              <h2>Per customer</h2>
+              <h2>{t("mfg.recallPages.head.perCustomer")}</h2>
             </div>
             <DataTable
               rows={rep?.by_customer ?? []}
@@ -356,7 +356,7 @@ export function RecallPage() {
                   : []),
               ]}
               rowKey={(_, i) => i}
-              label="Affected units per customer"
+              label={t("mfg.recallPages.label.affectedUnitsPerCustomer")}
               testId="recall-customers"
               exportName="recall-customers"
             />
@@ -364,7 +364,7 @@ export function RecallPage() {
           {rep?.by_program.length ? (
             <section className="card card-table">
               <div className="card-header">
-                <h2>Per programme</h2>
+                <h2>{t("mfg.recallPages.head.perProgramme")}</h2>
               </div>
               <DataTable
                 rows={rep.by_program}
@@ -373,7 +373,7 @@ export function RecallPage() {
                   { key: "units", header: "Units", width: "110px", align: "right", sortValue: (c) => c.units, render: (c) => fmtNum(c.units) },
                 ]}
                 rowKey={(_, i) => i}
-                label="Affected units per programme"
+                label={t("mfg.recallPages.label.affectedUnitsPerProgramme")}
                 tableId="recall-programmes"
                 exportName="recall-programmes"
               />
@@ -386,7 +386,7 @@ export function RecallPage() {
         <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
           <h2>Affected units ({units.length})</h2>
           <span className="row no-print">
-            <select className="select sm" style={{ width: "auto" }} aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.recallPages.aria.status")} value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">Any status</option>
               {Object.entries(STATUS).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -394,7 +394,7 @@ export function RecallPage() {
                 </option>
               ))}
             </select>
-            <select className="select sm" style={{ width: "auto" }} aria-label="Precision" value={prec} onChange={(e) => setPrec(e.target.value as "" | Precision)}>
+            <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.recallPages.aria.precision")} value={prec} onChange={(e) => setPrec(e.target.value as "" | Precision)}>
               <option value="">Exact and possible</option>
               <option value="exact">Exact only</option>
               <option value="possible">Possible only</option>
@@ -405,7 +405,7 @@ export function RecallPage() {
           rows={units}
           columns={UNIT_COLS}
           rowKey={(u, i) => `${u.serial}-${i}`}
-          label="Affected units"
+          label={t("mfg.recallPages.label.affectedUnits")}
           testId="recall-units"
           exportName="recall-units"
           rowExtras={(u) => ({ testId: "recall-unit", data: { status: u.status, precision: u.precision } })}
@@ -415,7 +415,7 @@ export function RecallPage() {
       </section>
       {confirm ? (
         <ConfirmDialog
-          title={`Quarantine ${lotsToMove.length} lot${lotsToMove.length === 1 ? "" : "s"}?`}
+          title={`Quarantine ${plural(lotsToMove.length, "lot")}?`}
           confirmLabel={t("mfg.recallPages.btn.moveAndHold")}
           danger
           onCancel={() => setConfirm(false)}
@@ -430,7 +430,7 @@ export function RecallPage() {
             }
           }}
         >
-          <p style={{ margin: 0 }}>The in-stock quantities are moved to the quarantine location by transfer postings and the lots are put on hold, so MRP and issues stop using them. Units in production or shipped are listed for follow-up.</p>
+          <p style={{ margin: 0 }}>{t("mfg.recallPages.text.theInstockQuantitiesAreMoved")}</p>
         </ConfirmDialog>
       ) : null}
     </div>

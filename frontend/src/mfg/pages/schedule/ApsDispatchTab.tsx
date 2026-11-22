@@ -20,7 +20,7 @@ import { setSearchParam } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { useApsRun } from "./ApsRunShell";
 import { formatDateTime } from "../../../lib/locale";
-import { plural, t } from "../../../lib/i18n";
+import { plural, t, t as tr } from "../../../lib/i18n";
 import { DateInput } from "../../../components/DateInput";
 
 const MATERIAL: Record<string, { label: string; tone: string; icon: "check" | "alert" | "help" }> = {
@@ -98,11 +98,11 @@ export function ApsDispatchTab() {
         <div className="field">
           <label htmlFor="dp-date">{t("mfg.apsDispatchTab.label.day")}</label>
           <div className="row" style={{ gap: 4 }}>
-            <button type="button" className="btn sm icon" aria-label="Previous day" onClick={() => set("date", addDays(date, -1))}>
+            <button type="button" className="btn sm icon" aria-label={t("mfg.apsDispatchTab.aria.previousDay")} onClick={() => set("date", addDays(date, -1))}>
               <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} />
             </button>
             <DateInput id="dp-date" small value={date} testId="dispatch-date" onChange={(v) => v && set("date", v)} />
-            <button type="button" className="btn sm icon" aria-label="Next day" onClick={() => set("date", addDays(date, 1))}>
+            <button type="button" className="btn sm icon" aria-label={t("mfg.apsDispatchTab.aria.nextDay")} onClick={() => set("date", addDays(date, 1))}>
               <Icon name="chevron-right" />
             </button>
           </div>
@@ -147,15 +147,15 @@ export function ApsDispatchTab() {
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Start</th>
-                  <th>End</th>
-                  <th>Work order / step</th>
-                  <th>Item</th>
-                  <th className="right">Qty</th>
-                  <th>Changeover</th>
-                  <th>Crew / tools</th>
-                  <th>Ready?</th>
-                  <th className="no-print">Done</th>
+                  <th>{t("mfg.apsDispatchTab.head.start")}</th>
+                  <th>{t("mfg.apsDispatchTab.head.end")}</th>
+                  <th>{t("mfg.apsDispatchTab.head.workOrderStep")}</th>
+                  <th>{t("mfg.apsDispatchTab.head.item")}</th>
+                  <th className="right">{t("mfg.apsDispatchTab.head.qty")}</th>
+                  <th>{t("mfg.apsDispatchTab.head.changeover")}</th>
+                  <th>{t("mfg.apsDispatchTab.head.crewTools")}</th>
+                  <th>{t("mfg.apsDispatchTab.head.ready")}</th>
+                  <th className="no-print">{t("mfg.apsDispatchTab.head.done")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -192,7 +192,7 @@ export function ApsDispatchTab() {
                         {r.setup_minutes ? `${r.setup_from_family || "start"} → ${r.family || "-"} (${fmtDuration(r.setup_minutes)})` : "none"}
                       </td>
                       <td className="small">
-                        {r.crew.length ? `${r.crew.length} operator${r.crew.length === 1 ? "" : "s"}` : "unattended"}
+                        {r.crew.length ? `${plural(r.crew.length, "operator")}` : "unattended"}
                         {r.tools.length ? <div className="faint">{r.tools.length} tool pool{r.tools.length === 1 ? "" : "s"} ({r.tools.map((t) => `x${t.qty}`).join(", ")})</div> : null}
                       </td>
                       <td className="small">
@@ -223,7 +223,7 @@ export function ApsDispatchTab() {
             </table>
           </div>
           <p className="print-only small">
-            Printed {formatDateTime(new Date())} · schedule #{run.run_no}
+            Printed {formatDateTime(new Date())} · {tr("common.scheduleNoInline", { n: run.run_no })}
             {run.is_published ? " (published)" : ""} · <span>{mfgPaths.apsDispatch(run.id)}</span>
           </p>
         </section>

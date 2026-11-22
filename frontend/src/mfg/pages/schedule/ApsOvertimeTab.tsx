@@ -20,7 +20,7 @@ import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { orderLink } from "./ApsOrdersTab";
 import { useApsRun } from "./ApsRunShell";
-import { t as tr } from "../../../lib/i18n";
+import { t as tr, t } from "../../../lib/i18n";
 
 const STATUS: Record<OvertimeWindow["status"], { label: string; tone: string; icon: "check" | "help" | "lock" }> = {
   opened: { label: "Opened by the scheduler", tone: "warn", icon: "check" },
@@ -58,7 +58,7 @@ export function ApsOvertimeTab() {
       const next = await rerunWithOpenShifts(
         run.id,
         acceptedRows.map((w) => ({ line_id: w.line_id, start: w.start, end: w.end })),
-        `${run.label || `Schedule #${run.run_no}`} with ${n} extra shift${n === 1 ? "" : "s"}`,
+        `${run.label || `${tr("common.scheduleNo", { n: run.run_no })}`} with ${n} extra shift${n === 1 ? "" : "s"}`,
       );
       navigate(mfgPaths.apsCompare(next.id, run.id));
     } catch (e) {
@@ -173,12 +173,12 @@ function OtTable({
         <thead>
           <tr>
             {mode === "suggested" ? <th>Accept</th> : null}
-            <th>Line</th>
-            <th>When</th>
-            <th className="right">Hours</th>
-            <th className="right">Cost</th>
+            <th>{t("mfg.apsOvertimeTab.head.line")}</th>
+            <th>{t("mfg.apsOvertimeTab.head.when")}</th>
+            <th className="right">{t("mfg.apsOvertimeTab.head.hours")}</th>
+            <th className="right">{t("mfg.apsOvertimeTab.head.cost")}</th>
             <th>{mode === "suggested" ? "Lateness saved" : "Why"}</th>
-            <th>Status</th>
+            <th>{t("mfg.apsOvertimeTab.head.status")}</th>
           </tr>
         </thead>
         <tbody>

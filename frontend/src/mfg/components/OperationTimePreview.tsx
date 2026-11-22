@@ -20,7 +20,7 @@ export function OperationTimePreview({ routingId, version }: { routingId: string
   return (
     <section className="card" aria-labelledby="tp-title" data-testid="time-preview">
       <div className="card-header">
-        <h3 id="tp-title">Time per lot</h3>
+        <h3 id="tp-title">{t("mfg.operationTimePreview.head.timePerLot")}</h3>
         <div className="row">
           <label htmlFor="tp-qty" className="small muted">
             Lot size
@@ -62,14 +62,14 @@ export function OperationTimePreview({ routingId, version }: { routingId: string
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Op.</th>
-                    <th>Name / line</th>
-                    <th className="num">In → out</th>
-                    <th className="num">Loads</th>
-                    <th className="num">Setup</th>
-                    <th className="num">Run</th>
-                    <th className="num">Total (min)</th>
-                    <th>Line can make it</th>
+                    <th>{t("mfg.operationTimePreview.head.op")}</th>
+                    <th>{t("mfg.operationTimePreview.head.nameLine")}</th>
+                    <th className="num">{t("mfg.operationTimePreview.head.inOut")}</th>
+                    <th className="num">{t("mfg.operationTimePreview.head.loads")}</th>
+                    <th className="num">{t("mfg.operationTimePreview.head.setup")}</th>
+                    <th className="num">{t("mfg.operationTimePreview.head.run")}</th>
+                    <th className="num">{t("mfg.operationTimePreview.head.totalMin")}</th>
+                    <th>{t("mfg.operationTimePreview.head.lineCanMakeIt")}</th>
                   </tr>
                 </thead>
                 <tbody>

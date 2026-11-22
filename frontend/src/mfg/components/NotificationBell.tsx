@@ -47,9 +47,9 @@ export function NotificationBell() {
         {count ? <span className="mfg-bell-count">{count > 99 ? "99+" : count}</span> : null}
       </button>
       {open ? (
-        <div className="mfg-bell-pop card" role="dialog" aria-label="Notifications">
+        <div className="mfg-bell-pop card" role="dialog" aria-label={t("mfg.notificationBell.aria.notifications")}>
           <div className="card-header row" style={{ justifyContent: "space-between" }}>
-            <strong>New notifications</strong>
+            <strong>{t("mfg.notificationBell.head.newNotifications")}</strong>
             <Link to={mfgPaths.replan()} onClick={() => setOpen(false)}>
               {t("mfg.notificationBell.btn.allAndReplanning")}
             </Link>

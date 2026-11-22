@@ -2,6 +2,7 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { currencySymbol } from "../lib/money";
 import { isMonth } from "../lib/months";
+import { t } from "../../lib/i18n";
 
 export function Field({ label, hint, children, id, wide }: { label: ReactNode; hint?: ReactNode; children: (id: string) => ReactNode; id?: string; wide?: boolean }) {
   const auto = useId();
@@ -237,7 +238,7 @@ export function MonthInput({
       min={min}
       aria-label={label}
       data-testid={testId}
-      placeholder="YYYY-MM"
+      placeholder={t("finance.fields.ph.yyyymm")}
       onChange={(e) => {
         const s = e.target.value;
         setText(s);

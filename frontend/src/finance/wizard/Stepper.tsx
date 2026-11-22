@@ -1,10 +1,11 @@
 import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
 import { STEPS, type StepKey } from "./steps";
+import { t } from "../../lib/i18n";
 
 export function Stepper({ planId, current, done, issues }: { planId: string; current: StepKey; done: Set<string>; issues: Set<StepKey> }) {
   return (
-    <nav aria-label="Plan setup steps">
+    <nav aria-label={t("finance.stepper.aria.planSetupSteps")}>
       <ol className="stepper">
         {STEPS.map((s, i) => {
           const isCur = s.key === current;

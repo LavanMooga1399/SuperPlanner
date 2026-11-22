@@ -4,6 +4,7 @@ import { DEFAULT_WORK_WEEK, hhmmToMin } from "../lib/planEdit";
 import { msToIso } from "../lib/time";
 import { Icon } from "./Icon";
 import { PlanDateTimeInput } from "./Inputs";
+import { t } from "../lib/i18n";
 
 const DAY_LABEL: Record<Weekday, string> = {
   mon: "Mon",
@@ -27,7 +28,7 @@ function TimeText({ value, onChange, label }: { value: string; onChange(v: strin
       value={text}
       aria-label={label}
       aria-invalid={!ok}
-      placeholder="HH:MM"
+      placeholder={t("studio.calendarEditor.ph.hhmm")}
       inputMode="numeric"
       onChange={(e) => setText(e.target.value)}
       onBlur={() => {
@@ -131,7 +132,7 @@ export function CalendarEditor({
                             setDay(day, [...wins, [fmt(startMin), fmt(Math.min(1440, startMin + 240))]]);
                           }}
                         >
-                          <Icon name="plus" /> Window
+                          <Icon name="plus" /> {t("studio.calendarEditor.btn.window")}
                         </button>
                         {day === "mon" && wins.length ? (
                           <button
@@ -139,7 +140,7 @@ export function CalendarEditor({
                             className="btn ghost sm"
                             onClick={() => setWeekly({ ...weekly, tue: wins, wed: wins, thu: wins, fri: wins })}
                           >
-                            <Icon name="copy" /> Copy to Tue–Fri
+                            <Icon name="copy" /> {t("studio.calendarEditor.btn.copyToTuefri")}
                           </button>
                         ) : null}
                       </div>
@@ -151,7 +152,7 @@ export function CalendarEditor({
           ) : null}
           <div className="small faint">Times are wall-clock times in the plan’s UTC offset. Split night shifts at midnight (22:00–24:00 and 00:00–06:00).</div>
 
-          <h3 className="mt">Blocked periods</h3>
+          <h3 className="mt">{t("studio.calendarEditor.head.blockedPeriods")}</h3>
           {blocked.length === 0 ? <div className="small muted">No maintenance, holidays or other closures.</div> : null}
           {blocked.map((b, i) => {
             const bad = new Date(b.end).getTime() <= new Date(b.start).getTime();
@@ -163,7 +164,7 @@ export function CalendarEditor({
                 <input
                   className="input sm"
                   style={{ width: 160 }}
-                  placeholder="Reason"
+                  placeholder={t("studio.calendarEditor.ph.reason")}
                   aria-label={`Blocked period ${i + 1} reason`}
                   defaultValue={b.reason}
                   key={b.reason}
@@ -186,7 +187,7 @@ export function CalendarEditor({
                 onChange({ weekly, blocked: [...blocked, { start: msToIso(startMs, offsetMin), end: msToIso(startMs + 4 * 3600000, offsetMin), reason: "" }] });
               }}
             >
-              <Icon name="plus" /> Add blocked period
+              <Icon name="plus" /> {t("studio.calendarEditor.btn.addBlockedPeriod")}
             </button>
           </div>
         </>

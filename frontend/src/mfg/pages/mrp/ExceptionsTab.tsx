@@ -73,18 +73,18 @@ export function ExceptionsTab() {
   const cur = data.rows[Math.min(active, data.rows.length - 1)];
   return (
     <div className="col gap-lg">
-      <div className="row wrap" role="group" aria-label="Filter by severity">
+      <div className="row wrap" role="group" aria-label={t("mfg.exceptionsTab.aria.filterBySeverity")}>
         {MRP_SEVERITIES.map((s) => (
           <button key={s} type="button" className="btn sm" aria-pressed={sevs.has(s)} onClick={() => toggle("severity", sevs, s)} data-testid={`exception-filter-${s}`}>
             <MrpSeverityBadge severity={s} label={`${s === "critical" ? "Critical" : s === "warning" ? "Warnings" : "Info"}: ${all?.by_severity[s] ?? 0}`} />
           </button>
         ))}
         <div className="field" style={{ marginLeft: "auto", width: 260 }}>
-          <input className="input sm" type="search" aria-label="Search messages" placeholder={t("mfg.exceptionsTab.ph.searchPartOrDocument")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input sm" type="search" aria-label={t("mfg.exceptionsTab.aria.searchMessages")} placeholder={t("mfg.exceptionsTab.ph.searchPartOrDocument")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
       {all ? (
-        <div className="row wrap" role="group" aria-label="Filter by message">
+        <div className="row wrap" role="group" aria-label={t("mfg.exceptionsTab.aria.filterByMessage")}>
           {Object.entries(all.by_code)
             .filter(([, n]) => n > 0)
             .map(([code, n]) => (
@@ -119,7 +119,7 @@ export function ExceptionsTab() {
         rows={data.rows}
         columns={columns}
         rowKey={(e) => e.id}
-        label="Exception messages"
+        label={t("mfg.exceptionsTab.label.exceptionMessages")}
         testId="exceptions-table"
         totalCount={data.total}
         height="min(50vh, 560px)"
@@ -128,7 +128,7 @@ export function ExceptionsTab() {
         rowExtras={(e) => ({ testId: "exception-row", data: { code: e.code, severity: e.severity, subject: e.subject.label } })}
         onEndReached={data.onEndReached}
         empty={data.loading ? "Loading messages…" : "No messages match these filters."}
-        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} messages · the focused message is shown in full below</span>}
+        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} messages · the focused message is shown in full below</span>}
       />
       {cur ? (
         <section className="card card-body" aria-live="polite" data-testid="exception-focus">

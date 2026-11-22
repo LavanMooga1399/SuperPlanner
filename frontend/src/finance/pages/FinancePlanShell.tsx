@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useLocation, useParams } from "react-router";
 import { Banner, ErrorBanner, Loading } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
 import { FinancePlanProvider, useFinancePlan, type FinSaveState } from "../state/FinancePlanContext";
+import { t } from "../../lib/i18n";
 
 export function FinancePlanShell() {
   const { planId } = useParams();
@@ -38,14 +39,14 @@ function ShellInner() {
   const plan = useFinancePlan();
   const { pathname } = useLocation();
   const { record, draft, loading, loadError, loadStatus } = plan;
-  if (loading && !draft) return <Loading label="Loading your plan…" />;
+  if (loading && !draft) return <Loading label={t("finance.financePlanShell.label.loadingYourPlan")} />;
   if (loadError && !draft) {
     if (loadStatus === 404) {
       return (
         <div className="empty">
           <Icon name="help" size={32} />
-          <h2>Plan not found</h2>
-          <p>This financial plan does not exist or was deleted.</p>
+          <h2>{t("finance.financePlanShell.head.planNotFound")}</h2>
+          <p>{t("finance.financePlanShell.text.thisFinancialPlanDoesNot")}</p>
           <Link className="btn" to="/finance">Back to financial plans</Link>
         </div>
       );
@@ -65,14 +66,14 @@ function ShellInner() {
       <div className="row wrap between">
         <div className="row wrap">
           <Link to="/finance" className="small">
-            Financial plans
+            {t("finance.financePlanShell.btn.financialPlans")}
           </Link>
           <Icon name="chevron-right" size={12} />
           <strong>{draft.name}</strong>
           <span className="chip" title="Server version of this plan">v{record.version}</span>
         </div>
       </div>
-      <nav className="tabs" aria-label="Financial plan sections">
+      <nav className="tabs" aria-label={t("finance.financePlanShell.aria.financialPlanSections")}>
         {tabs.map((t) => (
           <NavLink key={t.label} to={t.to} className={() => `tab${t.active ? " active" : ""}`} aria-current={t.active ? "page" : undefined}>
             <Icon name={t.icon} />
@@ -85,7 +86,7 @@ function ShellInner() {
           tone="danger"
           role="alert"
           testId="fin-conflict-banner"
-          title="This plan was changed elsewhere."
+          title={t("finance.financePlanShell.title.thisPlanWasChangedElsewhere")}
           actions={
             <>
               <button className="btn sm" onClick={() => void plan.reload()}>Reload (discard your edits)</button>

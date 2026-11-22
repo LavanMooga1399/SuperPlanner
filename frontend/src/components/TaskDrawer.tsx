@@ -6,6 +6,7 @@ import { fmtDuration, fmtIso, isoToMs, offsetMinutesOf } from "../lib/time";
 import { Icon, type IconName } from "./Icon";
 import { StatusBadge } from "./StatusBadge";
 import { Term } from "./Term";
+import { t } from "../lib/i18n";
 
 const REASON_ICON: Record<StartReasonCode, IconName> = {
   LOCKED: "lock",
@@ -68,7 +69,7 @@ export function TaskDrawer({
           <div className="small muted">{task?.type === "milestone" ? terms.milestone : terms.task} · <span className="mono">{taskId}</span></div>
           <h2 id="drawer-title">{task?.name ?? taskId}</h2>
         </div>
-        <button className="btn ghost icon" onClick={onClose} aria-label="Close details">
+        <button className="btn ghost icon" onClick={onClose} aria-label={t("studio.taskDrawer.aria.closeDetails")}>
           <Icon name="x" />
         </button>
       </div>
@@ -83,11 +84,11 @@ export function TaskDrawer({
           {task?.locked ? <span className="badge info"><Icon name="lock" /> Fixed</span> : null}
         </div>
         <dl className="dl">
-          <dt>Starts</dt>
+          <dt>{t("studio.taskDrawer.head.starts")}</dt>
           <dd>{fmtIso(placement.start_at, off)}</dd>
-          <dt>Ends</dt>
+          <dt>{t("studio.taskDrawer.head.ends")}</dt>
           <dd>{fmtIso(placement.end_at, off)}</dd>
-          <dt>Duration</dt>
+          <dt>{t("studio.taskDrawer.head.duration")}</dt>
           <dd>{fmtDuration(placement.end - placement.start)}</dd>
           {task?.duration_estimate && task.type !== "milestone" ? (
             <>
@@ -113,14 +114,14 @@ export function TaskDrawer({
           ) : null}
           {ex ? (
             <>
-              <dt>Slack</dt>
+              <dt>{t("studio.taskDrawer.head.slack")}</dt>
               <dd>{ex.cpm_critical ? "None (critical in the dependency network)" : fmtDuration(ex.cpm_slack_minutes)}</dd>
             </>
           ) : null}
         </dl>
 
         <section>
-          <h3 className="mb">Why it starts then</h3>
+          <h3 className="mb">{t("studio.taskDrawer.head.whyItStartsThen")}</h3>
           {ex?.reasons.length ? (
             <ul className="col" style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {ex.reasons.map((r, i) => (
@@ -148,7 +149,7 @@ export function TaskDrawer({
 
         {violations.length ? (
           <section>
-            <h3 className="mb">Problems</h3>
+            <h3 className="mb">{t("studio.taskDrawer.head.problems")}</h3>
             {violations.map((v, i) => (
               <div key={i} className="small row" style={{ alignItems: "flex-start", marginBottom: 6 }}>
                 <span className={`badge ${v.severity === "hard" ? "danger" : "warn"}`}>
@@ -162,11 +163,11 @@ export function TaskDrawer({
         ) : null}
 
         <section className="col">
-          <h3>Adjust</h3>
+          <h3>{t("studio.taskDrawer.head.adjust")}</h3>
           {task ? (
             lockedHere ? (
               <button className="btn" onClick={() => onUnlock(taskId)} disabled={lockBusy}>
-                <Icon name="unlock" /> Unlock
+                <Icon name="unlock" /> {t("studio.taskDrawer.btn.unlock")}
               </button>
             ) : (
               <button className="btn" onClick={() => onLock(placement)} disabled={lockBusy} data-testid="lock-at-time">

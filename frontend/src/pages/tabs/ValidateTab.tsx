@@ -9,6 +9,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { useTerms } from "../../lib/terms";
 import { fmtDuration, fmtMinute } from "../../lib/time";
 import { useLoadedPlan } from "../../state/PlanContext";
+import { t, t as tr, plural } from "../../lib/i18n";
 
 export function ValidateTab() {
   const plan = useLoadedPlan();
@@ -54,22 +55,22 @@ export function ValidateTab() {
         </button>
         {report ? (
           report.ok ? (
-            <StatusBadge kind="feasible" label={warnings ? `Ready, ${warnings} warning${warnings === 1 ? "" : "s"}` : "Ready to optimize"} testId="validate-status" />
+            <StatusBadge kind="feasible" label={warnings ? `Ready, ${plural(warnings, "warning")}` : "Ready to optimize"} testId="validate-status" />
           ) : (
-            <StatusBadge kind="error" label={`${errors} error${errors === 1 ? "" : "s"} to fix`} testId="validate-status" />
+            <StatusBadge kind="error" label={`${plural(errors, "error")} to fix`} testId="validate-status" />
           )
         ) : null}
         {report ? <span className="small muted">Checked version {report.problem_version}</span> : null}
         {stale ? <span className="badge warn"><Icon name="alert" /> Plan changed since this check</span> : null}
       </div>
       <ErrorBanner error={error} />
-      {!report && busy ? <Loading label="Checking the plan…" /> : null}
+      {!report && busy ? <Loading label={t("studio.validateTab.label.checkingThePlan")} /> : null}
       {report ? (
         <div className="split">
           <IssueList issues={report.issues} draft={draft} terms={terms} />
           <div className="col">
             {report.ok ? (
-              <Banner tone="ok" title="Ready to optimize" actions={<Link className="btn sm primary" to="../optimize"><Icon name="play" /> Optimize</Link>}>
+              <Banner tone="ok" title={t("studio.validateTab.title.readyToOptimize")} actions={<Link className="btn sm primary" to="../optimize"><Icon name="play" /> Optimize</Link>}>
                 No blocking problems.
               </Banner>
             ) : null}
@@ -93,7 +94,7 @@ export function ValidateTab() {
                       </ol>
                     ) : null}
                     <div className="small muted">
-                      {Object.values(report.cpm.tasks).filter((t) => t.critical).length} of {Object.keys(report.cpm.tasks).length} {terms.tasksL} have no slack.
+                      {tr("common.nOfM", { n: Object.values(report.cpm.tasks).filter((t) => t.critical).length, m: Object.keys(report.cpm.tasks).length })} {terms.tasksL} have no slack.
                     </div>
                   </>
                 ) : (

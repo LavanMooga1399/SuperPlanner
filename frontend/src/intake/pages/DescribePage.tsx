@@ -8,6 +8,7 @@ import { IntakeReview } from "../components/IntakeReview";
 import { cpLength } from "../lib/codepoints";
 import { IntakeProvider, useIntake } from "../state/IntakeContext";
 import { IntakeShell } from "./IntakeShell";
+import { t } from "../../lib/i18n";
 
 export const PLACEHOLDER: Record<PlanKind, string> = {
   project:
@@ -105,13 +106,13 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
                       {aiOn ? "AI assist is reading your text. This can take up to 3 minutes." : "Reading your text…"}
                     </span>
                     <button type="button" className="btn" data-testid="intake-cancel-request" onClick={cancelRequest}>
-                      Stop
+                      {t("studio.describePage.btn.stop")}
                     </button>
                   </>
                 ) : null}
                 {state.response ? (
                   <button type="button" className="btn ghost" onClick={() => setStep("review")}>
-                    Back to the draft
+                    {t("studio.describePage.btn.backToTheDraft")}
                   </button>
                 ) : null}
               </div>
@@ -125,7 +126,7 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
         <>
           <div className="row" style={{ gap: 8 }}>
             <button type="button" className="btn sm" onClick={() => setStep("write")} data-testid="intake-edit-text">
-              <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> Change the text
+              <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {t("studio.describePage.btn.changeTheText")}
             </button>
           </div>
           <IntakeReview />

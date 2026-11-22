@@ -13,6 +13,7 @@ import { needsText, PERMISSION_ROLES, useAccess } from "../lib/permissions";
 import { errorCode, errorText, isConflict } from "../lib/useMfg";
 import { draftKindText } from "./assistantText";
 import { formatDateTime } from "../../lib/locale";
+import { t } from "../../lib/i18n";
 
 type State = { s: "idle" } | { s: "confirm" } | { s: "busy" } | { s: "done"; at: string; kind?: string | null } | { s: "error"; text: string };
 
@@ -63,11 +64,11 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
         <span className="chip" data-testid="asst-draft-state">
           {st.s === "done" ? (
             <>
-              <Icon name="check" size={12} /> Applied
+              <Icon name="check" size={12} /> {t("assistant.draftCardView.btn.applied")}
             </>
           ) : (
             <>
-              <Icon name="circle" size={12} /> Suggestion, not applied
+              <Icon name="circle" size={12} /> {t("assistant.draftCardView.btn.suggestionNotApplied")}
             </>
           )}
         </span>
@@ -75,11 +76,11 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
       <p className="asst-draft-summary">{draft.summary}</p>
       {draft.kind === "whatif_run" ? (
         <p className="muted small" style={{ margin: 0 }} data-testid="asst-draft-whatif-note">
-          <Icon name="info" size={12} /> Apply creates a what-if run to compare with the plan. It never changes the live plan and cannot be published.
+          <Icon name="info" size={12} /> {t("assistant.draftCardView.btn.applyCreatesAWhatifRun")}
         </p>
       ) : null}
       <details className="asst-draft-request">
-        <summary>Show the exact request</summary>
+        <summary>{t("assistant.draftCardView.head.showTheExactRequest")}</summary>
         <div className="mono small" data-testid="asst-draft-request">
           {draft.method} {draft.path}
           {draft.if_match_of ? ` (only if ${draft.if_match_of.type.replace(/_/g, " ")} is still at version ${draft.if_match_of.row_version})` : ""}
@@ -103,10 +104,10 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
             <>
               <span className="small">{draft.kind === "whatif_run" ? "Create this what-if run now, as you?" : "Apply this change now, as you?"}</span>
               <button type="button" className="btn primary sm" onClick={() => void apply()} data-testid="asst-draft-confirm">
-                <Icon name="check" /> Yes, apply
+                <Icon name="check" /> {t("assistant.draftCardView.btn.yesApply")}
               </button>
               <button type="button" className="btn sm" onClick={() => setSt({ s: "idle" })}>
-                Cancel
+                {t("assistant.draftCardView.btn.cancel")}
               </button>
             </>
           ) : (

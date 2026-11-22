@@ -8,6 +8,7 @@ import { Term } from "./Term";
 import { DurationInput, NumberInput, PlanDateTimeInput, TextInput } from "./Inputs";
 import { RequirementEditor } from "./RequirementEditor";
 import { pertMinutes } from "../intake/lib/pert";
+import { t as tr } from "../lib/i18n";
 
 /** The task without its duration range (a real duration replaces the estimate, PHASE2.md 2.14). */
 export function withoutEstimate(t: Task): Task {
@@ -173,7 +174,7 @@ function PredecessorEditor({
             setPick("");
           }}
         >
-          <Icon name="plus" /> Add
+          <Icon name="plus" /> {tr("studio.taskTable.btn.add")}
         </button>
       </div>
     </div>
@@ -304,13 +305,13 @@ export function TaskTable({ draft, tasks, terms, update, onDelete, focusId, expa
             <th style={{ width: 28 }}>
               <span className="sr-only">Details</span>
             </th>
-            <th>Id</th>
-            <th>Name</th>
+            <th>{tr("studio.taskTable.head.id")}</th>
+            <th>{tr("studio.taskTable.head.name")}</th>
             <th>{terms.group}</th>
-            <th>Type</th>
-            <th>Duration</th>
-            <th title="10 = most important">Priority</th>
-            <th>Earliest start</th>
+            <th>{tr("studio.taskTable.head.type")}</th>
+            <th>{tr("studio.taskTable.head.duration")}</th>
+            <th title="10 = most important">{tr("studio.taskTable.head.priority")}</th>
+            <th>{tr("studio.taskTable.head.earliestStart")}</th>
             <th>
               {terms.deadline} <Term k="hard_deadline" bare />
             </th>
@@ -361,7 +362,7 @@ export function TaskTable({ draft, tasks, terms, update, onDelete, focusId, expa
                       list="group-options"
                       defaultValue={t.group ?? ""}
                       key={t.group ?? ""}
-                      aria-label={`${terms.group} of ${t.name}`}
+                      aria-label={`${tr("common.nOfM", { n: terms.group, m: t.name })}`}
                       onBlur={(e) => {
                         const v = e.target.value.trim() || null;
                         if (v !== t.group) setTask(t.id, (x) => ({ ...x, group: v }));
@@ -445,7 +446,7 @@ export function TaskTable({ draft, tasks, terms, update, onDelete, focusId, expa
                       <PlanDateTimeInput
                         value={t.deadline}
                         offsetMin={off}
-                        label={`${terms.deadline} of ${t.name}`}
+                        label={`${tr("common.nOfM", { n: terms.deadline, m: t.name })}`}
                         onChange={(v) => setTask(t.id, (x) => ({ ...x, deadline: v, deadline_hard: v ? x.deadline_hard : false }))}
                       />
                       <label className="checkbox small" title="A hard deadline must be met; a soft one may be missed (counts as lateness).">
@@ -513,7 +514,7 @@ export function TaskTable({ draft, tasks, terms, update, onDelete, focusId, expa
                               }
                             />
                           )}
-                          <h3 className="mt">Description</h3>
+                          <h3 className="mt">{tr("studio.taskTable.head.description")}</h3>
                           <textarea
                             className="textarea"
                             defaultValue={t.description}
@@ -541,9 +542,9 @@ export function TaskTable({ draft, tasks, terms, update, onDelete, focusId, expa
                               />
                             </>
                           )}
-                          <h3 className={isMilestone ? undefined : "mt"}>Waits for</h3>
+                          <h3 className={isMilestone ? undefined : "mt"}>{tr("studio.taskTable.head.waitsFor")}</h3>
                           <PredecessorEditor task={t} draft={draft} onChange={update} terms={terms} />
-                          <h3 className="mt">Fixed time</h3>
+                          <h3 className="mt">{tr("studio.taskTable.head.fixedTime")}</h3>
                           <LockEditor task={t} draft={draft} terms={terms} onChange={(nt) => setTask(t.id, () => nt)} />
                           {t.locked ? <div className="small faint">Fixed at {fmtIso(t.locked.start, off)}</div> : null}
                         </div>

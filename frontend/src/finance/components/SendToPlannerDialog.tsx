@@ -5,6 +5,7 @@ import { Banner } from "../../components/Banner";
 import { Dialog } from "../../components/Dialog";
 import { browserUtcOffset } from "../../lib/time";
 import { sendToPlanner } from "../api/client";
+import { t } from "../../lib/i18n";
 
 /** Creates a scheduling plan ("money calendar") for the next 1-12 months (FINANCE.md 16.1). */
 export function SendToPlannerDialog({ resultId, planName, onClose }: { resultId: string; planName: string; onClose(): void }) {
@@ -37,7 +38,7 @@ export function SendToPlannerDialog({ resultId, planName, onClose }: { resultId:
 
   return (
     <Dialog
-      title="Send to planner"
+      title={t("finance.sendToPlannerDialog.title.sendToPlanner")}
       onClose={onClose}
       footer={
         <>
@@ -54,16 +55,16 @@ export function SendToPlannerDialog({ resultId, planName, onClose }: { resultId:
       </p>
       <div className="fin-form">
         <div className="field wide">
-          <label htmlFor="stp-name">Calendar name</label>
+          <label htmlFor="stp-name">{t("finance.sendToPlannerDialog.label.calendarName")}</label>
           <input id="stp-name" className="input" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="field">
-          <label htmlFor="stp-months">Months to include</label>
+          <label htmlFor="stp-months">{t("finance.sendToPlannerDialog.label.monthsToInclude")}</label>
           <input id="stp-months" className="input" type="number" min={1} max={12} value={months} onChange={(e) => setMonths(Math.round(Number(e.target.value)))} />
           <span className="hint">1 to 12</span>
         </div>
         <div className="field">
-          <label htmlFor="stp-review">Review every (months)</label>
+          <label htmlFor="stp-review">{t("finance.sendToPlannerDialog.label.reviewEveryMonths")}</label>
           <input id="stp-review" className="input" type="number" min={1} max={12} value={review} onChange={(e) => setReview(Math.round(Number(e.target.value)))} />
         </div>
       </div>

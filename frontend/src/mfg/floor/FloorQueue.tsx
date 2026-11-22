@@ -19,6 +19,7 @@ import { usePolling } from "../lib/usePolling";
 import { useFloor } from "./FloorLayout";
 import { DOWNTIME, KitChip, OpStatusChip, fmtQty, floorErrorText } from "./floorText";
 import { submitDowntimeUpdate } from "./offlineQueue";
+import { t } from "../../lib/i18n";
 
 export function FloorQueue() {
   const { lineId = "" } = useParams();
@@ -76,7 +77,7 @@ export function FloorQueue() {
           </div>
           <div className="row wrap">
             {d?.shifts?.length ? (
-              <select className="select" aria-label="Shift" value={shift} onChange={(e) => setSearchParam(setParams, "shift", e.target.value)}>
+              <select className="select" aria-label={t("floor.floorQueue.aria.shift")} value={shift} onChange={(e) => setSearchParam(setParams, "shift", e.target.value)}>
                 <option value="">Current shift</option>
                 {d.shifts
                   .filter((s) => s.label)
@@ -89,16 +90,16 @@ export function FloorQueue() {
             ) : null}
             {d?.line.batch_merge ? (
               <Link className="btn" to={mfgPaths.floorBatch(lineId)} data-testid="floor-batch-link">
-                <Icon name="layers" /> Batch loads
+                <Icon name="layers" /> {t("floor.floorQueue.btn.batchLoads")}
               </Link>
             ) : null}
             {canDowntime && !down ? (
               <Link className="btn danger" to={mfgPaths.floorDowntime(lineId)} data-testid="downtime-open">
-                <Icon name="alert" /> Report line down
+                <Icon name="alert" /> {t("floor.floorQueue.btn.reportLineDown")}
               </Link>
             ) : null}
             <Link className="btn ghost" to={`${mfgPaths.floor()}?pick=1`}>
-              Change line
+              {t("floor.floorQueue.btn.changeLine")}
             </Link>
           </div>
         </div>
@@ -117,10 +118,10 @@ export function FloorQueue() {
           {canDowntime ? (
             <div className="row wrap">
               <button type="button" className="btn primary floor-btn" onClick={() => void lineUp()} disabled={closing} data-testid="downtime-close">
-                <Icon name="check" /> Line back up
+                <Icon name="check" /> {t("floor.floorQueue.btn.lineBackUp")}
               </button>
               <Link className="btn floor-btn" to={`${mfgPaths.floorDowntime(lineId)}?edit=${encodeURIComponent(down.id)}`}>
-                Change expected end
+                {t("floor.floorQueue.btn.changeExpectedEnd")}
               </Link>
             </div>
           ) : null}
@@ -128,9 +129,9 @@ export function FloorQueue() {
       ) : null}
 
       <MfgError error={q.error} onRetry={q.reload} />
-      {q.loading && !d ? <Spinner label="Loading the queue…" /> : null}
+      {q.loading && !d ? <Spinner label={t("floor.floorQueue.label.loadingTheQueue")} /> : null}
       {d ? (
-        <section className="floor-queue" aria-label="Queue" data-testid="floor-queue">
+        <section className="floor-queue" aria-label={t("floor.floorQueue.aria.queue")} data-testid="floor-queue">
           {rows.length === 0 ? <div className="floor-card muted">Nothing planned on this line for this shift.</div> : null}
           {rows.map((r, i) => (
             <QueueRow key={r.wo_operation_id ?? `${r.wo.id}-${r.seq}`} r={r} index={i} clock={clock} />
@@ -168,7 +169,7 @@ function QueueRow({ r, index, clock }: { r: FloorQueueRow; index: number; clock:
           <span className="mono">{r.wo.number}</span> / {r.seq} {r.name}
         </span>
         <span className="muted">
-          <span className="mono">{r.wo.item.part_number}</span> · {fmtQty(r.qty_good)} of {fmtQty(qty)} good
+          <span className="mono">{r.wo.item.part_number}</span> · {t("common.nOfM", { n: fmtQty(r.qty_good), m: fmtQty(qty) })} good
           {r.wo.due_date ? ` · due ${formatDay(r.wo.due_date)}` : ""}
         </span>
         {r.qty_good > 0 ? (

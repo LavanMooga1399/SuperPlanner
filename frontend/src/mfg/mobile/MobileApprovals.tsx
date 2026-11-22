@@ -22,6 +22,7 @@ import { errorText, isConflict, useLoad } from "../lib/useMfg";
 import { mobileLink } from "./MobileAlerts";
 import { useOnline } from "./MobileLayout";
 import { formatDate } from "../../lib/locale";
+import { t as tr } from "../../lib/i18n";
 
 const KIND: Record<ApprovalKind, { label: string; icon: IconName }> = {
   pr: { label: "Purchase request", icon: "briefcase" },
@@ -69,11 +70,11 @@ function ProposalCompare({ runId }: { runId: string }) {
     <div className="col" style={{ gap: 6 }} data-testid="m-proposal-compare">
       {t ? (
         <dl className="m-dl">
-          <dt>Late demand lines</dt>
+          <dt>{tr("mobile.mobileApprovals.head.lateDemandLines")}</dt>
           <dd>{t.late_demand_saved > 0 ? `${t.late_demand_saved} fewer` : t.late_demand_saved < 0 ? `${-t.late_demand_saved} more` : "same"}</dd>
-          <dt>Lateness</dt>
+          <dt>{tr("mobile.mobileApprovals.head.lateness")}</dt>
           <dd>{t.late_minutes_saved > 0 ? `${mins(t.late_minutes_saved)} less` : t.late_minutes_saved < 0 ? `${mins(-t.late_minutes_saved)} more` : "same"}</dd>
-          <dt>Overtime</dt>
+          <dt>{tr("mobile.mobileApprovals.head.overtime")}</dt>
           <dd>{t.overtime_hours_added ? `${t.overtime_hours_added.toFixed(1)} h more (cost ${Math.round(t.overtime_cost_added).toLocaleString("en-IN")})` : "no change"}</dd>
         </dl>
       ) : null}
@@ -81,9 +82,9 @@ function ProposalCompare({ runId }: { runId: string }) {
         <table className="table small">
           <thead>
             <tr>
-              <th scope="col">Figure</th>
-              <th scope="col">Published</th>
-              <th scope="col">Proposal</th>
+              <th scope="col">{tr("mobile.mobileApprovals.head.figure")}</th>
+              <th scope="col">{tr("mobile.mobileApprovals.head.published")}</th>
+              <th scope="col">{tr("mobile.mobileApprovals.head.proposal")}</th>
             </tr>
           </thead>
           <tbody>
@@ -161,7 +162,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
       {item.kind === "replan_proposal" ? (
         <>
           <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={showCompare} onClick={() => setShowCompare((v) => !v)} disabled={!online} data-testid="m-proposal-compare-btn">
-            <Icon name={showCompare ? "chevron-down" : "compare"} /> Compare with the published schedule
+            <Icon name={showCompare ? "chevron-down" : "compare"} /> {tr("mobile.mobileApprovals.btn.compareWithThePublishedSchedule")}
           </button>
           {showCompare ? <ProposalCompare runId={item.id} /> : null}
         </>
@@ -182,7 +183,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name={isNegative(asking) ? "x" : "check"} />} {asking.label}
               </button>
               <button type="button" className="btn ghost" onClick={() => setAsking(null)}>
-                Cancel
+                {tr("mobile.mobileApprovals.btn.cancel")}
               </button>
             </>
           ) : stale ? (
@@ -191,7 +192,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name="flag" />} Publish anyway
               </button>
               <button type="button" className="btn ghost" onClick={() => { setStale(null); setOut(null); }}>
-                Cancel
+                {tr("mobile.mobileApprovals.btn.cancel")}
               </button>
             </>
           ) : (
@@ -211,7 +212,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
           )}
           {to ? (
             <Link to={to} className="btn ghost">
-              Details
+              {tr("mobile.mobileApprovals.btn.details")}
             </Link>
           ) : null}
         </div>
@@ -239,17 +240,17 @@ export function MobileApprovals() {
   return (
     <div className="col" style={{ gap: 12 }} data-testid="m-approvals">
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <h1>Approvals</h1>
-        <button type="button" className="btn ghost sm" onClick={list.reload} disabled={!online} aria-label="Reload approvals">
+        <h1>{tr("mobile.mobileApprovals.head.approvals")}</h1>
+        <button type="button" className="btn ghost sm" onClick={list.reload} disabled={!online} aria-label={tr("mobile.mobileApprovals.aria.reloadApprovals")}>
           <Icon name="refresh" />
         </button>
       </div>
       {!online ? (
         <div className="m-banner warn" role="status">
-          <Icon name="alert" size={16} /> Approvals need a connection. They are shown again when you are back online.
+          <Icon name="alert" size={16} /> {tr("mobile.mobileApprovals.btn.approvalsNeedAConnectionThey")}
         </div>
       ) : null}
-      <div className="row wrap" role="group" aria-label="Show" style={{ gap: 6 }}>
+      <div className="row wrap" role="group" aria-label={tr("mobile.mobileApprovals.aria.show")} style={{ gap: 6 }}>
         {FILTERS.map((f) => (
           <button key={f.key} type="button" className={`btn sm${filter === f.key ? " primary" : ""}`} aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
             {f.label}
@@ -261,7 +262,7 @@ export function MobileApprovals() {
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data && !items.length ? (
         <p className="muted" data-testid="m-approvals-empty">
-          <Icon name="check" size={14} /> Nothing waits for you.
+          <Icon name="check" size={14} /> {tr("mobile.mobileApprovals.btn.nothingWaitsForYou")}
         </p>
       ) : null}
       <ul className="m-list">

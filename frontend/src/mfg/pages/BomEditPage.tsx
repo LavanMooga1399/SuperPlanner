@@ -142,7 +142,7 @@ export function BomEditPage() {
   if (loaded.error && isNotFound(loaded.error))
     return <NotFoundPanel what="BOM" back={<Link className="btn" to={mfgPaths.itemBom(item.id)}>Back to BOM versions</Link>} />;
   if (loaded.error && !base) return <MfgError error={loaded.error} onRetry={loaded.reload} />;
-  if (!base || !header) return <Spinner label="Loading BOM…" />;
+  if (!base || !header) return <Spinner label={t("mfg.bomEditPage.label.loadingBom")} />;
 
   const readOnly = base.status !== "draft";
   const input = toInput(base, header, lines);
@@ -216,32 +216,32 @@ export function BomEditPage() {
         </Banner>
       ) : null}
       {conflict ? <ConflictBanner onReload={() => void reload()} what="this BOM" /> : null}
-      <ErpOwnedNotice entity="boms" label="BOMs" />
+      <ErpOwnedNotice entity="boms" label={t("mfg.bomEditPage.label.boms")} />
       <MfgError error={error} title="Could not save the BOM" />
 
       <section className="card">
         <div className="card-header">
-          <h3>Version</h3>
+          <h3>{t("mfg.bomEditPage.head.version")}</h3>
         </div>
         <div className="card-body form-grid">
-          <TextField label="Revision" value={header.revision} onChange={(v) => setH("revision", v)} maxLength={16} disabled={readOnly} />
-          <TextField label="Version" type="number" value={header.version} onChange={(v) => setH("version", v)} disabled={readOnly} />
-          <TextField label="Effective from" type="date" value={header.effective_from} onChange={(v) => setH("effective_from", v)} disabled={readOnly} hint="Usually set when releasing." />
-          <TextField label="Effective until" type="date" value={header.effective_to} onChange={(v) => setH("effective_to", v)} disabled={readOnly} hint="Exclusive; empty = open-ended." />
+          <TextField label={t("mfg.bomEditPage.label.revision")} value={header.revision} onChange={(v) => setH("revision", v)} maxLength={16} disabled={readOnly} />
+          <TextField label={t("mfg.bomEditPage.label.version")} type="number" value={header.version} onChange={(v) => setH("version", v)} disabled={readOnly} />
+          <TextField label={t("mfg.bomEditPage.label.effectiveFrom")} type="date" value={header.effective_from} onChange={(v) => setH("effective_from", v)} disabled={readOnly} hint={t("mfg.bomEditPage.hint.usuallySetWhenReleasing")} />
+          <TextField label={t("mfg.bomEditPage.label.effectiveUntil")} type="date" value={header.effective_to} onChange={(v) => setH("effective_to", v)} disabled={readOnly} hint={t("mfg.bomEditPage.hint.exclusiveEmptyOpenended")} />
           {item.serialized ? (
             <>
-              <TextField label="From unit serial" type="number" value={header.serial_from} onChange={(v) => setH("serial_from", v)} disabled={readOnly} />
-              <TextField label="To unit serial" type="number" value={header.serial_to} onChange={(v) => setH("serial_to", v)} disabled={readOnly} />
+              <TextField label={t("mfg.bomEditPage.label.fromUnitSerial")} type="number" value={header.serial_from} onChange={(v) => setH("serial_from", v)} disabled={readOnly} />
+              <TextField label={t("mfg.bomEditPage.label.toUnitSerial")} type="number" value={header.serial_to} onChange={(v) => setH("serial_to", v)} disabled={readOnly} />
             </>
           ) : null}
-          <TextField label="Note" value={header.note} onChange={(v) => setH("note", v)} maxLength={500} disabled={readOnly} />
+          <TextField label={t("mfg.bomEditPage.label.note")} value={header.note} onChange={(v) => setH("note", v)} maxLength={500} disabled={readOnly} />
         </div>
       </section>
 
       <section className="card">
         <div className="card-header">
-          <h3>Lines</h3>
-          <span className="muted small">Quantities are per 1 {item.uom} of {item.part_number}. Alternates share an alternate group; priority 1 is the primary part.</span>
+          <h3>{t("mfg.bomEditPage.head.lines")}</h3>
+          <span className="muted small">Quantities are per 1 {t("common.nOfM", { n: item.uom, m: item.part_number })}. Alternates share an alternate group; priority 1 is the primary part.</span>
         </div>
         <div className="card-body col">
           <BomLinesGrid
