@@ -1,6 +1,7 @@
 import type { FinanceResult } from "../api/types";
 import { formatPct } from "../lib/money";
 import { realReturnPct } from "../lib/resultView";
+import { DataTable } from "../../mfg/components/DataTable";
 
 const REASON_LABEL: Record<string, string> = {
   ALLOCATION_SPLIT: "Where the money goes",
@@ -67,28 +68,20 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
               <li key={i}>{s}</li>
             ))}
           </ul>
-          <div className="table-wrap mt">
-            <table className="table">
-              <caption className="sr-only">Assumptions used for this result</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Asset class</th>
-                  <th scope="col" className="num">Expected return<br /><span className="label-tag">Your assumption</span></th>
-                  <th scope="col" className="num">Ups and downs<br /><span className="label-tag">Your assumption</span></th>
-                  <th scope="col" className="num">After costs and inflation<br /><span className="label-tag">Calculated</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {used.asset_classes.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td className="num">{formatPct(c.expected_return_pct, 1)}</td>
-                    <td className="num">{formatPct(c.volatility_pct, 1)}</td>
-                    <td className="num">{formatPct(realReturnPct(c, used.inflation_pct), 1)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt">
+            <DataTable
+              rows={used.asset_classes}
+              columns={[
+                { key: "name", header: "Asset class", width: "minmax(150px, 1.4fr)", sortValue: (c) => c.name, render: (c) => c.name },
+                { key: "ret", header: "Expected return", label: "Expected return (your assumption)", width: "140px", align: "right", sortValue: (c) => c.expected_return_pct, render: (c) => formatPct(c.expected_return_pct, 1) },
+                { key: "vol", header: "Ups and downs", label: "Ups and downs (your assumption)", width: "130px", align: "right", sortValue: (c) => c.volatility_pct, render: (c) => formatPct(c.volatility_pct, 1) },
+                { key: "real", header: "After costs and inflation", label: "After costs and inflation (calculated)", width: "190px", align: "right", sortValue: (c) => realReturnPct(c, used.inflation_pct), render: (c) => formatPct(realReturnPct(c, used.inflation_pct), 1) },
+              ]}
+              rowKey={(c) => c.id}
+              label="Assumptions used for this result"
+              tableId="finance-explain-assumptions"
+              exportName="assumptions-used"
+            />
           </div>
           <p className="small muted">Inflation: {formatPct(used.inflation_pct, 1)} a year (your assumption).</p>
           {taxNote ? (

@@ -91,7 +91,7 @@ export function EndpointsTab() {
           </div>
         </Banner>
       ) : null}
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h2>Webhooks</h2>
           {can ? (
@@ -101,55 +101,65 @@ export function EndpointsTab() {
           ) : null}
         </div>
         <MfgError error={error ?? eps.error} onRetry={eps.reload} />
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Address</th>
-                <th>Events</th>
-                <th>Health</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {(eps.data?.items ?? []).length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="muted">
-                    No webhooks. Events can also be pulled by the ERP (Events out) or written as files.
-                  </td>
-                </tr>
-              ) : null}
-              {(eps.data?.items ?? []).map((e) => (
-                <tr key={e.id} data-testid="endpoint-row" className={e.active ? undefined : "faint"}>
-                  <td>
-                    <strong>{e.name}</strong>
-                    {!e.active ? <div className="small">paused</div> : null}
-                  </td>
-                  <td className="mono small" style={{ wordBreak: "break-all" }}>
-                    {e.url}
-                  </td>
-                  <td className="small">{e.event_types.length ? `${e.event_types.length} types` : "all events"}</td>
-                  <td className="small">
-                    {e.dead ? (
-                      <span className="badge danger">
-                        <Icon name="alert" /> {e.dead} failed
-                      </span>
-                    ) : e.pending ? (
-                      <span className="badge warn">
-                        <Icon name="clock" /> {e.pending} waiting
-                      </span>
-                    ) : (
-                      <span className="badge ok">
-                        <Icon name="check" /> {t("mfg.integrationPages2.btn.upToDate")}
-                      </span>
-                    )}
-                    <div className="faint">sent up to event #{e.cursor}</div>
-                    {testResult[e.id] ? <div data-testid="endpoint-test-result">{testResult[e.id]}</div> : null}
-                  </td>
-                  <td className="right">
-                    {can ? (
-                      <span className="row" style={{ justifyContent: "flex-end" }}>
+        <DataTable
+          rows={eps.data?.items ?? []}
+          columns={[
+            {
+              key: "name",
+              header: "Name",
+              width: "minmax(150px, 1fr)",
+              sortValue: (e) => e.name,
+              exportValue: (e) => e.name,
+              render: (e) => (
+                <span>
+                  <strong>{e.name}</strong>
+                  {!e.active ? <span className="vt-sub">paused</span> : null}
+                </span>
+              ),
+            },
+            { key: "url", header: "Address", width: "minmax(220px, 2fr)", sortValue: (e) => e.url, render: (e) => <span className="mono small">{e.url}</span> },
+            { key: "events", header: "Events", width: "110px", render: (e) => (e.event_types.length ? `${e.event_types.length} types` : "all events") },
+            {
+              key: "health",
+              header: "Health",
+              width: "minmax(190px, 1.4fr)",
+              wrap: true,
+              exportValue: (e) => (e.dead ? `${e.dead} failed` : e.pending ? `${e.pending} waiting` : "up to date"),
+              render: (e) => (
+                <span>
+                  {e.dead ? (
+                    <span className="badge danger">
+                      <Icon name="alert" /> {e.dead} failed
+                    </span>
+                  ) : e.pending ? (
+                    <span className="badge warn">
+                      <Icon name="clock" /> {e.pending} waiting
+                    </span>
+                  ) : (
+                    <span className="badge ok">
+                      <Icon name="check" /> {t("mfg.integrationPages2.btn.upToDate")}
+                    </span>
+                  )}
+                  <span className="vt-sub">sent up to event #{e.cursor}</span>
+                  {testResult[e.id] ? (
+                    <span className="vt-sub" data-testid="endpoint-test-result">
+                      {testResult[e.id]}
+                    </span>
+                  ) : null}
+                </span>
+              ),
+            },
+            ...(can
+              ? [
+                  {
+                    key: "actions",
+                    header: <span className="sr-only">Actions</span>,
+                    label: "Actions",
+                    width: "220px",
+                    align: "right" as const,
+                    exportValue: () => "",
+                    render: (e: Endpoint) => (
+                      <span className="row" style={{ justifyContent: "flex-end", gap: 4, flexWrap: "nowrap" }}>
                         <button
                           type="button"
                           className="btn sm"
@@ -178,13 +188,19 @@ export function EndpointsTab() {
                           {t("mfg.integrationPages2.btn.remove")}
                         </button>
                       </span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+          rowKey={(e) => e.id}
+          label="Webhooks"
+          tableId="int-webhooks"
+          loading={eps.loading && !eps.data}
+          rowExtras={(e) => ({ testId: "endpoint-row", className: e.active ? undefined : "faint" })}
+          empty="No webhooks. Events can also be pulled by the ERP (Events out) or written as files."
+          card={{ title: "name", status: "health", actions: can ? "actions" : undefined, fields: ["url", "events"] }}
+        />
       </section>
       {edit ? (
         <EndpointDialog
@@ -511,50 +527,68 @@ export function BatchPage() {
         {d.filename ? <>File <span className="mono">{d.filename}</span> · </> : null}
         resending the same batch with the same key changes nothing.
       </span>
-      <div className="row wrap" role="group" aria-label="Show">
-        {(["", "rejected", "created", "updated", "unchanged"] as const).map((s) => (
-          <button key={s || "all"} type="button" className={`btn sm${only === s ? " primary" : ""}`} aria-pressed={only === s} onClick={() => setOnly(s)} data-testid={`batch-filter-${s || "all"}`}>
-            {s ? `${s[0].toUpperCase()}${s.slice(1)} (${d.counts[s] ?? 0})` : `All (${results.length})`}
-          </button>
-        ))}
-      </div>
-      <div className="table-wrap card">
-        <table className="table" data-testid="batch-results">
-          <thead>
-            <tr>
-              <th>Record</th>
-              <th>Result</th>
-              <th>Why</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={`${r.ref}-${i}`} data-testid="batch-record" data-status={r.status}>
-                <td className="mono">{r.ref}</td>
-                <td>
-                  <span className={`badge ${REC_STATUS[r.status].tone}`}>
-                    <Icon name={REC_STATUS[r.status].icon} /> {r.status}
-                  </span>
-                </td>
-                <td className="small">
-                  {r.errors.map((e, k) => (
-                    <div key={k}>
-                      {e.field ? <span className="mono">{e.field}: </span> : null}
-                      {e.message} <span className="faint">({e.code})</span>
-                      {ERROR_HELP[e.code] ? <div className="faint">{ERROR_HELP[e.code]}</div> : null}
-                      {e.code === "INT_UNMAPPED_VALUE" ? (
-                        <div>
-                          <Link to={mfgPaths.integration("value-maps")}>Add a code mapping</Link>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </td>
-              </tr>
+      <FilterBar>
+        <div className="field">
+          <span className="field-label" id="br-show-label">
+            Show
+          </span>
+          <div className="btn-group" role="group" aria-labelledby="br-show-label">
+            {(["", "rejected", "created", "updated", "unchanged"] as const).map((s) => (
+              <button key={s || "all"} type="button" className="btn" aria-pressed={only === s} onClick={() => setOnly(s)} data-testid={`batch-filter-${s || "all"}`}>
+                {s ? `${s[0].toUpperCase()}${s.slice(1)} (${d.counts[s] ?? 0})` : `All (${results.length})`}
+              </button>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
+      </FilterBar>
+      <DataTable
+        rows={rows}
+        columns={[
+          { key: "ref", header: "Record", width: "minmax(150px, 1fr)", sortValue: (r) => r.ref, render: (r) => <span className="mono">{r.ref}</span> },
+          {
+            key: "status",
+            header: "Result",
+            width: "130px",
+            sortValue: (r) => r.status,
+            exportValue: (r) => r.status,
+            render: (r) => (
+              <span className={`badge ${REC_STATUS[r.status].tone}`}>
+                <Icon name={REC_STATUS[r.status].icon} /> {r.status}
+              </span>
+            ),
+          },
+          {
+            key: "why",
+            header: "Why",
+            width: "minmax(280px, 3fr)",
+            wrap: true,
+            exportValue: (r) => r.errors.map((e) => `${e.field ? `${e.field}: ` : ""}${e.message} (${e.code})`).join("; "),
+            render: (r) => (
+              <span className="col small" style={{ gap: 2 }}>
+                {r.errors.map((e, k) => (
+                  <span key={k}>
+                    {e.field ? <span className="mono">{e.field}: </span> : null}
+                    {e.message} <span className="faint">({e.code})</span>
+                    {ERROR_HELP[e.code] ? <span className="vt-sub">{ERROR_HELP[e.code]}</span> : null}
+                    {e.code === "INT_UNMAPPED_VALUE" ? (
+                      <span className="vt-sub">
+                        <Link to={mfgPaths.integration("value-maps")}>Add a code mapping</Link>
+                      </span>
+                    ) : null}
+                  </span>
+                ))}
+              </span>
+            ),
+          },
+        ]}
+        rowKey={(r, i) => `${r.ref}-${i}`}
+        label="Records in this batch"
+        testId="batch-results"
+        exportName={`batch-${d.id}`}
+        rowExtras={(r) => ({ testId: "batch-record", data: { status: r.status } })}
+        empty="No records with this result."
+        card={{ title: "ref", status: "status", fields: ["why"] }}
+      />
     </div>
   );
 }
@@ -659,81 +693,83 @@ export function FiledropTab() {
             Folder <span className="mono">{s.root ? `${s.root}/` : ""}{code}/inbox</span>. Files are read once their size stops changing (or a .done file appears), checked like an import, then moved to archive with a .result.json, or to error with a report.
             {s.last_poll_at ? ` Last check ${when(s.last_poll_at)}.` : ""}
           </p>
-          <section className="card">
+          <section className="card card-table">
             <div className="card-header">
               <h2>Waiting in the inbox ({s.inbox.length})</h2>
             </div>
-            <table className="table">
-              <tbody>
-                {s.inbox.length === 0 ? (
-                  <tr>
-                    <td className="muted">Nothing waiting.</td>
-                  </tr>
-                ) : null}
-                {s.inbox.map((f, i) => (
-                  <tr key={i}>
-                    <td className="mono small">{f.name ?? f.file}</td>
-                    <td className="small">{f.size !== undefined ? `${fmtBytes(f.size)}` : ""}</td>
-                    <td className="small">{when(f.at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              rows={s.inbox}
+              columns={[
+                { key: "file", header: "File", width: "minmax(200px, 2fr)", sortValue: (f) => f.name ?? f.file ?? "", exportValue: (f) => f.name ?? f.file ?? "", render: (f) => <span className="mono small">{f.name ?? f.file}</span> },
+                { key: "size", header: "Size", width: "100px", align: "right", sortValue: (f) => f.size ?? null, render: (f) => (f.size !== undefined ? fmtBytes(f.size) : "") },
+                { key: "at", header: "Arrived", width: "160px", sortValue: (f) => f.at ?? null, render: (f) => when(f.at) },
+              ]}
+              rowKey={(_, i) => i}
+              label="Files waiting in the inbox"
+              tableId="filedrop-inbox"
+              columnSettings={false}
+              empty="Nothing waiting."
+            />
           </section>
-          <section className="card">
+          <section className="card card-table">
             <div className="card-header">
               <h2>Recent files</h2>
             </div>
-            <table className="table" data-testid="filedrop-recent">
-              <tbody>
-                {s.recent.length === 0 ? (
-                  <tr>
-                    <td className="muted">No files yet.</td>
-                  </tr>
-                ) : null}
-                {s.recent.map((r, i) => (
-                  <tr key={i}>
-                    <td className="mono small">{r.file ?? r.name}</td>
-                    <td>
-                      <span className={`badge ${r.status === "error" ? "danger" : r.status === "archived" ? "ok" : "info"}`}>
-                        <Icon name={r.status === "error" ? "alert" : r.status === "archived" ? "check" : "clock"} /> {r.status === "archived" ? "imported" : r.status ?? ""}
-                      </span>
-                    </td>
-                    <td className="small">{r.counts ? Object.entries(r.counts).map(([k, v]) => `${v} ${k}`).join(" · ") : ""}</td>
-                    <td className="small">{r.errors ? `${r.errors} row errors` : ""}</td>
-                    <td className="small">{when(r.at)}</td>
-                    <td>{r.batch_id ? <Link to={mfgPaths.integrationBatch(r.batch_id)}>Results</Link> : null}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              rows={s.recent}
+              columns={[
+                { key: "file", header: "File", width: "minmax(200px, 2fr)", sortValue: (r) => r.file ?? r.name ?? "", exportValue: (r) => r.file ?? r.name ?? "", render: (r) => <span className="mono small">{r.file ?? r.name}</span> },
+                {
+                  key: "status",
+                  header: "Status",
+                  width: "120px",
+                  sortValue: (r) => r.status ?? "",
+                  exportValue: (r) => r.status ?? "",
+                  render: (r) => (
+                    <span className={`badge ${r.status === "error" ? "danger" : r.status === "archived" ? "ok" : "info"}`}>
+                      <Icon name={r.status === "error" ? "alert" : r.status === "archived" ? "check" : "clock"} /> {r.status === "archived" ? "imported" : r.status ?? ""}
+                    </span>
+                  ),
+                },
+                { key: "counts", header: "Records", width: "minmax(160px, 1.4fr)", render: (r) => (r.counts ? Object.entries(r.counts).map(([k, v]) => `${v} ${k}`).join(" · ") : "") },
+                { key: "errors", header: "Row errors", width: "110px", sortValue: (r) => r.errors ?? 0, render: (r) => (r.errors ? `${r.errors} row errors` : "") },
+                { key: "at", header: "When", width: "160px", sortValue: (r) => r.at ?? null, render: (r) => when(r.at) },
+                { key: "batch", header: <span className="sr-only">Results</span>, label: "Results", width: "90px", exportValue: () => "", render: (r) => (r.batch_id ? <Link to={mfgPaths.integrationBatch(r.batch_id)}>Results</Link> : null) },
+              ]}
+              rowKey={(_, i) => i}
+              label="Recent files"
+              testId="filedrop-recent"
+              exportName="file-drop-recent"
+              empty="No files yet."
+              card={{ title: "file", status: "status", actions: "batch", fields: ["counts", "at"] }}
+            />
           </section>
         </>
       ) : st.loading ? (
         <Spinner />
       ) : null}
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h2>Mappings by file name</h2>
         </div>
         <MfgError error={profiles.error} onRetry={profiles.reload} />
-        <table className="table">
-          <tbody>
-            {(profiles.data?.items ?? []).length === 0 ? (
-              <tr>
-                <td className="muted">
-                  None. Save a mapping in <Link to={mfgPaths.importStart()}>Import</Link> for a sample file; files named like it use it. superplanner.v1 JSON needs no mapping.
-                </td>
-              </tr>
-            ) : null}
-            {(profiles.data?.items ?? []).map((p) => (
-              <tr key={p.id}>
-                <td>{p.name}</td>
-                <td className="mono small">{p.file_pattern}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          rows={profiles.data?.items ?? []}
+          columns={[
+            { key: "name", header: "Mapping", width: "minmax(180px, 1fr)", sortValue: (p) => p.name, render: (p) => p.name },
+            { key: "pattern", header: "File names", width: "minmax(200px, 1.4fr)", sortValue: (p) => p.file_pattern, render: (p) => <span className="mono small">{p.file_pattern}</span> },
+          ]}
+          rowKey={(p) => p.id}
+          label="Mappings by file name"
+          tableId="filedrop-mappings"
+          columnSettings={false}
+          loading={profiles.loading && !profiles.data}
+          empty={
+            <>
+              None. Save a mapping in <Link to={mfgPaths.importStart()}>Import</Link> for a sample file; files named like it use it. superplanner.v1 JSON needs no mapping.
+            </>
+          }
+        />
       </section>
     </div>
   );

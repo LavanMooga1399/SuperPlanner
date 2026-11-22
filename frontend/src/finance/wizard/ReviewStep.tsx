@@ -6,6 +6,7 @@ import { fmtMonth } from "../lib/months";
 import type { StepProps } from "./common";
 import { HelpText } from "./HelpText";
 import { STEPS, stepOfIssue } from "./steps";
+import { DataTable } from "../../mfg/components/DataTable";
 
 export interface ReviewStepProps extends StepProps {
   planId: string;
@@ -93,35 +94,23 @@ export function ReviewStep({ plan, planId, validation, validating, validateError
                 </li>
               ))}
             </ul>
-            <div className="table-wrap">
-              <table className="table">
-                <caption className="sr-only">Cash flow per plan year</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Year from</th>
-                    <th scope="col" className="num">Income</th>
-                    <th scope="col" className="num">Essentials</th>
-                    <th scope="col" className="num">Other spending</th>
-                    <th scope="col" className="num">Loans</th>
-                    <th scope="col" className="num">One-offs</th>
-                    <th scope="col" className="num">Surplus</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cf.years.slice(0, 5).map((y) => (
-                    <tr key={y.year}>
-                      <td>{fmtMonth(y.start_month)}</td>
-                      <td className="num">{formatMoney(y.income, cur, loc)}</td>
-                      <td className="num">{formatMoney(y.essential, cur, loc)}</td>
-                      <td className="num">{formatMoney(y.discretionary, cur, loc)}</td>
-                      <td className="num">{formatMoney(y.debt_payments, cur, loc)}</td>
-                      <td className="num">{formatMoney(y.one_off_net, cur, loc)}</td>
-                      <td className="num" style={y.surplus < 0 ? { color: "var(--danger)" } : undefined}>{formatMoney(y.surplus, cur, loc)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              rows={cf.years.slice(0, 5)}
+              columns={[
+                { key: "year", header: "Year from", width: "minmax(110px, 1fr)", sortValue: (y) => y.start_month, render: (y) => fmtMonth(y.start_month) },
+                { key: "income", header: "Income", width: "120px", align: "right", sortValue: (y) => y.income, render: (y) => formatMoney(y.income, cur, loc) },
+                { key: "essential", header: "Essentials", width: "120px", align: "right", sortValue: (y) => y.essential, render: (y) => formatMoney(y.essential, cur, loc) },
+                { key: "discretionary", header: "Other spending", width: "130px", align: "right", sortValue: (y) => y.discretionary, render: (y) => formatMoney(y.discretionary, cur, loc) },
+                { key: "loans", header: "Loans", width: "110px", align: "right", sortValue: (y) => y.debt_payments, render: (y) => formatMoney(y.debt_payments, cur, loc) },
+                { key: "oneoff", header: "One-offs", width: "110px", align: "right", sortValue: (y) => y.one_off_net, render: (y) => formatMoney(y.one_off_net, cur, loc) },
+                { key: "surplus", header: "Surplus", width: "120px", align: "right", sortValue: (y) => y.surplus, render: (y) => <span className={y.surplus < 0 ? "mfg-neg" : undefined}>{formatMoney(y.surplus, cur, loc)}</span> },
+              ]}
+              rowKey={(y) => y.year}
+              label="Cash flow per plan year"
+              tableId="finance-review-cashflow"
+              exportName="cash-flow-per-year"
+              card={{ title: "year", fields: ["income", "surplus"] }}
+            />
           </div>
         </section>
       ) : null}

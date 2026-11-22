@@ -6,6 +6,7 @@ import { avgUtilization } from "./KpiCards";
 import { Icon } from "./Icon";
 import { methodLabel } from "./RunProgress";
 import { StatusBadge } from "./StatusBadge";
+import { VirtualTable } from "../mfg/components/VirtualTable";
 
 function DeltaCell({ v, kind, currency }: { v: number | null; kind: "min" | "count" | "money"; currency: string }) {
   if (v === null || v === undefined) return <span className="faint">-</span>;
@@ -127,40 +128,52 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
             <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} /> Only changed
           </label>
         </div>
-        <div className="table-wrap" style={{ maxHeight: "60vh" }}>
-          <table className="table" data-testid="compare-table">
-            <thead>
-              <tr>
-                <th>{terms.task}</th>
-                <th>Start shift</th>
-                <th>End shift</th>
-                <th>{terms.resources} A</th>
-                <th>{terms.resources} B</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.length === 0 ? (
-                <tr><td colSpan={5} className="muted">No differences.</td></tr>
-              ) : null}
-              {tasks.map((d) => (
-                <tr key={d.task_id} data-testid={`compare-row-${d.task_id}`}>
-                  <td>
-                    {names.get(d.task_id) ?? d.name}
-                    {!d.in_a ? <span className="badge accent" style={{ marginLeft: 6 }}>only in B</span> : null}
-                    {!d.in_b ? <span className="badge warn" style={{ marginLeft: 6 }}>only in A</span> : null}
-                  </td>
-                  <td><DeltaCell v={d.start_delta_minutes} kind="min" currency={cur} /></td>
-                  <td><DeltaCell v={d.end_delta_minutes} kind="min" currency={cur} /></td>
-                  <td className="small">{d.resources_a.map(resName).join(", ") || <span className="faint">-</span>}</td>
-                  <td className="small">
-                    {d.resources_b.map(resName).join(", ") || <span className="faint">-</span>}
-                    {d.resource_changed ? <span className="badge warn" style={{ marginLeft: 6 }}><Icon name="refresh" /> changed</span> : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <VirtualTable
+          rows={tasks}
+          columns={[
+            {
+              key: "task",
+              header: terms.task,
+              width: "minmax(200px, 2fr)",
+              sortValue: (d) => names.get(d.task_id) ?? d.name,
+              exportValue: (d) => names.get(d.task_id) ?? d.name,
+              render: (d) => (
+                <span className="row" style={{ gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+                  <span className="mfg-ellipsis">{names.get(d.task_id) ?? d.name}</span>
+                  {!d.in_a ? <span className="badge accent">only in B</span> : null}
+                  {!d.in_b ? <span className="badge warn">only in A</span> : null}
+                </span>
+              ),
+            },
+            { key: "start", header: "Start shift", width: "120px", sortValue: (d) => d.start_delta_minutes, exportValue: (d) => d.start_delta_minutes, render: (d) => <DeltaCell v={d.start_delta_minutes} kind="min" currency={cur} /> },
+            { key: "end", header: "End shift", width: "120px", sortValue: (d) => d.end_delta_minutes, exportValue: (d) => d.end_delta_minutes, render: (d) => <DeltaCell v={d.end_delta_minutes} kind="min" currency={cur} /> },
+            { key: "ra", header: `${terms.resources} A`, width: "minmax(140px, 1fr)", render: (d) => d.resources_a.map(resName).join(", ") || <span className="faint">-</span> },
+            {
+              key: "rb",
+              header: `${terms.resources} B`,
+              width: "minmax(160px, 1fr)",
+              exportValue: (d) => d.resources_b.map(resName).join(", "),
+              render: (d) => (
+                <span className="row" style={{ gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+                  <span className="mfg-ellipsis">{d.resources_b.map(resName).join(", ") || <span className="faint">-</span>}</span>
+                  {d.resource_changed ? (
+                    <span className="badge warn">
+                      <Icon name="refresh" /> changed
+                    </span>
+                  ) : null}
+                </span>
+              ),
+            },
+          ]}
+          rowKey={(d) => d.task_id}
+          label="Differences per task"
+          testId="compare-table"
+          height="60vh"
+          exportName="schedule-comparison"
+          rowExtras={(d) => ({ testId: `compare-row-${d.task_id}` })}
+          empty="No differences."
+          card={{ title: "task", fields: ["start", "end", "rb"] }}
+        />
       </div>
     </div>
   );

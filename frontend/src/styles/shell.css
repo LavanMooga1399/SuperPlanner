@@ -308,3 +308,48 @@ h2.mono { font-size: var(--fs-md); }
 @media print { .page-header .page-actions { display: none !important; } }
 .field > .date-input { width: 100%; }
 .mfg-filters .field > .date-input, .filter-bar .field > .date-input { width: 140px; }
+
+/* ---------------------------------------------------------------- shared data table (VirtualTable / DataTable), all areas */
+:root { --mfg-row-h: var(--row-h); --mfg-selected: var(--accent-soft); }
+.mfg-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; display: inline-block; max-width: 100%; vertical-align: bottom; }
+.vt { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.vt > .vt-scroll { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.vt-scroll { overflow: auto; position: relative; outline: none; }
+.vt-inner { width: 100%; min-width: min-content; }
+.vt-head, .vt-row { display: grid; height: var(--mfg-row-h); align-items: center; }
+.vt-head { position: sticky; top: 0; z-index: 2; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-muted); }
+.vt-row { border-bottom: 1px solid var(--grid); cursor: default; }
+.vt-row:hover { background: var(--surface-2); }
+.vt-row:focus { outline: none; }
+.vt-row:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 0; }
+.vt-row.vt-active { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.vt-row.mfg-selected { background: var(--mfg-selected); box-shadow: inset 3px 0 0 var(--accent); }
+.vt-row.mfg-match-row { background: color-mix(in srgb, var(--warn-soft) 70%, transparent); }
+.vt-row.mfg-row-error { box-shadow: inset 3px 0 0 var(--danger); }
+.vt-row { font-variant-numeric: tabular-nums; }
+.vt-cell { padding: 0 var(--cell-px); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
+.vt-cell.right { display: block; text-align: right; line-height: var(--mfg-row-h); font-variant-numeric: tabular-nums; }
+.vt-cell.center { justify-content: center; }
+.vt-empty { padding: 24px; text-align: center; color: var(--text-muted); }
+.vt-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; padding: 0 6px 0 12px; border-top: 1px solid var(--border); background: var(--surface-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg); font-size: var(--fs-sm); color: var(--text-muted); }
+.vt-footer-main { min-width: 0; }
+.mfg-neg { color: var(--danger); font-weight: 600; }
+.mfg-pos { color: var(--ok); }
+.vt-row.mfg-highlight { background: var(--mfg-selected); box-shadow: inset 3px 0 0 var(--accent); }
+.vt-plain .vt-scroll { overflow-y: visible; overflow-x: auto; }
+.vt-plain .vt-row:not(.vt-card) { align-items: center; }
+.vt-plain .vt-cell.wrap { white-space: normal; padding-top: 4px; padding-bottom: 4px; line-height: 1.35; }
+.vt-plain .vt-cell.right { line-height: normal; }
+.vt-plain .vt-row.vt-card { min-height: 56px; padding-top: 8px; padding-bottom: 8px; justify-content: flex-start; }
+.vt-plain .vt-card-fields { max-height: none; }
+.vt-plain .vt-card-field { white-space: normal; }
+.card-table { padding: 0; overflow: hidden; }
+.card-table > .vt, .card > .vt.flush { border: 0; border-radius: 0; }
+.card-table > .vt > .vt-scroll, .card-table > .vt > .vt-footer { border-radius: 0; }
+.card-table > .card-footer, .card-table > .mfg-error { margin: 0; padding: var(--sp-2) var(--sp-3); }
+.vt-sub { display: block; font-size: var(--fs-xs); color: var(--text-faint); line-height: 1.3; }
+.vt-detail { padding: 4px var(--cell-px) 6px calc(var(--cell-px) + 12px); border-bottom: 1px solid var(--grid); background: var(--surface-2); font-size: var(--fs-sm); color: var(--text-muted); white-space: normal; }
+.vt-cell .badge { flex-shrink: 0; }
+/* tabs rendered as buttons (in-page tab sets) look like the link tabs */
+button.tab { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; cursor: pointer; font: inherit; font-weight: var(--fw-medium); }
+button.tab.active { border-bottom-color: var(--accent); }

@@ -20,6 +20,7 @@ import { mfgPaths } from "../lib/paths";
 import { useCan } from "../lib/permissions";
 import { isNotFound, useLoad } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
+import { DataTable } from "./DataTable";
 import { t } from "../../lib/i18n";
 
 type AnyOp = WoOperationRow | WoOperation;
@@ -56,7 +57,7 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
     }
   };
   return (
-    <section className="card" data-testid="wo-operations" data-m4="true">
+    <section className="card card-table" data-testid="wo-operations" data-m4="true">
       <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
         <h3>Operations on the floor</h3>
         <span className="row wrap">
@@ -74,70 +75,116 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
         </span>
       </div>
       {error ? <div className="banner danger" role="alert">{error}</div> : null}
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Op.</th>
-              <th>Name</th>
-              <th>Status</th>
-              <th className="right">Good / scrap</th>
-              <th>Line</th>
-              <th>Actual</th>
-              <th>Plan</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((o) => (
-              <tr key={o.id || `seq-${o.seq}`} data-testid="wo-op-row" data-seq={o.seq} data-status={o.status}>
-                <td className="mono">{o.seq}</td>
-                <td>
-                  {o.name}
-                  {o.group?.code ? <div className="faint small">{o.group.code}</div> : null}
-                  {o.capture_serial ? <div className="faint small">serial point</div> : null}
-                </td>
-                <td>
-                  <OpStatusChip status={o.status} />
-                  {o.started_short ? <div className="small">started short</div> : null}
-                </td>
-                <td className="right">
-                  {fmtQty(o.qty_good)} / {fmtQty(o.qty_scrap)}
-                  <div className="faint small">of {fmtQty(o.qty_planned)}</div>
-                  {o.qty_rework_in ? <div className="faint small">+{fmtQty(o.qty_rework_in)} rework in</div> : null}
-                </td>
-                <td>{o.line?.code ?? ""}</td>
-                <td className="small">
-                  {o.actual_start ? `${clock.dateTime(o.actual_start)}${o.actual_end ? ` – ${clock.time(o.actual_end)}` : ""}` : ""}
-                  {o.run_minutes_actual ? <div className="faint">run {fmtDuration(o.run_minutes_actual)}</div> : null}
-                </td>
-                <td className="small">{o.placement[0] ? `${o.placement[0].line?.code ? `${o.placement[0].line.code} · ` : ""}${clock.dateTime(o.placement[0].start)} – ${clock.time(o.placement[0].end)}` : <span className="faint">not planned</span>}</td>
-                <td>
-                  <span className="row" style={{ gap: 4 }}>
-                    {o.id ? (
-                      <Link className="btn sm" to={mfgPaths.floorOp(o.id)} data-testid="wo-op-floor">
-                        {t("mfg.woOperations.btn.openOnFloor")}
-                      </Link>
-                    ) : (
-                      <span className="faint small">created at release</span>
-                    )}
-                    {o.id && canSupervise && o.status !== "completed" && o.status !== "skipped" ? (
-                      <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => void run(o.id, () => setWoOperationDone(woId, o.seq, true, woVersion))} data-testid="op-done" title="Complete with the full available quantity (supervisor)">
-                        {t("mfg.woOperations.btn.done")}
-                      </button>
-                    ) : null}
-                    {o.id && canSupervise && (o.status === "pending" || o.status === "ready") ? (
-                      <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => setSkipping(o)} data-testid="op-skip">
-                        {t("mfg.woOperations.btn.skip")}
-                      </button>
-                    ) : null}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={items}
+        columns={[
+          { key: "seq", header: "Op.", width: "64px", sortValue: (o) => o.seq, render: (o) => <span className="mono">{o.seq}</span> },
+          {
+            key: "name",
+            header: "Name",
+            width: "minmax(170px, 1.4fr)",
+            wrap: true,
+            exportValue: (o) => o.name,
+            render: (o) => (
+              <span>
+                {o.name}
+                {o.group?.code || o.capture_serial ? <span className="vt-sub">{[o.group?.code, o.capture_serial ? "serial point" : ""].filter(Boolean).join(" · ")}</span> : null}
+              </span>
+            ),
+          },
+          {
+            key: "status",
+            header: "Status",
+            width: "130px",
+            sortValue: (o) => o.status,
+            exportValue: (o) => o.status,
+            render: (o) => (
+              <span>
+                <OpStatusChip status={o.status} />
+                {o.started_short ? <span className="vt-sub">started short</span> : null}
+              </span>
+            ),
+          },
+          {
+            key: "qty",
+            header: "Good / scrap",
+            width: "130px",
+            align: "right",
+            sortValue: (o) => o.qty_good,
+            exportValue: (o) => `${o.qty_good} / ${o.qty_scrap}`,
+            render: (o) => (
+              <span>
+                {fmtQty(o.qty_good)} / {fmtQty(o.qty_scrap)}
+                <span className="vt-sub">
+                  of {fmtQty(o.qty_planned)}
+                  {o.qty_rework_in ? ` · +${fmtQty(o.qty_rework_in)} rework in` : ""}
+                </span>
+              </span>
+            ),
+          },
+          { key: "line", header: "Line", width: "90px", sortValue: (o) => o.line?.code ?? "", render: (o) => o.line?.code ?? "" },
+          {
+            key: "actual",
+            header: "Actual",
+            width: "minmax(170px, 1fr)",
+            sortValue: (o) => o.actual_start ?? null,
+            exportValue: (o) => o.actual_start ?? "",
+            render: (o) => (
+              <span>
+                {o.actual_start ? `${clock.dateTime(o.actual_start)}${o.actual_end ? ` – ${clock.time(o.actual_end)}` : ""}` : ""}
+                {o.run_minutes_actual ? <span className="vt-sub">run {fmtDuration(o.run_minutes_actual)}</span> : null}
+              </span>
+            ),
+          },
+          {
+            key: "plan",
+            header: "Plan",
+            width: "minmax(190px, 1.2fr)",
+            wrap: true,
+            exportValue: (o) => o.placement[0]?.start ?? "",
+            render: (o) =>
+              o.placement[0] ? (
+                `${o.placement[0].line?.code ? `${o.placement[0].line.code} · ` : ""}${clock.dateTime(o.placement[0].start)} – ${clock.time(o.placement[0].end)}`
+              ) : (
+                <span className="faint">not planned</span>
+              ),
+          },
+          {
+            key: "actions",
+            header: <span className="sr-only">Actions</span>,
+            label: "Actions",
+            width: "210px",
+            exportValue: () => "",
+            render: (o) => (
+              <span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
+                {o.id ? (
+                  <Link className="btn sm" to={mfgPaths.floorOp(o.id)} data-testid="wo-op-floor">
+                    {t("mfg.woOperations.btn.openOnFloor")}
+                  </Link>
+                ) : (
+                  <span className="faint small">created at release</span>
+                )}
+                {o.id && canSupervise && o.status !== "completed" && o.status !== "skipped" ? (
+                  <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => void run(o.id, () => setWoOperationDone(woId, o.seq, true, woVersion))} data-testid="op-done" title="Complete with the full available quantity (supervisor)">
+                    {t("mfg.woOperations.btn.done")}
+                  </button>
+                ) : null}
+                {o.id && canSupervise && (o.status === "pending" || o.status === "ready") ? (
+                  <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => setSkipping(o)} data-testid="op-skip">
+                    {t("mfg.woOperations.btn.skip")}
+                  </button>
+                ) : null}
+              </span>
+            ),
+          },
+        ]}
+        rowKey={(o) => o.id || `seq-${o.seq}`}
+        label="Operations on the floor"
+        tableId="wo-operations-floor"
+        exportName={`${woId}-operations`}
+        rowExtras={(o) => ({ testId: "wo-op-row", data: { seq: o.seq, status: o.status } })}
+        card={{ title: "name", status: "status", actions: "actions", fields: ["qty", "line", "plan"] }}
+      />
       {skipping ? (
         <ReasonDialog
           title={`Skip operation ${skipping.seq}?`}
@@ -175,63 +222,66 @@ function M3Ops({ woId, woVersion, ops, onChanged }: { woId: string; woVersion: n
     }
   };
   return (
-    <section className="card" data-testid="wo-operations">
+    <section className="card card-table" data-testid="wo-operations">
       <div className="card-header">
         <h3>Operations</h3>
         <span className="muted small">From the routing; "done" tells the scheduler not to plan them again.</span>
       </div>
       <MfgError error={ops.error ?? error} onRetry={ops.reload} />
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Op.</th>
-              <th>Name</th>
-              <th>Stage</th>
-              <th>Published schedule</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {((ops.data?.items ?? []) as WoOperationRow[]).map((o) => (
-              <tr key={o.seq} data-testid="wo-op-row" data-seq={o.seq} data-done={o.done}>
-                <td className="mono">{o.seq}</td>
-                <td>{o.name}</td>
-                <td>{o.group?.code ?? ""}</td>
-                <td className="small">
-                  {o.placement?.start ? (
-                    <Link to={mfgPaths.apsGantt(o.placement.run_id, { view: "order", order: woId })}>
-                      {o.placement.line?.code ?? ""} · {clock.dateTime(o.placement.start)} – {clock.time(o.placement.end)}
-                    </Link>
-                  ) : (
-                    <span className="faint">{o.done ? "" : "not in the published schedule"}</span>
-                  )}
-                </td>
-                <td>
-                  {o.done ? (
-                    <span className="row" style={{ gap: 6 }}>
-                      <span className="badge ok">
-                        <Icon name="check" /> Done {o.done_at ? clock.dateTime(o.done_at) : ""}
-                      </span>
-                      {canEdit ? (
-                        <button type="button" className="btn sm ghost" onClick={() => void toggle(o)} disabled={busy === o.seq} data-testid="op-reopen">
-                          {t("mfg.woOperations.btn.reopen")}
-                        </button>
-                      ) : null}
-                    </span>
-                  ) : canEdit ? (
-                    <button type="button" className="btn sm" onClick={() => void toggle(o)} disabled={busy === o.seq} data-testid="op-done">
-                      {busy === o.seq ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Mark done
+      <DataTable
+        rows={(ops.data?.items ?? []) as WoOperationRow[]}
+        columns={[
+          { key: "seq", header: "Op.", width: "64px", sortValue: (o) => o.seq, render: (o) => <span className="mono">{o.seq}</span> },
+          { key: "name", header: "Name", width: "minmax(170px, 1.4fr)", sortValue: (o) => o.name, render: (o) => o.name },
+          { key: "stage", header: "Stage", width: "100px", sortValue: (o) => o.group?.code ?? "", render: (o) => o.group?.code ?? "" },
+          {
+            key: "plan",
+            header: "Published schedule",
+            width: "minmax(220px, 1.6fr)",
+            exportValue: (o) => o.placement?.start ?? "",
+            render: (o) =>
+              o.placement?.start ? (
+                <Link to={mfgPaths.apsGantt(o.placement.run_id, { view: "order", order: woId })}>
+                  {o.placement.line?.code ?? ""} · {clock.dateTime(o.placement.start)} – {clock.time(o.placement.end)}
+                </Link>
+              ) : (
+                <span className="faint">{o.done ? "" : "not in the published schedule"}</span>
+              ),
+          },
+          {
+            key: "status",
+            header: "Status",
+            width: "minmax(220px, 1.2fr)",
+            sortValue: (o) => (o.done ? 1 : 0),
+            exportValue: (o) => (o.done ? "done" : "open"),
+            render: (o) =>
+              o.done ? (
+                <span className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+                  <span className="badge ok">
+                    <Icon name="check" /> Done {o.done_at ? clock.dateTime(o.done_at) : ""}
+                  </span>
+                  {canEdit ? (
+                    <button type="button" className="btn sm ghost" onClick={() => void toggle(o)} disabled={busy === o.seq} data-testid="op-reopen">
+                      {t("mfg.woOperations.btn.reopen")}
                     </button>
-                  ) : (
-                    <span className="faint small">open</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  ) : null}
+                </span>
+              ) : canEdit ? (
+                <button type="button" className="btn sm" onClick={() => void toggle(o)} disabled={busy === o.seq} data-testid="op-done">
+                  {busy === o.seq ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Mark done
+                </button>
+              ) : (
+                <span className="faint small">open</span>
+              ),
+          },
+        ]}
+        rowKey={(o) => o.seq}
+        label="Operations"
+        tableId="wo-operations"
+        exportName={`${woId}-operations`}
+        rowExtras={(o) => ({ testId: "wo-op-row", data: { seq: o.seq, done: o.done } })}
+        card={{ title: "name", status: "status", fields: ["stage", "plan"] }}
+      />
     </section>
   );
 }

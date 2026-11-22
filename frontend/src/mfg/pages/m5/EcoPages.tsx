@@ -26,6 +26,7 @@ import { isConflict, useLoad } from "../../lib/useMfg";
 import { formatDate } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
+import { DataTable } from "../../components/DataTable";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { t } from "../../../lib/i18n";
 
@@ -602,135 +603,135 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
           First day the projected stock of the phased-out part reaches zero in the latest MRP run.
         </Banner>
       ) : null}
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h2>What changes in the structure</h2>
         </div>
-        <table className="table" data-testid="eco-delta">
-          <tbody>
-            {d.explosion_delta.length === 0 ? (
-              <tr>
-                <td className="muted">No component changes.</td>
-              </tr>
-            ) : null}
-            {d.explosion_delta.map((x, i) => (
-              <tr key={i}>
-                <td className="mono">{x.parent}</td>
-                <td className="small">
+        <DataTable
+          rows={d.explosion_delta}
+          columns={[
+            { key: "parent", header: "Assembly", width: "minmax(160px, 1fr)", sortValue: (x) => x.parent, render: (x) => <span className="mono">{x.parent}</span> },
+            {
+              key: "changes",
+              header: "Component changes",
+              width: "minmax(280px, 3fr)",
+              wrap: true,
+              exportValue: (x) => [...x.added.map((a) => `+${entryText(a)}`), ...x.removed.map((a) => `-${entryText(a)}`), ...x.changed.map((a) => `~${entryText(a)}`)].join("; "),
+              render: (x) => (
+                <span className="col" style={{ gap: 2 }}>
                   {x.added.map((a, k) => (
-                    <div key={`a${k}`}>
+                    <span key={`a${k}`}>
                       <span className="badge ok">
                         <Icon name="plus" size={12} /> {t("mfg.ecoPages.btn.added")}
                       </span>{" "}
                       <span className="mono">{entryText(a)}</span>
-                    </div>
+                    </span>
                   ))}
                   {x.removed.map((a, k) => (
-                    <div key={`r${k}`}>
+                    <span key={`r${k}`}>
                       <span className="badge danger">
                         <Icon name="x" size={12} /> {t("mfg.ecoPages.btn.removed")}
                       </span>{" "}
                       <span className="mono">{entryText(a)}</span>
-                    </div>
+                    </span>
                   ))}
                   {x.changed.map((a, k) => (
-                    <div key={`c${k}`}>
+                    <span key={`c${k}`}>
                       <span className="badge warn">
                         <Icon name="refresh" size={12} /> {t("mfg.ecoPages.btn.changed")}
                       </span>{" "}
                       <span className="mono">{entryText(a)}</span>
-                    </div>
+                    </span>
                   ))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </span>
+              ),
+            },
+          ]}
+          rowKey={(_, i) => i}
+          label="What changes in the structure"
+          testId="eco-delta"
+          exportName={`${c.number}-structure-changes`}
+          empty="No component changes."
+        />
       </section>
       <div className="grid-2" style={{ alignItems: "start" }}>
-        <section className="card">
+        <section className="card card-table">
           <div className="card-header">
             <h2>Open work orders using the old parts ({d.open_wos.length})</h2>
           </div>
-          <table className="table" data-testid="eco-open-wos">
-            <tbody>
-              {d.open_wos.map((w, i) => (
-                <tr key={i}>
-                  <td className="mono">{w.id ? <Link to={mfgPaths.workOrder(w.id)}>{w.number}</Link> : w.number}</td>
-                  <td className="mono small">{w.component ?? ""}</td>
-                  <td className="right">{w.qty !== undefined ? fmtNum(w.qty) : ""}</td>
-                </tr>
-              ))}
-              {d.planned_orders.map((p, i) => (
-                <tr key={`p${i}`}>
-                  <td className="mono">{p.number ?? "planned"}</td>
-                  <td className="mono small">{p.item ?? ""}</td>
-                  <td className="right">{p.qty !== undefined ? fmtNum(p.qty) : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            rows={[
+              ...d.open_wos.map((w) => ({ id: w.id, number: w.number, part: w.component ?? "", qty: w.qty })),
+              ...d.planned_orders.map((p) => ({ id: undefined as string | undefined, number: p.number ?? "planned", part: p.item ?? "", qty: p.qty })),
+            ]}
+            columns={[
+              { key: "order", header: "Order", width: "minmax(130px, 1fr)", sortValue: (w) => w.number, exportValue: (w) => w.number, render: (w) => <span className="mono">{w.id ? <Link to={mfgPaths.workOrder(w.id)}>{w.number}</Link> : w.number}</span> },
+              { key: "part", header: "Old part", width: "minmax(130px, 1fr)", sortValue: (w) => w.part, render: (w) => <span className="mono small">{w.part}</span> },
+              { key: "qty", header: "Qty", width: "90px", align: "right", sortValue: (w) => w.qty ?? null, render: (w) => (w.qty !== undefined ? fmtNum(w.qty) : "") },
+            ]}
+            rowKey={(_, i) => i}
+            label="Open work orders using the old parts"
+            testId="eco-open-wos"
+            exportName={`${c.number}-open-orders`}
+            empty="None."
+          />
         </section>
-        <section className="card">
+        <section className="card card-table">
           <div className="card-header">
             <h2>Purchases no longer needed ({d.open_purchases.length})</h2>
           </div>
-          <table className="table">
-            <tbody>
-              {d.open_purchases.map((p, i) => (
-                <tr key={i}>
-                  <td className="mono">{p.number}</td>
-                  <td className="mono">{p.item ?? ""}</td>
-                  <td className="right">{p.qty !== undefined ? fmtNum(p.qty) : ""}</td>
-                  <td className="small">{p.due ? fmtDate(p.due) : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            rows={d.open_purchases}
+            columns={[
+              { key: "doc", header: "Purchase order", width: "minmax(130px, 1fr)", sortValue: (p) => p.number, render: (p) => <span className="mono">{p.number}</span> },
+              { key: "item", header: "Part", width: "minmax(120px, 1fr)", sortValue: (p) => p.item ?? "", render: (p) => <span className="mono">{p.item ?? ""}</span> },
+              { key: "qty", header: "Qty", width: "80px", align: "right", sortValue: (p) => p.qty ?? null, render: (p) => (p.qty !== undefined ? fmtNum(p.qty) : "") },
+              { key: "due", header: "Due", width: "110px", sortValue: (p) => p.due ?? null, render: (p) => (p.due ? fmtDate(p.due) : "") },
+            ]}
+            rowKey={(_, i) => i}
+            label="Purchases no longer needed"
+            tableId="eco-open-purchases"
+            exportName={`${c.number}-purchases`}
+            empty="None."
+          />
         </section>
       </div>
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h2>Parts being phased out</h2>
         </div>
-        <table className="table" data-testid="eco-phased-out">
-          <thead>
-            <tr>
-              <th>Part</th>
-              <th className="right">In stock</th>
-              <th className="right">On order</th>
-              <th className="right">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {d.phase_out_stock.map((p, i) => (
-              <tr key={i}>
-                <td className="mono">{p.item}</td>
-                <td className="right">{fmtNum(p.on_hand)}</td>
-                <td className="right">{fmtNum(p.on_order)}</td>
-                <td className="right">{p.value === null ? "" : fmtNum(Math.round(p.value))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          rows={d.phase_out_stock}
+          columns={[
+            { key: "item", header: "Part", width: "minmax(160px, 2fr)", sortValue: (p) => p.item, render: (p) => <span className="mono">{p.item}</span> },
+            { key: "on_hand", header: "In stock", width: "110px", align: "right", sortValue: (p) => p.on_hand, render: (p) => fmtNum(p.on_hand) },
+            { key: "on_order", header: "On order", width: "110px", align: "right", sortValue: (p) => p.on_order, render: (p) => fmtNum(p.on_order) },
+            { key: "value", header: "Value", width: "120px", align: "right", sortValue: (p) => p.value, render: (p) => (p.value === null ? "" : fmtNum(Math.round(p.value))) },
+          ]}
+          rowKey={(_, i) => i}
+          label="Parts being phased out"
+          testId="eco-phased-out"
+          exportName={`${c.number}-phase-out`}
+          empty="No parts are phased out."
+        />
       </section>
       {d.mrp_delta.length ? (
-        <section className="card">
+        <section className="card card-table">
           <div className="card-header">
             <h2>Customer dates that move (MRP what-if)</h2>
           </div>
-          <table className="table" data-testid="eco-mrp-delta">
-            <tbody>
-              {d.mrp_delta.map((m, i) => (
-                <tr key={i}>
-                  <td className="mono">{m.order ?? m.demand_line}</td>
-                  <td className="small">
-                    {m.before ? fmtDate(m.before) : "—"} → {m.after ? fmtDate(m.after) : "not covered"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            rows={d.mrp_delta}
+            columns={[
+              { key: "order", header: "Demand", width: "minmax(160px, 1fr)", sortValue: (m) => m.order ?? m.demand_line ?? "", render: (m) => <span className="mono">{m.order ?? m.demand_line}</span> },
+              { key: "before", header: "Before", width: "130px", sortValue: (m) => m.before ?? null, render: (m) => (m.before ? fmtDate(m.before) : "—") },
+              { key: "after", header: "After", width: "130px", sortValue: (m) => m.after ?? null, render: (m) => (m.after ? fmtDate(m.after) : "not covered") },
+            ]}
+            rowKey={(_, i) => i}
+            label="Customer dates that move"
+            testId="eco-mrp-delta"
+            exportName={`${c.number}-date-changes`}
+          />
         </section>
       ) : null}
       {d.computed_ms ? <p className="faint small">Worked out in {(d.computed_ms / 1000).toFixed(1)} s.</p> : null}

@@ -18,6 +18,7 @@ import { currentWorkspace } from "../mfg/lib/workspace";
 import "./auth.css";
 import { formatDateTime } from "../lib/locale";
 import { PageHeader } from "../components/PageHeader";
+import { DataTable } from "../mfg/components/DataTable";
 
 const PRESETS: { key: string; label: string; help: string; scopes: TokenScope[] }[] = [
   { key: "read", label: "Read only", help: "Reports and dashboards: read everything, change nothing.", scopes: ["view", "floor_view", "trace_view"] },
@@ -188,70 +189,83 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
           </div>
         </div>
       </section>
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h2>Tokens</h2>
         </div>
         <MfgError error={tokens.error} onRetry={tokens.reload} />
-        <div className="table-wrap">
-          <table className="table" data-testid="token-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Permissions</th>
-                <th>Expires</th>
-                <th>Last used</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {items.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="muted">
-                    {tokens.loading ? "Loading…" : "No tokens yet."}
-                  </td>
-                </tr>
-              ) : null}
-              {items.map((t) => {
-                const expired = Date.parse(t.expires_at) < Date.now();
-                return (
-                  <tr key={t.id} data-testid="token-row" data-revoked={Boolean(t.revoked_at)} className={t.revoked_at || expired ? "faint" : undefined}>
-                    <td>
-                      <strong>{t.name}</strong>
-                      <div className="mono small faint">{t.prefix}…</div>
-                      {t.plant_name ? <div className="small muted">{t.plant_name}</div> : null}
-                    </td>
-                    <td className="small">{t.scopes.map((s) => SCOPE_LABEL[s] ?? s).join(", ")}</td>
-                    <td className="small">
-                      {t.revoked_at ? (
-                        <span className="badge info">
-                          <Icon name="ban" /> revoked
-                        </span>
-                      ) : expired ? (
-                        <span className="badge warn">
-                          <Icon name="clock" /> expired
-                        </span>
-                      ) : (
-                        fmt(t.expires_at)
-                      )}
-                    </td>
-                    <td className="small">
-                      {fmt(t.last_used_at)}
-                      {t.last_used_ip ? <div className="faint">{t.last_used_ip}</div> : null}
-                    </td>
-                    <td>
-                      {!t.revoked_at ? (
-                        <button type="button" className="btn sm ghost" onClick={() => setRevoking(t)} data-testid="token-revoke">
-                          Revoke
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={items}
+          columns={[
+            {
+              key: "name",
+              header: "Name",
+              width: "minmax(180px, 1.4fr)",
+              sortValue: (x) => x.name,
+              exportValue: (x) => x.name,
+              render: (x) => (
+                <span>
+                  <strong>{x.name}</strong> <span className="mono small faint">{x.prefix}…</span>
+                  {x.plant_name ? <span className="vt-sub">{x.plant_name}</span> : null}
+                </span>
+              ),
+            },
+            { key: "scopes", header: "Permissions", width: "minmax(200px, 2fr)", wrap: true, render: (x) => <span className="small">{x.scopes.map((sc) => SCOPE_LABEL[sc] ?? sc).join(", ")}</span> },
+            {
+              key: "expires",
+              header: "Expires",
+              width: "150px",
+              sortValue: (x) => x.expires_at,
+              exportValue: (x) => (x.revoked_at ? "revoked" : x.expires_at),
+              render: (x) =>
+                x.revoked_at ? (
+                  <span className="badge info">
+                    <Icon name="ban" /> revoked
+                  </span>
+                ) : Date.parse(x.expires_at) < Date.now() ? (
+                  <span className="badge warn">
+                    <Icon name="clock" /> expired
+                  </span>
+                ) : (
+                  fmt(x.expires_at)
+                ),
+            },
+            {
+              key: "used",
+              header: "Last used",
+              width: "170px",
+              sortValue: (x) => x.last_used_at ?? null,
+              exportValue: (x) => x.last_used_at ?? "",
+              render: (x) => (
+                <span>
+                  {fmt(x.last_used_at)}
+                  {x.last_used_ip ? <span className="vt-sub">{x.last_used_ip}</span> : null}
+                </span>
+              ),
+            },
+            {
+              key: "actions",
+              header: <span className="sr-only">Actions</span>,
+              label: "Actions",
+              width: "96px",
+              align: "right",
+              exportValue: () => "",
+              render: (x) =>
+                !x.revoked_at ? (
+                  <button type="button" className="btn sm ghost" onClick={() => setRevoking(x)} data-testid="token-revoke">
+                    Revoke
+                  </button>
+                ) : null,
+            },
+          ]}
+          rowKey={(x) => x.id}
+          label="Tokens"
+          testId="token-table"
+          loading={tokens.loading && !items.length}
+          rowExtras={(x) => ({ testId: "token-row", data: { revoked: Boolean(x.revoked_at) }, className: x.revoked_at || Date.parse(x.expires_at) < Date.now() ? "faint" : undefined })}
+          empty="No tokens yet."
+          card={{ title: "name", status: "expires", actions: "actions", fields: ["scopes", "used"] }}
+        />
       </section>
       {revoking ? (
         <ConfirmDialog

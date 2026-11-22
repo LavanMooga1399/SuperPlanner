@@ -9,7 +9,8 @@ import { Icon } from "../../../components/Icon";
 import { listGroups, listLines } from "../../api/client";
 import { getFloorQueue, listDowntime } from "../../api/clientM4";
 import type { FloorQueueResponse } from "../../api/typesM4";
-import { MfgError, Spinner } from "../../components/Feedback";
+import { MfgError } from "../../components/Feedback";
+import { DataTable } from "../../components/DataTable";
 import { behindMinutes } from "../../floor/FloorQueue";
 import { DOWNTIME, KitChip, OpStatusChip, fmtQty } from "../../floor/floorText";
 import { fmtDuration, usePlantClock } from "../../lib/plantTime";
@@ -50,6 +51,14 @@ export function FloorOverview() {
     else counts.idle++;
   }
 
+  const rowsOv = (lines.data?.items ?? []).map((l) => {
+    const q = qBy.get(l.id);
+    const dt = downBy.get(l.id) ?? q?.down ?? null;
+    const cur = q?.items.find((x) => x.status === "running" || x.status === "setup") ?? q?.items.find((x) => x.status === "paused") ?? null;
+    const next = q?.items.find((x) => x !== cur && (x.status === "ready" || x.status === "pending")) ?? null;
+    const delay = cur ? behindMinutes(cur) : null;
+    return { l, dt, cur, next, delay, state: dt ? "down" : (cur?.status ?? "idle") };
+  });
   return (
     <div className="col gap-lg" data-testid="floor-overview">
       <PageHeader
@@ -86,89 +95,103 @@ export function FloorOverview() {
         </div>
       </div>
       <MfgError error={lines.error ?? queues.error ?? down.error} onRetry={queues.reload} />
-      {(lines.loading || queues.loading) && !queues.data ? <Spinner /> : null}
-      <div className="table-wrap card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Line</th>
-              <th>State</th>
-              <th>Now</th>
-              <th>Against plan</th>
-              <th>Next</th>
-              <th>Material</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(lines.data?.items ?? []).map((l) => {
-              const q = qBy.get(l.id);
-              const dt = downBy.get(l.id) ?? q?.down ?? null;
-              const cur = q?.items.find((r) => r.status === "running" || r.status === "setup") ?? q?.items.find((r) => r.status === "paused") ?? null;
-              const next = q?.items.find((r) => r !== cur && (r.status === "ready" || r.status === "pending")) ?? null;
-              const delay = cur ? behindMinutes(cur) : null;
-              return (
-                <tr key={l.id} data-testid="overview-line" data-line={l.code} data-state={dt ? "down" : (cur?.status ?? "idle")}>
-                  <td>
-                    <Link to={mfgPaths.floorLine(l.id)}>
-                      <strong>{l.code}</strong>
-                    </Link>
-                    <div className="faint small">{gName.get(l.group_id) ?? ""}</div>
-                  </td>
-                  <td>
-                    {dt ? (
-                      <span className="badge danger">
-                        <Icon name="alert" /> Down: {DOWNTIME[dt.kind]?.label ?? dt.kind}
-                      </span>
-                    ) : cur ? (
-                      <OpStatusChip status={cur.status} />
-                    ) : (
-                      <span className="badge info">
-                        <Icon name="clock" /> {t("mfg.floorOverview.btn.idle")}
-                      </span>
-                    )}
-                    {dt ? (
-                      <div className="small muted">
-                        since {clock.time(dt.start_at)}
-                        {dt.expected_end_at ? `, back ${clock.time(dt.expected_end_at)}` : ""}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td>
-                    {cur ? (
-                      <>
-                        <Link to={mfgPaths.workOrder(cur.wo.id)} className="mono">
-                          {cur.wo.number}
-                        </Link>{" "}
-                        / {cur.seq} {cur.name}
-                        <div className="small muted">
-                          {fmtQty(cur.qty_good)} of {fmtQty(cur.qty_planned || cur.wo.qty)}
-                        </div>
-                      </>
-                    ) : (
-                      <span className="faint">nothing running</span>
-                    )}
-                  </td>
-                  <td>
-                    {delay === null || !cur ? (
-                      <span className="faint">-</span>
-                    ) : delay > 0 ? (
-                      <span className="badge warn">
-                        <Icon name="clock" /> {fmtDuration(delay)} behind
-                      </span>
-                    ) : (
-                      <span className="badge ok">
-                        <Icon name="check" /> {t("mfg.floorOverview.btn.onPlan")}
-                      </span>
-                    )}
-                  </td>
-                  <td className="small">{next ? `${next.wo.number} / ${next.seq}${next.planned_start ? ` at ${clock.time(next.planned_start)}` : ""}` : ""}</td>
-                  <td>{next ? <KitChip kit={next.kit} /> : null}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={rowsOv}
+        columns={[
+          {
+            key: "line",
+            header: "Line",
+            width: "minmax(130px, 1fr)",
+            sortValue: (r) => r.l.code,
+            exportValue: (r) => r.l.code,
+            render: (r) => (
+              <span>
+                <Link to={mfgPaths.floorLine(r.l.id)}>
+                  <strong>{r.l.code}</strong>
+                </Link>
+                <span className="vt-sub">{gName.get(r.l.group_id) ?? ""}</span>
+              </span>
+            ),
+          },
+          {
+            key: "state",
+            header: "State",
+            width: "minmax(170px, 1fr)",
+            sortValue: (r) => r.state,
+            exportValue: (r) => r.state,
+            render: (r) => (
+              <span>
+                {r.dt ? (
+                  <span className="badge danger">
+                    <Icon name="alert" /> Down: {DOWNTIME[r.dt.kind]?.label ?? r.dt.kind}
+                  </span>
+                ) : r.cur ? (
+                  <OpStatusChip status={r.cur.status} />
+                ) : (
+                  <span className="badge info">
+                    <Icon name="clock" /> {t("mfg.floorOverview.btn.idle")}
+                  </span>
+                )}
+                {r.dt ? (
+                  <span className="vt-sub">
+                    since {clock.time(r.dt.start_at)}
+                    {r.dt.expected_end_at ? `, back ${clock.time(r.dt.expected_end_at)}` : ""}
+                  </span>
+                ) : null}
+              </span>
+            ),
+          },
+          {
+            key: "now",
+            header: "Now",
+            width: "minmax(200px, 1.6fr)",
+            exportValue: (r) => (r.cur ? `${r.cur.wo.number} / ${r.cur.seq}` : ""),
+            render: (r) =>
+              r.cur ? (
+                <span>
+                  <Link to={mfgPaths.workOrder(r.cur.wo.id)} className="mono">
+                    {r.cur.wo.number}
+                  </Link>{" "}
+                  / {r.cur.seq} {r.cur.name}
+                  <span className="vt-sub">
+                    {fmtQty(r.cur.qty_good)} of {fmtQty(r.cur.qty_planned || r.cur.wo.qty)}
+                  </span>
+                </span>
+              ) : (
+                <span className="faint">nothing running</span>
+              ),
+          },
+          {
+            key: "plan",
+            header: "Against plan",
+            width: "140px",
+            sortValue: (r) => r.delay,
+            exportValue: (r) => r.delay ?? "",
+            render: (r) =>
+              r.delay === null || !r.cur ? (
+                <span className="faint">-</span>
+              ) : r.delay > 0 ? (
+                <span className="badge warn">
+                  <Icon name="clock" /> {fmtDuration(r.delay)} behind
+                </span>
+              ) : (
+                <span className="badge ok">
+                  <Icon name="check" /> {t("mfg.floorOverview.btn.onPlan")}
+                </span>
+              ),
+          },
+          { key: "next", header: "Next", width: "minmax(160px, 1fr)", render: (r) => (r.next ? `${r.next.wo.number} / ${r.next.seq}${r.next.planned_start ? ` at ${clock.time(r.next.planned_start)}` : ""}` : "") },
+          { key: "material", header: "Material", width: "120px", exportValue: (r) => r.next?.kit ?? "", render: (r) => (r.next ? <KitChip kit={r.next.kit} /> : null) },
+        ]}
+        rowKey={(r) => r.l.id}
+        label="Lines on the shop floor"
+        tableId="floor-overview"
+        loading={(lines.loading || queues.loading) && !queues.data}
+        exportName="shop-floor"
+        rowExtras={(r) => ({ testId: "overview-line", data: { line: r.l.code, state: r.state } })}
+        empty="No lines yet. Add stages and lines under Plant."
+        card={{ title: "line", status: "state", fields: ["now", "plan", "next"] }}
+      />
     </div>
   );
 }

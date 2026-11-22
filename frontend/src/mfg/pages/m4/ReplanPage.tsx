@@ -22,6 +22,8 @@ import { usePolling } from "../../lib/usePolling";
 import { ReasonDialog } from "./FloorEvents";
 import { PageHeader } from "../../../components/PageHeader";
 import { t as tr } from "../../../lib/i18n";
+import { DataTable } from "../../components/DataTable";
+import type { Column } from "../../components/VirtualTable";
 
 const POLICY_TEXT: Record<string, string> = {
   notify: "Changes wait for you; make a proposal when you want one.",
@@ -118,7 +120,7 @@ export function ReplanPage() {
       </div>
       <MfgError error={error ?? triggers.error} onRetry={triggers.reload} />
 
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
           <h2>What changed ({rows.length})</h2>
           <div className="row wrap">
@@ -146,134 +148,165 @@ export function ReplanPage() {
             </button>
           </div>
         </div>
-        <div className="table-wrap">
-          <table className="table" data-testid="trigger-table">
-            <thead>
-              <tr>
-                <th aria-label="Select" />
-                <th>What</th>
-                <th>Details</th>
-                <th>When</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="muted">
-                    {triggers.loading ? "Loading…" : "Nothing changed since the plan was published."}
-                  </td>
-                </tr>
-              ) : null}
-              {rows.map((t) => (
-                <tr key={t.id} data-testid="trigger-row" data-kind={t.kind} data-status={t.status} data-severity={t.severity}>
-                  <td>
-                    {t.status === "open" ? (
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${TRIGGER[t.kind]?.label ?? t.kind}`}
-                        checked={sel.has(t.id)}
-                        onChange={() =>
-                          setSel((s) => {
-                            const n = new Set(s);
-                            if (n.has(t.id)) n.delete(t.id);
-                            else n.add(t.id);
-                            return n;
-                          })
-                        }
-                      />
-                    ) : null}
-                  </td>
-                  <td>
-                    <span className={`badge ${SEV_TONE[t.severity] ?? "info"}`}>
-                      <Icon name={TRIGGER[t.kind]?.icon ?? "alert"} /> {TRIGGER[t.kind]?.label ?? t.kind}
-                    </span>
-                    <div className="faint small">{t.severity}</div>
-                  </td>
-                  <td>
-                    <span>{t.message}</span>
-                    {triggerLink(t) ? (
-                      <div className="small">
-                        <Link to={triggerLink(t)!}>Open</Link>
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="small">{clock.dateTime(t.detected_at)}</td>
-                  <td className="small">
-                    {t.status === "attached" && t.aps_run_id ? (
-                      <Link to={mfgPaths.apsRun(t.aps_run_id)}>in a proposal</Link>
-                    ) : t.status === "open" ? (
-                      "open"
-                    ) : (
-                      `${t.status}${t.handled_at ? ` ${clock.dateTime(t.handled_at)}` : ""}`
-                    )}
-                  </td>
-                  <td>
-                    {canManage && (t.status === "open" || t.status === "attached") ? (
-                      <span className="row">
-                        <button type="button" className="btn sm" onClick={() => setClosing({ t, action: "handle" })} data-testid="trigger-handle">
-                          {tr("mfg.replanPage.btn.handled")}
-                        </button>
-                        <button type="button" className="btn sm ghost" onClick={() => setClosing({ t, action: "ignore" })} data-testid="trigger-ignore">
-                          {tr("mfg.replanPage.btn.ignore")}
-                        </button>
-                      </span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={rows}
+          columns={[
+            {
+              key: "sel",
+              header: <span className="sr-only">Select</span>,
+              label: "Select",
+              width: "40px",
+              align: "center",
+              hideable: false,
+              exportValue: () => "",
+              render: (x) =>
+                x.status === "open" ? (
+                  <input
+                    type="checkbox"
+                    className="vt-check"
+                    aria-label={`Select ${TRIGGER[x.kind]?.label ?? x.kind}`}
+                    checked={sel.has(x.id)}
+                    onChange={() =>
+                      setSel((cur) => {
+                        const n = new Set(cur);
+                        if (n.has(x.id)) n.delete(x.id);
+                        else n.add(x.id);
+                        return n;
+                      })
+                    }
+                  />
+                ) : null,
+            },
+            {
+              key: "what",
+              header: "What",
+              width: "minmax(170px, 1fr)",
+              sortValue: (x) => TRIGGER[x.kind]?.label ?? x.kind,
+              exportValue: (x) => `${TRIGGER[x.kind]?.label ?? x.kind} (${x.severity})`,
+              render: (x) => (
+                <span className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+                  <span className={`badge ${SEV_TONE[x.severity] ?? "info"}`}>
+                    <Icon name={TRIGGER[x.kind]?.icon ?? "alert"} /> {TRIGGER[x.kind]?.label ?? x.kind}
+                  </span>
+                  <span className="faint small">{x.severity}</span>
+                </span>
+              ),
+            },
+            {
+              key: "details",
+              header: "Details",
+              width: "minmax(240px, 2.5fr)",
+              wrap: true,
+              exportValue: (x) => x.message,
+              render: (x) => (
+                <span>
+                  {x.message}
+                  {triggerLink(x) ? (
+                    <>
+                      {" "}
+                      <Link to={triggerLink(x)!} className="small">
+                        Open
+                      </Link>
+                    </>
+                  ) : null}
+                </span>
+              ),
+            },
+            { key: "when", header: "When", width: "150px", sortValue: (x) => x.detected_at, render: (x) => clock.dateTime(x.detected_at) },
+            {
+              key: "status",
+              header: "Status",
+              width: "minmax(130px, 1fr)",
+              sortValue: (x) => x.status,
+              exportValue: (x) => x.status,
+              render: (x) =>
+                x.status === "attached" && x.aps_run_id ? (
+                  <Link to={mfgPaths.apsRun(x.aps_run_id)}>in a proposal</Link>
+                ) : x.status === "open" ? (
+                  "open"
+                ) : (
+                  `${x.status}${x.handled_at ? ` ${clock.dateTime(x.handled_at)}` : ""}`
+                ),
+            },
+            ...(canManage
+              ? [
+                  {
+                    key: "actions",
+                    header: <span className="sr-only">Actions</span>,
+                    label: "Actions",
+                    width: "160px",
+                    exportValue: () => "",
+                    render: (x: ReplanTrigger) =>
+                      x.status === "open" || x.status === "attached" ? (
+                        <span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
+                          <button type="button" className="btn sm" onClick={() => setClosing({ t: x, action: "handle" })} data-testid="trigger-handle">
+                            {tr("mfg.replanPage.btn.handled")}
+                          </button>
+                          <button type="button" className="btn sm ghost" onClick={() => setClosing({ t: x, action: "ignore" })} data-testid="trigger-ignore">
+                            {tr("mfg.replanPage.btn.ignore")}
+                          </button>
+                        </span>
+                      ) : null,
+                  } as Column<ReplanTrigger>,
+                ]
+              : []),
+          ]}
+          rowKey={(x) => x.id}
+          label="What changed"
+          testId="trigger-table"
+          loading={triggers.loading && !rows.length}
+          exportName="replanning-changes"
+          rowExtras={(x) => ({ testId: "trigger-row", data: { kind: x.kind, status: x.status, severity: x.severity } })}
+          empty="Nothing changed since the plan was published."
+          card={{ title: "what", status: "status", actions: "sel", fields: ["details", "when"] }}
+        />
       </section>
 
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h2>Proposals</h2>
         </div>
-        <div className="table-wrap">
-          <table className="table" data-testid="replan-proposals">
-            <thead>
-              <tr>
-                <th>Run</th>
-                <th>Status</th>
-                <th>Started</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {proposals.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="muted">
-                    No proposals.
-                  </td>
-                </tr>
-              ) : null}
-              {proposals.map((r) => (
-                <tr key={r.id} data-testid="replan-proposal">
-                  <td>
-                    <Link to={mfgPaths.apsRun(r.id)}>
-                      Schedule #{r.run_no} · {r.label}
-                    </Link>{" "}
-                    <PolicyBadge policy={r.policy} />
-                  </td>
-                  <td>
-                    <ApsStatusChip run={r} />
-                  </td>
-                  <td className="small">{clock.dateTime(r.started_at ?? r.finished_at)}</td>
-                  <td>
-                    {published.data && r.status === "completed" ? (
-                      <Link className="btn sm" to={mfgPaths.apsCompare(r.id, published.data.id)}>
-                        <Icon name="compare" /> {tr("mfg.replanPage.btn.compareWithPublished")}
-                      </Link>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={proposals}
+          columns={[
+            {
+              key: "run",
+              header: "Run",
+              width: "minmax(240px, 2fr)",
+              sortValue: (r) => r.run_no,
+              exportValue: (r) => `Schedule #${r.run_no} · ${r.label}`,
+              render: (r) => (
+                <span className="row" style={{ gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+                  <Link to={mfgPaths.apsRun(r.id)} className="mfg-ellipsis">
+                    Schedule #{r.run_no} · {r.label}
+                  </Link>
+                  <PolicyBadge policy={r.policy} />
+                </span>
+              ),
+            },
+            { key: "status", header: "Status", width: "150px", sortValue: (r) => r.status, exportValue: (r) => r.status, render: (r) => <ApsStatusChip run={r} /> },
+            { key: "started", header: "Started", width: "150px", sortValue: (r) => r.started_at ?? r.finished_at, render: (r) => clock.dateTime(r.started_at ?? r.finished_at) },
+            {
+              key: "actions",
+              header: <span className="sr-only">Actions</span>,
+              label: "Actions",
+              width: "220px",
+              exportValue: () => "",
+              render: (r) =>
+                published.data && r.status === "completed" ? (
+                  <Link className="btn sm" to={mfgPaths.apsCompare(r.id, published.data.id)}>
+                    <Icon name="compare" /> {tr("mfg.replanPage.btn.compareWithPublished")}
+                  </Link>
+                ) : null,
+            },
+          ]}
+          rowKey={(r) => r.id}
+          label="Proposals"
+          testId="replan-proposals"
+          exportName="replanning-proposals"
+          rowExtras={() => ({ testId: "replan-proposal" })}
+          empty="No proposals. Make one from the open changes above."
+        />
       </section>
 
       <section className="card">

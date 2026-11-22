@@ -20,6 +20,7 @@ import { needsText, useCan } from "../../lib/permissions";
 import { isConflict, useLoad } from "../../lib/useMfg";
 import { formatDateTime, formatTime } from "../../../lib/locale";
 import { t } from "../../../lib/i18n";
+import { DataTable } from "../../components/DataTable";
 
 export const SOR_LABEL: Record<SorEntity, { label: string; help: string; allowed: SorValue[] }> = {
   items: { label: "Items", help: "Part number, description, unit, make/buy, cost. Planning settings (lot sizes, safety stock, families) always stay here.", allowed: ["erp", "superplanner", "shared"] },
@@ -128,7 +129,7 @@ export function IntegrationOverview() {
           <div className="kpi-sub">{fd.data?.last_poll_at ? `checked ${formatTime(fd.data.last_poll_at)}` : ""}</div>
         </Link>
       </div>
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h2>Who owns what</h2>
           <Link to={mfgPaths.integration("settings")} className="small">
@@ -141,35 +142,38 @@ export function IntegrationOverview() {
   );
 }
 
+function SorBadge({ v }: { v: string }) {
+  return v === "erp" ? (
+    <span className="badge info">
+      <Icon name="lock" size={12} /> {t("mfg.integrationPages.btn.erp")}
+    </span>
+  ) : v === "shared" ? (
+    <span className="badge warn">
+      <Icon name="refresh" size={12} /> {t("mfg.integrationPages.btn.both")}
+    </span>
+  ) : (
+    <span className="badge ok">
+      <Icon name="check" size={12} /> {t("mfg.integrationPages.btn.superplanner")}
+    </span>
+  );
+}
+
 function SorSummary({ s }: { s: IntegrationSettings }) {
   return (
-    <div className="table-wrap">
-      <table className="table" data-testid="sor-summary">
-        <tbody>
-          {SOR_ENTITIES.map((e) => (
-            <tr key={e} data-entity={e} data-sor={s.sor[e] ?? "superplanner"}>
-              <td>{SOR_LABEL[e].label}</td>
-              <td>
-                {(s.sor[e] ?? "superplanner") === "erp" ? (
-                  <span className="badge info">
-                    <Icon name="lock" size={12} /> {t("mfg.integrationPages.btn.erp")}
-                  </span>
-                ) : (s.sor[e] ?? "superplanner") === "shared" ? (
-                  <span className="badge warn">
-                    <Icon name="refresh" size={12} /> {t("mfg.integrationPages.btn.both")}
-                  </span>
-                ) : (
-                  <span className="badge ok">
-                    <Icon name="check" size={12} /> {t("mfg.integrationPages.btn.superplanner")}
-                  </span>
-                )}
-              </td>
-              <td className="small muted">{SOR_LABEL[e].help}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      rows={[...SOR_ENTITIES]}
+      columns={[
+        { key: "data", header: "Data", width: "minmax(150px, 1fr)", sortValue: (e) => SOR_LABEL[e].label, render: (e) => SOR_LABEL[e].label },
+        { key: "owner", header: "Owned by", width: "150px", sortValue: (e) => s.sor[e] ?? "superplanner", exportValue: (e) => s.sor[e] ?? "superplanner", render: (e) => <SorBadge v={s.sor[e] ?? "superplanner"} /> },
+        { key: "notes", header: "Notes", width: "minmax(240px, 3fr)", wrap: true, render: (e) => <span className="small muted">{SOR_LABEL[e].help}</span> },
+      ]}
+      rowKey={(e) => e}
+      label="Who owns what"
+      testId="sor-summary"
+      columnSettings={false}
+      rowExtras={(e) => ({ data: { entity: e, sor: s.sor[e] ?? "superplanner" } })}
+      card={{ title: "data", status: "owner", fields: ["notes"] }}
+    />
   );
 }
 
@@ -246,47 +250,45 @@ export function IntegrationSettingsTab() {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h2>Who owns what</h2>
           <span className="muted small">Data owned by the ERP is read-only here; data owned here is rejected when the ERP sends it.</span>
         </div>
-        <div className="table-wrap">
-          <table className="table" data-testid="sor-table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Owned by</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {SOR_ENTITIES.filter((e) => e !== "po_receipts").map((e) => {
+        <DataTable
+          rows={SOR_ENTITIES.filter((e) => e !== "po_receipts")}
+          columns={[
+            { key: "data", header: "Data", width: "minmax(150px, 1fr)", render: (e) => SOR_LABEL[e].label },
+            {
+              key: "owner",
+              header: "Owned by",
+              width: "190px",
+              exportValue: (e) => f.sor[e] ?? "superplanner",
+              render: (e) => {
                 const m = SOR_LABEL[e];
                 const v = f.sor[e] ?? "superplanner";
-                return (
-                  <tr key={e} data-entity={e}>
-                    <td>{m.label}</td>
-                    <td>
-                      {m.allowed.length > 1 ? (
-                        <select className="select sm" aria-label={`${m.label} owned by`} value={v} disabled={!can} onChange={(ev) => setSor(e, ev.target.value as SorValue)} data-testid={`sor-${e}`}>
-                          {m.allowed.map((a) => (
-                            <option key={a} value={a}>
-                              {SOR_TEXT[a]}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span>{SOR_TEXT[v]}</span>
-                      )}
-                    </td>
-                    <td className="small muted">{m.help}</td>
-                  </tr>
+                return m.allowed.length > 1 ? (
+                  <select className="select sm" aria-label={`${m.label} owned by`} value={v} disabled={!can} onChange={(ev) => setSor(e, ev.target.value as SorValue)} data-testid={`sor-${e}`}>
+                    {m.allowed.map((a) => (
+                      <option key={a} value={a}>
+                        {SOR_TEXT[a]}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span>{SOR_TEXT[v]}</span>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+            },
+            { key: "notes", header: "Notes", width: "minmax(240px, 3fr)", wrap: true, render: (e) => <span className="small muted">{SOR_LABEL[e].help}</span> },
+          ]}
+          rowKey={(e) => e}
+          label="Who owns what"
+          testId="sor-table"
+          columnSettings={false}
+          rowExtras={(e) => ({ data: { entity: e } })}
+          card={{ title: "data", actions: "owner", fields: ["notes"] }}
+        />
       </section>
 
       <section className="card">
