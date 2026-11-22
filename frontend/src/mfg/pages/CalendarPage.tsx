@@ -24,6 +24,7 @@ import type {
   LineRecord,
 } from "../api/types";
 import { ConflictBanner, MfgError, Spinner } from "../components/Feedback";
+import { DataTable } from "../components/DataTable";
 import { CheckField, SelectField, TextField } from "../components/Field";
 import { LineCalendar } from "../components/LineCalendar";
 import { addDays, fmtLocalDateTime, isoToLocal, localToIso } from "../lib/format";
@@ -46,7 +47,7 @@ export function CalendarPage() {
   const [del, setDel] = useState<CalendarExceptionRecord | null>(null);
   const [delError, setDelError] = useState<unknown>(null);
   const opened = useRef<string | null>(null);
-  const listRef = useRef<HTMLTableElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const allLines = lines.data?.items ?? [];
   const line = allLines.find((l) => l.id === lineParam) ?? allLines[0] ?? null;
@@ -129,40 +130,36 @@ export function CalendarPage() {
           </p>
           <MfgError error={exceptions.error} onRetry={exceptions.reload} />
           <MfgError error={delError} title="Could not delete" />
-          <div className="table-wrap">
-            <table className="table" ref={listRef} data-testid="exceptions-table">
-              <thead>
-                <tr>
-                  <th>What</th>
-                  <th>Applies to</th>
-                  <th>From</th>
-                  <th>Until</th>
-                  <th>Label</th>
-                  <th>
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="muted">
-                      Nothing planned.
-                    </td>
-                  </tr>
-                ) : null}
-                {list.map((x) => (
-                  <tr key={x.id} data-testid="exception-row" data-exception-id={x.id} className={x.id === exceptionParam ? "mfg-selected" : undefined}>
-                    <td>
-                      <span className="badge danger">
-                        <Icon name="ban" /> {KIND_LABEL[x.kind]}
-                      </span>
-                    </td>
-                    <td>{x.target ? `${x.target.type === "group" ? "Stage" : "Line"} ${x.target.code}` : "Whole plant"}</td>
-                    <td className="nowrap">{fmtLocalDateTime(x.start)}</td>
-                    <td className="nowrap">{fmtLocalDateTime(x.end)}</td>
-                    <td>{x.label}</td>
-                    <td className="nowrap">
+          <div ref={listRef}>
+            <DataTable
+              rows={list}
+              columns={[
+                {
+                  key: "kind",
+                  header: "What",
+                  width: "150px",
+                  sortValue: (x) => KIND_LABEL[x.kind],
+                  exportValue: (x) => KIND_LABEL[x.kind],
+                  render: (x) => (
+                    <span className="badge danger">
+                      <Icon name="ban" /> {KIND_LABEL[x.kind]}
+                    </span>
+                  ),
+                },
+                { key: "target", header: "Applies to", width: "minmax(140px, 1fr)", sortValue: (x) => (x.target ? x.target.code : ""), render: (x) => (x.target ? `${x.target.type === "group" ? "Stage" : "Line"} ${x.target.code}` : "Whole plant") },
+                { key: "from", header: "From", width: "150px", sortValue: (x) => x.start, render: (x) => fmtLocalDateTime(x.start) },
+                { key: "until", header: "Until", width: "150px", sortValue: (x) => x.end, render: (x) => fmtLocalDateTime(x.end) },
+                { key: "label", header: "Label", width: "minmax(160px, 1.4fr)", sortValue: (x) => x.label, render: (x) => x.label },
+                {
+                  key: "actions",
+                  header: <span className="sr-only">Actions</span>,
+                  label: "Actions",
+                  width: "96px",
+                  align: "right",
+                  hideable: false,
+                  exportValue: () => "",
+                  render: (x) => (
+                    <span className="row" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
                       <button
                         type="button"
                         className="btn sm"
@@ -177,11 +174,17 @@ export function CalendarPage() {
                       <button type="button" className="btn sm ghost icon" aria-label={`Delete ${x.label || x.kind}`} onClick={() => setDel(x)}>
                         <Icon name="trash" />
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>
+                  ),
+                },
+              ]}
+              rowKey={(x) => x.id}
+              label="Holidays, shutdowns and maintenance"
+              testId="exceptions-table"
+              exportName="calendar-exceptions"
+              rowExtras={(x) => ({ testId: "exception-row", data: { "exception-id": x.id }, className: x.id === exceptionParam ? "mfg-selected" : undefined })}
+              empty="Nothing planned. Add holidays, shutdowns or maintenance windows here."
+            />
           </div>
           {editing ? (
             <ExceptionForm

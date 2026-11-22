@@ -24,7 +24,20 @@ import { needsText, useAccess, useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { PageHeader } from "../../../components/PageHeader";
+import { FilterBar } from "../../../components/FilterBar";
+import { DataTable } from "../../components/DataTable";
+import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { DateInput } from "../../../components/DateInput";
+
+type TransferLine = TransferOrder["lines"][number];
+const LINE_COLS: Column<TransferLine>[] = [
+  { key: "line", header: "Line", width: "72px", sortValue: (l) => l.line_no, render: (l) => l.line_no },
+  { key: "item", header: "Item", width: "minmax(160px, 1.5fr)", exportValue: (l) => l.item_id, render: (l) => <ItemCode id={l.item_id} /> },
+  { key: "qty", header: "Qty", width: "100px", align: "right", sortValue: (l) => l.qty, render: (l) => fmtNum(l.qty) },
+  { key: "shipped", header: "Shipped", width: "100px", align: "right", sortValue: (l) => l.shipped_qty, render: (l) => fmtNum(l.shipped_qty) },
+  { key: "received", header: "Received", width: "100px", align: "right", sortValue: (l) => l.received_qty, render: (l) => fmtNum(l.received_qty) },
+  { key: "dates", header: "Ship → arrives", width: "minmax(200px, 1fr)", sortValue: (l) => l.ship_date, render: (l) => `${fmtDate(l.ship_date)} → ${fmtDate(l.receive_date)}` },
+];
 
 /** part number of an item id (transfer lines carry ids only) */
 function ItemCode({ id }: { id: string }) {
@@ -61,6 +74,27 @@ export function TransfersPage() {
   useEffect(() => {
     document.title = "Transfers - SuperPlanner";
   }, []);
+  const plantOf = (t: TransferOrder) => {
+    const p = dir === "outbound" ? t.dest_plant : t.source_plant;
+    return `${p.code}${p.name ? ` · ${p.name}` : ""}`;
+  };
+  const columns: Column<TransferOrder>[] = [
+    {
+      key: "number",
+      header: "Transfer",
+      width: "140px",
+      exportValue: (t) => t.number,
+      render: (t) => (
+        <Link to={mfgPaths.transfer(t.id)} className="mono">
+          {t.number}
+        </Link>
+      ),
+    },
+    { key: "plant", header: dir === "outbound" ? "To" : "From", label: "Plant", width: "minmax(200px, 1.5fr)", render: plantOf },
+    { key: "status", header: "Status", width: "150px", exportValue: (t) => STATUS[t.status]?.label ?? t.status, render: (t) => <TrfStatus s={t.status} /> },
+    { key: "lines", header: "Lines", width: "minmax(150px, 1fr)", render: (t) => `${t.lines.length} line${t.lines.length === 1 ? "" : "s"}, ${fmtNum(t.lines.reduce((a, l) => a + l.qty, 0))} units` },
+    { key: "dates", header: "Ship → arrives", width: "200px", render: (t) => (t.lines[0] ? `${fmtDate(t.lines[0].ship_date)} → ${fmtDate(t.lines[0].receive_date)}` : "") },
+  ];
   return (
     <div className="col gap-lg" data-testid="transfers-page">
       <PageHeader
@@ -74,56 +108,37 @@ export function TransfersPage() {
           </>
         }
       />
-      <div className="row" role="group" aria-label="Direction">
-        <button type="button" className={`btn sm${dir === "outbound" ? " primary" : ""}`} aria-pressed={dir === "outbound"} onClick={() => setSearchParam(setParams, "dir", "outbound")}>
-          Outgoing
-        </button>
-        <button type="button" className={`btn sm${dir === "inbound" ? " primary" : ""}`} aria-pressed={dir === "inbound"} onClick={() => setSearchParam(setParams, "dir", "inbound")} data-testid="transfer-incoming">
-          Incoming
-        </button>
-      </div>
+      <FilterBar>
+        <div className="field">
+          <span className="field-label" id="trf-dir-label">
+            Direction
+          </span>
+          <div className="btn-group" role="group" aria-labelledby="trf-dir-label">
+            <button type="button" className="btn" aria-pressed={dir === "outbound"} onClick={() => setSearchParam(setParams, "dir", "outbound")}>
+              Outgoing
+            </button>
+            <button type="button" className="btn" aria-pressed={dir === "inbound"} onClick={() => setSearchParam(setParams, "dir", "inbound")} data-testid="transfer-incoming">
+              Incoming
+            </button>
+          </div>
+        </div>
+      </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="transfer-table">
-          <thead>
-            <tr>
-              <th>Transfer</th>
-              <th>{dir === "outbound" ? "To" : "From"}</th>
-              <th>Status</th>
-              <th>Lines</th>
-              <th>Ship / receive</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted">
-                  {data.loading ? "Loading…" : "None."}
-                </td>
-              </tr>
-            ) : null}
-            {data.rows.map((t) => (
-              <tr key={t.id} data-testid="transfer-row" data-status={t.status}>
-                <td>
-                  <Link to={mfgPaths.transfer(t.id)} className="mono">
-                    {t.number}
-                  </Link>
-                </td>
-                <td>{dir === "outbound" ? `${t.dest_plant.code}${t.dest_plant.name ? ` · ${t.dest_plant.name}` : ""}` : `${t.source_plant.code}${t.source_plant.name ? ` · ${t.source_plant.name}` : ""}`}</td>
-                <td>
-                  <TrfStatus s={t.status} />
-                </td>
-                <td className="small">
-                  {t.lines.length} line{t.lines.length === 1 ? "" : "s"}, {fmtNum(t.lines.reduce((a, l) => a + l.qty, 0))} units
-                </td>
-                <td className="small">
-                  {t.lines[0] ? `${fmtDate(t.lines[0].ship_date)} → ${fmtDate(t.lines[0].receive_date)}` : ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <VirtualTable
+        rows={data.rows}
+        columns={columns}
+        rowKey={(t) => t.id}
+        label={dir === "outbound" ? "Outgoing transfers" : "Incoming transfers"}
+        testId="transfer-table"
+        tableId="transfer-table"
+        totalCount={data.total}
+        loading={data.loading}
+        onEndReached={data.onEndReached}
+        exportName={`transfers-${dir}`}
+        rowExtras={(t) => ({ testId: "transfer-row", data: { status: t.status } })}
+        empty={dir === "outbound" ? "No outgoing transfers. Create one to send stock to another plant of your organisation." : "No incoming transfers. Transfers other plants send here appear in this list."}
+        card={{ title: "number", status: "status", fields: ["plant", "lines", "dates"] }}
+      />
       {creating ? <NewTransferDialog onClose={() => setCreating(false)} onSaved={(t) => navigate(mfgPaths.transfer(t.id))} /> : null}
     </div>
   );
@@ -309,36 +324,16 @@ export function TransferPage() {
       </div>
       {!out && d.status === "open" ? <Banner tone="info" title="Not shipped yet">The sending plant has not shipped; planning here already counts it as arriving on the dates below.</Banner> : null}
       <MfgError error={error} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="transfer-lines">
-          <thead>
-            <tr>
-              <th>Line</th>
-              <th>Item</th>
-              <th className="right">Qty</th>
-              <th className="right">Shipped</th>
-              <th className="right">Received</th>
-              <th>Ship → arrives</th>
-            </tr>
-          </thead>
-          <tbody>
-            {d.lines.map((l) => (
-              <tr key={l.id} data-testid="transfer-line-row">
-                <td>{l.line_no}</td>
-                <td>
-                  <ItemCode id={l.item_id} />
-                </td>
-                <td className="right">{fmtNum(l.qty)}</td>
-                <td className="right">{fmtNum(l.shipped_qty)}</td>
-                <td className="right">{fmtNum(l.received_qty)}</td>
-                <td className="small">
-                  {fmtDate(l.ship_date)} → {fmtDate(l.receive_date)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={d.lines}
+        columns={LINE_COLS}
+        rowKey={(l) => l.id}
+        label={`Lines of ${d.number}`}
+        testId="transfer-lines"
+        exportName={`transfer-${d.number}`}
+        rowExtras={() => ({ testId: "transfer-line-row" })}
+        card={{ title: "item", fields: ["qty", "shipped", "received"] }}
+      />
       {d.note ? <p className="muted">{d.note}</p> : null}
       {moving ? (
         <MoveDialog

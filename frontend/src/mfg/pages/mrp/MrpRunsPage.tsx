@@ -44,7 +44,7 @@ export function MrpRunsPage() {
     {
       key: "run",
       header: "Run",
-      width: "minmax(240px, 2fr)",
+      width: "minmax(190px, 2fr)",
       sortValue: (r) => r.run_no,
       exportValue: (r) => runTitle(r),
       render: (r) => (
@@ -70,13 +70,13 @@ export function MrpRunsPage() {
         </span>
       ),
     },
-    { key: "kind", header: "Kind", width: "110px", sortValue: (r) => r.kind, render: (r) => <RunKindBadge kind={r.kind} /> },
-    { key: "status", header: "Status", width: "120px", sortValue: (r) => r.status, render: (r) => <RunStatusChip status={r.status} /> },
-    { key: "as_of", header: "As of", width: "110px", sortValue: (r) => r.as_of, render: (r) => fmtDate(r.as_of) },
+    { key: "kind", header: "Kind", width: "88px", sortValue: (r) => r.kind, render: (r) => <RunKindBadge kind={r.kind} /> },
+    { key: "status", header: "Status", width: "118px", sortValue: (r) => r.status, render: (r) => <RunStatusChip status={r.status} /> },
+    { key: "as_of", header: "As of", width: "104px", sortValue: (r) => r.as_of, render: (r) => fmtDate(r.as_of) },
     {
       key: "late",
       header: "Late demand",
-      width: "120px",
+      width: "104px",
       align: "right",
       sortValue: (r) => (r.summary ? r.summary.demand_late + r.summary.demand_past_due : null),
       render: (r) => {
@@ -84,24 +84,24 @@ export function MrpRunsPage() {
         return s ? <span className={s.demand_late + s.demand_past_due ? "mfg-neg" : undefined}>{s.demand_late + s.demand_past_due} of {s.demand_lines}</span> : "";
       },
     },
-    { key: "short", header: "Parts short", width: "104px", align: "right", sortValue: (r) => r.summary?.items_short, render: (r) => (r.summary ? r.summary.items_short.toLocaleString("en-IN") : "") },
+    { key: "short", header: "Parts short", width: "92px", align: "right", sortValue: (r) => r.summary?.items_short, render: (r) => (r.summary ? r.summary.items_short.toLocaleString("en-IN") : "") },
     {
       key: "planned",
       header: "Planned make / buy",
-      width: "150px",
+      width: "138px",
       align: "right",
       sortValue: (r) => (r.summary ? r.summary.planned_make + r.summary.planned_buy : null),
       render: (r) => (r.summary ? `${r.summary.planned_make.toLocaleString("en-IN")} / ${r.summary.planned_buy.toLocaleString("en-IN")}` : ""),
     },
-    { key: "finished", header: "Finished", width: "150px", sortValue: (r) => r.finished_at, render: (r) => fmtTimestamp(r.finished_at) },
-    { key: "by", header: "By", width: "minmax(110px, 1fr)", sortValue: (r) => r.actor.name, render: (r) => r.actor.name },
+    { key: "finished", header: "Finished", width: "140px", sortValue: (r) => r.finished_at, render: (r) => fmtTimestamp(r.finished_at) },
+    { key: "by", header: "By", width: "minmax(90px, 1fr)", sortValue: (r) => r.actor.name, render: (r) => r.actor.name },
   ];
   if (canRun)
     columns.push({
       key: "actions",
       header: <span className="sr-only">Actions</span>,
       label: "Actions",
-      width: "96px",
+      width: "92px",
       align: "right",
       exportValue: () => "",
       render: (r) => (

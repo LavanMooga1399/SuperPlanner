@@ -25,6 +25,8 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { isConflict, useLoad } from "../../lib/useMfg";
 import { formatDate } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
+import { FilterBar } from "../../../components/FilterBar";
+import { VirtualTable, type Column } from "../../components/VirtualTable";
 
 const STATUS: Record<CrStatus, { label: string; tone: string; icon: IconName }> = {
   draft: { label: "Draft", tone: "info", icon: "file" },
@@ -97,56 +99,60 @@ export function EcoListPage() {
           </>
         }
       />
-      <div className="row wrap" role="group" aria-label="Status">
-        {(["", "draft", "submitted", "approved", "implemented"] as const).map((s) => (
-          <button key={s || "all"} type="button" className={`btn sm${status === s ? " primary" : ""}`} aria-pressed={status === s} onClick={() => setSearchParam(setParams, "status", s)}>
-            {s ? STATUS[s].label : "All"}
-          </button>
-        ))}
-      </div>
-      <MfgError error={data.error} onRetry={data.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="eco-table">
-          <thead>
-            <tr>
-              <th>Change</th>
-              <th>Status</th>
-              <th>Takes effect</th>
-              <th>Documents</th>
-              <th>Requested by</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted">
-                  {data.loading ? "Loading…" : "No change requests."}
-                </td>
-              </tr>
-            ) : null}
-            {data.rows.map((c) => (
-              <tr key={c.id} data-testid="eco-row" data-status={c.status}>
-                <td>
-                  <Link to={mfgPaths.eco(c.id)}>
-                    <span className="mono">{c.number}</span> {c.title}
-                  </Link>
-                  {c.source === "erp" ? <div className="small faint">from the ERP</div> : null}
-                </td>
-                <td>
-                  <CrStatusChip s={c.status} />
-                </td>
-                <td className="small">{effText(c)}</td>
-                <td className="small">{c.items.length ? `${c.items.length} document${c.items.length === 1 ? "" : "s"}` : "none yet"}</td>
-                <td className="small">{who(c.requested_by)}</td>
-              </tr>
+      <FilterBar>
+        <div className="field">
+          <span className="field-label" id="eco-status-label">
+            Status
+          </span>
+          <div className="btn-group" role="group" aria-labelledby="eco-status-label">
+            {(["", "draft", "submitted", "approved", "implemented"] as const).map((s) => (
+              <button key={s || "all"} type="button" className="btn" aria-pressed={status === s} onClick={() => setSearchParam(setParams, "status", s)}>
+                {s ? STATUS[s].label : "All"}
+              </button>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
+      </FilterBar>
+      <MfgError error={data.error} onRetry={data.reload} />
+      <VirtualTable
+        rows={data.rows}
+        columns={ECO_COLS}
+        rowKey={(c) => c.id}
+        label="Change requests"
+        testId="eco-table"
+        totalCount={data.total}
+        loading={data.loading}
+        onEndReached={data.onEndReached}
+        exportName="change-requests"
+        rowExtras={(c) => ({ testId: "eco-row", data: { status: c.status } })}
+        empty={status ? "No change requests with this status." : "No change requests yet. Create one to change a BOM or routing in a controlled way."}
+        card={{ title: "change", status: "status", fields: ["effect", "docs", "by"] }}
+      />
       {creating ? <CrDialog onClose={() => setCreating(false)} onSaved={(c) => navigate(mfgPaths.eco(c.id))} /> : null}
     </div>
   );
 }
+
+const ECO_COLS: Column<ChangeRequest>[] = [
+  {
+    key: "change",
+    header: "Change",
+    width: "minmax(280px, 2fr)",
+    exportValue: (c) => `${c.number} ${c.title}`,
+    render: (c) => (
+      <span className="mfg-ellipsis">
+        <Link to={mfgPaths.eco(c.id)}>
+          <span className="mono">{c.number}</span> {c.title}
+        </Link>
+        {c.source === "erp" ? <span className="small faint"> · from the ERP</span> : null}
+      </span>
+    ),
+  },
+  { key: "status", header: "Status", width: "130px", exportValue: (c) => STATUS[c.status]?.label ?? c.status, render: (c) => <CrStatusChip s={c.status} /> },
+  { key: "effect", header: "Takes effect", width: "minmax(160px, 1fr)", render: (c) => effText(c) },
+  { key: "docs", header: "Documents", width: "120px", render: (c) => (c.items.length ? `${c.items.length} document${c.items.length === 1 ? "" : "s"}` : "none yet") },
+  { key: "by", header: "Requested by", width: "minmax(140px, 1fr)", render: (c) => who(c.requested_by) },
+];
 
 function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): void; onSaved(c: ChangeRequest): void }) {
   const [f, setF] = useState<CrInput>(() => ({

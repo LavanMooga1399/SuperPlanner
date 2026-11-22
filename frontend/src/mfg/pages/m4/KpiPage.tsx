@@ -20,7 +20,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
-import { DataTable } from "../../components/DataTable";
+import { DataTable, ShowMore } from "../../components/DataTable";
 import type { Column } from "../../components/VirtualTable";
 
 interface TileDef {
@@ -412,7 +412,7 @@ function AdherenceList({ lineId, from, to }: { lineId: string; from: string; to:
     },
   ];
   return (
-    <section className="card">
+    <section className="card card-table">
       <div className="card-header">
         <h2>Planned against actual</h2>
       </div>
@@ -427,15 +427,9 @@ function AdherenceList({ lineId, from, to }: { lineId: string; from: string; to:
         loading={data.loading}
         exportName="schedule-adherence"
         empty="No planned operations on this line in the period."
+        footer={<ShowMore shown={data.rows.length} total={data.total} noun="operations" loading={data.loading} onMore={data.onEndReached} />}
         card={{ title: "wo", status: "ok", fields: ["planned", "start", "end"] }}
       />
-      {data.rows.length < data.total ? (
-        <div className="card-footer">
-          <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-            Show more ({data.rows.length} of {data.total})
-          </button>
-        </div>
-      ) : null}
     </section>
   );
 }

@@ -10,6 +10,8 @@ import { MfgError, Spinner } from "../components/Feedback";
 import { ItemSupplierDialog } from "../components/ItemSupplierDialog";
 import { PermissionGate } from "../components/PermissionGate";
 import { ActiveBadge } from "../components/StatusChip";
+import { DataTable } from "../components/DataTable";
+import type { Column } from "../components/VirtualTable";
 import { fmtNum } from "../lib/formatM2";
 import { mfgPaths } from "../lib/paths";
 import { useCan } from "../lib/permissions";
@@ -29,78 +31,74 @@ export function ItemSupplierTable({
   onDelete?(r: ItemSupplierRecord): void;
   highlight?: string | null;
 }) {
-  return (
-    <div className="table-wrap card">
-      <table className="table" data-testid="item-supplier-table">
-        <thead>
-          <tr>
-            <th>{show === "item" ? "Part" : "Supplier"}</th>
-            <th>Supplier part no.</th>
-            <th className="right">Lead time</th>
-            <th className="right">Min. order</th>
-            <th className="right">Multiple</th>
-            <th>Pack</th>
-            <th className="right">Unit price</th>
-            <th>Status</th>
-            <th>
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={9} className="muted">
-                No suppliers yet. Without one, MRP uses the item's lead time and creates purchase requests without a supplier.
-              </td>
-            </tr>
+  const columns: Column<ItemSupplierRecord>[] = [
+    {
+      key: "who",
+      header: show === "item" ? "Part" : "Supplier",
+      width: "minmax(220px, 2fr)",
+      sortValue: (r) => (show === "item" ? r.item.part_number : r.supplier.code),
+      exportValue: (r) => (show === "item" ? r.item.part_number : `${r.supplier.code} ${r.supplier.name}`),
+      render: (r) => (
+        <span className="row" style={{ gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+          {show === "item" ? (
+            <Link to={mfgPaths.itemSuppliers(r.item.id)} className="mono">
+              {r.item.part_number}
+            </Link>
+          ) : (
+            <Link to={mfgPaths.supplier(r.supplier.id)} className="mfg-ellipsis">
+              <span className="mono">{r.supplier.code}</span> {r.supplier.name}
+            </Link>
+          )}
+          {r.preferred ? (
+            <span className="badge accent" title="MRP orders from this supplier">
+              <Icon name="star" /> Preferred
+            </span>
           ) : null}
-          {rows.map((r) => (
-            <tr key={r.id} data-testid="item-supplier-row" data-preferred={r.preferred} className={r.id === highlight ? "mfg-highlight" : undefined}>
-              <td>
-                {show === "item" ? (
-                  <Link to={mfgPaths.itemSuppliers(r.item.id)} className="mono">
-                    {r.item.part_number}
-                  </Link>
-                ) : (
-                  <Link to={mfgPaths.supplier(r.supplier.id)}>
-                    <span className="mono">{r.supplier.code}</span> {r.supplier.name}
-                  </Link>
-                )}{" "}
-                {r.preferred ? (
-                  <span className="badge accent" title="MRP orders from this supplier">
-                    <Icon name="star" /> Preferred
-                  </span>
-                ) : null}
-              </td>
-              <td className="mono">{r.supplier_part_number}</td>
-              <td className="right">{r.lead_time_days === null ? <span className="faint">default</span> : `${r.lead_time_days} d`}</td>
-              <td className="right">{r.min_order_qty ? fmtNum(r.min_order_qty) : <span className="faint">item</span>}</td>
-              <td className="right">{r.order_multiple ? fmtNum(r.order_multiple) : <span className="faint">item</span>}</td>
-              <td>{r.units_per_purchase_unit !== 1 || r.purchase_unit ? `${r.purchase_unit ?? "pack"} of ${fmtNum(r.units_per_purchase_unit)}` : ""}</td>
-              <td className="right">{r.unit_price === null ? "" : `${fmtNum(r.unit_price)} ${r.currency}`}</td>
-              <td>
-                <ActiveBadge active={r.active} />
-              </td>
-              <td className="right">
-                {onEdit ? (
-                  <span className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
-                    <button type="button" className="btn sm" onClick={() => onEdit(r)}>
-                      Edit
-                    </button>
-                    {onDelete ? (
-                      <button type="button" className="btn sm ghost icon" aria-label="Remove" onClick={() => onDelete(r)}>
-                        <Icon name="trash" />
-                      </button>
-                    ) : null}
-                  </span>
-                ) : null}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        </span>
+      ),
+    },
+    { key: "spn", header: "Supplier part no.", width: "minmax(130px, 1fr)", sortValue: (r) => r.supplier_part_number, render: (r) => <span className="mono">{r.supplier_part_number}</span> },
+    { key: "lead", header: "Lead time", width: "90px", align: "right", sortValue: (r) => r.lead_time_days, render: (r) => (r.lead_time_days === null ? <span className="faint">default</span> : `${r.lead_time_days} d`) },
+    { key: "moq", header: "Min. order", width: "96px", align: "right", sortValue: (r) => r.min_order_qty, render: (r) => (r.min_order_qty ? fmtNum(r.min_order_qty) : <span className="faint">item</span>) },
+    { key: "mult", header: "Multiple", width: "88px", align: "right", sortValue: (r) => r.order_multiple, render: (r) => (r.order_multiple ? fmtNum(r.order_multiple) : <span className="faint">item</span>) },
+    { key: "pack", header: "Pack", width: "110px", render: (r) => (r.units_per_purchase_unit !== 1 || r.purchase_unit ? `${r.purchase_unit ?? "pack"} of ${fmtNum(r.units_per_purchase_unit)}` : "") },
+    { key: "price", header: "Unit price", width: "110px", align: "right", sortValue: (r) => r.unit_price, render: (r) => (r.unit_price === null ? "" : `${fmtNum(r.unit_price)} ${r.currency}`) },
+    { key: "status", header: "Status", width: "96px", sortValue: (r) => (r.active ? 0 : 1), exportValue: (r) => (r.active ? "Active" : "Inactive"), render: (r) => <ActiveBadge active={r.active} /> },
+  ];
+  if (onEdit)
+    columns.push({
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      label: "Actions",
+      width: "100px",
+      align: "right",
+      exportValue: () => "",
+      render: (r) => (
+        <span className="row" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
+          <button type="button" className="btn sm" onClick={() => onEdit(r)}>
+            Edit
+          </button>
+          {onDelete ? (
+            <button type="button" className="btn sm ghost icon" aria-label="Remove" onClick={() => onDelete(r)}>
+              <Icon name="trash" />
+            </button>
+          ) : null}
+        </span>
+      ),
+    });
+  return (
+    <DataTable
+      rows={rows}
+      columns={columns}
+      rowKey={(r) => r.id}
+      label={show === "item" ? "Parts from this supplier" : "Suppliers of this part"}
+      testId="item-supplier-table"
+      tableId={`item-supplier-table-${show}`}
+      exportName={show === "item" ? "supplier-parts" : "item-suppliers"}
+      rowExtras={(r) => ({ testId: "item-supplier-row", data: { preferred: r.preferred }, className: r.id === highlight ? "mfg-highlight" : undefined })}
+      empty="No suppliers yet. Without one, MRP uses the item's lead time and creates purchase requests without a supplier."
+      card={{ title: "who", status: "status", fields: ["lead", "moq", "price"] }}
+    />
   );
 }
 

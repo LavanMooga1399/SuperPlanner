@@ -15,12 +15,22 @@ import { CheckField, numOrNull, numText, strOrNull, TextField } from "../../comp
 import { ItemSupplierDialog } from "../../components/ItemSupplierDialog";
 import { PermissionGate } from "../../components/PermissionGate";
 import { ActiveBadge } from "../../components/StatusChip";
+import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { isNotFound, useDebounced, useLoad } from "../../lib/useMfg";
 import { ItemSupplierTable } from "../ItemSuppliersTab";
 import { plural } from "../../../lib/i18n";
 import { FilterBar } from "../../../components/FilterBar";
+
+const SUPPLIER_COLS: Column<SupplierRecord>[] = [
+  { key: "code", header: "Code", width: "140px", sortValue: (s) => s.code, exportValue: (s) => s.code, render: (s) => <Link to={mfgPaths.supplier(s.id)} className="mono">{s.code}</Link> },
+  { key: "name", header: "Name", width: "minmax(200px, 2fr)", sortValue: (s) => s.name, render: (s) => s.name },
+  { key: "lead", header: "Lead time", width: "100px", align: "right", sortValue: (s) => s.lead_time_days, render: (s) => (s.lead_time_days === null ? "" : `${s.lead_time_days} d`) },
+  { key: "parts", header: "Parts", width: "80px", align: "right", sortValue: (s) => s.item_count, render: (s) => s.item_count },
+  { key: "contact", header: "Contact", width: "minmax(200px, 2fr)", render: (s) => [s.contact_name, s.email, s.phone].filter(Boolean).join(" · ") },
+  { key: "status", header: "Status", width: "100px", sortValue: (s) => (s.active ? 0 : 1), exportValue: (s) => (s.active ? "Active" : "Inactive"), render: (s) => <ActiveBadge active={s.active} /> },
+];
 
 function SupplierDialog({ sup, onClose, onSaved }: { sup: SupplierRecord | null; onClose(): void; onSaved(s: SupplierRecord): void }) {
   const [f, setF] = useState({
@@ -93,47 +103,19 @@ export function SuppliersPage() {
         </PermissionGate>
       </FilterBar>
       <MfgError error={list.error} onRetry={list.reload} />
-      {list.loading && !list.data ? <Spinner /> : null}
-      {list.data ? (
-        <div className="table-wrap card">
-          <table className="table" data-testid="suppliers-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th className="right">Lead time</th>
-                <th className="right">Parts</th>
-                <th>Contact</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="muted">
-                    No suppliers{dq ? " match" : " yet"}.
-                  </td>
-                </tr>
-              ) : null}
-              {list.data.items.slice(0, 500).map((s) => (
-                <tr key={s.id} data-testid="supplier-row" data-code={s.code}>
-                  <td className="mono">
-                    <Link to={mfgPaths.supplier(s.id)}>{s.code}</Link>
-                  </td>
-                  <td>{s.name}</td>
-                  <td className="right">{s.lead_time_days === null ? "" : `${s.lead_time_days} d`}</td>
-                  <td className="right">{s.item_count}</td>
-                  <td className="small">{[s.contact_name, s.email, s.phone].filter(Boolean).join(" · ")}</td>
-                  <td>
-                    <ActiveBadge active={s.active} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {list.data.items.length > 500 ? <div className="card-footer muted small">First 500 of {list.data.items.length}; search to narrow down.</div> : null}
-        </div>
-      ) : null}
+      <VirtualTable
+        rows={list.data?.items ?? []}
+        columns={SUPPLIER_COLS}
+        rowKey={(s) => s.id}
+        label="Suppliers"
+        testId="suppliers-table"
+        loading={list.loading && !list.data}
+        exportName="suppliers"
+        rowExtras={(s) => ({ testId: "supplier-row", data: { code: s.code } })}
+        onActivate={(s) => navigate(mfgPaths.supplier(s.id))}
+        empty={dq ? "No suppliers match the search." : "No suppliers yet. Add one with New supplier or import them."}
+        card={{ title: "code", status: "status", fields: ["name", "lead", "parts"] }}
+      />
       {creating ? <SupplierDialog sup={null} onClose={() => setCreating(false)} onSaved={(s) => navigate(mfgPaths.supplier(s.id))} /> : null}
     </div>
   );

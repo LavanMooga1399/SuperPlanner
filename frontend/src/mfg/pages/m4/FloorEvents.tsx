@@ -11,6 +11,8 @@ import { listLines } from "../../api/client";
 import { listFloorEvents, postFloorEvent } from "../../api/clientM4";
 import type { FloorEventRecord, FloorEventType } from "../../api/typesM4";
 import { MfgError } from "../../components/Feedback";
+import { DataTable, ShowMore } from "../../components/DataTable";
+import type { Column } from "../../components/VirtualTable";
 import { EVENT_LABEL, floorErrorText, fmtQty, humanCode } from "../../floor/floorText";
 import { newClientEventId } from "../../floor/offlineQueue";
 import { usePlantClock } from "../../lib/plantTime";
@@ -42,6 +44,109 @@ export function FloorEvents() {
   const [correcting, setCorrecting] = useState<FloorEventRecord | null>(null);
   const [reopening, setReopening] = useState<FloorEventRecord | null>(null);
 
+  const columns: Column<FloorEventRecord>[] = [
+    {
+      key: "when",
+      header: "When",
+      width: "176px",
+      wrap: true,
+      exportValue: (e) => e.event_at,
+      render: (e) => (
+        <span>
+          {clock.dateTime(e.event_at)}
+          {Math.abs(Date.parse(e.recorded_at) - Date.parse(e.event_at)) > 5 * 60000 ? <span className="vt-sub">recorded {clock.dateTime(e.recorded_at)}</span> : null}
+        </span>
+      ),
+    },
+    {
+      key: "wo",
+      header: "Work order / step",
+      width: "160px",
+      exportValue: (e) => `${e.wo_number ?? e.wo_id}${e.op_seq ? ` / ${e.op_seq}` : ""}`,
+      render: (e) => (
+        <span>
+          <Link to={mfgPaths.workOrder(e.wo_id)} className="mono">
+            {e.wo_number ?? e.wo_id}
+          </Link>
+          {e.op_seq ? ` / ${e.op_seq}` : ""}
+        </span>
+      ),
+    },
+    {
+      key: "event",
+      header: "Event",
+      width: "minmax(200px, 1.5fr)",
+      wrap: true,
+      exportValue: (e) => EVENT_LABEL[e.event_type] ?? e.event_type,
+      render: (e) => (
+        <span>
+          {EVENT_LABEL[e.event_type] ?? e.event_type}
+          {e.corrects_event_id ? <span className="faint small"> · corrects an earlier event</span> : null}
+          {e.corrected ? (
+            <span className="small">
+              {" "}
+              · <Icon name="refresh" size={12} /> corrected later
+            </span>
+          ) : null}
+          {e.reason_code ? <span className="faint small"> · reason: {humanCode(e.reason_code)}</span> : null}
+          {e.note ? <span className="faint small"> · {e.note}</span> : null}
+        </span>
+      ),
+    },
+    {
+      key: "qty",
+      header: "Quantities",
+      width: "minmax(150px, 1fr)",
+      wrap: true,
+      render: (e) =>
+        [
+          e.qty_good !== null ? `${fmtQty(e.qty_good)} good` : "",
+          e.qty_scrap ? `${fmtQty(e.qty_scrap)} scrap` : "",
+          e.qty_rework ? `${fmtQty(e.qty_rework)} rework${e.rework_to_seq ? ` to ${e.rework_to_seq}` : ""}` : "",
+          e.serials?.produced?.length ? `${e.serials.produced.length} serials` : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+    },
+    { key: "line", header: "Line", width: "90px", render: (e) => e.line?.code ?? "" },
+    {
+      key: "who",
+      header: "Who",
+      width: "minmax(150px, 1fr)",
+      wrap: true,
+      exportValue: (e) => e.operators.map((o) => o.name || o.code).join(", "),
+      render: (e) =>
+        [
+          e.operators.map((o) => o.name || o.code).join(", "),
+          e.actor?.name && !e.operators.some((o) => o.name === e.actor?.name) ? `by ${e.actor.name}` : "",
+          e.forced ? `forced: ${e.forced.reason}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+    },
+  ];
+  if (canSupervise)
+    columns.push({
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      label: "Actions",
+      width: "150px",
+      exportValue: () => "",
+      render: (e) => (
+        <span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
+          {!e.corrected && ["report", "complete", "correct"].includes(e.event_type) ? (
+            <button type="button" className="btn sm" onClick={() => setCorrecting(e)} data-testid="event-correct">
+              Correct
+            </button>
+          ) : null}
+          {e.event_type === "complete" && !e.corrected ? (
+            <button type="button" className="btn sm ghost" onClick={() => setReopening(e)} data-testid="event-reopen">
+              Reopen
+            </button>
+          ) : null}
+        </span>
+      ),
+    });
   return (
     <div className="col gap-lg" data-testid="floor-events">
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
@@ -88,86 +193,20 @@ export function FloorEvents() {
         ) : null}
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="floor-event-table">
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Work order / step</th>
-              <th>Event</th>
-              <th>Quantities</th>
-              <th>Line</th>
-              <th>Who</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="muted">
-                  {data.loading ? "Loading…" : "No events."}
-                </td>
-              </tr>
-            ) : null}
-            {data.rows.map((e) => (
-              <tr key={e.id} data-testid="floor-event-row" data-type={e.event_type} className={e.corrected ? "faint" : undefined}>
-                <td className="small">
-                  {clock.dateTime(e.event_at)}
-                  {Math.abs(Date.parse(e.recorded_at) - Date.parse(e.event_at)) > 5 * 60000 ? <div className="faint">recorded {clock.dateTime(e.recorded_at)}</div> : null}
-                </td>
-                <td>
-                  <Link to={mfgPaths.workOrder(e.wo_id)} className="mono">
-                    {e.wo_number ?? e.wo_id}
-                  </Link>
-                  {e.op_seq ? ` / ${e.op_seq}` : ""}
-                </td>
-                <td>
-                  {EVENT_LABEL[e.event_type] ?? e.event_type}
-                  {e.corrects_event_id ? <div className="faint small">corrects an earlier event</div> : null}
-                  {e.corrected ? (
-                    <div className="small">
-                      <Icon name="refresh" size={12} /> corrected later
-                    </div>
-                  ) : null}
-                  {e.reason_code ? <div className="faint small">reason: {humanCode(e.reason_code)}</div> : null}
-                  {e.note ? <div className="faint small">{e.note}</div> : null}
-                </td>
-                <td className="small">
-                  {e.qty_good !== null ? `${fmtQty(e.qty_good)} good ` : ""}
-                  {e.qty_scrap ? `${fmtQty(e.qty_scrap)} scrap ` : ""}
-                  {e.qty_rework ? `${fmtQty(e.qty_rework)} rework${e.rework_to_seq ? ` to ${e.rework_to_seq}` : ""}` : ""}
-                  {e.serials?.produced?.length ? <div className="faint">{e.serials.produced.length} serials</div> : null}
-                </td>
-                <td className="small">{e.line?.code ?? ""}</td>
-                <td className="small">
-                  {e.operators.map((o) => o.name || o.code).join(", ")}
-                  {e.actor?.name && !e.operators.some((o) => o.name === e.actor?.name) ? <div className="faint">by {e.actor.name}</div> : null}
-                  {e.forced ? <div className="small">forced: {e.forced.reason}</div> : null}
-                </td>
-                <td>
-                  {canSupervise && !e.corrected && ["report", "complete", "correct"].includes(e.event_type) ? (
-                    <button type="button" className="btn sm" onClick={() => setCorrecting(e)} data-testid="event-correct">
-                      Correct
-                    </button>
-                  ) : null}
-                  {canSupervise && e.event_type === "complete" && !e.corrected ? (
-                    <button type="button" className="btn sm ghost" onClick={() => setReopening(e)} data-testid="event-reopen">
-                      Reopen
-                    </button>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.rows.length < data.total ? (
-          <div className="card-footer">
-            <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              Show more ({data.rows.length} of {data.total})
-            </button>
-          </div>
-        ) : null}
-      </div>
+      <DataTable
+        rows={data.rows}
+        columns={columns}
+        rowKey={(e) => e.id}
+        label="Shop floor events"
+        testId="floor-event-table"
+        totalCount={data.total}
+        loading={data.loading}
+        exportName="floor-events"
+        rowExtras={(e) => ({ testId: "floor-event-row", data: { type: e.event_type }, className: e.corrected ? "faint" : undefined })}
+        empty="No events in this period. Events appear as operators report on the shop floor."
+        footer={<ShowMore shown={data.rows.length} total={data.total} noun="events" loading={data.loading} onMore={data.onEndReached} />}
+        card={{ title: "wo", status: "event", actions: "actions", fields: ["when", "qty", "who"] }}
+      />
       {correcting ? (
         <CorrectDialog
           ev={correcting}

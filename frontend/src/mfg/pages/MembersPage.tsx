@@ -12,6 +12,8 @@ import { createMember, deleteMember, listMembers, updateMember } from "../api/cl
 import type { MemberRecord, Role } from "../api/typesM2";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { MfgError, Spinner } from "../components/Feedback";
+import { DataTable } from "../components/DataTable";
+import type { Column } from "../components/VirtualTable";
 import { TextField } from "../components/Field";
 import { ROLE_OPTIONS } from "../lib/formatM2";
 import { ROLE_HELP, ROLE_LABEL, useAccess } from "../lib/permissions";
@@ -77,9 +79,65 @@ export function MembersPage() {
   const [editing, setEditing] = useState<MemberRecord | "new" | null>(null);
   const [removing, setRemoving] = useState<MemberRecord | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const columns: Column<MemberRecord>[] = [
+    { key: "name", header: "Name", width: "minmax(160px, 1fr)", sortValue: (m) => m.user.display_name, render: (m) => m.user.display_name },
+    { key: "email", header: "Email", width: "minmax(200px, 1.4fr)", sortValue: (m) => m.user.email, render: (m) => m.user.email },
+    {
+      key: "roles",
+      header: "Roles",
+      width: "minmax(200px, 1.6fr)",
+      exportValue: (m) => m.roles.map((r) => ROLE_LABEL[r]).join("; "),
+      render: (m) => (
+        <span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
+          {m.roles.map((r) => (
+            <span key={r} className="badge info">
+              {ROLE_LABEL[r]}
+            </span>
+          ))}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      width: "110px",
+      sortValue: (m) => (m.active ? 0 : 1),
+      exportValue: (m) => (m.active ? "Active" : "Inactive"),
+      render: (m) =>
+        m.active ? (
+          <span className="badge ok">
+            <Icon name="check" /> Active
+          </span>
+        ) : (
+          <span className="badge info">
+            <Icon name="ban" /> Inactive
+          </span>
+        ),
+    },
+    { key: "added", header: "Added", width: "150px", sortValue: (m) => m.created_at, render: (m) => fmtTimestamp(m.created_at) },
+    {
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      label: "Actions",
+      width: "96px",
+      align: "right",
+      hideable: false,
+      exportValue: () => "",
+      render: (m) => (
+        <span className="row" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
+          <button type="button" className="btn sm" onClick={() => setEditing(m)} data-testid="member-edit">
+            Edit
+          </button>
+          <button type="button" className="btn sm ghost icon" aria-label={`Remove ${m.user.email}`} onClick={() => setRemoving(m)} data-testid="member-remove">
+            <Icon name="trash" />
+          </button>
+        </span>
+      ),
+    },
+  ];
   if (loading) return <Spinner />;
   if (!isOwner || assumed)
-    return (
+  return (
       <Banner tone="warn" icon="lock" title="Only the owner of this plant manages members" testId="forbidden-banner">
         Members and their roles are set by the account that owns the plant.
       </Banner>
@@ -107,70 +165,19 @@ export function MembersPage() {
       ) : (
         <MfgError error={list.error ?? error} onRetry={list.reload} />
       )}
-      {list.loading && !list.data ? <Spinner /> : null}
-      {list.data ? (
-        <div className="table-wrap card">
-          <table className="table" data-testid="members-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Roles</th>
-                <th>Status</th>
-                <th>Added</th>
-                <th>
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="muted">
-                    Only you work in this plant so far.
-                  </td>
-                </tr>
-              ) : null}
-              {list.data.items.map((m) => (
-                <tr key={m.id} data-testid="member-row" data-email={m.user.email} data-roles={m.roles.join(",")}>
-                  <td>{m.user.display_name}</td>
-                  <td>{m.user.email}</td>
-                  <td>
-                    <span className="row wrap" style={{ gap: 4 }}>
-                      {m.roles.map((r) => (
-                        <span key={r} className="badge info">
-                          {ROLE_LABEL[r]}
-                        </span>
-                      ))}
-                    </span>
-                  </td>
-                  <td>
-                    {m.active ? (
-                      <span className="badge ok">
-                        <Icon name="check" /> Active
-                      </span>
-                    ) : (
-                      <span className="badge info">
-                        <Icon name="ban" /> Inactive
-                      </span>
-                    )}
-                  </td>
-                  <td className="small">{fmtTimestamp(m.created_at)}</td>
-                  <td className="right">
-                    <span className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
-                      <button type="button" className="btn sm" onClick={() => setEditing(m)} data-testid="member-edit">
-                        Edit
-                      </button>
-                      <button type="button" className="btn sm ghost icon" aria-label={`Remove ${m.user.email}`} onClick={() => setRemoving(m)} data-testid="member-remove">
-                        <Icon name="trash" />
-                      </button>
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {!unavailable ? (
+        <DataTable
+          rows={list.data?.items ?? []}
+          columns={columns}
+          rowKey={(m) => m.id}
+          label="Plant members"
+          testId="members-table"
+          loading={list.loading && !list.data}
+          exportName="plant-members"
+          rowExtras={(m) => ({ testId: "member-row", data: { email: m.user.email, roles: m.roles.join(",") } })}
+          empty="Only you work in this plant so far. Add a member to share it."
+          card={{ title: "name", status: "status", actions: "actions", fields: ["email", "roles"] }}
+        />
       ) : null}
       {editing ? (
         <MemberDialog

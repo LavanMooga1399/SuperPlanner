@@ -11,6 +11,7 @@ import { getApsRun, getPublishedRun, listApsRuns } from "../../api/clientM3";
 import { createSimulation, getSimulation, listSimulations } from "../../api/clientM4";
 import type { Simulation, SimulationDemand } from "../../api/typesM4";
 import { MfgError, Spinner } from "../../components/Feedback";
+import { DataTable } from "../../components/DataTable";
 import { fmtDuration, usePlantClock } from "../../lib/plantTime";
 import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
@@ -137,41 +138,22 @@ export function SimulationsPage() {
         </div>
       </section>
       <MfgError error={sims.error} onRetry={sims.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="sim-list">
-          <thead>
-            <tr>
-              <th>Check</th>
-              <th>Plan</th>
-              <th>Replays</th>
-              <th>Status</th>
-              <th>Started</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(sims.data?.items ?? []).length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted">
-                  {sims.loading ? "Loading…" : "No risk checks yet."}
-                </td>
-              </tr>
-            ) : null}
-            {(sims.data?.items ?? []).map((s) => (
-              <tr key={s.id}>
-                <td>
-                  <Link to={mfgPaths.simulation(s.id)}>Risk check {s.id.slice(-6)}</Link>
-                </td>
-                <td>{runLabel(s.base_run_id)}</td>
-                <td>{s.samples}</td>
-                <td>
-                  <SimStatus s={s} />
-                </td>
-                <td className="small">{clock.dateTime(s.created_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={sims.data?.items ?? []}
+        columns={[
+          { key: "check", header: "Check", width: "minmax(160px, 1fr)", exportValue: (s) => `Risk check ${s.id.slice(-6)}`, render: (s) => <Link to={mfgPaths.simulation(s.id)}>Risk check {s.id.slice(-6)}</Link> },
+          { key: "plan", header: "Plan", width: "minmax(180px, 1.4fr)", sortValue: (s) => runLabel(s.base_run_id), render: (s) => runLabel(s.base_run_id) },
+          { key: "samples", header: "Replays", width: "90px", align: "right", sortValue: (s) => s.samples, render: (s) => s.samples },
+          { key: "status", header: "Status", width: "150px", sortValue: (s) => s.status, exportValue: (s) => s.status, render: (s) => <SimStatus s={s} /> },
+          { key: "started", header: "Started", width: "150px", sortValue: (s) => s.created_at, render: (s) => clock.dateTime(s.created_at) },
+        ]}
+        rowKey={(s) => s.id}
+        label="Risk checks"
+        testId="sim-list"
+        loading={sims.loading && !sims.data}
+        exportName="risk-checks"
+        empty="No risk checks yet. Pick a plan above and check the risk."
+      />
     </div>
   );
 }

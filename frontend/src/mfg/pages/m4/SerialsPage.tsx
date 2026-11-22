@@ -9,6 +9,7 @@ import { Icon } from "../../../components/Icon";
 import { getSerial, listSerials } from "../../api/clientM4";
 import type { SerialStatus, UnitSerial } from "../../api/typesM4";
 import { MfgError, Spinner } from "../../components/Feedback";
+import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { usePlantClock } from "../../lib/plantTime";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
@@ -46,6 +47,13 @@ export function SerialsPage() {
   if (status) chips.push({ key: "st", label: "Status", value: status.replace(/_/g, " "), onClear: () => setSearchParam(setParams, "status", "") });
   if (wo) chips.push({ key: "wo", label: "Work order", value: "One work order", onClear: () => setSearchParam(setParams, "wo", "") });
 
+  const columns: Column<UnitSerial>[] = [
+    { key: "serial", header: "Serial", width: "minmax(160px, 1fr)", exportValue: (s) => s.serial, render: (s) => <Link to={mfgPaths.serial(s.id)} className="mono">{s.serial}</Link> },
+    { key: "item", header: "Item", width: "minmax(140px, 1fr)", render: (s) => <span className="mono">{s.item?.part_number ?? ""}</span> },
+    { key: "wo", header: "Work order", width: "140px", exportValue: (s) => s.wo?.number ?? "", render: (s) => (s.wo ? <Link to={mfgPaths.workOrder(s.wo.id)} className="mono">{s.wo.number}</Link> : "") },
+    { key: "status", header: "Status", width: "130px", exportValue: (s) => STATUS[s.status]?.label ?? s.status, render: (s) => <SerialStatusChip s={s.status} /> },
+    { key: "captured", header: "Captured", width: "minmax(180px, 1fr)", render: (s) => `${clock.dateTime(s.captured_at)}${s.captured_op_seq ? ` at op ${s.captured_op_seq}` : ""}` },
+  ];
   return (
     <div className="col gap-lg" data-testid="serials-page">
       <PageHeader title="Unit serials" />
@@ -63,53 +71,21 @@ export function SerialsPage() {
         </div>
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="serials-table">
-          <thead>
-            <tr>
-              <th>Serial</th>
-              <th>Item</th>
-              <th>Work order</th>
-              <th>Status</th>
-              <th>Captured</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted">
-                  {data.loading ? "Loading…" : "No serials found."}
-                </td>
-              </tr>
-            ) : null}
-            {data.rows.map((s) => (
-              <tr key={s.id} data-testid="serial-row">
-                <td>
-                  <Link to={mfgPaths.serial(s.id)} className="mono">
-                    {s.serial}
-                  </Link>
-                </td>
-                <td className="mono">{s.item?.part_number ?? ""}</td>
-                <td>{s.wo ? <Link to={mfgPaths.workOrder(s.wo.id)} className="mono">{s.wo.number}</Link> : ""}</td>
-                <td>
-                  <SerialStatusChip s={s.status} />
-                </td>
-                <td className="small">
-                  {clock.dateTime(s.captured_at)}
-                  {s.captured_op_seq ? ` at op ${s.captured_op_seq}` : ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.rows.length < data.total ? (
-          <div className="card-footer">
-            <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              Show more ({data.rows.length} of {data.total})
-            </button>
-          </div>
-        ) : null}
-      </div>
+      <VirtualTable
+        rows={data.rows}
+        columns={columns}
+        rowKey={(s) => s.id}
+        label="Unit serials"
+        testId="serials-table"
+        totalCount={data.total}
+        loading={data.loading}
+        onEndReached={data.onEndReached}
+        exportName="serials"
+        rowExtras={() => ({ testId: "serial-row" })}
+        empty={chips.length ? "No serials match these filters." : "No serials yet. Serials are captured on the shop floor for serialised items."}
+        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} serials</span>}
+        card={{ title: "serial", status: "status", fields: ["item", "wo", "captured"] }}
+      />
     </div>
   );
 }

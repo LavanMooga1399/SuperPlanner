@@ -6,7 +6,9 @@ import { Icon } from "../../../components/Icon";
 import { createLocation, deleteLocation, listLocations, updateLocation } from "../../api/clientM2";
 import { LOCATION_KINDS, type LocationInput, type LocationKind, type LocationRecord } from "../../api/typesM2";
 import { EntityFormDialog } from "../../components/EntityFormDialog";
-import { MfgError, Spinner } from "../../components/Feedback";
+import { MfgError } from "../../components/Feedback";
+import { DataTable } from "../../components/DataTable";
+import type { Column } from "../../components/VirtualTable";
 import { CheckField, SelectField, strOrNull, TextField } from "../../components/Field";
 import { PermissionGate } from "../../components/PermissionGate";
 import { invalidateLocations } from "../../components/PickersM2";
@@ -99,6 +101,45 @@ export function LocationsTab() {
     }
   };
 
+  const columns: Column<LocationRecord>[] = [
+    { key: "code", header: "Code", width: "130px", sortValue: (l) => l.code, exportValue: (l) => l.code, render: (l) => <Link to={mfgPaths.inventory({ location: l.id })} className="mono">{l.code}</Link> },
+    { key: "name", header: "Name", width: "minmax(200px, 2fr)", sortValue: (l) => l.name, render: (l) => l.name },
+    { key: "kind", header: "Kind", width: "140px", sortValue: (l) => l.kind, exportValue: (l) => LOCATION_KIND_LABEL[l.kind] ?? l.kind, render: (l) => <LocationKindBadge kind={l.kind} /> },
+    {
+      key: "receipts",
+      header: "Receipts",
+      width: "110px",
+      sortValue: (l) => (l.receipt_default ? 0 : 1),
+      exportValue: (l) => (l.receipt_default ? "Default" : ""),
+      render: (l) =>
+        l.receipt_default ? (
+          <span className="badge accent">
+            <Icon name="download" /> Default
+          </span>
+        ) : null,
+    },
+    { key: "status", header: "Status", width: "100px", sortValue: (l) => (l.active ? 0 : 1), exportValue: (l) => (l.active ? "Active" : "Inactive"), render: (l) => <ActiveBadge active={l.active} /> },
+  ];
+  if (canEdit)
+    columns.push({
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      label: "Actions",
+      width: "96px",
+      align: "right",
+      exportValue: () => "",
+      render: (l) => (
+        <span className="row" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
+          <button type="button" className="btn sm" onClick={() => setEditing(l)} aria-label={`Edit location ${l.code}`}>
+            Edit
+          </button>
+          <button type="button" className="btn sm ghost icon" onClick={() => setDeleting(l)} aria-label={`Delete location ${l.code}`}>
+            <Icon name="trash" />
+          </button>
+        </span>
+      ),
+    });
+
   return (
     <div className="col gap-lg">
       <div className="row between">
@@ -112,67 +153,18 @@ export function LocationsTab() {
         </PermissionGate>
       </div>
       <MfgError error={list.error ?? error} onRetry={list.reload} title={error ? "The location could not be deleted" : undefined} />
-      {list.loading && !list.data ? <Spinner /> : null}
-      {list.data ? (
-        <div className="table-wrap card">
-          <table className="table" data-testid="locations-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Kind</th>
-                <th>Receipts</th>
-                <th>Status</th>
-                <th>
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="muted">
-                    No locations yet. Add at least one stores location before posting stock.
-                  </td>
-                </tr>
-              ) : null}
-              {list.data.items.map((l) => (
-                <tr key={l.id} data-testid="location-row" data-code={l.code} className={l.id === selected ? "mfg-highlight" : undefined}>
-                  <td className="mono">
-                    <Link to={mfgPaths.inventory({ location: l.id })}>{l.code}</Link>
-                  </td>
-                  <td>{l.name}</td>
-                  <td>
-                    <LocationKindBadge kind={l.kind} />
-                  </td>
-                  <td>
-                    {l.receipt_default ? (
-                      <span className="badge accent">
-                        <Icon name="download" /> Default
-                      </span>
-                    ) : null}
-                  </td>
-                  <td>
-                    <ActiveBadge active={l.active} />
-                  </td>
-                  <td className="right">
-                    {canEdit ? (
-                      <span className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
-                        <button type="button" className="btn sm" onClick={() => setEditing(l)} aria-label={`Edit location ${l.code}`}>
-                          Edit
-                        </button>
-                        <button type="button" className="btn sm ghost icon" onClick={() => setDeleting(l)} aria-label={`Delete location ${l.code}`}>
-                          <Icon name="trash" />
-                        </button>
-                      </span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      <DataTable
+        rows={list.data?.items ?? []}
+        columns={columns}
+        rowKey={(l) => l.id}
+        label="Locations"
+        testId="locations-table"
+        loading={list.loading && !list.data}
+        exportName="locations"
+        rowExtras={(l) => ({ testId: "location-row", data: { code: l.code }, className: l.id === selected ? "mfg-highlight" : undefined })}
+        empty="No locations yet. Add at least one stores location before posting stock."
+        card={{ title: "code", status: "status", actions: canEdit ? "actions" : undefined, fields: ["name", "kind", "receipts"] }}
+      />
       {editing ? (
         <LocationDialog
           loc={editing === "new" ? null : editing}

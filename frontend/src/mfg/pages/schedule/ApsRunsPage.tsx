@@ -10,7 +10,9 @@ import { Icon } from "../../../components/Icon";
 import { listApsRuns } from "../../api/clientM3";
 import type { ApsParams, ApsRunRecord } from "../../api/typesM3";
 import { ApsProgress, ApsStatusChip, PolicyBadge, PublishedBadge } from "../../components/ApsBits";
-import { MfgError, Spinner } from "../../components/Feedback";
+import { MfgError } from "../../components/Feedback";
+import { DataTable } from "../../components/DataTable";
+import type { Column } from "../../components/VirtualTable";
 import { PermissionGate } from "../../components/PermissionGate";
 import { RunKindBadge } from "../../components/StatusM2";
 import { fmtTimestamp } from "../../lib/format";
@@ -41,6 +43,32 @@ export function ApsRunsPage() {
   const items = runs.data?.items ?? [];
   usePolling(runs.reload, items.some(isActive));
 
+  const columns: Column<ApsRunRecord>[] = [
+    {
+      key: "run",
+      header: "Run",
+      width: "minmax(220px, 2fr)",
+      sortValue: (r) => r.run_no,
+      exportValue: (r) => apsRunTitle(r),
+      render: (r) => (
+        <span className="row" style={{ gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+          <Link to={mfgPaths.apsRun(r.id)} className="mfg-ellipsis">
+            {apsRunTitle(r)}
+          </Link>
+          {r.is_published ? <PublishedBadge /> : null}
+          {r.parent_run_id ? <span className="faint small">edited copy</span> : null}
+        </span>
+      ),
+    },
+    { key: "kind", header: "Kind", width: "100px", sortValue: (r) => r.kind, render: (r) => <RunKindBadge kind={r.kind} /> },
+    { key: "status", header: "Status", width: "150px", sortValue: (r) => r.status, exportValue: (r) => r.status, render: (r) => (isActive(r) ? <ApsProgress run={r} /> : <ApsStatusChip run={r} />) },
+    { key: "policy", header: "Overtime policy", width: "140px", render: (r) => <PolicyBadge policy={r.policy} /> },
+    { key: "from", header: "From", width: "140px", sortValue: (r) => r.as_of, render: (r) => clock.dateTime(r.as_of) },
+    { key: "late", header: "Late orders", width: "100px", align: "right", sortValue: (r) => r.summary?.late_orders, render: (r) => (r.summary ? <span className={r.summary.late_orders ? "mfg-neg" : undefined}>{r.summary.late_orders}</span> : "") },
+    { key: "tardiness", header: "Weighted lateness", width: "140px", align: "right", sortValue: (r) => r.summary?.weighted_tardiness, render: (r) => (r.summary ? fmtDuration(r.summary.weighted_tardiness) || "0" : "") },
+    { key: "overtime", header: "Overtime used", width: "120px", align: "right", sortValue: (r) => r.summary?.overtime_minutes, render: (r) => (r.summary ? fmtDuration(r.summary.overtime_minutes) || "none" : "") },
+    { key: "finished", header: "Finished", width: "minmax(200px, 1fr)", sortValue: (r) => r.finished_at, render: (r) => `${fmtTimestamp(r.finished_at)} ${r.actor.name}` },
+  ];
   return (
     <div className="col gap-lg">
       <PageHeader
@@ -70,60 +98,24 @@ export function ApsRunsPage() {
         />
       ) : null}
       <MfgError error={runs.error} onRetry={runs.reload} />
-      {runs.loading && !runs.data ? <Spinner /> : null}
       {runs.data && items.length === 0 && !form ? (
         <Banner tone="info" title="No schedule yet" testId="aps-empty">
           {canRun ? "Create a schedule to place every operation on the lines." : "Nobody has scheduled this plant yet."} It uses the latest MRP run for planned orders and
           material dates.
         </Banner>
       ) : null}
-      {items.length ? (
-        <div className="table-wrap card">
-          <table className="table" data-testid="aps-runs">
-            <thead>
-              <tr>
-                <th>Run</th>
-                <th>Kind</th>
-                <th>Status</th>
-                <th>Overtime</th>
-                <th>From</th>
-                <th className="right">Late orders</th>
-                <th className="right">Weighted lateness</th>
-                <th className="right">Overtime</th>
-                <th>Finished</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((r) => {
-                const s = r.summary;
-                return (
-                  <tr key={r.id} data-testid="aps-run-row" data-run-no={r.run_no} data-status={r.status} data-published={r.is_published}>
-                    <td>
-                      <Link to={mfgPaths.apsRun(r.id)}>{apsRunTitle(r)}</Link> {r.is_published ? <PublishedBadge /> : null}
-                      {r.parent_run_id ? <div className="faint small">edited copy</div> : null}
-                    </td>
-                    <td>
-                      <RunKindBadge kind={r.kind} />
-                    </td>
-                    <td>
-                      {isActive(r) ? <ApsProgress run={r} /> : <ApsStatusChip run={r} />}
-                    </td>
-                    <td>
-                      <PolicyBadge policy={r.policy} />
-                    </td>
-                    <td className="small">{clock.dateTime(r.as_of)}</td>
-                    <td className="right">{s ? <span className={s.late_orders ? "mfg-neg" : undefined}>{s.late_orders}</span> : ""}</td>
-                    <td className="right">{s ? fmtDuration(s.weighted_tardiness) || "0" : ""}</td>
-                    <td className="right">{s ? fmtDuration(s.overtime_minutes) || "none" : ""}</td>
-                    <td className="small">
-                      {fmtTimestamp(r.finished_at)} {r.actor.name}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      {items.length || (runs.loading && !runs.data) ? (
+        <DataTable
+          rows={items}
+          columns={columns}
+          rowKey={(r) => r.id}
+          label="Schedule runs"
+          testId="aps-runs"
+          loading={runs.loading && !runs.data}
+          exportName="schedule-runs"
+          rowExtras={(r) => ({ testId: "aps-run-row", data: { "run-no": r.run_no, status: r.status, published: r.is_published } })}
+          card={{ title: "run", status: "status", fields: ["late", "overtime", "finished"] }}
+        />
       ) : null}
     </div>
   );

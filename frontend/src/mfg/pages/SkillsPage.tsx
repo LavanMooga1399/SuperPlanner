@@ -13,6 +13,7 @@ import { MfgError, Spinner } from "../components/Feedback";
 import { TextField } from "../components/Field";
 import { RecordList, withParam } from "../components/RecordList";
 import { ActiveBadge } from "../components/StatusChip";
+import { DataTable } from "../components/DataTable";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
 
@@ -130,35 +131,34 @@ function SkillHolders({ skill, onEdit, onDelete }: { skill: SkillRecord; onEdit(
           </p>
         ) : null}
         {ops.data && ops.data.items.length ? (
-          <table className="table" data-testid="skill-holders">
-            <thead>
-              <tr>
-                <th>Operator</th>
-                <th>Shift template</th>
-                <th>Shifts</th>
-                <th>
-                  <span className="sr-only">Status</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {ops.data.items.map((o) => (
-                <tr key={o.id} data-testid="skill-holder">
-                  <td>
+          <DataTable
+            rows={ops.data.items}
+            columns={[
+              {
+                key: "operator",
+                header: "Operator",
+                width: "minmax(200px, 1.5fr)",
+                sortValue: (o) => o.code,
+                exportValue: (o) => `${o.code} ${o.name}`,
+                render: (o) => (
+                  <span className="mfg-ellipsis">
                     <Link to={mfgPaths.operators(o.id)} className="mono">
                       {o.code}
                     </Link>{" "}
                     {o.name}
-                  </td>
-                  <td>{o.shift_template ? <Link to={mfgPaths.shifts({ template: o.shift_template.id })}>{o.shift_template.code}</Link> : <span className="faint">None</span>}</td>
-                  <td className="small">{o.shift_template ? (o.shift_names.length ? o.shift_names.join(", ") : "All") : ""}</td>
-                  <td>
-                    <ActiveBadge active={o.active} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                ),
+              },
+              { key: "template", header: "Shift template", width: "minmax(130px, 1fr)", sortValue: (o) => o.shift_template?.code ?? "", exportValue: (o) => o.shift_template?.code ?? "", render: (o) => (o.shift_template ? <Link to={mfgPaths.shifts({ template: o.shift_template.id })}>{o.shift_template.code}</Link> : <span className="faint">None</span>) },
+              { key: "shifts", header: "Shifts", width: "minmax(130px, 1fr)", render: (o) => (o.shift_template ? (o.shift_names.length ? o.shift_names.join(", ") : "All") : "") },
+              { key: "status", header: "Status", width: "100px", sortValue: (o) => (o.active ? 0 : 1), exportValue: (o) => (o.active ? "Active" : "Inactive"), render: (o) => <ActiveBadge active={o.active} /> },
+            ]}
+            rowKey={(o) => o.id}
+            label={`Holders of ${skill.code}`}
+            testId="skill-holders"
+            exportName={`skill-${skill.code}-holders`}
+            rowExtras={() => ({ testId: "skill-holder" })}
+          />
         ) : null}
         <p className="faint small" style={{ margin: 0 }}>
           The data-health check warns when a line with an operation needing this skill works at a time when nobody

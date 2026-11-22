@@ -26,7 +26,7 @@ import {
 import { Icon } from "../../components/Icon";
 import { useRowHeight } from "../../lib/prefs";
 import { savePref, syncPref } from "../../lib/serverPrefs";
-import { t } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 /** Default (compact) row height; the live value follows the density preference (`useRowHeight`). */
 export const ROW_HEIGHT = 28;
@@ -132,6 +132,8 @@ export interface CardSpec {
   status?: string;
   /** Two or three key columns shown as "label value" pairs. */
   fields: string[];
+  /** Column with row buttons (Edit, Remove), shown at the right of the card title row. */
+  actions?: string;
 }
 
 const CARD_H = 84;
@@ -141,7 +143,8 @@ function autoCard<T>(columns: Column<T>[]): CardSpec | undefined {
   const cols = columns.filter((c) => c.key !== "actions" && c.key !== "__select");
   if (cols.length < 2) return undefined;
   const status = cols.find((c, i) => i > 0 && /status|state|result/i.test(c.key));
-  return { title: cols[0].key, status: status?.key, fields: cols.filter((c, i) => i > 0 && c !== status).slice(0, 3).map((c) => c.key) };
+  const actions = columns.find((c) => c.key === "actions");
+  return { title: cols[0].key, status: status?.key, actions: actions?.key, fields: cols.filter((c, i) => i > 0 && c !== status).slice(0, 3).map((c) => c.key) };
 }
 const PHONE_QUERY = "(max-width: 767px)";
 
@@ -460,8 +463,8 @@ export function VirtualTable<T>({
   const end = virtual ? Math.min(n, first + count + OVERSCAN) : n;
 
   useEffect(() => {
-    if (onEndReached && n > 0 && end >= n - OVERSCAN) onEndReached();
-  }, [end, n, onEndReached]);
+    if (virtual && onEndReached && n > 0 && end >= n - OVERSCAN) onEndReached();
+  }, [end, n, onEndReached, virtual]);
 
   const ensureVisible = useCallback(
     (i: number, centre = false) => {
@@ -608,6 +611,7 @@ export function VirtualTable<T>({
               {selection ? cell(columns[0], row, i, "vt-card-check") : null}
               {cell(byKey.get(card.title), row, i, "vt-card-title")}
               {card.status ? cell(byKey.get(card.status), row, i, "vt-card-status") : null}
+              {card.actions ? cell(byKey.get(card.actions), row, i, "vt-card-status vt-card-actions") : null}
             </div>
             <div className="vt-card-fields">{card.fields.map((k) => cell(byKey.get(k), row, i, "vt-card-field", true))}</div>
           </>
@@ -702,7 +706,7 @@ export function VirtualTable<T>({
       </div>
       {footer || columnSettings || exportName ? (
         <div className="vt-footer vt-toolbar">
-          <div className="vt-footer-main">{footer ?? <span className="muted small">{t("table.rows", { count: (totalCount ?? n).toLocaleString("en-IN") })}</span>}</div>
+          <div className="vt-footer-main">{footer ?? <span className="muted small">{plural(totalCount ?? n, "row")}</span>}</div>
           <div className="row" style={{ gap: 4 }}>
             {exportName ? (
               <button type="button" className="btn ghost sm" onClick={exportCsv} disabled={n === 0} title={t("table.csvTitle")} data-testid="vt-export">

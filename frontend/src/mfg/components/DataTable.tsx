@@ -3,9 +3,25 @@
  * show/hide/reorder/resize, CSV, skeleton loading, empty state, phone cards below 768 px) without windowing, for
  * lists that are short by nature (run history, KPI by line, recall lines, transfer lines). Every row is in the
  * DOM, rows grow with wrapped content (`Column.wrap`), and phone cards are derived from the columns unless
- * `card` is given.
+ * `card` is given. Paged lists add more rows with a "Show more" button (`ShowMore`) instead of `onEndReached`.
  */
 import { VirtualTable, type VirtualTableProps } from "./VirtualTable";
+
+/** Footer of a paged short list: "Showing 50 of 120 events" and a Show more button. */
+export function ShowMore({ shown, total, noun, loading, onMore }: { shown: number; total: number; noun: string; loading?: boolean; onMore(): void }) {
+  return (
+    <span className="row" style={{ gap: 8 }}>
+      <span className="muted small">
+        Showing {shown.toLocaleString("en-IN")} of {total.toLocaleString("en-IN")} {noun}
+      </span>
+      {shown < total ? (
+        <button type="button" className="btn sm" onClick={onMore} disabled={loading}>
+          Show more
+        </button>
+      ) : null}
+    </span>
+  );
+}
 
 export function DataTable<T>(props: Omit<VirtualTableProps<T>, "virtual" | "height">) {
   return <VirtualTable {...props} virtual={false} />;
