@@ -105,6 +105,16 @@ export interface VirtualTableProps<T> {
   columnSettings?: boolean;
   /** Phone layout (< 768 px): rows become cards built from these column keys (UX-STANDARD 4). */
   card?: CardSpec;
+  /** Row selection for bulk actions: a checkbox column; Space toggles the focused row. */
+  selection?: TableSelection<T>;
+}
+
+export interface TableSelection<T> {
+  selected: ReadonlySet<string>;
+  onChange(next: Set<string>): void;
+  rowId(row: T): string;
+  /** Accessible name of a row (e.g. its number) for the checkbox label. */
+  rowLabel(row: T): string;
 }
 
 export interface CardSpec {
@@ -210,6 +220,7 @@ export function VirtualTable<T>({
   exportName,
   columnSettings = true,
   card,
+  selection,
 }: VirtualTableProps<T>) {
   const denseRow = useRowHeight();
   const cardMode = usePhone(!!card);
@@ -269,6 +280,54 @@ export function VirtualTable<T>({
   }, [rows, columns, clientSort, onSortChange]);
   rows = sortedRows;
   columns = visibleCols;
+  if (selection) {
+    const sel = selection;
+    const ids = rows.map((r) => sel.rowId(r));
+    const all = ids.length > 0 && ids.every((id) => sel.selected.has(id));
+    const some = !all && ids.some((id) => sel.selected.has(id));
+    const toggle = (id: string, on: boolean) => {
+      const next = new Set(sel.selected);
+      if (on) next.add(id);
+      else next.delete(id);
+      sel.onChange(next);
+    };
+    columns = [
+      {
+        key: "__select",
+        width: "36px",
+        align: "center",
+        label: "Select",
+        hideable: false,
+        header: (
+          <input
+            type="checkbox"
+            className="vt-check"
+            aria-label={all ? "Clear the selection" : "Select all loaded rows"}
+            checked={all}
+            ref={(el) => {
+              if (el) el.indeterminate = some;
+            }}
+            onChange={(e) => sel.onChange(e.target.checked ? new Set([...sel.selected, ...ids]) : new Set([...sel.selected].filter((id) => !ids.includes(id))))}
+            data-testid="vt-select-all"
+          />
+        ),
+        exportValue: () => "",
+        render: (r) => (
+          <input
+            type="checkbox"
+            className="vt-check"
+            tabIndex={-1}
+            aria-label={`Select ${sel.rowLabel(r)}`}
+            checked={sel.selected.has(sel.rowId(r))}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => toggle(sel.rowId(r), e.target.checked)}
+            data-testid="vt-select-row"
+          />
+        ),
+      },
+      ...columns,
+    ];
+  }
 
   const sortable = (c: Column<T>) => (onSortChange ? !!c.sortKey : !!c.sortValue);
   const toggleSort = (c: Column<T>) => {
@@ -321,8 +380,9 @@ export function VirtualTable<T>({
   };
 
   const exportCsv = () => {
-    const head = columns.map((c) => csvCell(headerText(c))).join(",");
-    const body = rows.map((r, i) => columns.map((c) => csvCell(String((c.exportValue ? c.exportValue(r) : nodeText(c.render(r, i))) ?? ""))).join(","));
+    const cols = columns.filter((c) => c.key !== "__select");
+    const head = cols.map((c) => csvCell(headerText(c))).join(",");
+    const body = rows.map((r, i) => cols.map((c) => csvCell(String((c.exportValue ? c.exportValue(r) : nodeText(c.render(r, i))) ?? ""))).join(","));
     const blob = new Blob([[head, ...body].join("\r\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -433,6 +493,15 @@ export function VirtualTable<T>({
     if (idxAttr === null) return; // keys inside cell controls (inputs, buttons) stay with them
     const i = Number(idxAttr);
     const pageRows = Math.max(1, Math.floor(bodyViewport / ROW_HEIGHT) - 1);
+    if (selection && e.key === " ") {
+      const id = selection.rowId(rows[i]);
+      const next = new Set(selection.selected);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      selection.onChange(next);
+      e.preventDefault();
+      return;
+    }
     if (onRowKey && onRowKey(e, rows[i], i)) {
       e.preventDefault();
       return;
@@ -496,7 +565,7 @@ export function VirtualTable<T>({
         aria-rowindex={i + 2}
         aria-level={x.ariaLevel}
         aria-expanded={x.ariaExpanded}
-        aria-selected={x.ariaSelected}
+        aria-selected={selection ? selection.selected.has(selection.rowId(row)) : x.ariaSelected}
         tabIndex={i === safeActive ? 0 : -1}
         data-vt-index={i}
         data-testid={x.testId}
@@ -510,6 +579,7 @@ export function VirtualTable<T>({
         {cardMode && card ? (
           <>
             <div className="vt-card-top">
+              {selection ? cell(columns[0], row, i, "vt-card-check") : null}
               {cell(byKey.get(card.title), row, i, "vt-card-title")}
               {card.status ? cell(byKey.get(card.status), row, i, "vt-card-status") : null}
             </div>

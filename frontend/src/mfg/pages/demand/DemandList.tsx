@@ -16,6 +16,8 @@ import { DEMAND_TYPE_LABEL, fmtNum } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
+import { BulkActions, ReasonField, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
+import { useCan } from "../../lib/permissions";
 
 export function DemandList() {
   const [params, setParams] = useSearchParams();
@@ -80,6 +82,13 @@ export function DemandList() {
     [],
   );
 
+  const canEdit = useCan("demand_edit");
+  const [selected, setSelected] = useSelection(params.toString());
+  const orders = (n: number) => (n === 1 ? "this demand order" : `these ${n} demand orders`);
+  const bulkDefs: BulkActionDef[] = [
+    { action: "demand-orders/close", label: "Close", icon: "check", testId: "bulk-demand-close", what: (n) => `Close ${orders(n)}.`, effect: "Closed orders are no longer planned by MRP." },
+    { action: "demand-orders/cancel", label: "Cancel", icon: "ban", danger: true, testId: "bulk-demand-cancel", what: (n) => `Cancel ${orders(n)}.`, effect: "Cancelled orders leave planning; this cannot be undone." },
+  ];
   const chips: FilterChip[] = [];
   if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
   if (status) chips.push({ key: "st", label: "Status", value: status, onClear: () => set("status", "") });
@@ -143,6 +152,7 @@ export function DemandList() {
         </label>
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
+      {canEdit ? <BulkActions rows={bulkRows(data.rows, selected)} noun={["demand order", "demand orders"]} actions={bulkDefs} onDone={() => (setSelected(new Set()), data.reload())} onClear={() => setSelected(new Set())} /> : null}
       <VirtualTable
         rows={data.rows}
         columns={columns}
@@ -150,6 +160,7 @@ export function DemandList() {
         label="Demand orders"
         testId="demand-table"
         card={{ title: "no", status: "st", fields: ["cust", "open", "due"] }}
+        selection={canEdit ? { selected, onChange: setSelected, rowId: (o) => o.id, rowLabel: (o) => o.number } : undefined}
         totalCount={data.total}
         rowExtras={(o) => ({ testId: "demand-order-row", data: { number: o.number, status: o.status, late: o.late_lines } })}
         onRowClick={(o) => navigate(mfgPaths.demandOrder(o.id))}

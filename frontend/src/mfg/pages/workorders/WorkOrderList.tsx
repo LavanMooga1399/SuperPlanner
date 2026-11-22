@@ -16,6 +16,8 @@ import { fmtNum, serialText } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
+import { BulkActions, ReasonField, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
+import { useCan } from "../../lib/permissions";
 
 const STATUS_SETS: Record<string, string | undefined> = {
   active: "planned,released,in_progress",
@@ -41,6 +43,38 @@ export function WorkOrderList() {
     (offset, limit, signal) => listWorkOrders({ q: dq || undefined, status: STATUS_SETS[st], sort, source: (source || undefined) as WorkOrderSummary["source"] | undefined, limit, offset }, signal),
     [dq, st, sort, source],
   );
+
+  const canEdit = useCan("wo_edit");
+  const [selected, setSelected] = useSelection(params.toString());
+  const bulkDefs: BulkActionDef[] = [
+    {
+      action: "work-orders/release",
+      label: "Release",
+      icon: "play",
+      testId: "bulk-wo-release",
+      what: (n) => `Release ${n === 1 ? "this work order" : `these ${n} work orders`} to the shop floor.`,
+      effect: "Each one is released exactly as from its own page.",
+      form: (f, set) => (
+        <>
+          <label className="checkbox">
+            <input type="checkbox" checked={f.reserve === "1"} onChange={(e) => set("reserve", e.target.checked ? "1" : "")} /> Reserve available stock for the components
+          </label>
+          <ReasonField id="bulk-override" label="Reason to release work orders that are short for their first operation (empty = leave those unreleased)" value={f.override ?? ""} onChange={(v) => set("override", v)} testId="bulk-override" />
+        </>
+      ),
+      params: (f) => ({ reserve: f.reserve === "1", ...(f.override?.trim() ? { override_reason: f.override.trim() } : {}) }),
+    },
+    { action: "work-orders/close", label: "Close", icon: "check", testId: "bulk-wo-close", what: (n) => `Close ${n === 1 ? "this work order" : `these ${n} work orders`}.`, effect: "Closed work orders take no further postings." },
+    {
+      action: "work-orders/cancel",
+      label: "Cancel",
+      icon: "ban",
+      danger: true,
+      testId: "bulk-wo-cancel",
+      what: (n) => `Cancel ${n === 1 ? "this work order" : `these ${n} work orders`}.`,
+      effect: "Their reservations are released and they leave planning; this cannot be undone.",
+    },
+  ];
 
   const columns: Column<WorkOrderSummary>[] = useMemo(
     () => [
@@ -137,6 +171,7 @@ export function WorkOrderList() {
         </div>
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
+      {canEdit ? <BulkActions rows={bulkRows(data.rows, selected)} noun={["work order", "work orders"]} actions={bulkDefs} onDone={() => (setSelected(new Set()), data.reload())} onClear={() => setSelected(new Set())} /> : null}
       <VirtualTable
         rows={data.rows}
         columns={columns}
@@ -144,6 +179,7 @@ export function WorkOrderList() {
         label="Work orders"
         testId="wo-table"
         card={{ title: "no", status: "st", fields: ["pn", "qty", "due"] }}
+        selection={canEdit ? { selected, onChange: setSelected, rowId: (w) => w.id, rowLabel: (w) => w.number } : undefined}
         totalCount={data.total}
         rowExtras={(w) => ({ testId: "wo-row", data: { number: w.number, status: w.status } })}
         onRowClick={(w) => navigate(mfgPaths.workOrder(w.id))}

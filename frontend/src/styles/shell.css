@@ -296,3 +296,12 @@ h2.mono { font-size: var(--fs-md); }
 .vt-card-fields { max-height: 38px; }
 .vt-card-field { overflow: hidden; }
 .filter-bar-end { flex-wrap: wrap; }
+
+/* bulk selection */
+.vt-check { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; cursor: pointer; }
+.vt-card-check { flex: 0 0 auto; display: inline-flex; }
+.vt-card-top:has(.vt-card-check) .vt-card-title { flex: 1; }
+.bulk-bar { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: 6px var(--sp-3); border: 1px solid var(--accent); border-radius: var(--radius-lg); background: var(--accent-soft); }
+.bulk-count { color: var(--text); }
+.bulk-bar > .btn.ghost { margin-left: auto; }
+.bulk-list { margin: 0; padding-left: 18px; max-height: 160px; overflow: auto; columns: 2; }

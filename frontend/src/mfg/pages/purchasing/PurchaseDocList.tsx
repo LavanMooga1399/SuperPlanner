@@ -15,6 +15,8 @@ import { fmtMoney } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
+import { BulkActions, ReasonField, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
+import { useCan } from "../../lib/permissions";
 
 export const PR_STATUSES: PurchaseStatus[] = ["draft", "submitted", "approved", "rejected", "ordered", "cancelled"];
 export const PO_STATUSES: PurchaseStatus[] = ["draft", "open", "partially_received", "received", "closed", "cancelled"];
@@ -95,6 +97,35 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
     [docType],
   );
 
+  const canEditDocs = useCan(docType === "pr" ? "pr_edit" : "po_edit");
+  const canApprove = useCan("pr_approve");
+  const [selected, setSelected] = useSelection(`${docType}${params.toString()}`);
+  const docNoun = (n: number) => (docType === "pr" ? (n === 1 ? "this purchase request" : `these ${n} purchase requests`) : n === 1 ? "this purchase order" : `these ${n} purchase orders`);
+  const bulkDefs: BulkActionDef[] =
+    docType === "pr"
+      ? [
+          ...(canEditDocs ? [{ action: "purchase-requests/submit" as const, label: "Submit", icon: "arrow-right" as const, testId: "bulk-pr-submit", what: (n: number) => `Submit ${docNoun(n)} for approval.`, effect: "Drafts go to the approvers." }] : []),
+          ...(canApprove
+            ? [
+                { action: "purchase-requests/approve" as const, label: "Approve", icon: "check" as const, testId: "bulk-pr-approve", what: (n: number) => `Approve ${docNoun(n)}.`, effect: "Approved requests can be converted to purchase orders. You cannot approve your own requests." },
+                {
+                  action: "purchase-requests/reject" as const,
+                  label: "Reject",
+                  icon: "x" as const,
+                  danger: true,
+                  testId: "bulk-pr-reject",
+                  what: (n: number) => `Reject ${docNoun(n)}.`,
+                  effect: "The requester sees your reason.",
+                  form: (f: Record<string, string>, set: (k: string, v: string) => void) => <ReasonField id="bulk-reject" label="Reason" required value={f.reason ?? ""} onChange={(v) => set("reason", v)} testId="bulk-reject-reason" />,
+                  params: (f: Record<string, string>) => ({ reason: (f.reason ?? "").trim() }),
+                  ready: (f: Record<string, string>) => Boolean(f.reason?.trim()),
+                },
+              ]
+            : []),
+        ]
+      : canEditDocs
+        ? [{ action: "purchase-orders/cancel", label: "Cancel", icon: "ban", danger: true, testId: "bulk-po-cancel", what: (n) => `Cancel ${docNoun(n)}.`, effect: "Open deliveries are no longer expected and MRP stops counting them as supply; this cannot be undone." }]
+        : [];
   const chips: FilterChip[] = [];
   if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
   if (status !== "open") chips.push({ key: "st", label: "Status", value: status.replace(/_/g, " "), onClear: () => set("status", "") });
@@ -157,6 +188,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
         </label>
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
+      {bulkDefs.length ? <BulkActions rows={bulkRows(data.rows, selected)} noun={docType === "pr" ? ["purchase request", "purchase requests"] : ["purchase order", "purchase orders"]} actions={bulkDefs} onDone={() => (setSelected(new Set()), data.reload())} onClear={() => setSelected(new Set())} /> : null}
       <VirtualTable
         rows={data.rows}
         columns={columns}
@@ -164,6 +196,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
         label={word}
         testId="docs-table"
         card={{ title: "no", status: "st", fields: ["sup", "next", "val"] }}
+        selection={bulkDefs.length ? { selected, onChange: setSelected, rowId: (d) => d.id, rowLabel: (d) => d.number } : undefined}
         totalCount={data.total}
         rowExtras={(d) => ({ testId: "doc-row", data: { number: d.number, status: d.status } })}
         onRowClick={(d) => navigate(mfgPaths.purchaseDoc(docType, d.id))}
