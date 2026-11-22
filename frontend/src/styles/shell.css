@@ -163,7 +163,7 @@
 .shortcut-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-5); }
 .shortcut-cols h3 { font-size: var(--fs-sm); color: var(--text-muted); margin-bottom: var(--sp-2); }
 .shortcut-list { margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.shortcut-list > div { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: var(--sp-3); }
+.shortcut-list > div { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: var(--sp-3); }
 .shortcut-list dd { margin: 0; }
 .dialog-close { margin: -4px -8px -4px 0; }
 

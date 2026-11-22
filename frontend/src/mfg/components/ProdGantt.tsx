@@ -527,9 +527,62 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, data.bars]);
 
+  // keyboard move (UX-STANDARD 6): Alt+Left/Right moves the selected operation by one zoom step, Shift+Alt+Up/Down
+  // moves it to the previous / next line; each step updates the same preview as a drag (Apply -> child run).
+  const [kbMsg, setKbMsg] = useState("");
+  useEffect(() => setKbMsg(""), [selected]);
+  const stepMin = ZOOMS[zoom] >= 48 ? 15 : ZOOMS[zoom] >= 12 ? 60 : ZOOMS[zoom] >= 3 ? 240 : 1440;
+  const kbMove = (dMin: number, dRow: number) => {
+    if (!editable || selected === null || selected < 0) return false;
+    const fromPreview = preview && preview.bar.op_no === selected ? preview : null;
+    const bar = fromPreview?.bar ?? data.bars.find((b) => b.op_no === selected);
+    if (!bar) return false;
+    const ri0 = rowIndex.get(fromPreview ? fromPreview.row.key : bar.row_key);
+    if (ri0 === undefined) return false;
+    let ri = ri0;
+    if (dRow) {
+      if (!rowsAreLines) {
+        setKbMsg("Changing the line works in the By line view only.");
+        return true;
+      }
+      let k = ri0 + dRow;
+      while (k >= 0 && k < visibleRows.length && !lineIdOfRow(visibleRows[k].key)) k += dRow;
+      if (k < 0 || k >= visibleRows.length) {
+        setKbMsg("No further line in that direction.");
+        return true;
+      }
+      ri = k;
+    }
+    const snap = SNAP_MIN * 60000;
+    const startMs = Math.round((Date.parse(fromPreview ? fromPreview.start : bar.start) + dMin * 60000) / snap) * snap;
+    const row = visibleRows[ri];
+    const sameRow = row.key === bar.row_key;
+    const lineBars = (barsByRow.get(row.key) ?? []).filter((x) => x.bar.op_no !== bar.op_no);
+    const order = [...lineBars.map((x) => ({ op: x.bar.op_no, s: x.s })), { op: bar.op_no, s: startMs }].sort((x, y) => x.s - y.s).map((x) => x.op);
+    const start = new Date(startMs).toISOString();
+    onDrop({ bar, row, start, sameRow, order: [...new Set(order)] });
+    setKbMsg(`Preview: ${bar.label || `operation ${bar.op_no}`} on ${row.label} starting ${clock.dateTime(start)}. Apply below the chart to create the edited run.`);
+    const el = scrollRef.current;
+    if (el) {
+      const x = (startMs - from) * pxPerMs;
+      if (x < el.scrollLeft || x > el.scrollLeft + el.clientWidth - 80) el.scrollLeft = Math.max(0, x - el.clientWidth / 3);
+      const y = ri * ROW_H;
+      if (y < el.scrollTop || y > el.scrollTop + el.clientHeight - ROW_H * 3) el.scrollTop = Math.max(0, y - el.clientHeight / 3);
+    }
+    return true;
+  };
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const el = scrollRef.current;
     if (!el) return;
+    if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      const horizontal = e.key === "ArrowLeft" || e.key === "ArrowRight";
+      const dir = e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 1;
+      if (horizontal ? kbMove(dir * stepMin, 0) : e.shiftKey ? kbMove(0, dir) : false) {
+        e.preventDefault();
+        return;
+      }
+    }
     const stepX = el.clientWidth / 4;
     if (e.key === "]" || e.key === "n") {
       stepBar(1);
@@ -600,8 +653,8 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
           </div>
         </div>
       </div>
-      <span className="sr-only" aria-live="polite">{selectedText}</span>
-      <div ref={scrollRef} className="pg-scroll" onScroll={onScroll} onWheel={onWheel} onKeyDown={onKeyDown} tabIndex={0} aria-label="Gantt chart: arrow keys scroll, ] and [ select the next or previous operation, + and - zoom, Escape clears the selection">
+      <span className="sr-only" aria-live="polite">{kbMsg || selectedText}</span>
+      <div ref={scrollRef} className="pg-scroll" onScroll={onScroll} onWheel={onWheel} onKeyDown={onKeyDown} tabIndex={0} aria-label="Gantt chart: arrow keys scroll, ] and [ select the next or previous operation, Alt+Left/Right moves it in time, Shift+Alt+Up/Down moves it to another line, + and - zoom, Escape clears the selection">
         <div style={{ width: totalW, height: totalH + HEAD_H, position: "relative" }}>
           <canvas
             ref={canvasRef}

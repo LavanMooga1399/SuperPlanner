@@ -58,6 +58,8 @@ const TABLES: [string[], string][] = [
   [["←", "→"], "Collapse or expand (trees); scroll (Gantt)"],
   [["[", "]"], "Previous or next operation (Gantt)"],
   [["+", "−"], "Zoom in or out (Gantt)"],
+  [["Alt", "←", "→"], "Move the selected operation by one zoom step (Gantt, preview)"],
+  [["Shift", "Alt", "↑", "↓"], "Move it to the previous or next line (Gantt, preview)"],
 ];
 
 function Keys({ keys }: { keys: string[] }) {
