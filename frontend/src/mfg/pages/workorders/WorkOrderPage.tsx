@@ -38,6 +38,7 @@ import { useAccess } from "../../lib/permissions";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { ComponentsEditor, IssueDialog, OutputDialog } from "./WoDialogs";
 import { toast } from "../../../components/Toast";
+import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
 
 interface Form {
   number: string;
@@ -211,6 +212,7 @@ export function WorkOrderPage() {
 
   return (
     <div className="col gap-lg" data-testid="wo-page" data-status={status}>
+      <UnsavedChangesGuard when={!isNew && dirty && !busy} what="this work order" />
       <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.workOrders()}>Work orders</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{wo?.number ?? "New work order"}</span>
       </nav>

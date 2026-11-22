@@ -36,6 +36,7 @@ import { mfgPaths } from "../../lib/paths";
 import { needsText, useAccess } from "../../lib/permissions";
 import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
+import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
 
 const EDITABLE: Record<DocType, PurchaseStatus[]> = { pr: ["draft", "rejected"], po: ["draft", "open", "partially_received"] };
 
@@ -280,6 +281,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
 
   return (
     <div className="col gap-lg" data-testid="doc-page" data-doc-type={docType} data-status={status}>
+      <UnsavedChangesGuard when={!isNew && editable && dirty && !busy} what={`this ${docType === "po" ? "purchase order" : "purchase request"}`} />
       <nav aria-label="Breadcrumb" className="small muted mfg-breadcrumb">
         <Link to={mfgPaths.purchaseDocs(docType)}>{docType === "pr" ? "Purchase requests" : "Purchase orders"}</Link> <Icon name="chevron-right" size={12} />{" "}
         <span className="mono">{doc?.number ?? `New ${word}`}</span>

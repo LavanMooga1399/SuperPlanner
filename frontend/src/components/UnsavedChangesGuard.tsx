@@ -10,9 +10,12 @@ import { t } from "../lib/i18n";
 
 const automated = typeof navigator !== "undefined" && navigator.webdriver === true;
 
-export function UnsavedChangesGuard({ when, what = "this page" }: { when: boolean; what?: string }) {
+export function UnsavedChangesGuard({ when, what = "this page", scope }: { when: boolean; what?: string; scope?: string }) {
   const active = when && !automated;
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => active && currentLocation.pathname !== nextLocation.pathname);
+  // `scope`: a path prefix whose sub-pages keep the edits (e.g. the tabs of a plan workspace)
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    active && (scope ? !nextLocation.pathname.startsWith(scope) : currentLocation.pathname !== nextLocation.pathname),
+  );
   useEffect(() => {
     if (!active) return;
     const onUnload = (e: BeforeUnloadEvent) => {

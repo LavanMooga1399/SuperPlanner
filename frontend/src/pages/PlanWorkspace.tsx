@@ -8,6 +8,7 @@ import { Icon } from "../components/Icon";
 import { makeTerms } from "../lib/terms";
 import { inputToIso, isoToInput, offsetLabel, offsetMinutesOf, offsetText, parseOffsetText } from "../lib/time";
 import { PlanProvider, usePlan, type SaveState } from "../state/PlanContext";
+import { UnsavedChangesGuard } from "../components/UnsavedChangesGuard";
 
 export function PlanWorkspace() {
   const { planId } = useParams();
@@ -185,6 +186,7 @@ function WorkspaceInner() {
           />
           <span className="chip" title="Server version of this plan">v{record.version}</span>
           <SaveIndicator state={saveState} dirty={dirty} error={saveError} />
+          <UnsavedChangesGuard when={dirty && saveState !== "saving"} what="this plan" scope={`/plans/${record.id}`} />
         </div>
         <span className="small muted hide-sm">Times in {offsetLabel(offsetMinutesOf(draft.horizon_start))}</span>
         <button className="btn sm" onClick={() => setSettingsOpen(true)}>

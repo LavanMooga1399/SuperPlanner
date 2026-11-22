@@ -73,7 +73,22 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
       { key: "lines", header: "Lines", width: "60px", align: "right", render: (d) => d.line_count },
       { key: "next", header: "Next delivery", width: "120px", sortKey: "next_dock_date", render: (d) => fmtDate(d.next_dock_date) },
       { key: "od", header: "Overdue", width: "120px", render: (d) => (d.overdue_count > 0 ? <OverdueBadge days={0} /> : null) },
-      { key: "val", header: "Open value", width: "120px", align: "right", render: (d) => fmtMoney(d.open_value, d.currency) },
+      {
+        key: "val",
+        header: "Open value",
+        width: "120px",
+        align: "right",
+        exportValue: (d) => d.open_value ?? "",
+        // null = at least one line has no unit price (the server does not guess a value)
+        render: (d) =>
+          d.open_value === null ? (
+            <span className="faint" title="At least one line has no unit price, so the value is unknown" data-testid="doc-value-unpriced">
+              No price
+            </span>
+          ) : (
+            fmtMoney(d.open_value, d.currency)
+          ),
+      },
       { key: "src", header: "Source", width: "100px", render: (d) => <SourceBadge source={d.source} runNo={d.source_run_no} /> },
       { key: "date", header: docType === "po" ? "Order date" : "Created", width: "110px", sortKey: "-created_at", render: (d) => (docType === "po" ? fmtDate(d.order_date) : fmtDate(d.created_at.slice(0, 10))) },
     ],
