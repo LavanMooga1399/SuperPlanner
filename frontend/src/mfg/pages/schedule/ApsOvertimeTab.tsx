@@ -93,7 +93,7 @@ export function ApsOvertimeTab() {
         </Banner>
       ) : null}
 
-      {opened.length || policy === "allow" ? (
+      {ot.data && (opened.length || policy === "allow") ? (
         <section className="card" data-testid="overtime-opened">
           <div className="card-header">
             <h3>Extra shifts {policy === "allow" ? "opened by the scheduler" : "in this plan"} ({opened.length})</h3>
@@ -102,7 +102,7 @@ export function ApsOvertimeTab() {
         </section>
       ) : null}
 
-      {policy === "suggest" ? (
+      {policy === "suggest" && ot.data ? (
         <section className="card" data-testid="overtime-suggested">
           <div className="card-header">
             <h3>Suggested extra shifts ({suggested.length})</h3>

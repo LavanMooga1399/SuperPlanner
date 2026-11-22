@@ -113,17 +113,23 @@ No new npm packages. Everything above is built on React, react-router and CSS.
 
 ## 9. Remaining gaps (prioritised)
 
-1. Saved views and column layouts are per device; move them to a server-side user-preferences endpoint.
-2. Bulk selection with bulk actions: no list has a bulk API today (e.g. firm/release several planned orders);
-   add row checkboxes to `VirtualTable` when such endpoints exist.
-3. Server-side sorting exists only where the API offers sort keys (items, work orders, purchase documents,
-   MRP items/planned orders); demand, lots, transactions need API sort keys before headers become sortable.
-4. Convert the remaining ~15 legacy filter toolbars and ~40 page headers to `FilterBar`/`PageHeader`
-   components (they already inherit the compact styling through `.mfg-filters` / `.page-header`).
-5. Gantt: bar-level keyboard navigation (`[` `]`) and announcements are in; keyboard move/resize of bars
-   (today drag only) is not.
-6. Unsaved-changes guard on work order, purchase document and plan-settings editors (they lack a dirty flag).
-7. Page copy outside the shared components is not yet in `lib/i18n.ts`.
+Done in round 3: server-side preferences (tables, saved views, display) with local cache and one-time
+migration (`lib/serverPrefs.ts`, one index request per load); row selection and bulk actions on work orders,
+purchase requests/orders and demand (`mfg/components/BulkActions.tsx`); sorting on demand, lots and
+transactions; `PageHeader`/`FilterBar` on all list and area pages incl. finance, landing, intake, orgs and
+account; Gantt keyboard move (Alt+Left/Right by zoom step, Shift+Alt+Up/Down to another line) through the
+drag preview; unsaved-changes guard on work order, purchase document and plan editors; shared `DateInput`.
+
+1. Legacy `table.table` grids (audit trail, MRP runs, KPI by line, recalls, transfers) are not yet
+   `VirtualTable`s, so they lack column settings, phone cards and sorting; on phones they wrap tightly.
+2. Gantt keyboard resize (change duration) is not offered: the edit API moves operations, it has no
+   duration edit.
+3. The trace and dispatch toolbars stay plain forms (submit-based search, print layout); styled alike.
+4. Record headers (work order, item, purchase document, demand order, plan workspace, finance result) use the
+   `ws-header` record anatomy rather than `PageHeader` by design (editable title, status chips).
+5. Page copy outside the shared components is not yet in `lib/i18n.ts`.
+6. Known failing e2e unrelated to UX: `mfg-m2-mrp` "pilot journey" expects "Release now" planned orders that
+   the current sample/date produces none of (fails identically on the original code).
 
 ## 10. Backend support (API contract for the UI)
 
