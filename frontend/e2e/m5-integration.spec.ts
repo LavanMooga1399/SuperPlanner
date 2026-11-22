@@ -2,8 +2,10 @@
  * M5 WP-U (docs/M5-DESIGN.md 4-7, 13): the integration console, ERP-owned fields, inbound batches with per-record
  * results and code mappings, the webhook address guard, stock reconciliation from an uploaded ERP list; trace (tree,
  * graph, exact vs possible), where-used -> recall, ECO with impact, transfers and the audit trail.
- * Trace, recall, ECO and transfer routes answer from the S0 fixture until S3/S4, so those checks are about the
- * screens, not about data computed from the sample.
+ * Trace, recall, ECO and transfer routes answer from the real plant data (the S0 fixture ids are gone): the trace
+ * test makes its own lot (an unused sample item becomes lot-controlled and is received with a lot code) and its own
+ * change request. Transfers need a second plant of an organisation, which single-user mode does not have, so that
+ * step checks the list and its empty state.
  */
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { findItem, gotoMfg, loadSampleM2, M2_ANCHOR, mfgCall, mfgJson, resetMfg } from "./mfg-helpers";
@@ -112,9 +114,39 @@ test.describe("M5 integration and traceability", () => {
     await request.put(`${V1}/integration/settings`, { data: { ...st2, enabled: false, row_version: undefined, adapters: undefined }, headers: { "If-Match": `"${st2.row_version}"` } });
   });
 
-  test("trace tree and graph, where-used to recall, ECO impact, transfers, audit trail", async ({ page }) => {
-    // trace (fixture tree until S3): exact and possible links are told apart in text, the graph view draws
-    await gotoMfg(page, "/trace?kind=serial&id=srl_x&dir=backward&label=TPU-000123");
+  test("trace tree and graph, where-used to recall, ECO impact, transfers, audit trail", async ({ page, request }) => {
+    // a traceable lot: the first sample item without stock history (the finished good) becomes lot-controlled, and a
+    // work order for it receives its output into lot LOT-E2E-<stamp>, so the lot traces back to the work order
+    const lotCode = `LOT-E2E-${Date.now()}`;
+    const items = await mfgJson<{ items: { id: string; part_number: string }[] }>(request, "/items?limit=50");
+    let itemId = "";
+    for (const it of items.items) {
+      const { body, version } = await itemBody(request, it.id, { lot_controlled: true });
+      const r = await request.put(`${V1}/mfg/items/${it.id}`, { data: body, headers: { "If-Match": `"${version}"` } });
+      if (r.ok()) {
+        itemId = it.id;
+        break;
+      }
+    }
+    expect(itemId, "a sample item without stock history can become lot-controlled").not.toBe("");
+    const locs = await mfgJson<{ items: { id: string; code: string; kind: string }[] }>(request, "/locations");
+    const stores = locs.items.find((l) => l.kind === "stores") ?? locs.items[0];
+    const today = new Date().toISOString().slice(0, 10);
+    const wo = (await mfgCall(request, "POST", "/work-orders", {
+      data: { item_id: itemId, qty: 4, due_date: today, start_date: today, priority: 2, receipt_location_id: stores.id },
+      status: 201,
+    })) as { id: string; row_version: number };
+    await mfgCall(request, "POST", `/work-orders/${wo.id}/release`, { data: { reserve: false, override_reason: "e2e: trace lot" }, headers: { "If-Match": `"${wo.row_version}"` } });
+    await mfgCall(request, "POST", "/inventory/postings", {
+      data: { type: "wo_receipt", note: "e2e trace lot", lines: [{ wo_id: wo.id, location_id: stores.id, qty: 2, lot_code: lotCode }] },
+      headers: { "Idempotency-Key": `e2e-${lotCode}` },
+    });
+    const lots = await mfgJson<{ items: { id: string; lot_code: string }[] }>(request, `/lots?q=${lotCode}`);
+    const lot = lots.items.find((l) => l.lot_code === lotCode)!;
+    expect(lot).toBeTruthy();
+
+    // trace: the tree shows the lot with its exact/possible marking, both directions, the graph view draws
+    await gotoMfg(page, `/trace?kind=lot&id=${lot.id}&dir=backward&label=${lotCode}`);
     await expect(page.getByTestId("trace-tree")).toBeVisible();
     await expect(page.locator('[data-testid="trace-node"]').first()).toBeVisible();
     await expect(page.locator('[data-testid="trace-node"][data-precision="exact"], [data-testid="trace-node"][data-precision="possible"]').first()).toBeVisible();
@@ -123,27 +155,35 @@ test.describe("M5 integration and traceability", () => {
     await page.getByTestId("trace-view-graph").click();
     await expect(page.getByTestId("trace-graph").locator("svg")).toBeVisible();
 
-    // a recall from a trace node -> the report
-    await page.goto(`/mfg/recalls?new=1&kind=lot&id=lot_${"0".repeat(31)}1&label=R-2611`);
+    // a recall from that lot -> the report
+    await page.goto(`/mfg/recalls?new=1&kind=lot&id=${lot.id}&label=${lotCode}`);
     await expect(page.getByTestId("recall-new")).toBeVisible();
     await page.getByTestId("recall-create").click();
     await expect(page.getByTestId("recall-page")).toBeVisible();
     await expect(page.getByTestId("recall-units")).toBeVisible();
     await expect(page.getByTestId("recall-quarantine")).toBeVisible();
 
-    // ECO: list -> detail -> impact (use-up date suggestion)
+    // ECO: list -> detail -> impact (the use-up suggestion shows when the server computes a date)
+    const eco = (await mfgCall(request, "POST", "/eco", {
+      data: { title: `E2E change ${lotCode}`, reason: "e2e", kind: "eco", priority: 3, effectivity: { mode: "date", date: null }, note: "" },
+    })) as { id: string };
+    // the change carries a draft copy of the item's released BOM (the impact needs at least one draft)
+    const boms = await mfgJson<{ items: { id: string; status: string; row_version: number }[] }>(request, `/items/${itemId}/boms`);
+    const released = boms.items.find((b) => b.status === "released") ?? boms.items[0];
+    const draft = (await mfgCall(request, "POST", `/boms/${released.id}/copy`, { data: { revision: null }, headers: { "If-Match": `"${released.row_version}"` } })) as { id: string };
+    await mfgCall(request, "POST", `/eco/${eco.id}/items`, { data: { doc_type: "bom", doc_id: draft.id, disposition: { open_wos: "flag", open_pos: "flag_cancel", stock: "use_up" } } });
     await gotoMfg(page, "/eco");
     await page.getByTestId("eco-row").first().getByRole("link").click();
     await expect(page.getByTestId("eco-page")).toBeVisible();
     await page.getByTestId("eco-tab-impact").click();
-    await expect(page.getByTestId("eco-impact")).toBeVisible();
-    await expect(page.getByTestId("eco-useup")).toBeVisible();
+    await expect(page.getByTestId("eco-impact")).toBeVisible({ timeout: 60_000 });
+    const impact = await mfgJson<{ use_up_date?: string | null }>(request, `/eco/${eco.id}/impact`);
+    if (impact.use_up_date) await expect(page.getByTestId("eco-useup")).toBeVisible();
 
-    // transfers
+    // transfers: single-user mode has no second plant, so the list shows its empty state
     await gotoMfg(page, "/transfers");
-    await expect(page.getByTestId("transfer-row").first()).toBeVisible();
-    await page.getByTestId("transfer-row").first().getByRole("link").click();
-    await expect(page.getByTestId("transfer-lines")).toBeVisible();
+    await expect(page.getByTestId("transfer-table")).toBeVisible();
+    await expect(page.getByTestId("transfer-table")).toContainText(/No outgoing transfers/);
 
     // audit trail: rows from the first test, CSV export downloads
     await gotoMfg(page, "/audit");

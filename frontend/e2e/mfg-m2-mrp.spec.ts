@@ -14,7 +14,9 @@ test.beforeEach(async ({ request }) => {
 
 test("pilot journey on small: run, late demand and why, item plan, expedite link, release, re-run", async ({ page, request }) => {
   test.setTimeout(180_000);
-  await loadSampleM2(request, "small");
+  // dates relative to today (not to this week's Monday): the first buy order is then due for release in a few days
+  // whatever the weekday, so "Release now" planned orders exist on every run date
+  await loadSampleM2(request, "small", { anchor: new Date().toISOString().slice(0, 10) });
   const problems = watch(page);
   const runId = await runMrpUi(page, "e2e weekly");
   await expect(page.getByTestId("run-kpi-late")).toBeVisible();
