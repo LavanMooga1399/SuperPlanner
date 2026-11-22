@@ -33,6 +33,7 @@ export function TransactionsTab() {
   const txnType = (params.get("type") ?? "") as PostingType | "";
   const from = params.get("from") ?? "";
   const to = params.get("to") ?? "";
+  const sort = params.get("sort") ?? "-seq";
   const set = (k: string, v: string) => setSearchParam(setParams, k, v);
   const item = useItemInfo(itemId || null);
   const itemRef: ItemRef | null = item
@@ -49,18 +50,19 @@ export function TransactionsTab() {
           txn_type: txnType || undefined,
           from: from || undefined,
           to: to || undefined,
+          sort: sort === "-seq" ? undefined : sort,
           limit,
           offset,
         },
         signal,
       ),
-    [itemId, postingId, locationId, txnType, from, to],
+    [itemId, postingId, locationId, txnType, from, to, sort],
   );
 
   const columns: Column<TransactionRow>[] = useMemo(
     () => [
-      { key: "seq", header: "#", width: "74px", align: "right", render: (t) => <span className="faint mono">{t.seq}</span> },
-      { key: "date", header: "Date", width: "100px", render: (t) => fmtDate(t.txn_date) },
+      { key: "seq", header: "#", width: "74px", sortKey: "seq", sortKeyDesc: "-seq", align: "right", render: (t) => <span className="faint mono">{t.seq}</span> },
+      { key: "date", header: "Date", width: "100px", sortKey: "txn_date", sortKeyDesc: "-txn_date", render: (t) => fmtDate(t.txn_date) },
       {
         key: "post",
         header: "Posting",
@@ -71,11 +73,12 @@ export function TransactionsTab() {
           </Link>
         ),
       },
-      { key: "type", header: "Type", width: "minmax(150px, 1fr)", render: (t) => <span className="mfg-ellipsis">{POSTING_LABEL[t.txn_type] ?? t.txn_type}</span> },
+      { key: "type", header: "Type", width: "minmax(150px, 1fr)", sortKey: "txn_type", render: (t) => <span className="mfg-ellipsis">{POSTING_LABEL[t.txn_type] ?? t.txn_type}</span> },
       {
         key: "pn",
         header: "Part number",
         width: "minmax(140px, 1fr)",
+        sortKey: "part_number",
         render: (t) => (
           <Link to={mfgPaths.itemStock(t.item.id)} className="mono mfg-ellipsis" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             {t.item.part_number}
@@ -87,7 +90,9 @@ export function TransactionsTab() {
       {
         key: "qty",
         header: "Change",
-        width: "90px",
+        width: "96px",
+        sortKey: "qty",
+        sortKeyDesc: "-qty",
         align: "right",
         render: (t) => (
           <span className={t.qty < 0 ? "mfg-neg" : "mfg-pos"}>
@@ -165,6 +170,8 @@ export function TransactionsTab() {
         rows={data.rows}
         columns={columns}
         rowKey={(t) => t.id}
+        sort={{ key: sort, dir: sort.startsWith("-") ? "desc" : "asc" }}
+        onSortChange={(x) => setSearchParam(setParams, "sort", !x || x.key === "-seq" ? "" : x.key)}
         label="Stock ledger"
         testId="txn-table"
         totalCount={data.total}

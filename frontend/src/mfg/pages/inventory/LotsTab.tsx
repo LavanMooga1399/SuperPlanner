@@ -61,13 +61,14 @@ export function LotsTab() {
   const before = params.get("before") ?? "";
   const hold = params.get("hold") ?? "";
   const lotParam = params.get("lot") ?? "";
+  const sort = params.get("sort") ?? "expires_on";
   const [editing, setEditing] = useState<LotRecord | null>(null);
   const [toggleError, setToggleError] = useState<unknown>(null);
   const set = (k: string, v: string) => setSearchParam(setParams, k, v);
   useEffect(() => set("q", dq), [dq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = usePaged<LotRecord>(
-    (offset, limit, signal) => listLots({ q: dq || undefined, expiring_before: before || undefined, hold: hold === "" ? undefined : hold === "true", limit, offset }, signal),
+    (offset, limit, signal) => listLots({ q: dq || undefined, expiring_before: before || undefined, hold: hold === "" ? undefined : hold === "true", sort: sort === "expires_on" ? undefined : sort, limit, offset }, signal),
     [dq, before, hold],
   );
   const found = lotParam ? data.rows.findIndex((l) => l.id === lotParam) : -1;
@@ -89,11 +90,12 @@ export function LotsTab() {
   };
 
   const columns: Column<LotRecord>[] = [
-    { key: "lot", header: "Lot", width: "minmax(130px, 1fr)", render: (l) => <span className="mono mfg-ellipsis">{l.lot_code}</span> },
+    { key: "lot", header: "Lot", width: "minmax(130px, 1fr)", sortKey: "lot_code", sortKeyDesc: "-lot_code", render: (l) => <span className="mono mfg-ellipsis">{l.lot_code}</span> },
     {
       key: "pn",
       header: "Part number",
       width: "minmax(150px, 1fr)",
+      sortKey: "part_number",
       render: (l) => (
         <Link to={mfgPaths.itemStock(l.item.id)} className="mono mfg-ellipsis" tabIndex={-1}>
           {l.item.part_number}
@@ -105,6 +107,8 @@ export function LotsTab() {
       key: "exp",
       header: "Expires",
       width: "130px",
+      sortKey: "expires_on",
+      sortKeyDesc: "-expires_on",
       render: (l) =>
         l.expires_on ? (
           l.expires_on <= today ? (
@@ -118,7 +122,7 @@ export function LotsTab() {
           <span className="faint">No expiry</span>
         ),
     },
-    { key: "rcv", header: "Received", width: "100px", render: (l) => fmtDate(l.received_on) },
+    { key: "rcv", header: "Received", width: "110px", sortKey: "received_on", sortKeyDesc: "-received_on", render: (l) => fmtDate(l.received_on) },
     { key: "sl", header: "Supplier lot", width: "110px", render: (l) => <span className="mono mfg-ellipsis">{l.supplier_lot}</span> },
     { key: "oh", header: "On hand", width: "90px", align: "right", render: (l) => `${fmtNum(l.on_hand)} ${l.item.uom}` },
     { key: "hold", header: "Status", width: "100px", render: (l) => (l.hold ? <HoldBadge /> : <span className="faint">Usable</span>) },
@@ -166,6 +170,8 @@ export function LotsTab() {
         rows={data.rows}
         columns={columns}
         rowKey={(l) => l.id}
+        sort={{ key: sort, dir: sort.startsWith("-") ? "desc" : "asc" }}
+        onSortChange={(x) => setSearchParam(setParams, "sort", !x || x.key === "expires_on" ? "" : x.key)}
         label="Lots"
         testId="lots-table"
         totalCount={data.total}

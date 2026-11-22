@@ -698,6 +698,7 @@ export interface DemandOrderSummary extends Omit<DemandOrderBase, "note" | "exte
 }
 
 export interface DemandQuery {
+  sort?: string;
   status?: DemandStatus;
   demand_type?: DemandType;
   program?: string;

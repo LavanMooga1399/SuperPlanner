@@ -131,6 +131,7 @@ export const deleteItemSupplier = (id: string, version: number) =>
 
 // ---------------------------------------------------------------- #97-105 lots, inventory
 export interface LotQuery {
+  sort?: string;
   item_id?: string;
   q?: string;
   expiring_before?: string;
@@ -159,6 +160,7 @@ export const listBalances = (query: BalanceQuery, signal?: AbortSignal) =>
 export const getItemStock = (itemId: string, signal?: AbortSignal) => mfgRequest<ItemStock>(`/items/${enc(itemId)}/stock`, { signal });
 
 export interface TransactionQuery {
+  sort?: string;
   item_id?: string;
   location_id?: string;
   lot_id?: string;

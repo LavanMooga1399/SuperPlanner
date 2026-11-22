@@ -43,6 +43,8 @@ export interface Column<T> {
   render(row: T, index: number): ReactNode;
   /** Server sort key: header click calls `onSortChange` (the list re-queries). */
   sortKey?: string;
+  /** Server key of the opposite direction (e.g. "-due_date"): clicks cycle sortKey -> sortKeyDesc -> default. */
+  sortKeyDesc?: string;
   /** Client-side sort value (tables without `onSortChange`). */
   sortValue?(row: T): string | number | null | undefined;
   /** Text for CSV export (default: the text content of `render`). */
@@ -273,7 +275,10 @@ export function VirtualTable<T>({
     if (onSortChange) {
       // server sort keys carry their own direction ("-created_at"): click selects it, a second click resets
       const key = c.sortKey!;
-      onSortChange(activeSort?.key === key ? null : { key, dir: key.startsWith("-") ? "desc" : "asc" });
+      const dirOf = (k: string): "asc" | "desc" => (k.startsWith("-") ? "desc" : "asc");
+      // two-direction columns toggle asc <-> desc; single-key columns toggle on <-> the list default
+      if (activeSort?.key === key) onSortChange(c.sortKeyDesc ? { key: c.sortKeyDesc, dir: dirOf(c.sortKeyDesc) } : null);
+      else onSortChange({ key, dir: dirOf(key) });
       return;
     }
     const cur = clientSort && clientSort.key === c.key ? clientSort.dir : null;
@@ -541,7 +546,7 @@ export function VirtualTable<T>({
           <div role="row" className={`vt-head${cardMode ? " vt-head-hidden" : ""}`} style={gridStyle} aria-rowindex={1}>
             {columns.map((c) => {
               const sk = onSortChange ? c.sortKey : c.key;
-              const dir = activeSort && sortable(c) && activeSort.key === sk ? activeSort.dir : null;
+              const dir = activeSort && sortable(c) && (activeSort.key === sk || (onSortChange && activeSort.key === c.sortKeyDesc)) ? activeSort.dir : null;
               return (
                 <div
                   key={c.key}

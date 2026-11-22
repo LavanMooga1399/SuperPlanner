@@ -27,14 +27,15 @@ export function DemandList() {
   const status = (params.get("status") ?? "") as DemandStatus | "";
   const type = (params.get("type") ?? "") as DemandType | "";
   const lateOnly = params.get("late") === "1";
+  const sort = params.get("sort") ?? "number";
   const set = (k: string, v: string) => setSearchParam(setParams, k, v);
   useEffect(() => set("q", dq), [dq]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => set("program", dProgram), [dProgram]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = usePaged<DemandOrderSummary>(
     (offset, limit, signal) =>
-      listDemandOrders({ q: dq || undefined, status: status || undefined, demand_type: type || undefined, program: dProgram || undefined, late_only: lateOnly || undefined, limit, offset }, signal),
-    [dq, status, type, dProgram, lateOnly],
+      listDemandOrders({ q: dq || undefined, status: status || undefined, demand_type: type || undefined, program: dProgram || undefined, late_only: lateOnly || undefined, sort: sort === "number" ? undefined : sort, limit, offset }, signal),
+    [dq, status, type, dProgram, lateOnly, sort],
   );
 
   const columns: Column<DemandOrderSummary>[] = useMemo(
@@ -43,20 +44,23 @@ export function DemandList() {
         key: "no",
         header: "Order",
         width: "130px",
+        sortKey: "number",
+        sortKeyDesc: "-number",
+        exportValue: (o) => o.number,
         render: (o) => (
           <Link to={mfgPaths.demandOrder(o.id)} className="mono" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             {o.number}
           </Link>
         ),
       },
-      { key: "st", header: "Status", width: "170px", render: (o) => <DemandStatusChip status={o.status} /> },
+      { key: "st", header: "Status", width: "170px", sortKey: "status", render: (o) => <DemandStatusChip status={o.status} /> },
       { key: "type", header: "Type", width: "140px", render: (o) => DEMAND_TYPE_LABEL[o.demand_type] ?? o.demand_type },
-      { key: "cust", header: "Customer", width: "minmax(150px, 1.4fr)", render: (o) => <span className="mfg-ellipsis">{o.customer}</span> },
+      { key: "cust", header: "Customer", width: "minmax(150px, 1.4fr)", sortKey: "customer", render: (o) => <span className="mfg-ellipsis">{o.customer}</span> },
       { key: "prog", header: "Programme", width: "110px", render: (o) => <span className="mono">{o.program ?? ""}</span> },
-      { key: "prio", header: "Priority", width: "70px", align: "right", render: (o) => `P${o.priority}` },
+      { key: "prio", header: "Priority", width: "80px", sortKey: "priority", align: "right", render: (o) => `P${o.priority}` },
       { key: "lines", header: "Lines", width: "60px", align: "right", render: (o) => o.line_count },
       { key: "open", header: "Open qty", width: "90px", align: "right", render: (o) => fmtNum(o.open_qty) },
-      { key: "due", header: "Next due", width: "106px", render: (o) => fmtDate(o.next_due) },
+      { key: "due", header: "Next due", width: "106px", sortKey: "due_date", sortKeyDesc: "-due_date", render: (o) => fmtDate(o.next_due) },
       {
         key: "late",
         header: "Late lines",
@@ -152,6 +156,8 @@ export function DemandList() {
         onActivate={(o) => navigate(mfgPaths.demandOrder(o.id))}
         onEndReached={data.onEndReached}
         loading={data.loading}
+        sort={{ key: sort, dir: sort.startsWith("-") ? "desc" : "asc" }}
+        onSortChange={(x) => set("sort", !x || x.key === "number" ? "" : x.key)}
         exportName="demand-orders"
         empty={data.loading ? "Loading…" : "No demand orders match these filters."}
         footer={<span>Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} orders</span>}
