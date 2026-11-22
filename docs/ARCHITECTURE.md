@@ -2348,3 +2348,30 @@ Contract change requested by the product owner ("enterprise-grade, PostgreSQL on
    used alone for local development, and creates the two roles on first start; `migrate` gets the owner URL,
    `api`/`worker` only the app URL. The stale, git-tracked `backend/build/` and `backend/superplanner.egg-info/`
    packaging artifacts (which still contained the old file-database defaults) were untracked and git-ignored.
+
+### 2026-11-22 - UX backend support: preferences, bulk actions, sort keys (backend-developer)
+
+Contract: docs/UX-STANDARD.md section 10. Interpretations:
+
+1. **Migration `0009_ux` (expand)** adds `user_preferences` (PK `user_id, key`, FK users CASCADE; a platform table
+   like `push_subscriptions`) and `mfg_bulk_requests` (plant-owned `OwnedMixin`, unique `owner_id, actor_id,
+   idempotency_key`). Grants come from the owner's default privileges (no GRANT in the migration).
+2. **Preferences are personal**, keyed by the session user and never by the workspace, so `X-SP-Workspace` has no
+   effect and the cross-user sweep sees B's PUT as B's own key (skipped there; GET / DELETE of A's key are 404 for
+   B). API tokens are already refused outside the token surface by `require_user`; the router checks again.
+   PUT creates without If-Match (or with `"0"`), replacing requires If-Match; DELETE looks up first (404) and then
+   checks If-Match, like `check_version` after the owned lookup.
+3. **No audit for preferences**: UI layout state is not business data, is visible only to its owner, is written on
+   every column drag (audit volume and hash-chain noise), and the audit log is per plant while preferences are not.
+   **Not in the data reset**: the reset deletes plant data; per-person tables (push, digests, preferences) survive.
+   `mfg_bulk_requests` is plant data and is reset (the reset response gains `deleted.bulk_requests`).
+4. **Bulk actions** live under `/mfg/bulk/<collection>/<action>` (not `/<collection>/bulk/...`, which would be
+   captured by `/{id}/<action>` routes registered earlier). Each record calls the existing service function with
+   `If-Match: "<row_version>"`, so rules, audit (one event per record) and outbox are unchanged; per-record ids
+   are plain strings (malformed / foreign / unknown -> that record's 404, identical text). An unexpected exception
+   in one record becomes that record's 500 `INTERNAL_ERROR` (logged) instead of failing the batch. Bulk reject
+   applies one `reason` to every record; bulk release applies one `override_reason` (only used where short).
+5. **Bulk idempotency** stores a `running` row before processing and the final response after; a `running` row
+   older than 10 minutes is taken over (records already applied then fail with 412, which is safe). Keys are per
+   plant and acting user; TTL `IDEMPOTENCY_TTL_HOURS` (expired rows are pruned on the next keyed request). The
+   static audit guard exempts `bulk.py:_claim` / `_finish` (bookkeeping only).

@@ -22,7 +22,9 @@ EXEMPT = {"downtime.py:create_downtime", "inventory.py:reverse_posting", "floor.
           # M5: the inbound receipt posts through `post_in_session` (audits itself); webhook delivery bookkeeping
           "integration.py:_po_receipts", "integration.py:deliver_now", "integration.py:_deliver_endpoint",
           # M5 round 2: release wrappers audit in `release_in_session` (shared with ECO implement / ERP inbound)
-          "boms.py:release_bom", "routings.py:release_routing"}
+          "boms.py:release_bom", "routings.py:release_routing",
+          # UX bulk actions: Idempotency-Key replay bookkeeping; every record audits through its single-record call
+          "bulk.py:_claim", "bulk.py:_finish"}
 
 
 def test_every_mutating_mfg_service_records_an_audit_event():

@@ -348,6 +348,11 @@ def make_m6_world(c: TestClient, w: dict[str, Any]) -> None:
                 "digest_id": f"dgs_{uuid.uuid4().hex}"})
     w["mfg_bodies"].update({"/assistant/conversations/{conversation_id}/turns": {"text": "why late?"},
                             "/assistant/drafts/{draft_id}/applied": {"status": "succeeded"}})
+    # UX: a personal preference of A (B addressing the same key reaches B's own namespace -> 404)
+    key = f"ux.{uuid.uuid4().hex[:12]}"
+    r = c.put(f"{API}/me/preferences/{key}", json={"value": {"theme": "dark"}})
+    assert r.status_code == 201, r.text
+    ids["key"] = key
 
 
 def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
@@ -497,6 +502,8 @@ def test_other_user_gets_404_for_every_owned_id_and_changes_nothing(db_url, whic
         for method, path in routes:
             if "/templates/" in path or "/mfg/samples/" in path or path.startswith(S0_FIXTURE_PREFIXES):
                 continue                                    # template and sample ids are not owned
+            if method == "PUT" and path == f"{API}/me/preferences/{{key}}":
+                continue                                    # personal: B's PUT writes B's own key, never A's
             kw = body_for(method, path, wa)
             r_foreign = b.request(method, fill(path, ids_a), **copy.deepcopy(kw))
             unknown = {k: f"x{uuid.uuid4().hex[:12]}" for k in ids_a}
@@ -526,6 +533,7 @@ def test_other_user_gets_404_for_every_owned_id_and_changes_nothing(db_url, whic
             assert b.get(path, params={"stream": "false"}).status_code == 404
         time.sleep(0.5)
         assert snapshot(a, wa) == before
+        assert a.get(f"{API}/me/preferences/{ids_a['key']}").json()["value"] == {"theme": "dark"}
 
 
 def test_csrf_and_origin_enforced_on_every_unsafe_route(db_url):

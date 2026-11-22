@@ -632,6 +632,27 @@ PROTECTED_M6 = frozenset({
     ("GET", "/orgs/{org_id}/dashboard"),
 })
 PROTECTED = PROTECTED | PROTECTED_M6
+# UX upgrade (docs/UX-STANDARD.md "Backend support"): bulk actions (the single call's permission) + personal prefs
+MFG_PERMISSIONS_UX = {
+    ("POST", "/mfg/bulk/work-orders/release"): "wo_edit",
+    ("POST", "/mfg/bulk/work-orders/close"): "wo_edit",
+    ("POST", "/mfg/bulk/work-orders/cancel"): "wo_edit",
+    ("POST", "/mfg/bulk/purchase-requests/submit"): "pr_edit",
+    ("POST", "/mfg/bulk/purchase-requests/approve"): "pr_approve",
+    ("POST", "/mfg/bulk/purchase-requests/reject"): "pr_approve",
+    ("POST", "/mfg/bulk/purchase-orders/cancel"): "po_edit",
+    ("POST", "/mfg/bulk/demand-orders/close"): "demand_edit",
+    ("POST", "/mfg/bulk/demand-orders/cancel"): "demand_edit",
+}
+MFG_PERMISSIONS.update(MFG_PERMISSIONS_UX)
+MFG_PROTECTED = MFG_PROTECTED | frozenset(MFG_PERMISSIONS_UX)
+PROTECTED_UX = frozenset({
+    ("GET", "/me/preferences"),
+    ("GET", "/me/preferences/{key}"),
+    ("PUT", "/me/preferences/{key}"),
+    ("DELETE", "/me/preferences/{key}"),
+})
+PROTECTED = PROTECTED | PROTECTED_UX
 # M5 auth additions resolve the session themselves (config / OIDC public; TOTP steps need a session or a pending login)
 PUBLIC_ALLOWLIST = PUBLIC_ALLOWLIST | frozenset({
     ("GET", "/auth/config"),

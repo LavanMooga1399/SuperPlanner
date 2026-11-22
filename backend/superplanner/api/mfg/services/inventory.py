@@ -675,7 +675,8 @@ def list_postings(ctx: AppContext, *, type_: str | None, d0: date | None, d1: da
 
 def list_transactions(ctx: AppContext, *, item_id: str | None, location_id: str | None, lot_id: str | None,
                       txn_type: str | None, posting_id: str | None, ref_type: str | None, ref_id: str | None,
-                      d0: date | None, d1: date | None, limit: int, offset: int) -> dict[str, Any]:
+                      d0: date | None, d1: date | None, limit: int, offset: int, sort: str = "-seq"
+                      ) -> dict[str, Any]:
     T = MfgInvTransactionRow
     conds: list[Any] = []
     for col, v in ((T.item_id, item_id), (T.location_id, location_id), (T.lot_id, lot_id), (T.txn_type, txn_type),
@@ -701,7 +702,14 @@ def list_transactions(ctx: AppContext, *, item_id: str | None, location_id: str 
         else:
             raise validation(["query", "ref_type"], "ref_type must be po, pr, wo or demand.")
     with read_tx(ctx) as s:
-        rows = list(s.execute(select(T).where(*conds).order_by(T.seq.desc()).limit(limit).offset(offset)).scalars())
+        q = select(T).where(*conds)
+        if sort == "part_number":
+            q = q.join(MfgItemRow, MfgItemRow.id == T.item_id)
+        order = {"-seq": (T.seq.desc(),), "seq": (T.seq,), "-txn_date": (T.txn_date.desc(), T.seq.desc()),
+                 "txn_date": (T.txn_date, T.seq), "part_number": (MfgItemRow.part_number, T.seq.desc()),
+                 "txn_type": (T.txn_type, T.seq.desc()), "-qty": (T.qty.desc(), T.seq.desc()),
+                 "qty": (T.qty, T.seq.desc())}[sort]
+        rows = list(s.execute(q.order_by(*order).limit(limit).offset(offset)).scalars())
         total = int(s.execute(select(func.count()).select_from(T).where(*conds)).scalar() or 0)
         return page(transaction_rows(s, rows), total, limit, offset)
 
@@ -832,7 +840,7 @@ def lot_record(s: Session, row: MfgLotRow) -> dict[str, Any]:
 
 
 def list_lots(ctx: AppContext, *, item_id: str | None, q: str | None, expiring_before: date | None,
-              hold: bool | None, limit: int, offset: int) -> dict[str, Any]:
+              hold: bool | None, limit: int, offset: int, sort: str = "expires_on") -> dict[str, Any]:
     conds: list[Any] = []
     if item_id:
         conds.append(MfgLotRow.item_id == item_id)
@@ -843,9 +851,17 @@ def list_lots(ctx: AppContext, *, item_id: str | None, q: str | None, expiring_b
     if hold is not None:
         conds.append(MfgLotRow.hold.is_(hold))
     with read_tx(ctx) as s:
-        rows = list(s.execute(select(MfgLotRow).where(*conds)
-                              .order_by(MfgLotRow.expires_on.asc().nulls_last(), MfgLotRow.lot_code, MfgLotRow.id)
-                              .limit(limit).offset(offset)).scalars())
+        L_ = MfgLotRow
+        q = select(L_).where(*conds)
+        if sort == "part_number":
+            q = q.join(MfgItemRow, MfgItemRow.id == L_.item_id)
+        order = {"expires_on": (L_.expires_on.asc().nulls_last(), L_.lot_code),
+                 "-expires_on": (L_.expires_on.desc().nulls_last(), L_.lot_code),
+                 "lot_code": (L_.lot_code,), "-lot_code": (L_.lot_code.desc(),),
+                 "received_on": (L_.received_on.asc().nulls_last(), L_.lot_code),
+                 "-received_on": (L_.received_on.desc().nulls_last(), L_.lot_code),
+                 "part_number": (MfgItemRow.part_number, L_.lot_code), "-created_at": (L_.created_at.desc(),)}[sort]
+        rows = list(s.execute(q.order_by(*order, L_.id).limit(limit).offset(offset)).scalars())
         total = int(s.execute(select(func.count()).select_from(MfgLotRow).where(*conds)).scalar() or 0)
         ids = [r.id for r in rows]
         on = dict(s.execute(select(MfgInvBalanceRow.lot_id, func.sum(MfgInvBalanceRow.qty_on_hand))

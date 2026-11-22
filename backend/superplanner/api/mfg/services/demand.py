@@ -82,7 +82,7 @@ def get_order(ctx: AppContext, order_id: str) -> dict[str, Any]:
 
 def list_orders(ctx: AppContext, *, status: str | None, demand_type: str | None, program: str | None,
                 item_id: str | None, due_from: date | None, due_to: date | None, late_only: bool, q: str | None,
-                limit: int, offset: int) -> dict[str, Any]:
+                limit: int, offset: int, sort: str = "number") -> dict[str, Any]:
     O, Ln = MfgDemandOrderRow, MfgDemandLineRow
     conds: list[Any] = []
     for col, v in ((O.status, status), (O.demand_type, demand_type), (O.program, program)):
@@ -106,7 +106,12 @@ def list_orders(ctx: AppContext, *, status: str | None, demand_type: str | None,
                 return page([], 0, limit, offset)
             conds.append(O.id.in_(select(MfgMrpDemandResultRow.order_id).where(
                 MfgMrpDemandResultRow.run_id == run.id, MfgMrpDemandResultRow.late_days > 0)))
-        rows = list(s.execute(select(O).where(*conds).order_by(O.number, O.id).limit(limit).offset(offset)).scalars())
+        due = select(func.min(Ln.due_date)).where(Ln.order_id == O.id).correlate(O).scalar_subquery()
+        order = {"number": (O.number,), "-number": (O.number.desc(),), "customer": (O.customer, O.number),
+                 "priority": (O.priority, O.number), "status": (O.status, O.number),
+                 "-created_at": (O.created_at.desc(), O.number), "due_date": (due.asc().nulls_last(), O.number),
+                 "-due_date": (due.desc().nulls_last(), O.number)}[sort]
+        rows = list(s.execute(select(O).where(*conds).order_by(*order, O.id).limit(limit).offset(offset)).scalars())
         total = int(s.execute(select(func.count()).select_from(O).where(*conds)).scalar() or 0)
         return page(order_records(s, rows, full=False), total, limit, offset)
 

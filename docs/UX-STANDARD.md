@@ -124,3 +124,72 @@ No new npm packages. Everything above is built on React, react-router and CSS.
    (today drag only) is not.
 6. Unsaved-changes guard on work order, purchase document and plan-settings editors (they lack a dirty flag).
 7. Page copy outside the shared components is not yet in `lib/i18n.ts`.
+
+## 10. Backend support (API contract for the UI)
+
+All paths under `/api/v1`; errors use the usual envelope `{"error": {"code", "message", "details"}}`; responses
+carry `X-Request-ID`. Session users only where noted (API tokens get 403 `TOKEN_SCOPE`).
+
+### 10.1 Per-user preferences (closes gap 1)
+
+Personal, not per workspace (`X-SP-Workspace` is ignored): the same layout follows the person across browsers and
+plants. Session users only (403 `TOKEN_SCOPE` for API tokens). Not audited, not touched by the data reset.
+
+| Call | Result |
+|---|---|
+| `GET /me/preferences?prefix=table.` | `{"items": [{"key", "row_version", "size_bytes", "updated_at"}], "total", "limits": {"max_keys": 200, "max_bytes": 32768}}` (no values; sorted by key) |
+| `GET /me/preferences/{key}` | `{"key", "value", "row_version", "size_bytes", "updated_at"}` + `ETag: "<row_version>"`; 404 `NOT_FOUND` if unset |
+| `PUT /me/preferences/{key}` body `{"value": <any JSON>}` | create: no `If-Match` (or `If-Match: "0"`) -> 201; replace: `If-Match: "<row_version>"` -> 200. Existing key without If-Match -> 428 `PRECONDITION_REQUIRED`, stale -> 412 `VERSION_MISMATCH`; both carry `details.current_version` |
+| `DELETE /me/preferences/{key}` + `If-Match` | 204; 404 if unset; 428 / 412 as above |
+
+- Key: 1-128 chars `A-Z a-z 0-9 . _ : -`, starting with a letter or digit (else 422 `VALIDATION_ERROR`).
+  Suggested keys: `table.<tableId>` (columns, widths, order, sort), `views.<page>` (saved filter views),
+  `display` (theme, density, sidebar rail).
+- Limits: a value is at most 32 KB as compact UTF-8 JSON (413 `PREF_TOO_LARGE`, `details.max_bytes`); at most 200
+  keys per person (409 `PREF_TOO_MANY` on a new key; updating an existing key always works).
+- Suggested client pattern: read on first use, keep `localStorage` as a cache/fallback, debounce writes (~1 s),
+  on 412 re-read and re-apply the local change.
+
+### 10.2 Bulk actions (closes gap 2)
+
+`POST /mfg/bulk/<collection>/<action>` with exactly the permission of the single call:
+
+| Path | Permission | Extra body fields |
+|---|---|---|
+| `/mfg/bulk/work-orders/release` | `wo_edit` | `reserve` (bool), `override_reason` (<= 200, applied to each short WO) |
+| `/mfg/bulk/work-orders/close`, `/cancel` | `wo_edit` | - |
+| `/mfg/bulk/purchase-requests/submit` | `pr_edit` | - |
+| `/mfg/bulk/purchase-requests/approve` | `pr_approve` | - |
+| `/mfg/bulk/purchase-requests/reject` | `pr_approve` | `reason` (required, 1-500) |
+| `/mfg/bulk/purchase-orders/cancel` | `po_edit` | - |
+| `/mfg/bulk/demand-orders/close`, `/cancel` | `demand_edit` | - |
+
+- Body: `{"items": [{"id": "wko_...", "row_version": 3}, ...], ...extra}`; 1-200 items, ids distinct (else 422).
+  `row_version` is the If-Match of each record.
+- Each record runs the single-record service call in its own transaction (same state rules, shortage override,
+  self-approval, integration ownership, audit event and outbox message). One failure never rolls back others.
+- Response 200 (also when every record failed), results in request order:
+  `{"action": "work-orders/release", "total", "succeeded", "failed", "results": [{"id", "ok", "status", "code",
+  "message", "row_version", "record_status", "details"}]}`. On success `status` 200, `code`/`message`/`details`
+  null, `row_version` the new version, `record_status` the record's new status. On failure `status`/`code`/
+  `message`/`details` are what the single call would have returned (e.g. 412 `VERSION_MISMATCH` with
+  `row_version` = current version, 409 `MFG_INVALID_STATE`, 409 `WO_KIT_INCOMPLETE` -> offer `override_reason`,
+  409 `PUR_SELF_APPROVAL`, 404 `NOT_FOUND`).
+- Whole-request errors: 403 `MFG_FORBIDDEN` (permission), 422 `VALIDATION_ERROR` (body / key), 401 / CSRF.
+- `Idempotency-Key` (optional, 1-128 `A-Z a-z 0-9 . _ : -`, per plant and person, 24 h): a retry with the same key
+  and body returns the stored response with `Idempotent-Replay: true`; another body -> 409
+  `INV_IDEMPOTENCY_CONFLICT`; while the first request still runs -> 409 `MFG_BULK_IN_PROGRESS` (`Retry-After: 5`).
+  Send a fresh key per user click.
+
+### 10.3 Sort keys (closes gap 3)
+
+`sort` query parameter, `-` prefix = descending, unknown value -> 422:
+
+| List | Keys (default first) |
+|---|---|
+| `GET /mfg/demand-orders` | `number`, `-number`, `customer`, `priority`, `status`, `-created_at`, `due_date`, `-due_date` (earliest line due date) |
+| `GET /mfg/lots` | `expires_on` (nulls last), `-expires_on`, `lot_code`, `-lot_code`, `received_on`, `-received_on`, `part_number`, `-created_at` |
+| `GET /mfg/inventory/transactions` | `-seq` (newest first), `seq`, `-txn_date`, `txn_date`, `part_number`, `txn_type`, `-qty`, `qty` |
+
+Existing: items (`part_number`, `-updated_at`, `description`), work orders (`start_date`, `due_date`, `number`,
+`priority`), purchase documents (`-created_at`, `number`, `next_dock_date`), balances, MRP lists.

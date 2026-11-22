@@ -205,10 +205,12 @@ def delete_item_supplier(item_supplier_id: str, if_match: str | None = _if_match
 
 @router.get("/lots", dependencies=P("view"))
 def list_lots(item_id: str | None = Id(), q: str | None = QText(), expiring_before: PlanDate | None = None,
-              hold: bool | None = None, limit: int = Limit(), offset: int = Offset(),
-              ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+              hold: bool | None = None,
+              sort: Literal["expires_on", "-expires_on", "lot_code", "-lot_code", "received_on", "-received_on",
+                            "part_number", "-created_at"] = "expires_on",
+              limit: int = Limit(), offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(inventory.list_lots(ctx, item_id=item_id, q=q, expiring_before=expiring_before, hold=hold, limit=limit,
-                                   offset=offset))
+                                   offset=offset, sort=sort))
 
 
 @router.put("/lots/{lot_id}", dependencies=P("inventory"))
@@ -238,11 +240,13 @@ def list_transactions(item_id: str | None = Id(), location_id: str | None = Id()
                       txn_type: str | None = Query(default=None, max_length=16), posting_id: str | None = Id(),
                       ref_type: str | None = Query(default=None, max_length=8), ref_id: str | None = Id(),
                       d0: Annotated[PlanDate | None, Query(alias="from")] = None,
-                      d1: Annotated[PlanDate | None, Query(alias="to")] = None, limit: int = Limit(),
-                      offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                      d1: Annotated[PlanDate | None, Query(alias="to")] = None,
+                      sort: Literal["-seq", "seq", "-txn_date", "txn_date", "part_number", "txn_type", "-qty",
+                                    "qty"] = "-seq",
+                      limit: int = Limit(), offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(inventory.list_transactions(ctx, item_id=item_id, location_id=location_id, lot_id=lot_id,
                                            txn_type=txn_type, posting_id=posting_id, ref_type=ref_type,
-                                           ref_id=ref_id, d0=d0, d1=d1, limit=limit, offset=offset))
+                                           ref_id=ref_id, d0=d0, d1=d1, limit=limit, offset=offset, sort=sort))
 
 
 @router.post("/inventory/postings", status_code=201, dependencies=P("inventory"))
@@ -409,11 +413,13 @@ def list_demand(status: Literal["draft", "open", "closed", "cancelled"] | None =
                 demand_type: Literal["customer", "internal", "spares", "project"] | None = None,
                 program: str | None = Query(default=None, max_length=32), item_id: str | None = Id(),
                 due_from: PlanDate | None = None, due_to: PlanDate | None = None, late_only: bool = False,
-                q: str | None = QText(), limit: int = Limit(), offset: int = Offset(),
-                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+                q: str | None = QText(),
+                sort: Literal["number", "-number", "customer", "priority", "status", "-created_at", "due_date",
+                              "-due_date"] = "number",
+                limit: int = Limit(), offset: int = Offset(), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     return _ok(demand.list_orders(ctx, status=status, demand_type=demand_type, program=program, item_id=item_id,
                                   due_from=due_from, due_to=due_to, late_only=late_only, q=q, limit=limit,
-                                  offset=offset))
+                                  offset=offset, sort=sort))
 
 
 @router.post("/demand-orders", status_code=201, dependencies=P("demand_edit"))
