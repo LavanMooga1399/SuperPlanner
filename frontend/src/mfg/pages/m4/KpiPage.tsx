@@ -19,6 +19,9 @@ import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { PageHeader } from "../../../components/PageHeader";
+import { FilterBar } from "../../../components/FilterBar";
+import { DataTable } from "../../components/DataTable";
+import type { Column } from "../../components/VirtualTable";
 
 interface TileDef {
   key: RatioKey | "wip" | "setup";
@@ -48,6 +51,40 @@ const pct = (v: number | null | undefined) => (v === null || v === undefined ? "
 /** "SOLDER_BRIDGE" -> "Solder bridge" */
 const scrapLabel = (code: string) => (code ? code.charAt(0).toUpperCase() + code.slice(1).toLowerCase().replace(/_/g, " ") : "Unspecified");
 const hours = (m: number) => `${(m / 60).toFixed(m < 600 ? 1 : 0)} h`;
+
+type ScrapRow = KpiResponse["top_scrap"][number];
+type DowntimeRow = KpiResponse["top_downtime"][number];
+const SCRAP_COLS: Column<ScrapRow>[] = [
+  {
+    key: "reason",
+    header: "Reason",
+    width: "minmax(160px, 1fr)",
+    wrap: true,
+    render: (s) => (
+      <span>
+        {scrapLabel(s.reason_code)}
+        {s.operation || s.item_family ? <span className="faint small"> · {[s.operation, s.item_family].filter(Boolean).join(" · ")}</span> : null}
+      </span>
+    ),
+  },
+  { key: "qty", header: "Scrapped", width: "112px", align: "right", render: (s) => `${fmtNum(s.qty)} ${s.qty === 1 ? "unit" : "units"}` },
+];
+const DOWNTIME_COLS: Column<DowntimeRow>[] = [
+  {
+    key: "reason",
+    header: "Reason",
+    width: "minmax(160px, 1fr)",
+    wrap: true,
+    render: (x) => (
+      <span>
+        {DOWNTIME[x.kind as keyof typeof DOWNTIME]?.label ?? x.kind}
+        {x.reason ? <span className="faint small"> · {x.reason}</span> : null}
+        {x.line ? <span className="faint small"> · {x.line.code}</span> : null}
+      </span>
+    ),
+  },
+  { key: "minutes", header: "Lost time", width: "112px", align: "right", render: (x) => fmtDuration(x.minutes) },
+];
 
 function Sparkline({ values, label }: { values: (number | null)[]; label: string }) {
   const pts = values.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v !== null && Number.isFinite(p.v));
@@ -94,56 +131,60 @@ export function KpiPage() {
 
   return (
     <div className="col gap-lg" data-testid="kpi-page">
-      <PageHeader
-        title="KPIs"
-        actions={
-          <>
-            <div className="row" role="group" aria-label="Period">
+      <PageHeader title="KPIs" />
+      <FilterBar>
+        <div className="field">
+          <span className="field-label" id="kpi-period-label">
+            Period
+          </span>
+          <div className="btn-group" role="group" aria-labelledby="kpi-period-label">
             {PERIODS.map((p) => (
-            <button key={p.key} type="button" className={`btn sm${period === p.key ? " primary" : ""}`} aria-pressed={period === p.key} onClick={() => set("period", p.key)}>
-            {p.label}
-            </button>
+              <button key={p.key} type="button" className="btn" aria-pressed={period === p.key} onClick={() => set("period", p.key)}>
+                {p.label}
+              </button>
             ))}
-            </div>
-            <select
-            className="select sm"
-            aria-label="Scope"
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="kpi-scope">Scope</label>
+          <select
+            id="kpi-scope"
+            className="select"
             value={dim === "plant" ? "" : `${dim}:${dimId}`}
             onChange={(e) => {
-            const [a, b] = e.target.value.split(":");
-            setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            if (!a) {
-            n.delete("dim");
-            n.delete("id");
-            } else {
-            n.set("dim", a);
-            n.set("id", b);
-            }
-            return n;
-            });
+              const [a, b] = e.target.value.split(":");
+              setParams((prev) => {
+                const n = new URLSearchParams(prev);
+                if (!a) {
+                  n.delete("dim");
+                  n.delete("id");
+                } else {
+                  n.set("dim", a);
+                  n.set("id", b);
+                }
+                return n;
+              });
             }}
             data-testid="kpi-scope"
-            >
+          >
             <option value="">Whole plant</option>
             <optgroup label="Stages">
-            {(groups.data?.items ?? []).map((g) => (
-            <option key={g.id} value={`group:${g.id}`}>
-            {g.code} · {g.name}
-            </option>
-            ))}
+              {(groups.data?.items ?? []).map((g) => (
+                <option key={g.id} value={`group:${g.id}`}>
+                  {g.code} · {g.name}
+                </option>
+              ))}
             </optgroup>
             <optgroup label="Lines">
-            {(lines.data?.items ?? []).map((l) => (
-            <option key={l.id} value={`line:${l.id}`}>
-            {l.code}
-            </option>
-            ))}
+              {(lines.data?.items ?? []).map((l) => (
+                <option key={l.id} value={`line:${l.id}`}>
+                  {l.code}
+                </option>
+              ))}
             </optgroup>
-            </select>
-          </>
-        }
-      />
+          </select>
+        </div>
+      </FilterBar>
       <p className="muted small" style={{ margin: 0 }}>
         {d?.period.from ?? from} to {d?.period.to ?? today} ({d?.period.time_zone ?? clock.zoneLabel}); today is live, earlier days are cached.
       </p>
@@ -171,87 +212,73 @@ export function KpiPage() {
             />
           ) : null}
           <div className="grid-2" style={{ alignItems: "start" }}>
-            <section className="card">
+            <section className="card card-table">
               <div className="card-header">
                 <h2>Top scrap reasons</h2>
               </div>
-              <table className="table" data-testid="kpi-top-scrap">
-                <tbody>
-                  {d.top_scrap.length === 0 ? (
-                    <tr>
-                      <td className="muted">No scrap recorded.</td>
-                    </tr>
-                  ) : null}
-                  {d.top_scrap.map((s, i) => (
-                    <tr key={i}>
-                      <td>
-                        {scrapLabel(s.reason_code)}
-                        {s.operation || s.item_family ? <div className="faint small">{[s.operation, s.item_family].filter(Boolean).join(" · ")}</div> : null}
-                      </td>
-                      <td className="right">{fmtNum(s.qty)} units</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                rows={d.top_scrap}
+                columns={SCRAP_COLS}
+                rowKey={(_, i) => i}
+                label="Top scrap reasons"
+                testId="kpi-top-scrap"
+                columnSettings={false}
+                empty="No scrap recorded."
+              />
             </section>
-            <section className="card">
+            <section className="card card-table">
               <div className="card-header">
                 <h2>Top downtime reasons</h2>
               </div>
-              <table className="table" data-testid="kpi-top-downtime">
-                <tbody>
-                  {d.top_downtime.length === 0 ? (
-                    <tr>
-                      <td className="muted">No downtime recorded.</td>
-                    </tr>
-                  ) : null}
-                  {d.top_downtime.map((x, i) => (
-                    <tr key={i}>
-                      <td>
-                        {DOWNTIME[x.kind as keyof typeof DOWNTIME]?.label ?? x.kind}
-                        {x.reason ? <span className="faint small"> · {x.reason}</span> : null}
-                        {x.line ? <div className="faint small">{x.line.code}</div> : null}
-                      </td>
-                      <td className="right">{fmtDuration(x.minutes)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                rows={d.top_downtime}
+                columns={DOWNTIME_COLS}
+                rowKey={(_, i) => i}
+                label="Top downtime reasons"
+                testId="kpi-top-downtime"
+                columnSettings={false}
+                empty="No downtime recorded."
+              />
             </section>
           </div>
           {d.worst_adherence_lines.length ? (
-            <section className="card">
+            <section className="card card-table">
               <div className="card-header">
                 <h2>Lines furthest from the plan</h2>
               </div>
-              <table className="table">
-                <tbody>
-                  {d.worst_adherence_lines.map((w) => (
-                    <tr key={w.line.id}>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn link"
-                          onClick={() =>
-                            setParams((p) => {
-                              const n = new URLSearchParams(p);
-                              n.set("dim", "line");
-                              n.set("id", w.line.id);
-                              return n;
-                            })
-                          }
-                        >
-                          {w.line.code}
-                        </button>
-                      </td>
-                      <td className="right">{pct(w.value)} adherent</td>
-                      <td className="right faint">
-                        {w.num} of {w.den} operations
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                rows={d.worst_adherence_lines}
+                columns={[
+                  {
+                    key: "line",
+                    header: "Line",
+                    width: "minmax(140px, 1fr)",
+                    sortValue: (w) => w.line.code,
+                    render: (w) => (
+                      <button
+                        type="button"
+                        className="btn link"
+                        onClick={() =>
+                          setParams((p) => {
+                            const n = new URLSearchParams(p);
+                            n.set("dim", "line");
+                            n.set("id", w.line.id);
+                            return n;
+                          })
+                        }
+                      >
+                        {w.line.code}
+                      </button>
+                    ),
+                  },
+                  { key: "value", header: "Adherence", width: "120px", align: "right", sortValue: (w) => w.value, render: (w) => pct(w.value) },
+                  { key: "ops", header: "Operations on plan", width: "180px", align: "right", sortValue: (w) => w.den, render: (w) => `${fmtNum(w.num)} of ${fmtNum(w.den)}` },
+                ]}
+                rowKey={(w) => w.line.id}
+                label="Lines furthest from the plan"
+                tableId="kpi-worst-lines"
+                columnSettings={false}
+              />
             </section>
           ) : null}
           {dim === "line" && dimId ? <AdherenceList lineId={dimId} from={from} to={today} /> : null}
@@ -300,41 +327,38 @@ function Tile({ t, d, trend }: { t: TileDef; d: KpiResponse; trend: KpiResponse 
 function DrillDown({ d, names, onPick }: { d: KpiResponse; names: Map<string, string>; onPick(dim: "group" | "line", id: string): void }) {
   const all: RatioKey[] = ["otd", "utilisation", "availability", "performance", "oee", "adherence", "fpy", "scrap_rate"];
   const keys = all.filter((k) => d.by_dim.some((r) => r[k] !== undefined));
+  const isGroup = d.by_dim[0]?.dim === "group";
+  type Row = KpiResponse["by_dim"][number];
+  const name = (r: Row) => r.ref.code || names.get(r.ref.id) || r.ref.id;
+  const columns: Column<Row>[] = [
+    {
+      key: "ref",
+      header: isGroup ? "Stage" : "Line",
+      width: "minmax(140px, 1fr)",
+      sortValue: name,
+      render: (r) => (
+        <button type="button" className="btn link" onClick={() => onPick(r.dim, r.ref.id)}>
+          {name(r)}
+        </button>
+      ),
+    },
+    ...keys.map(
+      (k): Column<Row> => ({
+        key: k,
+        header: k === "otd" ? "OTD" : k === "oee" ? "OEE" : k === "fpy" ? "FPY" : k === "scrap_rate" ? "Scrap" : k[0].toUpperCase() + k.slice(1),
+        width: "112px",
+        align: "right",
+        sortValue: (r) => r[k] ?? null,
+        render: (r) => pct(r[k]),
+      }),
+    ),
+  ];
   return (
-    <section className="card">
+    <section className="card card-table">
       <div className="card-header">
-        <h2>{d.by_dim[0]?.dim === "group" ? "By stage" : "By line"}</h2>
+        <h2>{isGroup ? "By stage" : "By line"}</h2>
       </div>
-      <div className="table-wrap">
-        <table className="table" data-testid="kpi-drill">
-          <thead>
-            <tr>
-              <th />
-              {keys.map((k) => (
-                <th key={k} className="right">
-                  {k === "otd" ? "OTD" : k === "oee" ? "OEE" : k === "fpy" ? "FPY" : k === "scrap_rate" ? "Scrap" : k[0].toUpperCase() + k.slice(1)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {d.by_dim.map((r) => (
-              <tr key={r.ref.id}>
-                <td>
-                  <button type="button" className="btn link" onClick={() => onPick(r.dim, r.ref.id)}>
-                    {r.ref.code || names.get(r.ref.id) || r.ref.id}
-                  </button>
-                </td>
-                {keys.map((k) => (
-                  <td key={k} className="right">
-                    {pct(r[k])}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable rows={d.by_dim} columns={columns} rowKey={(r) => r.ref.id} label={isGroup ? "KPIs by stage" : "KPIs by line"} testId="kpi-drill" exportName="kpis-by-line" card={{ title: "ref", fields: keys.slice(0, 4) }} />
     </section>
   );
 }
@@ -342,56 +366,69 @@ function DrillDown({ d, names, onPick }: { d: KpiResponse; names: Map<string, st
 function AdherenceList({ lineId, from, to }: { lineId: string; from: string; to: string }) {
   const clock = usePlantClock();
   const data = usePaged<AdherenceRow>((offset, limit, signal) => getAdherence({ from, to, line_id: lineId, limit, offset }, signal), [lineId, from, to]);
+  const delta = (m: number | null) => (m === null ? "" : `${m > 0 ? "+" : "−"}${fmtDuration(m)}`);
+  const columns: Column<AdherenceRow>[] = [
+    {
+      key: "wo",
+      header: "Work order / step",
+      width: "minmax(180px, 1.2fr)",
+      sortValue: (r) => `${r.wo.number}/${String(r.seq).padStart(4, "0")}`,
+      render: (r) => (
+        <span>
+          <Link to={mfgPaths.workOrder(r.wo.id)} className="mono">
+            {r.wo.number}
+          </Link>{" "}
+          / {r.seq}
+          {r.line ? <span className="faint small"> · {r.line.code}</span> : null}
+        </span>
+      ),
+    },
+    { key: "planned", header: "Planned", width: "minmax(170px, 1fr)", sortValue: (r) => r.planned_start, render: (r) => `${clock.dateTime(r.planned_start)} – ${clock.time(r.planned_end)}` },
+    {
+      key: "actual",
+      header: "Actual",
+      width: "minmax(170px, 1fr)",
+      sortValue: (r) => r.actual_start,
+      render: (r) => (r.actual_start ? `${clock.dateTime(r.actual_start)} – ${r.actual_end ? clock.time(r.actual_end) : "running"}` : "not started"),
+    },
+    { key: "start", header: "Start", width: "96px", align: "right", sortValue: (r) => r.start_delta_minutes, render: (r) => delta(r.start_delta_minutes) },
+    { key: "end", header: "End", width: "96px", align: "right", sortValue: (r) => r.end_delta_minutes, render: (r) => delta(r.end_delta_minutes) },
+    {
+      key: "ok",
+      header: "On plan?",
+      width: "96px",
+      sortValue: (r) => (r.adherent ? 1 : 0),
+      exportValue: (r) => (r.adherent ? "yes" : "no"),
+      render: (r) =>
+        r.adherent ? (
+          <span className="badge ok">
+            <Icon name="check" /> yes
+          </span>
+        ) : (
+          <span className="badge warn">
+            <Icon name="alert" /> no
+          </span>
+        ),
+    },
+  ];
   return (
     <section className="card">
       <div className="card-header">
         <h2>Planned against actual</h2>
       </div>
       <MfgError error={data.error} onRetry={data.reload} />
-      <div className="table-wrap">
-        <table className="table" data-testid="kpi-adherence">
-          <thead>
-            <tr>
-              <th>Work order / step</th>
-              <th>Planned</th>
-              <th>Actual</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>On plan?</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((r) => (
-              <tr key={r.wo_operation_id}>
-                <td>
-                  <Link to={mfgPaths.workOrder(r.wo.id)} className="mono">
-                    {r.wo.number}
-                  </Link>{" "}
-                  / {r.seq}
-                  {r.line ? <span className="faint small"> · {r.line.code}</span> : null}
-                </td>
-                <td className="small">
-                  {clock.dateTime(r.planned_start)} – {clock.time(r.planned_end)}
-                </td>
-                <td className="small">{r.actual_start ? `${clock.dateTime(r.actual_start)} – ${r.actual_end ? clock.time(r.actual_end) : "running"}` : "not started"}</td>
-                <td className="small">{r.start_delta_minutes === null ? "" : `${r.start_delta_minutes > 0 ? "+" : "−"}${fmtDuration(r.start_delta_minutes)}`}</td>
-                <td className="small">{r.end_delta_minutes === null ? "" : `${r.end_delta_minutes > 0 ? "+" : "−"}${fmtDuration(r.end_delta_minutes)}`}</td>
-                <td>
-                  {r.adherent ? (
-                    <span className="badge ok">
-                      <Icon name="check" /> yes
-                    </span>
-                  ) : (
-                    <span className="badge warn">
-                      <Icon name="alert" /> no
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={data.rows}
+        columns={columns}
+        rowKey={(r) => r.wo_operation_id}
+        label="Planned against actual"
+        testId="kpi-adherence"
+        totalCount={data.total}
+        loading={data.loading}
+        exportName="schedule-adherence"
+        empty="No planned operations on this line in the period."
+        card={{ title: "wo", status: "ok", fields: ["planned", "start", "end"] }}
+      />
       {data.rows.length < data.total ? (
         <div className="card-footer">
           <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>

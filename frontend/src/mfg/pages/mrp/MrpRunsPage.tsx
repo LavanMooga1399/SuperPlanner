@@ -5,7 +5,9 @@ import { Banner } from "../../../components/Banner";
 import { Icon } from "../../../components/Icon";
 import { listMrpRuns, updateMrpRun } from "../../api/clientM2";
 import type { MrpRunRecord } from "../../api/typesM2";
-import { MfgError, Spinner } from "../../components/Feedback";
+import { MfgError } from "../../components/Feedback";
+import { DataTable } from "../../components/DataTable";
+import type { Column } from "../../components/VirtualTable";
 import { PermissionGate } from "../../components/PermissionGate";
 import { RunKindBadge, RunStatusChip } from "../../components/StatusM2";
 import { fmtDate, fmtTimestamp } from "../../lib/format";
@@ -38,6 +40,77 @@ export function MrpRunsPage() {
     }
   };
 
+  const columns: Column<MrpRunRecord>[] = [
+    {
+      key: "run",
+      header: "Run",
+      width: "minmax(240px, 2fr)",
+      sortValue: (r) => r.run_no,
+      exportValue: (r) => runTitle(r),
+      render: (r) => (
+        <span className="row" style={{ gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+          <Link to={mfgPaths.run(r.id)} className="mfg-ellipsis">
+            {runTitle(r)}
+          </Link>
+          {r.id === latestLive?.id ? (
+            <span className="badge accent" title="Planned orders can be firmed or released only from this run">
+              <Icon name="star" /> Latest
+            </span>
+          ) : null}
+          {r.pinned ? (
+            <span className="badge info">
+              <Icon name="lock" /> Kept
+            </span>
+          ) : null}
+          {r.stale?.is_stale ? (
+            <span className="badge warn" title="Data changed after this run">
+              <Icon name="clock" /> Out of date
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
+    { key: "kind", header: "Kind", width: "110px", sortValue: (r) => r.kind, render: (r) => <RunKindBadge kind={r.kind} /> },
+    { key: "status", header: "Status", width: "120px", sortValue: (r) => r.status, render: (r) => <RunStatusChip status={r.status} /> },
+    { key: "as_of", header: "As of", width: "110px", sortValue: (r) => r.as_of, render: (r) => fmtDate(r.as_of) },
+    {
+      key: "late",
+      header: "Late demand",
+      width: "120px",
+      align: "right",
+      sortValue: (r) => (r.summary ? r.summary.demand_late + r.summary.demand_past_due : null),
+      render: (r) => {
+        const s = r.summary;
+        return s ? <span className={s.demand_late + s.demand_past_due ? "mfg-neg" : undefined}>{s.demand_late + s.demand_past_due} of {s.demand_lines}</span> : "";
+      },
+    },
+    { key: "short", header: "Parts short", width: "104px", align: "right", sortValue: (r) => r.summary?.items_short, render: (r) => (r.summary ? r.summary.items_short.toLocaleString("en-IN") : "") },
+    {
+      key: "planned",
+      header: "Planned make / buy",
+      width: "150px",
+      align: "right",
+      sortValue: (r) => (r.summary ? r.summary.planned_make + r.summary.planned_buy : null),
+      render: (r) => (r.summary ? `${r.summary.planned_make.toLocaleString("en-IN")} / ${r.summary.planned_buy.toLocaleString("en-IN")}` : ""),
+    },
+    { key: "finished", header: "Finished", width: "150px", sortValue: (r) => r.finished_at, render: (r) => fmtTimestamp(r.finished_at) },
+    { key: "by", header: "By", width: "minmax(110px, 1fr)", sortValue: (r) => r.actor.name, render: (r) => r.actor.name },
+  ];
+  if (canRun)
+    columns.push({
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      label: "Actions",
+      width: "96px",
+      align: "right",
+      exportValue: () => "",
+      render: (r) => (
+        <button type="button" className="btn sm ghost" onClick={() => void pin(r)} title={r.pinned ? "Allow automatic clean-up of this run" : "Keep this run (otherwise only the last 10 are kept)"}>
+          <Icon name={r.pinned ? "unlock" : "lock"} /> {r.pinned ? "Unkeep" : "Keep"}
+        </button>
+      ),
+    });
+
   return (
     <div className="col gap-lg">
       <PageHeader
@@ -55,79 +128,23 @@ export function MrpRunsPage() {
       />
       {form ? <MrpRunForm onClose={() => setForm(false)} onDone={(r) => navigate(mfgPaths.run(r.id))} /> : null}
       <MfgError error={runs.error ?? error} onRetry={runs.reload} />
-      {runs.loading && !runs.data ? <Spinner /> : null}
       {runs.data && items.length === 0 && !form ? (
         <Banner tone="info" title="No plan yet" testId="mrp-empty">
           {canRun ? "Run MRP to plan materials for every open demand order." : "Nobody has run MRP in this plant yet."} Demand orders must be open, and data health must have no errors.
         </Banner>
       ) : null}
-      {items.length ? (
-        <div className="table-wrap card">
-          <table className="table" data-testid="mrp-runs">
-            <thead>
-              <tr>
-                <th>Run</th>
-                <th>Kind</th>
-                <th>Status</th>
-                <th>As of</th>
-                <th className="right">Late demand</th>
-                <th className="right">Parts short</th>
-                <th className="right">Planned make / buy</th>
-                <th>Finished</th>
-                <th>By</th>
-                <th>
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((r) => {
-                const s = r.summary;
-                return (
-                  <tr key={r.id} data-testid="mrp-run-row" data-run-no={r.run_no} data-kind={r.kind} data-status={r.status}>
-                    <td>
-                      <Link to={mfgPaths.run(r.id)}>{runTitle(r)}</Link>
-                      {r.id === latestLive?.id ? (
-                        <span className="badge accent" style={{ marginLeft: 6 }} title="Planned orders can be firmed or released only from this run">
-                          <Icon name="star" /> Latest
-                        </span>
-                      ) : null}
-                      {r.pinned ? (
-                        <span className="badge info" style={{ marginLeft: 6 }}>
-                          <Icon name="lock" /> Kept
-                        </span>
-                      ) : null}
-                      {r.stale?.is_stale ? (
-                        <span className="badge warn" style={{ marginLeft: 6 }} title="Data changed after this run">
-                          <Icon name="clock" /> Out of date
-                        </span>
-                      ) : null}
-                    </td>
-                    <td>
-                      <RunKindBadge kind={r.kind} />
-                    </td>
-                    <td>
-                      <RunStatusChip status={r.status} />
-                    </td>
-                    <td>{fmtDate(r.as_of)}</td>
-                    <td className="right">{s ? <span className={s.demand_late + s.demand_past_due ? "mfg-neg" : undefined}>{s.demand_late + s.demand_past_due} of {s.demand_lines}</span> : ""}</td>
-                    <td className="right">{s ? s.items_short.toLocaleString("en-IN") : ""}</td>
-                    <td className="right">{s ? `${s.planned_make.toLocaleString("en-IN")} / ${s.planned_buy.toLocaleString("en-IN")}` : ""}</td>
-                    <td className="small">{fmtTimestamp(r.finished_at)}</td>
-                    <td className="small">{r.actor.name}</td>
-                    <td className="right">
-                      {canRun ? (
-                        <button type="button" className="btn sm ghost" onClick={() => void pin(r)} title={r.pinned ? "Allow automatic clean-up of this run" : "Keep this run (otherwise only the last 10 are kept)"}>
-                          <Icon name={r.pinned ? "unlock" : "lock"} /> {r.pinned ? "Unkeep" : "Keep"}
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      {items.length || runs.loading ? (
+        <DataTable
+          rows={items}
+          columns={columns}
+          rowKey={(r) => r.id}
+          label="MRP runs"
+          testId="mrp-runs"
+          loading={runs.loading && !runs.data}
+          exportName="mrp-runs"
+          rowExtras={(r) => ({ testId: "mrp-run-row", data: { "run-no": r.run_no, kind: r.kind, status: r.status } })}
+          card={{ title: "run", status: "status", fields: ["late", "short", "finished"] }}
+        />
       ) : null}
     </div>
   );

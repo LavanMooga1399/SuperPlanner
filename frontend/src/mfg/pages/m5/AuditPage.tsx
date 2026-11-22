@@ -10,6 +10,7 @@ import { saveBlob } from "../../api/client";
 import { exportAudit, listAudit, verifyAudit } from "../../api/clientM5";
 import type { AuditEvent, AuditVerify } from "../../api/typesM5";
 import { MfgError } from "../../components/Feedback";
+import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
 import { formatDateTime } from "../../../lib/locale";
@@ -30,6 +31,60 @@ export function AuditPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [verify, setVerify] = useState<AuditVerify | "unavailable" | null>(null);
+  const openEvent = data.rows.find((e) => e.id === open) ?? null;
+  const columns: Column<AuditEvent>[] = [
+    { key: "when", header: "When", width: "160px", render: (e) => formatDateTime(e.created_at) },
+    {
+      key: "who",
+      header: "Who",
+      width: "minmax(170px, 1fr)",
+      exportValue: (e) => e.actor_id ?? "system",
+      render: (e) => (
+        <span className="mono small">
+          {e.actor_id ?? "system"}
+          {e.actor_id?.startsWith("tok_") ? <span className="faint"> · API token</span> : null}
+        </span>
+      ),
+    },
+    { key: "did", header: "Did", width: "minmax(150px, 1fr)", render: (e) => e.action.replace(/_/g, " ") },
+    {
+      key: "what",
+      header: "To what",
+      width: "minmax(200px, 1.4fr)",
+      exportValue: (e) => `${e.entity_type} ${e.entity_id ?? ""}`.trim(),
+      render: (e) => (
+        <span>
+          {e.entity_type.replace(/_/g, " ")} <span className="mono faint">{e.entity_id ?? ""}</span>
+        </span>
+      ),
+    },
+    {
+      key: "chain",
+      header: "Chain",
+      width: "200px",
+      exportValue: (e) => e.chain_hash ?? "",
+      render: (e) => (
+        <>
+          <span className="mono small faint" title={e.chain_hash ?? "not chained (before M5)"}>
+            {e.chain_hash ? `${e.chain_hash.slice(0, 10)}…` : "—"}
+          </span>
+          {e.details && Object.keys(e.details).length ? (
+            <button
+              type="button"
+              className="btn sm ghost"
+              aria-expanded={open === e.id}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                setOpen(open === e.id ? null : e.id);
+              }}
+            >
+              Details
+            </button>
+          ) : null}
+        </>
+      ),
+    },
+  ];
   useEffect(() => {
     document.title = "Audit trail - SuperPlanner";
   }, []);
@@ -112,65 +167,37 @@ export function AuditPage() {
         </div>
       </FilterBar>
       <MfgError error={error ?? data.error} onRetry={data.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="audit-table">
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Who</th>
-              <th>Did</th>
-              <th>To what</th>
-              <th>Chain</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted">
-                  {data.loading ? "Loading…" : "No entries."}
-                </td>
-              </tr>
-            ) : null}
-            {data.rows.map((e) => [
-              <tr key={e.id} data-testid="audit-row">
-                <td className="small">{formatDateTime(e.created_at)}</td>
-                <td className="small mono">
-                  {e.actor_id ?? "system"}
-                  {e.actor_id?.startsWith("tok_") ? <div className="faint">API token</div> : null}
-                </td>
-                <td>{e.action.replace(/_/g, " ")}</td>
-                <td className="small">
-                  {e.entity_type.replace(/_/g, " ")} <span className="mono faint">{e.entity_id ?? ""}</span>
-                </td>
-                <td>
-                  <span className="mono small faint" title={e.chain_hash ?? "not chained (before M5)"}>
-                    {e.chain_hash ? `${e.chain_hash.slice(0, 10)}…` : "—"}
-                  </span>{" "}
-                  {e.details && Object.keys(e.details).length ? (
-                    <button type="button" className="btn sm ghost" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>
-                      Details
-                    </button>
-                  ) : null}
-                </td>
-              </tr>,
-              open === e.id ? (
-                <tr key={`${e.id}-d`}>
-                  <td colSpan={5}>
-                    <pre className="int-json">{JSON.stringify(e.details, null, 2)}</pre>
-                  </td>
-                </tr>
-              ) : null,
-            ])}
-          </tbody>
-        </table>
-        {data.rows.length < data.total ? (
-          <div className="card-footer">
-            <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              Show more ({data.rows.length} of {data.total})
+      <VirtualTable
+        rows={data.rows}
+        columns={columns}
+        rowKey={(e) => e.id}
+        label="Audit trail"
+        testId="audit-table"
+        totalCount={data.total}
+        loading={data.loading}
+        onEndReached={data.onEndReached}
+        onRowClick={(e) => (e.details && Object.keys(e.details).length ? setOpen(e.id) : undefined)}
+        onActivate={(e) => (e.details && Object.keys(e.details).length ? setOpen(open === e.id ? null : e.id) : undefined)}
+        rowExtras={(e) => ({ testId: "audit-row", className: open === e.id ? "mfg-selected" : undefined })}
+        empty="No entries. Changes in this plant appear here as soon as someone makes them."
+        footer={<span className="muted small">Showing {data.rows.length.toLocaleString("en-IN")} of {data.total.toLocaleString("en-IN")} entries, newest first</span>}
+        card={{ title: "when", fields: ["who", "did", "what"] }}
+      />
+      {openEvent ? (
+        <section className="card" data-testid="audit-details">
+          <div className="card-header">
+            <h2>
+              {openEvent.action.replace(/_/g, " ")} · {openEvent.entity_type.replace(/_/g, " ")} <span className="mono faint">{openEvent.entity_id ?? ""}</span>
+            </h2>
+            <button type="button" className="btn sm ghost" onClick={() => setOpen(null)}>
+              <Icon name="x" /> Close
             </button>
           </div>
-        ) : null}
-      </div>
+          <pre className="int-json" style={{ margin: 0, border: 0 }}>
+            {JSON.stringify(openEvent.details, null, 2)}
+          </pre>
+        </section>
+      ) : null}
     </div>
   );
 }

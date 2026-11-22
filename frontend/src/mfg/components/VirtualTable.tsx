@@ -38,6 +38,8 @@ export interface Column<T> {
   /** CSS grid track, e.g. "120px" or "minmax(220px, 1fr)". */
   width: string;
   align?: "right" | "center";
+  /** Let long text wrap onto more lines (non-virtual tables only; virtual rows have a fixed height). */
+  wrap?: boolean;
   /** Accessible header text when `header` is not plain text. */
   label?: string;
   render(row: T, index: number): ReactNode;
@@ -107,6 +109,12 @@ export interface VirtualTableProps<T> {
   card?: CardSpec;
   /** Row selection for bulk actions: a checkbox column; Space toggles the focused row. */
   selection?: TableSelection<T>;
+  /**
+   * False renders every row (short lists: run history, KPI by line, recall lines): no windowing, no fixed scroll
+   * height, rows grow with their content, and phone cards are derived from the columns when `card` is omitted
+   * (first column = title, a `status` column top right, the next three columns as fields).
+   */
+  virtual?: boolean;
 }
 
 export interface TableSelection<T> {
@@ -127,6 +135,14 @@ export interface CardSpec {
 }
 
 const CARD_H = 84;
+
+/** Phone card built from the column list (non-virtual tables without an explicit `card`). */
+function autoCard<T>(columns: Column<T>[]): CardSpec | undefined {
+  const cols = columns.filter((c) => c.key !== "actions" && c.key !== "__select");
+  if (cols.length < 2) return undefined;
+  const status = cols.find((c, i) => i > 0 && /status|state|result/i.test(c.key));
+  return { title: cols[0].key, status: status?.key, fields: cols.filter((c, i) => i > 0 && c !== status).slice(0, 3).map((c) => c.key) };
+}
 const PHONE_QUERY = "(max-width: 767px)";
 
 function usePhone(enabled: boolean): boolean {
@@ -219,10 +235,12 @@ export function VirtualTable<T>({
   loading,
   exportName,
   columnSettings = true,
-  card,
+  card: cardProp,
   selection,
+  virtual = true,
 }: VirtualTableProps<T>) {
   const denseRow = useRowHeight();
+  const card = cardProp ?? (virtual ? undefined : autoCard(columns));
   const cardMode = usePhone(!!card);
   const ROW_HEIGHT = cardMode ? CARD_H : denseRow;
   const HEAD_H = cardMode ? 0 : ROW_HEIGHT;
@@ -438,8 +456,8 @@ export function VirtualTable<T>({
   const bodyViewport = Math.max(ROW_HEIGHT, viewport - HEAD_H);
   const first = Math.floor(scrollTop / ROW_HEIGHT);
   const count = Math.ceil(bodyViewport / ROW_HEIGHT) + 1;
-  const start = Math.max(0, first - OVERSCAN);
-  const end = Math.min(n, first + count + OVERSCAN);
+  const start = virtual ? Math.max(0, first - OVERSCAN) : 0;
+  const end = virtual ? Math.min(n, first + count + OVERSCAN) : n;
 
   useEffect(() => {
     if (onEndReached && n > 0 && end >= n - OVERSCAN) onEndReached();
@@ -449,6 +467,11 @@ export function VirtualTable<T>({
     (i: number, centre = false) => {
       const el = scrollRef.current;
       if (!el) return;
+      if (!virtual) {
+        // every row is in the DOM and the page scrolls: let the browser bring it into view
+        el.querySelector<HTMLElement>(`[data-vt-index="${i}"]`)?.scrollIntoView({ block: centre ? "center" : "nearest" });
+        return;
+      }
       const top = i * ROW_HEIGHT;
       const vh = Math.max(ROW_HEIGHT, el.clientHeight - HEAD_H);
       let next = el.scrollTop;
@@ -460,7 +483,8 @@ export function VirtualTable<T>({
         setScrollTop(next);
       }
     },
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [virtual],
   );
 
   useEffect(() => {
@@ -475,7 +499,7 @@ export function VirtualTable<T>({
     const el = scrollRef.current?.querySelector<HTMLElement>(`[data-vt-index="${active}"]`);
     if (el) {
       focusPending.current = false;
-      el.focus({ preventScroll: true });
+      el.focus({ preventScroll: virtual });
     }
   });
 
@@ -536,7 +560,9 @@ export function VirtualTable<T>({
   };
 
   const template = columns.map(widthOf).join(" ");
-  const gridStyle: CSSProperties = cardMode ? { height: ROW_HEIGHT } : { gridTemplateColumns: template, height: ROW_HEIGHT };
+  const sizing: CSSProperties = virtual ? { height: ROW_HEIGHT } : { height: "auto", minHeight: ROW_HEIGHT };
+  const gridStyle: CSSProperties = cardMode ? sizing : { gridTemplateColumns: template, ...sizing };
+  const headStyle: CSSProperties = cardMode ? { height: ROW_HEIGHT } : { gridTemplateColumns: template, height: ROW_HEIGHT };
   const contentHeight = Math.max(n, 1) * ROW_HEIGHT + HEAD_H + 2;
   const byKey = new Map(orderedAll.map((c) => [c.key, c]));
   const cell = (c: Column<T> | undefined, row: T, i: number, cls: string, label?: boolean) =>
@@ -590,7 +616,7 @@ export function VirtualTable<T>({
           // full text as a tooltip for plain-text cells that may be truncated (UX-STANDARD 4)
           const tip = typeof content === "string" || typeof content === "number" ? String(content) : nodeText(content) || undefined;
           return (
-            <div key={c.key} role="gridcell" className={`vt-cell${c.align ? ` ${c.align}` : ""}`} title={tip}>
+            <div key={c.key} role="gridcell" className={`vt-cell${c.align ? ` ${c.align}` : ""}${c.wrap && !virtual ? " wrap" : ""}`} title={c.wrap && !virtual ? undefined : tip}>
               {content}
             </div>
           );
@@ -600,11 +626,11 @@ export function VirtualTable<T>({
   }
 
   return (
-    <div className="vt" data-testid={testId}>
+    <div className={`vt${virtual ? "" : " vt-plain"}`} data-testid={testId}>
       <div
         ref={scrollRef}
-        className="vt-scroll"
-        style={n === 0 ? undefined : { height: `min(${height}, ${contentHeight}px)` }}
+        className={`vt-scroll${virtual ? "" : " vt-static"}`}
+        style={n === 0 || !virtual ? undefined : { height: `min(${height}, ${contentHeight}px)` }}
         onScroll={onScroll}
         role={role}
         aria-label={label}
@@ -613,7 +639,7 @@ export function VirtualTable<T>({
         onKeyDown={onKeyDown}
       >
         <div className="vt-inner">
-          <div role="row" className={`vt-head${cardMode ? " vt-head-hidden" : ""}`} style={gridStyle} aria-rowindex={1}>
+          <div role="row" className={`vt-head${cardMode ? " vt-head-hidden" : ""}`} style={headStyle} aria-rowindex={1}>
             {columns.map((c) => {
               const sk = onSortChange ? c.sortKey : c.key;
               const dir = activeSort && sortable(c) && (activeSort.key === sk || (onSortChange && activeSort.key === c.sortKeyDesc)) ? activeSort.dir : null;

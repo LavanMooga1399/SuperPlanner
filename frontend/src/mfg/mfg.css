@@ -349,3 +349,16 @@ details.card > summary { cursor: pointer; }
   .dash-print .badge { border: 1px solid #555 !important; background: none !important; color: #000 !important; }
   .dash-print .dash-tile-value { font-size: 18px; }
 }
+/* short (non-virtual) tables: rows grow with wrapped content, no inner vertical scroll */
+.vt-plain .vt-scroll { overflow-y: visible; overflow-x: auto; }
+.vt-plain .vt-row:not(.vt-card) { align-items: center; }
+.vt-plain .vt-cell.wrap { white-space: normal; padding-top: 4px; padding-bottom: 4px; line-height: 1.35; }
+.vt-plain .vt-cell.right { line-height: normal; }
+.vt-plain .vt-row.vt-card { min-height: 56px; padding-top: 8px; padding-bottom: 8px; justify-content: flex-start; }
+.vt-plain .vt-card-fields { max-height: none; }
+.vt-plain .vt-card-field { white-space: normal; }
+/* a data table as the body of a card: the card draws the frame */
+.card-table { padding: 0; overflow: hidden; }
+.card-table > .vt, .card > .vt.flush { border: 0; border-radius: 0; }
+.card-table > .vt > .vt-scroll, .card-table > .vt > .vt-footer { border-radius: 0; }
+.card-table > .card-footer, .card-table > .mfg-error { margin: 0; padding: var(--sp-2) var(--sp-3); }

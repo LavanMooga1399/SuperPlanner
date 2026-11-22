@@ -15,6 +15,8 @@ import { listLocations } from "../../api/clientM2";
 import { createRecall, exportRecall, getRecall, listRecalls, quarantineRecall } from "../../api/clientM5";
 import type { Precision, QuarantineResult, Recall, RecallSource } from "../../api/typesM5";
 import { MfgError, Spinner } from "../../components/Feedback";
+import { DataTable } from "../../components/DataTable";
+import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { fmtNum } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
@@ -30,6 +32,92 @@ const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "pl
   shipped: { label: "Shipped", tone: "danger", icon: "flag" },
   consumed: { label: "Fitted into a parent", tone: "info", icon: "circle" },
 };
+
+type UnitRow = NonNullable<Recall["report"]>["units"][number];
+type LotRow = NonNullable<Recall["report"]>["lots"][number];
+type CustomerRow = NonNullable<Recall["report"]>["by_customer"][number];
+
+const RECALL_LIST_COLS: Column<Recall>[] = [
+  {
+    key: "recall",
+    header: "Recall",
+    width: "minmax(260px, 2fr)",
+    exportValue: (r) => `${r.number} ${r.name}`,
+    render: (r) => (
+      <span className="mfg-ellipsis">
+        <Link to={mfgPaths.recall(r.id)}>
+          <span className="mono">{r.number}</span> {r.name}
+        </Link>
+        {r.quarantined_at ? <span className="small faint"> · quarantined {formatDate(r.quarantined_at)}</span> : null}
+      </span>
+    ),
+  },
+  { key: "created", header: "Created", width: "160px", render: (r) => formatDateTime(r.created_at) },
+  { key: "units", header: "Units", width: "100px", align: "right", render: (r) => fmtNum(r.report?.units.length ?? 0) },
+  { key: "shipped", header: "Shipped", width: "100px", align: "right", render: (r) => fmtNum((r.report?.units ?? []).filter((u) => u.status === "shipped").length) },
+  { key: "customers", header: "Customers", width: "110px", align: "right", render: (r) => fmtNum(r.report?.by_customer.length ?? 0) },
+];
+
+const QUARANTINE_COLS: Column<LotRow>[] = [
+  { key: "item", header: "Item", width: "minmax(140px, 1fr)", sortValue: (l) => l.item, render: (l) => <span className="mono">{l.item}</span> },
+  { key: "lot", header: "Lot", width: "minmax(120px, 1fr)", sortValue: (l) => l.lot_code, render: (l) => <span className="mono">{l.lot_code}</span> },
+  { key: "on_hand", header: "On hand", width: "100px", align: "right", sortValue: (l) => l.on_hand, render: (l) => fmtNum(l.on_hand) },
+  { key: "location", header: "Location", width: "minmax(120px, 1fr)", sortValue: (l) => l.location ?? "", render: (l) => l.location ?? "" },
+  {
+    key: "hold",
+    header: "Hold",
+    width: "110px",
+    sortValue: (l) => (l.on_hold ? 1 : 0),
+    exportValue: (l) => (l.on_hold ? "on hold" : ""),
+    render: (l) =>
+      l.on_hold ? (
+        <span className="badge warn">
+          <Icon name="lock" /> on hold
+        </span>
+      ) : null,
+  },
+];
+
+const UNIT_COLS: Column<UnitRow>[] = [
+  { key: "unit", header: "Unit", width: "minmax(130px, 1fr)", sortValue: (u) => u.serial, render: (u) => <span className="mono">{u.serial}</span> },
+  { key: "item", header: "Item", width: "minmax(120px, 1fr)", sortValue: (u) => u.item, render: (u) => <span className="mono">{u.item}</span> },
+  {
+    key: "status",
+    header: "Status",
+    width: "140px",
+    sortValue: (u) => u.status,
+    exportValue: (u) => STATUS[u.status]?.label ?? u.status,
+    render: (u) => {
+      const st = STATUS[u.status] ?? { label: u.status, tone: "info", icon: "circle" as const };
+      return (
+        <span className={`badge ${st.tone}`}>
+          <Icon name={st.icon} /> {st.label}
+        </span>
+      );
+    },
+  },
+  {
+    key: "where",
+    header: "Where",
+    width: "minmax(180px, 1.4fr)",
+    wrap: true,
+    render: (u) =>
+      u.status === "shipped" ? (
+        <span>
+          {u.customer ?? ""} {u.demand_order ? <span className="mono">{u.demand_order}</span> : null}
+          {u.shipped_on ? <span className="faint"> · {u.shipped_on}</span> : null}
+        </span>
+      ) : u.status === "wip" ? (
+        <span className="mono">{u.wo ?? ""}</span>
+      ) : u.status === "consumed" ? (
+        <span>in {u.parent ?? "a parent unit"}</span>
+      ) : (
+        u.location ?? ""
+      ),
+  },
+  { key: "link", header: "Link", width: "110px", sortValue: (u) => u.precision, exportValue: (u) => u.precision, render: (u) => <PrecisionTag p={u.precision} /> },
+  { key: "path", header: "Path", width: "minmax(200px, 2fr)", wrap: true, render: (u) => <span className="small faint">{u.path.join(" › ")}</span> },
+];
 
 export function RecallsPage() {
   const navigate = useNavigate();
@@ -104,42 +192,20 @@ export function RecallsPage() {
         </section>
       ) : null}
       <MfgError error={data.error} onRetry={data.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="recall-list">
-          <thead>
-            <tr>
-              <th>Recall</th>
-              <th>Created</th>
-              <th className="right">Units</th>
-              <th className="right">Shipped</th>
-              <th className="right">Customers</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted">
-                  {data.loading ? "Loading…" : "No recalls."}
-                </td>
-              </tr>
-            ) : null}
-            {data.rows.map((r) => (
-              <tr key={r.id} data-testid="recall-row">
-                <td>
-                  <Link to={mfgPaths.recall(r.id)}>
-                    <span className="mono">{r.number}</span> {r.name}
-                  </Link>
-                  {r.quarantined_at ? <div className="small faint">quarantined {formatDate(r.quarantined_at)}</div> : null}
-                </td>
-                <td className="small">{formatDateTime(r.created_at)}</td>
-                <td className="right">{fmtNum(r.report?.units.length ?? 0)}</td>
-                <td className="right">{fmtNum((r.report?.units ?? []).filter((u) => u.status === "shipped").length)}</td>
-                <td className="right">{fmtNum(r.report?.by_customer.length ?? 0)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <VirtualTable
+        rows={data.rows}
+        columns={RECALL_LIST_COLS}
+        rowKey={(r) => r.id}
+        label="Recalls"
+        testId="recall-list"
+        totalCount={data.total}
+        loading={data.loading}
+        onEndReached={data.onEndReached}
+        exportName="recalls"
+        rowExtras={() => ({ testId: "recall-row" })}
+        empty="No recalls. Start one from a trace or with New recall."
+        card={{ title: "recall", fields: ["created", "units", "shipped"] }}
+      />
     </div>
   );
 }
@@ -236,30 +302,16 @@ export function RecallPage() {
               {qResult.lots_on_hold !== undefined ? `, ${qResult.lots_on_hold} lots on hold` : ""}.
             </Banner>
           ) : null}
-          <table className="table">
-            <tbody>
-              {(rep?.lots ?? []).length === 0 ? (
-                <tr>
-                  <td className="muted">No affected stock on hand.</td>
-                </tr>
-              ) : null}
-              {(rep?.lots ?? []).map((l, i) => (
-                <tr key={i} data-testid="quarantine-lot">
-                  <td className="mono">{l.item}</td>
-                  <td className="mono">lot {l.lot_code}</td>
-                  <td className="right">{fmtNum(l.on_hand)}</td>
-                  <td>{l.location ?? ""}</td>
-                  <td>
-                    {l.on_hold ? (
-                      <span className="badge warn">
-                        <Icon name="lock" /> on hold
-                      </span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            rows={rep?.lots ?? []}
+            columns={QUARANTINE_COLS}
+            rowKey={(_, i) => i}
+            label="Affected stock"
+            tableId="recall-lots"
+            rowExtras={() => ({ testId: "quarantine-lot" })}
+            empty="No affected stock on hand."
+            card={{ title: "item", status: "hold", fields: ["lot", "on_hand", "location"] }}
+          />
           {rep?.open_pos.length ? (
             <p className="small" style={{ margin: 0 }}>
               Open purchase orders of the suspect item: {rep.open_pos.map((p) => `${p.number}${p.qty ? ` (${fmtNum(p.qty)})` : ""}`).join(", ")}. Check with the supplier before receiving more.
@@ -289,43 +341,47 @@ export function RecallPage() {
 
       {rep?.by_customer.length || rep?.by_program.length ? (
         <div className="grid-2" style={{ alignItems: "start" }}>
-          <section className="card">
+          <section className="card card-table">
             <div className="card-header">
               <h2>Per customer</h2>
             </div>
-            <table className="table" data-testid="recall-customers">
-              <tbody>
-                {(rep?.by_customer ?? []).map((c, i) => (
-                  <tr key={i}>
-                    <td>{c.customer}</td>
-                    <td className="right">{fmtNum(c.units)} units</td>
-                    {c.exact !== undefined ? <td className="right small">{fmtNum(c.exact)} exact</td> : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              rows={rep?.by_customer ?? []}
+              columns={[
+                { key: "customer", header: "Customer", width: "minmax(160px, 1fr)", sortValue: (c) => c.customer, render: (c) => c.customer },
+                { key: "units", header: "Units", width: "110px", align: "right", sortValue: (c) => c.units, render: (c) => fmtNum(c.units) },
+                ...(rep?.by_customer.some((c) => c.exact !== undefined)
+                  ? [{ key: "exact", header: "Exact", width: "100px", align: "right" as const, sortValue: (c: CustomerRow) => c.exact ?? null, render: (c: CustomerRow) => (c.exact === undefined ? "" : fmtNum(c.exact)) }]
+                  : []),
+              ]}
+              rowKey={(_, i) => i}
+              label="Affected units per customer"
+              testId="recall-customers"
+              exportName="recall-customers"
+            />
           </section>
           {rep?.by_program.length ? (
-            <section className="card">
+            <section className="card card-table">
               <div className="card-header">
                 <h2>Per programme</h2>
               </div>
-              <table className="table">
-                <tbody>
-                  {rep.by_program.map((c, i) => (
-                    <tr key={i}>
-                      <td>{c.program}</td>
-                      <td className="right">{fmtNum(c.units)} units</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                rows={rep.by_program}
+                columns={[
+                  { key: "program", header: "Programme", width: "minmax(160px, 1fr)", sortValue: (c) => c.program, render: (c) => c.program },
+                  { key: "units", header: "Units", width: "110px", align: "right", sortValue: (c) => c.units, render: (c) => fmtNum(c.units) },
+                ]}
+                rowKey={(_, i) => i}
+                label="Affected units per programme"
+                tableId="recall-programmes"
+                exportName="recall-programmes"
+              />
             </section>
           ) : null}
         </div>
       ) : null}
 
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
           <h2>Affected units ({units.length})</h2>
           <span className="row no-print">
@@ -344,54 +400,17 @@ export function RecallPage() {
             </select>
           </span>
         </div>
-        <div className="table-wrap">
-          <table className="table" data-testid="recall-units">
-            <thead>
-              <tr>
-                <th>Unit</th>
-                <th>Item</th>
-                <th>Status</th>
-                <th>Where</th>
-                <th>Link</th>
-                <th>Path</th>
-              </tr>
-            </thead>
-            <tbody>
-              {units.map((u, i) => {
-                const st = STATUS[u.status] ?? { label: u.status, tone: "info", icon: "circle" as const };
-                return (
-                  <tr key={`${u.serial}-${i}`} data-testid="recall-unit" data-status={u.status} data-precision={u.precision}>
-                    <td className="mono">{u.serial}</td>
-                    <td className="mono">{u.item}</td>
-                    <td>
-                      <span className={`badge ${st.tone}`}>
-                        <Icon name={st.icon} /> {st.label}
-                      </span>
-                    </td>
-                    <td className="small">
-                      {u.status === "shipped" ? (
-                        <>
-                          {u.customer ?? ""} {u.demand_order ? <span className="mono">{u.demand_order}</span> : null}
-                          {u.shipped_on ? <div className="faint">{u.shipped_on}</div> : null}
-                        </>
-                      ) : u.status === "wip" ? (
-                        <span className="mono">{u.wo ?? ""}</span>
-                      ) : u.status === "consumed" ? (
-                        <>in {u.parent ?? "a parent unit"}</>
-                      ) : (
-                        u.location ?? ""
-                      )}
-                    </td>
-                    <td>
-                      <PrecisionTag p={u.precision} />
-                    </td>
-                    <td className="small faint">{u.path.join(" › ")}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={units}
+          columns={UNIT_COLS}
+          rowKey={(u, i) => `${u.serial}-${i}`}
+          label="Affected units"
+          testId="recall-units"
+          exportName="recall-units"
+          rowExtras={(u) => ({ testId: "recall-unit", data: { status: u.status, precision: u.precision } })}
+          empty="No affected units match these filters."
+          card={{ title: "unit", status: "status", fields: ["item", "where", "link"] }}
+        />
       </section>
       {confirm ? (
         <ConfirmDialog
