@@ -16,7 +16,7 @@ import { DEMAND_TYPE_LABEL, fmtNum } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
-import { BulkActions, ReasonField, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
+import { BulkActions, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
 import { useCan } from "../../lib/permissions";
 
 export function DemandList() {
@@ -86,8 +86,8 @@ export function DemandList() {
   const [selected, setSelected] = useSelection(params.toString());
   const orders = (n: number) => (n === 1 ? "this demand order" : `these ${n} demand orders`);
   const bulkDefs: BulkActionDef[] = [
-    { action: "demand-orders/close", label: "Close", icon: "check", testId: "bulk-demand-close", what: (n) => `Close ${orders(n)}.`, effect: "Closed orders are no longer planned by MRP." },
-    { action: "demand-orders/cancel", label: "Cancel", icon: "ban", danger: true, testId: "bulk-demand-cancel", what: (n) => `Cancel ${orders(n)}.`, effect: "Cancelled orders leave planning; this cannot be undone." },
+    { action: "demand-orders/close", label: "Close", icon: "check", testId: "bulk-demand-close", eligible: ["open"], what: (n) => `Close ${orders(n)}.`, effect: "Closed orders are no longer planned by MRP." },
+    { action: "demand-orders/cancel", label: "Cancel", icon: "ban", danger: true, testId: "bulk-demand-cancel", eligible: ["draft", "open"], what: (n) => `Cancel ${orders(n)}.`, effect: "Cancelled orders leave planning; this cannot be undone." },
   ];
   const chips: FilterChip[] = [];
   if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });

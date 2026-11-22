@@ -9,6 +9,8 @@ import { Dialog } from "../../components/Dialog";
 import { Icon, type IconName } from "../../components/Icon";
 import { toast } from "../../components/Toast";
 import { plural } from "../../lib/i18n";
+import { ApiError } from "../../api/client";
+import { newIdempotencyKey } from "../api/clientM2";
 import { runBulk, type BulkAction, type BulkResponse } from "../api/clientUx";
 import { MfgError } from "./Feedback";
 
@@ -17,6 +19,7 @@ export interface BulkRow {
   row_version: number;
   /** Shown in confirmations and results, e.g. "WO-KV-0002". */
   label: string;
+  status?: string;
 }
 
 export interface BulkActionDef {
@@ -32,6 +35,8 @@ export interface BulkActionDef {
   form?(state: Record<string, string>, set: (k: string, v: string) => void): ReactNode;
   params?(state: Record<string, string>): Record<string, unknown>;
   ready?(state: Record<string, string>): boolean;
+  /** Statuses that allow the action (for the "will be skipped" hint; the server decides). */
+  eligible?: string[];
   testId: string;
 }
 
@@ -48,7 +53,18 @@ export function BulkActions({ rows, noun, actions, onDone, onClear }: { rows: Bu
     setBusy(true);
     setError(null);
     try {
-      const res = await runBulk(pending.action, rows.map((r) => ({ id: r.id, row_version: r.row_version })), pending.params?.(form) ?? {});
+      // one idempotency key per confirmation: a retry (network, or 409 MFG_BULK_IN_PROGRESS) never runs twice
+      const key = newIdempotencyKey("bulk");
+      const items = rows.map((r) => ({ id: r.id, row_version: r.row_version }));
+      let res: BulkResponse | null = null;
+      for (let attempt = 0; !res; attempt++) {
+        try {
+          res = await runBulk(pending.action, items, pending.params?.(form) ?? {}, key);
+        } catch (e) {
+          if (!(e instanceof ApiError && e.code === "MFG_BULK_IN_PROGRESS") || attempt >= 5) throw e;
+          await new Promise((r) => window.setTimeout(r, 5000));
+        }
+      }
       const labels = new Map(rows.map((r) => [r.id, r.label]));
       if (res.failed === 0) toast(`${pending.label}: ${plural(res.succeeded, noun[0], noun[1])} done`);
       else setResult({ def: pending, res, labels });
@@ -108,6 +124,14 @@ export function BulkActions({ rows, noun, actions, onDone, onClear }: { rows: Bu
           <p className="small muted" style={{ margin: 0 }}>
             {pending.effect} Records that cannot take this action are left unchanged and listed with the reason.
           </p>
+          {(() => {
+            const skip = pending.eligible ? rows.filter((r) => r.status && !pending.eligible!.includes(r.status)).length : 0;
+            return skip ? (
+              <p className="small" style={{ margin: 0, color: "var(--warn)" }} data-testid="bulk-skip-hint">
+                <Icon name="alert" size={12} /> {plural(skip, noun[0], noun[1])} {skip === 1 ? "is" : "are"} not in a status that allows this and will be skipped.
+              </p>
+            ) : null;
+          })()}
           {pending.form?.(form, (k, v) => setForm((f) => ({ ...f, [k]: v })))}
           <MfgError error={error} title="The bulk action could not be sent" />
         </ConfirmDialog>
@@ -163,8 +187,8 @@ export function useSelection(resetKey: string): [Set<string>, (s: Set<string>) =
 }
 
 /** The selected loaded rows as bulk rows. */
-export function bulkRows<T extends { id: string; number: string }>(rows: readonly T[], selected: ReadonlySet<string>): BulkRow[] {
-  return rows.filter((r) => selected.has(r.id)).map((r) => ({ id: r.id, row_version: (r as { row_version?: number }).row_version ?? 0, label: r.number }));
+export function bulkRows<T extends { id: string; number: string; status?: string }>(rows: readonly T[], selected: ReadonlySet<string>): BulkRow[] {
+  return rows.filter((r) => selected.has(r.id)).map((r) => ({ id: r.id, row_version: (r as { row_version?: number }).row_version ?? 0, label: r.number, status: r.status }));
 }
 
 export function ReasonField({ id, label, value, onChange, required, testId }: { id: string; label: string; value: string; onChange(v: string): void; required?: boolean; testId?: string }) {

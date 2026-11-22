@@ -52,6 +52,7 @@ export function WorkOrderList() {
       label: "Release",
       icon: "play",
       testId: "bulk-wo-release",
+      eligible: ["planned"],
       what: (n) => `Release ${n === 1 ? "this work order" : `these ${n} work orders`} to the shop floor.`,
       effect: "Each one is released exactly as from its own page.",
       form: (f, set) => (
@@ -64,13 +65,14 @@ export function WorkOrderList() {
       ),
       params: (f) => ({ reserve: f.reserve === "1", ...(f.override?.trim() ? { override_reason: f.override.trim() } : {}) }),
     },
-    { action: "work-orders/close", label: "Close", icon: "check", testId: "bulk-wo-close", what: (n) => `Close ${n === 1 ? "this work order" : `these ${n} work orders`}.`, effect: "Closed work orders take no further postings." },
+    { action: "work-orders/close", label: "Close", icon: "check", testId: "bulk-wo-close", eligible: ["completed"], what: (n) => `Close ${n === 1 ? "this work order" : `these ${n} work orders`}.`, effect: "Closed work orders take no further postings." },
     {
       action: "work-orders/cancel",
       label: "Cancel",
       icon: "ban",
       danger: true,
       testId: "bulk-wo-cancel",
+      eligible: ["planned", "released"],
       what: (n) => `Cancel ${n === 1 ? "this work order" : `these ${n} work orders`}.`,
       effect: "Their reservations are released and they leave planning; this cannot be undone.",
     },

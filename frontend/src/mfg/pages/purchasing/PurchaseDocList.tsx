@@ -104,16 +104,17 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
   const bulkDefs: BulkActionDef[] =
     docType === "pr"
       ? [
-          ...(canEditDocs ? [{ action: "purchase-requests/submit" as const, label: "Submit", icon: "arrow-right" as const, testId: "bulk-pr-submit", what: (n: number) => `Submit ${docNoun(n)} for approval.`, effect: "Drafts go to the approvers." }] : []),
+          ...(canEditDocs ? [{ action: "purchase-requests/submit" as const, label: "Submit", icon: "arrow-right" as const, testId: "bulk-pr-submit", eligible: ["draft"], what: (n: number) => `Submit ${docNoun(n)} for approval.`, effect: "Drafts go to the approvers." }] : []),
           ...(canApprove
             ? [
-                { action: "purchase-requests/approve" as const, label: "Approve", icon: "check" as const, testId: "bulk-pr-approve", what: (n: number) => `Approve ${docNoun(n)}.`, effect: "Approved requests can be converted to purchase orders. You cannot approve your own requests." },
+                { action: "purchase-requests/approve" as const, label: "Approve", icon: "check" as const, testId: "bulk-pr-approve", eligible: ["submitted"], what: (n: number) => `Approve ${docNoun(n)}.`, effect: "Approved requests can be converted to purchase orders. You cannot approve your own requests." },
                 {
                   action: "purchase-requests/reject" as const,
                   label: "Reject",
                   icon: "x" as const,
                   danger: true,
                   testId: "bulk-pr-reject",
+                  eligible: ["submitted"],
                   what: (n: number) => `Reject ${docNoun(n)}.`,
                   effect: "The requester sees your reason.",
                   form: (f: Record<string, string>, set: (k: string, v: string) => void) => <ReasonField id="bulk-reject" label="Reason" required value={f.reason ?? ""} onChange={(v) => set("reason", v)} testId="bulk-reject-reason" />,
@@ -124,7 +125,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
             : []),
         ]
       : canEditDocs
-        ? [{ action: "purchase-orders/cancel", label: "Cancel", icon: "ban", danger: true, testId: "bulk-po-cancel", what: (n) => `Cancel ${docNoun(n)}.`, effect: "Open deliveries are no longer expected and MRP stops counting them as supply; this cannot be undone." }]
+        ? [{ action: "purchase-orders/cancel", label: "Cancel", icon: "ban", danger: true, testId: "bulk-po-cancel", eligible: ["draft", "open"], what: (n) => `Cancel ${docNoun(n)}.`, effect: "Open deliveries are no longer expected and MRP stops counting them as supply; this cannot be undone." }]
         : [];
   const chips: FilterChip[] = [];
   if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
