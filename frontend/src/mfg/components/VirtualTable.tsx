@@ -604,7 +604,7 @@ export function VirtualTable<T>({
       <div
         ref={scrollRef}
         className="vt-scroll"
-        style={{ height: `min(${height}, ${contentHeight}px)` }}
+        style={n === 0 ? undefined : { height: `min(${height}, ${contentHeight}px)` }}
         onScroll={onScroll}
         role={role}
         aria-label={label}

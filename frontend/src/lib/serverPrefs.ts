@@ -38,6 +38,10 @@ function writeLocal(localKey: string, v: unknown): void {
 const path = (key: string) => `/me/preferences/${encodeURIComponent(key)}`;
 
 async function put(key: string, value: unknown, retry = true): Promise<void> {
+  // know the current version first, so a normal save never needs a 428 round trip
+  const idx = await loadIndex();
+  if (!idx) return;
+  if (!versions.has(key) && idx.has(key)) versions.set(key, idx.get(key)!);
   const v = versions.get(key);
   try {
     const rec = await v1Request<{ row_version: number }>(path(key), {
@@ -46,6 +50,7 @@ async function put(key: string, value: unknown, retry = true): Promise<void> {
       headers: v ? { "If-Match": `"${v}"` } : {},
     });
     versions.set(key, rec.row_version);
+    idx.set(key, rec.row_version);
   } catch (e) {
     if (e instanceof ApiError && (e.status === 412 || e.status === 428) && retry) {
       const cur = Number((e.details as { current_version?: unknown }).current_version);
@@ -60,28 +65,43 @@ async function put(key: string, value: unknown, retry = true): Promise<void> {
   }
 }
 
+/** One index request per page load (keys and versions, no values): existing keys are fetched, missing ones are
+ *  never requested (no 404s), and local-only ones are uploaded once (migration). */
+let index: Promise<Map<string, number> | null> | null = null;
+function loadIndex(): Promise<Map<string, number> | null> {
+  index ??= v1Request<{ items: { key: string; row_version: number }[] }>("/me/preferences")
+    .then((r) => new Map(r.items.map((i) => [i.key, i.row_version])))
+    .catch((e) => {
+      if (e instanceof ApiError && e.status !== 0) disabled = true; // signed out, token, or no endpoint
+      return null;
+    });
+  return index;
+}
+
 /** Fetch the server copy once per load; `onServer` gets it when it differs from the local copy. */
 export function syncPref<T>(key: string, localKey: string, onServer: (v: T) => void): void {
   if (disabled || synced.has(key)) return;
   synced.add(key);
-  void v1Request<{ value: T; row_version: number }>(path(key))
-    .then((rec) => {
-      versions.set(key, rec.row_version);
+  void loadIndex().then((idx) => {
+    if (!idx) return;
+    const v = idx.get(key);
+    if (v === undefined) {
+      // one-time migration of what this browser stored before preferences moved to the server
       const local = readLocal<T>(localKey);
-      if (JSON.stringify(local) !== JSON.stringify(rec.value)) {
-        writeLocal(localKey, rec.value);
-        onServer(rec.value);
-      }
-    })
-    .catch((e) => {
-      if (e instanceof ApiError && e.status === 404 && e.code === "NOT_FOUND" && (e.details as { key?: string }).key === key) {
-        // one-time migration of what this browser stored before preferences moved to the server
-        const local = readLocal<T>(localKey);
-        if (local !== undefined) void put(key, local);
-        return;
-      }
-      if (e instanceof ApiError && (e.status === 401 || e.status === 403 || e.status === 404 || e.status === 405)) disabled = true;
-    });
+      if (local !== undefined) void put(key, local);
+      return;
+    }
+    versions.set(key, v);
+    void v1Request<{ value: T; row_version: number }>(path(key))
+      .then((rec) => {
+        versions.set(key, rec.row_version);
+        if (JSON.stringify(readLocal<T>(localKey)) !== JSON.stringify(rec.value)) {
+          writeLocal(localKey, rec.value);
+          onServer(rec.value);
+        }
+      })
+      .catch(() => undefined);
+  });
 }
 
 /** Save locally now and on the server shortly after (debounced per key). `undefined` resets to default. */
