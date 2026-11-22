@@ -261,7 +261,11 @@ test("export downloads (xlsx and zip) and an export -> wizard import round trip 
   await page.getByTestId("import-commit").click();
   await expect(page.getByTestId("import-result")).toBeVisible();
   const after = await mfgJson<{ counts: Record<string, number> }>(request, "/summary");
-  expect(after.counts).toEqual(before.counts);
+  // the default export scope is master data; the transactional /summary counts (M2-DESIGN 12.3: open documents,
+  // overdue schedules) are not part of it and are empty after the reset
+  const TRANSACTIONAL = ["open_purchase_orders", "open_purchase_requests", "overdue_schedules", "open_demand_lines", "open_work_orders"];
+  const master = (c: Record<string, number>) => Object.fromEntries(Object.entries(c).filter(([k]) => !TRANSACTIONAL.includes(k)));
+  expect(master(after.counts)).toEqual(master(before.counts));
   const h2 = await mfgJson<{ fingerprint: string; ok: boolean }>(request, "/health");
   expect(h2.ok).toBe(true);
   expect(h2.fingerprint).toBe(health.fingerprint);

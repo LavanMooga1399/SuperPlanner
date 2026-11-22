@@ -16,7 +16,8 @@ const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOSt
 
 test("demand order -> work order -> release with reserve -> issue -> partial output", async ({ page, request }) => {
   test.setTimeout(150_000);
-  const problems = watch(page);
+  // the first release answers 409 WO_KIT_INCOMPLETE (the bare PCB is short); the UI then asks for a reason
+  const problems = watch(page, [/\/release -> 409 .*WO_KIT_INCOMPLETE/]);
 
   // --- demand order
   await gotoMfg(page, "/demand/new");
