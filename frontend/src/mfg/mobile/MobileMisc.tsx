@@ -2,6 +2,7 @@
  * Smaller phone screens (M6 2): work order quick view, scan (keyboard wedge; camera through `BarcodeDetector` where
  * the browser has it, else typing), More (notifications opt-in, assistant, desktop, theme) and the assistant.
  */
+import { formatDay } from "../../lib/locale";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
@@ -44,7 +45,7 @@ export function MobileWo() {
                 {w.qty_completed} of {w.qty} done{w.qty_scrapped ? `, ${w.qty_scrapped} scrapped` : ""}
               </dd>
               <dt>Due</dt>
-              <dd>{w.due_date}</dd>
+              <dd>{formatDay(w.due_date)}</dd>
               {w.demand_line ? (
                 <>
                   <dt>For</dt>

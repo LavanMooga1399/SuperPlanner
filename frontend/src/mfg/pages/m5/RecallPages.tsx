@@ -23,7 +23,7 @@ import { needsText, useCan } from "../../lib/permissions";
 import { usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { PrecisionTag } from "./TracePages";
-import { formatDate, formatDateTime } from "../../../lib/locale";
+import { formatDate, formatDateTime, formatDay } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
 import { t } from "../../../lib/i18n";
 
@@ -106,7 +106,7 @@ const UNIT_COLS: Column<UnitRow>[] = [
       u.status === "shipped" ? (
         <span>
           {u.customer ?? ""} {u.demand_order ? <span className="mono">{u.demand_order}</span> : null}
-          {u.shipped_on ? <span className="faint"> · {u.shipped_on}</span> : null}
+          {u.shipped_on ? <span className="faint"> · {formatDay(u.shipped_on)}</span> : null}
         </span>
       ) : u.status === "wip" ? (
         <span className="mono">{u.wo ?? ""}</span>

@@ -3,6 +3,7 @@
  * status and the kit light (icon + text). Tap a row to open the operation. Line down: a red card with "Line back up".
  * Batch lines get a "Batch loads" button. Refreshes every 20 s and after returning to the page.
  */
+import { formatDay } from "../../lib/locale";
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { Icon } from "../../components/Icon";
@@ -69,7 +70,7 @@ export function FloorQueue() {
           <div className="col" style={{ gap: 2 }}>
             <h1 data-testid="floor-line-title">{d ? `${d.line.code}${d.line.name ? ` · ${d.line.name}` : ""}` : "Line"}</h1>
             <span className="muted">
-              {d ? `${d.shift ? `Shift ${d.shift} · ` : ""}${d.date} · times in ${clock.zoneLabel}` : ""}
+              {d ? `${d.shift ? `Shift ${d.shift} · ` : ""}${formatDay(d.date)} · times in ${clock.zoneLabel}` : ""}
               {d && !d.run_id ? " · no published schedule: work orders in due-date order" : ""}
             </span>
           </div>
@@ -168,7 +169,7 @@ function QueueRow({ r, index, clock }: { r: FloorQueueRow; index: number; clock:
         </span>
         <span className="muted">
           <span className="mono">{r.wo.item.part_number}</span> · {fmtQty(r.qty_good)} of {fmtQty(qty)} good
-          {r.wo.due_date ? ` · due ${r.wo.due_date}` : ""}
+          {r.wo.due_date ? ` · due ${formatDay(r.wo.due_date)}` : ""}
         </span>
         {r.qty_good > 0 ? (
           <span className="floor-progress" aria-hidden>

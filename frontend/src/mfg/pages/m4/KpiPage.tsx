@@ -4,6 +4,7 @@
  * reasons, worst adherence lines and the per-operation adherence list. Definitions are shown under each tile so the
  * numbers are not jargon.
  */
+import { formatDateRange } from "../../../lib/locale";
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Icon } from "../../../components/Icon";
@@ -187,7 +188,7 @@ export function KpiPage() {
         </div>
       </FilterBar>
       <p className="muted small" style={{ margin: 0 }}>
-        {d?.period.from ?? from} to {d?.period.to ?? today} ({d?.period.time_zone ?? clock.zoneLabel}); today is live, earlier days are cached.
+        {formatDateRange(d?.period.from ?? from, d?.period.to ?? today)} ({d?.period.time_zone ?? clock.zoneLabel}); today is live, earlier days are cached.
       </p>
       <MfgError error={k.error} onRetry={k.reload} />
       {k.loading && !d ? <Spinner label="Calculating…" /> : null}

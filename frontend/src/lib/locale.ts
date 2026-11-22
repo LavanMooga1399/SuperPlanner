@@ -45,3 +45,23 @@ export function formatTime(d: Date | string | number | null | undefined): string
   const x = d instanceof Date ? d : new Date(d);
   return Number.isNaN(x.getTime()) ? String(d) : tf.format(x);
 }
+
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Calendar date ("2026-11-02", or the date part of an ISO timestamp) without a time-zone shift: "2 Nov 2026". */
+export function formatDay(d: string | null | undefined): string {
+  if (!d) return "";
+  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${Number(m[3])} ${MON[Number(m[2]) - 1]} ${m[1]}` : d;
+}
+
+/** Date range of two calendar dates, shortest unambiguous form: "24 Oct – 22 Nov 2026", "1–22 Nov 2026". */
+export function formatDateRange(from: string | null | undefined, to: string | null | undefined): string {
+  const a = from?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const b = to?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!a || !b) return [formatDay(from), formatDay(to)].filter(Boolean).join(" – ");
+  if (a[1] !== b[1]) return `${formatDay(from)} – ${formatDay(to)}`;
+  if (a[2] !== b[2]) return `${Number(a[3])} ${MON[Number(a[2]) - 1]} – ${formatDay(to)}`;
+  if (a[3] === b[3]) return formatDay(to);
+  return `${Number(a[3])}–${formatDay(to)}`;
+}
