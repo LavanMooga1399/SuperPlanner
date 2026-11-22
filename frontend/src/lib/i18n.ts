@@ -22,6 +22,7 @@ const en = {
   "table.columnsHidden": "Columns ({count} hidden)",
   "table.columnsHelp": "Show, hide and order columns. Drag a header edge to resize; double-click it to reset.",
   "table.columnsReset": "Reset to default",
+  "table.narrowHidden": "(narrow screen)",
   "table.empty": "Nothing to show.",
   "table.moveUp": "Move {name} up",
   "table.moveDown": "Move {name} down",

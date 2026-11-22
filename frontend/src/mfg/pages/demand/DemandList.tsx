@@ -56,12 +56,12 @@ export function DemandList() {
           </Link>
         ),
       },
-      { key: "st", header: "Status", width: "170px", sortKey: "status", render: (o) => <DemandStatusChip status={o.status} /> },
-      { key: "type", header: "Type", width: "140px", render: (o) => DEMAND_TYPE_LABEL[o.demand_type] ?? o.demand_type },
+      { key: "st", header: "Status", width: "158px", sortKey: "status", render: (o) => <DemandStatusChip status={o.status} /> },
+      { key: "type", header: "Type", width: "140px", drop: 2, render: (o) => DEMAND_TYPE_LABEL[o.demand_type] ?? o.demand_type },
       { key: "cust", header: "Customer", width: "minmax(150px, 1.4fr)", sortKey: "customer", render: (o) => <span className="mfg-ellipsis">{o.customer}</span> },
-      { key: "prog", header: "Programme", width: "110px", render: (o) => <span className="mono">{o.program ?? ""}</span> },
-      { key: "prio", header: "Priority", width: "80px", sortKey: "priority", align: "right", render: (o) => `P${o.priority}` },
-      { key: "lines", header: "Lines", width: "60px", align: "right", render: (o) => o.line_count },
+      { key: "prog", header: "Programme", width: "110px", drop: 1, render: (o) => <span className="mono">{o.program ?? ""}</span> },
+      { key: "prio", header: "Priority", width: "80px", drop: 4, sortKey: "priority", align: "right", render: (o) => `P${o.priority}` },
+      { key: "lines", header: "Lines", width: "60px", drop: 3, align: "right", render: (o) => o.line_count },
       { key: "open", header: "Open qty", width: "90px", align: "right", render: (o) => fmtNum(o.open_qty) },
       { key: "due", header: "Next due", width: "106px", sortKey: "due_date", sortKeyDesc: "-due_date", render: (o) => fmtDate(o.next_due) },
       {

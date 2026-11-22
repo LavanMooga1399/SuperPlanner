@@ -53,6 +53,12 @@ export interface Column<T> {
   exportValue?(row: T): string | number | null | undefined;
   /** False keeps the column always visible (default: the first column cannot be hidden). */
   hideable?: boolean;
+  /**
+   * Narrow screens: when the default column set is wider than the table, columns with a `drop` rank leave the
+   * default set, lowest rank first, until the rest fits (no sideways scroll at 1024 px). The person can still show
+   * them from Columns; an explicit choice wins.
+   */
+  drop?: number;
 }
 
 export interface SortState {
@@ -167,16 +173,24 @@ interface ColumnPrefs {
   hidden: string[];
   order: string[];
   widths: Record<string, number>;
+  /** Columns the person showed explicitly (they stay even when a narrow screen would drop them). */
+  shown?: string[];
 }
 
-const EMPTY_PREFS: ColumnPrefs = { hidden: [], order: [], widths: {} };
+const EMPTY_PREFS: ColumnPrefs = { hidden: [], order: [], widths: {}, shown: [] };
+
+/** Smallest width of a grid track ("120px", "minmax(150px, 1fr)"). */
+function minTrack(w: string): number {
+  const m = w.match(/(\d+(?:\.\d+)?)px/);
+  return m ? Number(m[1]) : 80;
+}
 
 function loadPrefs(id: string): ColumnPrefs {
   try {
     const raw = window.localStorage.getItem(`sp.table.${id}`);
     if (!raw) return EMPTY_PREFS;
     const p = JSON.parse(raw) as Partial<ColumnPrefs>;
-    return { hidden: p.hidden ?? [], order: p.order ?? [], widths: p.widths ?? {} };
+    return { hidden: p.hidden ?? [], order: p.order ?? [], widths: p.widths ?? {}, shown: p.shown ?? [] };
   } catch {
     return EMPTY_PREFS;
   }
@@ -186,7 +200,7 @@ function loadPrefs(id: string): ColumnPrefs {
 const prefKey = (id: string) => `table.${id.replace(/[^A-Za-z0-9._:-]+/g, "-")}`.slice(0, 128);
 
 function savePrefs(id: string, p: ColumnPrefs): void {
-  const empty = !p.hidden.length && !p.order.length && !Object.keys(p.widths).length;
+  const empty = !p.hidden.length && !p.order.length && !Object.keys(p.widths).length && !p.shown?.length;
   // local cache now, the person's server preferences shortly after (UX-STANDARD "Backend support")
   savePref(prefKey(id), `sp.table.${id}`, empty ? undefined : p);
 }
@@ -253,7 +267,7 @@ export function VirtualTable<T>({
   const prefsId = tableId ?? testId ?? label;
   const [colPrefs, setColPrefs] = useState<ColumnPrefs>(() => loadPrefs(prefsId));
   useEffect(() => {
-    syncPref<ColumnPrefs>(prefKey(prefsId), `sp.table.${prefsId}`, (v) => setColPrefs({ hidden: v?.hidden ?? [], order: v?.order ?? [], widths: v?.widths ?? {} }));
+    syncPref<ColumnPrefs>(prefKey(prefsId), `sp.table.${prefsId}`, (v) => setColPrefs({ hidden: v?.hidden ?? [], order: v?.order ?? [], widths: v?.widths ?? {}, shown: v?.shown ?? [] }));
   }, [prefsId]);
   const updatePrefs = (p: ColumnPrefs) => {
     setColPrefs(p);
@@ -279,10 +293,27 @@ export function VirtualTable<T>({
   }, [columns, colPrefs.order]);
   const lockedKey = columns[0]?.key;
   const canHide = (c: Column<T>) => c.hideable ?? c.key !== lockedKey;
-  const visibleCols = useMemo(
-    () => orderedAll.filter((c) => !colPrefs.hidden.includes(c.key) || !canHide(c)),
+  // available width of the table (for dropping `drop`-ranked columns on narrow screens)
+  const [tableW, setTableW] = useState(0);
+  const autoHidden = useMemo(() => {
+    const out = new Set<string>();
+    if (!tableW) return out;
+    const shown = colPrefs.shown ?? [];
+    const visible = orderedAll.filter((c) => !colPrefs.hidden.includes(c.key) || !canHide(c));
+    let total = visible.reduce((a, c) => a + (colPrefs.widths[c.key] ?? minTrack(c.width)), selection ? 36 : 0);
+    const droppable = visible.filter((c) => c.drop !== undefined && !shown.includes(c.key)).sort((a, b) => (a.drop ?? 0) - (b.drop ?? 0));
+    for (const c of droppable) {
+      if (total <= tableW) break;
+      out.add(c.key);
+      total -= colPrefs.widths[c.key] ?? minTrack(c.width);
+    }
+    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orderedAll, colPrefs.hidden],
+  }, [orderedAll, colPrefs, tableW, !!selection]);
+  const visibleCols = useMemo(
+    () => orderedAll.filter((c) => (!colPrefs.hidden.includes(c.key) && !autoHidden.has(c.key)) || !canHide(c)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [orderedAll, colPrefs.hidden, autoHidden],
   );
   const widthOf = (c: Column<T>) => (colPrefs.widths[c.key] ? `${colPrefs.widths[c.key]}px` : c.width);
 
@@ -435,7 +466,10 @@ export function VirtualTable<T>({
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const measure = () => setViewport(el.clientHeight || 600);
+    const measure = () => {
+      setViewport(el.clientHeight || 600);
+      setTableW(el.clientWidth);
+    };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(measure);
@@ -730,7 +764,7 @@ export function VirtualTable<T>({
                 <Icon name="download" size={14} /> {t("table.csv")}
               </button>
             ) : null}
-            {columnSettings ? <ColumnMenu all={orderedAll} prefs={colPrefs} canHide={canHide} onChange={updatePrefs} label={label} /> : null}
+            {columnSettings ? <ColumnMenu all={orderedAll} prefs={colPrefs} canHide={canHide} onChange={updatePrefs} label={label} autoHidden={autoHidden} /> : null}
           </div>
         </div>
       ) : null}
@@ -738,7 +772,7 @@ export function VirtualTable<T>({
   );
 }
 
-function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T>[]; prefs: ColumnPrefs; canHide(c: Column<T>): boolean; onChange(p: ColumnPrefs): void; label: string }) {
+function ColumnMenu<T>({ all, prefs, canHide, onChange, label, autoHidden }: { all: Column<T>[]; prefs: ColumnPrefs; canHide(c: Column<T>): boolean; onChange(p: ColumnPrefs): void; label: string; autoHidden: ReadonlySet<string> }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
@@ -778,8 +812,10 @@ function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T
     [next[i], next[j]] = [next[j], next[i]];
     onChange({ ...prefs, order: next });
   };
-  const hiddenCount = all.filter((c) => canHide(c) && prefs.hidden.includes(c.key)).length;
-  const customised = prefs.hidden.length > 0 || prefs.order.length > 0 || Object.keys(prefs.widths).length > 0;
+  const isHidden = (c: Column<T>) => canHide(c) && (prefs.hidden.includes(c.key) || autoHidden.has(c.key));
+  const hiddenCount = all.filter(isHidden).length;
+  const shown = prefs.shown ?? [];
+  const customised = prefs.hidden.length > 0 || prefs.order.length > 0 || Object.keys(prefs.widths).length > 0 || shown.length > 0;
   return (
     <div className="popover-anchor" ref={ref}>
       <button ref={btn} type="button" className="btn ghost sm" aria-haspopup="dialog" aria-expanded={open} onClick={toggle} data-testid="vt-columns">
@@ -798,11 +834,18 @@ function ColumnMenu<T>({ all, prefs, canHide, onChange, label }: { all: Column<T
                 <label>
                   <input
                     type="checkbox"
-                    checked={!prefs.hidden.includes(c.key) || !canHide(c)}
+                    checked={!isHidden(c)}
                     disabled={!canHide(c)}
-                    onChange={(e) => onChange({ ...prefs, hidden: e.target.checked ? prefs.hidden.filter((k) => k !== c.key) : [...prefs.hidden, c.key] })}
+                    onChange={(e) =>
+                      onChange(
+                        e.target.checked
+                          ? { ...prefs, hidden: prefs.hidden.filter((k) => k !== c.key), shown: c.drop !== undefined ? [...shown.filter((k) => k !== c.key), c.key] : shown }
+                          : { ...prefs, hidden: [...prefs.hidden, c.key], shown: shown.filter((k) => k !== c.key) },
+                      )
+                    }
                   />
                   <span className="mfg-ellipsis">{headerText(c)}</span>
+                  {autoHidden.has(c.key) && !prefs.hidden.includes(c.key) ? <span className="faint small">{t("table.narrowHidden")}</span> : null}
                 </label>
                 <button type="button" className="btn ghost sm icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label={t("table.moveUp", { name: headerText(c) })}>
                   <Icon name="sort-asc" size={12} />
