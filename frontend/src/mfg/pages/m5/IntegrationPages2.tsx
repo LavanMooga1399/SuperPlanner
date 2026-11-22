@@ -29,6 +29,8 @@ import {
 } from "../../api/clientM5";
 import type { Batch, BatchRecordResult, Delivery, Endpoint, ReconKind, ReconRow, StockSnapshotV1, ValueMap } from "../../api/typesM5";
 import { MfgError, Spinner } from "../../components/Feedback";
+import { DataTable, ShowMore } from "../../components/DataTable";
+import { FilterBar } from "../../../components/FilterBar";
 import { mfgPaths } from "../../lib/paths";
 import { useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
@@ -345,77 +347,76 @@ export function DeliveriesTab() {
   };
   return (
     <div className="col gap-lg" data-testid="int-deliveries">
-      <div className="row wrap" role="group" aria-label="Filter by status">
-        {(["", "dead", "pending", "delivered"] as const).map((s) => (
-          <button key={s || "all"} type="button" className={`btn sm${status === s ? " primary" : ""}`} aria-pressed={status === s} onClick={() => setSearchParam(setParams, "status", s)}>
-            {s ? (s === "pending" ? "Waiting or retrying" : DELIVERY[s].label) : "All"}
-          </button>
-        ))}
-      </div>
+      <FilterBar>
+        <div className="field">
+          <span className="field-label" id="dl-status-label">
+            Status
+          </span>
+          <div className="btn-group" role="group" aria-labelledby="dl-status-label">
+            {(["", "dead", "pending", "delivered"] as const).map((s) => (
+              <button key={s || "all"} type="button" className="btn" aria-pressed={status === s} onClick={() => setSearchParam(setParams, "status", s)}>
+                {s ? (s === "pending" ? "Waiting or retrying" : DELIVERY[s].label) : "All"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </FilterBar>
       <p className="muted small" style={{ margin: 0 }}>
         Events go to each webhook one at a time, in order. A failing event is retried with growing pauses for up to 24 hours, then stops; events after it wait. Fix the receiver, then retry it.
       </p>
       <MfgError error={error ?? data.error} onRetry={data.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="delivery-table">
-          <thead>
-            <tr>
-              <th>Event</th>
-              <th>Webhook</th>
-              <th>Status</th>
-              <th>Attempts</th>
-              <th>Last answer</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="muted">
-                  {data.loading ? "Loading…" : "Nothing here."}
-                </td>
-              </tr>
-            ) : null}
-            {data.rows.map((d) => {
+      <DataTable
+        rows={data.rows}
+        columns={[
+          { key: "event", header: "Event", width: "minmax(200px, 1.4fr)", exportValue: (d) => `#${d.event_seq} ${d.event_type ?? ""}`, render: (d) => (<span><span className="mono">#{d.event_seq}</span> <span className="mono small">{d.event_type ?? ""}</span></span>) },
+          { key: "endpoint", header: "Webhook", width: "minmax(150px, 1fr)", render: (d) => epName(d.endpoint_id) },
+          {
+            key: "status",
+            header: "Status",
+            width: "minmax(170px, 1fr)",
+            wrap: true,
+            exportValue: (d) => DELIVERY[viewOf(d)].label,
+            render: (d) => {
               const v = viewOf(d);
               const m = DELIVERY[v];
               return (
-                <tr key={d.id} data-testid="delivery-row" data-status={d.status}>
-                  <td>
-                    <span className="mono">#{d.event_seq}</span> <span className="mono small">{d.event_type ?? ""}</span>
-                  </td>
-                  <td>{epName(d.endpoint_id)}</td>
-                  <td>
-                    <span className={`badge ${m.tone}`}>
-                      <Icon name={m.icon} /> {m.label}
-                    </span>
-                    {v === "retrying" && d.next_attempt_at ? <div className="small faint">next try {when(d.next_attempt_at)}</div> : null}
-                    {d.delivered_at ? <div className="small faint">{when(d.delivered_at)}</div> : null}
-                  </td>
-                  <td>{d.attempts}</td>
-                  <td className="small">
-                    {d.last_status_code ? `HTTP ${d.last_status_code}` : ""} {d.last_error ?? ""}
-                  </td>
-                  <td className="right">
-                    {can && (d.status === "dead" || v === "retrying") ? (
-                      <button type="button" className="btn sm" disabled={busy === d.id} onClick={() => void act(d.id, () => retryDelivery(d.id))} data-testid="delivery-retry">
-                        <Icon name="refresh" /> Retry now
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
+                <span>
+                  <span className={`badge ${m.tone}`}>
+                    <Icon name={m.icon} /> {m.label}
+                  </span>
+                  {v === "retrying" && d.next_attempt_at ? <span className="vt-sub">next try {when(d.next_attempt_at)}</span> : null}
+                  {d.delivered_at ? <span className="vt-sub">{when(d.delivered_at)}</span> : null}
+                </span>
               );
-            })}
-          </tbody>
-        </table>
-        {data.rows.length < data.total ? (
-          <div className="card-footer">
-            <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              Show more ({data.rows.length} of {data.total})
-            </button>
-          </div>
-        ) : null}
-      </div>
+            },
+          },
+          { key: "attempts", header: "Attempts", width: "90px", align: "right", sortValue: (d) => d.attempts, render: (d) => d.attempts },
+          { key: "answer", header: "Last answer", width: "minmax(180px, 1.4fr)", wrap: true, render: (d) => `${d.last_status_code ? `HTTP ${d.last_status_code}` : ""} ${d.last_error ?? ""}`.trim() },
+          {
+            key: "actions",
+            header: <span className="sr-only">Actions</span>,
+            label: "Actions",
+            width: "120px",
+            align: "right",
+            exportValue: () => "",
+            render: (d) =>
+              can && (d.status === "dead" || viewOf(d) === "retrying") ? (
+                <button type="button" className="btn sm" disabled={busy === d.id} onClick={() => void act(d.id, () => retryDelivery(d.id))} data-testid="delivery-retry">
+                  <Icon name="refresh" /> Retry now
+                </button>
+              ) : null,
+          },
+        ]}
+        rowKey={(d) => d.id}
+        label="Webhook deliveries"
+        testId="delivery-table"
+        totalCount={data.total}
+        loading={data.loading}
+        exportName="webhook-deliveries"
+        rowExtras={(d) => ({ testId: "delivery-row", data: { status: d.status } })}
+        empty={status ? "No deliveries with this status." : "No deliveries yet. Events are sent once a webhook is set up."}
+        footer={<ShowMore shown={data.rows.length} total={data.total} noun="deliveries" loading={data.loading} onMore={data.onEndReached} />}
+      />
     </div>
   );
 }
@@ -432,67 +433,43 @@ export function BatchesTab() {
         Each batch from the ERP (REST, file drop or a publish from another plant) goes through the same checks as an edit here. Records that fail are rejected one by one; the rest are applied.
       </p>
       <MfgError error={data.error} onRetry={data.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="batch-table">
-          <thead>
-            <tr>
-              <th>Received</th>
-              <th>Data</th>
-              <th>From</th>
-              <th>Status</th>
-              <th className="right">Created</th>
-              <th className="right">Updated</th>
-              <th className="right">Unchanged</th>
-              <th className="right">Rejected</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="muted">
-                  {data.loading ? "Loading…" : "No data received yet."}
-                </td>
-              </tr>
-            ) : null}
-            {data.rows.map((b) => (
-              <tr key={b.id} data-testid="batch-row" data-status={b.status}>
-                <td>
-                  <Link to={mfgPaths.integrationBatch(b.id)}>{when(b.received_at)}</Link>
-                </td>
-                <td>
-                  {b.entity} <span className="faint small">{b.mode}</span>
-                </td>
-                <td className="small">
-                  {b.source ?? "REST"}
-                  {b.filename ? <div className="mono faint">{b.filename}</div> : null}
-                </td>
-                <td>
-                  <span className={`badge ${BATCH_TONE[b.status] ?? "info"}`}>{b.status}</span>
-                </td>
-                <td className="right">{b.counts.created ?? 0}</td>
-                <td className="right">{b.counts.updated ?? 0}</td>
-                <td className="right">{b.counts.unchanged ?? 0}</td>
-                <td className="right">
-                  {b.counts.rejected ? (
-                    <span className="badge danger">
-                      <Icon name="alert" /> {b.counts.rejected}
-                    </span>
-                  ) : (
-                    0
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.rows.length < data.total ? (
-          <div className="card-footer">
-            <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              Show more ({data.rows.length} of {data.total})
-            </button>
-          </div>
-        ) : null}
-      </div>
+      <DataTable
+        rows={data.rows}
+        columns={[
+          { key: "received", header: "Received", width: "150px", exportValue: (b) => b.received_at, render: (b) => <Link to={mfgPaths.integrationBatch(b.id)}>{when(b.received_at)}</Link> },
+          { key: "data", header: "Data", width: "minmax(150px, 1fr)", exportValue: (b) => `${b.entity} ${b.mode}`, render: (b) => (<span>{b.entity} <span className="faint small">{b.mode}</span></span>) },
+          { key: "from", header: "From", width: "minmax(150px, 1fr)", wrap: true, exportValue: (b) => b.source ?? "REST", render: (b) => (<span>{b.source ?? "REST"}{b.filename ? <span className="vt-sub mono">{b.filename}</span> : null}</span>) },
+          { key: "status", header: "Status", width: "110px", exportValue: (b) => b.status, render: (b) => <span className={`badge ${BATCH_TONE[b.status] ?? "info"}`}>{b.status}</span> },
+          { key: "created", header: "Created", width: "88px", align: "right", render: (b) => b.counts.created ?? 0 },
+          { key: "updated", header: "Updated", width: "88px", align: "right", render: (b) => b.counts.updated ?? 0 },
+          { key: "unchanged", header: "Unchanged", width: "96px", align: "right", render: (b) => b.counts.unchanged ?? 0 },
+          {
+            key: "rejected",
+            header: "Rejected",
+            width: "96px",
+            align: "right",
+            exportValue: (b) => b.counts.rejected ?? 0,
+            render: (b) =>
+              b.counts.rejected ? (
+                <span className="badge danger">
+                  <Icon name="alert" /> {b.counts.rejected}
+                </span>
+              ) : (
+                0
+              ),
+          },
+        ]}
+        rowKey={(b) => b.id}
+        label="Data received"
+        testId="batch-table"
+        totalCount={data.total}
+        loading={data.loading}
+        exportName="integration-batches"
+        rowExtras={(b) => ({ testId: "batch-row", data: { status: b.status } })}
+        empty="No data received yet. Batches from the ERP, file drop or another plant appear here."
+        footer={<ShowMore shown={data.rows.length} total={data.total} noun="batches" loading={data.loading} onMore={data.onEndReached} />}
+        card={{ title: "received", status: "status", fields: ["data", "from", "rejected"] }}
+      />
     </div>
   );
 }
@@ -610,44 +587,55 @@ export function EventsTab() {
         </div>
       </div>
       <MfgError error={ev.error} onRetry={ev.reload} />
-      <div className="table-wrap card">
-        <table className="table" data-testid="event-table">
-          <tbody>
-            {(ev.data?.items ?? []).length === 0 ? (
-              <tr>
-                <td className="muted">{ev.loading ? "Loading…" : "No events after this number."}</td>
-              </tr>
-            ) : null}
-            {(ev.data?.items ?? []).map((e) => [
-              <tr key={e.seq} data-testid="event-row">
-                <td className="mono">#{e.seq}</td>
-                <td className="mono small">{e.type}</td>
-                <td className="small">{when(e.occurred_at)}</td>
-                <td className="small mono">{e.entity_ref ?? ""}</td>
-                <td>
-                  <button type="button" className="btn sm ghost" aria-expanded={open === e.seq} onClick={() => setOpen(open === e.seq ? null : e.seq)}>
-                    Data
-                  </button>
-                </td>
-              </tr>,
-              open === e.seq ? (
-                <tr key={`${e.seq}-d`}>
-                  <td colSpan={5}>
-                    <pre className="int-json">{JSON.stringify(e.data, null, 2)}</pre>
-                  </td>
-                </tr>
-              ) : null,
-            ])}
-          </tbody>
-        </table>
-        {ev.data && ev.data.items.length ? (
-          <div className="card-footer">
+      <DataTable
+        rows={ev.data?.items ?? []}
+        columns={[
+          { key: "seq", header: "Event", width: "90px", sortValue: (e) => e.seq, exportValue: (e) => e.seq, render: (e) => <span className="mono">#{e.seq}</span> },
+          { key: "type", header: "Type", width: "minmax(180px, 1fr)", sortValue: (e) => e.type, render: (e) => <span className="mono small">{e.type}</span> },
+          { key: "when", header: "When", width: "160px", sortValue: (e) => e.occurred_at, exportValue: (e) => e.occurred_at, render: (e) => when(e.occurred_at) },
+          { key: "ref", header: "Record", width: "minmax(180px, 1fr)", render: (e) => <span className="mono small">{e.entity_ref ?? ""}</span> },
+          {
+            key: "actions",
+            header: <span className="sr-only">Data</span>,
+            label: "Data",
+            width: "80px",
+            align: "right",
+            exportValue: () => "",
+            render: (e) => (
+              <button type="button" className="btn sm ghost" aria-expanded={open === e.seq} onClick={() => setOpen(open === e.seq ? null : e.seq)}>
+                Data
+              </button>
+            ),
+          },
+        ]}
+        rowKey={(e) => e.seq}
+        label="Outgoing events"
+        testId="event-table"
+        loading={ev.loading && !ev.data}
+        exportName="integration-events"
+        rowExtras={(e) => ({ testId: "event-row", className: open === e.seq ? "mfg-selected" : undefined })}
+        empty="No events after this number."
+        footer={
+          ev.data && ev.data.items.length ? (
             <button type="button" className="btn sm" onClick={() => setAfter(ev.data!.next_after)}>
               Next events
             </button>
+          ) : undefined
+        }
+      />
+      {open !== null && (ev.data?.items ?? []).some((e) => e.seq === open) ? (
+        <section className="card">
+          <div className="card-header">
+            <h2>Event #{open}</h2>
+            <button type="button" className="btn sm ghost" onClick={() => setOpen(null)}>
+              <Icon name="x" /> Close
+            </button>
           </div>
-        ) : null}
-      </div>
+          <pre className="int-json" style={{ margin: 0, border: 0 }}>
+            {JSON.stringify((ev.data?.items ?? []).find((e) => e.seq === open)?.data, null, 2)}
+          </pre>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -952,24 +940,21 @@ export function ReconciliationTab() {
           </div>
         </div>
       </section>
-      <div className="table-wrap card">
-        <table className="table" data-testid="recon-list">
-          <tbody>
-            {(list.data?.items ?? []).map((r) => (
-              <tr key={r.id}>
-                <td>
-                  <Link to={mfgPaths.integrationRecon(r.id)}>{when(r.created_at)}</Link>
-                </td>
-                <td>{r.entities.join(", ")}</td>
-                <td>
-                  <span className={`badge ${r.status === "completed" ? "ok" : r.status === "failed" ? "danger" : "info"}`}>{r.status}</span>
-                </td>
-                <td className="small">{summaryText(r.summary)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={list.data?.items ?? []}
+        columns={[
+          { key: "created", header: "Compared", width: "160px", sortValue: (r) => r.created_at, exportValue: (r) => r.created_at, render: (r) => <Link to={mfgPaths.integrationRecon(r.id)}>{when(r.created_at)}</Link> },
+          { key: "entities", header: "Data", width: "minmax(140px, 1fr)", render: (r) => r.entities.join(", ") },
+          { key: "status", header: "Status", width: "110px", sortValue: (r) => r.status, exportValue: (r) => r.status, render: (r) => <span className={`badge ${r.status === "completed" ? "ok" : r.status === "failed" ? "danger" : "info"}`}>{r.status}</span> },
+          { key: "summary", header: "Result", width: "minmax(240px, 2fr)", wrap: true, render: (r) => summaryText(r.summary) },
+        ]}
+        rowKey={(r) => r.id}
+        label="Earlier comparisons"
+        testId="recon-list"
+        loading={list.loading && !list.data}
+        exportName="reconciliations"
+        empty="No comparisons yet. Upload an ERP stock file above to compare."
+      />
     </div>
   );
 }
@@ -1035,35 +1020,35 @@ export function ReconciliationPage() {
         </Banner>
       ) : null}
       {shown.length ? (
-        <div className="table-wrap card">
-          <table className="table" data-testid="recon-results">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Item</th>
-                <th>Location / lot</th>
-                <th>Finding</th>
-                <th className="right">Here</th>
-                <th className="right">ERP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((x, i) => (
-                <tr key={i} data-testid="recon-row" data-kind={x.kind}>
-                  <td>{x.entity}</td>
-                  <td className="mono">{String(x.item ?? x.item_ref ?? "")}</td>
-                  <td className="small">{[x.location, x.lot && `lot ${x.lot}`].filter(Boolean).join(" · ")}</td>
-                  <td>
-                    <span className={`badge ${x.kind === "different" ? "warn" : "info"}`}>{RECON_KIND[x.kind]}</span>
-                    {x.delta !== undefined ? <div className="small faint">ERP {x.delta > 0 ? "+" : ""}{x.delta}</div> : null}
-                  </td>
-                  <td className="right">{x.sp_qty ?? ""}</td>
-                  <td className="right">{x.erp_qty ?? ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={shown}
+          columns={[
+            { key: "entity", header: "Data", width: "110px", sortValue: (x) => x.entity, render: (x) => x.entity },
+            { key: "item", header: "Item", width: "minmax(150px, 1fr)", sortValue: (x) => String(x.item ?? x.item_ref ?? ""), render: (x) => <span className="mono">{String(x.item ?? x.item_ref ?? "")}</span> },
+            { key: "where", header: "Location / lot", width: "minmax(150px, 1fr)", render: (x) => [x.location, x.lot && `lot ${x.lot}`].filter(Boolean).join(" · ") },
+            {
+              key: "kind",
+              header: "Finding",
+              width: "minmax(170px, 1fr)",
+              sortValue: (x) => x.kind,
+              exportValue: (x) => RECON_KIND[x.kind],
+              render: (x) => (
+                <span>
+                  <span className={`badge ${x.kind === "different" ? "warn" : "info"}`}>{RECON_KIND[x.kind]}</span>
+                  {x.delta !== undefined ? <span className="small faint"> ERP {x.delta > 0 ? "+" : ""}{x.delta}</span> : null}
+                </span>
+              ),
+            },
+            { key: "here", header: "Here", width: "100px", align: "right", sortValue: (x) => x.sp_qty ?? null, render: (x) => x.sp_qty ?? "" },
+            { key: "erp", header: "ERP", width: "100px", align: "right", sortValue: (x) => x.erp_qty ?? null, render: (x) => x.erp_qty ?? "" },
+          ]}
+          rowKey={(_, i) => i}
+          label="Differences"
+          testId="recon-results"
+          exportName={`reconciliation-${d.id}`}
+          rowExtras={(x) => ({ testId: "recon-row", data: { kind: x.kind } })}
+          card={{ title: "item", status: "kind", fields: ["where", "here", "erp"] }}
+        />
       ) : null}
     </div>
   );

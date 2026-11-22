@@ -25,6 +25,7 @@ import type { PostingWarning, WorkOrderInput, WorkOrderRecord } from "../../api/
 import type { KitShortage } from "../../api/typesM4";
 import { ApiError } from "../../../api/client";
 import { ConflictBanner, MfgError, NotFoundPanel, Spinner } from "../../components/Feedback";
+import { DataTable } from "../../components/DataTable";
 import { numOrNull, strOrNull, TextField } from "../../components/Field";
 import { ItemPicker } from "../../components/ItemPicker";
 import { KittingTable } from "../../components/KittingTable";
@@ -404,43 +405,30 @@ export function WorkOrderPage() {
       {wo && wo.routing ? <WoOperations woId={wo.id} woVersion={wo.row_version} onChanged={() => void getWorkOrder(woId).then(reset, setError)} /> : null}
 
       {wo && txns.data && txns.data.items.length ? (
-        <section className="card" data-testid="wo-transactions">
+        <section className="card card-table" data-testid="wo-transactions">
           <div className="card-header">
             <h3>Stock movements</h3>
             <Link to={mfgPaths.transactions()} className="small">
               Ledger
             </Link>
           </div>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Posting</th>
-                  <th>Type</th>
-                  <th>Part</th>
-                  <th>Location</th>
-                  <th className="right">Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                {txns.data.items.map((t) => (
-                  <tr key={t.id} data-testid="txn-row">
-                    <td>{fmtDate(t.txn_date)}</td>
-                    <td>
-                      <Link to={mfgPaths.posting(t.posting_id)} className="mono">
-                        {t.posting_number}
-                      </Link>
-                    </td>
-                    <td>{POSTING_LABEL[t.txn_type]}</td>
-                    <td className="mono">{t.item.part_number}</td>
-                    <td className="mono">{t.location.code}</td>
-                    <td className={`right ${t.qty < 0 ? "mfg-neg" : "mfg-pos"}`}>{fmtNum(t.qty)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            rows={txns.data.items}
+            columns={[
+              { key: "date", header: "Date", width: "110px", sortValue: (t) => t.txn_date, render: (t) => fmtDate(t.txn_date) },
+              { key: "posting", header: "Posting", width: "150px", sortValue: (t) => t.posting_number, exportValue: (t) => t.posting_number, render: (t) => <Link to={mfgPaths.posting(t.posting_id)} className="mono">{t.posting_number}</Link> },
+              { key: "type", header: "Type", width: "minmax(130px, 1fr)", sortValue: (t) => t.txn_type, render: (t) => POSTING_LABEL[t.txn_type] },
+              { key: "part", header: "Part", width: "minmax(140px, 1fr)", sortValue: (t) => t.item.part_number, render: (t) => <span className="mono">{t.item.part_number}</span> },
+              { key: "location", header: "Location", width: "120px", sortValue: (t) => t.location.code, render: (t) => <span className="mono">{t.location.code}</span> },
+              { key: "qty", header: "Change", width: "100px", align: "right", sortValue: (t) => t.qty, exportValue: (t) => t.qty, render: (t) => <span className={t.qty < 0 ? "mfg-neg" : "mfg-pos"}>{fmtNum(t.qty)}</span> },
+            ]}
+            rowKey={(t) => t.id}
+            label="Stock movements of this work order"
+            tableId="wo-transactions"
+            exportName={`${wo.number}-stock-movements`}
+            rowExtras={() => ({ testId: "txn-row" })}
+            card={{ title: "part", fields: ["date", "type", "qty"] }}
+          />
         </section>
       ) : null}
 

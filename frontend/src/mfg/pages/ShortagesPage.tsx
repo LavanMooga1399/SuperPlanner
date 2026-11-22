@@ -9,6 +9,7 @@ import { Icon } from "../../components/Icon";
 import { getShortages } from "../api/clientM2";
 import { MfgError, Spinner } from "../components/Feedback";
 import { OverdueBadge } from "../components/StatusM2";
+import { VirtualTable } from "../components/VirtualTable";
 import { fmtDate } from "../lib/format";
 import { fmtNum } from "../lib/formatM2";
 import { mfgPaths } from "../lib/paths";
@@ -123,7 +124,7 @@ export function ShortagesPage() {
             </ul>
           </section>
           <div className="grid-2" style={{ alignItems: "start" }}>
-            <section className="card" id="panel-items" data-testid="shortage-panel-items">
+            <section className="card card-table" id="panel-items" data-testid="shortage-panel-items">
               <div className="card-header">
                 <h3>Short parts</h3>
                 {s.run ? (
@@ -132,77 +133,75 @@ export function ShortagesPage() {
                   </Link>
                 ) : null}
               </div>
-              <div className="table-wrap" style={{ maxHeight: 420, overflow: "auto" }}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Part</th>
-                      <th className="right">Short</th>
-                      <th>From</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {s.short_items.map((x) => (
-                      <tr key={x.item.id} data-testid="short-item-row">
-                        <td>
-                          <Link to={x.link} className="mono">
-                            {x.item.part_number}
-                          </Link>
-                          <div className="faint small mfg-ellipsis">{x.item.description}</div>
-                        </td>
-                        <td className="right mfg-neg">
-                          {fmtNum(x.short_qty)} {x.uom}
-                        </td>
-                        <td>{fmtDate(x.first_short_date)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <VirtualTable
+                rows={s.short_items}
+                columns={[
+                  {
+                    key: "part",
+                    header: "Part",
+                    width: "minmax(200px, 2fr)",
+                    sortValue: (x) => x.item.part_number,
+                    exportValue: (x) => x.item.part_number,
+                    render: (x) => (
+                      <span className="mfg-ellipsis">
+                        <Link to={x.link} className="mono">
+                          {x.item.part_number}
+                        </Link>{" "}
+                        <span className="faint small">{x.item.description}</span>
+                      </span>
+                    ),
+                  },
+                  { key: "short", header: "Short", width: "120px", align: "right", sortValue: (x) => x.short_qty, render: (x) => <span className="mfg-neg">{fmtNum(x.short_qty)} {x.uom}</span> },
+                  { key: "from", header: "From", width: "110px", sortValue: (x) => x.first_short_date, render: (x) => fmtDate(x.first_short_date) },
+                ]}
+                rowKey={(x) => x.item.id}
+                label="Short parts"
+                tableId="shortages-short-parts"
+                height="420px"
+                exportName="short-parts"
+                rowExtras={() => ({ testId: "short-item-row" })}
+                empty="No parts short in the latest MRP run."
+                card={{ title: "part", fields: ["short", "from"] }}
+              />
             </section>
-            <section className="card" id="panel-supply" data-testid="shortage-panel-supply">
+            <section className="card card-table" id="panel-supply" data-testid="shortage-panel-supply">
               <div className="card-header">
                 <h3>Overdue deliveries</h3>
                 <Link to={mfgPaths.deliveryBoard({ overdue: "1" })} className="small">
                   Delivery schedule
                 </Link>
               </div>
-              <div className="table-wrap" style={{ maxHeight: 420, overflow: "auto" }}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Delivery</th>
-                      <th>Supplier</th>
-                      <th className="right">Open</th>
-                      <th>Overdue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {s.overdue_supply.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="muted">
-                          None.
-                        </td>
-                      </tr>
-                    ) : null}
-                    {s.overdue_supply.map((x) => (
-                      <tr key={x.schedule_id} data-testid="overdue-row">
-                        <td>
-                          <Link to={x.link} className="mono">
-                            {x.doc.number} / {x.line_no} / {x.seq}
-                          </Link>
-                          <div className="faint small">{x.item.part_number}</div>
-                        </td>
-                        <td>{x.supplier?.code ?? ""}</td>
-                        <td className="right">{fmtNum(x.open_qty)}</td>
-                        <td>
-                          <OverdueBadge days={x.overdue_days} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <VirtualTable
+                rows={s.overdue_supply}
+                columns={[
+                  {
+                    key: "delivery",
+                    header: "Delivery",
+                    width: "minmax(180px, 2fr)",
+                    sortValue: (x) => x.doc.number,
+                    exportValue: (x) => `${x.doc.number} / ${x.line_no} / ${x.seq}`,
+                    render: (x) => (
+                      <span className="mfg-ellipsis">
+                        <Link to={x.link} className="mono">
+                          {x.doc.number} / {x.line_no} / {x.seq}
+                        </Link>{" "}
+                        <span className="faint small">{x.item.part_number}</span>
+                      </span>
+                    ),
+                  },
+                  { key: "supplier", header: "Supplier", width: "minmax(90px, 1fr)", sortValue: (x) => x.supplier?.code ?? "", render: (x) => x.supplier?.code ?? "" },
+                  { key: "open", header: "Open", width: "90px", align: "right", sortValue: (x) => x.open_qty, render: (x) => fmtNum(x.open_qty) },
+                  { key: "overdue", header: "Overdue", width: "110px", sortValue: (x) => x.overdue_days, exportValue: (x) => x.overdue_days, render: (x) => <OverdueBadge days={x.overdue_days} /> },
+                ]}
+                rowKey={(x) => x.schedule_id}
+                label="Overdue deliveries"
+                tableId="shortages-overdue"
+                height="420px"
+                exportName="overdue-deliveries"
+                rowExtras={() => ({ testId: "overdue-row" })}
+                empty="No overdue deliveries."
+                card={{ title: "delivery", status: "overdue", fields: ["supplier", "open"] }}
+              />
             </section>
           </div>
           <div id="panel-wo">

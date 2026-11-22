@@ -115,6 +115,8 @@ export interface VirtualTableProps<T> {
    * (first column = title, a `status` column top right, the next three columns as fields).
    */
   virtual?: boolean;
+  /** Non-virtual tables: a full-width line under the row (e.g. why an order is late); null for none. */
+  rowDetail?(row: T, index: number): ReactNode;
 }
 
 export interface TableSelection<T> {
@@ -241,6 +243,7 @@ export function VirtualTable<T>({
   card: cardProp,
   selection,
   virtual = true,
+  rowDetail,
 }: VirtualTableProps<T>) {
   const denseRow = useRowHeight();
   const card = cardProp ?? (virtual ? undefined : autoCard(columns));
@@ -568,13 +571,18 @@ export function VirtualTable<T>({
   const headStyle: CSSProperties = cardMode ? { height: ROW_HEIGHT } : { gridTemplateColumns: template, height: ROW_HEIGHT };
   const contentHeight = Math.max(n, 1) * ROW_HEIGHT + HEAD_H + 2;
   const byKey = new Map(orderedAll.map((c) => [c.key, c]));
-  const cell = (c: Column<T> | undefined, row: T, i: number, cls: string, label?: boolean) =>
-    c ? (
+  const cell = (c: Column<T> | undefined, row: T, i: number, cls: string, label?: boolean) => {
+    if (!c) return null;
+    const v = c.render(row, i);
+    // labelled card fields without a value are left out (no dangling "Receipts" label)
+    if (label && (v === null || v === undefined || v === false || v === "")) return null;
+    return (
       <div key={c.key} role="gridcell" className={cls}>
         {label ? <span className="vt-card-label">{headerText(c)}</span> : null}
-        <span className="vt-card-value">{c.render(row, i)}</span>
+        <span className="vt-card-value">{v}</span>
       </div>
-    ) : null;
+    );
+  };
   const safeActive = Math.min(active, Math.max(0, n - 1));
 
   const body: ReactNode[] = [];
@@ -627,6 +635,15 @@ export function VirtualTable<T>({
         })}
       </div>,
     );
+    const detail = !virtual && rowDetail ? rowDetail(row, i) : null;
+    if (detail !== null && detail !== undefined && detail !== false)
+      body.push(
+        <div key={`${rowKey(row, i)}-detail`} role="row" className="vt-detail">
+          <div role="gridcell" aria-colspan={columns.length}>
+            {detail}
+          </div>
+        </div>,
+      );
   }
 
   return (

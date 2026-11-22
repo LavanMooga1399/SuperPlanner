@@ -9,6 +9,7 @@ import { kittingCheck } from "../../api/clientM2";
 import type { ItemShort, KittingCheckRequest } from "../../api/typesM2";
 import { MfgError, Spinner } from "../../components/Feedback";
 import { WoStatusChip } from "../../components/StatusM2";
+import { DataTable } from "../../components/DataTable";
 import { fmtDate } from "../../lib/format";
 import { fmtNum } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
@@ -51,67 +52,76 @@ export function KittingCheckPage() {
       {res.loading && !r ? <Spinner label="Checking kits…" /> : null}
       {r ? (
         <div className="grid-2" style={{ alignItems: "start" }}>
-          <section className="card" data-testid="kitting-check-rows">
+          <section className="card card-table" data-testid="kitting-check-rows">
             <div className="card-header">
               <h3>Work orders ({r.rows.length})</h3>
               <span className="muted small">{r.rows.filter((x) => x.kit_complete).length} complete</span>
             </div>
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Work order</th>
-                    <th>Start</th>
-                    <th>Prio.</th>
-                    <th>Kit</th>
-                    <th>Missing</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="muted">
-                        No work orders in range.
-                      </td>
-                    </tr>
-                  ) : null}
-                  {r.rows.map((x) => (
-                    <tr key={x.wo.id} data-testid="kitting-row" data-shortage={x.short_components} data-wo={x.wo.number}>
-                      <td>
-                        <Link to={mfgPaths.workOrder(x.wo.id)} className="mono">
-                          {x.wo.number}
-                        </Link>{" "}
-                        {x.wo.item ? <span className="muted small">{x.wo.item.part_number}</span> : null}
-                        <div>
-                          <WoStatusChip status={x.status} />
-                        </div>
-                      </td>
-                      <td>{fmtDate(x.start_date)}</td>
-                      <td>P{x.priority}</td>
-                      <td>
-                        {x.kit_complete ? (
-                          <span className="badge ok">
-                            <Icon name="check" /> Complete
-                          </span>
-                        ) : (
-                          <span className="badge danger">
-                            <Icon name="alert" /> {x.short_components} short
-                          </span>
-                        )}
-                      </td>
-                      <td className="small">
-                        {x.shortages.slice(0, 3).map((s) => (
-                          <div key={s.item.id}>
-                            <span className="mono">{s.item.part_number}</span> −{fmtNum(s.shortage)}
-                          </div>
-                        ))}
-                        {x.shortages.length > 3 ? <div className="faint">+{x.shortages.length - 3} more</div> : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              rows={r.rows}
+              columns={[
+                {
+                  key: "wo",
+                  header: "Work order",
+                  width: "minmax(190px, 1.6fr)",
+                  sortValue: (x) => x.wo.number,
+                  exportValue: (x) => x.wo.number,
+                  render: (x) => (
+                    <span className="mfg-ellipsis">
+                      <Link to={mfgPaths.workOrder(x.wo.id)} className="mono">
+                        {x.wo.number}
+                      </Link>{" "}
+                      {x.wo.item ? <span className="muted small">{x.wo.item.part_number}</span> : null}
+                    </span>
+                  ),
+                },
+                { key: "status", header: "Status", width: "110px", sortValue: (x) => x.status, exportValue: (x) => x.status, render: (x) => <WoStatusChip status={x.status} /> },
+                { key: "start", header: "Start", width: "100px", sortValue: (x) => x.start_date, render: (x) => fmtDate(x.start_date) },
+                { key: "prio", header: "Prio.", width: "56px", sortValue: (x) => x.priority, render: (x) => `P${x.priority}` },
+                {
+                  key: "kit",
+                  header: "Kit",
+                  width: "100px",
+                  sortValue: (x) => x.short_components,
+                  exportValue: (x) => (x.kit_complete ? "Complete" : `${x.short_components} short`),
+                  render: (x) =>
+                    x.kit_complete ? (
+                      <span className="badge ok">
+                        <Icon name="check" /> Complete
+                      </span>
+                    ) : (
+                      <span className="badge danger">
+                        <Icon name="alert" /> {x.short_components} short
+                      </span>
+                    ),
+                },
+                {
+                  key: "missing",
+                  header: "Missing",
+                  width: "minmax(150px, 1.2fr)",
+                  wrap: true,
+                  exportValue: (x) => x.shortages.map((s) => `${s.item.part_number} -${s.shortage}`).join("; "),
+                  render: (x) => (
+                    <span className="small">
+                      {x.shortages.slice(0, 3).map((s, i) => (
+                        <span key={s.item.id}>
+                          {i ? ", " : ""}
+                          <span className="mono">{s.item.part_number}</span> −{fmtNum(s.shortage)}
+                        </span>
+                      ))}
+                      {x.shortages.length > 3 ? <span className="faint"> +{x.shortages.length - 3} more</span> : null}
+                    </span>
+                  ),
+                },
+              ]}
+              rowKey={(x) => x.wo.id}
+              label="Work orders to kit"
+              tableId="kitting-check-wos"
+              exportName="kitting-check"
+              rowExtras={(x) => ({ testId: "kitting-row", data: { shortage: x.short_components, wo: x.wo.number } })}
+              empty="No work orders in range."
+              card={{ title: "wo", status: "kit", fields: ["start", "prio", "missing"] }}
+            />
           </section>
           <ItemsShortTable rows={r.items_short} />
         </div>
@@ -122,60 +132,59 @@ export function KittingCheckPage() {
 
 export function ItemsShortTable({ rows, testId = "kitting-items-short", title = "Component shortage list" }: { rows: ItemShort[]; testId?: string; title?: string }) {
   return (
-    <section className="card" data-testid={testId}>
+    <section className="card card-table" data-testid={testId}>
       <div className="card-header">
         <h3>
           {title} ({rows.length})
         </h3>
       </div>
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Part</th>
-              <th className="right">Missing</th>
-              <th className="right">WOs</th>
-              <th>First needed</th>
-              <th>Next supply</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted">
-                  <Icon name="check" size={12} /> Nothing missing.
-                </td>
-              </tr>
-            ) : null}
-            {rows.map((s) => (
-              <tr key={s.item.id} data-testid="item-short-row" data-item={s.item.part_number}>
-                <td>
-                  <Link to={mfgPaths.itemStock(s.item.id)} className="mono">
-                    {s.item.part_number}
-                  </Link>
-                  <div className="faint small mfg-ellipsis">{s.item.description}</div>
-                </td>
-                <td className="right mfg-neg">
-                  {fmtNum(s.total_shortage)} {s.item.uom}
-                </td>
-                <td className="right">{s.wo_count}</td>
-                <td>{fmtDate(s.first_start_date)}</td>
-                <td className="small">
-                  {s.next_supply ? (
-                    <Link to={s.next_supply.link}>
-                      {fmtNum(s.next_supply.qty)} on {fmtDate(s.next_supply.date)} ({s.next_supply.label})
-                    </Link>
-                  ) : (
-                    <span className="badge danger">
-                      <Icon name="x" /> No open supply
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={rows}
+        columns={[
+          {
+            key: "part",
+            header: "Part",
+            width: "minmax(180px, 2fr)",
+            sortValue: (s) => s.item.part_number,
+            exportValue: (s) => s.item.part_number,
+            render: (s) => (
+              <span className="mfg-ellipsis">
+                <Link to={mfgPaths.itemStock(s.item.id)} className="mono">
+                  {s.item.part_number}
+                </Link>{" "}
+                <span className="faint small">{s.item.description}</span>
+              </span>
+            ),
+          },
+          { key: "missing", header: "Missing", width: "110px", align: "right", sortValue: (s) => s.total_shortage, render: (s) => <span className="mfg-neg">{fmtNum(s.total_shortage)} {s.item.uom}</span> },
+          { key: "wos", header: "WOs", width: "64px", align: "right", sortValue: (s) => s.wo_count, render: (s) => s.wo_count },
+          { key: "first", header: "First needed", width: "110px", sortValue: (s) => s.first_start_date, render: (s) => fmtDate(s.first_start_date) },
+          {
+            key: "supply",
+            header: "Next supply",
+            width: "minmax(170px, 1.5fr)",
+            sortValue: (s) => s.next_supply?.date ?? null,
+            exportValue: (s) => (s.next_supply ? `${s.next_supply.qty} on ${s.next_supply.date} (${s.next_supply.label})` : "No open supply"),
+            render: (s) =>
+              s.next_supply ? (
+                <Link to={s.next_supply.link} className="mfg-ellipsis">
+                  {fmtNum(s.next_supply.qty)} on {fmtDate(s.next_supply.date)} ({s.next_supply.label})
+                </Link>
+              ) : (
+                <span className="badge danger">
+                  <Icon name="x" /> No open supply
+                </span>
+              ),
+          },
+        ]}
+        rowKey={(s) => s.item.id}
+        label={title}
+        tableId={`${testId}-table`}
+        exportName="component-shortages"
+        rowExtras={(s) => ({ testId: "item-short-row", data: { item: s.item.part_number } })}
+        empty="Nothing missing."
+        card={{ title: "part", fields: ["missing", "first", "supply"] }}
+      />
     </section>
   );
 }

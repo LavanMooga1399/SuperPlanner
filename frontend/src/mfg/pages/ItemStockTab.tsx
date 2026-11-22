@@ -6,6 +6,7 @@ import type { StockFlow } from "../api/typesM2";
 import { MfgError, Spinner } from "../components/Feedback";
 import { PermissionGate } from "../components/PermissionGate";
 import { HoldBadge, LocationKindBadge } from "../components/StatusM2";
+import { DataTable } from "../components/DataTable";
 import { fmtDate } from "../lib/format";
 import { fmtMoney, fmtNum } from "../lib/formatM2";
 import { mfgPaths } from "../lib/paths";
@@ -23,40 +24,34 @@ function flowLink(f: StockFlow): string | null {
 
 function FlowTable({ title, rows, testId, uom }: { title: string; rows: StockFlow[]; testId: string; uom: string }) {
   return (
-    <section className="card" data-testid={testId}>
+    <section className="card card-table" data-testid={testId}>
       <div className="card-header">
         <h3>{title}</h3>
         <span className="muted small">{rows.length}</span>
       </div>
-      {rows.length === 0 ? (
-        <div className="card-body muted small">None.</div>
-      ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Document</th>
-                <th className="right">Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((f, i) => {
-                const href = flowLink(f);
-                return (
-                  <tr key={i}>
-                    <td>{fmtDate(f.date)}</td>
-                    <td>{href ? <Link to={href}>{f.ref.label}</Link> : f.ref.label}</td>
-                    <td className="right">
-                      {fmtNum(f.qty)} {uom}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        rows={rows}
+        columns={[
+          { key: "date", header: "Date", width: "110px", sortValue: (f) => f.date, render: (f) => fmtDate(f.date) },
+          {
+            key: "doc",
+            header: "Document",
+            width: "minmax(160px, 1fr)",
+            sortValue: (f) => f.ref.label,
+            exportValue: (f) => f.ref.label,
+            render: (f) => {
+              const href = flowLink(f);
+              return href ? <Link to={href}>{f.ref.label}</Link> : f.ref.label;
+            },
+          },
+          { key: "qty", header: "Quantity", width: "120px", align: "right", sortValue: (f) => f.qty, exportValue: (f) => f.qty, render: (f) => `${fmtNum(f.qty)} ${uom}` },
+        ]}
+        rowKey={(_, i) => i}
+        label={title}
+        tableId={testId}
+        columnSettings={false}
+        empty="None."
+      />
     </section>
   );
 }
@@ -115,7 +110,7 @@ export function ItemStockTab() {
           </p>
         )
       ) : null}
-      <section className="card">
+      <section className="card card-table">
         <div className="card-header">
           <h3>Stock by location</h3>
           <div className="mfg-actions">
@@ -129,47 +124,36 @@ export function ItemStockTab() {
             </PermissionGate>
           </div>
         </div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Location</th>
-                <th>Kind</th>
-                <th>Lot</th>
-                <th>Expires</th>
-                <th className="right">On hand</th>
-                <th className="right">Reserved</th>
-                <th className="right">Available</th>
-              </tr>
-            </thead>
-            <tbody>
-              {s.balances.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="muted">
-                    No stock.
-                  </td>
-                </tr>
-              ) : null}
-              {s.balances.map((b) => (
-                <tr key={b.id} data-testid="balance-row" data-item={b.item.part_number} data-location={b.location.code} data-qty={b.qty_on_hand}>
-                  <td className="mono">{b.location.code}</td>
-                  <td>
-                    <LocationKindBadge kind={b.location.kind} />
-                  </td>
-                  <td className="mono">
-                    {b.lot?.lot_code ?? ""} {b.lot?.hold ? <HoldBadge /> : null}
-                  </td>
-                  <td>{fmtDate(b.lot?.expires_on)}</td>
-                  <td className="right">{fmtNum(b.qty_on_hand)}</td>
-                  <td className="right">{fmtNum(b.qty_reserved)}</td>
-                  <td className="right">
-                    <strong>{fmtNum(b.qty_available)}</strong>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={s.balances}
+          columns={[
+            { key: "location", header: "Location", width: "minmax(110px, 1fr)", sortValue: (b) => b.location.code, render: (b) => <span className="mono">{b.location.code}</span> },
+            { key: "kind", header: "Kind", width: "130px", sortValue: (b) => b.location.kind, exportValue: (b) => b.location.kind, render: (b) => <LocationKindBadge kind={b.location.kind} /> },
+            {
+              key: "lot",
+              header: "Lot",
+              width: "minmax(130px, 1fr)",
+              sortValue: (b) => b.lot?.lot_code ?? "",
+              exportValue: (b) => b.lot?.lot_code ?? "",
+              render: (b) => (
+                <span className="mono">
+                  {b.lot?.lot_code ?? ""} {b.lot?.hold ? <HoldBadge /> : null}
+                </span>
+              ),
+            },
+            { key: "expires", header: "Expires", width: "110px", sortValue: (b) => b.lot?.expires_on ?? null, render: (b) => fmtDate(b.lot?.expires_on) },
+            { key: "on_hand", header: "On hand", width: "100px", align: "right", sortValue: (b) => b.qty_on_hand, exportValue: (b) => b.qty_on_hand, render: (b) => fmtNum(b.qty_on_hand) },
+            { key: "reserved", header: "Reserved", width: "100px", align: "right", sortValue: (b) => b.qty_reserved, exportValue: (b) => b.qty_reserved, render: (b) => fmtNum(b.qty_reserved) },
+            { key: "available", header: "Available", width: "100px", align: "right", sortValue: (b) => b.qty_available, exportValue: (b) => b.qty_available, render: (b) => <strong>{fmtNum(b.qty_available)}</strong> },
+          ]}
+          rowKey={(b) => b.id}
+          label="Stock by location"
+          tableId="item-stock-balances"
+          exportName={`${item.part_number}-stock`}
+          rowExtras={(b) => ({ testId: "balance-row", data: { item: b.item.part_number, location: b.location.code, qty: b.qty_on_hand } })}
+          empty="No stock."
+          card={{ title: "location", fields: ["lot", "on_hand", "available"] }}
+        />
       </section>
       <div className="grid-2">
         <FlowTable title="Open supply" rows={s.open_supply} testId="item-open-supply" uom={item.uom} />
