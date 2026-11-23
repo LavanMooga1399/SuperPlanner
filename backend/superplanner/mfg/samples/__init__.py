@@ -44,6 +44,7 @@ def _register(module: str, prefix: str) -> None:
 _register("small", "SM-")
 _register("medium", "MD-")
 _register("kavach", "KV-")
+_register("meddev", "MDV-")
 
 
 DEFAULT_ANCHOR = date(2026, 11, 2)       # a Monday; golden values are pinned for it

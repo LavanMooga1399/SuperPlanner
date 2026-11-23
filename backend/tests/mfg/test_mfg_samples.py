@@ -129,7 +129,8 @@ def test_sample_rules():
         assert all(str(v).startswith("SYN-") for v in mpns)
     assert "not real HBL or Kavach data" in samples.SAMPLES["kavach"].description
     listing = samples.sample_list()
-    assert [s["id"] for s in listing] == ["small", "medium", "kavach"] and listing[0]["counts"]["items"] == 10
+    assert [s["id"] for s in listing] == ["small", "medium", "kavach", "meddev"]
+    assert listing[0]["counts"]["items"] == 10
     with pytest.raises(KeyError):
         samples.build("huge")
 

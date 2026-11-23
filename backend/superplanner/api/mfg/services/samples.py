@@ -183,6 +183,15 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
                 if s.execute(_sel(MfgPurchaseDocRow.id).where(MfgPurchaseDocRow.number == "PO-KV-H001")).first() \
                         is None:
                     samples_m4.apply(s, anchor)
+            elif sample_id == "meddev":             # plant locations + floor history and genealogy (once)
+                from sqlalchemy import select as _sel
+
+                from ..db_models_m2 import MfgPurchaseDocRow
+                from . import samples_meddev
+
+                if s.execute(_sel(MfgPurchaseDocRow.id).where(
+                        MfgPurchaseDocRow.number == samples_meddev.MARKER)).first() is None:
+                    samples_meddev.apply(s, anchor)
         result = {"counts": plan.result_counts(), "duration_ms": int((time.monotonic() - t0) * 1000),
                   "data_version": plant.data_version}
         audit(s, "plant", plant.id, "sample_load", {"sample_id": sample_id, "replace": replace,
