@@ -73,7 +73,8 @@ function MainNav() {
   const { pathname } = useLocation();
   const finance = isFinancePath(pathname);
   const mfg = isMfgPath(pathname);
-  const scheduling = !finance && !mfg;
+  // account and organisation pages belong to no area (no section is highlighted there)
+  const scheduling = !finance && !mfg && !/^\/(account|orgs)(\/|$)/.test(pathname);
   return (
     <nav aria-label={tr("shell.app.attr.main")} className="main-nav">
       <Link to="/" className={`main-nav-link${scheduling ? " active" : ""}`} aria-current={scheduling ? "page" : undefined} data-testid="nav-scheduling">

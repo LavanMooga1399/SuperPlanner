@@ -104,11 +104,13 @@ No new npm packages. Everything above is built on React, react-router and CSS.
   exists and backend APIs were out of scope.
 - Strings live in one dictionary, `lib/i18n.ts` (`t()`): shared components inline, navigation labels in
   `lib/strings/nav.ts` (read through getters, so a translation set with `setStrings()` applies), and page copy per
-  area in `lib/strings/<area>.ts` (`mfg`, `floor`, `mobile`, `assistant`, `studio`, `finance`, `account`), keyed
-  `<area>.<screen>.<kind>.<name>` (kinds: `title`, `desc`, `head`, `text`, `btn`, `label`, `hint`, `aria`, `empty`,
-  `ph`, `toast`). Values go in as placeholders: `t("common.runNo", { n })` -> "Run #3", `common.scheduleNo`,
+  area in `lib/strings/<area>.ts` (`mfg`, `floor`, `mobile`, `assistant`, `studio`, `finance`, `account`, `shell`),
+  keyed `<area>.<file>.<kind>.<name>` (kinds include `title`, `desc`, `head`, `text`, `btn`, `label`, `hint`,
+  `aria`, `attr`, `empty`, `ph`, `toast`, `str`, `tpl`). Labels in module-level constants are read when the module
+  loads; `npm run i18n:check` must report 0 before merging.
+  Values go in as placeholders: `t("common.runNo", { n })` -> "Run #3", `common.scheduleNo`,
   `common.mrpRunNo`, `common.nOfM` ("{n} of {m}"); counts with a noun use `plural()`. Keys are typed (`StringKey`),
-  so a missing key fails `tsc`. Where a local variable is called `t`, the function is imported as `tr`.
+  so a missing key fails `tsc`. Where a local variable is called `t`, the function is imported as `tr` (`tx` where `tr` is taken).
 - Dates in UI text never show ISO: `formatDay()` (calendar date, no time-zone shift), `formatDateRange()`
   ("24 Oct – 22 Nov 2026", "1–22 Nov 2026"), `formatDate/DateTime` and the plant clock for instants. The sweep
   script fails a screen whose text contains `YYYY-MM-DD`.
@@ -163,21 +165,37 @@ areas is keyed; "Run #", "Schedule #", "N of M" and hand-written plurals are int
 lists fit at 1024 px. ISO dates removed from UI text (KPI period, floor queue, phone work order, recall units).
 The two failing specs are fixed (see 9.2).
 
-1. Plain tables kept on purpose: editable grids (routing operations, document and posting lines, BOM lines,
+Done in round 6: organisation overview, plants, people and publish results are on the shared table (sorting,
+columns, CSV, phone cards with their buttons, empty states). All remaining user-facing copy is keyed: an AST pass
+over `src` (`npm run i18n:check`, `frontend/scripts/i18n-check.cjs`) found 4,918 hard-coded strings (JSX text
+runs, user-facing attributes, natural-language string and template literals, including status labels and help
+texts in `.ts` helper modules) and now reports 0. Sentences built from several values are one interpolated key
+("since {start}, back {end}"); `t()` stringifies values exactly like a template literal. Rendered text of 37
+screens was compared before and after the change and is identical. Scheduling run history and comparison were
+checked with a plan holding three runs. Phones: segmented controls fit the width, short-list cards put their
+buttons on their own line, `.sr-only` cells no longer widen the page. Account and organisation pages highlight
+no area in the header.
+
+Nothing remains open in this standard. Out of scope by design, with reasons:
+
+1. Plain tables kept on purpose: editable grids, where every cell is a form control and the shared table's
+   sorting would reorder rows while someone types (routing operations, document and posting lines, BOM lines,
    line rates, import / intake column mapping, shift assignments, scheduling tasks, resources and dependencies,
    finance asset classes and glide path, code mappings, dashboard targets, change-request documents with their
-   disposition selects, transfer and receive dialogs), print layouts (dispatch list, traveller, labels, org
-   dashboard matrix), pivot and compare matrices (setup matrix, MRP item plan buckets, demand projection, MRP and
-   schedule compare, overtime, A/B schedule measures, scenario compare, contribution per month), confirm-dialog
-   summaries, the shop-floor tablet (`floor-table`) and the screen-reader tables behind charts.
-2. Organisation pages (org overview, plants, org members) still use plain tables; next candidates.
-3. Copy built from several values in one sentence (e.g. "since 10:20, back 12:00") and strings in `.ts` helper
-   modules (status labels in `floorText`, `formatM2`) are inline; the per-area maps cover JSX copy.
-4. Gantt keyboard resize (change duration) is not offered: the edit API moves operations, it has no
-   duration edit.
-5. The trace and dispatch toolbars stay plain forms (submit-based search, print layout); styled alike.
-6. Record headers (work order, item, purchase document, demand order, plan workspace, finance result) use the
+   disposition selects, transfer and receive dialogs); print layouts that must print every row on paper
+   (dispatch list, traveller, labels, organisation dashboard tiles by plant); pivot and compare matrices whose
+   columns are periods or alternatives, not fields (setup matrix, MRP item plan buckets, demand projection, MRP
+   and schedule compare, overtime, A/B schedule measures, scenario compare, contribution per month);
+   confirm-dialog summaries; the shop-floor tablet (`floor-table`, 48 px targets); screen-reader tables behind
+   charts.
+2. Gantt keyboard resize (change duration): the edit API moves operations; it has no duration edit (backend
+   scope).
+3. Trace and dispatch toolbars stay plain submit forms (scan-first search, print layout); styled like the
+   filter bar.
+4. Record headers (work order, item, purchase document, demand order, plan workspace, finance result) use the
    `ws-header` record anatomy rather than `PageHeader` by design (editable title, status chips).
+5. Translation itself: everything is keyed and English is the only dictionary; plural rules beyond
+   `Intl.PluralRules` and right-to-left layout are for the first real translation.
 
 ### 9.1 Consistency sweep log (round 4)
 
