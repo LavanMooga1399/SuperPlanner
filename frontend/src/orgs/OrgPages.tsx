@@ -40,6 +40,7 @@ import "./orgs.css";
 import { formatDateTime } from "../lib/locale";
 import { PageHeader } from "../components/PageHeader";
 import { t } from "../lib/i18n";
+import { DataTable } from "../mfg/components/DataTable";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
 const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer"];
@@ -247,76 +248,93 @@ export function OrgPage({ tab }: { tab: Tab }) {
 function OrgOverviewTab({ org }: { org: Org }) {
   const ov = useLoad((signal) => getOrgOverview(org.id, signal), [org.id]);
   return (
-    <section className="card" data-testid="org-overview">
+    <section className="card card-table" data-testid="org-overview">
       <MfgError error={ov.error} onRetry={ov.reload} />
-      {ov.loading && !ov.data ? <Spinner /> : null}
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t("account.orgPages.head.plant")}</th>
-              <th className="right">{t("account.orgPages.head.ontimeDelivery")}</th>
-              <th className="right">{t("account.orgPages.head.oee")}</th>
-              <th className="right">{t("account.orgPages.head.scheduleAdherence")}</th>
-              <th className="right">{t("account.orgPages.head.lateDemandLines")}</th>
-              <th className="right">{t("account.orgPages.head.changesToReplan")}</th>
-              <th>{t("account.orgPages.head.erpConnection")}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {(ov.data?.plants ?? []).map((p) => (
-              <tr key={p.plant.owner_id} data-testid="org-overview-plant" data-code={p.plant.code}>
-                <td>
-                  <strong>{p.plant.code}</strong> <span className="muted">{p.plant.name ?? ""}</span>
-                </td>
-                {p.visible ? (
-                  <>
-                    <td className="right">{pct(p.kpis?.otd)}</td>
-                    <td className="right">{pct(p.kpis?.oee)}</td>
-                    <td className="right">{pct(p.kpis?.adherence)}</td>
-                    <td className="right">
-                      {p.late_demand === null || p.late_demand === undefined ? (
-                        "–"
-                      ) : p.late_demand ? (
-                        <span className="badge warn">
-                          <Icon name="alert" /> {p.late_demand}
-                        </span>
-                      ) : (
-                        "0"
-                      )}
-                    </td>
-                    <td className="right">{p.open_triggers ?? "–"}</td>
-                    <td className="small">
-                      {!p.integration?.enabled ? (
-                        <span className="faint">not connected</span>
-                      ) : p.integration.dead_deliveries ? (
-                        <span className="badge danger">
-                          <Icon name="alert" /> {p.integration.dead_deliveries} failed deliveries
-                        </span>
-                      ) : (
-                        <span className="badge ok">
-                          <Icon name="check" /> {t("account.orgPages.btn.healthy")}
-                        </span>
-                      )}
-                      {p.integration?.last_batch_at ? <div className="faint">last data in {formatDateTime(p.integration.last_batch_at)}</div> : null}
-                    </td>
-                    <td>
-                      <button type="button" className="btn sm" onClick={() => openPlant(p.plant.owner_id)}>
-                        {t("account.orgPages.btn.open")}
-                      </button>
-                    </td>
-                  </>
-                ) : (
-                  <td colSpan={7} className="faint">
-                    You have no role in this plant.
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={ov.data?.plants ?? []}
+        columns={[
+          {
+            key: "plant",
+            header: t("account.orgPages.head.plant"),
+            width: "minmax(180px, 1.4fr)",
+            sortValue: (p) => p.plant.code,
+            exportValue: (p) => `${p.plant.code} ${p.plant.name ?? ""}`.trim(),
+            render: (p) => (
+              <span className="mfg-ellipsis">
+                <strong>{p.plant.code}</strong> <span className="muted">{p.plant.name ?? ""}</span>
+                {!p.visible ? <span className="vt-sub">{t("account.orgPages.text.noRoleInPlant")}</span> : null}
+              </span>
+            ),
+          },
+          { key: "otd", header: t("account.orgPages.head.ontimeDelivery"), width: "120px", align: "right", sortValue: (p) => (p.visible ? (p.kpis?.otd ?? null) : null), render: (p) => (p.visible ? pct(p.kpis?.otd) : "") },
+          { key: "oee", header: t("account.orgPages.head.oee"), width: "80px", align: "right", sortValue: (p) => (p.visible ? (p.kpis?.oee ?? null) : null), render: (p) => (p.visible ? pct(p.kpis?.oee) : "") },
+          { key: "adh", header: t("account.orgPages.head.scheduleAdherence"), width: "140px", align: "right", sortValue: (p) => (p.visible ? (p.kpis?.adherence ?? null) : null), render: (p) => (p.visible ? pct(p.kpis?.adherence) : "") },
+          {
+            key: "late",
+            header: t("account.orgPages.head.lateDemandLines"),
+            width: "130px",
+            align: "right",
+            sortValue: (p) => (p.visible ? (p.late_demand ?? null) : null),
+            exportValue: (p) => p.late_demand ?? "",
+            render: (p) =>
+              !p.visible ? "" : p.late_demand === null || p.late_demand === undefined ? (
+                "–"
+              ) : p.late_demand ? (
+                <span className="badge warn">
+                  <Icon name="alert" /> {p.late_demand}
+                </span>
+              ) : (
+                "0"
+              ),
+          },
+          { key: "trig", header: t("account.orgPages.head.changesToReplan"), width: "140px", align: "right", sortValue: (p) => (p.visible ? (p.open_triggers ?? null) : null), render: (p) => (p.visible ? (p.open_triggers ?? "–") : "") },
+          {
+            key: "erp",
+            header: t("account.orgPages.head.erpConnection"),
+            width: "minmax(190px, 1.2fr)",
+            exportValue: (p) => (!p.integration?.enabled ? "not connected" : p.integration.dead_deliveries ? `${p.integration.dead_deliveries} failed deliveries` : "healthy"),
+            render: (p) =>
+              !p.visible ? null : (
+                <span>
+                  {!p.integration?.enabled ? (
+                    <span className="faint">{t("account.orgPages.text.notConnected")}</span>
+                  ) : p.integration.dead_deliveries ? (
+                    <span className="badge danger">
+                      <Icon name="alert" /> {t("account.orgPages.text.failedDeliveries", { n: p.integration.dead_deliveries })}
+                    </span>
+                  ) : (
+                    <span className="badge ok">
+                      <Icon name="check" /> {t("account.orgPages.btn.healthy")}
+                    </span>
+                  )}
+                  {p.integration?.last_batch_at ? <span className="vt-sub">{t("account.orgPages.text.lastDataIn", { when: formatDateTime(p.integration.last_batch_at) })}</span> : null}
+                </span>
+              ),
+          },
+          {
+            key: "actions",
+            header: <span className="sr-only">{t("account.orgPages.aria.actions")}</span>,
+            label: t("account.orgPages.aria.actions"),
+            width: "88px",
+            align: "right",
+            exportValue: () => "",
+            render: (p) =>
+              p.visible ? (
+                <button type="button" className="btn sm" onClick={() => openPlant(p.plant.owner_id)}>
+                  {t("account.orgPages.btn.open")}
+                </button>
+              ) : null,
+          },
+        ]}
+        rowKey={(p) => p.plant.owner_id}
+        label={t("account.orgPages.aria.plantsAtAGlance")}
+        tableId="org-overview"
+        loading={ov.loading && !ov.data}
+        exportName="organisation-overview"
+        rowExtras={(p) => ({ testId: "org-overview-plant", data: { code: p.plant.code } })}
+        empty={t("account.orgPages.empty.noPlants")}
+        card={{ title: "plant", status: "erp", actions: "actions", fields: ["otd", "late", "trig"] }}
+      />
     </section>
   );
 }
@@ -327,7 +345,7 @@ function PlantsTab({ org, admin }: { org: Org; admin: boolean }) {
   const [edit, setEdit] = useState<OrgPlant | "new" | null>(null);
   const [roles, setRoles] = useState<OrgPlant | null>(null);
   return (
-    <section className="card" data-testid="org-plants">
+    <section className="card card-table" data-testid="org-plants">
       <div className="card-header row" style={{ justifyContent: "space-between" }}>
         <h2>{t("account.orgPages.head.plants")}</h2>
         {admin ? (
@@ -337,35 +355,52 @@ function PlantsTab({ org, admin }: { org: Org; admin: boolean }) {
         ) : null}
       </div>
       <MfgError error={plants.error} onRetry={plants.reload} />
-      <table className="table">
-        <tbody>
-          {(plants.data?.items ?? []).map((p) => (
-            <tr key={p.id} data-testid="plant-row" data-code={p.code}>
-              <td>
-                <strong className="mono">{p.code}</strong> {p.name}
-                {p.my_roles?.length ? <div className="faint small">your roles: {p.my_roles.map((r) => ROLE_LABEL[r as Role] ?? r).join(", ")}</div> : null}
-              </td>
-              <td className="right">
-                <span className="row" style={{ justifyContent: "flex-end" }}>
-                  <button type="button" className="btn sm" onClick={() => openPlant(p.plant_owner_id)} data-testid="plant-open">
-                    {t("account.orgPages.btn.open")}
-                  </button>
-                  {admin ? (
-                    <>
-                      <button type="button" className="btn sm ghost" onClick={() => setRoles(p)} data-testid="plant-roles">
-                        {t("account.orgPages.btn.peopleAndRoles")}
-                      </button>
-                      <button type="button" className="btn sm ghost" onClick={() => setEdit(p)}>
-                        {t("account.orgPages.btn.rename")}
-                      </button>
-                    </>
-                  ) : null}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        rows={plants.data?.items ?? []}
+        columns={[
+          { key: "code", header: t("account.orgPages.head.code"), width: "110px", sortValue: (p) => p.code, render: (p) => <strong className="mono">{p.code}</strong> },
+          { key: "name", header: t("account.orgPages.label.name"), width: "minmax(180px, 1.4fr)", sortValue: (p) => p.name, render: (p) => p.name },
+          {
+            key: "roles",
+            header: t("account.orgPages.head.yourRoles"),
+            width: "minmax(180px, 1.4fr)",
+            render: (p) => (p.my_roles?.length ? p.my_roles.map((r) => ROLE_LABEL[r as Role] ?? r).join(", ") : <span className="faint">{t("account.orgPages.text.none")}</span>),
+          },
+          {
+            key: "actions",
+            header: <span className="sr-only">{t("account.orgPages.aria.actions")}</span>,
+            label: t("account.orgPages.aria.actions"),
+            width: admin ? "300px" : "88px",
+            align: "right",
+            exportValue: () => "",
+            render: (p) => (
+              <span className="row" style={{ justifyContent: "flex-end", gap: 4, flexWrap: "nowrap" }}>
+                <button type="button" className="btn sm" onClick={() => openPlant(p.plant_owner_id)} data-testid="plant-open">
+                  {t("account.orgPages.btn.open")}
+                </button>
+                {admin ? (
+                  <>
+                    <button type="button" className="btn sm ghost" onClick={() => setRoles(p)} data-testid="plant-roles">
+                      {t("account.orgPages.btn.peopleAndRoles")}
+                    </button>
+                    <button type="button" className="btn sm ghost" onClick={() => setEdit(p)}>
+                      {t("account.orgPages.btn.rename")}
+                    </button>
+                  </>
+                ) : null}
+              </span>
+            ),
+          },
+        ]}
+        rowKey={(p) => p.id}
+        label={t("account.orgPages.head.plants")}
+        tableId="org-plants"
+        loading={plants.loading && !plants.data}
+        exportName="organisation-plants"
+        rowExtras={(p) => ({ testId: "plant-row", data: { code: p.code } })}
+        empty={t("account.orgPages.empty.noPlants")}
+        card={{ title: "code", actions: "actions", fields: ["name", "roles"] }}
+      />
       {edit ? <PlantDialog org={org} plant={edit === "new" ? null : edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); plants.reload(); }} /> : null}
       {roles ? <RolesDialog org={org} plant={roles} members={members.data?.items ?? []} onClose={() => { setRoles(null); members.reload(); }} /> : null}
     </section>
@@ -568,40 +603,75 @@ function MembersTab({ org }: { org: Org }) {
         <span className="faint small">People with a company account (single sign-on) can also join on their first sign-in. Plant access is given under Plants.</span>
         <MfgError error={error ?? members.error} onRetry={members.reload} />
       </div>
-      <table className="table">
-        <tbody>
-          {(members.data?.items ?? []).map((m) => {
-            const disabled = m.user.disabled ?? false;
-            return (
-              <tr key={m.id} data-testid="member-row" data-email={m.user.email ?? ""} className={disabled ? "faint" : undefined}>
-                <td>
-                  <strong>{m.user.display_name || m.user.email}</strong>
-                  <div className="small muted">{m.user.email}</div>
-                </td>
-                <td className="small">
-                  {disabled ? (
-                    <span className="badge warn">
-                      <Icon name="ban" /> {t("account.orgPages.btn.disabled")}
-                    </span>
-                  ) : null}
-                  {m.plants?.length ? <div className="faint">{m.plants.map((p) => `${p.code}: ${p.roles.map((r) => ROLE_LABEL[r as Role] ?? r).join(", ")}`).join(" · ")}</div> : null}
-                </td>
-                <td>
-                  <select className="select sm" aria-label={`Role of ${m.user.email}`} value={m.org_role} disabled={busy} onChange={(e) => void act(() => updateOrgMember(org.id, m.id, { org_role: e.target.value as OrgRole }))}>
-                    <option value="org_member">Member</option>
-                    <option value="org_admin">Admin</option>
-                  </select>
-                </td>
-                <td className="right">
-                  <button type="button" className="btn sm ghost" disabled={busy} onClick={() => setRemoving(m)}>
-                    {t("account.orgPages.btn.remove")}
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <DataTable
+        rows={members.data?.items ?? []}
+        columns={[
+          {
+            key: "person",
+            header: t("account.orgPages.head.person"),
+            width: "minmax(200px, 1.4fr)",
+            sortValue: (m) => m.user.display_name || m.user.email || "",
+            exportValue: (m) => `${m.user.display_name ?? ""} <${m.user.email ?? ""}>`,
+            render: (m) => (
+              <span>
+                <strong>{m.user.display_name || m.user.email}</strong>
+                <span className="vt-sub">{m.user.email}</span>
+              </span>
+            ),
+          },
+          {
+            key: "plants",
+            header: t("account.orgPages.head.plantAccess"),
+            width: "minmax(220px, 2fr)",
+            wrap: true,
+            exportValue: (m) => (m.plants ?? []).map((p) => `${p.code}: ${p.roles.join("/")}`).join("; "),
+            render: (m) => (
+              <span className="small">
+                {m.user.disabled ? (
+                  <span className="badge warn">
+                    <Icon name="ban" /> {t("account.orgPages.btn.disabled")}
+                  </span>
+                ) : null}{" "}
+                {m.plants?.length ? m.plants.map((p) => `${p.code}: ${p.roles.map((r) => ROLE_LABEL[r as Role] ?? r).join(", ")}`).join(" · ") : <span className="faint">{t("account.orgPages.text.none")}</span>}
+              </span>
+            ),
+          },
+          {
+            key: "role",
+            header: t("account.orgPages.head.orgRole"),
+            width: "160px",
+            sortValue: (m) => m.org_role,
+            exportValue: (m) => m.org_role,
+            render: (m) => (
+              <select className="select sm" aria-label={t("account.orgPages.aria.roleOf", { email: m.user.email ?? "" })} value={m.org_role} disabled={busy} onChange={(e) => void act(() => updateOrgMember(org.id, m.id, { org_role: e.target.value as OrgRole }))}>
+                <option value="org_member">{t("account.orgPages.text.member")}</option>
+                <option value="org_admin">{t("account.orgPages.text.admin")}</option>
+              </select>
+            ),
+          },
+          {
+            key: "actions",
+            header: <span className="sr-only">{t("account.orgPages.aria.actions")}</span>,
+            label: t("account.orgPages.aria.actions"),
+            width: "96px",
+            align: "right",
+            exportValue: () => "",
+            render: (m) => (
+              <button type="button" className="btn sm ghost" disabled={busy} onClick={() => setRemoving(m)}>
+                {t("account.orgPages.btn.remove")}
+              </button>
+            ),
+          },
+        ]}
+        rowKey={(m) => m.id}
+        label={t("account.orgPages.aria.people")}
+        tableId="org-members"
+        loading={members.loading && !members.data}
+        exportName="organisation-people"
+        rowExtras={(m) => ({ testId: "member-row", data: { email: m.user.email ?? "" }, className: m.user.disabled ? "faint" : undefined })}
+        empty={t("account.orgPages.empty.noPeople")}
+        card={{ title: "person", status: "role", actions: "actions", fields: ["plants"] }}
+      />
       {removing ? (
         <ConfirmDialog
           title={`Remove ${removing.user.email ?? "this person"}?`}
@@ -714,18 +784,19 @@ function PublishTab({ org }: { org: Org }) {
           <div data-testid="publish-result" data-status={job.status}>
             {job.status === "queued" || job.status === "running" ? <Banner tone="info" title={t("account.orgPages.title.publishingInTheBackground")}>Each target plant is updated in its own step; the results also appear in each plant's Integration, Batches.</Banner> : null}
             {job.results && Object.keys(job.results).length ? (
-              <table className="table">
-                <tbody>
-                  {Object.entries(job.results).map(([owner, r]) => (
-                    <tr key={owner}>
-                      <td className="mono">{code(owner)}</td>
-                      <td>{r.status}</td>
-                      <td className="small">{r.counts ? Object.entries(r.counts).map(([k, v]) => `${v} ${k}`).join(" · ") : ""}</td>
-                      <td className="small">{r.errors?.map((e) => e.message).join("; ")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                rows={Object.entries(job.results).map(([owner, r]) => ({ owner, ...r }))}
+                columns={[
+                  { key: "plant", header: t("account.orgPages.head.plant"), width: "120px", sortValue: (r) => code(r.owner), render: (r) => <span className="mono">{code(r.owner)}</span> },
+                  { key: "status", header: t("account.orgPages.head.result"), width: "120px", sortValue: (r) => r.status, render: (r) => r.status },
+                  { key: "counts", header: t("account.orgPages.head.records"), width: "minmax(180px, 1.4fr)", render: (r) => (r.counts ? Object.entries(r.counts).map(([k, v]) => `${v} ${k}`).join(" · ") : "") },
+                  { key: "errors", header: t("account.orgPages.head.problems"), width: "minmax(200px, 2fr)", wrap: true, render: (r) => r.errors?.map((e) => e.message).join("; ") ?? "" },
+                ]}
+                rowKey={(r) => r.owner}
+                label={t("account.orgPages.aria.publishResults")}
+                tableId="org-publish-results"
+                exportName="publish-results"
+              />
             ) : null}
           </div>
         ) : null}
