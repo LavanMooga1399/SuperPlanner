@@ -218,7 +218,7 @@ def _run(s: Session, ds: Any, number: str, pn: str, qty: float, d0: date, tz: An
             apply_event(s, FloorEventInput(client_event_id=f"sample-{number}-{r.seq}-{n}", wo_operation_id=r.id,
                                            event_type=et, event_at=at, **kw), None, now=utcnow())
 
-        minutes = 720.0 if (grp is not None and grp.code == "STER") else 150.0 + min(330.0, qty * 0.01)
+        minutes = _std_minutes(ds, it.id, r.seq, qty) * (1.0 if grp is not None and grp.code == "STER" else 1.12)
         ev("start", t, line_id=ln.id)
         end = t + timedelta(minutes=minutes)
         avail = _available(s, w, r)
@@ -239,6 +239,18 @@ def _run(s: Session, ds: Any, number: str, pn: str, qty: float, d0: date, tz: An
         w.status, w.closed_at = "closed", utcnow()
     s.flush()
     return w
+
+
+def _std_minutes(ds: Any, item_id: str, seq: int, qty: float) -> float:
+    """Standard minutes of the item's primary routing operation `seq` for `qty` (setup + run x loads)."""
+    rts = sorted((r for r in ds.routings.values() if r.item_id == item_id and r.status == "released"),
+                 key=lambda r: (r.priority, r.code))
+    o = next((x for x in rts[0].operations if x.seq == seq), None) if rts else None
+    if o is None:
+        return 120.0
+    loads = {"panel": math.ceil(qty / (o.units_per_panel or 1)), "batch": math.ceil(qty / (o.units_per_batch or 1))
+             }.get(o.run_per, qty)
+    return max(30.0, float(o.setup_minutes) + float(o.run_minutes) * loads)
 
 
 def _ship(s: Session, it: MfgItemRow, loc: Any, lot: str, qty: float, number: str, customer: str, due: date,
