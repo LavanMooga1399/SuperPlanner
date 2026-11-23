@@ -233,7 +233,7 @@ dependency views, what-if/compare, and the deployment setup.
 | **M4 — Execution and replanning** | WO release, shop-floor actuals (barcode-friendly), scrap/rework/yield, event-driven replanning with frozen horizon, KPIs (OTD, utilisation, WIP, setup time) | Closed loop with the shop floor |
 | **M5 — Integration and traceability** | ERP connectors (items, BOMs, stock, POs in; WOs, PRs out), serial/lot genealogy, ECO handling, multi-plant/organisation accounts | Production use alongside HBL's ERP |
 
-**Status (6 November 2026):**
+**Status (23 November 2026):**
 
 | Phase | Status |
 |---|---|
@@ -242,7 +242,8 @@ dependency views, what-if/compare, and the deployment setup.
 | M3 | **Built** (`docs/M3-DESIGN.md`, section 17; commit f9c4325): finite-capacity scheduler with LNS, validator, material from MRP pegging, overtime policies, freeze/publish, validated edits, Gantt/load/dispatch, IANA time zones. |
 | M4 | **Built** (`docs/M4-DESIGN.md`, section 16; commit 77ccef0): floor event log and actuals, barcode floor screens, auto receipt and backflush, downtime, batching, serial capture, replan triggers and policies, risk simulation, KPI dashboard, operator/supervisor roles. |
 | M5 | **Built** (`docs/M5-DESIGN.md`, section 15; commit 844209b): vendor-neutral ERP integration with system-of-record rules and reconciliation, multi-level genealogy and recall, ECO workflow, organisations and inter-plant transfers, OIDC SSO, TOTP, scoped API tokens, retention and hash-chained audit. |
-| M6 | **Designed, ready to build**: `docs/M6-DESIGN.md`. Planning assistant (opt-in, read-only permission-checked tools, cited answers, user-confirmed drafts, budgets, plant opt-out, deterministic fallback), supervisor/manager PWA with Web Push and mobile approvals, plant and organisation dashboards with optional email digests, HA (Patroni or managed PostgreSQL, read-replica routing with lag and read-your-writes rules, failover handling, expand/contract migration policy, runbooks). |
+| M6 | **Built** (`docs/M6-DESIGN.md`, section 11; commit 92f81ef): planning assistant, supervisor/manager PWA with Web Push, plant and organisation dashboards with digests, HA (replica routing, failover handling, migration policy, runbooks). UX upgrade since then (`docs/UX-STANDARD.md`, migration `0009_ux`). |
+| M7-M10 | **Medical-device track** (`docs/MEDDEV-GAP-PLAN.md`, 23 November 2026; coverage map of what a high-volume device maker such as BD expects). M7 regulated foundation and quality (Part 11 signatures and audit, inspection/AQL, holds, NCR, CAPA, complaints and field actions, calibration, fr-CA): **designed, ready to build** (`docs/M7-DESIGN.md`). M8 make-to-stock planning at volume (forecasting, safety stock optimisation, rate/campaign engine, sterilisation, packaging and kanban, SAP S/4HANA adapter, validation kit, load test), M9 network, S&OP/IBP, capacity expansion, country of origin and landed cost, M10 eDHR, UDI/labels, validation package and enterprise rollout: planned. |
 
 Each phase follows the same agent-team process used so far (design → plan → build → test → security review →
 fix → verify), with acceptance tests built from a realistic anonymised Kavach-like dataset.
