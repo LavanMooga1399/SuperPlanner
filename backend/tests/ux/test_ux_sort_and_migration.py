@@ -71,8 +71,8 @@ def test_migration_0008_to_0009_and_back(empty_pg_db):
     url = empty_pg_db()
     migrate.run_alembic_upgrade(url, "0008_m6")
     t8 = _tables(url)
-    migrate.run_alembic_upgrade(url)
-    assert migrate.HEAD == "0009_ux" and migrate.schema_state(url) == "current"
+    migrate.run_alembic_upgrade(url, "0009_ux")
+    assert migrate.HEAD == "0010_m7" and migrate.schema_state(url) == "behind"     # (M7 0010_m7 on top)
     assert _tables(url) - t8 == set(UX_TABLES) == {"user_preferences", "mfg_bulk_requests"}
     migrate.run_alembic_downgrade(url, "0008_m6")
     assert _tables(url) == t8

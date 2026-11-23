@@ -111,6 +111,8 @@ class OrgRow(Base):
     created_at: Mapped[datetime] = _dt(False)
     updated_at: Mapped[datetime] = _dt(False)
     row_version: Mapped[int] = mapped_column(Integer)
+    #: M7-DESIGN 4.6: idle timeout of the organisation's people (minutes; None = platform default)
+    session_idle_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class OrgMemberRow(Base):

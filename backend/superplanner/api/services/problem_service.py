@@ -30,16 +30,33 @@ MAX_LIST_ITEMS = 500
 # ---------------------------------------------------------------- helpers
 
 def audit(s: Session, entity_type: str, entity_id: str, action: str, details: dict[str, Any] | None = None) -> None:
+    audit_row(s, entity_type, entity_id, action, details, flush=False)
+
+
+def audit_row(s: Session, entity_type: str, entity_id: str, action: str, details: dict[str, Any] | None = None, *,
+              changes: list[dict[str, Any]] | None = None, reason: str | None = None,
+              record_version: int | None = None, signature_id: str | None = None, flush: bool = True
+              ) -> AuditEventRow:
+    """One chained audit event. M7-DESIGN 4.4: the request's change reason (`X-SP-Change-Reason`) is recorded on
+    every mfg event of the request; `changes` / `record_version` / `signature_id` come from regulated services."""
     actor = current_actor() or current_owner()     # M2-DESIGN 10.3: the real user in a shared workspace
     plant = current_owner()
     plant = plant if isinstance(plant, str) else None          # system scope (SYSTEM sentinel) -> None
+    if reason is None and entity_type.startswith("mfg_"):
+        from ..audit_diff import current_reason
+
+        reason = current_reason()
     row = AuditEventRow(entity_type=entity_type, entity_id=entity_id, action=action, details=details or {},
                         actor_id=actor if isinstance(actor, str) else None, owner_id=plant,
-                        created_at=datetime.now(UTC))
+                        created_at=datetime.now(UTC), changes=changes or None, reason=reason,
+                        record_version=record_version, signature_id=signature_id)
     from ..audit_chain import link
 
     link(s, row)
     s.add(row)
+    if flush:
+        s.flush()
+    return row
 
 
 def canonical_hash(doc: dict[str, Any]) -> str:

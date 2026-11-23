@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ..db.models import Base, utcnow
+from ..db.models import Base, JsonType, utcnow
 
 
 class UserRow(Base):
@@ -26,6 +26,15 @@ class UserRow(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     #: M5-DESIGN 3.4: person (default) | plant (a plant principal, no login) | service
     kind: Mapped[str] = mapped_column(String(16), default="person", server_default=text("'person'"))
+    #: M7-DESIGN 4.1: electronic signature enrolment, revocation and lockout
+    legal_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    esig_enrolled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    esig_ack_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    esig_revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    esig_failed: Mapped[list[str] | None] = mapped_column(JsonType, nullable=True)
+    esig_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: ESIG_LOCAL_CREDENTIALS: signing password of an SSO user (argon2), set at enrolment
+    esig_password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class UserSessionRow(Base):

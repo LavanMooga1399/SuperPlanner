@@ -126,6 +126,10 @@ class MfgFloorEventRow(OwnedMixin, Base):
     #: warnings, batch member quantities, posting ids, the replay response key
     details: Mapped[dict[str, Any]] = mapped_column(JsonType)
     actor_id: Mapped[str] = mapped_column(String(64))
+    #: M7-DESIGN 6: nonconforming quantity (counted against input like scrap), its NCR and defect code
+    qty_nc: Mapped[float | None] = mapped_column(Double, nullable=True)
+    ncr_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    defect_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class MfgDowntimeRow(OwnedMixin, _Editable, Base):
@@ -173,6 +177,8 @@ class MfgUnitSerialRow(OwnedMixin, _Editable, Base):
     consumed_wo_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     #: the event that captured it (reopen/correct reverse their own serials)
     event_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: M7-DESIGN 5.3: derived from open `mfg_lot_holds` rows of the serial
+    hold: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class MfgReplanTriggerRow(OwnedMixin, Base):

@@ -15,7 +15,8 @@ class _In(BaseModel):
 Slug = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 PlantCode = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.\-]{0,31}$")]
-PLANT_ROLES = ("plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer", "operator", "supervisor")
+PLANT_ROLES = ("plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer", "operator", "supervisor",
+               "qa_inspector", "qa_engineer", "qa_approver", "metrology")   # M7-DESIGN 9.1
 
 
 class OrgIn(_In):
@@ -85,7 +86,8 @@ class OrgPlantRecord(BaseModel):
 class PlantRolesIn(_In):
     user_id: Annotated[str, StringConstraints(max_length=64)]
     roles: Annotated[list[Literal["plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
-                                  "operator", "supervisor"]], Field(max_length=8)]   # [] removes the membership
+                                  "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver",
+                                  "metrology"]], Field(max_length=12)]   # [] removes the membership
 
 
 class PublishIn(_In):

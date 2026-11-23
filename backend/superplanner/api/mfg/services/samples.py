@@ -103,9 +103,10 @@ def delete_all(s: Session) -> dict[str, int]:
     out: dict[str, int] = {}
     s.info["sp_series_reset"] = True          # number allocation stays in this transaction (repo_m2)
     from ..db_models_m6 import M6_RESET_MODELS        # M6-DESIGN 6: plant-owned M6 tables go with the data
+    from ..db_models_m7 import M7_RESET_MODELS        # M7-DESIGN 3: quality records (refused in Part 11 mode)
     from ..db_models_ux import UX_RESET_MODELS        # bulk-action replay records (personal preferences stay)
 
-    for model in reversed(ALL_MFG_MODELS + M6_RESET_MODELS + UX_RESET_MODELS):
+    for model in reversed(ALL_MFG_MODELS + M6_RESET_MODELS + UX_RESET_MODELS + M7_RESET_MODELS):
         res = s.execute(delete(model).execution_options(synchronize_session=False))
         name = model.__tablename__
         out[name[len("mfg_"):] if name.startswith("mfg_") else name] = int(res.rowcount or 0)
@@ -118,6 +119,9 @@ def reset(ctx: AppContext, confirm: str) -> dict[str, Any]:
         raise ApiError(422, "MFG_RESET_CONFIRM", f"Type {RESET_PHRASE!r} to confirm the reset.",
                        {"confirm": RESET_PHRASE})
     with write_tx(ctx) as (s, _plant):
+        if _plant is not None and _plant.part11_mode:      # M7-DESIGN 4.4: regulated records are never deleted
+            raise ApiError(409, "PART11_DELETE_NOT_ALLOWED", "This plant runs in Part 11 mode; its records cannot be "
+                           "deleted by a reset.", {})
         deleted = delete_all(s)
         audit(s, "plant", None, "reset", {"deleted": deleted})
         return {"deleted": deleted}

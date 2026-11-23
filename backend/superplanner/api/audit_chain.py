@@ -46,6 +46,11 @@ def canonical(row: Any) -> bytes:
     doc = {"entity_type": row.entity_type, "entity_id": row.entity_id, "action": row.action,
            "details": row.details or {}, "actor_id": row.actor_id, "owner_id": row.owner_id,
            "created_at": created.astimezone(UTC).isoformat(timespec="microseconds")}
+    # M7-DESIGN 4.4: the Part 11 columns join the hashed content when set (rows without them hash as before)
+    for k in ("changes", "reason", "signature_id", "record_version"):
+        v = getattr(row, k, None)
+        if v is not None:
+            doc[k] = v
     return json.dumps(doc, sort_keys=True, separators=(",", ":"), default=str).encode()
 
 

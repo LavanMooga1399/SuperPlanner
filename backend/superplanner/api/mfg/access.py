@@ -31,7 +31,11 @@ PERMISSIONS: tuple[str, ...] = ("view", "master_edit", "supplier_edit", "invento
                                 # M5-DESIGN 9
                                 "trace_view", "eco_edit", "eco_approve", "transfer_edit", "integration_admin",
                                 # M6-DESIGN 5
-                                "assistant_use")
+                                "assistant_use",
+                                # M7-DESIGN 9.1
+                                "qa_inspect", "qa_decide", "qa_plan_edit", "ncr_edit", "ncr_approve", "capa_edit",
+                                "complaint_edit", "field_action_edit", "capa_approve", "equipment_edit", "audit_view",
+                                "esig_policy_edit")
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "owner": frozenset(PERMISSIONS),
     "plant_admin": frozenset(PERMISSIONS),          # M5-DESIGN 3.4: owner-equivalent in an organisation's plant
@@ -45,13 +49,24 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "approver": frozenset({"view", "pr_approve", "floor_view", "trace_view", "eco_approve", "assistant_use"}),
     "viewer": frozenset({"view", "floor_view", "trace_view", "assistant_use"}),
     # M4-DESIGN 0.4 / 11: tablets (personal or station accounts) and shift supervisors
-    "operator": frozenset({"view", "floor_view", "floor_report", "downtime_report", "trace_view"}),
+    "operator": frozenset({"view", "floor_view", "floor_report", "downtime_report", "trace_view", "qa_inspect"}),
     "supervisor": frozenset({"view", "floor_view", "floor_report", "floor_supervise", "downtime_report", "trace_view",
-                            "assistant_use"}),   # M6 5: every plant role except operator
+                            "assistant_use", "qa_inspect", "ncr_edit"}),   # M6 5: every plant role except operator
+    # M7-DESIGN 9.1: quality roles (signing is decided by the signature policies, 4.3)
+    "qa_inspector": frozenset({"view", "floor_view", "trace_view", "assistant_use", "qa_inspect", "qa_decide",
+                              "ncr_edit"}),
+    "qa_engineer": frozenset({"view", "floor_view", "trace_view", "assistant_use", "qa_inspect", "qa_decide",
+                             "qa_plan_edit", "ncr_edit", "ncr_approve", "capa_edit", "complaint_edit",
+                             "field_action_edit", "equipment_edit", "audit_view"}),
+    "qa_approver": frozenset({"view", "floor_view", "trace_view", "assistant_use", "qa_inspect", "qa_decide",
+                             "qa_plan_edit", "ncr_edit", "ncr_approve", "capa_edit", "complaint_edit",
+                             "field_action_edit", "capa_approve", "audit_view", "esig_policy_edit"}),
+    "metrology": frozenset({"view", "floor_view", "assistant_use", "equipment_edit"}),
 }
 ROLE_LABELS = {"owner": "Owner", "planner": "Planner", "purchaser": "Purchaser", "store_keeper": "Store keeper",
                "approver": "Approver", "viewer": "Viewer", "operator": "Operator", "supervisor": "Supervisor",
-               "plant_admin": "Plant admin"}
+               "plant_admin": "Plant admin", "qa_inspector": "QA inspector", "qa_engineer": "QA engineer",
+               "qa_approver": "QA approver", "metrology": "Metrology"}
 WORKSPACE_HEADER = "X-SP-Workspace"
 
 
@@ -81,7 +96,8 @@ def permissions_of(roles: tuple[str, ...] | list[str]) -> frozenset[str]:
 
 def roles_allowed(perm: str) -> list[str]:
     return [r for r in ("owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
-                        "operator", "supervisor") if perm in ROLE_PERMISSIONS[r]]
+                        "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology")
+            if perm in ROLE_PERMISSIONS[r]]
 
 
 def workspace_not_found(owner_id: str) -> ApiError:
@@ -131,6 +147,9 @@ async def mfg_principal(request: Request, ctx: AppContext = Depends(get_ctx)) ->
         p = replace(p, permissions=frozenset(p.permissions & scopes), scopes=scopes, token_id=principal.token_id,
                     role_permissions=p.permissions)
     bind_actor(user_id)
+    from ..audit_diff import REASON_HEADER, bind_reason, parse_reason
+
+    bind_reason(parse_reason(request.headers.get(REASON_HEADER)))   # M7-DESIGN 4.4
     request.state.mfg_principal = p
     return p
 

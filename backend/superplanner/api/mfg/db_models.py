@@ -70,6 +70,9 @@ class MfgPlantRow(OwnedMixin, _Editable, Base):
     assistant_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     assistant_allow_whatif: Mapped[bool] = mapped_column(Boolean, default=True)
     dashboard_thresholds: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
+    #: M7-DESIGN 0.5 / 3
+    part11_mode: Mapped[bool] = mapped_column(Boolean, default=False)
+    qa_settings: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
 
 
 class MfgItemRow(OwnedMixin, _Editable, Base):

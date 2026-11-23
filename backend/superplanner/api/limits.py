@@ -20,6 +20,8 @@ from fastapi.responses import JSONResponse
 from .errors import envelope
 
 DEFAULT_MAX_BODY_BYTES = 5 * 1024 * 1024
+ATTACHMENT_PATH = "/api/v1/mfg/qa/attachments"
+ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
 
 
 NUL_MESSAGE = "The request must not contain the NUL character (\\u0000)."
@@ -86,6 +88,8 @@ class BodySizeLimitMiddleware:
                 {"loc": ["query"], "msg": NUL_MESSAGE, "type": "value_error"}]}), status_code=422)(scope, receive, send)
             return
         limit = self.max_body_bytes
+        if scope.get("path", "") == ATTACHMENT_PATH and scope.get("method") == "POST":
+            limit = max(limit, ATTACHMENT_MAX_BYTES + 1)      # M7-DESIGN 9: attachments <= 10 MB (413 above)
         for name, value in scope.get("headers", []):
             if name == b"content-length":
                 try:

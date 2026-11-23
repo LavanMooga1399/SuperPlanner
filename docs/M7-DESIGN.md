@@ -574,6 +574,37 @@ override of calibration blocks. Genuinely open (see `docs/MEDDEV-GAP-PLAN.md` 6)
 CAPA/complaints native or linked to its eQMS, and whether its IdP supports step-up re-authentication with MFA
 claims (else signing uses local password + TOTP credentials for SSO users, `ESIG_LOCAL_CREDENTIALS=true`).
 
+**Decided by the product owner 2026-11-23:** (1) CAPA and complaints are native, with the per-plant switch
+`qa_settings.capa_sor` / `complaint_sor = external` ("external eQMS" mode: link stubs with `external_ref`); (2) SSO
+users sign through an OIDC step-up (`prompt=login`, `max_age=0`), with the `ESIG_LOCAL_CREDENTIALS=true` fallback
+(signing password set at enrolment + TOTP) for IdPs without step-up.
+
 ## 14. Implementation notes
 
-(Filled during the build: S0 freeze record, deviations, measured performance.)
+**S0 frozen (2026-11-23).** Contract: `backend/superplanner/esig/model.py`, `backend/superplanner/qa/model.py`;
+typed examples `backend/superplanner/qa/fixtures/example_m7.json` (built and validated by `build_example.py`, test
+`tests/api_mfg_m7/test_m7_s0_contract.py`); migration `0010_m7` (`migrate.HEAD`); all 95 M7 operations live with
+their permissions (`router_m7.py`, route table in `tests/auth/route_table.py`). Until a service function is
+implemented it answers from the example file (`services/m7_examples.py`, PEP 562 fallback per service module);
+real implementations replace them phase by phase. The UI can build against the examples and the routes now.
+
+S0 interpretations and deviations:
+- Every M7 table is plant-owned (`owner_id`, the central ownership filter applies), also child tables
+  (characteristics, dispositions, CAPA actions, field action units) - tenancy by the ownership filter only.
+- Extra table `qa_result_batches` (replay record of a results batch, `client_batch_id` -> stored response, 5.2).
+- Extra columns: `users.esig_password_hash` (ESIG_LOCAL_CREDENTIALS signing password); `qa_inspection_plans.name`,
+  `author_id`; `qa_sampling_schemes.approved_at`, `author_id`; `qa_inspection_lots.decision_note`, `hold`, `source`,
+  `customer`; `qa_ncrs.operation_seq`, `location_id`; `qa_capas.author_id`, `closed_at`; `qa_complaints.author_id`,
+  `closed_at`; `qa_field_actions.complete_reason`, `author_id`, `closed_at`; `qa_field_action_units.code`, `in_stock`;
+  `qa_equipment.failed_on`, `note`; `mfg_lot_holds.release_note`; `part11_exports.error`;
+  `qa_switching_states.plan_key`/`plan_number` (state per plan number + supplier, shared by plan versions).
+- Migration: lots held before M7 get one `manual` hold row each (the derived `lots.hold` stays true).
+- Attachments upload as the raw request body (`POST /mfg/qa/attachments?entity_type&entity_id&filename`, file
+  bytes with their Content-Type): no multipart package is installed and 0.12 forbids new packages. The body limit
+  for that path is 10 MB (+1 byte, 413 above).
+- Extra read route `GET /mfg/qa/schemes/{id}/preview?lot_size&level&aql&state` (plan editor sampling preview, 10).
+- Links are deleted by id: `DELETE /mfg/qa/links/{link_id}`.
+- `X-SP-Change-Reason` is parsed by the mfg principal dependency and recorded on every mfg audit event of the
+  request (`audit_events.reason`); regulated services add `changes`. The audit hash chain includes `changes`,
+  `reason`, `signature_id`, `record_version` when set (rows without them hash exactly as before).
+- A plant reset is refused in Part 11 mode (409 `PART11_DELETE_NOT_ALLOWED`); otherwise it deletes the M7 rows.

@@ -79,7 +79,7 @@ def test_migration_0005_to_0006_and_back(empty_pg_db):
         eng.dispose()
     t5 = _tables(url)
     migrate.run_alembic_upgrade(url, "0006_mfg_m4")      # (M5 0007_m5 sits on top; head moved)
-    assert migrate.HEAD == "0009_ux" and migrate.schema_state(url) == "behind"
+    assert migrate.HEAD == "0010_m7" and migrate.schema_state(url) == "behind"
     assert _tables(url) - t5 == set(M4_TABLES) and t5 - _tables(url) == {"mfg_wo_op_progress"}
     eng = sa.create_engine(url)
     try:
@@ -196,7 +196,8 @@ def test_roles_and_permissions():
     from superplanner.api.mfg.access import ROLE_PERMISSIONS, roles_allowed
 
     assert roles_allowed("floor_view") == ["owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
-                                           "operator", "supervisor"]
+                                           "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver",
+                                           "metrology"]   # (+ M7 QA roles)
     assert set(roles_allowed("floor_report")) == {"owner", "plant_admin", "planner", "operator", "supervisor"}
     assert set(roles_allowed("floor_supervise")) == {"owner", "plant_admin", "supervisor"}
     assert set(roles_allowed("downtime_report")) == {"owner", "plant_admin", "planner", "operator", "supervisor"}

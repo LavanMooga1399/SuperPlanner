@@ -149,6 +149,11 @@ class AuditEventRow(Base):
     #: M5-DESIGN 7: the plant of the event (None for platform events) and the per-owner hash chain
     owner_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     chain_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    #: M7-DESIGN 4.4: field-level old/new values, change reason, signature and record version of regulated records
+    changes: Mapped[list[dict[str, Any]] | None] = mapped_column(JsonType, nullable=True)
+    reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    signature_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    record_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 # ---------------------------------------------------------------- jobs (PHASE2B 2.3)
