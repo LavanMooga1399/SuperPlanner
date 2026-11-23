@@ -9,12 +9,12 @@ import { formatProb } from "../lib/money";
 import { t } from "../../lib/i18n";
 
 const KIND_LABEL: Record<Fix["kind"], string> = {
-  DELAY_GOAL: "Move the date",
-  INCREASE_SAVINGS: "Save more",
-  SPEND_LESS: "Spend less",
-  INCREASE_RISK: "Take more growth risk",
-  REDUCE_TARGET: "Lower the target",
-  LOWER_EF_BUILD_SHARE: "Build the emergency fund slower",
+  DELAY_GOAL: t("finance.fixList.str.moveTheDate"),
+  INCREASE_SAVINGS: t("finance.fixList.str.saveMore"),
+  SPEND_LESS: t("finance.fixList.str.spendLess"),
+  INCREASE_RISK: t("finance.fixList.str.takeMoreGrowthRisk"),
+  REDUCE_TARGET: t("finance.fixList.str.lowerTheTarget"),
+  LOWER_EF_BUILD_SHARE: t("finance.fixList.str.buildTheEmergencyFundSlower"),
 };
 
 /** "Try this" fixes: POST the fix's exact what-if payload and open the what-if page with that run. */
@@ -32,7 +32,7 @@ export function FixList({ planId, resultId, result }: { planId: string; resultId
       const created = await createWhatIfRun(planId, { changes: fix.what_if, replace_active: true, base_result_id: resultId });
       navigate(`/finance/${planId}/what-if?base=${resultId}&run=${created.run_id}`);
     } catch (err) {
-      if (err instanceof ApiError && err.code === "RUN_ALREADY_ACTIVE") setError("Wait for the current plan run to finish, then try again.");
+      if (err instanceof ApiError && err.code === "RUN_ALREADY_ACTIVE") setError(t("finance.fixList.str.waitForTheCurrentPlan"));
       else setError(errorMessage(err));
     } finally {
       setBusy(null);
@@ -43,7 +43,7 @@ export function FixList({ planId, resultId, result }: { planId: string; resultId
     <section className="card" aria-labelledby="fin-fixes-title" data-testid="fin-fixes">
       <div className="card-header">
         <h2 id="fin-fixes-title">{t("finance.fixList.head.waysToCloseTheGap")}</h2>
-        <span className="small muted">Each option was tested by re-planning; try one to see the full effect.</span>
+        <span className="small muted">{t("finance.fixList.text.eachOptionWasTestedBy")}</span>
       </div>
       <div className="card-body col gap-lg">
         {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
@@ -65,11 +65,11 @@ export function FixList({ planId, resultId, result }: { planId: string; resultId
                     </div>
                     <span>{f.message}</span>
                     {f.resulting_success_probability !== null ? (
-                      <span className="small muted">Estimated chance afterwards: {formatProb(f.resulting_success_probability)}</span>
+                      <span className="small muted">{t("finance.fixList.text.estimatedChanceAfterwards", { resultingsuccessprobability: formatProb(f.resulting_success_probability) })}</span>
                     ) : null}
                   </div>
                   <button className="btn sm" onClick={() => void tryFix(f, key)} disabled={busy !== null}>
-                    {busy === key ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />} Try this
+                    {busy === key ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />}{" "}{t("finance.fixList.text.tryThis")}
                   </button>
                 </div>
               );

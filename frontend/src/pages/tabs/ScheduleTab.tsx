@@ -18,22 +18,22 @@ import { useTerms } from "../../lib/terms";
 import { fmtLocal, offsetLabel, offsetMinutesOf } from "../../lib/time";
 import { useAsync, useStoredState } from "../../lib/useAsync";
 import { useLoadedPlan } from "../../state/PlanContext";
-import { t, plural } from "../../lib/i18n";
+import { plural, t, t as tr } from "../../lib/i18n";
 
 export function pickDefaultSchedule(items: ScheduleSummary[]): ScheduleSummary | null {
   return items.find((s) => s.status === "approved") ?? items.find((s) => s.rank === 0) ?? items[0] ?? null;
 }
 
 export function scheduleOptionLabel(s: ScheduleSummary): string {
-  const status = s.status === "approved" ? "Approved" : s.status === "superseded" ? "Superseded" : "Candidate";
+  const status = s.status === "approved" ? tr("studio.scheduleTab.str.approved") : s.status === "superseded" ? tr("studio.scheduleTab.str.superseded") : tr("studio.scheduleTab.str.candidate");
   return `${s.label} · ${status} · ${fmtLocal(s.created_at)}`;
 }
 
 function approveBlockReason(s: Schedule, terms: ReturnType<typeof useTerms>): string | null {
   if (s.status === "approved") return null;
-  if (s.status === "superseded") return `A newer ${terms.scheduleL} was approved after this one; superseded ${terms.scheduleL}s cannot be approved again.`;
-  if (s.feasibility === "unknown") return `This ${terms.scheduleL} breaks ${plural(s.hard_violation_count, "rule")}; no valid ${terms.scheduleL} was found in time.`;
-  if (s.feasibility === "infeasible") return `This plan cannot be scheduled without breaking a rule.`;
+  if (s.status === "superseded") return tr("studio.scheduleTab.tpl.aNewerWasApprovedAfter", { scheduleL: terms.scheduleL, scheduleL2: terms.scheduleL });
+  if (s.feasibility === "unknown") return tr("studio.scheduleTab.tpl.thisBreaksNoValidWas", { scheduleL: terms.scheduleL, hardviolationcount: plural(s.hard_violation_count, "rule"), scheduleL2: terms.scheduleL });
+  if (s.feasibility === "infeasible") return tr("studio.scheduleTab.str.thisPlanCannotBeScheduled");
   return null;
 }
 
@@ -103,8 +103,8 @@ export function ScheduleTab() {
       setConfirm(false);
       setNotice(
         res.superseded_schedule_id
-          ? `Approved. The previously approved ${terms.scheduleL} is now superseded.`
-          : `Approved.`,
+          ? tr("studio.scheduleTab.tpl.approvedThePreviouslyApprovedIs", { scheduleL: terms.scheduleL })
+          : tr("studio.scheduleTab.str.approved2"),
       );
       list.reload();
       await loadSchedule(schedule.id);
@@ -145,14 +145,14 @@ export function ScheduleTab() {
     setLockBusy(false);
   };
 
-  if (list.loading && !list.data) return <Loading label={`Loading ${terms.scheduleL}s…`} />;
+  if (list.loading && !list.data) return <Loading label={tr("studio.scheduleTab.tpl.loadingS", { scheduleL: terms.scheduleL })} />;
   if (list.error) return <ErrorBanner error={list.error} onRetry={list.reload} />;
   if (!items.length && !requestedId)
     return (
       <div className="card empty">
         <Icon name="calendar" size={32} />
-        <strong>No {terms.scheduleL} yet</strong>
-        <span>Run the optimizer to create one.</span>
+        <strong>{tr("studio.scheduleTab.text.noYet", { scheduleL: terms.scheduleL })}</strong>
+        <span>{tr("studio.scheduleTab.text.runTheOptimizerToCreate")}</span>
         <Link className="btn primary" to="../optimize">
           <Icon name="play" /> {t("studio.scheduleTab.btn.optimize")}
         </Link>
@@ -180,7 +180,7 @@ export function ScheduleTab() {
               <StatusBadge kind={schedule.feasibility} />
             </span>
             <span className="small muted" title={schedule.solver}>
-              by {methodLabel(schedule.solver)}
+              {tr("studio.scheduleTab.text.by", { solver: methodLabel(schedule.solver) })}
             </span>
           </>
         ) : null}
@@ -195,39 +195,39 @@ export function ScheduleTab() {
                 <Icon name="compare" /> {t("studio.scheduleTab.btn.compareWithApproved")}
               </Link>
             ) : null}
-            <button className="btn" onClick={() => setReplanOpen(true)} disabled={schedule.feasibility !== "feasible"} title={schedule.feasibility !== "feasible" ? "Only valid schedules can be the base of a replan" : undefined}>
+            <button className="btn" onClick={() => setReplanOpen(true)} disabled={schedule.feasibility !== "feasible"} title={schedule.feasibility !== "feasible" ? tr("studio.scheduleTab.str.onlyValidSchedulesCanBe") : undefined}>
               <Icon name="refresh" /> {t("studio.scheduleTab.btn.replan")}
             </button>
             <button
               className="btn primary"
               data-testid="approve-button"
               disabled={!!blockReason || schedule.status === "approved" || approving}
-              title={blockReason ?? (schedule.status === "approved" ? "Already approved" : undefined)}
+              title={blockReason ?? (schedule.status === "approved" ? tr("studio.scheduleTab.str.alreadyApproved") : undefined)}
               aria-describedby={blockReason ? "approve-reason" : undefined}
               onClick={() => setConfirm(true)}
             >
-              <Icon name="check" /> {schedule.status === "approved" ? "Approved" : "Approve"}
+              <Icon name="check" /> {schedule.status === "approved" ? tr("studio.scheduleTab.str.approved") : tr("studio.scheduleTab.str.approve")}
             </button>
           </>
         ) : null}
       </div>
 
       {loadError ? <ErrorBanner error={loadError} onRetry={() => current && void loadSchedule(current)} /> : null}
-      {loading && !schedule ? <Loading label={`Loading ${terms.scheduleL}…`} /> : null}
+      {loading && !schedule ? <Loading label={tr("studio.scheduleTab.tpl.loading", { scheduleL: terms.scheduleL })} /> : null}
 
       {schedule ? (
         <>
           {schedule.status === "approved" ? (
-            <Banner tone="ok" icon="star" testId="approval-banner" title={`Approved on ${fmtLocal(schedule.approved_at)}`}>
-              This is the {terms.scheduleL} in effect{schedule.approved_problem_version ? ` (approved against plan version ${schedule.approved_problem_version})` : ""}.
+            <Banner tone="ok" icon="star" testId="approval-banner" title={tr("studio.scheduleTab.tpl.approvedOn", { approvedat: fmtLocal(schedule.approved_at) })}>
+              {tr("studio.scheduleTab.text.thisIsTheInEffect", { scheduleL: terms.scheduleL, v: schedule.approved_problem_version ? tr("studio.scheduleTab.tpl.approvedAgainstPlanVersion", { approvedproblemversion: schedule.approved_problem_version }) : "" })}
             </Banner>
           ) : schedule.status === "superseded" ? (
-            <Banner tone="info" icon="refresh" testId="approval-banner" title={`Superseded on ${fmtLocal(schedule.superseded_at)}`}>
-              A newer {terms.scheduleL} was approved. This one is kept for reference.
+            <Banner tone="info" icon="refresh" testId="approval-banner" title={tr("studio.scheduleTab.tpl.supersededOn", { supersededat: fmtLocal(schedule.superseded_at) })}>
+              {tr("studio.scheduleTab.text.aNewerWasApprovedThis", { scheduleL: terms.scheduleL })}
             </Banner>
           ) : (
             <Banner tone="accent" icon="info" testId="approval-banner" title={t("studio.scheduleTab.title.candidateNotYetApproved")}>
-              {approved ? `The approved ${terms.scheduleL} stays in effect until you approve this one.` : `Nothing is approved yet for this plan.`}
+              {approved ? tr("studio.scheduleTab.tpl.theApprovedStaysInEffect", { scheduleL: terms.scheduleL }) : tr("studio.scheduleTab.str.nothingIsApprovedYetFor")}
             </Banner>
           )}
           {blockReason ? (
@@ -236,11 +236,11 @@ export function ScheduleTab() {
             </Banner>
           ) : null}
           {stale && schedule.status !== "superseded" ? (
-            <Banner tone="warn" title={`This ${terms.scheduleL} was made for version ${schedule.base_problem_version}; the plan is now version ${record.version}.`}>
-              Approval re-checks it against the current plan and is refused if the changes break it.
+            <Banner tone="warn" title={tr("studio.scheduleTab.tpl.thisWasMadeForVersion", { scheduleL: terms.scheduleL, baseproblemversion: schedule.base_problem_version, version: record.version })}>
+              {tr("studio.scheduleTab.text.approvalReChecksItAgainst")}
             </Banner>
           ) : null}
-          {notice ? <Banner tone="ok" title={notice} actions={<button className="btn sm ghost" onClick={() => setNotice(null)}>Dismiss</button>} /> : null}
+          {notice ? <Banner tone="ok" title={notice} actions={<button className="btn sm ghost" onClick={() => setNotice(null)}>{tr("studio.scheduleTab.text.dismiss")}</button>} /> : null}
           {approveError ? (
             <Banner tone="danger" role="alert" title={t("studio.scheduleTab.title.approvalRefused")}>
               <div>{approveError.message}</div>
@@ -288,7 +288,7 @@ export function ScheduleTab() {
               <button className="btn sm icon" aria-label={t("studio.scheduleTab.aria.zoomOut")} disabled={zoom <= ZOOM_LEVELS[0]} onClick={() => setZoom(ZOOM_LEVELS[Math.max(0, ZOOM_LEVELS.indexOf(zoom) - 1)] ?? 8)}>
                 <Icon name="zoom-out" />
               </button>
-              <button className="btn sm" disabled aria-label={`Zoom ${zoom} pixels per hour`} style={{ opacity: 1, minWidth: 64 }}>
+              <button className="btn sm" disabled aria-label={tr("studio.scheduleTab.tpl.zoomPixelsPerHour", { zoom: zoom })} style={{ opacity: 1, minWidth: 64 }}>
                 {zoom} px/h
               </button>
               <button className="btn sm icon" aria-label={t("studio.scheduleTab.aria.zoomIn")} disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]} onClick={() => setZoom(ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, ZOOM_LEVELS.indexOf(zoom) + 1)] ?? 8)}>
@@ -296,24 +296,24 @@ export function ScheduleTab() {
               </button>
             </div>
             <label className="checkbox small">
-              <input type="checkbox" checked={arrows} onChange={(e) => setArrows(e.target.checked)} /> Dependencies
+              <input type="checkbox" checked={arrows} onChange={(e) => setArrows(e.target.checked)} />{" "}{tr("studio.scheduleTab.text.dependencies")}
             </label>
             <label className="checkbox small">
-              <input type="checkbox" checked={shading} onChange={(e) => setShading(e.target.checked)} /> Closed times
+              <input type="checkbox" checked={shading} onChange={(e) => setShading(e.target.checked)} />{" "}{tr("studio.scheduleTab.text.closedTimes")}
             </label>
             <div className="grow" />
-            <span className="small muted">Times shown in {offsetLabel(off)}</span>
+            <span className="small muted">{tr("studio.scheduleTab.text.timesShownIn", { off: offsetLabel(off) })}</span>
           </div>
           <div className="legend">
-            <span className="legend-item"><span className="swatch" style={{ background: "var(--bar)" }} /> Scheduled</span>
-            <span className="legend-item"><span className="swatch" style={{ background: "var(--bar-crit)", outline: "1.5px solid var(--text)" }} /> <Term k="critical_chain">Critical chain</Term></span>
-            <span className="legend-item"><span className="swatch" style={{ background: "repeating-linear-gradient(45deg, var(--warn) 0 3px, #fff8 3px 5px)" }} /> Late</span>
-            <span className="legend-item"><span className="swatch" style={{ border: "1.5px dashed var(--danger)" }} /> Rule broken</span>
+            <span className="legend-item"><span className="swatch" style={{ background: "var(--bar)" }} />{" "}{tr("studio.scheduleTab.text.scheduled")}</span>
+            <span className="legend-item"><span className="swatch" style={{ background: "var(--bar-crit)", outline: "1.5px solid var(--text)" }} /> <Term k="critical_chain">{tr("studio.scheduleTab.text.criticalChain")}</Term></span>
+            <span className="legend-item"><span className="swatch" style={{ background: "repeating-linear-gradient(45deg, var(--warn) 0 3px, #fff8 3px 5px)" }} />{" "}{tr("studio.scheduleTab.text.late")}</span>
+            <span className="legend-item"><span className="swatch" style={{ border: "1.5px dashed var(--danger)" }} />{" "}{tr("studio.scheduleTab.text.ruleBroken")}</span>
             <span className="legend-item"><span style={{ color: "var(--warn)" }}>◆</span> {terms.deadline} <Term k="soft_deadline" bare /></span>
-            <span className="legend-item"><span style={{ color: "var(--danger)" }}>◆</span> Hard {terms.deadlineL} <Term k="hard_deadline" bare /></span>
-            <span className="legend-item"><span className="swatch" style={{ background: "var(--shade)" }} /> Closed</span>
+            <span className="legend-item"><span style={{ color: "var(--danger)" }}>◆</span>{" "}{tr("studio.scheduleTab.text.hard", { deadlineL: terms.deadlineL })}{" "}<Term k="hard_deadline" bare /></span>
+            <span className="legend-item"><span className="swatch" style={{ background: "var(--shade)" }} />{" "}{tr("studio.scheduleTab.text.closed")}</span>
             {draft.tasks.some((t) => t.duration_estimate && t.type !== "milestone") ? (
-              <span className="legend-item"><span aria-hidden style={{ color: "var(--text-muted)", letterSpacing: -1 }}>- - -|</span> Could take up to its longest estimate <Term k="duration_range" bare /></span>
+              <span className="legend-item"><span aria-hidden style={{ color: "var(--text-muted)", letterSpacing: -1 }}>- - -|</span>{" "}{tr("studio.scheduleTab.text.couldTakeUpToIts")}{" "}<Term k="duration_range" bare /></span>
             ) : null}
           </div>
           {schedule.placements.length ? (
@@ -329,7 +329,7 @@ export function ScheduleTab() {
               onSelect={setSelected}
             />
           ) : (
-            <div className="card empty">This {terms.scheduleL} has no placed {terms.tasksL}.</div>
+            <div className="card empty">{tr("studio.scheduleTab.text.thisHasNoPlaced", { scheduleL: terms.scheduleL, tasksL: terms.tasksL })}</div>
           )}
         </>
       ) : null}
@@ -351,21 +351,21 @@ export function ScheduleTab() {
 
       {confirm && schedule ? (
         <ConfirmDialog
-          title={`Approve this ${terms.scheduleL}?`}
+          title={tr("studio.scheduleTab.tpl.approveThis", { scheduleL: terms.scheduleL })}
           confirmLabel={t("studio.scheduleTab.btn.approve")}
           busy={approving}
           onCancel={() => setConfirm(false)}
           onConfirm={doApprove}
         >
           <p style={{ margin: 0 }}>
-            “{schedule.label}” becomes the {terms.scheduleL} in effect.
+            {tr("studio.scheduleTab.text.becomesTheInEffect", { label: schedule.label, scheduleL: terms.scheduleL })}
           </p>
           {approved && approved.id !== schedule.id ? (
             <p style={{ margin: 0 }}>
-              It replaces the currently approved “{approved.label}” from {fmtLocal(approved.approved_at)}, which will be marked as superseded.
+              {tr("studio.scheduleTab.text.itReplacesTheCurrentlyApproved", { label: approved.label, approvedat: fmtLocal(approved.approved_at) })}
             </p>
           ) : null}
-          {stale ? <p className="small muted" style={{ margin: 0 }}>The plan changed since this {terms.scheduleL} was made; it will be re-checked first.</p> : null}
+          {stale ? <p className="small muted" style={{ margin: 0 }}>{tr("studio.scheduleTab.text.thePlanChangedSinceThis", { scheduleL: terms.scheduleL })}</p> : null}
         </ConfirmDialog>
       ) : null}
 

@@ -4,6 +4,7 @@ import { errorMessage, instantiateTemplate } from "../api/client";
 import type { TemplateInfo, TemplateParameter } from "../api/types";
 import { browserUtcOffset, todayDate } from "../lib/time";
 import { Icon, type IconName } from "./Icon";
+import { t as tr } from "../lib/i18n";
 
 const ICONS: Record<string, IconName> = {
   manufacturing: "factory",
@@ -24,15 +25,15 @@ function initialValue(p: TemplateParameter): ParamValue {
 function paramError(p: TemplateParameter, v: ParamValue): string | null {
   if (p.type === "int") {
     const n = v as number;
-    if (!Number.isFinite(n)) return `Enter a whole number${p.min !== null && p.max !== null ? ` from ${p.min} to ${p.max}` : ""}.`;
-    if (!Number.isInteger(n)) return "Enter a whole number.";
+    if (!Number.isFinite(n)) return tr("studio.templateCard.tpl.enterAWholeNumber", { v: p.min !== null && p.max !== null ? tr("studio.templateCard.tpl.fromTo", { min: p.min, max: p.max }) : "" });
+    if (!Number.isInteger(n)) return tr("studio.templateCard.str.enterAWholeNumber");
     if ((p.min !== null && n < p.min) || (p.max !== null && n > p.max))
-      return `${p.label} must be between ${p.min ?? "…"} and ${p.max ?? "…"}.`;
+      return tr("studio.templateCard.tpl.mustBeBetweenAnd", { label: p.label, v: p.min ?? "…", v2: p.max ?? "…" });
   }
   if (p.type === "string_list") {
     const n = (v as string[]).map((x) => x.trim()).filter(Boolean).length;
-    if (p.min !== null && n < p.min) return `Enter at least ${p.min} ${p.min === 1 ? "line" : "lines"}.`;
-    if (p.max !== null && n > p.max) return `Enter at most ${p.max} lines.`;
+    if (p.min !== null && n < p.min) return tr("studio.templateCard.tpl.enterAtLeast", { min: p.min, v: p.min === 1 ? "line" : "lines" });
+    if (p.max !== null && n > p.max) return tr("studio.templateCard.tpl.enterAtMostLines", { max: p.max });
   }
   return null;
 }
@@ -99,12 +100,12 @@ function ParamInput({
       ) : null}
       {p.type === "string_list" ? (
         <span id={`${id}-hint`} className="hint">
-          One per line
+          {tr("studio.templateCard.text.onePerLine")}
         </span>
       ) : null}
       {p.type === "int" && (p.min !== null || p.max !== null) ? (
         <span className="hint">
-          {p.min ?? "…"} to {p.max ?? "…"}
+          {tr("studio.templateCard.text.to", { v: p.min ?? "…", v2: p.max ?? "…" })}
         </span>
       ) : null}
       {p.help ? <span className="hint">{p.help}</span> : null}
@@ -114,7 +115,7 @@ function ParamInput({
 
 export function TemplateCard({ template }: { template: TemplateInfo }) {
   const navigate = useNavigate();
-  const [name, setName] = useState(template.id === "blank" ? "New plan" : template.name);
+  const [name, setName] = useState(template.id === "blank" ? tr("studio.templateCard.str.newPlan") : template.name);
   const [startDate, setStartDate] = useState(todayDate());
   const [values, setValues] = useState<Record<string, ParamValue>>(() =>
     Object.fromEntries(template.parameters.map((p) => [p.name, initialValue(p)])),
@@ -180,7 +181,7 @@ export function TemplateCard({ template }: { template: TemplateInfo }) {
           {template.description}
         </p>
         <div className="field">
-          <label htmlFor={`${idPrefix}-name`}>Plan name</label>
+          <label htmlFor={`${idPrefix}-name`}>{tr("studio.templateCard.text.planName")}</label>
           <input id={`${idPrefix}-name`} className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
         </div>
         <button
@@ -191,12 +192,12 @@ export function TemplateCard({ template }: { template: TemplateInfo }) {
           onClick={() => setOpen(!open)}
         >
           <Icon name={open ? "chevron-down" : "chevron-right"} />
-          Options
+          {tr("studio.templateCard.text.options")}
         </button>
         {open ? (
           <div className="col">
             <div className="field">
-              <label htmlFor={`${idPrefix}-start`}>Start date</label>
+              <label htmlFor={`${idPrefix}-start`}>{tr("studio.templateCard.text.startDate")}</label>
               <input id={`${idPrefix}-start`} className="input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             {template.parameters.map((p) => (
@@ -216,7 +217,7 @@ export function TemplateCard({ template }: { template: TemplateInfo }) {
           <div className="small error-summary field-error" role="alert" tabIndex={-1} ref={summaryRef} data-testid={`${idPrefix}-errors`}>
             <Icon name="alert" size={13} />
             <div>
-              Please fix {errors.length === 1 ? "this value" : "these values"} first:
+              {tr("studio.templateCard.text.pleaseFixFirst", { v: errors.length === 1 ? tr("studio.templateCard.str.thisValue") : tr("studio.templateCard.str.theseValues") })}
               <ul>
                 {errors.map(({ p, error }) => (
                   <li key={p.name}>
@@ -236,10 +237,10 @@ export function TemplateCard({ template }: { template: TemplateInfo }) {
         ) : null}
       </div>
       <div className="card-footer row between">
-        <span className="small faint">Times in your zone ({browserUtcOffset()})</span>
+        <span className="small faint">{tr("studio.templateCard.text.timesInYourZone", { browserUtcOffset: browserUtcOffset() })}</span>
         <button type="submit" className="btn primary" disabled={busy}>
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="plus" />}
-          Create plan
+          {tr("studio.templateCard.text.createPlan")}
         </button>
       </div>
     </form>

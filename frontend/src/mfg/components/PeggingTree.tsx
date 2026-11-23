@@ -47,12 +47,12 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
   const columns: Column<PeggingRow>[] = [
     {
       key: "item",
-      header: "Item / order",
+      header: t("mfg.peggingTree.str.itemOrder"),
       width: "minmax(320px, 2.4fr)",
       render: (r) => (
         <span className="mfg-tree-cell" style={{ paddingLeft: r.level * 18 }}>
           {hasKids.has(r.row) ? (
-            <button type="button" className="mfg-chevron" tabIndex={-1} aria-label={collapsed.has(r.row) ? "Expand" : "Collapse"} onClick={(e) => (e.stopPropagation(), toggle(r.row))}>
+            <button type="button" className="mfg-chevron" tabIndex={-1} aria-label={collapsed.has(r.row) ? t("mfg.peggingTree.str.expand") : t("mfg.peggingTree.str.collapse")} onClick={(e) => (e.stopPropagation(), toggle(r.row))}>
               <Icon name={collapsed.has(r.row) ? "chevron-right" : "chevron-down"} size={14} />
             </button>
           ) : (
@@ -63,15 +63,15 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
         </span>
       ),
     },
-    { key: "kind", header: "Kind", width: "130px", render: (r) => <span className="small mfg-ellipsis">{r.kind.replace(/_/g, " ")}</span> },
-    { key: "qty", header: "Pegged qty", width: "96px", align: "right", render: (r) => `${fmtNum(r.qty)} ${r.item.uom}` },
-    { key: "date", header: "Needed / available", width: "130px", render: (r) => fmtDate(r.date) },
-    { key: "proj", header: "Projected", width: "110px", render: (r) => fmtDate(r.projected_date) },
-    { key: "late", header: "Late", width: "90px", render: (r) => <LateBadge days={r.late_days} /> },
+    { key: "kind", header: t("mfg.peggingTree.str.kind"), width: "130px", render: (r) => <span className="small mfg-ellipsis">{r.kind.replace(/_/g, " ")}</span> },
+    { key: "qty", header: t("mfg.peggingTree.str.peggedQty"), width: "96px", align: "right", render: (r) => `${fmtNum(r.qty)} ${r.item.uom}` },
+    { key: "date", header: t("mfg.peggingTree.str.neededAvailable"), width: "130px", render: (r) => fmtDate(r.date) },
+    { key: "proj", header: t("mfg.peggingTree.str.projected"), width: "110px", render: (r) => fmtDate(r.projected_date) },
+    { key: "late", header: t("mfg.peggingTree.str.late"), width: "90px", render: (r) => <LateBadge days={r.late_days} /> },
     {
       key: "act",
-      header: <span className="sr-only">Actions</span>,
-      label: "Actions",
+      header: <span className="sr-only">{t("mfg.peggingTree.text.actions")}</span>,
+      label: t("mfg.peggingTree.str.actions"),
       width: "150px",
       render: (r) => (
         <span className="row" style={{ gap: 4 }}>
@@ -81,7 +81,7 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
             </Link>
           ) : null}
           {onPeg ? (
-            <button type="button" className="btn sm ghost" tabIndex={-1} onClick={(e) => (e.stopPropagation(), onPeg(r))} title="Peg from this row">
+            <button type="button" className="btn sm ghost" tabIndex={-1} onClick={(e) => (e.stopPropagation(), onPeg(r))} title={t("mfg.peggingTree.attr.pegFromThisRow")}>
               <Icon name="graph" />
             </button>
           ) : null}
@@ -112,7 +112,7 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
         return true;
       }}
       empty={t("mfg.peggingTree.empty.nothingIsPeggedToThis")}
-      footer={<span className="muted small">{t("common.nOfM", { n: visible.length.toLocaleString("en-IN"), m: rows.length.toLocaleString("en-IN") })} rows · Left/Right collapse and expand</span>}
+      footer={<span className="muted small">{t("mfg.peggingTree.text.rowsLeftRightCollapseAnd", { t: t("common.nOfM", { n: visible.length.toLocaleString("en-IN"), m: rows.length.toLocaleString("en-IN") }) })}</span>}
     />
   );
 }

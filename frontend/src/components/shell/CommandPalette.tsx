@@ -13,7 +13,7 @@ import { listDemandOrders, listPurchaseDocs, listWorkOrders } from "../../mfg/ap
 import { listSerials } from "../../mfg/api/clientM4";
 import { setDensity, setTheme, usePrefs } from "../../lib/prefs";
 import { closePalette, openShortcuts, useCommandState } from "./commands";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 interface Entry {
   id: string;
@@ -115,25 +115,25 @@ function PaletteDialog() {
 
   const staticEntries: Entry[] = useMemo(() => {
     const pages: Entry[] = [
-      { id: "p-sched", group: "Pages", label: "Scheduling plans", hint: "Scheduling", icon: "calendar", run: () => go("/") },
-      { id: "p-fin", group: "Pages", label: "Finance", hint: "Finance", icon: "briefcase", run: () => go("/finance") },
+      { id: "p-sched", group: tr("shell.commandPalette.str.pages"), label: tr("shell.commandPalette.str.schedulingPlans"), hint: tr("shell.commandPalette.str.scheduling"), icon: "calendar", run: () => go("/") },
+      { id: "p-fin", group: tr("shell.commandPalette.str.pages"), label: tr("shell.commandPalette.str.finance"), hint: tr("shell.commandPalette.str.finance"), icon: "briefcase", run: () => go("/finance") },
     ];
     for (const g of MFG_NAV)
       for (const s of g.sections)
-        pages.push({ id: `p-${s.key}`, group: "Pages", label: s.label, hint: `Manufacturing · ${g.label}`, icon: s.icon, keywords: s.keywords, run: () => go(s.to) });
-    pages.push({ id: "p-acct", group: "Pages", label: "Account", hint: "Your profile and tokens", icon: "user", run: () => go("/account") });
+        pages.push({ id: `p-${s.key}`, group: tr("shell.commandPalette.str.pages"), label: s.label, hint: tr("shell.commandPalette.tpl.manufacturing", { label: g.label }), icon: s.icon, keywords: s.keywords, run: () => go(s.to) });
+    pages.push({ id: "p-acct", group: tr("shell.commandPalette.str.pages"), label: tr("shell.commandPalette.str.account"), hint: tr("shell.commandPalette.str.yourProfileAndTokens"), icon: "user", run: () => go("/account") });
     const actions: Entry[] = [
-      { id: "a-wo", group: "Actions", label: "New work order", icon: "plus", keywords: "create", run: () => go(mfgPaths.workOrderNew()) },
-      { id: "a-po", group: "Actions", label: "New purchase order", icon: "plus", keywords: "create", run: () => go(mfgPaths.purchaseDocNew("po")) },
-      { id: "a-do", group: "Actions", label: "New demand order", icon: "plus", keywords: "create sales", run: () => go(mfgPaths.demandNew()) },
-      { id: "a-post", group: "Actions", label: "Post a stock movement", icon: "box", keywords: "receipt issue adjust", run: () => go(mfgPaths.post()) },
-      { id: "a-imp", group: "Actions", label: "Import from Excel or CSV", icon: "upload", run: () => go(mfgPaths.importStart()) },
+      { id: "a-wo", group: tr("shell.commandPalette.str.actions"), label: tr("shell.commandPalette.str.newWorkOrder"), icon: "plus", keywords: "create", run: () => go(mfgPaths.workOrderNew()) },
+      { id: "a-po", group: tr("shell.commandPalette.str.actions"), label: tr("shell.commandPalette.str.newPurchaseOrder"), icon: "plus", keywords: "create", run: () => go(mfgPaths.purchaseDocNew("po")) },
+      { id: "a-do", group: tr("shell.commandPalette.str.actions"), label: tr("shell.commandPalette.str.newDemandOrder"), icon: "plus", keywords: tr("shell.commandPalette.str.createSales"), run: () => go(mfgPaths.demandNew()) },
+      { id: "a-post", group: tr("shell.commandPalette.str.actions"), label: tr("shell.commandPalette.str.postAStockMovement"), icon: "box", keywords: tr("shell.commandPalette.str.receiptIssueAdjust"), run: () => go(mfgPaths.post()) },
+      { id: "a-imp", group: tr("shell.commandPalette.str.actions"), label: tr("shell.commandPalette.str.importFromExcelOrCsv"), icon: "upload", run: () => go(mfgPaths.importStart()) },
       {
         id: "a-theme",
-        group: "Actions",
-        label: prefs.resolved === "dark" ? "Switch to light theme" : "Switch to dark theme",
+        group: tr("shell.commandPalette.str.actions"),
+        label: prefs.resolved === "dark" ? tr("shell.commandPalette.str.switchToLightTheme") : tr("shell.commandPalette.str.switchToDarkTheme"),
         icon: prefs.resolved === "dark" ? "sun" : "moon",
-        keywords: "theme dark light appearance",
+        keywords: tr("shell.commandPalette.str.themeDarkLightAppearance"),
         run: () => {
           setTheme(prefs.resolved === "dark" ? "light" : "dark");
           closePalette();
@@ -141,16 +141,16 @@ function PaletteDialog() {
       },
       {
         id: "a-density",
-        group: "Actions",
-        label: prefs.density === "compact" ? "Use comfortable density" : "Use compact density",
+        group: tr("shell.commandPalette.str.actions"),
+        label: prefs.density === "compact" ? tr("shell.commandPalette.str.useComfortableDensity") : tr("shell.commandPalette.str.useCompactDensity"),
         icon: "columns",
-        keywords: "density rows spacing",
+        keywords: tr("shell.commandPalette.str.densityRowsSpacing"),
         run: () => {
           setDensity(prefs.density === "compact" ? "comfortable" : "compact");
           closePalette();
         },
       },
-      { id: "a-keys", group: "Actions", label: "Keyboard shortcuts", icon: "keyboard", keywords: "help keys", run: () => openShortcuts() },
+      { id: "a-keys", group: tr("shell.commandPalette.str.actions"), label: tr("shell.commandPalette.str.keyboardShortcuts"), icon: "keyboard", keywords: tr("shell.commandPalette.str.helpKeys"), run: () => openShortcuts() },
     ];
     return [...pages, ...actions];
   }, [go, prefs.resolved, prefs.density]);

@@ -1,21 +1,22 @@
 import { Icon, type IconName } from "../../components/Icon";
 import type { FinFeasibility, FinRunStatus, GoalStatus } from "../api/types";
+import { t } from "../../lib/i18n";
 
 type Tone = "ok" | "warn" | "danger" | "info" | "accent";
 export type FinPillKind = GoalStatus | FinFeasibility | FinRunStatus;
 
 const MAP: Record<FinPillKind, { label: string; tone: Tone; icon: IconName }> = {
-  on_track: { label: "On track", tone: "ok", icon: "check" },
-  at_risk: { label: "At risk", tone: "warn", icon: "alert" },
-  off_track: { label: "Off track", tone: "danger", icon: "x" },
-  feasible: { label: "Plan is valid", tone: "ok", icon: "check" },
-  infeasible: { label: "Not enough cash", tone: "danger", icon: "ban" },
-  unknown: { label: "Needs review", tone: "warn", icon: "help" },
-  queued: { label: "Queued", tone: "info", icon: "clock" },
-  running: { label: "Running", tone: "accent", icon: "loader" },
-  completed: { label: "Completed", tone: "ok", icon: "check" },
-  failed: { label: "Failed", tone: "danger", icon: "x" },
-  cancelled: { label: "Cancelled", tone: "info", icon: "stop" },
+  on_track: { label: t("finance.statusPill.str.onTrack"), tone: "ok", icon: "check" },
+  at_risk: { label: t("finance.statusPill.str.atRisk"), tone: "warn", icon: "alert" },
+  off_track: { label: t("finance.statusPill.str.offTrack"), tone: "danger", icon: "x" },
+  feasible: { label: t("finance.statusPill.str.planIsValid"), tone: "ok", icon: "check" },
+  infeasible: { label: t("finance.statusPill.str.notEnoughCash"), tone: "danger", icon: "ban" },
+  unknown: { label: t("finance.statusPill.str.needsReview"), tone: "warn", icon: "help" },
+  queued: { label: t("finance.statusPill.str.queued"), tone: "info", icon: "clock" },
+  running: { label: t("finance.statusPill.str.running"), tone: "accent", icon: "loader" },
+  completed: { label: t("finance.statusPill.str.completed"), tone: "ok", icon: "check" },
+  failed: { label: t("finance.statusPill.str.failed"), tone: "danger", icon: "x" },
+  cancelled: { label: t("finance.statusPill.str.cancelled"), tone: "info", icon: "stop" },
 };
 
 /** Status is always icon + text, never color alone. */

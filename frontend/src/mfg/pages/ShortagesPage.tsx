@@ -42,7 +42,7 @@ export function ShortagesPage() {
             </select>
           </div>
           <button type="button" className="btn" onClick={d.reload} disabled={d.loading}>
-            {d.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Refresh
+            {d.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />}{" "}{t("mfg.shortagesPage.text.refresh")}
           </button>
           </>
         }
@@ -53,26 +53,26 @@ export function ShortagesPage() {
         <>
           {s.run ? (
             <p className="small muted" style={{ margin: 0 }}>
-              Late demand and short parts from <Link to={mfgPaths.run(s.run.id)}>{t("common.mrpRunNo", { n: s.run.run_no })}</Link> (as of {fmtDate(s.run.as_of)})
+              {t("mfg.shortagesPage.text.lateDemandAndShortParts")}{" "}<Link to={mfgPaths.run(s.run.id)}>{t("common.mrpRunNo", { n: s.run.run_no })}</Link>{" "}{t("mfg.shortagesPage.text.asOf", { asof: fmtDate(s.run.as_of) })}
               {stale ? (
                 <span className="badge warn" style={{ marginLeft: 6 }}>
                   <Icon name="clock" /> {t("mfg.shortagesPage.btn.dataChangedSince")}
                 </span>
               ) : null}
-              ; deliveries and work orders are live.
+              {t("mfg.shortagesPage.text.deliveriesAndWorkOrdersAre")}
             </p>
           ) : (
             <Banner tone="info" title={t("mfg.shortagesPage.title.noMrpRunYet")}>
-              Late demand and short parts appear after the first <Link to={mfgPaths.mrp()}>MRP run</Link>. Deliveries and work orders below are live.
+              {t("mfg.shortagesPage.text.lateDemandAndShortParts2")}{" "}<Link to={mfgPaths.mrp()}>{t("mfg.shortagesPage.text.mrpRun")}</Link>. Deliveries and work orders below are live.
             </Banner>
           )}
           <div className="kpis">
             {(
               [
-                ["late_demand", "Late demand lines", "demand"],
-                ["short_items", "Parts short", "items"],
-                ["overdue_schedules", "Overdue deliveries", "supply"],
-                ["wo_short", "Parts missing for work orders", "wo"],
+                ["late_demand", t("mfg.shortagesPage.str.lateDemandLines"), "demand"],
+                ["short_items", t("mfg.shortagesPage.str.partsShort"), "items"],
+                ["overdue_schedules", t("mfg.shortagesPage.str.overdueDeliveries"), "supply"],
+                ["wo_short", t("mfg.shortagesPage.str.partsMissingForWorkOrders"), "wo"],
               ] as const
             ).map(([k, label, panel]) => (
               <a key={k} href={`#panel-${panel}`} className="card kpi mfg-kpi" data-testid={`shortage-count-${panel}`}>
@@ -114,7 +114,7 @@ export function ShortagesPage() {
                         <Icon name="alert" /> {x.late_days} d late
                       </span>
                       <span className="small muted">
-                        due {fmtDate(x.due_date)}, projected {fmtDate(x.projected_date)}
+                        {t("mfg.shortagesPage.text.dueProjected", { duedate: fmtDate(x.due_date), projecteddate: fmtDate(x.projected_date) })}
                       </span>
                     </div>
                     <LimitingPath steps={x.limiting} runId={s.run?.id} />
@@ -205,7 +205,7 @@ export function ShortagesPage() {
             </section>
           </div>
           <div id="panel-wo">
-            <ItemsShortTable rows={s.wo_shortages} testId="shortage-panel-wo" title="Parts missing for work orders" />
+            <ItemsShortTable rows={s.wo_shortages} testId="shortage-panel-wo" title={t("mfg.shortagesPage.attr.partsMissingForWorkOrders")} />
           </div>
         </>
       ) : null}

@@ -20,12 +20,12 @@ import { useResourceNames } from "../../lib/resourceNames";
 import { useLoad } from "../../lib/useMfg";
 import { orderLink } from "./ApsOrdersTab";
 import { useApsRun } from "./ApsRunShell";
-import { t as tr, t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 const STATUS: Record<OvertimeWindow["status"], { label: string; tone: string; icon: "check" | "help" | "lock" }> = {
-  opened: { label: "Opened by the scheduler", tone: "warn", icon: "check" },
-  suggested: { label: "Suggested", tone: "info", icon: "help" },
-  forced: { label: "Opened by you", tone: "accent", icon: "lock" },
+  opened: { label: tr("mfg.apsOvertimeTab.str.openedByTheScheduler"), tone: "warn", icon: "check" },
+  suggested: { label: tr("mfg.apsOvertimeTab.str.suggested"), tone: "info", icon: "help" },
+  forced: { label: tr("mfg.apsOvertimeTab.str.openedByYou"), tone: "accent", icon: "lock" },
 };
 
 const keyOf = (w: OvertimeWindow) => w.assignment_id ? `${w.assignment_id}:${w.start}` : `${w.line_id}:${w.start}`;
@@ -74,15 +74,15 @@ export function ApsOvertimeTab() {
       {t ? (
         <div className="kpis">
           <div className="card kpi">
-            <div className="kpi-label">Overtime used</div>
+            <div className="kpi-label">{tr("mfg.apsOvertimeTab.text.overtimeUsed")}</div>
             <div className="kpi-value">{fmtDuration(t.opened_minutes) || "none"}</div>
-            <div className="kpi-sub">cost {fmtNum(Math.round(t.opened_cost))}</div>
+            <div className="kpi-sub">{tr("mfg.apsOvertimeTab.text.cost", { fmtNum: fmtNum(Math.round(t.opened_cost)) })}</div>
           </div>
           <div className="card kpi">
-            <div className="kpi-label">Overtime suggested</div>
+            <div className="kpi-label">{tr("mfg.apsOvertimeTab.text.overtimeSuggested")}</div>
             <div className="kpi-value">{fmtDuration(t.suggested_minutes) || "none"}</div>
             <div className="kpi-sub">
-              cost {fmtNum(Math.round(t.suggested_cost))} · saves {fmtDuration(t.tardiness_saved_minutes) || "0"} weighted lateness
+              {tr("mfg.apsOvertimeTab.text.costSavesWeightedLateness", { fmtNum: fmtNum(Math.round(t.suggested_cost)), v: fmtDuration(t.tardiness_saved_minutes) || "0" })}
             </div>
           </div>
         </div>
@@ -90,14 +90,14 @@ export function ApsOvertimeTab() {
 
       {policy === "off" ? (
         <Banner tone="info" title={tr("mfg.apsOvertimeTab.title.thisRunUsedRegularShifts")}>
-          Nothing was opened or suggested. Run with "Suggest overtime" to see which extra shifts would help.
+          {tr("mfg.apsOvertimeTab.text.nothingWasOpenedOrSuggested")}
         </Banner>
       ) : null}
 
       {ot.data && (opened.length || policy === "allow") ? (
         <section className="card" data-testid="overtime-opened">
           <div className="card-header">
-            <h3>Extra shifts {policy === "allow" ? "opened by the scheduler" : "in this plan"} ({opened.length})</h3>
+            <h3>{tr("mfg.apsOvertimeTab.text.extraShifts", { v: policy === "allow" ? tr("mfg.apsOvertimeTab.str.openedByTheScheduler2") : tr("mfg.apsOvertimeTab.str.inThisPlan"), length: opened.length })}</h3>
           </div>
           <OtTable rows={opened} clock={clock} mode="opened" runId={run.id} />
         </section>
@@ -106,11 +106,11 @@ export function ApsOvertimeTab() {
       {policy === "suggest" && ot.data ? (
         <section className="card" data-testid="overtime-suggested">
           <div className="card-header">
-            <h3>Suggested extra shifts ({suggested.length})</h3>
-            <span className="muted small">Best saving per cost first</span>
+            <h3>{tr("mfg.apsOvertimeTab.text.suggestedExtraShifts", { length: suggested.length })}</h3>
+            <span className="muted small">{tr("mfg.apsOvertimeTab.text.bestSavingPerCostFirst")}</span>
           </div>
           {suggested.length === 0 ? (
-            <div className="card-body muted">No extra shift would reduce lateness.</div>
+            <div className="card-body muted">{tr("mfg.apsOvertimeTab.text.noExtraShiftWouldReduce")}</div>
           ) : (
             <OtTable
               runId={run.id}
@@ -133,13 +133,13 @@ export function ApsOvertimeTab() {
           {suggested.length ? (
             <div className="card-footer row wrap">
               <button type="button" className="btn primary" disabled={!canRun || busy || acceptedRows.length === 0} title={canRun ? undefined : needsText("schedule_run")} onClick={() => void rerunAccepted()} data-testid="overtime-rerun-accepted">
-                {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} Re-run with these opened ({acceptedRows.length})
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />}{" "}{tr("mfg.apsOvertimeTab.text.reRunWithTheseOpened", { length: acceptedRows.length })}
               </button>
               <button type="button" className="btn ghost" disabled={!canRun} onClick={() => setAccepted(new Set(suggested.map(keyOf)))}>
                 {tr("mfg.apsOvertimeTab.btn.acceptAll")}
               </button>
               <span className="faint small">
-                Creates a new run with exactly the accepted shifts opened, then compares it with this one. Either run can be published.
+                {tr("mfg.apsOvertimeTab.text.createsANewRunWith")}
               </span>
             </div>
           ) : null}
@@ -172,12 +172,12 @@ function OtTable({
       <table className="table">
         <thead>
           <tr>
-            {mode === "suggested" ? <th>Accept</th> : null}
+            {mode === "suggested" ? <th>{tr("mfg.apsOvertimeTab.text.accept")}</th> : null}
             <th>{t("mfg.apsOvertimeTab.head.line")}</th>
             <th>{t("mfg.apsOvertimeTab.head.when")}</th>
             <th className="right">{t("mfg.apsOvertimeTab.head.hours")}</th>
             <th className="right">{t("mfg.apsOvertimeTab.head.cost")}</th>
-            <th>{mode === "suggested" ? "Lateness saved" : "Why"}</th>
+            <th>{mode === "suggested" ? tr("mfg.apsOvertimeTab.str.latenessSaved") : tr("mfg.apsOvertimeTab.str.why")}</th>
             <th>{t("mfg.apsOvertimeTab.head.status")}</th>
           </tr>
         </thead>
@@ -185,7 +185,7 @@ function OtTable({
           {rows.length === 0 ? (
             <tr>
               <td colSpan={mode === "suggested" ? 7 : 6} className="muted">
-                None: no work would otherwise be late.
+                {tr("mfg.apsOvertimeTab.text.noneNoWorkWouldOtherwise")}
               </td>
             </tr>
           ) : null}
@@ -196,7 +196,7 @@ function OtTable({
               <tr key={k} data-testid="overtime-row" data-status={w.status} data-line={names.line(w.line_id).code} data-saved={w.tardiness_saved_minutes ?? ""}>
                 {mode === "suggested" ? (
                   <td>
-                    <input type="checkbox" checked={accepted?.has(k) ?? false} disabled={!canAccept} onChange={() => onToggle?.(w)} aria-label={`Accept extra shift on ${names.line(w.line_id).code} ${clock.dateTime(w.start)}`} data-testid="overtime-accept" />
+                    <input type="checkbox" checked={accepted?.has(k) ?? false} disabled={!canAccept} onChange={() => onToggle?.(w)} aria-label={tr("mfg.apsOvertimeTab.tpl.acceptExtraShiftOn", { code: names.line(w.line_id).code, start: clock.dateTime(w.start) })} data-testid="overtime-accept" />
                   </td>
                 ) : null}
                 <td className="mono">
@@ -215,7 +215,7 @@ function OtTable({
                       {w.reason}
                     </div>
                   ) : mode === "opened" ? (
-                    <div>{w.status === "forced" ? "Opened by you." : "Opened for work that would otherwise be late."}</div>
+                    <div>{w.status === "forced" ? tr("mfg.apsOvertimeTab.str.openedByYou2") : tr("mfg.apsOvertimeTab.str.openedForWorkThatWould")}</div>
                   ) : null}
                   {w.orders?.length ? (
                     <ul className="mfg-ot-orders" data-testid="overtime-orders">
@@ -225,8 +225,7 @@ function OtTable({
                             {o.order.number}
                           </Link>{" "}
                           <span className="faint">
-                            {fmtDuration(o.minutes)} in this shift{o.op_nos.length ? ` (op ${o.op_nos.join(", ")})` : ""}
-                            {o.late_minutes > 0 ? ` · ${fmtDuration(o.late_minutes)} late` : ""}
+                            {tr("mfg.apsOvertimeTab.text.inThisShift", { minutes: fmtDuration(o.minutes), v: o.op_nos.length ? ` (op ${o.op_nos.join(", ")})` : "", v2: o.late_minutes > 0 ? ` · ${fmtDuration(o.late_minutes)} late` : "" })}
                           </span>
                         </li>
                       ))}

@@ -14,14 +14,14 @@ import { ConflictBanner, MfgError, SaveState, Spinner } from "../components/Feed
 import { Field, numOr, SelectField, TextField } from "../components/Field";
 import { PermissionGate } from "../components/PermissionGate";
 import { isConflict, useLoad, useMeta, usePlant } from "../lib/useMfg";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 const OFFSET = /^[+-](0\d|1[0-4]):[0-5]\d$/;
 
 const REPLAN_HELP: Record<ReplanPolicy, string> = {
-  notify: "Changes are listed under Replanning; you decide when to make a new schedule.",
-  auto_whatif: "A new schedule is prepared after a line stops, a delivery is late, and so on. You compare and publish it.",
-  auto_publish: "As above, and published only when it breaks no rules, keeps the frozen work and is not later than the current plan.",
+  notify: tr("mfg.plantSettingsPage.str.changesAreListedUnderReplanning"),
+  auto_whatif: tr("mfg.plantSettingsPage.str.aNewScheduleIsPrepared"),
+  auto_publish: tr("mfg.plantSettingsPage.str.asAboveAndPublishedOnly"),
 };
 
 export function PlantSettingsPage() {
@@ -129,7 +129,7 @@ export function PlantSettingsPage() {
   const body: PlantInput & PlantM2Fields & PlantM3Fields & PlantM4Fields = {
     ...m3Body,
     ...m4Body,
-    name: f.name.trim() || "Plant",
+    name: f.name.trim() || tr("mfg.plantSettingsPage.str.plant"),
     utc_offset: f.utc_offset.trim(),
     planning_horizon_days: numOr(f.horizon, 90),
     currency: f.currency.trim(),
@@ -183,9 +183,9 @@ export function PlantSettingsPage() {
           <SaveState busy={false} saved={saved} />
         </div>
         <div className="card-body col">
-          {conflict ? <ConflictBanner onReload={() => void getPlant().then(reset, setError)} what="the plant settings" /> : null}
-          <MfgError error={error} title="Could not save" />
-          {base.id === null ? <p className="muted small" style={{ margin: 0 }}>Default settings; nothing is stored until you save.</p> : null}
+          {conflict ? <ConflictBanner onReload={() => void getPlant().then(reset, setError)} what={tr("mfg.plantSettingsPage.attr.thePlantSettings")} /> : null}
+          <MfgError error={error} title={tr("mfg.plantSettingsPage.attr.couldNotSave")} />
+          {base.id === null ? <p className="muted small" style={{ margin: 0 }}>{tr("mfg.plantSettingsPage.text.defaultSettingsNothingIsStored")}</p> : null}
           <TextField label={t("mfg.plantSettingsPage.label.plantName")} value={f.name} onChange={(v) => setF({ ...f, name: v })} testId="plant-name" />
           <div className="form-grid">
             <TextField
@@ -194,7 +194,7 @@ export function PlantSettingsPage() {
               value={f.utc_offset}
               onChange={(v) => setF({ ...f, utc_offset: v })}
               placeholder="+05:30"
-              hint={OFFSET.test(f.utc_offset.trim()) ? "Shift times, holidays and dates use this offset (no daylight saving)." : "Use the form +05:30 or -04:00."}
+              hint={OFFSET.test(f.utc_offset.trim()) ? tr("mfg.plantSettingsPage.str.shiftTimesHolidaysAndDates") : tr("mfg.plantSettingsPage.str.useTheForm0530")}
               testId="plant-offset"
             />
             <TextField label={t("mfg.plantSettingsPage.label.planningHorizonDays")} type="number" value={f.horizon} onChange={(v) => setF({ ...f, horizon: v })} hint={t("mfg.plantSettingsPage.hint.7To730UsedBy")} testId="plant-horizon" />
@@ -221,7 +221,7 @@ export function PlantSettingsPage() {
                       <option key={z} value={z} />
                     ))}
                   </datalist>
-                  <span className="hint">{tzBad ? "Choose a zone from the list." : "With a zone, daylight saving is handled and the offset above is only shown. Empty = use the fixed offset."}</span>
+                  <span className="hint">{tzBad ? tr("mfg.plantSettingsPage.str.chooseAZoneFromThe") : tr("mfg.plantSettingsPage.str.withAZoneDaylightSaving")}</span>
                 </div>
                 <TextField label={t("mfg.plantSettingsPage.label.freezeWindowHours")} type="number" value={f.freeze} onChange={(v) => setF({ ...f, freeze: v })} hint={t("mfg.plantSettingsPage.hint.0To336PublishedOperations")} testId="plant-aps-freeze" />
                 <TextField label={t("mfg.plantSettingsPage.label.scheduleHorizonDays")} type="number" value={f.apsHorizon} onChange={(v) => setF({ ...f, apsHorizon: v })} hint={t("mfg.plantSettingsPage.hint.7To120DefaultOf")} testId="plant-aps-horizon" />
@@ -246,9 +246,9 @@ export function PlantSettingsPage() {
                 <div className="field">
                   <label htmlFor="plant-replan">{t("mfg.plantSettingsPage.label.whenTheFloorOrSupply")}</label>
                   <select id="plant-replan" className="select" value={f.replanPolicy} onChange={(e) => setF({ ...f, replanPolicy: e.target.value as ReplanPolicy })} data-testid="plant-replan-policy">
-                    <option value="notify">Notify the planner (recommended)</option>
-                    <option value="auto_whatif">Prepare a new schedule automatically</option>
-                    <option value="auto_publish">Prepare and publish automatically when safe</option>
+                    <option value="notify">{tr("mfg.plantSettingsPage.text.notifyThePlannerRecommended")}</option>
+                    <option value="auto_whatif">{tr("mfg.plantSettingsPage.text.prepareANewScheduleAutomatically")}</option>
+                    <option value="auto_publish">{tr("mfg.plantSettingsPage.text.prepareAndPublishAutomaticallyWhen")}</option>
                   </select>
                   <span className="hint">{REPLAN_HELP[f.replanPolicy]}</span>
                 </div>
@@ -287,7 +287,7 @@ export function PlantSettingsPage() {
                   </div>
                 )}
               </Field>
-              {f.workdays.length === 0 ? <span className="field-error">Choose at least one working day.</span> : null}
+              {f.workdays.length === 0 ? <span className="field-error">{tr("mfg.plantSettingsPage.text.chooseAtLeastOneWorking")}</span> : null}
               <div className="form-grid">
                 <TextField
                   label={t("mfg.plantSettingsPage.label.routingMinutesPerWorkingDay")}
@@ -327,7 +327,7 @@ export function PlantSettingsPage() {
           <div className="row">
             <PermissionGate perm="master_edit" mode="disable">
               <button type="submit" className="btn primary" disabled={busy || invalid} data-testid="plant-save">
-                {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save settings
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{tr("mfg.plantSettingsPage.text.saveSettings")}
               </button>
             </PermissionGate>
           </div>

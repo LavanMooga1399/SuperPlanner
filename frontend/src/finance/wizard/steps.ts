@@ -1,15 +1,16 @@
 import type { FinanceIssue } from "../api/types";
+import { t } from "../../lib/i18n";
 
 export type StepKey = "profile" | "income" | "debts" | "savings" | "goals" | "assumptions" | "review";
 
 export const STEPS: { key: StepKey; label: string }[] = [
-  { key: "profile", label: "Profile" },
-  { key: "income", label: "Income & expenses" },
-  { key: "debts", label: "Debts" },
-  { key: "savings", label: "Savings & holdings" },
-  { key: "goals", label: "Goals" },
-  { key: "assumptions", label: "Risk & assumptions" },
-  { key: "review", label: "Review" },
+  { key: "profile", label: t("finance.steps.str.profile") },
+  { key: "income", label: t("finance.steps.str.incomeExpenses") },
+  { key: "debts", label: t("finance.steps.str.debts") },
+  { key: "savings", label: t("finance.steps.str.savingsHoldings") },
+  { key: "goals", label: t("finance.steps.str.goals") },
+  { key: "assumptions", label: t("finance.steps.str.riskAssumptions") },
+  { key: "review", label: t("finance.steps.str.review") },
 ];
 
 export const isStep = (s: string | undefined): s is StepKey => STEPS.some((x) => x.key === s);

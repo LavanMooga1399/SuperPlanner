@@ -34,7 +34,7 @@ import { AnswerText, CitationList, QuickView } from "./AnswerText";
 import { DraftCardView } from "./DraftCardView";
 import { aiCodeText, budgetText, contextFromPath, isLastingCode, LATE_CONTEXTS, stepView, SUGGESTED_QUESTIONS } from "./assistantText";
 import { formatDate } from "../../lib/locale";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 const FINAL = new Set(["completed", "failed", "cancelled"]);
 const convKey = () => `sp.asst.conversation.${currentWorkspace() ?? "own"}`;
@@ -65,10 +65,10 @@ export function aiErrorCode(e: unknown): string | null {
 }
 
 function turnError(t: AssistantTurn): { code: string | null; text: string } | null {
-  if (t.status === "cancelled") return { code: null, text: "Stopped." };
+  if (t.status === "cancelled") return { code: null, text: tr("assistant.assistantPanel.str.stopped") };
   if (t.status !== "failed") return null;
   const code = t.error?.code ?? null;
-  return { code, text: t.error?.message || aiCodeText(code, "The question could not be answered.") };
+  return { code, text: t.error?.message || aiCodeText(code, tr("assistant.assistantPanel.str.theQuestionCouldNotBe")) };
 }
 
 // ---------------------------------------------------------------- quick explanations
@@ -91,7 +91,7 @@ function QuickExplanations({ context, onNavigate }: { context: ReturnType<typeof
   return (
     <section className="asst-section" aria-labelledby="asst-quick-h" data-testid="asst-quick">
       <h3 id="asst-quick-h" className="asst-h">
-        Quick explanations <span className="muted small">(built in, nothing leaves the plant)</span>
+        {tr("assistant.assistantPanel.text.quickExplanations")}{" "}<span className="muted small">{tr("assistant.assistantPanel.text.builtInNothingLeavesThe")}</span>
       </h3>
       <div className="row wrap" style={{ gap: 6 }}>
         {late ? (
@@ -106,11 +106,11 @@ function QuickExplanations({ context, onNavigate }: { context: ReturnType<typeof
           <Icon name="refresh" /> {t("assistant.assistantPanel.btn.whatChanged")}
         </button>
       </div>
-      {!late ? <p className="muted small" style={{ margin: 0 }}>Open a demand order or work order for "Why late?".</p> : null}
+      {!late ? <p className="muted small" style={{ margin: 0 }}>{tr("assistant.assistantPanel.text.openADemandOrderOr")}</p> : null}
       <div aria-live="polite">
         {res?.busy ? (
           <p className="muted small" role="status">
-            <span className="spinner" aria-hidden /> Looking it up…
+            <span className="spinner" aria-hidden />{" "}{tr("assistant.assistantPanel.text.lookingItUp")}
           </p>
         ) : null}
         {res?.error ? (
@@ -138,13 +138,13 @@ function TurnView({ turn, onNavigate, onStop }: { turn: AssistantTurn; onNavigat
   return (
     <li className="asst-turn" data-testid="asst-turn" data-status={turn.status}>
       <div className="asst-q">
-        <span className="sr-only">You asked: </span>
+        <span className="sr-only">{tr("assistant.assistantPanel.text.youAsked")}{" "}</span>
         {turn.user_text}
       </div>
       {running ? (
         <div className="asst-progress" role="status" aria-live="polite" data-testid="asst-progress">
           <ol className="asst-steps">
-            {steps.length === 0 ? <li>Waiting for a free slot…</li> : null}
+            {steps.length === 0 ? <li>{tr("assistant.assistantPanel.text.waitingForAFreeSlot")}</li> : null}
             {steps.map((s, i) => (
               <li key={i} data-kind={s.kind}>
                 <Icon name={i === steps.length - 1 ? "loader" : "check"} size={12} /> {s.text}
@@ -159,7 +159,7 @@ function TurnView({ turn, onNavigate, onStop }: { turn: AssistantTurn; onNavigat
         </div>
       ) : steps.length ? (
         <details className="asst-steps-done">
-          <summary className="muted small">How this was found ({steps.length} steps)</summary>
+          <summary className="muted small">{tr("assistant.assistantPanel.text.howThisWasFoundSteps", { length: steps.length })}</summary>
           <ol className="asst-steps">
             {steps.map((s, i) => (
               <li key={i} data-kind={s.kind}>
@@ -173,7 +173,7 @@ function TurnView({ turn, onNavigate, onStop }: { turn: AssistantTurn; onNavigat
         <p className={`asst-msg ${turn.status === "failed" ? "danger" : ""}`} role={turn.status === "failed" ? "alert" : "status"} data-testid="asst-turn-error">
           <Icon name={turn.status === "failed" ? "alert" : "stop"} size={14} /> {err.text}
           {err.code ? <span className="chip mono" style={{ marginLeft: 6 }}>{err.code}</span> : null}
-          {turn.status === "failed" ? <span className="muted small"> The quick explanations above still work.</span> : null}
+          {turn.status === "failed" ? <span className="muted small">{" "}{tr("assistant.assistantPanel.text.theQuickExplanationsAboveStill")}</span> : null}
         </p>
       ) : null}
       {turn.answer ? (
@@ -187,7 +187,7 @@ function TurnView({ turn, onNavigate, onStop }: { turn: AssistantTurn; onNavigat
       ) : null}
       {(turn.drafts ?? []).length ? (
         <div className="col" style={{ gap: 8 }} data-testid="asst-drafts">
-          <span className="small muted">Suggested actions (nothing is changed until you apply one):</span>
+          <span className="small muted">{tr("assistant.assistantPanel.text.suggestedActionsNothingIsChanged")}</span>
           {turn.drafts.map((d) => (
             <DraftCardView key={d.draft_id} draft={d} />
           ))}
@@ -386,7 +386,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
     <div className="col" style={{ gap: 10 }} data-testid="asst-ask">
       {turns.length === 0 ? (
         <div className="col" style={{ gap: 6 }}>
-          <span className="muted small">For example:</span>
+          <span className="muted small">{tr("assistant.assistantPanel.text.forExample")}</span>
           {SUGGESTED_QUESTIONS.map((q) => (
             <button key={q} type="button" className="btn ghost sm asst-suggest" onClick={() => void send(q)} disabled={busy || Boolean(running)}>
               {q}
@@ -416,7 +416,7 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
         }}
       >
         <label htmlFor="asst-input" className="small" style={{ fontWeight: 600 }}>
-          Ask about your plan
+          {tr("assistant.assistantPanel.text.askAboutYourPlan")}
         </label>
         <textarea
           id="asst-input"
@@ -436,12 +436,12 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
         />
         {context ? (
           <label className="checkbox small">
-            <input type="checkbox" checked={sendCtx} onChange={(e) => setSendCtx(e.target.checked)} data-testid="asst-context" /> Ask about {context.label}
+            <input type="checkbox" checked={sendCtx} onChange={(e) => setSendCtx(e.target.checked)} data-testid="asst-context" />{" "}{tr("assistant.assistantPanel.text.askAbout", { label: context.label })}
           </label>
         ) : null}
         <div className="row wrap" style={{ gap: 8, justifyContent: "space-between" }}>
           <button type="submit" className="btn primary sm" disabled={busy || Boolean(running) || !text.trim()} data-testid="asst-send">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />} Ask
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />}{" "}{tr("assistant.assistantPanel.text.ask")}
           </button>
           {budget ? <span className="muted small" data-testid="asst-budget">{budget}</span> : null}
         </div>
@@ -459,12 +459,12 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
               onChange={(e) => setWhatif(e.target.checked)}
               data-testid="asst-whatif"
             />
-            Let the assistant try what-if plans
+            {tr("assistant.assistantPanel.text.letTheAssistantTryWhat")}
           </label>
           <span className="muted small">
             {whatifAllowed
-              ? "It may start what-if MRP or schedule runs to answer with numbers. They are never live and cannot be published. Off by default."
-              : "This plant does not allow what-if runs by the assistant."}
+              ? tr("assistant.assistantPanel.str.itMayStartWhatIf")
+              : tr("assistant.assistantPanel.str.thisPlantDoesNotAllow")}
           </span>
           <div className="row wrap" style={{ gap: 6 }}>
             <button type="button" className="btn sm" onClick={newConversation} disabled={Boolean(running)} data-testid="asst-new">
@@ -482,13 +482,13 @@ function Ask({ status, reloadStatus, onNavigate }: { status: AssistantStatus; re
                 {history.map((c) => (
                   <li key={c.id} className="row" style={{ justifyContent: "space-between", gap: 6 }}>
                     <button type="button" className="btn link" onClick={() => { writeSession(convKey(), c.id); setConvId(c.id); }}>
-                      {c.title || "Untitled"}
+                      {c.title || tr("assistant.assistantPanel.str.untitled")}
                     </button>
                     <span className="muted small">{formatDate(c.updated_at)}</span>
                     <button
                       type="button"
                       className="btn ghost icon sm"
-                      aria-label={`Delete conversation ${c.title}`}
+                      aria-label={tr("assistant.assistantPanel.tpl.deleteConversation", { title: c.title })}
                       onClick={() =>
                         void deleteConversation(c.id).then(() => {
                           setHistory((h) => (h ?? []).filter((x) => x.id !== c.id));
@@ -523,13 +523,13 @@ export function AssistantBody({ onNavigate }: { onNavigate?: () => void }) {
       <QuickExplanations context={context} onNavigate={onNavigate} />
       <section className="asst-section" aria-labelledby="asst-ask-h">
         <h3 id="asst-ask-h" className="asst-h">
-          Ask the assistant
+          {tr("assistant.assistantPanel.text.askTheAssistant")}
         </h3>
         {!mayUse && !access.loading ? (
           <Unavailable code="AI_FORBIDDEN" onRetry={() => undefined} />
         ) : status.loading && !st ? (
           <p className="muted small" role="status">
-            <span className="spinner" aria-hidden /> Checking…
+            <span className="spinner" aria-hidden />{" "}{tr("assistant.assistantPanel.text.checking")}
           </p>
         ) : status.error && !st ? (
           <Unavailable code={aiErrorCode(status.error) ?? "AI_CONNECTION_ERROR"} onRetry={status.reload} />
@@ -559,9 +559,9 @@ export function AssistantDrawer({ onClose }: { onClose(): void }) {
       <div className="drawer-header">
         <div className="grow">
           <h2 id="asst-title" style={{ margin: 0, fontSize: 17 }}>
-            Planning assistant
+            {tr("assistant.assistantPanel.text.planningAssistant")}
           </h2>
-          <span className="muted small">Explains your plan and suggests actions. It never changes anything by itself.</span>
+          <span className="muted small">{tr("assistant.assistantPanel.text.explainsYourPlanAndSuggests")}</span>
         </div>
         <button type="button" className="btn ghost icon" onClick={onClose} aria-label={t("assistant.assistantPanel.aria.closeTheAssistant")} data-testid="asst-close">
           <Icon name="x" />
@@ -579,8 +579,8 @@ export function AssistantButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="btn ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={t("assistant.assistantPanel.aria.assistant")} title="Assistant" data-testid="asst-open">
-        <Icon name="chat" /> <span className="asst-label">Assistant</span>
+      <button type="button" className="btn ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={t("assistant.assistantPanel.aria.assistant")} title={tr("assistant.assistantPanel.attr.assistant")} data-testid="asst-open">
+        <Icon name="chat" /> <span className="asst-label">{tr("assistant.assistantPanel.text.assistant")}</span>
       </button>
       {open ? <AssistantDrawer onClose={() => setOpen(false)} /> : null}
     </>

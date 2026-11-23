@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { GLOSSARY, type GlossaryKey } from "../lib/glossary";
 import { Icon } from "./Icon";
+import { t } from "../lib/i18n";
 
 /**
  * A term with a plain-language explanation on hover and on keyboard focus (PHASE2.md 3.6).
@@ -28,7 +29,7 @@ export function Term({ k, children, bare = false }: { k: GlossaryKey; children?:
       <button
         type="button"
         className="term-btn"
-        aria-label={`What is "${entry.term}"?`}
+        aria-label={t("studio.term.tpl.whatIs", { term: entry.term })}
         aria-describedby={open ? tipId : undefined}
         aria-expanded={open}
         onFocus={() => (setFocus(true), setDismissed(false))}

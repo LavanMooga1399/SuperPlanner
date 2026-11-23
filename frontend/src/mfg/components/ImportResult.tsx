@@ -13,9 +13,8 @@ export function ImportResult({ record }: { record: ImportRecord }) {
   const rows = Object.entries(r?.counts ?? {});
   return (
     <div className="col gap-lg" data-testid="import-result">
-      <Banner tone="ok" title={`Imported ${record.filename}`}>
-        Saved {record.committed_at ? fmtTimestamp(record.committed_at) : ""}
-        {r ? ` in ${(r.duration_ms / 1000).toFixed(1)} s` : ""}. Run the data-health check to see whether everything is ready for planning.
+      <Banner tone="ok" title={t("mfg.importResult.tpl.imported", { filename: record.filename })}>
+        {t("mfg.importResult.text.savedRunTheDataHealth", { v: record.committed_at ? fmtTimestamp(record.committed_at) : "", v2: r ? t("mfg.importResult.tpl.inS", { toFixed: (r.duration_ms / 1000).toFixed(1) }) : "" })}
       </Banner>
       {rows.length ? (
         <div className="table-wrap">

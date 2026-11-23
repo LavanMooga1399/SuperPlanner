@@ -11,7 +11,7 @@ import { LinkedField } from "./LinkedField";
 import { DurationRangeInput } from "./fields";
 import { windowsText, WorkingTimeFields } from "./QuestionInput";
 import { DateInput } from "../../components/DateInput";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 const DEFAULT_UNIT: Record<string, DurationUnit> = { project: "days", study: "hours", production: "hours", generic: "days" };
 const DEFAULT_WT: Record<string, WorkingTime> = {
@@ -36,11 +36,11 @@ const DEFAULT_WT: Record<string, WorkingTime> = {
 };
 
 const RES_KINDS: { v: DraftResourceKind; label: string }[] = [
-  { v: "person", label: "Person" },
-  { v: "machine", label: "Machine" },
-  { v: "room", label: "Room" },
-  { v: "equipment", label: "Equipment" },
-  { v: "generic", label: "Other" },
+  { v: "person", label: tr("studio.scheduleDraftEditor.str.person") },
+  { v: "machine", label: tr("studio.scheduleDraftEditor.str.machine") },
+  { v: "room", label: tr("studio.scheduleDraftEditor.str.room") },
+  { v: "equipment", label: tr("studio.scheduleDraftEditor.str.equipment") },
+  { v: "generic", label: tr("studio.scheduleDraftEditor.str.other") },
 ];
 
 export function workingTimeText(wt: WorkingTime): string {
@@ -84,7 +84,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
     );
     const t: DraftTask = {
       key,
-      name: `New ${terms.task.toLowerCase()}`,
+      name: tr("studio.scheduleDraftEditor.tpl.new", { task: terms.task.toLowerCase() }),
       milestone: false,
       duration: { optimistic: 1, likely: 1, pessimistic: 1, unit },
       after: [],
@@ -111,7 +111,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
     editDraft(next, []);
   };
   const addRes = () => {
-    const name = `New ${terms.resource.toLowerCase()}`;
+    const name = tr("studio.scheduleDraftEditor.tpl.new2", { resource: terms.resource.toLowerCase() });
     const key = resourceKey(
       `${name} ${draft.resources.length + 1}`,
       draft.resources.map((r) => r.key),
@@ -128,7 +128,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
     <div className="col" style={{ gap: 16 }}>
       <section aria-labelledby="draft-plan-title" className="col" style={{ gap: 8 }}>
         <h3 id="draft-plan-title" className="section-title">
-          The plan
+          {tr("studio.scheduleDraftEditor.text.thePlan")}
         </h3>
         <div className="form-grid">
           <LinkedField path="/name" error={errOf("/name")}>
@@ -148,22 +148,22 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
             <div className="field grow">
               <label htmlFor="draft-start">{t("studio.scheduleDraftEditor.label.startDate")}</label>
               <DateInput id="draft-start" value={draft.start_date ?? ""} onChange={(v) => editDraft({ ...draft, start_date: v || null }, ["/start_date"])} />
-              {!draft.start_date ? <span className="hint">Empty: the next working day</span> : null}
+              {!draft.start_date ? <span className="hint">{tr("studio.scheduleDraftEditor.text.emptyTheNextWorkingDay")}</span> : null}
             </div>
           </LinkedField>
         </div>
         <LinkedField path="/working_time">
           <div className="col grow" style={{ gap: 4 }}>
             <span className="field-label">
-              Working time <Term k="calendar_window" bare />
+              {tr("studio.scheduleDraftEditor.text.workingTime")}{" "}<Term k="calendar_window" bare />
             </span>
             <span className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               <span data-testid="draft-working-time">
                 {workingTimeText(wt)}
-                {!draft.working_time ? <span className="muted"> (usual for this kind of plan)</span> : null}
+                {!draft.working_time ? <span className="muted">{" "}{tr("studio.scheduleDraftEditor.text.usualForThisKindOf")}</span> : null}
               </span>
               <button type="button" className="btn sm" aria-expanded={wtOpen} onClick={() => setWtOpen(!wtOpen)}>
-                {wtOpen ? "Done" : "Change"}
+                {wtOpen ? tr("studio.scheduleDraftEditor.str.done") : tr("studio.scheduleDraftEditor.str.change")}
               </button>
             </span>
             {wtOpen ? (
@@ -183,12 +183,12 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
             {terms.resources} <Term k="resource" bare />
           </h3>
           <button type="button" className="btn sm" onClick={addRes} data-testid="draft-add-resource">
-            <Icon name="plus" /> Add {terms.resource.toLowerCase()}
+            <Icon name="plus" />{" "}{tr("studio.scheduleDraftEditor.text.add", { resource: terms.resource.toLowerCase() })}
           </button>
         </div>
         {draft.resources.length === 0 ? (
           <p className="small muted" style={{ margin: 0 }}>
-            None named yet. The plan uses one {terms.resource.toLowerCase()} unless you add more.
+            {tr("studio.scheduleDraftEditor.text.noneNamedYetThePlan", { resource: terms.resource.toLowerCase() })}
           </p>
         ) : (
           <ul className="plain-list col" style={{ gap: 6 }}>
@@ -216,7 +216,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                 </select>
                 <LinkedField path={`/resources/${r.key}/count`}>
                   <label className="small muted row" style={{ gap: 4 }}>
-                    How many
+                    {tr("studio.scheduleDraftEditor.text.howMany")}
                     <input
                       type="number"
                       className="input sm"
@@ -234,7 +234,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                 <button
                   type="button"
                   className="btn sm icon ghost"
-                  aria-label={`Remove ${r.name}`}
+                  aria-label={tr("studio.scheduleDraftEditor.tpl.remove", { name: r.name })}
                   onClick={() => setPending({ name: r.name, run: () => removeRes(r.key) })}
                 >
                   <Icon name="trash" />
@@ -251,14 +251,14 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
             {terms.tasks}
           </h3>
           <button type="button" className="btn sm" onClick={addTask} data-testid="draft-add-task">
-            <Icon name="plus" /> Add {terms.task.toLowerCase()}
+            <Icon name="plus" />{" "}{tr("studio.scheduleDraftEditor.text.add2", { task: terms.task.toLowerCase() })}
           </button>
         </div>
         {draft.tasks.length === 0 ? (
           <div className="empty small">
-            <p style={{ margin: 0 }}>No {terms.tasks.toLowerCase()} yet. Add them here or answer the question on the left.</p>
+            <p style={{ margin: 0 }}>{tr("studio.scheduleDraftEditor.text.noYetAddThemHere", { tasks: terms.tasks.toLowerCase() })}</p>
             <button type="button" className="btn primary sm" onClick={addTask}>
-              <Icon name="plus" /> Add {terms.task.toLowerCase()}
+              <Icon name="plus" />{" "}{tr("studio.scheduleDraftEditor.text.add2", { task: terms.task.toLowerCase() })}
             </button>
           </div>
         ) : (
@@ -293,14 +293,14 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                             )
                           }
                         />
-                        {terms.milestone} (a moment, no work)
+                        {tr("studio.scheduleDraftEditor.text.aMomentNoWork", { milestone: terms.milestone })}
                       </label>
                     </LinkedField>
                     <div className="grow" />
                     <button
                       type="button"
                       className="btn sm icon ghost"
-                      aria-label={`Remove ${t.name}`}
+                      aria-label={tr("studio.scheduleDraftEditor.tpl.remove", { name: t.name })}
                       onClick={() => setPending({ name: t.name, run: () => removeTask(t.key) })}
                     >
                       <Icon name="trash" />
@@ -309,10 +309,10 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                   <div className="draft-item-body">
                     <div className="draft-cell">
                       <span className="field-label">
-                        Duration <Term k="duration_range" bare />
+                        {tr("studio.scheduleDraftEditor.text.duration")}{" "}<Term k="duration_range" bare />
                       </span>
                       {t.milestone ? (
-                        <span className="muted small">No duration</span>
+                        <span className="muted small">{tr("studio.scheduleDraftEditor.text.noDuration")}</span>
                       ) : (
                         <LinkedField path={`/tasks/${t.key}/duration`} error={durErr} errorId={durErrId}>
                           <DurationRangeInput
@@ -328,11 +328,11 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                     </div>
                     <div className="draft-cell">
                       <span className="field-label">
-                        Comes after <Term k="dependency" bare />
+                        {tr("studio.scheduleDraftEditor.text.comesAfter")}{" "}<Term k="dependency" bare />
                       </span>
                       <LinkedField path={`/tasks/${t.key}/after`}>
                         <MultiSelect
-                          label={`${t.name}: comes after`}
+                          label={tr("studio.scheduleDraftEditor.tpl.comesAfter", { name: t.name })}
                           options={taskOptions(t.key)}
                           value={t.after}
                           onChange={(v) => setTask(t.key, { after: v }, ["after"])}
@@ -340,7 +340,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                       </LinkedField>
                     </div>
                     <div className="draft-cell">
-                      <span className="field-label">Who</span>
+                      <span className="field-label">{tr("studio.scheduleDraftEditor.text.who")}</span>
                       {t.milestone ? (
                         <span className="muted small">-</span>
                       ) : (
@@ -350,18 +350,18 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                               label={`${t.name}: who`}
                               options={resOptions}
                               value={t.resources}
-                              placeholder={draft.resources.length > 1 ? "Anyone" : "Default"}
+                              placeholder={draft.resources.length > 1 ? tr("studio.scheduleDraftEditor.str.anyone") : tr("studio.scheduleDraftEditor.str.default")}
                               onChange={(v) => setTask(t.key, { resources: v }, ["resources"])}
                             />
                             {t.resources.length > 1 ? (
                               <select
                                 className="select sm"
-                                aria-label={`${t.name}: how they work on it`}
+                                aria-label={tr("studio.scheduleDraftEditor.tpl.howTheyWorkOnIt", { name: t.name })}
                                 value={t.resource_mode}
                                 onChange={(e) => setTask(t.key, { resource_mode: e.target.value as "any" | "all" }, ["resource_mode"])}
                               >
-                                <option value="any">Any one of them</option>
-                                <option value="all">All of them together</option>
+                                <option value="any">{tr("studio.scheduleDraftEditor.text.anyOneOfThem")}</option>
+                                <option value="all">{tr("studio.scheduleDraftEditor.text.allOfThemTogether")}</option>
                               </select>
                             ) : null}
                           </span>
@@ -385,7 +385,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
                                 checked={t.deadline_hard}
                                 onChange={(e) => setTask(t.key, { deadline_hard: e.target.checked }, ["deadline_hard"])}
                               />
-                              Must be met
+                              {tr("studio.scheduleDraftEditor.text.mustBeMet")}
                             </label>
                           ) : null}
                         </span>
@@ -400,7 +400,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
       </section>
       {pending ? (
         <ConfirmDialog
-          title={`Remove "${pending.name}"?`}
+          title={tr("studio.scheduleDraftEditor.tpl.remove2", { name: pending.name })}
           confirmLabel={t("studio.scheduleDraftEditor.btn.remove")}
           danger
           onCancel={() => setPending(null)}
@@ -409,7 +409,7 @@ export function ScheduleDraftEditor({ draft }: { draft: ScheduleDraft }) {
             setPending(null);
           }}
         >
-          It is removed from the draft, and from every place that refers to it.
+          {tr("studio.scheduleDraftEditor.text.itIsRemovedFromThe")}
         </ConfirmDialog>
       ) : null}
     </div>

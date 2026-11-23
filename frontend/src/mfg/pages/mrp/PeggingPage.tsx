@@ -24,7 +24,7 @@ export function PeggingPage() {
   const valid = Boolean(item) && Number.isInteger(node);
   const peg = useLoad((signal) => (valid ? getPegging(run.id, { item_id: item, node, kind, direction, max_depth: 20 }, signal) : null), [run.id, item, node, kind, direction]);
   const go = (d: "up" | "down") => navigate(mfgPaths.runPegging(run.id, { item, node, kind, direction: d }), { replace: true });
-  if (!valid) return <Banner tone="info" title={t("mfg.peggingPage.title.chooseARequirementOrSupply")}>Open an item plan and use "Peg up" or "Peg down" on a row.</Banner>;
+  if (!valid) return <Banner tone="info" title={t("mfg.peggingPage.title.chooseARequirementOrSupply")}>{t("mfg.peggingPage.text.openAnItemPlanAnd")}</Banner>;
   const root = peg.data?.rows[0];
   return (
     <div className="col gap-lg" data-testid="pegging-page" data-direction={direction}>
@@ -34,7 +34,7 @@ export function PeggingPage() {
             <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {t("mfg.peggingPage.btn.itemPlan")}
           </Link>
           <h3 style={{ margin: 0 }}>
-            {direction === "up" ? "Who needs" : "What covers"} {root ? <span className="mono">{root.item.part_number}</span> : null} {root?.label}
+            {direction === "up" ? t("mfg.peggingPage.str.whoNeeds") : t("mfg.peggingPage.str.whatCovers")} {root ? <span className="mono">{root.item.part_number}</span> : null} {root?.label}
           </h3>
         </div>
         <div className="row" role="group" aria-label={t("mfg.peggingPage.aria.direction")}>
@@ -48,7 +48,7 @@ export function PeggingPage() {
       </div>
       <MfgError error={peg.error} onRetry={peg.reload} />
       {peg.loading && !peg.data ? <Spinner label={t("mfg.peggingPage.label.followingThePegs")} /> : null}
-      {peg.data?.truncated ? <Banner tone="warn" title={t("mfg.peggingPage.title.onlyTheFirst2000Rows")}>Peg from a lower row to see the rest.</Banner> : null}
+      {peg.data?.truncated ? <Banner tone="warn" title={t("mfg.peggingPage.title.onlyTheFirst2000Rows")}>{t("mfg.peggingPage.text.pegFromALowerRow")}</Banner> : null}
       {peg.data ? (
         <PeggingTree
           rows={peg.data.rows}

@@ -6,6 +6,7 @@ import { API_BASE, ApiError, looksLikeProxyFailure, networkError } from "../api/
 import { FETCH_CREDENTIALS, authHeaders, onAuthError } from "./authFetch";
 import type { AuthConfig, PendingLogin, RecoveryCodes, TotpSetup, TotpStatus } from "../mfg/api/typesM5";
 import type { ChangePasswordRequest, SessionInfo, SignInRequest, SignUpRequest } from "./types";
+import { t } from "../lib/i18n";
 
 async function call<T>(path: string, method: string, body?: unknown, signal?: AbortSignal, extra?: Record<string, string>): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json", ...authHeaders(method), ...(extra ?? {}) };
@@ -85,49 +86,49 @@ export function authErrorMessage(err: unknown): string | null {
   if (!(err instanceof ApiError)) return null;
   switch (err.code) {
     case "INVALID_CREDENTIALS":
-      return "The email or password is not correct.";
+      return t("account.api.str.theEmailOrPasswordIs");
     case "EMAIL_TAKEN":
-      return "An account with this email already exists. Sign in instead.";
+      return t("account.api.str.anAccountWithThisEmail");
     case "SIGNUP_DISABLED":
-      return "New accounts cannot be created on this server. Ask your administrator for an account.";
+      return t("account.api.str.newAccountsCannotBeCreated");
     case "WRONG_PASSWORD":
-      return "Your current password is not correct.";
+      return t("account.api.str.yourCurrentPasswordIsNot");
     case "RATE_LIMITED": {
       const s = Number(err.details.retry_after_seconds);
-      const wait = Number.isFinite(s) && s > 0 ? (s >= 90 ? `${Math.ceil(s / 60)} minutes` : `${Math.ceil(s)} seconds`) : "a few minutes";
-      return `Too many attempts. Please wait ${wait} and try again.`;
+      const wait = Number.isFinite(s) && s > 0 ? (s >= 90 ? `${Math.ceil(s / 60)} minutes` : `${Math.ceil(s)} seconds`) : t("account.api.str.aFewMinutes");
+      return t("account.api.tpl.tooManyAttemptsPleaseWait", { wait: wait });
     }
     case "CSRF_FAILED":
-      return "Your session could not be verified. Reload the page and try again.";
+      return t("account.api.str.yourSessionCouldNotBe");
     case "WEAK_PASSWORD":
       return weakPasswordMessage(err.details.reasons);
     case "AUTH_SSO_REQUIRED":
-      return "Your organisation signs in with single sign-on. Use the sign-in button for your company account.";
+      return t("account.api.str.yourOrganisationSignsInWith");
     case "AUTH_SSO_NOT_ALLOWED":
-      return "Your company account is not allowed to use this server. Ask your administrator to add you.";
+      return t("account.api.str.yourCompanyAccountIsNot");
     case "AUTH_TOTP_INVALID":
-      return "That code is not correct or has expired. Enter the current 6-digit code from your authenticator app.";
+      return t("account.api.str.thatCodeIsNotCorrect");
     case "AUTH_2FA_REQUIRED":
-      return "Enter the code from your authenticator app to finish signing in.";
+      return t("account.api.str.enterTheCodeFromYour");
     case "AUTH_PENDING_EXPIRED":
-      return "Signing in took too long. Enter your email and password again.";
+      return t("account.api.str.signingInTookTooLong");
     case "AUTH_2FA_NOT_SET_UP":
-      return "Two-step verification is off for this account.";
+      return t("account.api.str.twoStepVerificationIsOff");
     default:
       return null;
   }
 }
 
 const WEAK_TEXT: Record<string, string> = {
-  too_short: "use at least 10 characters",
-  too_long: "use at most 256 characters",
-  common: "this password is too common, choose something less guessable",
-  same_as_email: "do not use your email address as the password",
+  too_short: t("account.api.str.useAtLeast10Characters"),
+  too_long: t("account.api.str.useAtMost256Characters"),
+  common: t("account.api.str.thisPasswordIsTooCommon"),
+  same_as_email: t("account.api.str.doNotUseYourEmail"),
 };
 
 export function weakPasswordMessage(reasons: unknown): string {
   const list = Array.isArray(reasons) ? reasons.map((r) => WEAK_TEXT[String(r)]).filter(Boolean) : [];
-  if (!list.length) return "Please choose a stronger password.";
+  if (!list.length) return t("account.api.str.pleaseChooseAStrongerPassword");
   const text = list.join("; ");
-  return `Please choose a stronger password: ${text}.`;
+  return t("account.api.tpl.pleaseChooseAStrongerPassword", { text: text });
 }

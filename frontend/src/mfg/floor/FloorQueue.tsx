@@ -54,8 +54,8 @@ export function FloorQueue() {
     if (!down) return;
     setClosing(true);
     try {
-      const out = await submitDowntimeUpdate(down.id, down.row_version, { close: true }, `${d?.line.code ?? "Line"} back up`);
-      flash(out.status === "queued" ? "Saved on this tablet; it will sync when the network is back" : "Line is back up");
+      const out = await submitDowntimeUpdate(down.id, down.row_version, { close: true }, t("floor.floorQueue.tpl.backUp", { v: d?.line.code ?? "Line" }));
+      flash(out.status === "queued" ? t("floor.floorQueue.str.savedOnThisTabletIt") : t("floor.floorQueue.str.lineIsBackUp"));
       q.reload();
     } catch (e) {
       flash(floorErrorText(e), "danger");
@@ -69,16 +69,16 @@ export function FloorQueue() {
       <section className="floor-card">
         <div className="row wrap" style={{ justifyContent: "space-between", gap: 10 }}>
           <div className="col" style={{ gap: 2 }}>
-            <h1 data-testid="floor-line-title">{d ? `${d.line.code}${d.line.name ? ` · ${d.line.name}` : ""}` : "Line"}</h1>
+            <h1 data-testid="floor-line-title">{d ? `${d.line.code}${d.line.name ? ` · ${d.line.name}` : ""}` : t("floor.floorQueue.str.line")}</h1>
             <span className="muted">
-              {d ? `${d.shift ? `Shift ${d.shift} · ` : ""}${formatDay(d.date)} · times in ${clock.zoneLabel}` : ""}
-              {d && !d.run_id ? " · no published schedule: work orders in due-date order" : ""}
+              {d ? t("floor.floorQueue.tpl.timesIn", { v: d.shift ? t("floor.floorQueue.tpl.shift", { shift: d.shift }) : "", date: formatDay(d.date), zoneLabel: clock.zoneLabel }) : ""}
+              {d && !d.run_id ? t("floor.floorQueue.str.noPublishedScheduleWorkOrders") : ""}
             </span>
           </div>
           <div className="row wrap">
             {d?.shifts?.length ? (
               <select className="select" aria-label={t("floor.floorQueue.aria.shift")} value={shift} onChange={(e) => setSearchParam(setParams, "shift", e.target.value)}>
-                <option value="">Current shift</option>
+                <option value="">{t("floor.floorQueue.text.currentShift")}</option>
                 {d.shifts
                   .filter((s) => s.label)
                   .map((s) => (
@@ -108,12 +108,10 @@ export function FloorQueue() {
       {down ? (
         <section className="floor-card floor-down" role="alert" data-testid="floor-line-down">
           <h2>
-            <Icon name="alert" /> Line down: {DOWNTIME[down.kind]?.label ?? down.kind}
+            <Icon name="alert" />{" "}{t("floor.floorQueue.text.lineDown", { v: DOWNTIME[down.kind]?.label ?? down.kind })}
           </h2>
           <span>
-            Since {clock.dateTime(down.start_at)}
-            {down.expected_end_at ? `, expected back ${clock.dateTime(down.expected_end_at)}` : ", no expected end given"}
-            {down.reason ? ` · ${down.reason}` : ""}
+            {t("floor.floorQueue.text.since", { startat: clock.dateTime(down.start_at), v: down.expected_end_at ? t("floor.floorQueue.tpl.expectedBack", { expectedendat: clock.dateTime(down.expected_end_at) }) : t("floor.floorQueue.str.noExpectedEndGiven"), v2: down.reason ? ` · ${down.reason}` : "" })}
           </span>
           {canDowntime ? (
             <div className="row wrap">
@@ -132,13 +130,13 @@ export function FloorQueue() {
       {q.loading && !d ? <Spinner label={t("floor.floorQueue.label.loadingTheQueue")} /> : null}
       {d ? (
         <section className="floor-queue" aria-label={t("floor.floorQueue.aria.queue")} data-testid="floor-queue">
-          {rows.length === 0 ? <div className="floor-card muted">Nothing planned on this line for this shift.</div> : null}
+          {rows.length === 0 ? <div className="floor-card muted">{t("floor.floorQueue.text.nothingPlannedOnThisLine")}</div> : null}
           {rows.map((r, i) => (
             <QueueRow key={r.wo_operation_id ?? `${r.wo.id}-${r.seq}`} r={r} index={i} clock={clock} />
           ))}
           {doneCount ? (
             <button type="button" className="btn ghost floor-btn" onClick={() => setShowDone((v) => !v)}>
-              {showDone ? "Hide finished" : `Show ${doneCount} finished`}
+              {showDone ? t("floor.floorQueue.str.hideFinished") : t("floor.floorQueue.tpl.showFinished", { doneCount: doneCount })}
             </button>
           ) : null}
         </section>
@@ -161,7 +159,7 @@ function QueueRow({ r, index, clock }: { r: FloorQueueRow; index: number; clock:
   const behind = behindMinutes(r);
   const body = (
     <>
-      <span className="floor-qpos" aria-label={r.op_no ? `Position ${index + 1} in the plan` : "Not in the plan"}>
+      <span className="floor-qpos" aria-label={r.op_no ? t("floor.floorQueue.tpl.positionInThePlan", { v: index + 1 }) : t("floor.floorQueue.str.notInThePlan")}>
         {index + 1}
       </span>
       <span className="floor-qmain">
@@ -169,8 +167,7 @@ function QueueRow({ r, index, clock }: { r: FloorQueueRow; index: number; clock:
           <span className="mono">{r.wo.number}</span> / {r.seq} {r.name}
         </span>
         <span className="muted">
-          <span className="mono">{r.wo.item.part_number}</span> · {t("common.nOfM", { n: fmtQty(r.qty_good), m: fmtQty(qty) })} good
-          {r.wo.due_date ? ` · due ${formatDay(r.wo.due_date)}` : ""}
+          <span className="mono">{r.wo.item.part_number}</span>{" "}{t("floor.floorQueue.text.good", { t: t("common.nOfM", { n: fmtQty(r.qty_good), m: fmtQty(qty) }), v: r.wo.due_date ? ` · due ${formatDay(r.wo.due_date)}` : "" })}
         </span>
         {r.qty_good > 0 ? (
           <span className="floor-progress" aria-hidden>
@@ -182,7 +179,7 @@ function QueueRow({ r, index, clock }: { r: FloorQueueRow; index: number; clock:
         <OpStatusChip status={r.status} large />
         <KitChip kit={r.kit} />
         <span className="small muted">
-          {r.planned_start ? `Plan ${clock.time(r.planned_start)}–${clock.time(r.planned_end)}` : "not in the published plan"}
+          {r.planned_start ? t("floor.floorQueue.tpl.plan", { plannedstart: clock.time(r.planned_start), plannedend: clock.time(r.planned_end) }) : t("floor.floorQueue.str.notInThePublishedPlan")}
           {behind > 15 ? ` · ${fmtDuration(behind)} behind` : ""}
         </span>
       </span>
@@ -190,7 +187,7 @@ function QueueRow({ r, index, clock }: { r: FloorQueueRow; index: number; clock:
   );
   if (!r.wo_operation_id)
     return (
-      <div className="floor-qrow" data-testid="floor-queue-row" data-status={r.status} data-wo={r.wo.number} data-seq={r.seq} title="The work order is not released to the floor yet">
+      <div className="floor-qrow" data-testid="floor-queue-row" data-status={r.status} data-wo={r.wo.number} data-seq={r.seq} title={t("floor.floorQueue.attr.theWorkOrderIsNot")}>
         {body}
       </div>
     );

@@ -42,27 +42,27 @@ export function ImportMapping({
         const spec = specOf(m.target);
         const check = checkSheet(m, spec);
         return (
-          <section key={s.name} className="card" aria-label={`Sheet ${s.name}`} data-testid="import-sheet-card" data-sheet={s.name}>
+          <section key={s.name} className="card" aria-label={t("mfg.importMapping.tpl.sheet", { name: s.name })} data-testid="import-sheet-card" data-sheet={s.name}>
             <div className="card-header">
               <h3 className="row">
                 <Icon name="file" /> {s.name} <span className="muted small">{plural(s.row_count, "row")}</span>
                 {m.target ? (
-                  <span className="badge info" data-testid="import-sheet-kind" title={`Saving this sheet needs the role: ${sheetKind(m.target).perm}`}>
+                  <span className="badge info" data-testid="import-sheet-kind" title={t("mfg.importMapping.tpl.savingThisSheetNeedsThe", { perm: sheetKind(m.target).perm })}>
                     {sheetKind(m.target).label}
                   </span>
                 ) : null}
               </h3>
               <label className="row small">
-                <span className="muted">Import as</span>
+                <span className="muted">{t("mfg.importMapping.text.importAs")}</span>
                 <select
                   className="select sm"
                   value={m.target ?? ""}
                   onChange={(e) => setSheet(s.name, { target: e.target.value || null })}
-                  aria-label={`Import sheet ${s.name} as`}
+                  aria-label={t("mfg.importMapping.tpl.importSheetAs", { name: s.name })}
                   data-testid="import-sheet-target"
                   style={{ minWidth: 200 }}
                 >
-                  <option value="">Ignore this sheet</option>
+                  <option value="">{t("mfg.importMapping.text.ignoreThisSheet")}</option>
                   {specs.map((sp) => (
                     <option key={sp.name} value={sp.name}>
                       {sheetLabel(sp.name)} ({sp.name})
@@ -102,13 +102,13 @@ export function ImportMapping({
                               <select
                                 className="select sm"
                                 value={field}
-                                aria-label={`Field for column ${h}`}
+                                aria-label={t("mfg.importMapping.tpl.fieldForColumn", { h: h })}
                                 aria-invalid={dup ? true : undefined}
                                 onChange={(e) => setSheet(s.name, { columns: { ...m.columns, [h]: e.target.value || null } })}
                                 data-testid="import-column-field"
                                 style={{ minWidth: 200 }}
                               >
-                                <option value="">Do not import</option>
+                                <option value="">{t("mfg.importMapping.text.doNotImport")}</option>
                                 {spec.columns.map((c) => (
                                   <option key={c.field} value={c.field}>
                                     {c.field}
@@ -131,17 +131,17 @@ export function ImportMapping({
                 </div>
                 {check.duplicates.length ? (
                   <span className="field-error" role="alert" data-testid="import-duplicate-field">
-                    <Icon name="alert" size={12} /> Each field can take only one column: {check.duplicates.join(", ")}.
+                    <Icon name="alert" size={12} />{" "}{t("mfg.importMapping.text.eachFieldCanTakeOnly", { duplicates: check.duplicates.join(", ") })}
                   </span>
                 ) : null}
                 {check.missingRequired.length ? (
                   <span className="small muted" data-testid="import-missing-required">
-                    <Icon name="info" size={12} /> Not mapped: {check.missingRequired.join(", ")} (* required for new rows; existing rows are only updated in the mapped columns).
+                    <Icon name="info" size={12} />{" "}{t("mfg.importMapping.text.notMappedRequiredForNew", { missingRequired: check.missingRequired.join(", ") })}
                   </span>
                 ) : null}
               </div>
             ) : m.target ? null : (
-              <div className="card-body muted small">This sheet will be skipped.</div>
+              <div className="card-body muted small">{t("mfg.importMapping.text.thisSheetWillBeSkipped")}</div>
             )}
           </section>
         );

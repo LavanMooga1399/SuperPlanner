@@ -21,7 +21,7 @@ import { orderLink } from "./ApsOrdersTab";
 import { PublishButton, useApsRun } from "./ApsRunShell";
 import { apsRunTitle, isActive } from "./ApsRunsPage";
 import { FilterBar } from "../../../components/FilterBar";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 function policyOf(r: ApsRunRecord) {
   return r.policy ?? r.summary?.policy ?? r.params?.overtime ?? null;
@@ -29,24 +29,24 @@ function policyOf(r: ApsRunRecord) {
 
 /** Labels of the compare KPIs (#198 carries only keys); all of them are "lower is better" except the listed ones. */
 const KPI_LABEL: Record<string, { label: string; unit?: "min" | "num" | "pct"; higherBetter?: boolean }> = {
-  weighted_tardiness: { label: "Weighted lateness", unit: "min" },
-  late_demand_count: { label: "Late demand lines" },
-  late_orders: { label: "Late orders" },
-  late_wos: { label: "Late work orders" },
-  max_lateness_minutes: { label: "Worst lateness", unit: "min" },
-  overtime_minutes: { label: "Overtime", unit: "min" },
-  overtime_cost: { label: "Overtime cost" },
-  setup_minutes: { label: "Changeover time", unit: "min" },
-  changeovers: { label: "Changeovers" },
-  makespan_minutes: { label: "Time to finish everything", unit: "min" },
-  avg_flow_days: { label: "Average days in production" },
-  unscheduled: { label: "Operations not scheduled" },
-  demand_lines_on_time: { label: "Demand lines on time", higherBetter: true },
+  weighted_tardiness: { label: tr("mfg.apsCompareTab.str.weightedLateness"), unit: "min" },
+  late_demand_count: { label: tr("mfg.apsCompareTab.str.lateDemandLines") },
+  late_orders: { label: tr("mfg.apsCompareTab.str.lateOrders") },
+  late_wos: { label: tr("mfg.apsCompareTab.str.lateWorkOrders") },
+  max_lateness_minutes: { label: tr("mfg.apsCompareTab.str.worstLateness"), unit: "min" },
+  overtime_minutes: { label: tr("mfg.apsCompareTab.str.overtime"), unit: "min" },
+  overtime_cost: { label: tr("mfg.apsCompareTab.str.overtimeCost") },
+  setup_minutes: { label: tr("mfg.apsCompareTab.str.changeoverTime"), unit: "min" },
+  changeovers: { label: tr("mfg.apsCompareTab.str.changeovers") },
+  makespan_minutes: { label: tr("mfg.apsCompareTab.str.timeToFinishEverything"), unit: "min" },
+  avg_flow_days: { label: tr("mfg.apsCompareTab.str.averageDaysInProduction") },
+  unscheduled: { label: tr("mfg.apsCompareTab.str.operationsNotScheduled") },
+  demand_lines_on_time: { label: tr("mfg.apsCompareTab.str.demandLinesOnTime"), higherBetter: true },
 };
 const kpiText = (v: number | null, unit?: string) => (v === null ? "" : unit === "min" ? fmtDuration(v) || "0" : fmtNum(Math.round(v * 10) / 10));
 
 function Delta({ v, unit, lowerIsBetter = true }: { v: number | null; unit?: "min" | "num"; lowerIsBetter?: boolean }) {
-  if (v === null || Math.abs(v) < 1e-9) return <span className="faint">no change</span>;
+  if (v === null || Math.abs(v) < 1e-9) return <span className="faint">{tr("mfg.apsCompareTab.text.noChange")}</span>;
   const better = lowerIsBetter ? v < 0 : v > 0;
   return (
     <span className={better ? "mfg-pos" : "mfg-neg"} data-testid="aps-compare-delta" data-delta={v}>
@@ -100,13 +100,13 @@ export function ApsCompareTab() {
     <div className="col gap-lg" data-testid="aps-compare">
       <FilterBar>
         <div className="field" style={{ minWidth: 340 }}>
-          <label htmlFor="ac-with">Compare {apsRunTitle(run)} with</label>
+          <label htmlFor="ac-with">{tr("mfg.apsCompareTab.text.compareWith", { run: apsRunTitle(run) })}</label>
           <select id="ac-with" className="select" value={withId} onChange={(e) => setSearchParam(setParams, "with", e.target.value)} data-testid="aps-compare-with">
-            <option value="">Choose a run…</option>
+            <option value="">{tr("mfg.apsCompareTab.text.chooseARun")}</option>
             {withId && !choices.some((r) => r.id === withId) && other.data ? <option value={withId}>{apsRunTitle(other.data)}</option> : null}
             {choices.map((r) => (
               <option key={r.id} value={r.id}>
-                {apsRunTitle(r)} ({policyOf(r) ?? "default"}, from {clock.dateTime(r.as_of)})
+                {tr("mfg.apsCompareTab.text.from", { r: apsRunTitle(r), v: policyOf(r) ?? "default", asof: clock.dateTime(r.as_of) })}
               </option>
             ))}
           </select>
@@ -116,13 +116,13 @@ export function ApsCompareTab() {
       {other.data && isActive(other.data) ? (
         <div className="card card-body row wrap" role="status" data-testid="aps-compare-waiting">
           <span>
-            Waiting for <Link to={mfgPaths.apsRun(other.data.id)}>{apsRunTitle(other.data)}</Link> to finish:
+            {tr("mfg.apsCompareTab.text.waitingFor")}{" "}<Link to={mfgPaths.apsRun(other.data.id)}>{apsRunTitle(other.data)}</Link>{" "}{tr("mfg.apsCompareTab.text.toFinish")}
           </span>
           <ApsProgress run={other.data} />
         </div>
       ) : null}
       {withId && ready && !c && cmp.loading ? <Spinner label={t("mfg.apsCompareTab.label.comparing")} /> : null}
-      {!withId ? <p className="muted">Pick a run to compare with, for example the same plan without overtime.</p> : null}
+      {!withId ? <p className="muted">{tr("mfg.apsCompareTab.text.pickARunToCompare")}</p> : null}
 
       {c && trade ? (
         <section className="card mfg-inline-form" data-testid="aps-tradeoff">
@@ -132,18 +132,18 @@ export function ApsCompareTab() {
           <div className="card-body col">
             <div className="kpis">
               <div className="card kpi" data-testid="aps-tradeoff-late">
-                <div className="kpi-label">Weighted lateness saved</div>
+                <div className="kpi-label">{tr("mfg.apsCompareTab.text.weightedLatenessSaved")}</div>
                 <div className="kpi-value" style={{ color: trade.lateSaved > 0 ? "var(--ok)" : undefined }}>
                   {fmtDuration(trade.lateSaved) || "0"}
                 </div>
                 <div className="kpi-sub">
-                  {fmtNum(trade.demandSaved)} fewer late demand lines · {fmtDuration(trade.lateMinutesSaved) || "0"} less lateness in total
+                  {tr("mfg.apsCompareTab.text.fewerLateDemandLinesLess", { demandSaved: fmtNum(trade.demandSaved), v: fmtDuration(trade.lateMinutesSaved) || "0" })}
                 </div>
               </div>
               <div className="card kpi" data-testid="aps-tradeoff-overtime">
-                <div className="kpi-label">Overtime added</div>
+                <div className="kpi-label">{tr("mfg.apsCompareTab.text.overtimeAdded")}</div>
                 <div className="kpi-value">{trade.otHoursAdded.toFixed(1)} h</div>
-                <div className="kpi-sub">cost {fmtNum(Math.round(trade.costAdded))}</div>
+                <div className="kpi-sub">{tr("mfg.apsCompareTab.text.cost", { fmtNum: fmtNum(Math.round(trade.costAdded)) })}</div>
               </div>
             </div>
             <div className="grid-2">
@@ -161,8 +161,7 @@ export function ApsCompareTab() {
                     <PolicyBadge policy={r.policy} />
                   </div>
                   <span className="small">
-                    {late === null ? "" : `${fmtNum(late)} late demand lines · `}
-                    {fmtDuration(wt ?? 0) || "0"} weighted lateness · overtime {fmtDuration(ot ?? 0) || "none"}
+                    {tr("mfg.apsCompareTab.text.weightedLatenessOvertime", { v: late === null ? "" : tr("mfg.apsCompareTab.tpl.lateDemandLines", { late: fmtNum(late) }), v2: fmtDuration(wt ?? 0) || "0", v3: fmtDuration(ot ?? 0) || "none" })}
                   </span>
                   <div>
                     {rec ? (
@@ -178,7 +177,7 @@ export function ApsCompareTab() {
               })}
             </div>
             <p className="faint small" style={{ margin: 0 }}>
-              Publish the plan you want the plant to follow; the other stays available for reference.
+              {tr("mfg.apsCompareTab.text.publishThePlanYouWant")}
             </p>
           </div>
         </section>
@@ -190,7 +189,7 @@ export function ApsCompareTab() {
             <div className="card-header">
               <h3>{t("mfg.apsCompareTab.head.keyFigures")}</h3>
               <span className="muted small">
-                A = {apsRunTitle(c.a)}, B = {apsRunTitle(c.b)}; change = B against A
+                {tr("mfg.apsCompareTab.text.aBChangeBAgainst", { a: apsRunTitle(c.a), b: apsRunTitle(c.b) })}
               </span>
             </div>
             <div className="table-wrap">
@@ -224,7 +223,7 @@ export function ApsCompareTab() {
           <div className="grid-2" style={{ alignItems: "start" }}>
             <section className="card">
               <div className="card-header">
-                <h3>Orders that end at another time ({c.orders.length})</h3>
+                <h3>{tr("mfg.apsCompareTab.text.ordersThatEndAtAnother", { length: c.orders.length })}</h3>
               </div>
               <div className="table-wrap" style={{ maxHeight: 420, overflow: "auto" }}>
                 <table className="table" data-testid="aps-compare-orders">
@@ -245,10 +244,10 @@ export function ApsCompareTab() {
                           </Link>
                         </td>
                         <td className="small">
-                          {o.end_a ? clock.dateTime(o.end_a) : "not scheduled"} {o.late_a ? <span className="mfg-neg">({fmtDuration(o.late_a)} late)</span> : null}
+                          {o.end_a ? clock.dateTime(o.end_a) : tr("mfg.apsCompareTab.str.notScheduled")} {o.late_a ? <span className="mfg-neg">({fmtDuration(o.late_a)} late)</span> : null}
                         </td>
                         <td className="small">
-                          {o.end_b ? clock.dateTime(o.end_b) : "not scheduled"} {o.late_b ? <span className="mfg-neg">({fmtDuration(o.late_b)} late)</span> : null}
+                          {o.end_b ? clock.dateTime(o.end_b) : tr("mfg.apsCompareTab.str.notScheduled")} {o.late_b ? <span className="mfg-neg">({fmtDuration(o.late_b)} late)</span> : null}
                         </td>
                         <td>
                           <Delta v={o.delta_minutes} unit="min" />
@@ -258,7 +257,7 @@ export function ApsCompareTab() {
                   </tbody>
                 </table>
               </div>
-              {c.truncated ? <div className="card-footer small muted">Only the first 500 changes are listed.</div> : null}
+              {c.truncated ? <div className="card-footer small muted">{tr("mfg.apsCompareTab.text.onlyTheFirst500Changes")}</div> : null}
             </section>
             <section className="card">
               <div className="card-header">

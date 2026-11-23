@@ -18,7 +18,7 @@ import { t } from "../../../lib/i18n";
 function Delta({ a, b, invert, days }: { a: number | null; b: number | null; invert?: boolean; days?: boolean }) {
   if (a === null || b === null) return null;
   const d = b - a;
-  if (Math.abs(d) < 1e-9) return <span className="faint">no change</span>;
+  if (Math.abs(d) < 1e-9) return <span className="faint">{t("mfg.compareView.text.noChange")}</span>;
   const worse = invert ? d < 0 : d > 0;
   return (
     <span className={worse ? "mfg-neg" : "mfg-pos"} data-testid="compare-delta" data-delta={d}>
@@ -41,12 +41,12 @@ export function CompareView() {
     <div className="col gap-lg" data-testid="compare-view">
       <FilterBar>
         <div className="field" style={{ minWidth: 320 }}>
-          <label htmlFor="cmp-with">Compare {t("common.runNoInline", { n: run.run_no })} with</label>
+          <label htmlFor="cmp-with">{t("mfg.compareView.text.compareWith", { t: t("common.runNoInline", { n: run.run_no }) })}</label>
           <select id="cmp-with" className="select" value={withId} onChange={(e) => setSearchParam(setParams, "with", e.target.value)} data-testid="compare-with">
-            <option value="">Choose a run…</option>
+            <option value="">{t("mfg.compareView.text.chooseARun")}</option>
             {others.map((r) => (
               <option key={r.id} value={r.id}>
-                {runTitle(r)} ({r.kind === "live" ? "live" : "what-if"}, as of {fmtDate(r.as_of)})
+                {t("mfg.compareView.text.asOf", { r: runTitle(r), v: r.kind === "live" ? "live" : "what-if", asof: fmtDate(r.as_of) })}
               </option>
             ))}
           </select>
@@ -75,7 +75,7 @@ export function CompareView() {
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Work orders to make</td>
+                    <td>{t("mfg.compareView.text.workOrdersToMake")}</td>
                     <td className="right">{c.planned.a.make}</td>
                     <td className="right">{c.planned.b.make}</td>
                     <td>
@@ -83,7 +83,7 @@ export function CompareView() {
                     </td>
                   </tr>
                   <tr>
-                    <td>Quantity to make</td>
+                    <td>{t("mfg.compareView.text.quantityToMake")}</td>
                     <td className="right">{fmtNum(c.planned.a.make_qty)}</td>
                     <td className="right">{fmtNum(c.planned.b.make_qty)}</td>
                     <td>
@@ -91,7 +91,7 @@ export function CompareView() {
                     </td>
                   </tr>
                   <tr>
-                    <td>Purchases</td>
+                    <td>{t("mfg.compareView.text.purchases")}</td>
                     <td className="right">{c.planned.a.buy}</td>
                     <td className="right">{c.planned.b.buy}</td>
                     <td>
@@ -99,7 +99,7 @@ export function CompareView() {
                     </td>
                   </tr>
                   <tr>
-                    <td>Purchase value</td>
+                    <td>{t("mfg.compareView.text.purchaseValue")}</td>
                     <td className="right">{fmtMoney(c.planned.a.buy_value)}</td>
                     <td className="right">{fmtMoney(c.planned.b.buy_value)}</td>
                     <td>
@@ -112,7 +112,7 @@ export function CompareView() {
           </section>
           <section className="card" data-testid="compare-demand">
             <div className="card-header">
-              <h3>Demand dates that changed ({c.demand.length})</h3>
+              <h3>{t("mfg.compareView.text.demandDatesThatChanged", { length: c.demand.length })}</h3>
             </div>
             <div className="table-wrap">
               <table className="table">
@@ -129,7 +129,7 @@ export function CompareView() {
                   {c.demand.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="muted">
-                        No demand date changed.
+                        {t("mfg.compareView.text.noDemandDateChanged")}
                       </td>
                     </tr>
                   ) : null}
@@ -145,7 +145,7 @@ export function CompareView() {
                 </tbody>
               </table>
             </div>
-            {c.truncated.demand ? <div className="card-footer small muted">Only the first 500 changes are listed.</div> : null}
+            {c.truncated.demand ? <div className="card-footer small muted">{t("mfg.compareView.text.onlyTheFirst500Changes")}</div> : null}
           </section>
           <div className="grid-2" style={{ alignItems: "start" }}>
             <section className="card">
@@ -177,7 +177,7 @@ export function CompareView() {
             </section>
             <section className="card">
               <div className="card-header">
-                <h3>Parts that changed ({c.items.length})</h3>
+                <h3>{t("mfg.compareView.text.partsThatChanged", { length: c.items.length })}</h3>
               </div>
               <div className="table-wrap" style={{ maxHeight: 420, overflow: "auto" }}>
                 <table className="table">
@@ -207,7 +207,7 @@ export function CompareView() {
                   </tbody>
                 </table>
               </div>
-              {c.truncated.items ? <div className="card-footer small muted">Only the first 500 changes are listed.</div> : null}
+              {c.truncated.items ? <div className="card-footer small muted">{t("mfg.compareView.text.onlyTheFirst500Changes")}</div> : null}
             </section>
           </div>
         </>

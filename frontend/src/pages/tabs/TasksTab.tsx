@@ -8,7 +8,7 @@ import { makeTask, removeTask } from "../../lib/planEdit";
 import { useTerms } from "../../lib/terms";
 import { fmtDuration } from "../../lib/time";
 import { useLoadedPlan } from "../../state/PlanContext";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 export function TasksTab() {
   const { draft, update } = useLoadedPlan();
@@ -47,41 +47,41 @@ export function TasksTab() {
       <div className="toolbar">
         <div className="field" style={{ width: 240 }}>
           <label htmlFor="task-search" className="sr-only">
-            Search {terms.tasksL}
+            {tr("studio.tasksTab.text.search", { tasksL: terms.tasksL })}
           </label>
-          <input id="task-search" className="input" placeholder={`Search ${terms.tasksL}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input id="task-search" className="input" placeholder={tr("studio.tasksTab.tpl.search", { tasksL: terms.tasksL })} value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         {groups.length ? (
           <div className="field" style={{ width: 180 }}>
             <label htmlFor="task-group" className="sr-only">
-              Filter by {terms.groupL}
+              {tr("studio.tasksTab.text.filterBy", { groupL: terms.groupL })}
             </label>
             <select id="task-group" className="select" value={group} onChange={(e) => setGroup(e.target.value)}>
-              <option value="">All {terms.group.toLowerCase()}s</option>
+              <option value="">{tr("studio.tasksTab.text.allS", { group: terms.group.toLowerCase() })}</option>
               {groups.map((g) => (
                 <option key={g} value={g}>
                   {g}
                 </option>
               ))}
-              <option value="__none">No {terms.groupL}</option>
+              <option value="__none">{tr("studio.tasksTab.text.no", { groupL: terms.groupL })}</option>
             </select>
           </div>
         ) : null}
         <span className="small muted">
-          {terms.countTasks(draft.tasks.length)} · {fmtDuration(totalWork)} of work
+          {tr("studio.tasksTab.text.ofWork", { length: terms.countTasks(draft.tasks.length), totalWork: fmtDuration(totalWork) })}
         </span>
         <div className="grow" />
         <button className="btn primary" onClick={add}>
-          <Icon name="plus" /> Add {terms.taskL}
+          <Icon name="plus" />{" "}{tr("studio.tasksTab.text.add", { taskL: terms.taskL })}
         </button>
       </div>
       {draft.tasks.length === 0 ? (
         <div className="card empty">
           <Icon name="list" size={32} />
-          <strong>No {terms.tasksL} yet</strong>
-          <span>Add the {terms.tasksL} that need to be scheduled.</span>
+          <strong>{tr("studio.tasksTab.text.noYet", { tasksL: terms.tasksL })}</strong>
+          <span>{tr("studio.tasksTab.text.addTheThatNeedTo", { tasksL: terms.tasksL })}</span>
           <button className="btn primary" onClick={add}>
-            <Icon name="plus" /> Add {terms.taskL}
+            <Icon name="plus" />{" "}{tr("studio.tasksTab.text.add", { taskL: terms.taskL })}
           </button>
         </div>
       ) : (
@@ -97,7 +97,7 @@ export function TasksTab() {
       )}
       {toDelete ? (
         <ConfirmDialog
-          title={`Delete ${terms.taskL}?`}
+          title={tr("studio.tasksTab.tpl.delete", { taskL: terms.taskL })}
           confirmLabel={t("studio.tasksTab.btn.delete")}
           danger
           onCancel={() => setToDelete(null)}
@@ -107,7 +107,7 @@ export function TasksTab() {
           }}
         >
           <p style={{ margin: 0 }}>
-            “{toDelete.name}” will be removed{deps ? ` together with ${deps} dependenc${deps === 1 ? "y" : "ies"}` : ""}.
+            {tr("studio.tasksTab.text.willBeRemoved", { name: toDelete.name, v: deps ? tr("studio.tasksTab.tpl.togetherWithDependenc", { deps: deps, v: deps === 1 ? "y" : "ies" }) : "" })}
           </p>
         </ConfirmDialog>
       ) : null}

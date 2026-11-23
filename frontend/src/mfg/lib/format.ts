@@ -1,6 +1,7 @@
 /** Number/date formatting for the Manufacturing screens. */
 import type { MakeBuy, Weekday } from "../api/types";
 import { formatDateTime } from "../../lib/locale";
+import { t } from "../../lib/i18n";
 
 /** Up to 6 decimals (M 4.4: outputs rounded to 6 decimals for display), no thousands separators. */
 export function fmtQty(x: number | null | undefined): string {
@@ -26,7 +27,7 @@ export function fmtPct(x: number): string {
   return `${Math.round(x * 10000) / 100}%`;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [t("mfg.format.str.jan"), t("mfg.format.str.feb"), t("mfg.format.str.mar"), t("mfg.format.str.apr"), t("mfg.format.str.may"), t("mfg.format.str.jun"), t("mfg.format.str.jul"), t("mfg.format.str.aug"), t("mfg.format.str.sep"), t("mfg.format.str.oct"), t("mfg.format.str.nov"), t("mfg.format.str.dec")];
 
 /** `2026-11-02` -> `2 Nov 2026`. */
 export function fmtDate(d: string | null | undefined): string {
@@ -53,19 +54,19 @@ export function fmtTimestamp(iso: string | null | undefined): string {
 }
 
 export const WEEKDAY_LABEL: Record<Weekday, string> = {
-  mon: "Mon",
-  tue: "Tue",
-  wed: "Wed",
-  thu: "Thu",
-  fri: "Fri",
-  sat: "Sat",
-  sun: "Sun",
+  mon: t("mfg.format.str.mon"),
+  tue: t("mfg.format.str.tue"),
+  wed: t("mfg.format.str.wed"),
+  thu: t("mfg.format.str.thu"),
+  fri: t("mfg.format.str.fri"),
+  sat: t("mfg.format.str.sat"),
+  sun: t("mfg.format.str.sun"),
 };
 
 export const MAKE_BUY_LABEL: Record<MakeBuy, string> = {
-  make: "Make",
-  buy: "Buy",
-  phantom: "Phantom",
+  make: t("mfg.format.str.make"),
+  buy: t("mfg.format.str.buy"),
+  phantom: t("mfg.format.str.phantom"),
 };
 
 /** Add days to a `YYYY-MM-DD` date (UTC arithmetic, no time zone involved). */

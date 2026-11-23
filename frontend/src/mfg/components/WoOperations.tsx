@@ -68,7 +68,7 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
             <Icon name="list" /> {t("mfg.woOperations.btn.eventLog")}
           </Link>
           {canEdit && !anyRecorded && !notReleased ? (
-            <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => void run("refresh", () => refreshWoOperations(woId, woVersion))} title="Re-derive from the routing (only while nothing was recorded)">
+            <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => void run("refresh", () => refreshWoOperations(woId, woVersion))} title={t("mfg.woOperations.attr.reDeriveFromTheRouting")}>
               <Icon name="refresh" /> {t("mfg.woOperations.btn.rederiveFromRouting")}
             </button>
           ) : null}
@@ -88,7 +88,7 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
             render: (o) => (
               <span>
                 {o.name}
-                {o.group?.code || o.capture_serial ? <span className="vt-sub">{[o.group?.code, o.capture_serial ? "serial point" : ""].filter(Boolean).join(" · ")}</span> : null}
+                {o.group?.code || o.capture_serial ? <span className="vt-sub">{[o.group?.code, o.capture_serial ? t("mfg.woOperations.str.serialPoint") : ""].filter(Boolean).join(" · ")}</span> : null}
               </span>
             ),
           },
@@ -101,7 +101,7 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
             render: (o) => (
               <span>
                 <OpStatusChip status={o.status} />
-                {o.started_short ? <span className="vt-sub">started short</span> : null}
+                {o.started_short ? <span className="vt-sub">{t("mfg.woOperations.text.startedShort")}</span> : null}
               </span>
             ),
           },
@@ -116,8 +116,7 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
               <span>
                 {fmtQty(o.qty_good)} / {fmtQty(o.qty_scrap)}
                 <span className="vt-sub">
-                  of {fmtQty(o.qty_planned)}
-                  {o.qty_rework_in ? ` · +${fmtQty(o.qty_rework_in)} rework in` : ""}
+                  {t("mfg.woOperations.text.of", { qtyplanned: fmtQty(o.qty_planned), v: o.qty_rework_in ? t("mfg.woOperations.tpl.reworkIn", { qtyreworkin: fmtQty(o.qty_rework_in) }) : "" })}
                 </span>
               </span>
             ),
@@ -132,7 +131,7 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
             render: (o) => (
               <span>
                 {o.actual_start ? `${clock.dateTime(o.actual_start)}${o.actual_end ? ` – ${clock.time(o.actual_end)}` : ""}` : ""}
-                {o.run_minutes_actual ? <span className="vt-sub">run {fmtDuration(o.run_minutes_actual)}</span> : null}
+                {o.run_minutes_actual ? <span className="vt-sub">{t("mfg.woOperations.text.run", { runminutesactual: fmtDuration(o.run_minutes_actual) })}</span> : null}
               </span>
             ),
           },
@@ -146,12 +145,12 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
               o.placement[0] ? (
                 `${o.placement[0].line?.code ? `${o.placement[0].line.code} · ` : ""}${clock.dateTime(o.placement[0].start)} – ${clock.time(o.placement[0].end)}`
               ) : (
-                <span className="faint">not planned</span>
+                <span className="faint">{t("mfg.woOperations.text.notPlanned")}</span>
               ),
           },
           {
             key: "actions",
-            header: <span className="sr-only">Actions</span>,
+            header: <span className="sr-only">{t("mfg.woOperations.text.actions")}</span>,
             label: "Actions",
             width: "210px",
             exportValue: () => "",
@@ -162,10 +161,10 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
                     {t("mfg.woOperations.btn.openOnFloor")}
                   </Link>
                 ) : (
-                  <span className="faint small">created at release</span>
+                  <span className="faint small">{t("mfg.woOperations.text.createdAtRelease")}</span>
                 )}
                 {o.id && canSupervise && o.status !== "completed" && o.status !== "skipped" ? (
-                  <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => void run(o.id, () => setWoOperationDone(woId, o.seq, true, woVersion))} data-testid="op-done" title="Complete with the full available quantity (supervisor)">
+                  <button type="button" className="btn sm ghost" disabled={busy !== null} onClick={() => void run(o.id, () => setWoOperationDone(woId, o.seq, true, woVersion))} data-testid="op-done" title={t("mfg.woOperations.attr.completeWithTheFullAvailable")}>
                     {t("mfg.woOperations.btn.done")}
                   </button>
                 ) : null}
@@ -187,8 +186,8 @@ function M4Ops({ woId, woVersion, items, reload, onChanged }: { woId: string; wo
       />
       {skipping ? (
         <ReasonDialog
-          title={`Skip operation ${skipping.seq}?`}
-          text="It will not be done on the floor and the scheduler stops planning it."
+          title={t("mfg.woOperations.tpl.skipOperation", { seq: skipping.seq })}
+          text={t("mfg.woOperations.attr.itWillNotBeDone")}
           confirm="Skip"
           onClose={() => setSkipping(null)}
           onConfirm={async (reason) => {
@@ -225,7 +224,7 @@ function M3Ops({ woId, woVersion, ops, onChanged }: { woId: string; woVersion: n
     <section className="card card-table" data-testid="wo-operations">
       <div className="card-header">
         <h3>{t("mfg.woOperations.head.operations")}</h3>
-        <span className="muted small">From the routing; "done" tells the scheduler not to plan them again.</span>
+        <span className="muted small">{t("mfg.woOperations.text.fromTheRoutingDoneTells")}</span>
       </div>
       <MfgError error={ops.error ?? error} onRetry={ops.reload} />
       <DataTable
@@ -245,7 +244,7 @@ function M3Ops({ woId, woVersion, ops, onChanged }: { woId: string; woVersion: n
                   {o.placement.line?.code ?? ""} · {clock.dateTime(o.placement.start)} – {clock.time(o.placement.end)}
                 </Link>
               ) : (
-                <span className="faint">{o.done ? "" : "not in the published schedule"}</span>
+                <span className="faint">{o.done ? "" : t("mfg.woOperations.str.notInThePublishedSchedule")}</span>
               ),
           },
           {
@@ -258,7 +257,7 @@ function M3Ops({ woId, woVersion, ops, onChanged }: { woId: string; woVersion: n
               o.done ? (
                 <span className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
                   <span className="badge ok">
-                    <Icon name="check" /> Done {o.done_at ? clock.dateTime(o.done_at) : ""}
+                    <Icon name="check" />{" "}{t("mfg.woOperations.text.done", { v: o.done_at ? clock.dateTime(o.done_at) : "" })}
                   </span>
                   {canEdit ? (
                     <button type="button" className="btn sm ghost" onClick={() => void toggle(o)} disabled={busy === o.seq} data-testid="op-reopen">
@@ -268,7 +267,7 @@ function M3Ops({ woId, woVersion, ops, onChanged }: { woId: string; woVersion: n
                 </span>
               ) : canEdit ? (
                 <button type="button" className="btn sm" onClick={() => void toggle(o)} disabled={busy === o.seq} data-testid="op-done">
-                  {busy === o.seq ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Mark done
+                  {busy === o.seq ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("mfg.woOperations.text.markDone")}
                 </button>
               ) : (
                 <span className="faint small">open</span>

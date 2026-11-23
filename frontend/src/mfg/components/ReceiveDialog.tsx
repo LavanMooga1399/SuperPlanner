@@ -38,17 +38,17 @@ interface Row {
 
 function LotCells({ row, onChange }: { row: Row; onChange(p: Partial<Row>): void }) {
   const info = useItemInfo(row.item_id);
-  if (!info?.lot_controlled) return <td colSpan={3} className="faint small">Not lot-tracked</td>;
+  if (!info?.lot_controlled) return <td colSpan={3} className="faint small">{t("mfg.receiveDialog.text.notLotTracked")}</td>;
   return (
     <>
       <td>
-        <input className="input sm" aria-label={`Lot for ${row.label}`} value={row.lot_code} maxLength={64} onChange={(e) => onChange({ lot_code: e.target.value })} placeholder={t("mfg.receiveDialog.ph.required")} aria-invalid={!row.lot_code.trim() && Boolean(numOrNull(row.qty))} data-testid="receive-lot" />
+        <input className="input sm" aria-label={t("mfg.receiveDialog.tpl.lotFor", { label: row.label })} value={row.lot_code} maxLength={64} onChange={(e) => onChange({ lot_code: e.target.value })} placeholder={t("mfg.receiveDialog.ph.required")} aria-invalid={!row.lot_code.trim() && Boolean(numOrNull(row.qty))} data-testid="receive-lot" />
       </td>
       <td>
         <DateInput small ariaLabel={`Expiry for ${row.label}`} value={row.expires_on} onChange={(v) => onChange({ expires_on: v })} />
       </td>
       <td>
-        <input className="input sm" aria-label={`Supplier lot for ${row.label}`} value={row.supplier_lot} maxLength={64} onChange={(e) => onChange({ supplier_lot: e.target.value })} />
+        <input className="input sm" aria-label={t("mfg.receiveDialog.tpl.supplierLotFor", { label: row.label })} value={row.supplier_lot} maxLength={64} onChange={(e) => onChange({ supplier_lot: e.target.value })} />
       </td>
     </>
   );
@@ -96,10 +96,10 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
     .map((r) => {
       const q = numOrNull(r.qty);
       if (q === null || q === 0) return null;
-      if (q < 0) return `${r.label}: quantity cannot be negative.`;
-      if (isCountUom(r.uom) && !Number.isInteger(q)) return `${r.label}: ${r.uom} quantities are whole numbers.`;
+      if (q < 0) return t("mfg.receiveDialog.tpl.quantityCannotBeNegative", { label: r.label });
+      if (isCountUom(r.uom) && !Number.isInteger(q)) return t("mfg.receiveDialog.tpl.quantitiesAreWholeNumbers", { label: r.label, uom: r.uom });
       if (q > r.open * (1 + tolerance) + 1e-6) return `${r.label}: more than the ${fmtNum(r.open)} still open${tolerance ? ` (+${tolerance * 100}% allowed)` : ""}.`;
-      if (!r.location_id && !defaultLoc) return `${r.label}: choose a location (there is no default goods-receipt location).`;
+      if (!r.location_id && !defaultLoc) return t("mfg.receiveDialog.tpl.chooseALocationThereIs", { label: r.label });
       return null;
     })
     .filter((x): x is string => Boolean(x));
@@ -136,7 +136,7 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
 
   return (
     <Dialog
-      title={`Receive goods: ${doc.number}`}
+      title={t("mfg.receiveDialog.tpl.receiveGoods", { number: doc.number })}
       onClose={onClose}
       wide
       footer={
@@ -149,7 +149,7 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
             {t("mfg.receiveDialog.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || !lines.length || problems.length > 0 || erp.goodsReceiptsByErp} data-testid="receive-submit">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Post goods receipt
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="download" />}{" "}{t("mfg.receiveDialog.text.postGoodsReceipt")}
           </button>
         </>
       }
@@ -160,7 +160,7 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
             <div className="banner warn" role="note" data-testid="receipts-owner">
               <Icon name="lock" />
               <div>
-                <strong>Goods receipts for this plant are booked in the ERP.</strong> They arrive here with the next sync; book the receipt in the ERP instead.
+                <strong>{t("mfg.receiveDialog.text.goodsReceiptsForThisPlant")}</strong>{" "}{t("mfg.receiveDialog.text.theyArriveHereWithThe")}
               </div>
             </div>
           ) : (
@@ -169,12 +169,12 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
             </p>
           )
         ) : null}
-        {rows.length === 0 ? <p className="muted">Nothing is open on this order.</p> : null}
+        {rows.length === 0 ? <p className="muted">{t("mfg.receiveDialog.text.nothingIsOpenOnThis")}</p> : null}
         <div className="form-grid">
           <div className="field">
             <label htmlFor="rcv-date">{t("mfg.receiveDialog.label.receiptDate")}</label>
             <DateInput id="rcv-date" max={today} value={date} onChange={(v) => setDate(v)} />
-            <span className="hint">Empty = today</span>
+            <span className="hint">{t("mfg.receiveDialog.text.emptyToday")}</span>
           </div>
           <div className="field" style={{ gridColumn: "span 2" }}>
             <label htmlFor="rcv-note">{t("mfg.receiveDialog.label.note")}</label>
@@ -209,11 +209,11 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
                     {fmtNum(r.open)} {r.uom}
                   </td>
                   <td style={{ width: 110 }}>
-                    <input className="input sm num" type="number" step="any" min={0} aria-label={`Quantity received for ${r.label}`} value={r.qty} onChange={(e) => patch(i, { qty: e.target.value })} data-testid="receive-qty" />
+                    <input className="input sm num" type="number" step="any" min={0} aria-label={t("mfg.receiveDialog.tpl.quantityReceivedFor", { label: r.label })} value={r.qty} onChange={(e) => patch(i, { qty: e.target.value })} data-testid="receive-qty" />
                   </td>
                   <td style={{ minWidth: 180 }}>
                     <LocationSelect
-                      label={`Location for ${r.label}`}
+                      label={t("mfg.receiveDialog.tpl.locationFor", { label: r.label })}
                       hideLabel
                       value={r.location_id}
                       allowEmpty
@@ -235,7 +235,7 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
             ))}
           </ul>
         ) : null}
-        <MfgError error={error} title="Nothing was received" />
+        <MfgError error={error} title={t("mfg.receiveDialog.attr.nothingWasReceived")} />
       </div>
     </Dialog>
   );

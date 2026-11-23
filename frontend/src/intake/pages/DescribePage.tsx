@@ -12,16 +12,16 @@ import { t } from "../../lib/i18n";
 
 export const PLACEHOLDER: Record<PlanKind, string> = {
   project:
-    "For example:\nWebsite relaunch starting next Monday. Ravi and Priya are on the team.\n1. Gather requirements - 2-3 days (Priya)\n2. Design 1 week, after requirements, Priya\n3. Build the site: 2 weeks, Ravi\n4. Testing 3-5 days once the build is done\n5. Launch by 15 Dec 2026",
+    t("studio.describePage.str.forExampleWebsiteRelaunchStarting"),
   study:
-    "For example:\nMy exam is in 90 days. I can study three hours on weekdays and eight hours on weekends.\nSubjects: Physics, Chemistry and Maths. I want to revise everything twice and do ten mock tests.",
+    t("studio.describePage.str.forExampleMyExamIs"),
   production:
-    "For example:\nTwo machines, two shifts Monday to Saturday.\nOrder A: cutting 3 h, then welding 2 h, then painting 1 h, due Friday.\nOrder B: cutting 2 h, then assembly 4-5 h, due next Wednesday.",
+    t("studio.describePage.str.forExampleTwoMachinesTwo"),
   money:
-    "For example:\nI'm 34, take home about 1.2 lakh a month and my wife earns 60k. Household costs are 70-80k a month, school fees 18k every quarter. Car loan EMI 10k, about 3 lakh left at 9%. We have 6 lakh in savings and 8L in mutual funds. We want 15 lakh for a flat down payment in 3 years and to retire at 60.",
+    t("studio.describePage.str.forExampleIM34"),
 };
 
-const STEPS = ["Write it down", "Answer and check", "Create the plan"];
+const STEPS = [t("studio.describePage.str.writeItDown"), t("studio.describePage.str.answerAndCheck"), t("studio.describePage.str.createThePlan")];
 
 function DescribeInner({ kind }: { kind: PlanKind }) {
   const { state, capabilities, limits, busy, describe, cancelRequest, setText, setStep } = useIntake();
@@ -49,7 +49,7 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
   return (
     <IntakeShell
       kind={kind}
-      title={`Describe your ${info.planNoun === "money" ? "money goals" : `${info.planNoun} plan`}`}
+      title={`Describe your ${info.planNoun === "money" ? t("studio.describePage.str.moneyGoals") : `${info.planNoun} plan`}`}
       intro="Write it the way you would explain it to a colleague. We turn it into a draft you can check and change; nothing is calculated or saved until you create the plan."
       steps={STEPS}
       current={current}
@@ -67,7 +67,7 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
             >
               <div className="field">
                 <label htmlFor={textId} id={`${textId}-title`} style={{ fontSize: 14 }}>
-                  Your {info.planNoun === "money" ? "situation and goals" : "plan"} in your own words
+                  {t("studio.describePage.text.yourInYourOwnWords", { v: info.planNoun === "money" ? t("studio.describePage.str.situationAndGoals") : "plan" })}
                 </label>
                 <textarea
                   id={textId}
@@ -82,7 +82,7 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
                   onChange={(e) => setText(e.target.value)}
                 />
                 <div className="row small" style={{ justifyContent: "space-between" }}>
-                  <span className="muted">Lists, sentences and ranges like "2-3 days" or "70-80k" all work.</span>
+                  <span className="muted">{t("studio.describePage.text.listsSentencesAndRangesLike")}</span>
                   <span id={`${textId}-count`} className={tooLong ? "field-error" : "muted"} data-testid="intake-count">
                     {count.toLocaleString("en-IN")} / {max.toLocaleString("en-IN")} characters
                   </span>
@@ -90,7 +90,7 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
                 {invalid ? (
                   <span id={errId} className="field-error" role="alert">
                     <Icon name="alert" size={12} />{" "}
-                    {tooLong ? `The text is too long: at most ${max.toLocaleString("en-IN")} characters.` : "Write a few lines about your plan first."}
+                    {tooLong ? t("studio.describePage.tpl.theTextIsTooLong", { max: max.toLocaleString("en-IN") }) : t("studio.describePage.str.writeAFewLinesAbout")}
                   </span>
                 ) : null}
               </div>
@@ -98,12 +98,12 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                 <button type="submit" className="btn primary" data-testid="intake-submit" disabled={reading}>
                   {reading ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />}
-                  {aiOn ? "Send to AI assist and make a draft" : "Make a draft"}
+                  {aiOn ? t("studio.describePage.str.sendToAiAssistAnd") : t("studio.describePage.str.makeADraft")}
                 </button>
                 {reading ? (
                   <>
                     <span className="small muted" role="status">
-                      {aiOn ? "AI assist is reading your text. This can take up to 3 minutes." : "Reading your text…"}
+                      {aiOn ? t("studio.describePage.str.aiAssistIsReadingYour") : t("studio.describePage.str.readingYourText")}
                     </span>
                     <button type="button" className="btn" data-testid="intake-cancel-request" onClick={cancelRequest}>
                       {t("studio.describePage.btn.stop")}
@@ -117,7 +117,7 @@ function DescribeInner({ kind }: { kind: PlanKind }) {
                 ) : null}
               </div>
               {state.response ? (
-                <span className="small muted">Making a new draft replaces the current draft and your answers.</span>
+                <span className="small muted">{t("studio.describePage.text.makingANewDraftReplaces")}</span>
               ) : null}
             </form>
           </div>

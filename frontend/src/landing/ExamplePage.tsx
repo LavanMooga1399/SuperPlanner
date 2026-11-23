@@ -10,7 +10,7 @@ import "../finance/finance.css";
 import { useAsync } from "../lib/useAsync";
 import { KINDS, isPlanKind, type KindInfo } from "./kinds";
 import { PageHeader } from "../components/PageHeader";
-import { t } from "../lib/i18n";
+import { t, t as tr } from "../lib/i18n";
 
 function SchedulingExample({ info }: { info: KindInfo }) {
   const templates = useAsync((s) => listTemplates(s), []);
@@ -51,8 +51,8 @@ export function ExamplePage() {
         title={t("studio.examplePage.title.startFromAnExample")}
         description={
           info.scheduling
-            ? "The example is filled in for you. Adjust it under Options, create it, then change anything you like."
-            : "Examples come with sensible defaults; you can change everything in the next steps."
+            ? tr("studio.examplePage.str.theExampleIsFilledIn")
+            : tr("studio.examplePage.str.examplesComeWithSensibleDefaults")
         }
       />
       {info.scheduling ? <SchedulingExample info={info} /> : <FinanceTemplateCards />}

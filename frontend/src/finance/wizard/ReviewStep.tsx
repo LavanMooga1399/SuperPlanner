@@ -7,7 +7,7 @@ import type { StepProps } from "./common";
 import { HelpText } from "./HelpText";
 import { STEPS, stepOfIssue } from "./steps";
 import { DataTable } from "../../mfg/components/DataTable";
-import { t, plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 export interface ReviewStepProps extends StepProps {
   planId: string;
@@ -30,28 +30,27 @@ export function ReviewStep({ plan, planId, validation, validating, validateError
   return (
     <div className="col gap-lg">
       <HelpText>
-        Check the summary, fix anything marked as an error, then build your plan. Warnings do not stop the plan; they point out things worth
-        a second look.
+        {t("finance.reviewStep.text.checkTheSummaryFixAnything")}
       </HelpText>
       <div className="kpis">
-        <div className="card kpi"><div className="kpi-label">Income streams</div><div className="kpi-value">{plan.incomes.length}</div></div>
-        <div className="card kpi"><div className="kpi-label">Expenses</div><div className="kpi-value">{plan.expenses.length}</div></div>
-        <div className="card kpi"><div className="kpi-label">Loans</div><div className="kpi-value">{plan.debts.length}</div></div>
-        <div className="card kpi"><div className="kpi-label">Savings</div><div className="kpi-value">{plan.holdings.length}</div></div>
-        <div className="card kpi"><div className="kpi-label">Goals</div><div className="kpi-value">{goals.length}</div></div>
+        <div className="card kpi"><div className="kpi-label">{t("finance.reviewStep.text.incomeStreams")}</div><div className="kpi-value">{plan.incomes.length}</div></div>
+        <div className="card kpi"><div className="kpi-label">{t("finance.reviewStep.text.expenses")}</div><div className="kpi-value">{plan.expenses.length}</div></div>
+        <div className="card kpi"><div className="kpi-label">{t("finance.reviewStep.text.loans")}</div><div className="kpi-value">{plan.debts.length}</div></div>
+        <div className="card kpi"><div className="kpi-label">{t("finance.reviewStep.text.savings")}</div><div className="kpi-value">{plan.holdings.length}</div></div>
+        <div className="card kpi"><div className="kpi-label">{t("finance.reviewStep.text.goals")}</div><div className="kpi-value">{goals.length}</div></div>
       </div>
 
       <section className="card" aria-labelledby="fin-issues-h" data-testid="fin-review-issues">
         <div className="card-header">
           <h2 id="fin-issues-h">{t("finance.reviewStep.head.checks")}</h2>
           <span className="small muted" role="status" aria-live="polite">
-            {validating ? "Checking…" : errors.length ? `${plural(errors.length, "error")} to fix` : "No errors"}
+            {validating ? t("finance.reviewStep.str.checking") : errors.length ? t("finance.reviewStep.tpl.toFix", { length: plural(errors.length, "error") }) : t("finance.reviewStep.str.noErrors")}
           </span>
         </div>
         {validateError ? <div className="card-body"><span style={{ color: "var(--danger)" }}><Icon name="alert" /> {validateError}</span></div> : null}
-        {!validation && validating ? <div className="card-body muted">Checking your plan…</div> : null}
+        {!validation && validating ? <div className="card-body muted">{t("finance.reviewStep.text.checkingYourPlan")}</div> : null}
         {validation && !issues.length ? (
-          <div className="card-body row"><Icon name="check" style={{ color: "var(--ok)" }} /> Everything looks good.</div>
+          <div className="card-body row"><Icon name="check" style={{ color: "var(--ok)" }} />{" "}{t("finance.reviewStep.text.everythingLooksGood")}</div>
         ) : null}
         {[...errors, ...warnings].map((iss, i) => {
           const step = stepOfIssue(iss);
@@ -61,11 +60,11 @@ export function ReviewStep({ plan, planId, validation, validating, validateError
                 <Icon name={iss.severity === "error" ? "x" : "alert"} />
               </span>
               <div className="grow">
-                <strong>{iss.severity === "error" ? "Error" : "Warning"}:</strong> {iss.message}
+                <strong>{iss.severity === "error" ? t("finance.reviewStep.str.error") : t("finance.reviewStep.str.warning")}:</strong> {iss.message}
               </div>
               {step !== "review" ? (
                 <Link className="btn sm ghost" to={`/finance/${planId}/setup/${step}`}>
-                  Fix in {label(step)} <Icon name="arrow-right" />
+                  {t("finance.reviewStep.text.fixIn", { step: label(step) })}{" "}<Icon name="arrow-right" />
                 </Link>
               ) : null}
             </div>
@@ -81,17 +80,16 @@ export function ReviewStep({ plan, planId, validation, validating, validateError
           </div>
           <div className="card-body col">
             <ul className="explain-list" style={{ marginTop: 0 }}>
-              <li>Average monthly surplus in the first year: {formatMoney(roundDisplay(cf.avg_monthly_surplus_first_year), cur, loc)}.</li>
+              <li>{t("finance.reviewStep.text.averageMonthlySurplusInThe", { formatMoney: formatMoney(roundDisplay(cf.avg_monthly_surplus_first_year), cur, loc) })}</li>
               <li>
-                Emergency fund target {formatMoney(roundDisplay(cf.ef_target), cur, loc)}, you already have {formatMoney(roundDisplay(cf.ef_initial), cur, loc)}
-                {cf.ef_complete_month ? `; complete by ${fmtMonth(cf.ef_complete_month)}` : ""}.
+                {t("finance.reviewStep.text.emergencyFundTargetYouAlready", { formatMoney: formatMoney(roundDisplay(cf.ef_target), cur, loc), formatMoney2: formatMoney(roundDisplay(cf.ef_initial), cur, loc), v: cf.ef_complete_month ? t("finance.reviewStep.tpl.completeBy", { efcompletemonth: fmtMonth(cf.ef_complete_month) }) : "" })}
               </li>
               {cf.negative_surplus_months.length ? (
-                <li>Months where spending is higher than income: {cf.negative_surplus_months.map(fmtMonth).join(", ")}.</li>
+                <li>{t("finance.reviewStep.text.monthsWhereSpendingIsHigher", { join: cf.negative_surplus_months.map(fmtMonth).join(", ") })}</li>
               ) : null}
               {cf.debts_paid_off.map((d) => (
                 <li key={d.debt_id}>
-                  {plan.debts.find((x) => x.id === d.debt_id)?.name ?? d.debt_id}: {d.month ? `paid off by ${fmtMonth(d.month)}` : "not paid off within the plan"}.
+                  {plan.debts.find((x) => x.id === d.debt_id)?.name ?? d.debt_id}: {d.month ? t("finance.reviewStep.tpl.paidOffBy", { month: fmtMonth(d.month) }) : t("finance.reviewStep.str.notPaidOffWithinThe")}.
                 </li>
               ))}
             </ul>

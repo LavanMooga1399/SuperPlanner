@@ -10,7 +10,7 @@ import { t } from "../../lib/i18n";
 
 const COUNT_LABELS: Record<string, string> = {
   items: "items",
-  bom_lines: "BOM lines",
+  bom_lines: t("mfg.sampleLoader.str.bomLines"),
   boms: "BOMs",
   routings: "routings",
   operations: "operations",
@@ -54,11 +54,10 @@ export function SampleLoader({ onLoaded }: { onLoaded(res: SampleLoadResponse): 
         <h2 id="mfg-samples-title">{t("mfg.sampleLoader.head.sampleData")}</h2>
       </div>
       <p className="muted small" style={{ margin: 0 }}>
-        Fictional, ready-to-use plants and products to explore the screens. "Load" adds the sample next to your
-        data (loading it again changes nothing); "Replace my data" deletes all your manufacturing data first.
+        {t("mfg.sampleLoader.text.fictionalReadyToUsePlants")}
       </p>
       <MfgError error={samples.error} onRetry={samples.reload} />
-      <MfgError error={error} title="The sample could not be loaded" />
+      <MfgError error={error} title={t("mfg.sampleLoader.attr.theSampleCouldNotBe")} />
       <div className="grid-3">
         {(samples.data?.items ?? []).map((s) => (
           <div className="card template-card" key={s.id} data-testid={`sample-card-${s.id}`}>
@@ -84,7 +83,7 @@ export function SampleLoader({ onLoaded }: { onLoaded(res: SampleLoadResponse): 
                   data-testid={`sample-load-${s.id}`}
                 >
                   {busy === s.id ? <span className="spinner" aria-hidden /> : <Icon name="download" />}
-                  Load
+                  {t("mfg.sampleLoader.text.load")}
                 </button>
                 <button
                   type="button"
@@ -101,13 +100,13 @@ export function SampleLoader({ onLoaded }: { onLoaded(res: SampleLoadResponse): 
         ))}
         {samples.loading && !samples.data ? (
           <div className="empty" role="status">
-            <span className="spinner" aria-hidden /> Loading samples…
+            <span className="spinner" aria-hidden />{" "}{t("mfg.sampleLoader.text.loadingSamples")}
           </div>
         ) : null}
       </div>
       {confirm ? (
         <ConfirmDialog
-          title={`Replace your data with "${confirm.name}"?`}
+          title={t("mfg.sampleLoader.tpl.replaceYourDataWith", { name: confirm.name })}
           confirmLabel={t("mfg.sampleLoader.btn.deleteMyDataAndLoad")}
           danger
           busy={busy !== null}
@@ -115,9 +114,7 @@ export function SampleLoader({ onLoaded }: { onLoaded(res: SampleLoadResponse): 
           onConfirm={() => void run(confirm, true)}
         >
           <p style={{ margin: 0 }}>
-            All your manufacturing data (items, BOMs, routings, plant, shifts, people and tooling) is deleted and
-            replaced by the sample. Your scheduling and finance plans are not affected. This cannot be undone; export
-            your data first if you may need it.
+            {t("mfg.sampleLoader.text.allYourManufacturingDataItems")}
           </p>
         </ConfirmDialog>
       ) : null}

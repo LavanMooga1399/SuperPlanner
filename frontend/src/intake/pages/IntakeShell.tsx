@@ -30,7 +30,7 @@ export function IntakeShell({
   useEffect(() => {
     document.title = `${title} - SuperPlanner`;
     return () => {
-      document.title = "SuperPlanner Studio";
+      document.title = t("studio.intakeShell.str.superplannerStudio");
     };
   }, [title]);
   const hasWork = !!state.response || !!state.text.trim() || !!state.table.text.trim();
@@ -38,7 +38,7 @@ export function IntakeShell({
     <div className="col gap-lg intake-page" data-testid={`intake-page-${kind}`}>
       <nav aria-label={t("studio.intakeShell.aria.breadcrumb")} className="small">
         <Link to={`/new/${kind}`}>
-          <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> New {KINDS[kind].label.toLowerCase()}
+          <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} />{" "}{t("studio.intakeShell.text.new", { label: KINDS[kind].label.toLowerCase() })}
         </Link>
       </nav>
       <PageHeader
@@ -71,7 +71,7 @@ export function IntakeShell({
             cancel();
           }}
         >
-          Your {state.flow === "import" ? "table" : "text"}, the draft and your answers are discarded. Nothing was saved.
+          {t("studio.intakeShell.text.yourTheDraftAndYour", { v: state.flow === "import" ? "table" : "text" })}
         </ConfirmDialog>
       ) : null}
     </div>

@@ -5,6 +5,7 @@ import type { Problem } from "../api/types";
 import { startBlankFinancePlan } from "../finance/lib/startBlank";
 import { browserUtcOffset, todayDate } from "../lib/time";
 import { DOMAIN_OF_KIND, KINDS, type PlanKind, type ScheduleKind } from "./kinds";
+import { t } from "../lib/i18n";
 
 /** An empty plan in the kind's own words, with one working resource (PHASE2.md 3.1 "Build step by step"). */
 export function emptyProblem(kind: ScheduleKind): Problem {
@@ -12,7 +13,7 @@ export function emptyProblem(kind: ScheduleKind): Problem {
   const r = info.starterResource!;
   return {
     id: "draft",
-    name: `My ${info.planNoun} plan`,
+    name: t("studio.startPlan.tpl.myPlan", { planNoun: info.planNoun }),
     description: "",
     domain: DOMAIN_OF_KIND[kind],
     horizon_start: `${todayDate()}T00:00:00${browserUtcOffset()}`,

@@ -25,18 +25,18 @@ import { formatDate } from "../../lib/locale";
 import { t as tr } from "../../lib/i18n";
 
 const KIND: Record<ApprovalKind, { label: string; icon: IconName }> = {
-  pr: { label: "Purchase request", icon: "briefcase" },
-  eco: { label: "Engineering change", icon: "refresh" },
-  replan_proposal: { label: "Schedule proposal", icon: "calendar" },
-  overtime: { label: "Suggested overtime", icon: "clock" },
+  pr: { label: tr("mobile.mobileApprovals.str.purchaseRequest"), icon: "briefcase" },
+  eco: { label: tr("mobile.mobileApprovals.str.engineeringChange"), icon: "refresh" },
+  replan_proposal: { label: tr("mobile.mobileApprovals.str.scheduleProposal"), icon: "calendar" },
+  overtime: { label: tr("mobile.mobileApprovals.str.suggestedOvertime"), icon: "clock" },
 };
 
 const FILTERS: { key: ApprovalKind | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "pr", label: "Purchasing" },
-  { key: "eco", label: "Changes" },
-  { key: "replan_proposal", label: "Schedules" },
-  { key: "overtime", label: "Overtime" },
+  { key: "all", label: tr("mobile.mobileApprovals.str.all") },
+  { key: "pr", label: tr("mobile.mobileApprovals.str.purchasing") },
+  { key: "eco", label: tr("mobile.mobileApprovals.str.changes") },
+  { key: "replan_proposal", label: tr("mobile.mobileApprovals.str.schedules") },
+  { key: "overtime", label: tr("mobile.mobileApprovals.str.overtime") },
 ];
 
 /** The text field an action needs (`reason` for PR reject, `note` for ECO reject), if its body has it empty. */
@@ -58,11 +58,11 @@ function ProposalCompare({ runId }: { runId: string }) {
   if (cmp.loading && !cmp.data)
     return (
       <p className="muted small" role="status" style={{ margin: 0 }}>
-        <span className="spinner" aria-hidden /> Comparing…
+        <span className="spinner" aria-hidden />{" "}{tr("mobile.mobileApprovals.text.comparing")}
       </p>
     );
-  if (cmp.error) return <MfgError error={cmp.error} onRetry={cmp.reload} title="Could not compare" />;
-  if (!cmp.data) return <p className="muted small" style={{ margin: 0 }}>There is no published schedule to compare with.</p>;
+  if (cmp.error) return <MfgError error={cmp.error} onRetry={cmp.reload} title={tr("mobile.mobileApprovals.attr.couldNotCompare")} />;
+  if (!cmp.data) return <p className="muted small" style={{ margin: 0 }}>{tr("mobile.mobileApprovals.text.thereIsNoPublishedSchedule")}</p>;
   const t = cmp.data.tradeoff;
   const kpis = cmp.data.kpis.slice(0, 5);
   const mins = (m: number) => (Math.abs(m) >= 1440 ? `${(m / 1440).toFixed(1)} days` : Math.abs(m) >= 60 ? `${(m / 60).toFixed(1)} h` : `${Math.round(m)} min`);
@@ -75,7 +75,7 @@ function ProposalCompare({ runId }: { runId: string }) {
           <dt>{tr("mobile.mobileApprovals.head.lateness")}</dt>
           <dd>{t.late_minutes_saved > 0 ? `${mins(t.late_minutes_saved)} less` : t.late_minutes_saved < 0 ? `${mins(-t.late_minutes_saved)} more` : "same"}</dd>
           <dt>{tr("mobile.mobileApprovals.head.overtime")}</dt>
-          <dd>{t.overtime_hours_added ? `${t.overtime_hours_added.toFixed(1)} h more (cost ${Math.round(t.overtime_cost_added).toLocaleString("en-IN")})` : "no change"}</dd>
+          <dd>{t.overtime_hours_added ? tr("mobile.mobileApprovals.tpl.hMoreCost", { overtimehoursadded: t.overtime_hours_added.toFixed(1), toLocaleString: Math.round(t.overtime_cost_added).toLocaleString("en-IN") }) : tr("mobile.mobileApprovals.str.noChange")}</dd>
         </dl>
       ) : null}
       {kpis.length ? (
@@ -115,7 +115,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
   const [text, setText] = useState("");
   const [showCompare, setShowCompare] = useState(false);
   const [stale, setStale] = useState<ApprovalAction | null>(null);
-  const blocked = !online ? "Needs a connection: approvals always use the latest data." : !allowed ? needsText(perm) : null;
+  const blocked = !online ? tr("mobile.mobileApprovals.str.needsAConnectionApprovalsAlways") : !allowed ? needsText(perm) : null;
   const to = mobileLink(item.link);
   const actions = item.actions.filter((a) => requestPath(a) !== null);
 
@@ -126,15 +126,15 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
     const body = { ...(a.body ?? {}), ...(field ? { [field]: text.trim() } : {}), ...extra };
     try {
       await runApprovalAction(a, item.row_version, body, `appr-${item.kind}-${item.id}-${a.label}-${Date.now()}`.slice(0, 120));
-      setOut({ tone: "ok", text: item.kind === "overtime" ? "Accepted. A new schedule with this overtime is being made; publish it when it is ready." : `${a.label}: done.` });
+      setOut({ tone: "ok", text: item.kind === "overtime" ? tr("mobile.mobileApprovals.str.acceptedANewScheduleWith") : tr("mobile.mobileApprovals.tpl.done", { label: a.label }) });
       setAsking(null);
       setStale(null);
       window.setTimeout(onDone, 1500);
     } catch (e) {
       if (e instanceof ApiError && e.code === "APS_RUN_STALE_BASIS") {
         setStale(a);
-        setOut({ tone: "danger", text: "Another schedule was published after this proposal was made. Publishing it anyway changes work already planned for the floor." });
-      } else setOut({ tone: "danger", text: isConflict(e) ? "This changed since the list was loaded. Reload the list and check it again." : errorText(e) });
+        setOut({ tone: "danger", text: tr("mobile.mobileApprovals.str.anotherScheduleWasPublishedAfter") });
+      } else setOut({ tone: "danger", text: isConflict(e) ? tr("mobile.mobileApprovals.str.thisChangedSinceTheList") : errorText(e) });
     } finally {
       setBusy(null);
     }
@@ -156,7 +156,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
       </span>
       <div className="row" style={{ justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
         <strong>{item.title}</strong>
-        {item.waiting_since ? <span className="muted small nowrap">since {formatDate(item.waiting_since)}</span> : null}
+        {item.waiting_since ? <span className="muted small nowrap">{tr("mobile.mobileApprovals.text.since", { waitingsince: formatDate(item.waiting_since) })}</span> : null}
       </div>
       {item.summary ? <p style={{ margin: 0 }}>{item.summary}</p> : null}
       {item.kind === "replan_proposal" ? (
@@ -170,7 +170,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
       {asking ? (
         <div className="col" style={{ gap: 6 }}>
           <label htmlFor={`appr-text-${item.kind}-${item.id}`} className="small" style={{ fontWeight: 600 }}>
-            {textField(asking) === "reason" ? "Reason" : "Note"} (required)
+            {textField(asking) === "reason" ? tr("mobile.mobileApprovals.str.reason") : tr("mobile.mobileApprovals.str.note")} (required)
           </label>
           <textarea id={`appr-text-${item.kind}-${item.id}`} className="textarea" rows={2} value={text} onChange={(e) => setText(e.target.value)} data-testid="m-approval-reason" />
         </div>
@@ -189,7 +189,7 @@ function ApprovalCard({ item, online, onDone }: { item: ApprovalItem; online: bo
           ) : stale ? (
             <>
               <button type="button" className="btn primary" disabled={Boolean(blocked) || busy !== null} onClick={() => void send(stale, { confirm_stale_basis: true })} data-testid="m-approval-stale-confirm">
-                {busy ? <span className="spinner" aria-hidden /> : <Icon name="flag" />} Publish anyway
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="flag" />}{" "}{tr("mobile.mobileApprovals.text.publishAnyway")}
               </button>
               <button type="button" className="btn ghost" onClick={() => { setStale(null); setOut(null); }}>
                 {tr("mobile.mobileApprovals.btn.cancel")}

@@ -15,7 +15,7 @@ import { AccountMenu } from "./auth/AccountMenu";
 import { useAuth } from "./auth/AuthContext";
 import { SessionExpiredBanner } from "./auth/SessionExpiredBanner";
 import { isMfgPath } from "./mfg/lib/paths";
-import { t } from "./lib/i18n";
+import { t, t as tr } from "./lib/i18n";
 
 /** Polls /health; shared by the top bar dot and the offline banner. */
 function useServerHealth() {
@@ -46,19 +46,19 @@ function ServerStatus({ health, down }: { health: Health | null; down: boolean }
   if (down)
     return (
       <span className="server-dot" role="status" style={{ color: "var(--danger)" }}>
-        <Icon name="alert" size={14} /> Server offline
+        <Icon name="alert" size={14} />{" "}{tr("shell.app.text.serverOffline")}
       </span>
     );
   if (!health) return null;
   return (
     <span
       className="server-dot hide-md"
-      title={`Engine ${health.version}, OR-Tools ${health.ortools_version}, database ${health.database}`}
-      aria-label={health.status === "ok" ? `Server connected, engine ${health.version}` : "Server degraded"}
+      title={tr("shell.app.tpl.engineOrToolsDatabase", { version: health.version, ortoolsversion: health.ortools_version, database: health.database })}
+      aria-label={health.status === "ok" ? tr("shell.app.tpl.serverConnectedEngine", { version: health.version }) : tr("shell.app.str.serverDegraded")}
       role="img"
     >
       <span className={`status-dot ${health.status === "ok" ? "ok" : "warn"}`} aria-hidden />
-      <span aria-hidden>{health.status === "ok" ? "Connected" : "Degraded"}</span>
+      <span aria-hidden>{health.status === "ok" ? tr("shell.app.str.connected") : tr("shell.app.str.degraded")}</span>
     </span>
   );
 }
@@ -75,15 +75,15 @@ function MainNav() {
   const mfg = isMfgPath(pathname);
   const scheduling = !finance && !mfg;
   return (
-    <nav aria-label="Main" className="main-nav">
+    <nav aria-label={tr("shell.app.attr.main")} className="main-nav">
       <Link to="/" className={`main-nav-link${scheduling ? " active" : ""}`} aria-current={scheduling ? "page" : undefined} data-testid="nav-scheduling">
-        Scheduling
+        {tr("shell.app.text.scheduling")}
       </Link>
       <Link to="/finance" className={`main-nav-link${finance ? " active" : ""}`} aria-current={finance ? "page" : undefined} data-testid="nav-finance">
-        Finance
+        {tr("shell.app.text.finance")}
       </Link>
       <Link to="/mfg" className={`main-nav-link${mfg ? " active" : ""}`} aria-current={mfg ? "page" : undefined} data-testid="nav-mfg">
-        Manufacturing
+        {tr("shell.app.text.manufacturing")}
       </Link>
     </nav>
   );
@@ -91,7 +91,7 @@ function MainNav() {
 
 function SearchButton() {
   return (
-    <button type="button" className="global-search" onClick={openPalette} aria-label={`Search and commands (${MOD}+K)`} data-testid="global-search">
+    <button type="button" className="global-search" onClick={openPalette} aria-label={tr("shell.app.tpl.searchAndCommandsK", { MOD: MOD })} data-testid="global-search">
       <Icon name="search" size={14} />
       <span className="global-search-text">{t("shell.search")}</span>
       <kbd className="hide-sm">{MOD} K</kbd>
@@ -116,7 +116,7 @@ export function App() {
           {t("shell.skip")}
         </a>
         <header className="topbar">
-          <Link to="/" className="brand" aria-label="SuperPlanner home">
+          <Link to="/" className="brand" aria-label={tr("shell.app.attr.superplannerHome")}>
             <svg className="brand-mark" viewBox="0 0 22 22" aria-hidden>
               <rect x="1" y="1" width="20" height="20" rx="5" fill="var(--accent)" />
               <rect x="5" y="6" width="7" height="3" rx="1.2" fill="var(--accent-contrast)" />
@@ -147,10 +147,10 @@ export function App() {
                 tone="danger"
                 role="alert"
                 testId="server-offline"
-                title="Server not reachable"
+                title={tr("shell.app.attr.serverNotReachable")}
                 actions={
                   <button className="btn sm" onClick={() => void server.check()} disabled={server.checking}>
-                    {server.checking ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Retry
+                    {server.checking ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />}{" "}{tr("shell.app.text.retry")}
                   </button>
                 }
               >
@@ -178,10 +178,10 @@ export function NotFound() {
   return (
     <div className="empty">
       <Icon name="help" size={32} />
-      <h2>Page not found</h2>
-      <p>The page you are looking for does not exist.</p>
+      <h2>{tr("shell.app.text.pageNotFound")}</h2>
+      <p>{tr("shell.app.text.thePageYouAreLooking")}</p>
       <Link className="btn" to="/">
-        Back to plans
+        {tr("shell.app.text.backToPlans")}
       </Link>
     </div>
   );

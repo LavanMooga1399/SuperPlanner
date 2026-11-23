@@ -22,15 +22,15 @@ export function ViolationsPanel({
         <button type="button" className="btn ghost sm" aria-expanded={open} onClick={onToggle}>
           <Icon name={open ? "chevron-down" : "chevron-right"} />
           <strong>
-            {hard.length ? `${hard.length} rule violation${hard.length === 1 ? "" : "s"}` : ""}
+            {hard.length ? t("studio.violationsPanel.tpl.ruleViolation", { length: hard.length, v: hard.length === 1 ? "" : "s" }) : ""}
             {hard.length && soft.length ? " and " : ""}
-            {soft.length ? `${soft.length} missed target${soft.length === 1 ? "" : "s"}` : ""}
+            {soft.length ? t("studio.violationsPanel.tpl.missedTarget", { length: soft.length, v: soft.length === 1 ? "" : "s" }) : ""}
           </strong>
         </button>
         {hard.length ? (
-          <span className="badge danger"><Icon name="x" /> Cannot be approved</span>
+          <span className="badge danger"><Icon name="x" />{" "}{t("studio.violationsPanel.text.cannotBeApproved")}</span>
         ) : (
-          <span className="badge warn"><Icon name="alert" /> Soft only</span>
+          <span className="badge warn"><Icon name="alert" />{" "}{t("studio.violationsPanel.text.softOnly")}</span>
         )}
       </div>
       {open ? (
@@ -39,7 +39,7 @@ export function ViolationsPanel({
             <div className="issue" key={i} data-testid={`violation-${v.code}`}>
               <span className={`badge ${v.severity === "hard" ? "danger" : "warn"}`}>
                 <Icon name={v.severity === "hard" ? "x" : "clock"} />
-                {v.severity === "hard" ? "Rule broken" : "Late"}
+                {v.severity === "hard" ? t("studio.violationsPanel.str.ruleBroken") : t("studio.violationsPanel.str.late")}
               </span>
               <div className="grow">
                 <div>{v.message}</div>

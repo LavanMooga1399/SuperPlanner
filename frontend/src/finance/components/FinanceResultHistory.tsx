@@ -42,7 +42,7 @@ export function FinanceResultHistory({ planId, currentId, currency, locale, refr
             { key: "monthly", header: "Monthly now", width: "130px", align: "right", sortValue: (r) => r.monthly_contribution_now, render: (r) => formatMoney(r.monthly_contribution_now, currency, locale) },
             {
               key: "actions",
-              header: <span className="sr-only">Actions</span>,
+              header: <span className="sr-only">{t("finance.financeResultHistory.text.actions")}</span>,
               label: "Actions",
               width: "160px",
               align: "right",

@@ -5,17 +5,17 @@ import { DataTable } from "../../mfg/components/DataTable";
 import { t } from "../../lib/i18n";
 
 const REASON_LABEL: Record<string, string> = {
-  ALLOCATION_SPLIT: "Where the money goes",
-  RISK_CAP: "Growth limit",
-  GLIDE_DOWN: "Getting safer near the date",
-  LOCKIN_EXCLUDED: "Lock-in not used",
-  EF_GATED: "After the emergency fund",
-  CASH_LIMITED: "Savings fully used",
-  HOLDINGS_USED: "Existing savings",
-  CAUTIOUS_RETURNS: "Cautious planning",
-  SHORTFALL: "Shortfall",
-  LOW_PROBABILITY: "Lower chance",
-  ON_TRACK: "On track",
+  ALLOCATION_SPLIT: t("finance.explanationPanel.str.whereTheMoneyGoes"),
+  RISK_CAP: t("finance.explanationPanel.str.growthLimit"),
+  GLIDE_DOWN: t("finance.explanationPanel.str.gettingSaferNearTheDate"),
+  LOCKIN_EXCLUDED: t("finance.explanationPanel.str.lockInNotUsed"),
+  EF_GATED: t("finance.explanationPanel.str.afterTheEmergencyFund"),
+  CASH_LIMITED: t("finance.explanationPanel.str.savingsFullyUsed"),
+  HOLDINGS_USED: t("finance.explanationPanel.str.existingSavings"),
+  CAUTIOUS_RETURNS: t("finance.explanationPanel.str.cautiousPlanning"),
+  SHORTFALL: t("finance.explanationPanel.str.shortfall"),
+  LOW_PROBABILITY: t("finance.explanationPanel.str.lowerChance"),
+  ON_TRACK: t("finance.explanationPanel.str.onTrack"),
 };
 
 /** Computed explanations (FINANCE.md 12): every sentence comes from the engine's message catalog. */
@@ -84,10 +84,10 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
               exportName="assumptions-used"
             />
           </div>
-          <p className="small muted">Inflation: {formatPct(used.inflation_pct, 1)} a year (your assumption).</p>
+          <p className="small muted">{t("finance.explanationPanel.text.inflationAYearYourAssumption", { inflationpct: formatPct(used.inflation_pct, 1) })}</p>
           {taxNote ? (
             <p className="small muted">
-              Your tax note (not calculated): {taxNote}
+              {t("finance.explanationPanel.text.yourTaxNoteNotCalculated", { taxNote: taxNote })}
             </p>
           ) : null}
         </details>
@@ -109,11 +109,11 @@ export function ExplanationPanel({ result, taxNote }: { result: FinanceResult; t
         </details>
         {result.violations.length ? (
           <details className="explain-section" open={result.violations.some((v) => v.severity === "hard")}>
-            <summary>Independent check findings ({result.violations.length})</summary>
+            <summary>{t("finance.explanationPanel.text.independentCheckFindings", { length: result.violations.length })}</summary>
             <ul className="explain-list">
               {result.violations.map((v, i) => (
                 <li key={i}>
-                  <span className="label-tag">{v.severity === "hard" ? "Rule broken" : "Note"}</span> {v.message}
+                  <span className="label-tag">{v.severity === "hard" ? t("finance.explanationPanel.str.ruleBroken") : t("finance.explanationPanel.str.note")}</span> {v.message}
                 </li>
               ))}
             </ul>

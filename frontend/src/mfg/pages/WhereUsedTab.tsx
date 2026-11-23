@@ -26,7 +26,7 @@ export function WhereUsedTab() {
   const columns: Column<WhereUsedRow>[] = [
     {
       key: "pn",
-      header: "Used in",
+      header: t("mfg.whereUsedTab.str.usedIn"),
       width: "minmax(220px, 1.3fr)",
       render: (r) => (
         <span style={{ paddingLeft: (r.level - 1) * 18 }} className="row">
@@ -34,15 +34,15 @@ export function WhereUsedTab() {
             {r.part_number}
           </Link>
           {r.is_top ? (
-            <span className="chip" title="Not used anywhere else: a finished product">
-              Top
+            <span className="chip" title={t("mfg.whereUsedTab.attr.notUsedAnywhereElseA")}>
+              {t("mfg.whereUsedTab.text.top")}
             </span>
           ) : null}
         </span>
       ),
     },
-    { key: "desc", header: "Description", width: "minmax(180px, 1.5fr)", render: (r) => <span className="mfg-ellipsis">{r.description}</span> },
-    { key: "lvl", header: "Level", width: "60px", align: "right", render: (r) => r.level },
+    { key: "desc", header: t("mfg.whereUsedTab.str.description"), width: "minmax(180px, 1.5fr)", render: (r) => <span className="mfg-ellipsis">{r.description}</span> },
+    { key: "lvl", header: t("mfg.whereUsedTab.str.level"), width: "60px", align: "right", render: (r) => r.level },
     {
       key: "bom",
       header: "BOM",
@@ -53,8 +53,8 @@ export function WhereUsedTab() {
         </span>
       ),
     },
-    { key: "fn", header: "Find no.", width: "70px", render: (r) => <span className="mono">{r.find_number}</span> },
-    { key: "qty", header: "Qty per", width: "90px", align: "right", render: (r) => `${fmtQty(r.qty_per)} ${r.line_uom}` },
+    { key: "fn", header: t("mfg.whereUsedTab.str.findNo"), width: "70px", render: (r) => <span className="mono">{r.find_number}</span> },
+    { key: "qty", header: t("mfg.whereUsedTab.str.qtyPer"), width: "90px", align: "right", render: (r) => `${fmtQty(r.qty_per)} ${r.line_uom}` },
   ];
 
   return (
@@ -77,12 +77,12 @@ export function WhereUsedTab() {
           </button>
         </div>
         <label className="row small">
-          <span className="muted">On date</span>
+          <span className="muted">{t("mfg.whereUsedTab.text.onDate")}</span>
           <DateInput small value={on} ariaLabel="On date (empty = any date)" onChange={(v) => setOn(v)} />
         </label>
       </div>
       {tooLarge ? (
-        <Banner tone="warn" title={t("mfg.whereUsedTab.title.tooManyRowsToShow")} actions={<button type="button" className="btn sm" onClick={() => setMode("single")}>Show direct parents</button>}>
+        <Banner tone="warn" title={t("mfg.whereUsedTab.title.tooManyRowsToShow")} actions={<button type="button" className="btn sm" onClick={() => setMode("single")}>{t("mfg.whereUsedTab.text.showDirectParents")}</button>}>
           {errorText(wu.error)}
         </Banner>
       ) : (
@@ -94,11 +94,11 @@ export function WhereUsedTab() {
           rows={wu.data.rows}
           columns={columns}
           rowKey={(r) => `${r.row}-${r.line_id}`}
-          label={`Where ${item.part_number} is used`}
+          label={t("mfg.whereUsedTab.tpl.whereIsUsed", { partnumber: item.part_number })}
           role={mode === "indented" ? "treegrid" : "grid"}
           testId="whereused-table"
           rowExtras={(r) => ({ testId: "whereused-row", data: { "part-number": r.part_number, level: r.level }, ariaLevel: mode === "indented" ? r.level : undefined })}
-          empty={`${item.part_number} is not used in any ${include === "effective" ? "effective released" : ""} BOM.`}
+          empty={t("mfg.whereUsedTab.tpl.isNotUsedInAny", { partnumber: item.part_number, v: include === "effective" ? "effective released" : "" })}
           footer={
             <span className="small muted">
               {plural(wu.data.totals.rows, "row")} · {plural(wu.data.totals.top_items, "top-level product")}

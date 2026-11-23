@@ -91,17 +91,17 @@ export function linesToInput(lines: LineDraft[]): PurchaseLineInput[] {
 /** Plain-language problems that block saving (the server re-checks everything). */
 export function linesProblems(lines: LineDraft[]): string[] {
   const out: string[] = [];
-  if (!lines.some((l) => l.item)) out.push("Add at least one line with a part.");
+  if (!lines.some((l) => l.item)) out.push(t("mfg.docLinesEditor.str.addAtLeastOneLine"));
   lines.forEach((l, i) => {
     const n = l.line_no ?? (i + 1) * 10;
     if (!l.item) return;
-    if (l.schedules.length === 0) out.push(`Line ${n}: add a delivery.`);
+    if (l.schedules.length === 0) out.push(t("mfg.docLinesEditor.tpl.lineAddADelivery", { n: n }));
     l.schedules.forEach((s, j) => {
       const q = numOrNull(s.qty);
-      if (!s.requested_date) out.push(`Line ${n}, delivery ${j + 1}: enter the requested dock date.`);
-      if (q === null || q <= 0) out.push(`Line ${n}, delivery ${j + 1}: quantity must be more than 0.`);
-      else if (isCountUom(l.item?.uom) && !Number.isInteger(q)) out.push(`Line ${n}, delivery ${j + 1}: ${l.item?.uom} quantities are whole numbers.`);
-      else if (s.rec && q < s.rec.received_qty) out.push(`Line ${n}, delivery ${j + 1}: cannot be less than the ${fmtNum(s.rec.received_qty)} already received.`);
+      if (!s.requested_date) out.push(t("mfg.docLinesEditor.tpl.lineDeliveryEnterTheRequested", { n: n, v: j + 1 }));
+      if (q === null || q <= 0) out.push(t("mfg.docLinesEditor.tpl.lineDeliveryQuantityMustBe", { n: n, v: j + 1 }));
+      else if (isCountUom(l.item?.uom) && !Number.isInteger(q)) out.push(t("mfg.docLinesEditor.tpl.lineDeliveryQuantitiesAreWhole", { n: n, v: j + 1, uom: l.item?.uom }));
+      else if (s.rec && q < s.rec.received_qty) out.push(t("mfg.docLinesEditor.tpl.lineDeliveryCannotBeLess", { n: n, v: j + 1, receivedqty: fmtNum(s.rec.received_qty) }));
     });
   });
   return out;
@@ -159,7 +159,7 @@ export function DocLinesEditor({
             <th>{t("mfg.docLinesEditor.head.available")}</th>
             <th className="right">{t("mfg.docLinesEditor.head.unitPrice")}</th>
             <th>
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">{t("mfg.docLinesEditor.text.actions")}</span>
             </th>
           </tr>
         </thead>
@@ -187,12 +187,12 @@ export function DocLinesEditor({
                       ) : null}
                     </>
                   ) : (
-                    <ItemPicker label={`Line ${lineNo} part`} hideLabel value={l.item} makeBuy="buy" onChange={(it) => setLine(i, { item: it })} testId="doc-line-item" />
+                    <ItemPicker label={t("mfg.docLinesEditor.tpl.linePart", { lineNo: lineNo })} hideLabel value={l.item} makeBuy="buy" onChange={(it) => setLine(i, { item: it })} testId="doc-line-item" />
                   )}
                   <LineHint item={l.item} />
                   {l.rec?.source_pr ? (
                     <div className="faint small">
-                      From <Link to={mfgPaths.purchaseDoc("pr", l.rec.source_pr.doc_id)}>{l.rec.source_pr.number}</Link> line {l.rec.source_pr.line_no}
+                      {t("mfg.docLinesEditor.text.from")}{" "}<Link to={mfgPaths.purchaseDoc("pr", l.rec.source_pr.doc_id)}>{l.rec.source_pr.number}</Link>{" "}{t("mfg.docLinesEditor.text.line", { lineno: l.rec.source_pr.line_no })}
                     </div>
                   ) : null}
                 </td>
@@ -213,7 +213,7 @@ export function DocLinesEditor({
                       className="input sm num"
                       type="number"
                       step="any"
-                      aria-label={`Line ${lineNo} unit price`}
+                      aria-label={t("mfg.docLinesEditor.tpl.lineUnitPrice", { lineNo: lineNo })}
                       value={l.unit_price}
                       placeholder={t("mfg.docLinesEditor.ph.fromSupplier")}
                       onChange={(e) => setLine(i, { unit_price: e.target.value })}
@@ -222,7 +222,7 @@ export function DocLinesEditor({
                 </td>
                 <td className="right">
                   {!lineLocked ? (
-                    <button type="button" className="btn sm ghost icon" aria-label={`Remove line ${lineNo}`} disabled={hasReceipts} title={hasReceipts ? "Has receipts" : undefined} onClick={() => onChange(lines.filter((_, j) => j !== i))}>
+                    <button type="button" className="btn sm ghost icon" aria-label={t("mfg.docLinesEditor.tpl.removeLine", { lineNo: lineNo })} disabled={hasReceipts} title={hasReceipts ? t("mfg.docLinesEditor.str.hasReceipts") : undefined} onClick={() => onChange(lines.filter((_, j) => j !== i))}>
                       <Icon name="trash" />
                     </button>
                   ) : null}
@@ -243,8 +243,7 @@ export function DocLinesEditor({
                   >
                     <td />
                     <td className="small muted">
-                      Delivery {r?.seq ?? k + 1}
-                      {r?.closed ? " · closed" : ""}
+                      {t("mfg.docLinesEditor.text.delivery", { v: r?.seq ?? k + 1, v2: r?.closed ? " · closed" : "" })}
                     </td>
                     <td>
                       {locked ? (
@@ -255,7 +254,7 @@ export function DocLinesEditor({
                     </td>
                     <td>
                       {locked ? (
-                        s.confirmed_date ? fmtDate(s.confirmed_date) : <span className="faint">not confirmed</span>
+                        s.confirmed_date ? fmtDate(s.confirmed_date) : <span className="faint">{t("mfg.docLinesEditor.text.notConfirmed")}</span>
                       ) : (
                         <DateInput small ariaLabel={`Line ${lineNo} delivery ${k + 1} confirmed dock date`} value={s.confirmed_date} testId="doc-schedule-confirmed" onChange={(v) => setSched(i, k, { confirmed_date: v })} />
                       )}
@@ -264,7 +263,7 @@ export function DocLinesEditor({
                       {locked ? (
                         fmtNum(numOrNull(s.qty))
                       ) : (
-                        <input className="input sm num" type="number" step="any" min={received} aria-label={`Line ${lineNo} delivery ${k + 1} quantity`} value={s.qty} onChange={(e) => setSched(i, k, { qty: e.target.value })} data-testid="doc-schedule-qty" />
+                        <input className="input sm num" type="number" step="any" min={received} aria-label={t("mfg.docLinesEditor.tpl.lineDeliveryQuantity", { lineNo: lineNo, v: k + 1 })} value={s.qty} onChange={(e) => setSched(i, k, { qty: e.target.value })} data-testid="doc-schedule-qty" />
                       )}
                     </td>
                     <td className="right">{r ? fmtNum(received) : ""}</td>
@@ -284,9 +283,9 @@ export function DocLinesEditor({
                         <button
                           type="button"
                           className="btn sm ghost icon"
-                          aria-label={`Remove line ${lineNo} delivery ${k + 1}`}
+                          aria-label={t("mfg.docLinesEditor.tpl.removeLineDelivery", { lineNo: lineNo, v: k + 1 })}
                           disabled={received > 0 || l.schedules.length <= 1}
-                          title={received > 0 ? "Has receipts" : undefined}
+                          title={received > 0 ? t("mfg.docLinesEditor.str.hasReceipts") : undefined}
                           onClick={() => setLine(i, { schedules: l.schedules.filter((_, j) => j !== k) })}
                         >
                           <Icon name="x" />
@@ -326,8 +325,8 @@ export function DocLinesEditor({
             <Icon name="plus" /> {t("mfg.docLinesEditor.btn.addLine")}
           </button>
           <span className="faint small">
-            {docType === "po" ? "Price empty = the supplier price of the part." : "A request can have its supplier chosen later, at conversion."}
-            {docId ? "" : " Line numbers 10, 20, … are given on save."}
+            {docType === "po" ? t("mfg.docLinesEditor.str.priceEmptyTheSupplierPrice") : t("mfg.docLinesEditor.str.aRequestCanHaveIts")}
+            {docId ? "" : t("mfg.docLinesEditor.str.lineNumbers1020Are")}
           </span>
         </div>
       ) : null}

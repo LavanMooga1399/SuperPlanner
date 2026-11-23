@@ -13,6 +13,7 @@ import { floorStrings } from "./strings/floor";
 import { mfgStrings } from "./strings/mfg";
 import { mobileStrings } from "./strings/mobile";
 import { navStrings } from "./strings/nav";
+import { shellStrings } from "./strings/shell";
 import { studioStrings } from "./strings/studio";
 
 const en = {
@@ -24,6 +25,7 @@ const en = {
   ...studioStrings,
   ...financeStrings,
   ...accountStrings,
+  ...shellStrings,
   "common.cancel": "Cancel",
   "common.close": "Close",
   "common.dismiss": "Dismiss notification",
@@ -83,7 +85,7 @@ export function setStrings(next: Partial<Record<StringKey, string>>): void {
   dict = { ...en, ...next };
 }
 
-export function t(key: StringKey, vars?: Record<string, string | number>): string {
+export function t(key: StringKey, vars?: Record<string, unknown>): string {
   let s = dict[key] ?? en[key];
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
   return s;

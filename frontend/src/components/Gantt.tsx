@@ -13,6 +13,7 @@ import { closedIntervals, expandWindows, firstMidnight } from "../lib/calendar";
 import type { Terms } from "../lib/terms";
 import { fmtDuration, isoToMinute, isoToMs, offsetMinutesOf, wallParts } from "../lib/time";
 import { Icon } from "./Icon";
+import { t as tr } from "../lib/i18n";
 
 export const ZOOM_LEVELS = [4, 8, 16, 32, 64];
 export type GanttMode = "tasks" | "resources";
@@ -24,8 +25,8 @@ const LABEL_W = 230;
 const VIRTUALIZE_ABOVE = 300;
 const OVERSCAN = 12;
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = [tr("studio.gantt.str.jan"), tr("studio.gantt.str.feb"), tr("studio.gantt.str.mar"), tr("studio.gantt.str.apr"), tr("studio.gantt.str.may"), tr("studio.gantt.str.jun"), tr("studio.gantt.str.jul"), tr("studio.gantt.str.aug"), tr("studio.gantt.str.sep"), tr("studio.gantt.str.oct"), tr("studio.gantt.str.nov"), tr("studio.gantt.str.dec")];
+const DAYS = [tr("studio.gantt.str.sun"), tr("studio.gantt.str.mon"), tr("studio.gantt.str.tue"), tr("studio.gantt.str.wed"), tr("studio.gantt.str.thu"), tr("studio.gantt.str.fri"), tr("studio.gantt.str.sat")];
 
 interface BarInfo {
   p: PlacementOut;
@@ -159,14 +160,14 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
             const b = bars.get(id)!;
             span = span ? [Math.min(span[0], b.p.start), Math.max(span[1], b.p.end)] : [b.p.start, b.p.end];
           }
-          out.push({ kind: "group", key, label: g ? `${terms.group} ${g}` : `No ${terms.groupL}`, count: ids.length, collapsed: isCol, span });
+          out.push({ kind: "group", key, label: g ? `${terms.group} ${g}` : tr("studio.gantt.tpl.no", { groupL: terms.groupL }), count: ids.length, collapsed: isCol, span });
           if (!isCol) for (const id of ids) pushTask(id, taskById.get(id)!.name);
         }
       } else {
         for (const t of ordered) pushTask(t.id, t.name);
       }
       for (const p of extra) pushTask(p.task_id, `${p.task_id} (removed)`);
-      for (const t of missing) pushTask(t.id, `${t.name} (not scheduled)`);
+      for (const t of missing) pushTask(t.id, tr("studio.gantt.tpl.notScheduled", { name: t.name }));
     } else {
       const byRes = new Map<string, BarInfo[]>();
       for (const b of bars.values()) for (const r of b.p.resource_ids) {
@@ -205,7 +206,7 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
       // Tasks without resources (milestones, free tasks)
       const free = [...bars.values()].filter((b) => b.p.resource_ids.length === 0).sort((a, b) => a.p.start - b.p.start);
       if (free.length) {
-        out.push({ kind: "group", key: "__free", label: `Without ${terms.resourceL}`, count: free.length, collapsed: collapsed.has("__free"), span: null });
+        out.push({ kind: "group", key: "__free", label: tr("studio.gantt.tpl.without", { resourceL: terms.resourceL }), count: free.length, collapsed: collapsed.has("__free"), span: null });
         if (!collapsed.has("__free"))
           for (const b of free) {
             const t = taskById.get(b.p.task_id);
@@ -298,7 +299,7 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
     const top = y + (ROW_H - BAR_H) / 2;
     const isSel = selected === id;
     const est = b.milestone ? null : taskById.get(id)?.duration_estimate ?? null;
-    const label = `${b.name}: ${fmtDuration(b.p.end - b.p.start)}${b.late ? ", Late" : ""}${b.critical ? ", on critical chain" : ""}${b.violated ? ", has a rule violation" : ""}${b.locked ? ", fixed" : ""}${est ? `, duration range ${fmtDuration(est.optimistic_minutes)} to ${fmtDuration(est.pessimistic_minutes)}` : ""}`;
+    const label = `${b.name}: ${fmtDuration(b.p.end - b.p.start)}${b.late ? ", Late" : ""}${b.critical ? tr("studio.gantt.str.onCriticalChain") : ""}${b.violated ? tr("studio.gantt.str.hasARuleViolation") : ""}${b.locked ? ", fixed" : ""}${est ? tr("studio.gantt.tpl.durationRangeTo", { optimisticminutes: fmtDuration(est.optimistic_minutes), pessimisticminutes: fmtDuration(est.pessimistic_minutes) }) : ""}`;
     // PERT range whisker: how much longer the bar could run at its longest estimate (working minutes, drawn to scale)
     const extra = est ? Math.max(0, est.pessimistic_minutes - (b.p.end - b.p.start)) : 0;
     const textInside = w > 60;
@@ -335,13 +336,13 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
               <rect x={x1 + 4} y={top} width={w - 8} height={BAR_H} />
             </clipPath>
             <text x={x1 + 6} y={top + 14} fontSize={11.5} fill="var(--bar-text)" clipPath={`url(#clip-${id}-${y})`} fontWeight={500}>
-              {b.late ? "Late · " : ""}
+              {b.late ? tr("studio.gantt.str.late") : ""}
               {b.name}
             </text>
           </>
         ) : (
           <text x={(extra > 0 ? x(b.p.end + extra) : x1 + w) + 12} y={top + 14} fontSize={11} fill="var(--text-muted)">
-            {b.late ? "Late · " : ""}
+            {b.late ? tr("studio.gantt.str.late") : ""}
             {b.name}
           </text>
         )}
@@ -453,9 +454,9 @@ export function Gantt({ schedule, draft, terms, mode, pxPerHour, showArrows, sho
                 const b = r.bar;
                 return (
                   <div key={r.key} className="gantt-label" style={style} title={r.label}>
-                    {b?.critical ? <Icon name="flag" size={12} title="On the critical chain" style={{ color: "var(--accent)", flex: "0 0 auto" }} /> : null}
+                    {b?.critical ? <Icon name="flag" size={12} title={tr("studio.gantt.attr.onTheCriticalChain")} style={{ color: "var(--accent)", flex: "0 0 auto" }} /> : null}
                     <span className="lbl" style={b ? undefined : { color: "var(--text-faint)" }}>{r.label}</span>
-                    {b?.late ? <span className="badge danger" style={{ padding: "0 5px", fontSize: 10.5 }}>Late</span> : null}
+                    {b?.late ? <span className="badge danger" style={{ padding: "0 5px", fontSize: 10.5 }}>{tr("studio.gantt.text.late")}</span> : null}
                   </div>
                 );
               })}

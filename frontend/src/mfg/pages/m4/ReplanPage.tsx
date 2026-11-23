@@ -21,14 +21,14 @@ import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
 import { ReasonDialog } from "./FloorEvents";
 import { PageHeader } from "../../../components/PageHeader";
-import { t as tr, t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 import { DataTable } from "../../components/DataTable";
 import type { Column } from "../../components/VirtualTable";
 
 const POLICY_TEXT: Record<string, string> = {
-  notify: "Changes wait for you; make a proposal when you want one.",
-  auto_whatif: "The first warning starts a proposal after a short wait so later changes join it. You compare and publish.",
-  auto_publish: "Proposals are published when they break no rules, keep the frozen work and are not later than the current plan.",
+  notify: tr("mfg.replanPage.str.changesWaitForYouMake"),
+  auto_whatif: tr("mfg.replanPage.str.theFirstWarningStartsA"),
+  auto_publish: tr("mfg.replanPage.str.proposalsArePublishedWhenThey"),
 };
 
 const SEV_TONE: Record<string, string> = { critical: "danger", warning: "warn", info: "info" };
@@ -103,10 +103,10 @@ export function ReplanPage() {
           <>
             {published.data ? (
             <Link className="btn" to={mfgPaths.apsRun(published.data.id)}>
-            Published: {tr("common.scheduleNoInline", { n: published.data.run_no })}
+            {tr("mfg.replanPage.text.published", { tr: tr("common.scheduleNoInline", { n: published.data.run_no }) })}
             </Link>
             ) : (
-            <span className="muted">No published schedule yet</span>
+            <span className="muted">{tr("mfg.replanPage.text.noPublishedScheduleYet")}</span>
             )}
           </>
         }
@@ -114,22 +114,22 @@ export function ReplanPage() {
       <div className="banner" data-testid="replan-policy" data-policy={policy}>
         <Icon name="info" />
         <div>
-          <strong>{policy === "notify" ? "Notify only" : policy === "auto_whatif" ? "Automatic proposals" : "Automatic publish"}</strong> {POLICY_TEXT[policy]}{" "}
-          <Link to={mfgPaths.settings()}>Change in plant settings</Link>
+          <strong>{policy === "notify" ? tr("mfg.replanPage.str.notifyOnly") : policy === "auto_whatif" ? tr("mfg.replanPage.str.automaticProposals") : tr("mfg.replanPage.str.automaticPublish")}</strong> {POLICY_TEXT[policy]}{" "}
+          <Link to={mfgPaths.settings()}>{tr("mfg.replanPage.text.changeInPlantSettings")}</Link>
         </div>
       </div>
       <MfgError error={error ?? triggers.error} onRetry={triggers.reload} />
 
       <section className="card card-table">
         <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
-          <h2>What changed ({rows.length})</h2>
+          <h2>{tr("mfg.replanPage.text.whatChanged", { length: rows.length })}</h2>
           <div className="row wrap">
             <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.replanPage.aria.show")} value={status} onChange={(e) => setStatus(e.target.value as "active" | "all")}>
-              <option value="active">Open</option>
-              <option value="all">All, incl. handled</option>
+              <option value="active">{tr("mfg.replanPage.text.open")}</option>
+              <option value="all">{tr("mfg.replanPage.text.allInclHandled")}</option>
             </select>
             <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.replanPage.aria.kind")} value={kind} onChange={(e) => setKind(e.target.value as TriggerKind | "")}>
-              <option value="">All kinds</option>
+              <option value="">{tr("mfg.replanPage.text.allKinds")}</option>
               {(Object.keys(TRIGGER) as TriggerKind[]).map((k) => (
                 <option key={k} value={k}>
                   {TRIGGER[k].label}
@@ -144,7 +144,7 @@ export function ReplanPage() {
               onClick={() => void propose()}
               data-testid="replan-run"
             >
-              <Icon name="play" /> {sel.size ? `Make a proposal from ${sel.size} selected` : "Make a proposal from all open"}
+              <Icon name="play" /> {sel.size ? tr("mfg.replanPage.tpl.makeAProposalFromSelected", { size: sel.size }) : tr("mfg.replanPage.str.makeAProposalFromAll")}
             </button>
           </div>
         </div>
@@ -153,7 +153,7 @@ export function ReplanPage() {
           columns={[
             {
               key: "sel",
-              header: <span className="sr-only">Select</span>,
+              header: <span className="sr-only">{tr("mfg.replanPage.text.select")}</span>,
               label: "Select",
               width: "40px",
               align: "center",
@@ -164,7 +164,7 @@ export function ReplanPage() {
                   <input
                     type="checkbox"
                     className="vt-check"
-                    aria-label={`Select ${TRIGGER[x.kind]?.label ?? x.kind}`}
+                    aria-label={tr("mfg.replanPage.tpl.select", { v: TRIGGER[x.kind]?.label ?? x.kind })}
                     checked={sel.has(x.id)}
                     onChange={() =>
                       setSel((cur) => {
@@ -221,7 +221,7 @@ export function ReplanPage() {
               exportValue: (x) => x.status,
               render: (x) =>
                 x.status === "attached" && x.aps_run_id ? (
-                  <Link to={mfgPaths.apsRun(x.aps_run_id)}>in a proposal</Link>
+                  <Link to={mfgPaths.apsRun(x.aps_run_id)}>{tr("mfg.replanPage.text.inAProposal")}</Link>
                 ) : x.status === "open" ? (
                   "open"
                 ) : (
@@ -232,7 +232,7 @@ export function ReplanPage() {
               ? [
                   {
                     key: "actions",
-                    header: <span className="sr-only">Actions</span>,
+                    header: <span className="sr-only">{tr("mfg.replanPage.text.actions")}</span>,
                     label: "Actions",
                     width: "160px",
                     exportValue: () => "",
@@ -288,7 +288,7 @@ export function ReplanPage() {
             { key: "started", header: "Started", width: "150px", sortValue: (r) => r.started_at ?? r.finished_at, render: (r) => clock.dateTime(r.started_at ?? r.finished_at) },
             {
               key: "actions",
-              header: <span className="sr-only">Actions</span>,
+              header: <span className="sr-only">{tr("mfg.replanPage.text.actions")}</span>,
               label: "Actions",
               width: "220px",
               exportValue: () => "",
@@ -318,7 +318,7 @@ export function ReplanPage() {
 
       {closing ? (
         <ReasonDialog
-          title={closing.action === "handle" ? "Mark as handled" : "Ignore this change"}
+          title={closing.action === "handle" ? tr("mfg.replanPage.str.markAsHandled") : tr("mfg.replanPage.str.ignoreThisChange")}
           text={`${TRIGGER[closing.t.kind]?.label ?? closing.t.kind}: ${closing.t.message}`}
           confirm={closing.action === "handle" ? "Mark handled" : "Ignore"}
           onClose={() => setClosing(null)}
@@ -336,7 +336,7 @@ export function ReplanPage() {
 
 export function NotificationList({ items, onAck, clock, compact }: { items: import("../../api/typesM4").MfgNotification[]; onAck(): void; clock: ReturnType<typeof usePlantClock>; compact?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
-  if (!items.length) return <div className="card-body muted">No notifications.</div>;
+  if (!items.length) return <div className="card-body muted">{tr("mfg.replanPage.text.noNotifications")}</div>;
   return (
     <ul className="mfg-ex-list" data-testid="notif-list">
       {items.map((n) => (
@@ -369,7 +369,7 @@ export function NotificationList({ items, onAck, clock, compact }: { items: impo
               }}
               data-testid="notif-ack"
             >
-              Mark seen
+              {tr("mfg.replanPage.text.markSeen")}
             </button>
           )}
         </li>

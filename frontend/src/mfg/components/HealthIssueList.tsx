@@ -7,6 +7,7 @@ import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
 import type { HealthIssue } from "../api/types";
 import { SeverityBadge } from "./StatusChip";
+import { t } from "../../lib/i18n";
 
 const GROUP_PREVIEW = 50;
 
@@ -43,18 +44,18 @@ export function HealthIssueList({ issues }: { issues: HealthIssue[] }) {
                     <div>{i.message}</div>
                     {i.fix ? (
                       <div className="muted small">
-                        <strong>How to fix:</strong> {i.fix}
+                        <strong>{t("mfg.healthIssueList.text.howToFix")}</strong> {i.fix}
                       </div>
                     ) : null}
                     <div className="faint small">
                       {String(i.entity?.type ?? "record").replace(/_/g, " ")}: <span className="mono">{i.entity?.label ?? ""}</span>
-                      {i.related?.length ? ` · related: ${i.related.map((r) => r.label).join(", ")}` : ""}
-                      {i.field ? ` · field: ${i.field}` : ""}
+                      {i.related?.length ? t("mfg.healthIssueList.tpl.related", { join: i.related.map((r) => r.label).join(", ") }) : ""}
+                      {i.field ? t("mfg.healthIssueList.tpl.field", { field: i.field }) : ""}
                     </div>
                   </div>
                   {i.link ? (
                     <Link className="btn sm" to={i.link} data-testid="health-fix-link">
-                      Fix <Icon name="arrow-right" />
+                      {t("mfg.healthIssueList.text.fix")}{" "}<Icon name="arrow-right" />
                     </Link>
                   ) : null}
                 </li>
@@ -74,7 +75,7 @@ export function HealthIssueList({ issues }: { issues: HealthIssue[] }) {
                     })
                   }
                 >
-                  {all ? "Show fewer" : `Show all ${list.length}`}
+                  {all ? t("mfg.healthIssueList.str.showFewer") : t("mfg.healthIssueList.tpl.showAll", { length: list.length })}
                 </button>
               </div>
             ) : null}

@@ -50,32 +50,32 @@ export function WorkOrderList() {
   const bulkDefs: BulkActionDef[] = [
     {
       action: "work-orders/release",
-      label: "Release",
+      label: t("mfg.workOrderList.str.release"),
       icon: "play",
       testId: "bulk-wo-release",
       eligible: ["planned"],
-      what: (n) => `Release ${n === 1 ? "this work order" : `these ${n} work orders`} to the shop floor.`,
-      effect: "Each one is released exactly as from its own page.",
+      what: (n) => t("mfg.workOrderList.tpl.releaseToTheShopFloor", { v: n === 1 ? t("mfg.workOrderList.str.thisWorkOrder") : t("mfg.workOrderList.tpl.theseWorkOrders", { n: n }) }),
+      effect: t("mfg.workOrderList.str.eachOneIsReleasedExactly"),
       form: (f, set) => (
         <>
           <label className="checkbox">
-            <input type="checkbox" checked={f.reserve === "1"} onChange={(e) => set("reserve", e.target.checked ? "1" : "")} /> Reserve available stock for the components
+            <input type="checkbox" checked={f.reserve === "1"} onChange={(e) => set("reserve", e.target.checked ? "1" : "")} />{" "}{t("mfg.workOrderList.text.reserveAvailableStockForThe")}
           </label>
           <ReasonField id="bulk-override" label={t("mfg.workOrderList.label.reasonToReleaseWorkOrders")} value={f.override ?? ""} onChange={(v) => set("override", v)} testId="bulk-override" />
         </>
       ),
       params: (f) => ({ reserve: f.reserve === "1", ...(f.override?.trim() ? { override_reason: f.override.trim() } : {}) }),
     },
-    { action: "work-orders/close", label: "Close", icon: "check", testId: "bulk-wo-close", eligible: ["completed"], what: (n) => `Close ${n === 1 ? "this work order" : `these ${n} work orders`}.`, effect: "Closed work orders take no further postings." },
+    { action: "work-orders/close", label: t("mfg.workOrderList.str.close"), icon: "check", testId: "bulk-wo-close", eligible: ["completed"], what: (n) => t("mfg.workOrderList.tpl.close", { v: n === 1 ? t("mfg.workOrderList.str.thisWorkOrder") : t("mfg.workOrderList.tpl.theseWorkOrders", { n: n }) }), effect: t("mfg.workOrderList.str.closedWorkOrdersTakeNo") },
     {
       action: "work-orders/cancel",
-      label: "Cancel",
+      label: t("mfg.workOrderList.str.cancel"),
       icon: "ban",
       danger: true,
       testId: "bulk-wo-cancel",
       eligible: ["planned", "released"],
-      what: (n) => `Cancel ${n === 1 ? "this work order" : `these ${n} work orders`}.`,
-      effect: "Their reservations are released and they leave planning; this cannot be undone.",
+      what: (n) => t("mfg.workOrderList.tpl.cancel", { v: n === 1 ? t("mfg.workOrderList.str.thisWorkOrder") : t("mfg.workOrderList.tpl.theseWorkOrders", { n: n }) }),
+      effect: t("mfg.workOrderList.str.theirReservationsAreReleasedAnd"),
     },
   ];
 
@@ -83,7 +83,7 @@ export function WorkOrderList() {
     () => [
       {
         key: "no",
-        header: "Work order",
+        header: t("mfg.workOrderList.str.workOrder"),
         width: "116px",
         sortKey: "number",
         exportValue: (w) => w.number,
@@ -93,27 +93,27 @@ export function WorkOrderList() {
           </Link>
         ),
       },
-      { key: "st", header: "Status", width: "128px", render: (w) => <WoStatusChip status={w.status} /> },
-      { key: "pn", header: "Item", width: "minmax(110px, 1fr)", render: (w) => <span className="mono mfg-ellipsis">{w.item.part_number}</span> },
-      { key: "desc", header: "Description", width: "minmax(100px, 1.4fr)", render: (w) => <span className="mfg-ellipsis">{w.item.description}</span> },
-      { key: "qty", header: "Qty", width: "60px", align: "right", render: (w) => fmtNum(w.qty) },
-      { key: "done", header: "Done", width: "60px", drop: 3, align: "right", render: (w) => fmtNum(w.qty_completed) },
-      { key: "start", header: "Start", width: "96px", sortKey: "start_date", render: (w) => fmtDate(w.start_date) },
-      { key: "due", header: "Due", width: "96px", sortKey: "due_date", render: (w) => fmtDate(w.due_date) },
-      { key: "prio", header: "Priority", width: "80px", drop: 4, align: "right", sortKey: "priority", render: (w) => `P${w.priority}` },
-      { key: "ser", header: "Units", width: "64px", drop: 1, render: (w) => serialText(w.serial_from, w.serial_to) },
-      { key: "dl", header: "For demand", width: "104px", drop: 2, render: (w) => (w.demand_line ? <span className="mono small">{w.demand_line.order_number}/{w.demand_line.line_no}</span> : "") },
-      { key: "src", header: "Source", width: "96px", render: (w) => <SourceBadge source={w.source} runNo={w.source_run_no} /> },
+      { key: "st", header: t("mfg.workOrderList.str.status"), width: "128px", render: (w) => <WoStatusChip status={w.status} /> },
+      { key: "pn", header: t("mfg.workOrderList.str.item"), width: "minmax(110px, 1fr)", render: (w) => <span className="mono mfg-ellipsis">{w.item.part_number}</span> },
+      { key: "desc", header: t("mfg.workOrderList.str.description"), width: "minmax(100px, 1.4fr)", render: (w) => <span className="mfg-ellipsis">{w.item.description}</span> },
+      { key: "qty", header: t("mfg.workOrderList.str.qty"), width: "60px", align: "right", render: (w) => fmtNum(w.qty) },
+      { key: "done", header: t("mfg.workOrderList.str.done"), width: "60px", drop: 3, align: "right", render: (w) => fmtNum(w.qty_completed) },
+      { key: "start", header: t("mfg.workOrderList.str.start"), width: "96px", sortKey: "start_date", render: (w) => fmtDate(w.start_date) },
+      { key: "due", header: t("mfg.workOrderList.str.due"), width: "96px", sortKey: "due_date", render: (w) => fmtDate(w.due_date) },
+      { key: "prio", header: t("mfg.workOrderList.str.priority"), width: "80px", drop: 4, align: "right", sortKey: "priority", render: (w) => `P${w.priority}` },
+      { key: "ser", header: t("mfg.workOrderList.str.units"), width: "64px", drop: 1, render: (w) => serialText(w.serial_from, w.serial_to) },
+      { key: "dl", header: t("mfg.workOrderList.str.forDemand"), width: "104px", drop: 2, render: (w) => (w.demand_line ? <span className="mono small">{w.demand_line.order_number}/{w.demand_line.line_no}</span> : "") },
+      { key: "src", header: t("mfg.workOrderList.str.source"), width: "96px", render: (w) => <SourceBadge source={w.source} runNo={w.source_run_no} /> },
     ],
     [],
   );
 
-  const STATUS_LABEL: Record<string, string> = { planned: "Planned (firm)", released: "Released / in progress", done: "Completed / closed", cancelled: "Cancelled", all: "All" };
-  const SOURCE_LABEL: Record<string, string> = { manual: "Entered by hand", mrp: "From MRP", import: "Imported" };
+  const STATUS_LABEL: Record<string, string> = { planned: t("mfg.workOrderList.str.plannedFirm"), released: t("mfg.workOrderList.str.releasedInProgress"), done: t("mfg.workOrderList.str.completedClosed"), cancelled: t("mfg.workOrderList.str.cancelled"), all: t("mfg.workOrderList.str.all") };
+  const SOURCE_LABEL: Record<string, string> = { manual: t("mfg.workOrderList.str.enteredByHand"), mrp: t("mfg.workOrderList.str.fromMrp"), import: t("mfg.workOrderList.str.imported") };
   const chips: FilterChip[] = [];
-  if (dq) chips.push({ key: "q", label: "Search", value: dq, onClear: () => setQ("") });
-  if (st !== "active") chips.push({ key: "status", label: "Status", value: STATUS_LABEL[st] ?? st, onClear: () => set("status", "") });
-  if (source) chips.push({ key: "source", label: "Source", value: SOURCE_LABEL[source] ?? source, onClear: () => set("source", "") });
+  if (dq) chips.push({ key: "q", label: t("mfg.workOrderList.str.search"), value: dq, onClear: () => setQ("") });
+  if (st !== "active") chips.push({ key: "status", label: t("mfg.workOrderList.str.status"), value: STATUS_LABEL[st] ?? st, onClear: () => set("status", "") });
+  if (source) chips.push({ key: "source", label: t("mfg.workOrderList.str.source"), value: SOURCE_LABEL[source] ?? source, onClear: () => set("source", "") });
 
   return (
     <div className="col gap-lg">
@@ -125,7 +125,7 @@ export function WorkOrderList() {
             <Link className="btn" to={mfgPaths.kitting()} data-testid="wo-kitting-check">
               <Icon name="check" /> {t("mfg.workOrderList.btn.kittingCheck")}
             </Link>
-            <ImportShortcut what="work orders" />
+            <ImportShortcut what={t("mfg.workOrderList.attr.workOrders")} />
             <PermissionGate perm="wo_edit">
               <Link className="btn primary" to={mfgPaths.workOrderNew()} data-testid="wo-new">
                 <Icon name="plus" /> {t("mfg.workOrderList.btn.newWorkOrder")}
@@ -146,35 +146,35 @@ export function WorkOrderList() {
         <div className="field">
           <label htmlFor="wo-status">{t("mfg.workOrderList.label.status")}</label>
           <select id="wo-status" className="select" value={st} onChange={(e) => set("status", e.target.value === "active" ? "" : e.target.value)} data-testid="wo-status">
-            <option value="active">Not finished</option>
-            <option value="planned">Planned (firm)</option>
-            <option value="released">Released / in progress</option>
-            <option value="done">Completed / closed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="all">All</option>
+            <option value="active">{t("mfg.workOrderList.text.notFinished")}</option>
+            <option value="planned">{t("mfg.workOrderList.text.plannedFirm")}</option>
+            <option value="released">{t("mfg.workOrderList.text.releasedInProgress")}</option>
+            <option value="done">{t("mfg.workOrderList.text.completedClosed")}</option>
+            <option value="cancelled">{t("mfg.workOrderList.text.cancelled")}</option>
+            <option value="all">{t("mfg.workOrderList.text.all")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="wo-src">{t("mfg.workOrderList.label.source")}</label>
           <select id="wo-src" className="select" value={source} onChange={(e) => set("source", e.target.value)}>
-            <option value="">Any</option>
-            <option value="manual">Entered by hand</option>
-            <option value="mrp">From MRP</option>
-            <option value="import">Imported</option>
+            <option value="">{t("mfg.workOrderList.text.any")}</option>
+            <option value="manual">{t("mfg.workOrderList.text.enteredByHand")}</option>
+            <option value="mrp">{t("mfg.workOrderList.text.fromMrp")}</option>
+            <option value="import">{t("mfg.workOrderList.text.imported")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="wo-sort">{t("mfg.workOrderList.label.sortBy")}</label>
           <select id="wo-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "start_date" ? "" : e.target.value)}>
-            <option value="start_date">Start date</option>
-            <option value="due_date">Due date</option>
-            <option value="priority">Priority</option>
-            <option value="number">Number</option>
+            <option value="start_date">{t("mfg.workOrderList.text.startDate")}</option>
+            <option value="due_date">{t("mfg.workOrderList.text.dueDate")}</option>
+            <option value="priority">{t("mfg.workOrderList.text.priority")}</option>
+            <option value="number">{t("mfg.workOrderList.text.number")}</option>
           </select>
         </div>
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
-      {canEdit ? <BulkActions rows={bulkRows(data.rows, selected)} noun={["work order", "work orders"]} actions={bulkDefs} onDone={() => (setSelected(new Set()), data.reload())} onClear={() => setSelected(new Set())} /> : null}
+      {canEdit ? <BulkActions rows={bulkRows(data.rows, selected)} noun={[t("mfg.workOrderList.str.workOrder2"), t("mfg.workOrderList.str.workOrders")]} actions={bulkDefs} onDone={() => (setSelected(new Set()), data.reload())} onClear={() => setSelected(new Set())} /> : null}
       <VirtualTable
         rows={data.rows}
         columns={columns}
@@ -192,8 +192,8 @@ export function WorkOrderList() {
         sort={{ key: sort, dir: "asc" }}
         onSortChange={(x) => set("sort", !x || x.key === "start_date" ? "" : x.key)}
         exportName="work-orders"
-        empty={data.loading ? "Loading…" : "No work orders match these filters. Firm planned orders from an MRP run, or create one."}
-        footer={<span>Showing {t("common.nOfM", { n: fmtNum(data.rows.length), m: fmtNum(data.total) })} work orders</span>}
+        empty={data.loading ? t("mfg.workOrderList.str.loading") : t("mfg.workOrderList.str.noWorkOrdersMatchThese")}
+        footer={<span>{t("mfg.workOrderList.text.showingWorkOrders", { t: t("common.nOfM", { n: fmtNum(data.rows.length), m: fmtNum(data.total) }) })}</span>}
       />
     </div>
   );

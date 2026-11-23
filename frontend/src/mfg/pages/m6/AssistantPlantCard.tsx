@@ -25,7 +25,7 @@ export function AssistantPlantCard() {
     if (status.data && !f) setF(status.data.plant);
   }, [status.data, f]);
   if (!mayRead) return null;
-  if (status.error && !status.data) return <MfgError error={status.error} onRetry={status.reload} title="Assistant settings could not be loaded" />;
+  if (status.error && !status.data) return <MfgError error={status.error} onRetry={status.reload} title={t("mfg.assistantPlantCard.attr.assistantSettingsCouldNotBe")} />;
   if (!f || !status.data) return null;
   const server = status.data;
   const save = async () => {
@@ -48,22 +48,21 @@ export function AssistantPlantCard() {
       <div className="card-header">
         <h2>{t("mfg.assistantPlantCard.head.planningAssistant")}</h2>
         <span className="badge info" data-testid="plant-assistant-state">
-          <Icon name={f.assistant_enabled ? "check" : "ban"} /> {f.assistant_enabled ? "On for this plant" : "Off for this plant"}
+          <Icon name={f.assistant_enabled ? "check" : "ban"} /> {f.assistant_enabled ? t("mfg.assistantPlantCard.str.onForThisPlant") : t("mfg.assistantPlantCard.str.offForThisPlant")}
         </span>
       </div>
       <div className="card-body col">
         <p className="muted small" style={{ margin: 0 }}>
-          When on, questions and the planning records the assistant looks up are sent to Anthropic, an AI provider. No prices unless someone asks about
-          cost, no personal data. The built-in quick explanations work either way.
+          {t("mfg.assistantPlantCard.text.whenOnQuestionsAndThe")}
         </p>
         {serverOff ? (
           <p className="small" style={{ margin: 0 }}>
-            <Icon name="info" size={12} /> On this server the assistant is currently unavailable ({server.code}), whatever the plant setting.
+            <Icon name="info" size={12} />{" "}{t("mfg.assistantPlantCard.text.onThisServerTheAssistant")}{server.code}{t("mfg.assistantPlantCard.text.whateverThePlantSetting")}
           </p>
         ) : null}
         <label className="checkbox">
           <input type="checkbox" checked={f.assistant_enabled} disabled={!admin} onChange={(e) => setF({ ...f, assistant_enabled: e.target.checked })} data-testid="plant-assistant-enabled" />
-          Offer the AI planning assistant in this plant
+          {t("mfg.assistantPlantCard.text.offerTheAiPlanningAssistant")}
         </label>
         <label className="checkbox">
           <input
@@ -73,21 +72,21 @@ export function AssistantPlantCard() {
             onChange={(e) => setF({ ...f, assistant_allow_whatif: e.target.checked })}
             data-testid="plant-assistant-whatif"
           />
-          Let users allow it to run what-if plans (never live, never published)
+          {t("mfg.assistantPlantCard.text.letUsersAllowItTo")}
         </label>
         {admin ? (
           <div className="row" style={{ gap: 8 }}>
             <button type="button" className="btn primary" disabled={busy} onClick={() => void save()} data-testid="plant-assistant-save">
-              {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save assistant settings
+              {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{t("mfg.assistantPlantCard.text.saveAssistantSettings")}
             </button>
-            {saved ? <span role="status">Saved</span> : null}
+            {saved ? <span role="status">{t("mfg.assistantPlantCard.text.saved")}</span> : null}
           </div>
         ) : (
           <span className="hint">
             <Icon name="lock" size={12} /> {t("mfg.assistantPlantCard.btn.onlyTheOwnerOrA")}
           </span>
         )}
-        <MfgError error={err} title="Could not save" />
+        <MfgError error={err} title={t("mfg.assistantPlantCard.attr.couldNotSave")} />
       </div>
     </section>
   );

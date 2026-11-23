@@ -47,12 +47,12 @@ export function FloorDowntime() {
     setError(null);
     try {
       const out = editing
-        ? await submitDowntimeUpdate(editing.id, editing.row_version, { expected_end_at: expectedEnd(), ...(reason ? { reason } : {}) }, "Downtime expected end changed")
+        ? await submitDowntimeUpdate(editing.id, editing.row_version, { expected_end_at: expectedEnd(), ...(reason ? { reason } : {}) }, t("floor.floorDowntime.str.downtimeExpectedEndChanged"))
         : await submitDowntimeOpen(
             { line_id: lineId, kind: kind as DowntimeKind, planned, start_at: new Date().toISOString(), expected_end_at: expectedEnd(), reason },
-            `Line down (${DOWNTIME[kind as DowntimeKind]?.label ?? kind})`,
+            t("floor.floorDowntime.tpl.lineDown", { v: DOWNTIME[kind as DowntimeKind]?.label ?? kind }),
           );
-      floor.flash(out.status === "queued" ? "Saved on this tablet; it will sync when the network is back" : editing ? "Expected end changed" : "Line reported down; planners are notified");
+      floor.flash(out.status === "queued" ? t("floor.floorDowntime.str.savedOnThisTabletIt") : editing ? t("floor.floorDowntime.str.expectedEndChanged") : t("floor.floorDowntime.str.lineReportedDownPlannersAre"));
       navigate(mfgPaths.floorLine(lineId));
     } catch (e) {
       setError(floorErrorText(e));
@@ -61,10 +61,10 @@ export function FloorDowntime() {
     }
   };
 
-  if (!can) return <div className="floor-card muted">Your role cannot report downtime.</div>;
+  if (!can) return <div className="floor-card muted">{t("floor.floorDowntime.text.yourRoleCannotReportDowntime")}</div>;
   return (
     <section className="floor-card" aria-label={t("floor.floorDowntime.aria.reportDowntime")} data-testid="floor-downtime">
-      <h1>{editing ? "Change when the line is expected back" : "Report the line down"}</h1>
+      <h1>{editing ? t("floor.floorDowntime.str.changeWhenTheLineIs") : t("floor.floorDowntime.str.reportTheLineDown")}</h1>
       {!editing ? (
         <>
           <h2 style={{ fontSize: 18 }}>{t("floor.floorDowntime.head.whatHappened")}</h2>
@@ -77,13 +77,13 @@ export function FloorDowntime() {
             ))}
           </div>
           <label className="checkbox">
-            <input type="checkbox" checked={planned} onChange={(e) => setPlanned(e.target.checked)} /> Planned stop (e.g. scheduled maintenance)
+            <input type="checkbox" checked={planned} onChange={(e) => setPlanned(e.target.checked)} />{" "}{t("floor.floorDowntime.text.plannedStopEGScheduled")}
           </label>
         </>
       ) : null}
       <div className="field">
         <label htmlFor="dt-reason">{t("floor.floorDowntime.label.reason")}</label>
-        <input id="dt-reason" className="input" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder={editing?.reason || "e.g. conveyor jam, nozzle broken"} data-testid="downtime-reason" />
+        <input id="dt-reason" className="input" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder={editing?.reason || t("floor.floorDowntime.str.eGConveyorJamNozzle")} data-testid="downtime-reason" />
       </div>
       <h2 style={{ fontSize: 18 }}>{t("floor.floorDowntime.head.expectedBack")}</h2>
       <div className="floor-grid" role="radiogroup" aria-label={t("floor.floorDowntime.aria.expectedBack")}>
@@ -99,7 +99,7 @@ export function FloorDowntime() {
               setCustom("");
             }}
           >
-            <strong style={{ fontSize: 18 }}>in {m < 60 ? `${m} min` : `${m / 60} h`}</strong>
+            <strong style={{ fontSize: 18 }}>{t("floor.floorDowntime.text.in", { v: m < 60 ? `${m} min` : `${m / 60} h` })}</strong>
           </button>
         ))}
         <button
@@ -113,7 +113,7 @@ export function FloorDowntime() {
           }}
         >
           <strong style={{ fontSize: 18 }}>{t("floor.floorDowntime.head.notKnown")}</strong>
-          <span className="small muted">the plan assumes 4 h</span>
+          <span className="small muted">{t("floor.floorDowntime.text.thePlanAssumes4H")}</span>
         </button>
       </div>
       <div className="field" style={{ maxWidth: 320 }}>
@@ -127,7 +127,7 @@ export function FloorDowntime() {
       ) : null}
       <div className="row wrap">
         <button type="button" className="btn danger floor-action" disabled={busy || (!editing && !kind)} onClick={() => void submit()} data-testid="downtime-submit">
-          <Icon name={editing ? "save" : "alert"} /> {editing ? "Save" : "Line is down"}
+          <Icon name={editing ? "save" : "alert"} /> {editing ? t("floor.floorDowntime.str.save") : t("floor.floorDowntime.str.lineIsDown")}
         </button>
         <button type="button" className="btn floor-btn" onClick={() => navigate(mfgPaths.floorLine(lineId))}>
           {t("floor.floorDowntime.btn.cancel")}

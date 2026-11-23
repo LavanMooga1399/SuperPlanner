@@ -13,11 +13,11 @@ export function ShowMore({ shown, total, noun, loading, onMore }: { shown: numbe
   return (
     <span className="row" style={{ gap: 8 }}>
       <span className="muted small">
-        Showing {t("common.nOfM", { n: shown.toLocaleString("en-IN"), m: total.toLocaleString("en-IN") })} {noun}
+        {t("mfg.dataTable.text.showing", { t: t("common.nOfM", { n: shown.toLocaleString("en-IN"), m: total.toLocaleString("en-IN") }), noun: noun })}
       </span>
       {shown < total ? (
         <button type="button" className="btn sm" onClick={onMore} disabled={loading}>
-          Show more
+          {t("mfg.dataTable.text.showMore")}
         </button>
       ) : null}
     </span>

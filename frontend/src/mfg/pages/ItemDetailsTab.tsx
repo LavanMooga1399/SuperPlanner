@@ -241,24 +241,24 @@ export function ItemDetailsTab() {
       data-testid="item-form"
     >
       <FormErrors error={error}>
-      {conflict ? <ConflictBanner onReload={() => void reloadLatest()} what="this item" /> : null}
+      {conflict ? <ConflictBanner onReload={() => void reloadLatest()} what={t("mfg.itemDetailsTab.attr.thisItem")} /> : null}
       {erp.owns("items") ? <ErpOwnedBanner entity="Items" /> : null}
-      <MfgError error={error} title="Could not save the item" />
-      <MfgError error={deleteError} title="The item could not be deleted" />
+      <MfgError error={error} title={t("mfg.itemDetailsTab.attr.couldNotSaveTheItem")} />
+      <MfgError error={deleteError} title={t("mfg.itemDetailsTab.attr.theItemCouldNotBe")} />
 
       <section className="card">
         <div className="card-header">
           <h2>{t("mfg.itemDetailsTab.head.item")}</h2>
-          <span className="muted small">Last changed {fmtTimestamp(base.updated_at)}</span>
+          <span className="muted small">{t("mfg.itemDetailsTab.text.lastChanged", { updatedat: fmtTimestamp(base.updated_at) })}</span>
         </div>
         <div className="card-body col">
           <div className="form-grid">
-            <TextField name="part_number" label={erpLabel("Part number", "part_number")} value={form.part_number} onChange={(v) => set("part_number", v)} required maxLength={64} testId="item-part-number" disabled={erp.ownsField("items", "part_number")} />
-            <TextField name="revision" label={erpLabel("Revision", "revision")} value={form.revision} onChange={(v) => set("revision", v)} maxLength={16} disabled={erp.ownsField("items", "revision")} />
-            <SelectField name="make_buy" label={erpLabel("Make or buy", "make_buy")} value={form.make_buy} onChange={(v) => set("make_buy", v)} options={MAKE_BUY_OPTIONS} testId="item-make-buy" disabled={erp.ownsField("items", "make_buy")} />
-            <SelectField name="uom" label={erpLabel("Unit", "uom")} value={form.uom} onChange={(v) => set("uom", v)} options={uoms} disabled={erp.ownsField("items", "uom")} />
+            <TextField name="part_number" label={erpLabel(t("mfg.itemDetailsTab.str.partNumber"), "part_number")} value={form.part_number} onChange={(v) => set("part_number", v)} required maxLength={64} testId="item-part-number" disabled={erp.ownsField("items", "part_number")} />
+            <TextField name="revision" label={erpLabel(t("mfg.itemDetailsTab.str.revision"), "revision")} value={form.revision} onChange={(v) => set("revision", v)} maxLength={16} disabled={erp.ownsField("items", "revision")} />
+            <SelectField name="make_buy" label={erpLabel(t("mfg.itemDetailsTab.str.makeOrBuy"), "make_buy")} value={form.make_buy} onChange={(v) => set("make_buy", v)} options={MAKE_BUY_OPTIONS} testId="item-make-buy" disabled={erp.ownsField("items", "make_buy")} />
+            <SelectField name="uom" label={erpLabel(t("mfg.itemDetailsTab.str.unit"), "uom")} value={form.uom} onChange={(v) => set("uom", v)} options={uoms} disabled={erp.ownsField("items", "uom")} />
           </div>
-          <TextField name="description" label={erpLabel("Description", "description")} value={form.description} onChange={(v) => set("description", v)} maxLength={500} testId="item-description" disabled={erp.ownsField("items", "description")} />
+          <TextField name="description" label={erpLabel(t("mfg.itemDetailsTab.str.description"), "description")} value={form.description} onChange={(v) => set("description", v)} maxLength={500} testId="item-description" disabled={erp.ownsField("items", "description")} />
           <div className="form-grid">
             <TextField name="family" label={t("mfg.itemDetailsTab.label.family")} value={form.family} onChange={(v) => set("family", v)} maxLength={32} hint={t("mfg.itemDetailsTab.hint.groupsSimilarItemsLinesCan")} />
             <TextField name="lead_time_days"
@@ -270,13 +270,13 @@ export function ItemDetailsTab() {
               hint={
                 form.make_buy === "buy"
                   ? buyNoLead
-                    ? "Required before planning (0 if stocked locally)."
-                    : "Supplier lead time."
-                  : "Optional fixed lead time; empty = use the routing time."
+                    ? t("mfg.itemDetailsTab.str.requiredBeforePlanning0If")
+                    : t("mfg.itemDetailsTab.str.supplierLeadTime")
+                  : t("mfg.itemDetailsTab.str.optionalFixedLeadTimeEmpty")
               }
             />
             <CheckField name="active"
-              label={erpLabel("Active", "active")}
+              label={erpLabel(t("mfg.itemDetailsTab.str.active"), "active")}
               disabled={erp.ownsField("items", "active")}
               checked={form.active}
               onChange={(v) => set("active", v)}
@@ -310,7 +310,7 @@ export function ItemDetailsTab() {
               value={form.lot_period_days}
               onChange={(v) => set("lot_period_days", v)}
               required
-              hint={periodMissing ? "Required: 1 to 365 days." : "Needs within this many days become one order."}
+              hint={periodMissing ? t("mfg.itemDetailsTab.str.required1To365Days") : t("mfg.itemDetailsTab.str.needsWithinThisManyDays")}
               testId="item-lot-period"
             />
           ) : null}
@@ -321,7 +321,7 @@ export function ItemDetailsTab() {
               value={form.fixed_lot_qty}
               onChange={(v) => set("fixed_lot_qty", v)}
               required
-              hint={fixedMissing ? "Required for a fixed lot size." : undefined}
+              hint={fixedMissing ? t("mfg.itemDetailsTab.str.requiredForAFixedLot") : undefined}
             />
           ) : null}
           <TextField name="min_order_qty" label={t("mfg.itemDetailsTab.label.minimumOrderQuantity")} type="number" value={form.min_order_qty} onChange={(v) => set("min_order_qty", v)} hint={t("mfg.itemDetailsTab.hint.0NoMinimum")} />
@@ -331,7 +331,7 @@ export function ItemDetailsTab() {
           {form.m2 ? (
             <>
               <TextField name="standard_cost"
-                label={erpLabel("Standard cost", "standard_cost")}
+                label={erpLabel(t("mfg.itemDetailsTab.str.standardCost"), "standard_cost")}
                 disabled={erp.ownsField("items", "standard_cost")}
                 type="number"
                 value={form.standard_cost}
@@ -382,7 +382,7 @@ export function ItemDetailsTab() {
             </div>
             {form.m2 ? (
               <TextField name="external_ref"
-                label={erpLabel("External reference", "external_ref")}
+                label={erpLabel(t("mfg.itemDetailsTab.str.externalReference"), "external_ref")}
                 disabled={erp.ownsField("items", "external_ref")}
                 value={form.external_ref}
                 onChange={(v) => set("external_ref", v)}
@@ -397,11 +397,11 @@ export function ItemDetailsTab() {
         </section>
       ) : null}
 
-      <UnsavedChangesGuard when={dirty && !busy} what="this item" />
+      <UnsavedChangesGuard when={dirty && !busy} what={t("mfg.itemDetailsTab.attr.thisItem")} />
       <div className="row mfg-sticky-actions">
         <PermissionGate perm="master_edit" mode="disable">
-        <button type="submit" className="btn primary" disabled={busy || !dirty || !form.part_number.trim() || periodMissing} title={!dirty ? "No changes to save" : !form.part_number.trim() ? "Enter a part number first" : periodMissing ? "Complete the period fields first" : undefined} data-testid="item-save">
-          {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save changes
+        <button type="submit" className="btn primary" disabled={busy || !dirty || !form.part_number.trim() || periodMissing} title={!dirty ? t("mfg.itemDetailsTab.str.noChangesToSave") : !form.part_number.trim() ? t("mfg.itemDetailsTab.str.enterAPartNumberFirst") : periodMissing ? t("mfg.itemDetailsTab.str.completeThePeriodFieldsFirst") : undefined} data-testid="item-save">
+          {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{t("mfg.itemDetailsTab.text.saveChanges")}
         </button>
         </PermissionGate>
         <button type="button" className="btn" disabled={!dirty || busy} onClick={() => setForm(toForm(base))}>
@@ -418,14 +418,14 @@ export function ItemDetailsTab() {
 
       {confirmDelete ? (
         <ConfirmDialog
-          title={`Delete ${base.part_number}?`}
+          title={t("mfg.itemDetailsTab.tpl.delete", { partnumber: base.part_number })}
           confirmLabel={t("mfg.itemDetailsTab.btn.deleteItem")}
           danger
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => void remove()}
         >
           <p style={{ margin: 0 }}>
-            Items used in a BOM, or with their own BOM or routing, cannot be deleted; mark them inactive instead.
+            {t("mfg.itemDetailsTab.text.itemsUsedInABom")}
           </p>
         </ConfirmDialog>
       ) : null}
@@ -440,18 +440,18 @@ function AttributesEditor({ rows, onChange }: { rows: AttrRow[]; onChange(rows: 
     <fieldset className="mfg-fieldset">
       <legend>{t("mfg.itemDetailsTab.head.attributes")}</legend>
       <p className="hint" style={{ margin: 0 }}>
-        Free fields such as manufacturer or manufacturer part number. Names use letters, digits and - _ . /
+        {t("mfg.itemDetailsTab.text.freeFieldsSuchAsManufacturer")}
       </p>
       {rows.map((r, i) => (
         <div className="row" key={i}>
-          <input className="input sm" aria-label={`Attribute ${i + 1} name`} value={r.key} maxLength={32} onChange={(e) => update(i, { key: e.target.value })} style={{ width: 180 }} />
-          <select className="select sm" aria-label={`Attribute ${i + 1} type`} value={r.type} onChange={(e) => update(i, { type: e.target.value as AttrRow["type"] })} style={{ width: 100 }}>
-            <option value="text">Text</option>
-            <option value="number">Number</option>
+          <input className="input sm" aria-label={t("mfg.itemDetailsTab.tpl.attributeName", { v: i + 1 })} value={r.key} maxLength={32} onChange={(e) => update(i, { key: e.target.value })} style={{ width: 180 }} />
+          <select className="select sm" aria-label={t("mfg.itemDetailsTab.tpl.attributeType", { v: i + 1 })} value={r.type} onChange={(e) => update(i, { type: e.target.value as AttrRow["type"] })} style={{ width: 100 }}>
+            <option value="text">{t("mfg.itemDetailsTab.text.text")}</option>
+            <option value="number">{t("mfg.itemDetailsTab.text.number")}</option>
             <option value="yes/no">Yes/no</option>
           </select>
-          <input className="input sm grow" aria-label={`Attribute ${i + 1} value`} value={r.value} maxLength={500} onChange={(e) => update(i, { value: e.target.value })} />
-          <button type="button" className="btn sm ghost icon" aria-label={`Remove attribute ${i + 1}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+          <input className="input sm grow" aria-label={t("mfg.itemDetailsTab.tpl.attributeValue", { v: i + 1 })} value={r.value} maxLength={500} onChange={(e) => update(i, { value: e.target.value })} />
+          <button type="button" className="btn sm ghost icon" aria-label={t("mfg.itemDetailsTab.tpl.removeAttribute", { v: i + 1 })} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
             <Icon name="trash" />
           </button>
         </div>

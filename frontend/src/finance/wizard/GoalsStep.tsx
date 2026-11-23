@@ -11,20 +11,20 @@ import { ListEditor } from "./ListEditor";
 import { t } from "../../lib/i18n";
 
 const KINDS: { value: GoalKind; label: string }[] = [
-  { value: "retirement", label: "Retirement" },
-  { value: "education", label: "Education" },
+  { value: "retirement", label: t("finance.goalsStep.str.retirement") },
+  { value: "education", label: t("finance.goalsStep.str.education") },
   { value: "home", label: "Home" },
-  { value: "vehicle", label: "Vehicle" },
-  { value: "travel", label: "Travel" },
-  { value: "wedding", label: "Wedding" },
-  { value: "business", label: "Business" },
-  { value: "other", label: "Other" },
+  { value: "vehicle", label: t("finance.goalsStep.str.vehicle") },
+  { value: "travel", label: t("finance.goalsStep.str.travel") },
+  { value: "wedding", label: t("finance.goalsStep.str.wedding") },
+  { value: "business", label: t("finance.goalsStep.str.business") },
+  { value: "other", label: t("finance.goalsStep.str.other") },
 ];
 
 const PRIORITIES: { value: Priority; label: string }[] = [
-  { value: "must", label: "Must have" },
-  { value: "should", label: "Should have" },
-  { value: "nice", label: "Nice to have" },
+  { value: "must", label: t("finance.goalsStep.str.mustHave") },
+  { value: "should", label: t("finance.goalsStep.str.shouldHave") },
+  { value: "nice", label: t("finance.goalsStep.str.niceToHave") },
 ];
 
 export function GoalsStep({ plan, update, expert }: StepProps) {
@@ -35,12 +35,11 @@ export function GoalsStep({ plan, update, expert }: StepProps) {
   return (
     <div className="col gap-lg">
       <HelpText>
-        What are you saving for? Enter the cost in <Term k="todays_money">today's money</Term>; the plan adds inflation. Priority decides who gets money first when it is
-        short: <strong>must have</strong> goals are funded first, then <strong>should have</strong>, then <strong>nice to have</strong>.
+        {t("finance.goalsStep.text.whatAreYouSavingFor")}{" "}<Term k="todays_money">today's money</Term>{t("finance.goalsStep.text.thePlanAddsInflationPriority")}{" "}<strong>{t("finance.goalsStep.text.mustHave")}</strong>{" "}{t("finance.goalsStep.text.goalsAreFundedFirstThen")}{" "}<strong>{t("finance.goalsStep.text.shouldHave")}</strong>, then <strong>{t("finance.goalsStep.text.niceToHave")}</strong>.
         Should and nice-to-have goals start after your emergency fund is complete.
       </HelpText>
       <div className="col">
-        <span className="field-label" id="fin-goal-presets">Add a goal</span>
+        <span className="field-label" id="fin-goal-presets">{t("finance.goalsStep.text.addAGoal")}</span>
         <div className="preset-grid" role="group" aria-labelledby="fin-goal-presets">
           {ps.map((p) => (
             <button
@@ -63,7 +62,7 @@ export function GoalsStep({ plan, update, expert }: StepProps) {
         items={plan.goals}
         rowTestId="goal"
         addLabel="Add other goal"
-        emptyText="No goals yet. Pick one above."
+        emptyText={t("finance.goalsStep.attr.noGoalsYetPickOne")}
         max={12}
         onAdd={() => update((pl) => addItem(pl, "goals", goalFromPreset(pl, ps[ps.length - 1])))}
         onRemove={(i) => update((p) => removeItem(p, "goals", i))}
@@ -79,7 +78,7 @@ export function GoalsStep({ plan, update, expert }: StepProps) {
                   {(id) => <MoneyInput id={id} value={g.target_amount} min={1} currency={cur} locale={loc} onChange={(v) => v > 0 && set({ target_amount: v })} testId={`goal-amount-${g.id}`} />}
                 </Field>
                 <RangeChip range={g.target_range} used={g.target_amount} locale={loc} testId={`goal-range-${g.id}`} />
-                <Field label={t("finance.goalsStep.label.inHowManyYears")} hint={`Needed by ${fmtMonth(g.target_month)}`}>
+                <Field label={t("finance.goalsStep.label.inHowManyYears")} hint={t("finance.goalsStep.tpl.neededBy", { targetmonth: fmtMonth(g.target_month) })}>
                   {(id) => <FinNumber id={id} value={years} min={0.1} max={50} step={0.5} onChange={(v) => set({ target_month: monthInYears(start, v) })} testId={`goal-years-${g.id}`} />}
                 </Field>
                 <Field label={t("finance.goalsStep.label.orTheExactMonth")}>
@@ -96,7 +95,7 @@ export function GoalsStep({ plan, update, expert }: StepProps) {
               {expert ? (
                 <>
                   <div className="fin-form">
-                    <Field label={t("finance.goalsStep.label.minimumChance")} hint={`Empty = default for ${g.priority === "must" ? "must have (85)" : g.priority === "should" ? "should have (70)" : "nice to have (50)"}`}>
+                    <Field label={t("finance.goalsStep.label.minimumChance")} hint={t("finance.goalsStep.tpl.emptyDefaultFor", { v: g.priority === "must" ? "must have (85)" : g.priority === "should" ? "should have (70)" : "nice to have (50)" })}>
                       {(id) => (
                         <FinOptionalNumber
                           id={id}
@@ -140,10 +139,10 @@ function EarmarkEditor({
   currency: string;
   locale: string;
 }) {
-  if (!holdings.length) return <span className="small muted">Add savings in the previous step to set money aside for this goal.</span>;
+  if (!holdings.length) return <span className="small muted">{t("finance.goalsStep.text.addSavingsInThePrevious")}</span>;
   return (
     <div className="col">
-      <span className="field-label">Existing savings set aside for this goal</span>
+      <span className="field-label">{t("finance.goalsStep.text.existingSavingsSetAsideFor")}</span>
       {goal.earmarked.map((e, i) => (
         <div className="row wrap" key={i}>
           <Select label={t("finance.goalsStep.label.savings")} value={e.holding_id} options={holdings} onChange={(v) => onChange(goal.earmarked.map((x, j) => (j === i ? { ...x, holding_id: v } : x)))} />

@@ -5,6 +5,7 @@
  */
 import { Icon } from "./Icon";
 import { formatDate } from "../lib/locale";
+import { t } from "../lib/i18n";
 
 export function DateInput({
   id,
@@ -35,7 +36,7 @@ export function DateInput({
   return (
     <div className={`date-input input${small ? " sm" : ""}${disabled ? " disabled" : ""}${className ? ` ${className}` : ""}`}>
       <span className="date-text" aria-hidden>
-        {value ? formatDate(`${value}T00:00:00`) : <span className="faint">dd MMM yyyy</span>}
+        {value ? formatDate(`${value}T00:00:00`) : <span className="faint">{t("studio.dateInput.text.ddMmmYyyy")}</span>}
       </span>
       <Icon name="calendar" size={14} aria-hidden />
       <input

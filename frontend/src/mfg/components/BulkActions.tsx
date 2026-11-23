@@ -119,21 +119,21 @@ export function BulkActions({ rows, noun, actions, onDone, onClear }: { rows: Bu
                 {r.label}
               </li>
             ))}
-            {rows.length > shown.length ? <li className="faint">and {rows.length - shown.length} more</li> : null}
+            {rows.length > shown.length ? <li className="faint">{t("mfg.bulkActions.text.andMore", { v: rows.length - shown.length })}</li> : null}
           </ul>
           <p className="small muted" style={{ margin: 0 }}>
-            {pending.effect} Records that cannot take this action are left unchanged and listed with the reason.
+            {t("mfg.bulkActions.text.recordsThatCannotTakeThis", { effect: pending.effect })}
           </p>
           {(() => {
             const skip = pending.eligible ? rows.filter((r) => r.status && !pending.eligible!.includes(r.status)).length : 0;
             return skip ? (
               <p className="small" style={{ margin: 0, color: "var(--warn)" }} data-testid="bulk-skip-hint">
-                <Icon name="alert" size={12} /> {plural(skip, noun[0], noun[1])} {skip === 1 ? "is" : "are"} not in a status that allows this and will be skipped.
+                <Icon name="alert" size={12} />{" "}{t("mfg.bulkActions.text.notInAStatusThat", { skip: plural(skip, noun[0], noun[1]), v: skip === 1 ? "is" : "are" })}
               </p>
             ) : null;
           })()}
           {pending.form?.(form, (k, v) => setForm((f) => ({ ...f, [k]: v })))}
-          <MfgError error={error} title="The bulk action could not be sent" />
+          <MfgError error={error} title={t("mfg.bulkActions.attr.theBulkActionCouldNot")} />
         </ConfirmDialog>
       ) : null}
       {result ? (
@@ -148,7 +148,7 @@ export function BulkActions({ rows, noun, actions, onDone, onClear }: { rows: Bu
         >
           <div data-testid="bulk-result" data-succeeded={result.res.succeeded} data-failed={result.res.failed}>
             <p style={{ marginTop: 0 }}>
-              {plural(result.res.succeeded, noun[0], noun[1])} done. {plural(result.res.failed, noun[0], noun[1])} unchanged:
+              {t("mfg.bulkActions.text.doneUnchanged", { succeeded: plural(result.res.succeeded, noun[0], noun[1]), failed: plural(result.res.failed, noun[0], noun[1]) })}
             </p>
             <table className="table">
               <thead>

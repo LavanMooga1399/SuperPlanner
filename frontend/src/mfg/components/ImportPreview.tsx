@@ -10,7 +10,7 @@ import { sheetLabel } from "./ImportUpload";
 import { VirtualTable, type Column } from "./VirtualTable";
 import { t } from "../../lib/i18n";
 
-const ACTION_LABEL: Record<string, string> = { create: "New", update: "Changed", delete: "Removed", unchanged: "Same" };
+const ACTION_LABEL: Record<string, string> = { create: t("mfg.importPreview.str.new"), update: t("mfg.importPreview.str.changed"), delete: t("mfg.importPreview.str.removed"), unchanged: t("mfg.importPreview.str.same") };
 
 function keyText(k: ChangeSample["key"]): string {
   return Object.values(k)
@@ -20,11 +20,11 @@ function keyText(k: ChangeSample["key"]): string {
 
 export function ImportPreview({ preview, filename }: { preview: Preview; filename: string }) {
   const errorCols: Column<RowError>[] = [
-    { key: "sheet", header: "Sheet", width: "120px", render: (e) => e.sheet },
-    { key: "row", header: "Row", width: "64px", align: "right", render: (e) => e.row },
-    { key: "col", header: "Column", width: "140px", render: (e) => <span className="mfg-ellipsis">{e.column ?? ""}</span> },
-    { key: "msg", header: "Problem", width: "minmax(260px, 1fr)", render: (e) => <span className="mfg-ellipsis" title={`${e.code}: ${e.message}`}>{e.message}</span> },
-    { key: "code", header: "Code", width: "190px", render: (e) => <code className="small">{e.code}</code> },
+    { key: "sheet", header: t("mfg.importPreview.str.sheet"), width: "120px", render: (e) => e.sheet },
+    { key: "row", header: t("mfg.importPreview.str.row"), width: "64px", align: "right", render: (e) => e.row },
+    { key: "col", header: t("mfg.importPreview.str.column"), width: "140px", render: (e) => <span className="mfg-ellipsis">{e.column ?? ""}</span> },
+    { key: "msg", header: t("mfg.importPreview.str.problem"), width: "minmax(260px, 1fr)", render: (e) => <span className="mfg-ellipsis" title={`${e.code}: ${e.message}`}>{e.message}</span> },
+    { key: "code", header: t("mfg.importPreview.str.code"), width: "190px", render: (e) => <code className="small">{e.code}</code> },
   ];
   const download = () =>
     saveBlob({ blob: new Blob([rowErrorsCsv(preview.row_errors)], { type: "text/csv;charset=utf-8" }), filename: `${filename.replace(/\.[^.]+$/, "")}-errors.csv` });
@@ -69,9 +69,9 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
           <div className="card-header">
             <h3 id="imp-err-title" className="row">
               <span className="badge danger">
-                <Icon name="x" /> {preview.error_count.toLocaleString("en-IN")} {preview.error_count === 1 ? "row error" : "row errors"}
+                <Icon name="x" /> {preview.error_count.toLocaleString("en-IN")} {preview.error_count === 1 ? t("mfg.importPreview.str.rowError") : t("mfg.importPreview.str.rowErrors")}
               </span>
-              {preview.row_errors.length < preview.error_count ? <span className="muted small">first {preview.row_errors.length} shown</span> : null}
+              {preview.row_errors.length < preview.error_count ? <span className="muted small">{t("mfg.importPreview.text.firstShown", { length: preview.row_errors.length })}</span> : null}
             </h3>
             <button type="button" className="btn sm" onClick={download} data-testid="import-errors-csv">
               <Icon name="download" /> {t("mfg.importPreview.btn.downloadErrorsAsCsv")}
@@ -107,7 +107,7 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
       {preview.changes_sample.length ? (
         <details className="card">
           <summary className="card-header">
-            <span>Examples of the changes ({preview.changes_sample.length})</span>
+            <span>{t("mfg.importPreview.text.examplesOfTheChanges", { length: preview.changes_sample.length })}</span>
           </summary>
           <div className="table-wrap" style={{ border: 0 }}>
             <table className="table">

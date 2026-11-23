@@ -47,7 +47,7 @@ export function LocationSelect({
   hideLabel,
   kinds,
   allowEmpty,
-  emptyLabel = "Choose a location",
+  emptyLabel = t("mfg.pickersM2.str.chooseALocation"),
   testId,
   disabled,
   includeInactive,
@@ -76,7 +76,7 @@ export function LocationSelect({
       data-testid={testId}
       disabled={disabled}
     >
-      {allowEmpty || !value ? <option value="">{locs === null ? "Loading…" : emptyLabel}</option> : null}
+      {allowEmpty || !value ? <option value="">{locs === null ? t("mfg.pickersM2.str.loading") : emptyLabel}</option> : null}
       {shown.map((l) => (
         <option key={l.id} value={l.id} data-code={l.code}>
           {l.code} · {l.name} ({LOCATION_KIND_LABEL[l.kind]}){l.receipt_default ? " · receiving" : ""}
@@ -218,14 +218,14 @@ export function SupplierPicker({
           }}
         />
         {allowClear && value && !disabled ? (
-          <button type="button" className="btn sm ghost icon" aria-label={`Clear ${label}`} onClick={() => pick(null)}>
+          <button type="button" className="btn sm ghost icon" aria-label={t("mfg.pickersM2.tpl.clear", { label: label })} onClick={() => pick(null)}>
             ×
           </button>
         ) : null}
       </div>
       {open ? (
         <ul className="mfg-picker-list" role="listbox" id={listId} aria-label={`${label} options`} style={rect ? { top: rect.top, left: rect.left, width: rect.width } : undefined}>
-          {options.length === 0 ? <li className="mfg-picker-empty">No matching suppliers</li> : null}
+          {options.length === 0 ? <li className="mfg-picker-empty">{t("mfg.pickersM2.text.noMatchingSuppliers")}</li> : null}
           {options.map((s, i) => (
             <li
               key={s.id}

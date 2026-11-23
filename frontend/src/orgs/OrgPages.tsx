@@ -39,7 +39,7 @@ import { switchWorkspace } from "../mfg/lib/workspace";
 import "./orgs.css";
 import { formatDateTime } from "../lib/locale";
 import { PageHeader } from "../components/PageHeader";
-import { t } from "../lib/i18n";
+import { t, t as tr } from "../lib/i18n";
 import { DataTable } from "../mfg/components/DataTable";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
@@ -58,7 +58,7 @@ export function OrgListPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
-    document.title = "Organisations - SuperPlanner";
+    document.title = tr("account.orgPages.str.organisationsSuperplanner");
   }, []);
   const autoSlug = (n: string) =>
     n
@@ -79,15 +79,15 @@ export function OrgListPage() {
         }
       />
       <p className="muted" style={{ margin: 0 }}>
-        An organisation groups the plants of one company: people work in several plants, master data is published between them, and stock moves by transfer orders.
+        {tr("account.orgPages.text.anOrganisationGroupsThePlants")}
       </p>
       <MfgError error={orgs.error} onRetry={orgs.reload} />
       {orgs.loading && !orgs.data ? <Spinner /> : null}
-      {orgs.data && !orgs.data.items.length ? <div className="card card-body muted">You are not in an organisation yet. Your own plant works on its own as before.</div> : null}
+      {orgs.data && !orgs.data.items.length ? <div className="card card-body muted">{tr("account.orgPages.text.youAreNotInAn")}</div> : null}
       {(orgs.data?.items ?? []).filter((o) => o.invited).map((o) => (
         <div key={`inv-${o.id}`} className="card card-body row wrap" style={{ justifyContent: "space-between" }} data-testid="org-invite">
           <span>
-            <strong>{o.name}</strong> invited you. Until you accept, it has no access to your account and no roles for you.
+            <strong>{o.name}</strong>{" "}{tr("account.orgPages.text.invitedYouUntilYouAccept")}
           </span>
           <button
             type="button"
@@ -107,7 +107,7 @@ export function OrgListPage() {
             }}
             data-testid="org-accept"
           >
-            Accept invitation
+            {tr("account.orgPages.text.acceptInvitation")}
           </button>
         </div>
       ))}
@@ -125,11 +125,11 @@ export function OrgListPage() {
                   <Icon name="star" /> {t("account.orgPages.btn.admin")}
                 </span>
               ) : (
-                <span className="badge info">Member</span>
+                <span className="badge info">{tr("account.orgPages.text.member")}</span>
               )}
               {o.require_2fa ? (
                 <span className="badge ok">
-                  <Icon name="lock" /> 2FA required
+                  <Icon name="lock" />{" "}{tr("account.orgPages.text.2faRequired")}
                 </span>
               ) : null}
             </span>
@@ -162,7 +162,7 @@ export function OrgListPage() {
                 }}
                 data-testid="org-create"
               >
-                Create
+                {tr("account.orgPages.text.create")}
               </button>
             </>
           }
@@ -187,8 +187,7 @@ export function OrgListPage() {
             </div>
             {error instanceof ApiError && error.code === "ORG_CREATE_DISABLED" ? (
               <p className="muted" data-testid="org-create-disabled">
-                On this installation organisations are created by the system operator
-                (<code>manage.py create-org</code>). Ask them to create it and add you as its admin.
+                {tr("account.orgPages.text.onThisInstallationOrganisationsAre")}<code>manage.py create-org</code>{tr("account.orgPages.text.askThemToCreateIt")}
               </p>
             ) : (
               <MfgError error={error} />
@@ -213,17 +212,17 @@ export function OrgPage({ tab }: { tab: Tab }) {
   if (!o) return <MfgError error={org.error} onRetry={org.reload} />;
   const admin = o.my_role === "org_admin";
   const tabs: { key: Tab; label: string; admin?: boolean }[] = [
-    { key: "overview", label: "Overview" },
-    { key: "dashboard", label: "Dashboard" },
-    { key: "plants", label: "Plants" },
-    { key: "members", label: "People", admin: true },
-    { key: "publish", label: "Master data", admin: true },
-    { key: "settings", label: "Settings", admin: true },
+    { key: "overview", label: tr("account.orgPages.str.overview") },
+    { key: "dashboard", label: tr("account.orgPages.str.dashboard") },
+    { key: "plants", label: tr("account.orgPages.str.plants") },
+    { key: "members", label: tr("account.orgPages.str.people"), admin: true },
+    { key: "publish", label: tr("account.orgPages.str.masterData"), admin: true },
+    { key: "settings", label: tr("account.orgPages.str.settings"), admin: true },
   ];
   return (
     <div className="org-page col gap-lg" data-testid="org-page" data-slug={o.slug}>
       <nav className="breadcrumb" aria-label={t("account.orgPages.aria.breadcrumb")}>
-        <Link to="/orgs">Organisations</Link> <Icon name="chevron-right" size={12} /> <span>{o.name}</span>
+        <Link to="/orgs">{tr("account.orgPages.text.organisations")}</Link> <Icon name="chevron-right" size={12} /> <span>{o.name}</span>
       </nav>
       <PageHeader title={o.name} />
       <nav className="tabs" aria-label={t("account.orgPages.aria.organisationSections")}>
@@ -414,7 +413,7 @@ function PlantDialog({ org, plant, onClose, onSaved }: { org: Org; plant: OrgPla
   const [error, setError] = useState<unknown>(null);
   return (
     <Dialog
-      title={plant ? `Plant ${plant.code}` : "New plant"}
+      title={plant ? tr("account.orgPages.tpl.plant", { code: plant.code }) : tr("account.orgPages.str.newPlant")}
       onClose={onClose}
       footer={
         <>
@@ -438,7 +437,7 @@ function PlantDialog({ org, plant, onClose, onSaved }: { org: Org; plant: OrgPla
             }}
             data-testid="plant-save"
           >
-            {plant ? "Save" : "Create plant"}
+            {plant ? tr("account.orgPages.str.save") : tr("account.orgPages.str.createPlant")}
           </button>
         </>
       }
@@ -452,7 +451,7 @@ function PlantDialog({ org, plant, onClose, onSaved }: { org: Org; plant: OrgPla
           <label htmlFor="pl-name">{t("account.orgPages.label.name")}</label>
           <input id="pl-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} data-testid="plant-name" />
         </div>
-        {!plant ? <span className="faint small">The new plant starts empty: publish master data to it, or load a sample, then add people.</span> : null}
+        {!plant ? <span className="faint small">{tr("account.orgPages.text.theNewPlantStartsEmpty")}</span> : null}
         <MfgError error={error} />
       </div>
     </Dialog>
@@ -469,7 +468,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
   useEffect(() => setSel(new Set(current)), [userId]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Dialog
-      title={`People in ${plant.code}`}
+      title={tr("account.orgPages.tpl.peopleIn", { code: plant.code })}
       onClose={onClose}
       wide
       footer={
@@ -495,7 +494,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
             }}
             data-testid="roles-save"
           >
-            Save roles
+            {tr("account.orgPages.text.saveRoles")}
           </button>
         </>
       }
@@ -504,7 +503,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
         <div className="field">
           <label htmlFor="rl-user">{t("account.orgPages.label.person")}</label>
           <select id="rl-user" className="select" value={userId} onChange={(e) => { setUserId(e.target.value); setDone(null); }} data-testid="roles-user">
-            <option value="">Choose a member of the organisation…</option>
+            <option value="">{tr("account.orgPages.text.chooseAMemberOfThe")}</option>
             {members.map((m) => (
               <option key={m.id} value={m.user.id}>
                 {m.user.display_name || m.user.email}
@@ -535,7 +534,7 @@ function RolesDialog({ org, plant, members, onClose }: { org: Org; plant: OrgPla
                 </span>
               </label>
             ))}
-            <span className="faint small">No role = no access to this plant.</span>
+            <span className="faint small">{tr("account.orgPages.text.noRoleNoAccessTo")}</span>
           </div>
         ) : null}
         {done ? (
@@ -592,15 +591,15 @@ function MembersTab({ org }: { org: Org }) {
           <div className="field">
             <label htmlFor="mb-role">{t("account.orgPages.label.as")}</label>
             <select id="mb-role" className="select" value={role} onChange={(e) => setRole(e.target.value as OrgRole)}>
-              <option value="org_member">Member</option>
-              <option value="org_admin">Admin (manages plants and people)</option>
+              <option value="org_member">{tr("account.orgPages.text.member")}</option>
+              <option value="org_admin">{tr("account.orgPages.text.adminManagesPlantsAndPeople")}</option>
             </select>
           </div>
           <button type="submit" className="btn primary" disabled={busy || !email.includes("@")} data-testid="member-add">
             <Icon name="plus" /> {t("account.orgPages.btn.add")}
           </button>
         </form>
-        <span className="faint small">People with a company account (single sign-on) can also join on their first sign-in. Plant access is given under Plants.</span>
+        <span className="faint small">{tr("account.orgPages.text.peopleWithACompanyAccount")}</span>
         <MfgError error={error ?? members.error} onRetry={members.reload} />
       </div>
       <DataTable
@@ -674,7 +673,7 @@ function MembersTab({ org }: { org: Org }) {
       />
       {removing ? (
         <ConfirmDialog
-          title={`Remove ${removing.user.email ?? "this person"}?`}
+          title={tr("account.orgPages.tpl.remove", { v: removing.user.email ?? "this person" })}
           confirmLabel={t("account.orgPages.btn.remove")}
           danger
           onCancel={() => setRemoving(null)}
@@ -684,7 +683,7 @@ function MembersTab({ org }: { org: Org }) {
             void act(() => removeOrgMember(org.id, m.id));
           }}
         >
-          <p style={{ margin: 0 }}>They lose access to every plant of {org.name}. Their past work stays recorded under their name.</p>
+          <p style={{ margin: 0 }}>{tr("account.orgPages.text.theyLoseAccessToEvery", { name: org.name })}</p>
         </ConfirmDialog>
       ) : null}
     </section>
@@ -709,13 +708,13 @@ function PublishTab({ org }: { org: Org }) {
       </div>
       <div className="card-body col">
         <p className="muted" style={{ margin: 0 }}>
-          Copies items (or all master data: items, BOMs, routings, suppliers) from one plant into others through the normal import checks. Running it again changes only what differs. Fields owned by an ERP in a target plant are left alone.
+          {tr("account.orgPages.text.copiesItemsOrAllMaster")}
         </p>
         <div className="form-grid">
           <div className="field">
             <label htmlFor="pb-src">{t("account.orgPages.label.fromPlant")}</label>
             <select id="pb-src" className="select" value={source} onChange={(e) => setSource(e.target.value)} data-testid="publish-source">
-              <option value="">Choose…</option>
+              <option value="">{tr("account.orgPages.text.choose")}</option>
               {list.map((p) => (
                 <option key={p.id} value={p.plant_owner_id}>
                   {p.code} · {p.name}
@@ -726,8 +725,8 @@ function PublishTab({ org }: { org: Org }) {
           <div className="field">
             <label htmlFor="pb-scope">{t("account.orgPages.label.what")}</label>
             <select id="pb-scope" className="select" value={scope} onChange={(e) => setScope(e.target.value as "items" | "master")}>
-              <option value="items">Items only</option>
-              <option value="master">All master data</option>
+              <option value="items">{tr("account.orgPages.text.itemsOnly")}</option>
+              <option value="master">{tr("account.orgPages.text.allMasterData")}</option>
             </select>
           </div>
           <div className="field">
@@ -782,7 +781,7 @@ function PublishTab({ org }: { org: Org }) {
         </div>
         {job ? (
           <div data-testid="publish-result" data-status={job.status}>
-            {job.status === "queued" || job.status === "running" ? <Banner tone="info" title={t("account.orgPages.title.publishingInTheBackground")}>Each target plant is updated in its own step; the results also appear in each plant's Integration, Batches.</Banner> : null}
+            {job.status === "queued" || job.status === "running" ? <Banner tone="info" title={t("account.orgPages.title.publishingInTheBackground")}>{tr("account.orgPages.text.eachTargetPlantIsUpdated")}</Banner> : null}
             {job.results && Object.keys(job.results).length ? (
               <DataTable
                 rows={Object.entries(job.results).map(([owner, r]) => ({ owner, ...r }))}
@@ -821,7 +820,7 @@ function SettingsTab({ org, onSaved }: { org: Org; onSaved(o: Org): void }) {
         <label className="checkbox">
           <input type="checkbox" checked={req2fa} onChange={(e) => setReq2fa(e.target.checked)} data-testid="org-require-2fa" />
           <span>
-            <strong>Require two-step verification</strong> <span className="muted small">for people who sign in with a password. They set it up at their next sign-in. Company accounts (single sign-on) are not affected.</span>
+            <strong>{tr("account.orgPages.text.requireTwoStepVerification")}</strong> <span className="muted small">{tr("account.orgPages.text.forPeopleWhoSignIn")}</span>
           </span>
         </label>
         <MfgError error={error} />

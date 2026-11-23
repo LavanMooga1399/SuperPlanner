@@ -1,5 +1,6 @@
 /** Duration ranges and the PERT expected value (PHASE2.md 2.14), for display in the intake screens. */
 import type { DraftDuration, DurationUnit } from "../api/types";
+import { t } from "../../lib/i18n";
 
 /** Same rounding as the engine: (o + 4m + p) / 6, half up, whole minutes. */
 export function pertMinutes(optimistic: number, likely: number, pessimistic: number): number {
@@ -22,7 +23,7 @@ const UNIT_WORDS: Record<DurationUnit, [string, string]> = {
   weeks: ["week", "weeks"],
 };
 
-export const UNIT_LABEL: Record<DurationUnit, string> = { minutes: "Minutes", hours: "Hours", days: "Days", weeks: "Weeks" };
+export const UNIT_LABEL: Record<DurationUnit, string> = { minutes: t("studio.pert.str.minutes"), hours: t("studio.pert.str.hours"), days: t("studio.pert.str.days"), weeks: t("studio.pert.str.weeks") };
 
 export function num(v: number): string {
   const r = Math.round(v * 100) / 100;
@@ -35,10 +36,10 @@ export function unitWord(v: number, unit: DurationUnit): string {
 
 /** "2-3 days, expected 2.5 days" for a range; "1 week" for a single value. */
 export function formatRange(d: DraftDuration | null | undefined): string {
-  if (!d) return "not set";
+  if (!d) return t("studio.pert.str.notSet");
   if (!isRange(d)) return `${num(d.likely)} ${unitWord(d.likely, d.unit)}`;
   const e = pertValue(d);
-  const likely = d.likely !== (d.optimistic + d.pessimistic) / 2 ? `, most likely ${num(d.likely)}` : "";
+  const likely = d.likely !== (d.optimistic + d.pessimistic) / 2 ? t("studio.pert.tpl.mostLikely", { likely: num(d.likely) }) : "";
   return `${num(d.optimistic)}-${num(d.pessimistic)} ${UNIT_WORDS[d.unit][1]}${likely}, expected ${num(e)} ${unitWord(e, d.unit)}`;
 }
 

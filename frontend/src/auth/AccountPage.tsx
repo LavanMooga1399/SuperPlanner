@@ -27,7 +27,7 @@ export function AccountPage() {
   const newRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    document.title = "Account settings - SuperPlanner";
+    document.title = t("account.accountPage.str.accountSettingsSuperplanner");
   }, []);
 
   if (auth.mode !== "accounts") return <Navigate to="/" replace />;
@@ -43,10 +43,10 @@ export function AccountPage() {
     e.preventDefault();
     if (busy) return;
     setDone(false);
-    if (!current) return fail("Enter your current password.", "current");
-    if ([...next].length < MIN_PASSWORD) return fail(`Use at least ${MIN_PASSWORD} characters for the new password.`, "new");
-    if ([...next].length > MAX_PASSWORD) return fail(`Use at most ${MAX_PASSWORD} characters for the new password.`, "new");
-    if (next === current) return fail("Choose a new password that is different from the current one.", "new");
+    if (!current) return fail(t("account.accountPage.str.enterYourCurrentPassword"), "current");
+    if ([...next].length < MIN_PASSWORD) return fail(t("account.accountPage.tpl.useAtLeastCharactersFor", { MINPASSWORD: MIN_PASSWORD }), "new");
+    if ([...next].length > MAX_PASSWORD) return fail(t("account.accountPage.tpl.useAtMostCharactersFor", { MAXPASSWORD: MAX_PASSWORD }), "new");
+    if (next === current) return fail(t("account.accountPage.str.chooseANewPasswordThat"), "new");
     setBusy(true);
     setError(null);
     setErrorField(null);
@@ -74,13 +74,13 @@ export function AccountPage() {
         <div className="card-body">
           <dl className="account-facts">
             <dt>{t("account.accountPage.head.name")}</dt>
-            <dd>{user?.display_name || <span className="faint">Not set</span>}</dd>
+            <dd>{user?.display_name || <span className="faint">{t("account.accountPage.text.notSet")}</span>}</dd>
             <dt>{t("account.accountPage.head.email")}</dt>
             <dd>{user?.email ?? "-"}</dd>
             <dt>{t("account.accountPage.head.memberSince")}</dt>
             <dd>{fmtDate(user?.created_at)}</dd>
             <dt>{t("account.accountPage.head.signedInUntil")}</dt>
-            <dd>{auth.expiresAt ? `${fmtDate(auth.expiresAt)} at the latest` : "-"}</dd>
+            <dd>{auth.expiresAt ? t("account.accountPage.tpl.atTheLatest", { expiresAt: fmtDate(auth.expiresAt) }) : "-"}</dd>
           </dl>
         </div>
       </section>
@@ -88,7 +88,7 @@ export function AccountPage() {
         <div className="card-body col" style={{ gap: 8 }}>
           <h2 style={{ margin: 0 }}>{t("account.accountPage.head.security")}</h2>
           <Link to="/account/security" data-testid="account-to-security">
-            <Icon name="lock" /> Two-step verification{user?.totp_enabled ? " (on)" : ""}
+            <Icon name="lock" />{" "}{t("account.accountPage.text.twoStepVerification", { v: user?.totp_enabled ? " (on)" : "" })}
           </Link>
           <Link to="/account/tokens" data-testid="account-to-tokens">
             <Icon name="copy" /> {t("account.accountPage.btn.apiTokens")}
@@ -109,7 +109,7 @@ export function AccountPage() {
               <div className="banner ok" role="status" data-testid="pw-success">
                 <Icon name="check" />
                 <div className="banner-body">
-                  Your password was changed. Other devices and browsers where you were signed in have been signed out.
+                  {t("account.accountPage.text.yourPasswordWasChangedOther")}
                 </div>
               </div>
             ) : null}
@@ -142,13 +142,13 @@ export function AccountPage() {
                 describedBy={errorField === "new" ? "pw-new-hint pw-error" : "pw-new-hint"}
               />
               <span className="hint" id="pw-new-hint">
-                At least {MIN_PASSWORD} characters.
+                {t("account.accountPage.text.atLeastCharacters", { MINPASSWORD: MIN_PASSWORD })}
               </span>
             </div>
             <div>
               <button type="submit" className="btn primary" style={{ width: "auto" }} disabled={busy} data-testid="pw-submit">
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name="lock" />}
-                {busy ? "Saving…" : "Change password"}
+                {busy ? t("account.accountPage.str.saving") : t("account.accountPage.str.changePassword")}
               </button>
             </div>
           </form>

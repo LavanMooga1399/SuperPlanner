@@ -7,7 +7,7 @@ import { t } from "../../lib/i18n";
 
 function valueLabel(q: Question, v: unknown): string {
   if (v === undefined || v === null) return "";
-  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "boolean") return v ? t("studio.questionPanel.str.yes") : t("studio.questionPanel.str.no");
   if (Array.isArray(v)) {
     return v.map((x) => q.options.find((o) => o.value === x)?.label ?? String(x)).join(", ");
   }
@@ -66,10 +66,10 @@ export function QuestionPanel() {
     <section className="card question-panel" aria-labelledby="intake-questions-title">
       <div className="card-header">
         <h3 id="intake-questions-title" style={{ margin: 0 }}>
-          A few questions
+          {t("studio.questionPanel.text.aFewQuestions")}
         </h3>
         <span className="small muted" data-testid="intake-questions-left">
-          {questions.length === 0 ? "All done" : `${questions.length} left${questions.some((x) => x.required) ? `, ${questions.filter((x) => x.required).length} needed` : ""}`}
+          {questions.length === 0 ? t("studio.questionPanel.str.allDone") : `${questions.length} left${questions.some((x) => x.required) ? `, ${questions.filter((x) => x.required).length} needed` : ""}`}
         </span>
       </div>
       <div className="card-body col" style={{ gap: 10 }}>
@@ -85,7 +85,7 @@ export function QuestionPanel() {
         ) : null}
 
         <div aria-live="polite" className="sr-only" data-testid="intake-live">
-          {q ? `Question: ${q.prompt}` : "No more questions."}
+          {q ? t("studio.questionPanel.tpl.question", { prompt: q.prompt }) : t("studio.questionPanel.str.noMoreQuestions")}
         </div>
 
         {q ? (
@@ -101,10 +101,10 @@ export function QuestionPanel() {
               <div className="grow col" style={{ gap: 6 }}>
                 <div id={promptId} className="question-prompt">
                   {q.prompt}
-                  {q.required ? <span className="chip needed">Needed</span> : <span className="chip">Optional</span>}
+                  {q.required ? <span className="chip needed">{t("studio.questionPanel.text.needed")}</span> : <span className="chip">{t("studio.questionPanel.text.optional")}</span>}
                 </div>
-                {q.span ? <div className="small muted">From your text: "{q.span.text}"</div> : null}
-                {hasDefault && q.default_label ? <div className="small muted">Suggestion: {q.default_label}</div> : null}
+                {q.span ? <div className="small muted">{t("studio.questionPanel.text.fromYourText", { text: q.span.text })}</div> : null}
+                {hasDefault && q.default_label ? <div className="small muted">{t("studio.questionPanel.text.suggestion", { defaultlabel: q.default_label })}</div> : null}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -116,13 +116,12 @@ export function QuestionPanel() {
                   <QuestionInput q={q} value={value} onChange={(v) => (setValue(v), setTouchedEmpty(false))} onSubmit={submit} labelId={promptId} />
                   {touchedEmpty ? (
                     <span className="field-error" role="alert">
-                      <Icon name="alert" size={12} /> Enter an answer{hasDefault ? ", or use the suggestion" : ""}
-                      {!q.required ? " or skip this question" : ""}.
+                      <Icon name="alert" size={12} />{" "}{t("studio.questionPanel.text.enterAnAnswer", { v: hasDefault ? t("studio.questionPanel.str.orUseTheSuggestion") : "", v2: !q.required ? t("studio.questionPanel.str.orSkipThisQuestion") : "" })}
                     </span>
                   ) : null}
                   <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
                     <button type="submit" className="btn primary sm" data-testid="intake-answer" disabled={working}>
-                      {working ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Answer
+                      {working ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("studio.questionPanel.text.answer")}
                     </button>
                     {hasDefault ? (
                       <button

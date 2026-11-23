@@ -46,7 +46,7 @@ export function AccountMenu() {
 
   if (auth.mode !== "accounts" || auth.status !== "authenticated" || !auth.user) return null;
   const user = auth.user;
-  const label = user.display_name || user.email || "Account";
+  const label = user.display_name || user.email || t("account.accountMenu.str.account");
 
   const close = (refocus: boolean) => {
     setOpen(false);
@@ -117,7 +117,7 @@ export function AccountMenu() {
       {open ? (
         <ul className="account-menu-list" role="menu" id={menuId} aria-label={t("account.accountMenu.aria.account")} ref={listRef} onKeyDown={onMenuKey}>
           <li role="none" className="account-menu-head">
-            <strong>{user.display_name || "Signed in"}</strong>
+            <strong>{user.display_name || t("account.accountMenu.str.signedIn")}</strong>
             {user.email}
           </li>
           <li role="none">
@@ -142,7 +142,7 @@ export function AccountMenu() {
           </li>
           <li role="none">
             <button role="menuitem" type="button" className="account-menu-item" onClick={() => void signOut()} data-testid="sign-out">
-              <SignOutIcon /> Sign out
+              <SignOutIcon />{" "}{t("account.accountMenu.text.signOut")}
             </button>
           </li>
         </ul>

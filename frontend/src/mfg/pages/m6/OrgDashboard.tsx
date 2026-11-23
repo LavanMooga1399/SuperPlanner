@@ -12,7 +12,7 @@ import { useLoad } from "../../lib/useMfg";
 import { DigestSettings } from "./DashboardPage";
 import { fmtValue, PeriodSelect, TileCard, TileStatusBadge, TILE_NAMES, tileName } from "./dashboardBits";
 import { formatDateTime } from "../../../lib/locale";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 function Cell({ t }: { t: DashboardTile | undefined }) {
   if (!t) return <td className="muted">n/a</td>;
@@ -38,7 +38,7 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
   return (
     <div className="col gap-lg dash-print" data-testid="org-dashboard">
       <div className="row wrap no-print" style={{ justifyContent: "space-between", gap: 8 }}>
-        <span className="muted small">{d ? `As of ${formatDateTime(d.as_of)}. Only plants you can view are included.` : ""}</span>
+        <span className="muted small">{d ? tr("mfg.orgDashboard.tpl.asOfOnlyPlantsYou", { asof: formatDateTime(d.as_of) }) : ""}</span>
         <div className="row" style={{ gap: 8 }}>
           <PeriodSelect value={period} onChange={setPeriod} />
           <button type="button" className="btn ghost" onClick={() => window.print()} data-testid="org-dash-print">
@@ -59,7 +59,7 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
           </div>
           <div className="table-wrap">
             <table className="table" data-testid="org-dash-table">
-              <caption className="sr-only">Tiles per plant</caption>
+              <caption className="sr-only">{tr("mfg.orgDashboard.text.tilesPerPlant")}</caption>
               <thead>
                 <tr>
                   <th scope="col">{t("mfg.orgDashboard.head.tile")}</th>
@@ -86,7 +86,7 @@ export function OrgDashboardTab({ orgId }: { orgId: string }) {
             </table>
           </div>
           <p className="muted small no-print" style={{ margin: 0 }}>
-            Open a plant's own dashboard from the plant switcher in Manufacturing (<Link to="/mfg/dashboard">Plant dashboard</Link>).
+            {tr("mfg.orgDashboard.text.openAPlantSOwn")}<Link to="/mfg/dashboard">{tr("mfg.orgDashboard.text.plantDashboard")}</Link>).
           </p>
         </>
       ) : null}

@@ -28,15 +28,15 @@ import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
 import { DataTable } from "../../components/DataTable";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
-import { t, plural } from "../../../lib/i18n";
+import { plural, t } from "../../../lib/i18n";
 
 const STATUS: Record<CrStatus, { label: string; tone: string; icon: IconName }> = {
-  draft: { label: "Draft", tone: "info", icon: "file" },
-  submitted: { label: "Waiting for approval", tone: "warn", icon: "clock" },
-  approved: { label: "Approved", tone: "accent", icon: "check" },
-  rejected: { label: "Rejected", tone: "danger", icon: "x" },
-  implemented: { label: "Implemented", tone: "ok", icon: "check" },
-  cancelled: { label: "Cancelled", tone: "info", icon: "ban" },
+  draft: { label: t("mfg.ecoPages.str.draft"), tone: "info", icon: "file" },
+  submitted: { label: t("mfg.ecoPages.str.waitingForApproval"), tone: "warn", icon: "clock" },
+  approved: { label: t("mfg.ecoPages.str.approved"), tone: "accent", icon: "check" },
+  rejected: { label: t("mfg.ecoPages.str.rejected"), tone: "danger", icon: "x" },
+  implemented: { label: t("mfg.ecoPages.str.implemented"), tone: "ok", icon: "check" },
+  cancelled: { label: t("mfg.ecoPages.str.cancelled"), tone: "info", icon: "ban" },
 };
 
 export function CrStatusChip({ s }: { s: CrStatus }) {
@@ -57,10 +57,10 @@ function DocLabel({ type, id, link }: { type: "bom" | "routing"; id: string | nu
     (signal) => (id ? (type === "bom" ? getBom(id, signal) : getRouting(id, signal)).catch(() => null) : null),
     [type, id],
   );
-  if (!id) return <span className="faint">nothing (new)</span>;
+  if (!id) return <span className="faint">{t("mfg.ecoPages.text.nothingNew")}</span>;
   const x = d.data as { item: ItemRef; revision: string; version: number; status: string } | null;
   if (!x) return <span className="mono small">{id}</span>;
-  const text = `${x.item.part_number} rev ${x.revision} v${x.version}`;
+  const text = t("mfg.ecoPages.tpl.revV", { partnumber: x.item.part_number, revision: x.revision, version: x.version });
   return (
     <span>
       {link ? (
@@ -76,7 +76,7 @@ function DocLabel({ type, id, link }: { type: "bom" | "routing"; id: string | nu
 }
 
 const effText = (c: ChangeRequest) =>
-  c.effectivity.mode === "date" ? `from ${c.effectivity.date ? fmtDate(c.effectivity.date) : "a date to choose"}` : c.effectivity.mode === "serial" ? `from unit serial ${c.effectivity.serial_from ?? "?"}` : `when the old parts are used up${c.effectivity.date ? ` (${fmtDate(c.effectivity.date)})` : ""}`;
+  c.effectivity.mode === "date" ? `from ${c.effectivity.date ? fmtDate(c.effectivity.date) : t("mfg.ecoPages.str.aDateToChoose")}` : c.effectivity.mode === "serial" ? t("mfg.ecoPages.tpl.fromUnitSerial", { v: c.effectivity.serial_from ?? "?" }) : `when the old parts are used up${c.effectivity.date ? ` (${fmtDate(c.effectivity.date)})` : ""}`;
 
 export function EcoListPage() {
   const navigate = useNavigate();
@@ -86,7 +86,7 @@ export function EcoListPage() {
   const data = usePaged<ChangeRequest>((offset, limit, signal) => listEcos({ status: status || undefined, limit, offset }, signal), [status]);
   const [creating, setCreating] = useState(false);
   useEffect(() => {
-    document.title = "Engineering changes - SuperPlanner";
+    document.title = t("mfg.ecoPages.str.engineeringChangesSuperplanner");
   }, []);
   return (
     <div className="col gap-lg" data-testid="eco-list">
@@ -104,12 +104,12 @@ export function EcoListPage() {
       <FilterBar>
         <div className="field">
           <span className="field-label" id="eco-status-label">
-            Status
+            {t("mfg.ecoPages.text.status")}
           </span>
           <div className="btn-group" role="group" aria-labelledby="eco-status-label">
             {(["", "draft", "submitted", "approved", "implemented"] as const).map((s) => (
               <button key={s || "all"} type="button" className="btn" aria-pressed={status === s} onClick={() => setSearchParam(setParams, "status", s)}>
-                {s ? STATUS[s].label : "All"}
+                {s ? STATUS[s].label : t("mfg.ecoPages.str.all")}
               </button>
             ))}
           </div>
@@ -127,7 +127,7 @@ export function EcoListPage() {
         onEndReached={data.onEndReached}
         exportName="change-requests"
         rowExtras={(c) => ({ testId: "eco-row", data: { status: c.status } })}
-        empty={status ? "No change requests with this status." : "No change requests yet. Create one to change a BOM or routing in a controlled way."}
+        empty={status ? t("mfg.ecoPages.str.noChangeRequestsWithThis") : t("mfg.ecoPages.str.noChangeRequestsYetCreate")}
         card={{ title: "change", status: "status", fields: ["effect", "docs", "by"] }}
       />
       {creating ? <CrDialog onClose={() => setCreating(false)} onSaved={(c) => navigate(mfgPaths.eco(c.id))} /> : null}
@@ -138,7 +138,7 @@ export function EcoListPage() {
 const ECO_COLS: Column<ChangeRequest>[] = [
   {
     key: "change",
-    header: "Change",
+    header: t("mfg.ecoPages.str.change"),
     width: "minmax(280px, 2fr)",
     exportValue: (c) => `${c.number} ${c.title}`,
     render: (c) => (
@@ -146,14 +146,14 @@ const ECO_COLS: Column<ChangeRequest>[] = [
         <Link to={mfgPaths.eco(c.id)}>
           <span className="mono">{c.number}</span> {c.title}
         </Link>
-        {c.source === "erp" ? <span className="small faint"> · from the ERP</span> : null}
+        {c.source === "erp" ? <span className="small faint">{" "}{t("mfg.ecoPages.text.fromTheErp")}</span> : null}
       </span>
     ),
   },
-  { key: "status", header: "Status", width: "130px", exportValue: (c) => STATUS[c.status]?.label ?? c.status, render: (c) => <CrStatusChip s={c.status} /> },
-  { key: "effect", header: "Takes effect", width: "minmax(160px, 1fr)", render: (c) => effText(c) },
-  { key: "docs", header: "Documents", width: "120px", render: (c) => (c.items.length ? `${plural(c.items.length, "document")}` : "none yet") },
-  { key: "by", header: "Requested by", width: "minmax(140px, 1fr)", render: (c) => who(c.requested_by) },
+  { key: "status", header: t("mfg.ecoPages.str.status"), width: "130px", exportValue: (c) => STATUS[c.status]?.label ?? c.status, render: (c) => <CrStatusChip s={c.status} /> },
+  { key: "effect", header: t("mfg.ecoPages.str.takesEffect"), width: "minmax(160px, 1fr)", render: (c) => effText(c) },
+  { key: "docs", header: t("mfg.ecoPages.str.documents"), width: "120px", render: (c) => (c.items.length ? `${plural(c.items.length, "document")}` : t("mfg.ecoPages.str.noneYet")) },
+  { key: "by", header: t("mfg.ecoPages.str.requestedBy"), width: "minmax(140px, 1fr)", render: (c) => who(c.requested_by) },
 ];
 
 function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): void; onSaved(c: ChangeRequest): void }) {
@@ -170,7 +170,7 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
   const e = f.effectivity;
   return (
     <Dialog
-      title={cr ? `Edit ${cr.number}` : "New change request"}
+      title={cr ? t("mfg.ecoPages.tpl.edit", { number: cr.number }) : t("mfg.ecoPages.str.newChangeRequest")}
       onClose={onClose}
       wide
       footer={
@@ -194,7 +194,7 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
             }}
             data-testid="eco-save"
           >
-            {cr ? "Save" : "Create"}
+            {cr ? t("mfg.ecoPages.str.save") : t("mfg.ecoPages.str.create")}
           </button>
         </>
       }
@@ -212,13 +212,13 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
           <legend>{t("mfg.ecoPages.head.takesEffect")}</legend>
           <div className="col" role="radiogroup" aria-label={t("mfg.ecoPages.aria.takesEffect")} style={{ gap: 4 }}>
             <label className="checkbox">
-              <input type="radio" checked={e.mode === "date"} onChange={() => setF({ ...f, effectivity: { mode: "date", date: e.date ?? null } })} data-testid="eco-eff-date" /> On a date
+              <input type="radio" checked={e.mode === "date"} onChange={() => setF({ ...f, effectivity: { mode: "date", date: e.date ?? null } })} data-testid="eco-eff-date" />{" "}{t("mfg.ecoPages.text.onADate")}
             </label>
             <label className="checkbox">
-              <input type="radio" checked={e.mode === "use_up"} onChange={() => setF({ ...f, effectivity: { mode: "use_up", date: e.date ?? null } })} data-testid="eco-eff-useup" /> When the old parts are used up (date suggested from MRP)
+              <input type="radio" checked={e.mode === "use_up"} onChange={() => setF({ ...f, effectivity: { mode: "use_up", date: e.date ?? null } })} data-testid="eco-eff-useup" />{" "}{t("mfg.ecoPages.text.whenTheOldPartsAre")}
             </label>
             <label className="checkbox">
-              <input type="radio" checked={e.mode === "serial"} onChange={() => setF({ ...f, effectivity: { mode: "serial", serial_from: e.serial_from ?? null } })} /> From a unit serial number
+              <input type="radio" checked={e.mode === "serial"} onChange={() => setF({ ...f, effectivity: { mode: "serial", serial_from: e.serial_from ?? null } })} />{" "}{t("mfg.ecoPages.text.fromAUnitSerialNumber")}
             </label>
           </div>
           {e.mode === "serial" ? (
@@ -228,7 +228,7 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
             </div>
           ) : (
             <div className="field" style={{ maxWidth: 220 }}>
-              <label htmlFor="cr-date">{e.mode === "use_up" ? "Date (empty = use the suggestion)" : "Date"}</label>
+              <label htmlFor="cr-date">{e.mode === "use_up" ? t("mfg.ecoPages.str.dateEmptyUseTheSuggestion") : t("mfg.ecoPages.str.date")}</label>
               <input id="cr-date" className="input" type="date" value={e.date ?? ""} onChange={(ev) => setF({ ...f, effectivity: { ...e, date: ev.target.value || null } })} data-testid="eco-date" />
             </div>
           )}
@@ -237,8 +237,8 @@ function CrDialog({ cr, onClose, onSaved }: { cr?: ChangeRequest; onClose(): voi
           <div className="field">
             <label htmlFor="cr-kind">{t("mfg.ecoPages.label.kind")}</label>
             <select id="cr-kind" className="select" value={f.kind} onChange={(ev) => setF({ ...f, kind: ev.target.value as "eco" | "ecn" })}>
-              <option value="eco">Change order (needs approval)</option>
-              <option value="ecn">Change notice (documentation)</option>
+              <option value="eco">{t("mfg.ecoPages.text.changeOrderNeedsApproval")}</option>
+              <option value="ecn">{t("mfg.ecoPages.text.changeNoticeDocumentation")}</option>
             </select>
           </div>
           <div className="field">
@@ -292,7 +292,7 @@ export function EcoPage() {
     } catch (e) {
       if (e instanceof ApiError && e.code === "ECO_RELEASE_BLOCKED") setIssues((e.details.issues as ReleaseIssue[]) ?? []);
       else if (isConflict(e)) {
-        setError(new Error("Someone changed this request meanwhile; it has been reloaded."));
+        setError(new Error(t("mfg.ecoPages.str.someoneChangedThisRequestMeanwhile")));
         cr.reload();
       } else setError(e);
     } finally {
@@ -303,7 +303,7 @@ export function EcoPage() {
   return (
     <div className="col gap-lg" data-testid="eco-page" data-status={c.status}>
       <nav className="breadcrumb" aria-label={t("mfg.ecoPages.aria.breadcrumb")}>
-        <Link to={mfgPaths.ecos()}>Engineering changes</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{c.number}</span>
+        <Link to={mfgPaths.ecos()}>{t("mfg.ecoPages.text.engineeringChanges")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{c.number}</span>
       </nav>
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
         <div className="col" style={{ gap: 4 }}>
@@ -312,12 +312,9 @@ export function EcoPage() {
           </h1>
           <span className="row wrap">
             <CrStatusChip s={c.status} />
-            {c.source === "erp" ? <span className="badge info">from the ERP</span> : null}
+            {c.source === "erp" ? <span className="badge info">{t("mfg.ecoPages.text.fromTheErp2")}</span> : null}
             <span className="small muted">
-              Takes effect {effText(c)} · P{c.priority}
-              {c.requested_by ? ` · requested by ${who(c.requested_by)}` : ""}
-              {c.approved_by ? ` · approved by ${who(c.approved_by)}` : ""}
-              {c.implemented_at ? ` · implemented ${formatDate(c.implemented_at)}` : ""}
+              {t("mfg.ecoPages.text.takesEffectP", { c: effText(c), priority: c.priority, v: c.requested_by ? t("mfg.ecoPages.tpl.requestedBy", { requestedby: who(c.requested_by) }) : "", v2: c.approved_by ? t("mfg.ecoPages.tpl.approvedBy", { approvedby: who(c.approved_by) }) : "", v3: c.implemented_at ? ` · implemented ${formatDate(c.implemented_at)}` : "" })}
             </span>
           </span>
         </div>
@@ -327,14 +324,14 @@ export function EcoPage() {
               <button type="button" className="btn" onClick={() => setEditing(true)}>
                 {t("mfg.ecoPages.btn.edit")}
               </button>
-              <button type="button" className="btn primary" disabled={busy || !c.items.length} title={c.items.length ? undefined : "Add at least one draft BOM or routing"} onClick={() => void act("submit")} data-testid="eco-submit">
+              <button type="button" className="btn primary" disabled={busy || !c.items.length} title={c.items.length ? undefined : t("mfg.ecoPages.str.addAtLeastOneDraft")} onClick={() => void act("submit")} data-testid="eco-submit">
                 <Icon name="arrow-right" /> {t("mfg.ecoPages.btn.submitForApproval")}
               </button>
             </>
           ) : null}
           {c.status === "submitted" && canApprove ? (
             <>
-              <button type="button" className="btn primary" disabled={busy || selfApproveBlocked} title={selfApproveBlocked ? "You submitted it: someone else approves" : undefined} onClick={() => void act("approve")} data-testid="eco-approve">
+              <button type="button" className="btn primary" disabled={busy || selfApproveBlocked} title={selfApproveBlocked ? t("mfg.ecoPages.str.youSubmittedItSomeoneElse") : undefined} onClick={() => void act("approve")} data-testid="eco-approve">
                 <Icon name="check" /> {t("mfg.ecoPages.btn.approve")}
               </button>
               <button type="button" className="btn" disabled={busy} onClick={() => setRejecting(true)} data-testid="eco-reject">
@@ -355,7 +352,7 @@ export function EcoPage() {
         </div>
       </div>
       {c.reason ? <p style={{ margin: 0 }}>{c.reason}</p> : null}
-      {c.status === "approved" ? <Banner tone="info" title={t("mfg.ecoPages.title.readyToImplement")}>Implementing releases every draft below at once with the effectivity above and supersedes the current versions. If any draft fails the release checks, nothing is released.</Banner> : null}
+      {c.status === "approved" ? <Banner tone="info" title={t("mfg.ecoPages.title.readyToImplement")}>{t("mfg.ecoPages.text.implementingReleasesEveryDraftBelow")}</Banner> : null}
       {issues ? (
         <Banner tone="danger" title={t("mfg.ecoPages.title.nothingWasReleasedFixThese")} testId="eco-release-blocked">
           <ul style={{ margin: 0, paddingLeft: 18 }}>
@@ -371,7 +368,7 @@ export function EcoPage() {
       <MfgError error={error} />
       <nav className="tabs" aria-label={t("mfg.ecoPages.aria.changeRequest")}>
         <button type="button" className={`tab${tab === "docs" ? " active" : ""}`} aria-pressed={tab === "docs"} onClick={() => setTab("docs")}>
-          Documents ({c.items.length})
+          {t("mfg.ecoPages.text.documents", { length: c.items.length })}
         </button>
         <button type="button" className={`tab${tab === "impact" ? " active" : ""}`} aria-pressed={tab === "impact"} onClick={() => setTab("impact")} data-testid="eco-tab-impact">
           {t("mfg.ecoPages.btn.impact")}
@@ -402,7 +399,7 @@ export function EcoPage() {
               {c.items.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="muted">
-                    No drafts yet. Make a draft with "Copy as draft" on the item's BOM or routing, then add it here. Added drafts can only be edited while this request is a draft.
+                    {t("mfg.ecoPages.text.noDraftsYetMakeA")}
                   </td>
                 </tr>
               ) : null}
@@ -419,7 +416,7 @@ export function EcoPage() {
       {adding ? <AddDocDialog c={c} onClose={() => setAdding(false)} onSaved={(x) => { cr.setData(x); setAdding(false); }} /> : null}
       {rejecting ? (
         <Dialog
-          title={`Reject ${c.number}?`}
+          title={t("mfg.ecoPages.tpl.reject", { number: c.number })}
           onClose={() => setRejecting(false)}
           footer={
             <>
@@ -465,30 +462,30 @@ function DocRow({ c, i, editable, onChanged }: { c: ChangeRequest; i: CrItem; ed
   return (
     <tr data-testid="eco-doc">
       <td>
-        <span className="badge info">{i.doc_type === "bom" ? "BOM" : "Routing"}</span> <DocLabel type={i.doc_type} id={i.doc_id} link />
-        {c.status === "draft" ? <div className="small faint">locked to this request while it is a draft</div> : null}
+        <span className="badge info">{i.doc_type === "bom" ? "BOM" : t("mfg.ecoPages.str.routing")}</span> <DocLabel type={i.doc_type} id={i.doc_id} link />
+        {c.status === "draft" ? <div className="small faint">{t("mfg.ecoPages.text.lockedToThisRequestWhile")}</div> : null}
       </td>
       <td className="small">
         <DocLabel type={i.doc_type} id={i.supersedes_doc_id} />
       </td>
       <td>
         <select className="select sm" aria-label={t("mfg.ecoPages.aria.openWorkOrders")} value={D.open_wos} disabled={!editable || busy} onChange={(e) => void setDisp({ open_wos: e.target.value as CrItem["disposition"]["open_wos"] })}>
-          <option value="keep">Keep as they are</option>
-          <option value="refresh_planned">Update planned ones</option>
-          <option value="flag">Flag for review</option>
+          <option value="keep">{t("mfg.ecoPages.text.keepAsTheyAre")}</option>
+          <option value="refresh_planned">{t("mfg.ecoPages.text.updatePlannedOnes")}</option>
+          <option value="flag">{t("mfg.ecoPages.text.flagForReview")}</option>
         </select>
       </td>
       <td>
         <select className="select sm" aria-label={t("mfg.ecoPages.aria.openPurchaseOrders")} value={D.open_pos} disabled={!editable || busy} onChange={(e) => void setDisp({ open_pos: e.target.value as CrItem["disposition"]["open_pos"] })}>
-          <option value="keep">Keep</option>
-          <option value="flag_cancel">Flag the ones no longer needed</option>
+          <option value="keep">{t("mfg.ecoPages.text.keep")}</option>
+          <option value="flag_cancel">{t("mfg.ecoPages.text.flagTheOnesNoLonger")}</option>
         </select>
       </td>
       <td>
         <select className="select sm" aria-label={t("mfg.ecoPages.aria.oldStock")} value={D.stock} disabled={!editable || busy} onChange={(e) => void setDisp({ stock: e.target.value as CrItem["disposition"]["stock"] })}>
-          <option value="use_up">Use it up</option>
-          <option value="scrap">Scrap it</option>
-          <option value="rework">Rework it</option>
+          <option value="use_up">{t("mfg.ecoPages.text.useItUp")}</option>
+          <option value="scrap">{t("mfg.ecoPages.text.scrapIt")}</option>
+          <option value="rework">{t("mfg.ecoPages.text.reworkIt")}</option>
         </select>
       </td>
       <td>
@@ -541,7 +538,7 @@ function AddDocDialog({ c, onClose, onSaved }: { c: ChangeRequest; onClose(): vo
             }}
             data-testid="eco-doc-save"
           >
-            Add
+            {t("mfg.ecoPages.text.add")}
           </button>
         </>
       }
@@ -552,7 +549,7 @@ function AddDocDialog({ c, onClose, onSaved }: { c: ChangeRequest; onClose(): vo
             <input type="radio" checked={type === "bom"} onChange={() => setType("bom")} /> BOM
           </label>
           <label className="checkbox">
-            <input type="radio" checked={type === "routing"} onChange={() => setType("routing")} /> Routing
+            <input type="radio" checked={type === "routing"} onChange={() => setType("routing")} />{" "}{t("mfg.ecoPages.text.routing")}
           </label>
         </div>
         <ItemPicker value={item} onChange={(it) => { setItem(it); setDoc(""); }} label={t("mfg.ecoPages.label.item")} makeBuy="make" />
@@ -560,7 +557,7 @@ function AddDocDialog({ c, onClose, onSaved }: { c: ChangeRequest; onClose(): vo
           <div className="field">
             <label htmlFor="eco-doc">{t("mfg.ecoPages.label.draft")}</label>
             <select id="eco-doc" className="select" value={doc} onChange={(e) => setDoc(e.target.value)} data-testid="eco-doc-pick">
-              <option value="">{docs.data?.length ? "Choose…" : docs.loading ? "Loading…" : "No drafts: make one with Copy as draft first"}</option>
+              <option value="">{docs.data?.length ? t("mfg.ecoPages.str.choose") : docs.loading ? t("mfg.ecoPages.str.loading") : t("mfg.ecoPages.str.noDraftsMakeOneWith")}</option>
               {(docs.data ?? []).map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.label}
@@ -582,7 +579,7 @@ const entryText = (e: string | { item: string; qty?: number; qty_before?: number
 function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: string): Promise<void>; canEdit: boolean }) {
   const imp = useLoad((signal) => (c.items.length ? getEcoImpact(c.id, signal) : null), [c.id, c.row_version]);
   const d: EcoImpact | null = imp.data;
-  if (!c.items.length) return <p className="muted">Add a draft to see what it changes.</p>;
+  if (!c.items.length) return <p className="muted">{t("mfg.ecoPages.text.addADraftToSee")}</p>;
   if (imp.loading && !d) return <Spinner label={t("mfg.ecoPages.label.workingOutTheImpactIncl")} />;
   if (!d) return <MfgError error={imp.error} onRetry={imp.reload} />;
   return (
@@ -590,7 +587,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
       {d.use_up_date ? (
         <Banner
           tone="info"
-          title={`Old parts run out around ${fmtDate(d.use_up_date)}`}
+          title={t("mfg.ecoPages.tpl.oldPartsRunOutAround", { useupdate: fmtDate(d.use_up_date) })}
           testId="eco-useup"
           actions={
             canEdit && c.effectivity.mode !== "serial" && c.effectivity.date !== d.use_up_date ? (
@@ -600,7 +597,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
             ) : null
           }
         >
-          First day the projected stock of the phased-out part reaches zero in the latest MRP run.
+          {t("mfg.ecoPages.text.firstDayTheProjectedStock")}
         </Banner>
       ) : null}
       <section className="card card-table">
@@ -657,7 +654,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
       <div className="grid-2" style={{ alignItems: "start" }}>
         <section className="card card-table">
           <div className="card-header">
-            <h2>Open work orders using the old parts ({d.open_wos.length})</h2>
+            <h2>{t("mfg.ecoPages.text.openWorkOrdersUsingThe", { length: d.open_wos.length })}</h2>
           </div>
           <DataTable
             rows={[
@@ -678,7 +675,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
         </section>
         <section className="card card-table">
           <div className="card-header">
-            <h2>Purchases no longer needed ({d.open_purchases.length})</h2>
+            <h2>{t("mfg.ecoPages.text.purchasesNoLongerNeeded", { length: d.open_purchases.length })}</h2>
           </div>
           <DataTable
             rows={d.open_purchases}
@@ -734,7 +731,7 @@ function ImpactView({ c, onUseDate, canEdit }: { c: ChangeRequest; onUseDate(d: 
           />
         </section>
       ) : null}
-      {d.computed_ms ? <p className="faint small">Worked out in {(d.computed_ms / 1000).toFixed(1)} s.</p> : null}
+      {d.computed_ms ? <p className="faint small">{t("mfg.ecoPages.text.workedOutInS", { toFixed: (d.computed_ms / 1000).toFixed(1) })}</p> : null}
     </div>
   );
 }

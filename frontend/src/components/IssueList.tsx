@@ -2,17 +2,17 @@ import { Link } from "react-router";
 import type { Issue, Problem } from "../api/types";
 import type { Terms } from "../lib/terms";
 import { Icon } from "./Icon";
-import { t } from "../lib/i18n";
+import { t, t as tr } from "../lib/i18n";
 
 function issueLink(issue: Issue): { to: string; label: string } | null {
   if (issue.task_ids.length && (issue.field?.startsWith("dependencies") || issue.code.includes("DEPENDENCY"))) {
-    return { to: "../dependencies", label: "Open dependencies" };
+    return { to: "../dependencies", label: tr("studio.issueList.str.openDependencies") };
   }
-  if (issue.task_ids.length) return { to: `../tasks?focus=${encodeURIComponent(issue.task_ids[0])}`, label: "Go to row" };
-  if (issue.resource_ids.length) return { to: `../resources?focus=${encodeURIComponent(issue.resource_ids[0])}`, label: "Go to row" };
-  if (issue.field?.startsWith("dependencies")) return { to: "../dependencies", label: "Open dependencies" };
-  if (issue.field?.startsWith("tasks")) return { to: "../tasks", label: "Open list" };
-  if (issue.field?.startsWith("resources")) return { to: "../resources", label: "Open list" };
+  if (issue.task_ids.length) return { to: `../tasks?focus=${encodeURIComponent(issue.task_ids[0])}`, label: tr("studio.issueList.str.goToRow") };
+  if (issue.resource_ids.length) return { to: `../resources?focus=${encodeURIComponent(issue.resource_ids[0])}`, label: tr("studio.issueList.str.goToRow") };
+  if (issue.field?.startsWith("dependencies")) return { to: "../dependencies", label: tr("studio.issueList.str.openDependencies") };
+  if (issue.field?.startsWith("tasks")) return { to: "../tasks", label: tr("studio.issueList.str.openList") };
+  if (issue.field?.startsWith("resources")) return { to: "../resources", label: tr("studio.issueList.str.openList") };
   return null;
 }
 
@@ -29,7 +29,7 @@ export function IssueList({ issues, draft, terms }: { issues: Issue[]; draft: Pr
             <Icon name={kind === "error" ? "x" : "alert"} style={{ color: kind === "error" ? "var(--danger)" : "var(--warn)" }} />
             {title} ({list.length})
           </h3>
-          <span className="small muted">{kind === "error" ? "Must be fixed before optimizing" : "Worth a look, does not block"}</span>
+          <span className="small muted">{kind === "error" ? tr("studio.issueList.str.mustBeFixedBeforeOptimizing") : tr("studio.issueList.str.worthALookDoesNot")}</span>
         </div>
         {list.map((iss, i) => {
           const link = issueLink(iss);
@@ -42,7 +42,7 @@ export function IssueList({ issues, draft, terms }: { issues: Issue[]; draft: Pr
               <span className="issue-icon">
                 <span className={`badge ${kind === "error" ? "danger" : "warn"}`}>
                   <Icon name={kind === "error" ? "x" : "alert"} />
-                  {kind === "error" ? "Error" : "Warning"}
+                  {kind === "error" ? tr("studio.issueList.str.error") : tr("studio.issueList.str.warning")}
                 </span>
               </span>
               <div className="grow">
@@ -68,12 +68,12 @@ export function IssueList({ issues, draft, terms }: { issues: Issue[]; draft: Pr
         <div className="empty">
           <Icon name="check" size={28} style={{ color: "var(--ok)" }} />
           <strong>{t("studio.issueList.head.noProblemsFound")}</strong>
-          <span>The plan is ready to optimize. All {terms.tasksL}, {terms.resourcesL} and dependencies fit together.</span>
+          <span>{tr("studio.issueList.text.thePlanIsReadyTo", { tasksL: terms.tasksL, resourcesL: terms.resourcesL })}</span>
         </div>
       ) : (
         <>
-          {group("Errors", errors, "error")}
-          {group("Warnings", warnings, "warning")}
+          {group(tr("studio.issueList.str.errors"), errors, "error")}
+          {group(tr("studio.issueList.str.warnings"), warnings, "warning")}
         </>
       )}
     </div>

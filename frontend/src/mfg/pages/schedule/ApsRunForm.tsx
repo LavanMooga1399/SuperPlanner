@@ -21,9 +21,9 @@ import { toast } from "../../../components/Toast";
 import { t } from "../../../lib/i18n";
 
 export const POLICY_TEXT: Record<OvertimePolicy, { label: string; help: string }> = {
-  off: { label: "Regular shifts only", help: "Baseline: no overtime is used or suggested." },
-  suggest: { label: "Suggest overtime", help: "Plans on regular shifts and lists which extra shifts would reduce lateness, and by how much." },
-  allow: { label: "Use overtime automatically", help: "Opens extra shifts (within weekly limits) when work would otherwise be late; their cost is counted." },
+  off: { label: t("mfg.apsRunForm.str.regularShiftsOnly"), help: t("mfg.apsRunForm.str.baselineNoOvertimeIsUsed") },
+  suggest: { label: t("mfg.apsRunForm.str.suggestOvertime"), help: t("mfg.apsRunForm.str.plansOnRegularShiftsAnd") },
+  allow: { label: t("mfg.apsRunForm.str.useOvertimeAutomatically"), help: t("mfg.apsRunForm.str.opensExtraShiftsWithinWeekly") },
 };
 
 export function PolicyPicker({ value, onChange, name = "aps-policy" }: { value: OvertimePolicy; onChange(v: OvertimePolicy): void; name?: string }) {
@@ -128,8 +128,7 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
       </div>
       <div className="card-body col">
         <p className="muted small" style={{ margin: 0 }}>
-          Places every operation of the released and firm work orders and of the MRP planned orders on the lines, in the shifts, with crews, tools and
-          material availability, most urgent first. Runs in the background; you can keep working.
+          {t("mfg.apsRunForm.text.placesEveryOperationOfThe")}
         </p>
         <div className="field" style={{ maxWidth: 420 }}>
           <label htmlFor="aps-label">{t("mfg.apsRunForm.label.nameOptional")}</label>
@@ -157,12 +156,12 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
               <div className="field">
                 <label htmlFor="aps-h">{t("mfg.apsRunForm.label.horizonDays")}</label>
                 <input id="aps-h" className="input" type="number" min={7} max={120} value={horizon} placeholder={String(p3?.aps_horizon_days ?? 42)} onChange={(e) => setHorizon(e.target.value)} aria-invalid={hBad} />
-                <span className="hint">{hBad ? "7 to 120 days." : "Operations that cannot start before the end are listed, not scheduled."}</span>
+                <span className="hint">{hBad ? t("mfg.apsRunForm.str.7To120Days") : t("mfg.apsRunForm.str.operationsThatCannotStartBefore")}</span>
               </div>
               <div className="field">
                 <label htmlFor="aps-mrp">{t("mfg.apsRunForm.label.materialPlanMrpRun")}</label>
                 <select id="aps-mrp" className="select" value={mrpRun} onChange={(e) => setMrpRun(e.target.value)}>
-                  <option value="">Latest live run</option>
+                  <option value="">{t("mfg.apsRunForm.text.latestLiveRun")}</option>
                   {(mrpRuns.data?.items ?? [])
                     .filter((r: MrpRunRecord) => r.status === "completed")
                     .map((r) => (
@@ -172,19 +171,19 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
                       </option>
                     ))}
                 </select>
-                <span className="hint">Gives the planned orders and when each part arrives.</span>
+                <span className="hint">{t("mfg.apsRunForm.text.givesThePlannedOrdersAnd")}</span>
               </div>
               <div className="field">
                 <label htmlFor="aps-imp">{t("mfg.apsRunForm.label.improvementTimeSeconds")}</label>
                 <input id="aps-imp" className="input" type="number" min={0} max={300} value={improve} onChange={(e) => setImprove(e.target.value)} aria-invalid={impBad} />
-                <span className="hint">{impBad ? "0 to 300." : "0 = first plan only; more time can reduce lateness and setups."}</span>
+                <span className="hint">{impBad ? "0 to 300." : t("mfg.apsRunForm.str.0FirstPlanOnlyMore")}</span>
               </div>
             </div>
             <label className="checkbox">
-              <input type="checkbox" checked={split} onChange={(e) => setSplit(e.target.checked)} /> Split urgent operations across lines
+              <input type="checkbox" checked={split} onChange={(e) => setSplit(e.target.checked)} />{" "}{t("mfg.apsRunForm.text.splitUrgentOperationsAcrossLines")}
             </label>
             <label className="checkbox">
-              <input type="checkbox" checked={includePlanned} onChange={(e) => setIncludePlanned(e.target.checked)} /> Include MRP planned orders (not only work orders)
+              <input type="checkbox" checked={includePlanned} onChange={(e) => setIncludePlanned(e.target.checked)} />{" "}{t("mfg.apsRunForm.text.includeMrpPlannedOrdersNot")}
             </label>
           </fieldset>
         ) : null}
@@ -192,24 +191,24 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
           <fieldset className="mfg-fieldset" data-testid="aps-whatif">
             <legend>{t("mfg.apsRunForm.head.whatifScenario")}</legend>
             <p className="hint" style={{ margin: 0 }}>
-              Only for this run, for comparison; a what-if run cannot be published.
+              {t("mfg.apsRunForm.text.onlyForThisRunFor")}
             </p>
             <div className="form-grid">
               <div className="field">
-                <label htmlFor="aps-asof">Schedule from ({clock.zoneLabel})</label>
+                <label htmlFor="aps-asof">{t("mfg.apsRunForm.text.scheduleFrom", { zoneLabel: clock.zoneLabel })}</label>
                 <input id="aps-asof" className="input" type="datetime-local" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
-                <span className="hint">Empty = now</span>
+                <span className="hint">{t("mfg.apsRunForm.text.emptyNow")}</span>
               </div>
               <label className="checkbox" style={{ alignSelf: "flex-end" }}>
-                <input type="checkbox" checked={ignoreMaterial} onChange={(e) => setIgnoreMaterial(e.target.checked)} data-testid="aps-ignore-material" /> Ignore material (as if every part were in stock)
+                <input type="checkbox" checked={ignoreMaterial} onChange={(e) => setIgnoreMaterial(e.target.checked)} data-testid="aps-ignore-material" />{" "}{t("mfg.apsRunForm.text.ignoreMaterialAsIfEvery")}
               </label>
             </div>
             <div className="col" style={{ gap: 6 }} data-testid="aps-overrides">
-              <span className="field-label">Capacity changes</span>
+              <span className="field-label">{t("mfg.apsRunForm.text.capacityChanges")}</span>
               {ovs.map((o, i) => (
                 <div key={o.key} className="row wrap" style={{ gap: 6 }} data-testid="aps-override-row">
                   <select className="select sm" aria-label={t("mfg.apsRunForm.aria.line")} value={o.target_id} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, target_id: e.target.value } : y)))}>
-                    <option value="">Choose a line</option>
+                    <option value="">{t("mfg.apsRunForm.text.chooseALine")}</option>
                     {(lines.data?.items ?? []).map((l: LineRecord) => (
                       <option key={l.id} value={l.id}>
                         {l.code} · {l.name}
@@ -217,8 +216,8 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
                     ))}
                   </select>
                   <select className="select sm" aria-label={t("mfg.apsRunForm.aria.change")} value={o.mode} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, mode: e.target.value as CapacityOverride["mode"] } : y)))}>
-                    <option value="open_optional">Open extra shift time</option>
-                    <option value="close">Close (breakdown, maintenance)</option>
+                    <option value="open_optional">{t("mfg.apsRunForm.text.openExtraShiftTime")}</option>
+                    <option value="close">{t("mfg.apsRunForm.text.closeBreakdownMaintenance")}</option>
                   </select>
                   <input className="input sm" type="datetime-local" aria-label={t("mfg.apsRunForm.aria.from")} value={o.start} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, start: e.target.value } : y)))} />
                   <input className="input sm" type="datetime-local" aria-label={t("mfg.apsRunForm.aria.until")} value={o.end} onChange={(e) => setOvs((x) => x.map((y, j) => (j === i ? { ...y, end: e.target.value } : y)))} />
@@ -237,13 +236,13 @@ export function ApsRunForm({ onClose, onDone, initial }: { onClose(): void; onDo
         ) : null}
         {isWhatIf ? (
           <p className="small" role="status" style={{ margin: 0 }}>
-            <Icon name="help" size={12} /> This will be a <strong>what-if</strong> run (for comparison; cannot be published).
+            <Icon name="help" size={12} />{" "}{t("mfg.apsRunForm.text.thisWillBeA")}{" "}<strong>what-if</strong>{" "}{t("mfg.apsRunForm.text.runForComparisonCannotBe")}
           </p>
         ) : null}
-        <MfgError error={error} title="The schedule could not be started" />
+        <MfgError error={error} title={t("mfg.apsRunForm.attr.theScheduleCouldNotBe")} />
         <div className="row">
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || hBad || impBad || ovBad} data-testid="aps-run-submit">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} {isWhatIf ? "Run what-if schedule" : "Schedule now"}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} {isWhatIf ? t("mfg.apsRunForm.str.runWhatIfSchedule") : t("mfg.apsRunForm.str.scheduleNow")}
           </button>
           <button type="button" className="btn" onClick={onClose}>
             {t("mfg.apsRunForm.btn.cancel")}

@@ -21,10 +21,10 @@ import { Link } from "react-router";
 import { t } from "../../../lib/i18n";
 
 const KIND_HELP: Record<LocationKind, string> = {
-  stores: "Usable stock: counted by MRP and kitting.",
-  line_side: "Stock at the line: counted by MRP and kitting.",
-  inspection: "Goods-in: counted by MRP after the item's inspection days; not kitted.",
-  quarantine: "Blocked stock: never planned or kitted.",
+  stores: t("mfg.locationsTab.str.usableStockCountedByMrp"),
+  line_side: t("mfg.locationsTab.str.stockAtTheLineCounted"),
+  inspection: t("mfg.locationsTab.str.goodsInCountedByMrp"),
+  quarantine: t("mfg.locationsTab.str.blockedStockNeverPlannedOr"),
 };
 
 function LocationDialog({ loc, onClose, onSaved }: { loc: LocationRecord | null; onClose(): void; onSaved(): void }) {
@@ -40,8 +40,8 @@ function LocationDialog({ loc, onClose, onSaved }: { loc: LocationRecord | null;
   const body: LocationInput = { ...f, code: f.code.trim(), name: f.name.trim(), external_ref: strOrNull(f.external_ref) };
   return (
     <EntityFormDialog
-      title={loc ? `Location ${loc.code}` : "New location"}
-      submitLabel={loc ? "Save location" : "Create location"}
+      title={loc ? t("mfg.locationsTab.tpl.location", { code: loc.code }) : t("mfg.locationsTab.str.newLocation")}
+      submitLabel={loc ? t("mfg.locationsTab.str.saveLocation") : t("mfg.locationsTab.str.createLocation")}
       testId="location-form"
       disabled={!body.code || !body.name}
       onClose={onClose}
@@ -103,15 +103,15 @@ export function LocationsTab() {
   };
 
   const columns: Column<LocationRecord>[] = [
-    { key: "code", header: "Code", width: "130px", sortValue: (l) => l.code, exportValue: (l) => l.code, render: (l) => <Link to={mfgPaths.inventory({ location: l.id })} className="mono">{l.code}</Link> },
-    { key: "name", header: "Name", width: "minmax(200px, 2fr)", sortValue: (l) => l.name, render: (l) => l.name },
-    { key: "kind", header: "Kind", width: "140px", sortValue: (l) => l.kind, exportValue: (l) => LOCATION_KIND_LABEL[l.kind] ?? l.kind, render: (l) => <LocationKindBadge kind={l.kind} /> },
+    { key: "code", header: t("mfg.locationsTab.str.code"), width: "130px", sortValue: (l) => l.code, exportValue: (l) => l.code, render: (l) => <Link to={mfgPaths.inventory({ location: l.id })} className="mono">{l.code}</Link> },
+    { key: "name", header: t("mfg.locationsTab.str.name"), width: "minmax(200px, 2fr)", sortValue: (l) => l.name, render: (l) => l.name },
+    { key: "kind", header: t("mfg.locationsTab.str.kind"), width: "140px", sortValue: (l) => l.kind, exportValue: (l) => LOCATION_KIND_LABEL[l.kind] ?? l.kind, render: (l) => <LocationKindBadge kind={l.kind} /> },
     {
       key: "receipts",
-      header: "Receipts",
+      header: t("mfg.locationsTab.str.receipts"),
       width: "110px",
       sortValue: (l) => (l.receipt_default ? 0 : 1),
-      exportValue: (l) => (l.receipt_default ? "Default" : ""),
+      exportValue: (l) => (l.receipt_default ? t("mfg.locationsTab.str.default") : ""),
       render: (l) =>
         l.receipt_default ? (
           <span className="badge accent">
@@ -119,22 +119,22 @@ export function LocationsTab() {
           </span>
         ) : null,
     },
-    { key: "status", header: "Status", width: "100px", sortValue: (l) => (l.active ? 0 : 1), exportValue: (l) => (l.active ? "Active" : "Inactive"), render: (l) => <ActiveBadge active={l.active} /> },
+    { key: "status", header: t("mfg.locationsTab.str.status"), width: "100px", sortValue: (l) => (l.active ? 0 : 1), exportValue: (l) => (l.active ? t("mfg.locationsTab.str.active") : t("mfg.locationsTab.str.inactive")), render: (l) => <ActiveBadge active={l.active} /> },
   ];
   if (canEdit)
     columns.push({
       key: "actions",
-      header: <span className="sr-only">Actions</span>,
-      label: "Actions",
+      header: <span className="sr-only">{t("mfg.locationsTab.text.actions")}</span>,
+      label: t("mfg.locationsTab.str.actions"),
       width: "96px",
       align: "right",
       exportValue: () => "",
       render: (l) => (
         <span className="row" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
-          <button type="button" className="btn sm" onClick={() => setEditing(l)} aria-label={`Edit location ${l.code}`}>
+          <button type="button" className="btn sm" onClick={() => setEditing(l)} aria-label={t("mfg.locationsTab.tpl.editLocation", { code: l.code })}>
             {t("mfg.locationsTab.btn.edit")}
           </button>
-          <button type="button" className="btn sm ghost icon" onClick={() => setDeleting(l)} aria-label={`Delete location ${l.code}`}>
+          <button type="button" className="btn sm ghost icon" onClick={() => setDeleting(l)} aria-label={t("mfg.locationsTab.tpl.deleteLocation", { code: l.code })}>
             <Icon name="trash" />
           </button>
         </span>
@@ -145,7 +145,7 @@ export function LocationsTab() {
     <div className="col gap-lg">
       <div className="row between">
         <p className="muted small" style={{ margin: 0 }}>
-          Stores and line-side stock is planned and kitted; goods-in stock is planned after inspection; quarantine is never used.
+          {t("mfg.locationsTab.text.storesAndLineSideStock")}
         </p>
         <PermissionGate perm="master_edit">
           <button type="button" className="btn primary" onClick={() => setEditing("new")} data-testid="location-new">
@@ -153,7 +153,7 @@ export function LocationsTab() {
           </button>
         </PermissionGate>
       </div>
-      <MfgError error={list.error ?? error} onRetry={list.reload} title={error ? "The location could not be deleted" : undefined} />
+      <MfgError error={list.error ?? error} onRetry={list.reload} title={error ? t("mfg.locationsTab.str.theLocationCouldNotBe") : undefined} />
       <DataTable
         rows={list.data?.items ?? []}
         columns={columns}
@@ -177,7 +177,7 @@ export function LocationsTab() {
         />
       ) : null}
       {deleting ? (
-        <ConfirmDialog title={`Delete ${deleting.code}?`} confirmLabel={t("mfg.locationsTab.btn.deleteLocation")} danger onCancel={() => setDeleting(null)} onConfirm={() => void remove(deleting)}>
+        <ConfirmDialog title={t("mfg.locationsTab.tpl.delete", { code: deleting.code })} confirmLabel={t("mfg.locationsTab.btn.deleteLocation")} danger onCancel={() => setDeleting(null)} onConfirm={() => void remove(deleting)}>
           <p style={{ margin: 0 }}>{t("mfg.locationsTab.text.aLocationThatHasStock")}</p>
         </ConfirmDialog>
       ) : null}

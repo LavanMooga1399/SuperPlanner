@@ -18,9 +18,9 @@ import { formatDateTime } from "../../lib/locale";
 import { t } from "../../lib/i18n";
 
 const SEVERITY: Record<Severity, { label: string; tone: string; icon: "alert" | "info" }> = {
-  critical: { label: "Critical", tone: "danger", icon: "alert" },
-  warning: { label: "Warning", tone: "warn", icon: "alert" },
-  info: { label: "Info", tone: "info", icon: "info" },
+  critical: { label: t("mobile.mobileAlerts.str.critical"), tone: "danger", icon: "alert" },
+  warning: { label: t("mobile.mobileAlerts.str.warning"), tone: "warn", icon: "alert" },
+  info: { label: t("mobile.mobileAlerts.str.info"), tone: "info", icon: "info" },
 };
 
 function SeverityBadge({ severity }: { severity: Severity }) {
@@ -55,7 +55,7 @@ function AlertRow({ n }: { n: MfgNotification }) {
     setBusy(true);
     setErr(null);
     try {
-      const r = await submitNotificationAck(n.id, `Alert acknowledged: ${n.title}`);
+      const r = await submitNotificationAck(n.id, t("mobile.mobileAlerts.tpl.alertAcknowledged", { title: n.title }));
       if (r.status === "sent") setDone(true);
     } catch (e) {
       setErr(floorErrorText(e));
@@ -74,7 +74,7 @@ function AlertRow({ n }: { n: MfgNotification }) {
       <div className="m-actions">
         {acked ? (
           <span className="m-state small">
-            <Icon name="check" size={14} /> Acknowledged{n.acknowledged_by ? ` by ${n.acknowledged_by.name ?? n.acknowledged_by.code}` : ""}
+            <Icon name="check" size={14} />{" "}{t("mobile.mobileAlerts.text.acknowledged", { v: n.acknowledged_by ? ` by ${n.acknowledged_by.name ?? n.acknowledged_by.code}` : "" })}
           </span>
         ) : waiting ? (
           <span className="m-state small" data-testid="m-alert-waiting">
@@ -82,12 +82,12 @@ function AlertRow({ n }: { n: MfgNotification }) {
           </span>
         ) : (
           <button type="button" className="btn primary" onClick={() => void ack()} disabled={busy} data-testid="m-alert-ack">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Acknowledge
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("mobile.mobileAlerts.text.acknowledge")}
           </button>
         )}
         {to ? (
           <Link to={to} className="btn">
-            Open <Icon name="arrow-right" />
+            {t("mobile.mobileAlerts.text.open")}{" "}<Icon name="arrow-right" />
           </Link>
         ) : null}
       </div>
@@ -110,7 +110,7 @@ export function MobileAlerts() {
       <h1>{t("mobile.mobileAlerts.head.alerts")}</h1>
       {list.error && !list.data ? <MfgError error={list.error} onRetry={list.reload} /> : null}
       {list.loading && !list.data ? <Spinner /> : null}
-      {list.data && !items.length ? <p className="muted">No alerts.</p> : null}
+      {list.data && !items.length ? <p className="muted">{t("mobile.mobileAlerts.text.noAlerts")}</p> : null}
       <ul className="m-list">
         {items.map((n) => (
           <AlertRow key={n.id} n={n} />

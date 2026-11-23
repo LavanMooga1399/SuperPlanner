@@ -21,7 +21,7 @@ import { nextId, WHATIF_PREFIX } from "../lib/ids";
 import { useLoadedFinancePlan } from "../state/FinancePlanContext";
 import { FinSaveIndicator } from "./FinancePlanShell";
 import { PageHeader } from "../../components/PageHeader";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 const DEBOUNCE_MS = 800;
 
@@ -39,7 +39,7 @@ export function applyChangesToDraft(plan: FinancePlan, c: WhatIfChanges): Financ
         ...p.incomes,
         {
           id: nextId(p, "inc"),
-          name: "Extra savings",
+          name: tr("finance.whatIfPage.str.extraSavings"),
           kind: "other",
           amount: Math.round(extra * 100) / 100,
           frequency: "monthly",
@@ -57,7 +57,7 @@ export function applyChangesToDraft(plan: FinancePlan, c: WhatIfChanges): Financ
         ...p.expenses,
         {
           id: nextId(p, "exp"),
-          name: "Reduced savings",
+          name: tr("finance.whatIfPage.str.reducedSavings"),
           category: "other",
           amount: Math.round(-extra * 100) / 100,
           frequency: "monthly",
@@ -191,7 +191,7 @@ export function WhatIfPage() {
         }, { replace: true });
       } catch (err) {
         if (my !== reqSeq.current) return;
-        if (err instanceof ApiError && err.code === "RUN_ALREADY_ACTIVE") setRunNote("Wait for the current plan run to finish, then move a control again.");
+        if (err instanceof ApiError && err.code === "RUN_ALREADY_ACTIVE") setRunNote(tr("finance.whatIfPage.str.waitForTheCurrentPlan"));
         else setRunNote(errorMessage(err));
       }
     }, DEBOUNCE_MS);
@@ -203,7 +203,7 @@ export function WhatIfPage() {
     async (run: FinanceRun | null) => {
       if (!run || run.id !== latestRun.current) return; // replaced run: ignore
       if (run.status !== "completed" || !run.result_id || !base) {
-        if (run.status === "failed") setRunNote(run.error ?? "The what-if run failed.");
+        if (run.status === "failed") setRunNote(run.error ?? tr("finance.whatIfPage.str.theWhatIfRunFailed"));
         return;
       }
       try {
@@ -229,7 +229,7 @@ export function WhatIfPage() {
       ctx.update((p) => applyChangesToDraft(p, changes));
       const ok = await ctx.save();
       if (!ok) {
-        setRunNote("Your plan could not be saved.");
+        setRunNote(tr("finance.whatIfPage.str.yourPlanCouldNotBe"));
         return;
       }
       const created = await createFinanceRun(planId);
@@ -250,7 +250,7 @@ export function WhatIfPage() {
         <Icon name="refresh" size={32} />
         <h2>{t("finance.whatIfPage.head.buildYourPlanFirst")}</h2>
         <p>{t("finance.whatIfPage.text.whatifScenariosStartFromA")}</p>
-        <Link className="btn primary" to={`/finance/${planId}/setup/review`}>Go to review</Link>
+        <Link className="btn primary" to={`/finance/${planId}/setup/review`}>{tr("finance.whatIfPage.text.goToReview")}</Link>
       </div>
     );
   }
@@ -264,8 +264,8 @@ export function WhatIfPage() {
     <div className="col gap-lg">
       <PageHeader
         title={t("finance.whatIfPage.title.whatIf")}
-        description={<>Move a control to test a change. Your plan is not changed until you choose "Apply to my plan". Compared with the result from{" "}
-            <Link to={`/finance/${planId}/results?result=${base.id}`}>version {base.base_plan_version}</Link>.</>}
+        description={<>{tr("finance.whatIfPage.text.moveAControlToTest", { v: " " })}
+            <Link to={`/finance/${planId}/results?result=${base.id}`}>{tr("finance.whatIfPage.text.version", { baseplanversion: base.base_plan_version })}</Link>.</>}
         actions={
           <>
             <div className="fin-actions">
@@ -276,7 +276,7 @@ export function WhatIfPage() {
             </Link>
             ) : null}
             <button className="btn primary" onClick={() => void apply()} disabled={applying || isEmptyChanges(changes)} data-testid="whatif-apply">
-            {applying ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Apply to my plan
+            {applying ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{tr("finance.whatIfPage.text.applyToMyPlan")}
             </button>
             </div>
           </>
@@ -315,7 +315,7 @@ export function WhatIfPage() {
           ) : null}
           {showing ? (
             <section className="col gap-lg" data-testid="whatif-result" aria-labelledby="wi-result-h">
-              <h2 id="wi-result-h">{showing.record.label ? `Effect of: ${showing.record.label}` : "Effect of your changes"}</h2>
+              <h2 id="wi-result-h">{showing.record.label ? tr("finance.whatIfPage.tpl.effectOf", { label: showing.record.label }) : tr("finance.whatIfPage.str.effectOfYourChanges")}</h2>
               <EngineVersionBanner show={showing.cmp.engine_versions_differ} />
               <ScenarioCompareTable cmp={showing.cmp} currency={cur} locale={loc} labelA="Your plan" labelB="What-if" testId="whatif-compare-table" />
               <div className="goal-cards">

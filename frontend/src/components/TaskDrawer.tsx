@@ -6,7 +6,7 @@ import { fmtDuration, fmtIso, isoToMs, offsetMinutesOf } from "../lib/time";
 import { Icon, type IconName } from "./Icon";
 import { StatusBadge } from "./StatusBadge";
 import { Term } from "./Term";
-import { t } from "../lib/i18n";
+import { t, t as tr } from "../lib/i18n";
 
 const REASON_ICON: Record<StartReasonCode, IconName> = {
   LOCKED: "lock",
@@ -76,12 +76,12 @@ export function TaskDrawer({
       <div className="drawer-body">
         <div className="row wrap">
           {deadlineStatus === "late_soft" || deadlineStatus === "late_hard" ? (
-            <StatusBadge kind="late" label={`Late by ${fmtDuration(ex?.lateness_minutes ?? 0)}${deadlineStatus === "late_hard" ? " (hard)" : ""}`} />
+            <StatusBadge kind="late" label={tr("studio.taskDrawer.tpl.lateBy", { fmtDuration: fmtDuration(ex?.lateness_minutes ?? 0), v: deadlineStatus === "late_hard" ? " (hard)" : "" })} />
           ) : deadlineStatus === "on_time" ? (
             <StatusBadge kind="on_time" />
           ) : null}
-          {ex?.on_critical_chain ? <span className="badge accent"><Icon name="flag" /> Critical chain</span> : null}
-          {task?.locked ? <span className="badge info"><Icon name="lock" /> Fixed</span> : null}
+          {ex?.on_critical_chain ? <span className="badge accent"><Icon name="flag" />{" "}{tr("studio.taskDrawer.text.criticalChain")}</span> : null}
+          {task?.locked ? <span className="badge info"><Icon name="lock" />{" "}{tr("studio.taskDrawer.text.fixed")}</span> : null}
         </div>
         <dl className="dl">
           <dt>{t("studio.taskDrawer.head.starts")}</dt>
@@ -93,12 +93,11 @@ export function TaskDrawer({
           {task?.duration_estimate && task.type !== "milestone" ? (
             <>
               <dt>
-                Duration range <Term k="duration_range" bare />
+                {tr("studio.taskDrawer.text.durationRange")}{" "}<Term k="duration_range" bare />
               </dt>
               <dd data-testid="drawer-duration-range">
-                {fmtDuration(task.duration_estimate.optimistic_minutes)} to {fmtDuration(task.duration_estimate.pessimistic_minutes)}, most likely{" "}
-                {fmtDuration(task.duration_estimate.likely_minutes)}; planned with the{" "}
-                <Term k="expected_duration">expected duration</Term> {fmtDuration(task.duration_minutes)}
+                {tr("studio.taskDrawer.text.toMostLikelyPlannedWith", { optimisticminutes: fmtDuration(task.duration_estimate.optimistic_minutes), pessimisticminutes: fmtDuration(task.duration_estimate.pessimistic_minutes), v: " ", likelyminutes: fmtDuration(task.duration_estimate.likely_minutes), v2: " " })}
+                <Term k="expected_duration">{tr("studio.taskDrawer.text.expectedDuration")}</Term> {fmtDuration(task.duration_minutes)}
               </dd>
             </>
           ) : null}
@@ -108,14 +107,14 @@ export function TaskDrawer({
             <>
               <dt>{terms.deadline}</dt>
               <dd>
-                {fmtIso(task.deadline, off)} {task.deadline_hard ? <span className="chip">must be met</span> : null}
+                {fmtIso(task.deadline, off)} {task.deadline_hard ? <span className="chip">{tr("studio.taskDrawer.text.mustBeMet")}</span> : null}
               </dd>
             </>
           ) : null}
           {ex ? (
             <>
               <dt>{t("studio.taskDrawer.head.slack")}</dt>
-              <dd>{ex.cpm_critical ? "None (critical in the dependency network)" : fmtDuration(ex.cpm_slack_minutes)}</dd>
+              <dd>{ex.cpm_critical ? tr("studio.taskDrawer.str.noneCriticalInTheDependency") : fmtDuration(ex.cpm_slack_minutes)}</dd>
             </>
           ) : null}
         </dl>
@@ -143,7 +142,7 @@ export function TaskDrawer({
               ))}
             </ul>
           ) : (
-            <div className="small muted">No explanation available.</div>
+            <div className="small muted">{tr("studio.taskDrawer.text.noExplanationAvailable")}</div>
           )}
         </section>
 
@@ -154,7 +153,7 @@ export function TaskDrawer({
               <div key={i} className="small row" style={{ alignItems: "flex-start", marginBottom: 6 }}>
                 <span className={`badge ${v.severity === "hard" ? "danger" : "warn"}`}>
                   <Icon name={v.severity === "hard" ? "x" : "clock"} />
-                  {v.severity === "hard" ? "Rule" : "Late"}
+                  {v.severity === "hard" ? tr("studio.taskDrawer.str.rule") : tr("studio.taskDrawer.str.late")}
                 </span>
                 <span>{v.message}</span>
               </div>
@@ -172,18 +171,18 @@ export function TaskDrawer({
             ) : (
               <button className="btn" onClick={() => onLock(placement)} disabled={lockBusy} data-testid="lock-at-time">
                 {lockBusy ? <span className="spinner" aria-hidden /> : <Icon name="lock" />}
-                Lock at this time
+                {tr("studio.taskDrawer.text.lockAtThisTime")}
               </button>
             )
           ) : (
-            <div className="small muted">This {terms.taskL} no longer exists in the plan.</div>
+            <div className="small muted">{tr("studio.taskDrawer.text.thisNoLongerExistsIn", { taskL: terms.taskL })}</div>
           )}
           <span className="small faint">
-            Locking fixes the start{placement.resource_ids.length ? ` and the ${terms.resourcesL}` : ""} in the plan, so the next optimization keeps it.
+            {tr("studio.taskDrawer.text.lockingFixesTheStartIn", { v: placement.resource_ids.length ? tr("studio.taskDrawer.tpl.andThe", { resourcesL: terms.resourcesL }) : "" })}
           </span>
           {task ? (
             <Link className="btn ghost sm" to={`../tasks?focus=${encodeURIComponent(taskId)}`} style={{ alignSelf: "flex-start" }}>
-              Edit {terms.taskL} <Icon name="arrow-right" />
+              {tr("studio.taskDrawer.text.edit", { taskL: terms.taskL })}{" "}<Icon name="arrow-right" />
             </Link>
           ) : null}
         </section>

@@ -12,14 +12,14 @@ import { HealthIssueList } from "../components/HealthIssueList";
 import { SeverityBadge } from "../components/StatusChip";
 import { fmtDate } from "../lib/format";
 import { useDebounced, useLoad, usePlant } from "../lib/useMfg";
-import { plural, t } from "../../lib/i18n";
+import { plural, t, t as tr } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
 import { DateInput } from "../../components/DateInput";
 
 const SEVERITIES: { key: Severity; label: string }[] = [
-  { key: "error", label: "Errors" },
-  { key: "warning", label: "Warnings" },
-  { key: "info", label: "Notes" },
+  { key: "error", label: tr("mfg.healthPage.str.errors") },
+  { key: "warning", label: tr("mfg.healthPage.str.warnings") },
+  { key: "info", label: tr("mfg.healthPage.str.notes") },
 ];
 
 export function HealthPage() {
@@ -84,10 +84,10 @@ export function HealthPage() {
             />
           </div>
           <button type="button" className="btn" onClick={() => setTick((t) => t + 1)} disabled={report.loading} data-testid="health-run">
-            {report.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Check again
+            {report.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />}{" "}{tr("mfg.healthPage.text.checkAgain")}
           </button>
         </div></>} />
-      {!hValid ? <span className="field-error">Days ahead must be a whole number from 7 to 730.</span> : null}
+      {!hValid ? <span className="field-error">{tr("mfg.healthPage.text.daysAheadMustBeA")}</span> : null}
       <MfgError error={report.error} onRetry={report.reload} />
       {report.loading && !r ? <Spinner label={t("mfg.healthPage.label.checkingYourData")} /> : null}
 
@@ -96,11 +96,11 @@ export function HealthPage() {
           <div data-testid="health-status" data-ok={String(r.ok)} data-errors={r.counts.error} role="status">
             {r.ok ? (
               <Banner tone="ok" title={t("mfg.healthPage.title.readyForPlanning")}>
-                No errors from {fmtDate(r.as_of)} over the next {plural(r.horizon_days, "day")}. {plural(r.counts.warning, "warning")} and {plural(r.counts.info, "note")} are worth a look but do not block anything.
+                {tr("mfg.healthPage.text.noErrorsFromOverThe", { asof: fmtDate(r.as_of), horizondays: plural(r.horizon_days, "day"), warning: plural(r.counts.warning, "warning"), info: plural(r.counts.info, "note") })}
               </Banner>
             ) : (
-              <Banner tone="danger" icon="x" title={`${r.counts.error} ${r.counts.error === 1 ? "problem blocks" : "problems block"} planning`}>
-                Fix the errors below (each has a "Fix" link to the right place), then check again. Checked from {fmtDate(r.as_of)} over {r.horizon_days} days.
+              <Banner tone="danger" icon="x" title={`${r.counts.error} ${r.counts.error === 1 ? tr("mfg.healthPage.str.problemBlocks") : tr("mfg.healthPage.str.problemsBlock")} planning`}>
+                {tr("mfg.healthPage.text.fixTheErrorsBelowEach", { asof: fmtDate(r.as_of), horizondays: r.horizon_days })}
               </Banner>
             )}
           </div>
@@ -136,7 +136,7 @@ export function HealthPage() {
           ) : null}
           {r.truncated ? (
             <Banner tone="warn" title={t("mfg.healthPage.title.onlyTheFirstIssuesAre")}>
-              The counts above are complete; {r.issues.length.toLocaleString("en-IN")} issues are shown. Fix the errors first and check again.
+              {tr("mfg.healthPage.text.theCountsAboveAreComplete", { length: r.issues.length.toLocaleString("en-IN") })}
             </Banner>
           ) : null}
           {r.issues.length === 0 ? (
@@ -147,7 +147,7 @@ export function HealthPage() {
           ) : null}
           <HealthIssueList issues={issues} />
           <p className="faint small" style={{ margin: 0 }}>
-            Data fingerprint <code>{r.fingerprint.slice(0, 12)}</code> · version {r.data_version}
+            {tr("mfg.healthPage.text.dataFingerprint")}{" "}<code>{r.fingerprint.slice(0, 12)}</code>{" "}{tr("mfg.healthPage.text.version", { dataversion: r.data_version })}
           </p>
         </>
       ) : null}

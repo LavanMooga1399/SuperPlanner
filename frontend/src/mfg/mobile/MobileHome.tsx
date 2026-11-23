@@ -52,7 +52,7 @@ function PlantCard({ row, current, userId }: { row: HomeRow; current: boolean; u
           {row.plant.plant_name}
         </h2>
         {current ? (
-          <span className="chip">This plant</span>
+          <span className="chip">{t("mobile.mobileHome.text.thisPlant")}</span>
         ) : (
           <button type="button" className="btn sm" onClick={() => switchWorkspace(row.plant.owner_id, userId, "/m")}>
             {t("mobile.mobileHome.btn.open")}
@@ -106,7 +106,7 @@ export function MobileHome() {
       <h1>{t("mobile.mobileHome.head.myPlants")}</h1>
       {d?.staleSince ? (
         <div className="m-banner warn" role="status" data-testid="m-stale">
-          <Icon name="clock" size={16} /> Offline view: these figures are from {formatDateTime(d.staleSince)} (stale since then).
+          <Icon name="clock" size={16} />{" "}{t("mobile.mobileHome.text.offlineViewTheseFiguresAre", { staleSince: formatDateTime(d.staleSince) })}
         </div>
       ) : null}
       {home.error && !d ? <MfgError error={home.error} onRetry={home.reload} /> : null}

@@ -38,7 +38,7 @@ import { ShiftWeekPreview } from "../components/ShiftWeekPreview";
 import { KindBadge } from "../components/StatusChip";
 import { fmtQty } from "../lib/format";
 import { isConflict, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 export function ShiftsPage() {
   const [params, setParams] = useSearchParams();
@@ -83,7 +83,7 @@ export function ShiftsPage() {
           </div>
           <MfgError error={templates.error} onRetry={templates.reload} />
           {templates.loading && !templates.data ? <Spinner /> : null}
-          {templates.data && list.length === 0 ? <p className="muted" style={{ padding: 16, margin: 0 }}>No shift templates yet. A template is a weekly working pattern, e.g. "Day shift Mon-Fri".</p> : null}
+          {templates.data && list.length === 0 ? <p className="muted" style={{ padding: 16, margin: 0 }}>{tr("mfg.shiftsPage.text.noShiftTemplatesYetA")}</p> : null}
           <ul className="mfg-plain-list">
             {list.map((t) => (
               <li key={t.id}>
@@ -102,7 +102,7 @@ export function ShiftsPage() {
                   <Icon name="clock" />
                   <strong className="mono">{t.code}</strong>
                   <span className="grow mfg-ellipsis">{t.name}</span>
-                  <span className="muted small" title="Used by assignments / operators">
+                  <span className="muted small" title={tr("mfg.shiftsPage.attr.usedByAssignmentsOperators")}>
                     {t.assignment_count} uses · {t.operator_count} people
                   </span>
                 </button>
@@ -133,7 +133,7 @@ export function ShiftsPage() {
               }}
             />
           ) : (
-            <div className="card card-body muted">Select a template to see its week, or create a new one.</div>
+            <div className="card card-body muted">{tr("mfg.shiftsPage.text.selectATemplateToSee")}</div>
           )}
         </div>
       </div>
@@ -197,12 +197,12 @@ function TemplateDocument({ template, onSaved, onCancel, onDeleted }: { template
       data-testid="template-form"
     >
       <div className="card-header">
-        <h2>{template ? `Template ${template.code}` : "New shift template"}</h2>
+        <h2>{template ? tr("mfg.shiftsPage.tpl.template", { code: template.code }) : tr("mfg.shiftsPage.str.newShiftTemplate")}</h2>
         <SaveState busy={false} saved={saved} />
       </div>
       <div className="card-body col">
-        {conflict ? <ConflictBanner onReload={() => window.location.reload()} what="this template" /> : null}
-        <MfgError error={error} title="Could not save the template" />
+        {conflict ? <ConflictBanner onReload={() => window.location.reload()} what={tr("mfg.shiftsPage.attr.thisTemplate")} /> : null}
+        <MfgError error={error} title={tr("mfg.shiftsPage.attr.couldNotSaveTheTemplate")} />
         {!template ? (
           <div className="field">
             <label htmlFor="tpl-pattern">{t("mfg.shiftsPage.label.startFrom")}</label>
@@ -225,7 +225,7 @@ function TemplateDocument({ template, onSaved, onCancel, onDeleted }: { template
         <ShiftWeekPreview template={input} />
         <div className="row">
           <button type="submit" className="btn primary" disabled={busy || !code.trim() || !name.trim() || shifts.length === 0 || problems.length > 0} data-testid="template-save">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {template ? "Save template" : "Create template"}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {template ? tr("mfg.shiftsPage.str.saveTemplate") : tr("mfg.shiftsPage.str.createTemplate")}
           </button>
           {onCancel ? (
             <button type="button" className="btn" onClick={onCancel}>
@@ -242,7 +242,7 @@ function TemplateDocument({ template, onSaved, onCancel, onDeleted }: { template
       </div>
       {confirm && template && onDeleted ? (
         <ConfirmDialog
-          title={`Delete template ${template.code}?`}
+          title={tr("mfg.shiftsPage.tpl.deleteTemplate", { code: template.code })}
           confirmLabel={t("mfg.shiftsPage.btn.deleteTemplate")}
           danger
           onCancel={() => setConfirm(false)}
@@ -318,11 +318,10 @@ function AssignmentsCard({
       </div>
       <div className="card-body col">
         <p className="muted small" style={{ margin: 0 }}>
-          Assign a template to a whole stage, or to one line to override its stage. Base shifts are normal working
-          time; optional shifts (overtime, weekends) are only opened by the planner when needed, at their extra cost.
+          {tr("mfg.shiftsPage.text.assignATemplateToA")}
         </p>
         <MfgError error={error} onRetry={reload} />
-        <MfgError error={delError} title="Could not delete" />
+        <MfgError error={delError} title={tr("mfg.shiftsPage.attr.couldNotDelete")} />
         {loading && assignments.length === 0 ? <Spinner /> : null}
         <div className="table-wrap">
           <table className="table" ref={tableRef} data-testid="assignments-table">
@@ -336,7 +335,7 @@ function AssignmentsCard({
                 <th className="num">{t("mfg.shiftsPage.head.extraCostH")}</th>
                 <th className="num">{t("mfg.shiftsPage.head.maxHWeek")}</th>
                 <th>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{tr("mfg.shiftsPage.text.actions")}</span>
                 </th>
               </tr>
             </thead>
@@ -344,20 +343,20 @@ function AssignmentsCard({
               {shown.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="muted">
-                    No shifts assigned yet.
+                    {tr("mfg.shiftsPage.text.noShiftsAssignedYet")}
                   </td>
                 </tr>
               ) : null}
               {shown.map((a) => (
                 <tr key={a.id} data-testid="assignment-row" data-assignment-id={a.id} className={a.id === selectedId ? "mfg-selected" : undefined} aria-selected={a.id === selectedId || undefined}>
                   <td>
-                    <span className="muted small">{a.target.type === "group" ? "Stage" : "Line"}</span> <span className="mono">{a.target.code}</span>
+                    <span className="muted small">{a.target.type === "group" ? tr("mfg.shiftsPage.str.stage") : tr("mfg.shiftsPage.str.line")}</span> <span className="mono">{a.target.code}</span>
                   </td>
                   <td>
                     <KindBadge kind={a.kind} />
                   </td>
                   <td className="mono">{a.template.code}</td>
-                  <td className="small">{a.shift_names.length ? a.shift_names.join(", ") : "All"}</td>
+                  <td className="small">{a.shift_names.length ? a.shift_names.join(", ") : tr("mfg.shiftsPage.str.all")}</td>
                   <td>
                     <EffectivityBadge from={a.effective_from} to={a.effective_to} />
                   </td>
@@ -375,7 +374,7 @@ function AssignmentsCard({
                     >
                       {t("mfg.shiftsPage.btn.edit")}
                     </button>
-                    <button type="button" className="btn sm ghost icon" aria-label={`Delete assignment of ${a.template.code} to ${a.target.code}`} onClick={() => setDel(a)}>
+                    <button type="button" className="btn sm ghost icon" aria-label={tr("mfg.shiftsPage.tpl.deleteAssignmentOfTo", { code: a.template.code, code2: a.target.code })} onClick={() => setDel(a)}>
                       <Icon name="trash" />
                     </button>
                   </td>
@@ -418,7 +417,7 @@ function AssignmentsCard({
           }}
         >
           <p style={{ margin: 0 }}>
-            {del.template.code} will no longer apply to {del.target.code}.
+            {tr("mfg.shiftsPage.text.willNoLongerApplyTo", { code: del.template.code, code2: del.target.code })}
           </p>
         </ConfirmDialog>
       ) : null}
@@ -501,8 +500,8 @@ function AssignmentDialog({
 
   return (
     <EntityFormDialog
-      title={assignment ? "Edit shift assignment" : "Assign shifts"}
-      submitLabel={assignment ? "Save" : "Assign"}
+      title={assignment ? tr("mfg.shiftsPage.str.editShiftAssignment") : tr("mfg.shiftsPage.str.assignShifts")}
+      submitLabel={assignment ? tr("mfg.shiftsPage.str.save") : tr("mfg.shiftsPage.str.assign")}
       onClose={onClose}
       wide
       testId="assignment-form"
@@ -517,7 +516,7 @@ function AssignmentDialog({
         }
       }}
     >
-      {conflict ? <ConflictBanner onReload={() => window.location.reload()} what="this assignment" /> : null}
+      {conflict ? <ConflictBanner onReload={() => window.location.reload()} what={tr("mfg.shiftsPage.attr.thisAssignment")} /> : null}
       <div className="form-grid">
         <SelectField label={t("mfg.shiftsPage.label.shiftTemplate")} value={templateId} onChange={setTemplateId} options={templates.map((t) => ({ value: t.id, label: `${t.code} - ${t.name}` }))} testId="assignment-template" />
         <SelectField
@@ -548,7 +547,7 @@ function AssignmentDialog({
       </div>
       {template ? (
         <fieldset className="mfg-fieldset">
-          <legend>Shifts of {template.code}</legend>
+          <legend>{tr("mfg.shiftsPage.text.shiftsOf", { code: template.code })}</legend>
           <div className="row wrap">
             {template.shifts.map((s) => (
               <label key={s.name} className="checkbox">
@@ -557,11 +556,11 @@ function AssignmentDialog({
               </label>
             ))}
           </div>
-          <span className="hint">None ticked = all shifts of the template.</span>
+          <span className="hint">{tr("mfg.shiftsPage.text.noneTickedAllShiftsOf")}</span>
         </fieldset>
       ) : null}
       <div className="form-grid">
-        <TextField label={t("mfg.shiftsPage.label.from")} type="date" value={from} onChange={setFrom} hint={from ? undefined : `Empty = today (${effFrom})`} testId="assignment-from" />
+        <TextField label={t("mfg.shiftsPage.label.from")} type="date" value={from} onChange={setFrom} hint={from ? undefined : tr("mfg.shiftsPage.tpl.emptyToday", { effFrom: effFrom })} testId="assignment-from" />
         <TextField label={t("mfg.shiftsPage.label.until")} type="date" value={to} onChange={setTo} hint={t("mfg.shiftsPage.hint.exclusiveEmptyNoEnd")} />
         {kind === "optional" ? (
           <>

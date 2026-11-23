@@ -9,7 +9,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { useTerms } from "../../lib/terms";
 import { fmtDuration, fmtMinute } from "../../lib/time";
 import { useLoadedPlan } from "../../state/PlanContext";
-import { t, t as tr, plural } from "../../lib/i18n";
+import { plural, t, t as tr } from "../../lib/i18n";
 
 export function ValidateTab() {
   const plan = useLoadedPlan();
@@ -25,7 +25,7 @@ export function ValidateTab() {
     try {
       const saved = await plan.save();
       if (!saved) {
-        setError("Your latest edits could not be saved, so the stored version would be checked. Resolve the save problem first.");
+        setError(tr("studio.validateTab.str.yourLatestEditsCouldNot"));
         return;
       }
       setReport(await validateProblem(plan.planId));
@@ -51,17 +51,17 @@ export function ValidateTab() {
       <div className="toolbar" style={{ marginBottom: 0 }}>
         <button className="btn primary" onClick={() => void run()} disabled={busy}>
           {busy ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />}
-          {report ? "Check again" : "Check plan"}
+          {report ? tr("studio.validateTab.str.checkAgain") : tr("studio.validateTab.str.checkPlan")}
         </button>
         {report ? (
           report.ok ? (
-            <StatusBadge kind="feasible" label={warnings ? `Ready, ${plural(warnings, "warning")}` : "Ready to optimize"} testId="validate-status" />
+            <StatusBadge kind="feasible" label={warnings ? tr("studio.validateTab.tpl.ready", { warnings: plural(warnings, "warning") }) : tr("studio.validateTab.str.readyToOptimize")} testId="validate-status" />
           ) : (
-            <StatusBadge kind="error" label={`${plural(errors, "error")} to fix`} testId="validate-status" />
+            <StatusBadge kind="error" label={tr("studio.validateTab.tpl.toFix", { errors: plural(errors, "error") })} testId="validate-status" />
           )
         ) : null}
-        {report ? <span className="small muted">Checked version {report.problem_version}</span> : null}
-        {stale ? <span className="badge warn"><Icon name="alert" /> Plan changed since this check</span> : null}
+        {report ? <span className="small muted">{tr("studio.validateTab.text.checkedVersion", { problemversion: report.problem_version })}</span> : null}
+        {stale ? <span className="badge warn"><Icon name="alert" />{" "}{tr("studio.validateTab.text.planChangedSinceThisCheck")}</span> : null}
       </div>
       <ErrorBanner error={error} />
       {!report && busy ? <Loading label={t("studio.validateTab.label.checkingThePlan")} /> : null}
@@ -70,19 +70,19 @@ export function ValidateTab() {
           <IssueList issues={report.issues} draft={draft} terms={terms} />
           <div className="col">
             {report.ok ? (
-              <Banner tone="ok" title={t("studio.validateTab.title.readyToOptimize")} actions={<Link className="btn sm primary" to="../optimize"><Icon name="play" /> Optimize</Link>}>
-                No blocking problems.
+              <Banner tone="ok" title={t("studio.validateTab.title.readyToOptimize")} actions={<Link className="btn sm primary" to="../optimize"><Icon name="play" />{" "}{tr("studio.validateTab.text.optimize")}</Link>}>
+                {tr("studio.validateTab.text.noBlockingProblems")}
               </Banner>
             ) : null}
             <div className="card">
-              <div className="card-header"><h3>Critical path (lower bound)</h3></div>
+              <div className="card-header"><h3>{tr("studio.validateTab.text.criticalPathLowerBound")}</h3></div>
               <div className="card-body col">
                 {report.cpm ? (
                   <>
                     <div className="kpi" style={{ padding: 0 }}>
-                      <div className="kpi-label">Shortest possible completion</div>
+                      <div className="kpi-label">{tr("studio.validateTab.text.shortestPossibleCompletion")}</div>
                       <div className="kpi-value">{fmtDuration(report.cpm.lower_bound_makespan_minutes)}</div>
-                      <div className="kpi-sub">at the earliest {fmtMinute(report.cpm.lower_bound_makespan_minutes, draft.horizon_start)}, with unlimited {terms.resourcesL} and no closed times</div>
+                      <div className="kpi-sub">{tr("studio.validateTab.text.atTheEarliestWithUnlimited", { lowerboundmakespanminutes: fmtMinute(report.cpm.lower_bound_makespan_minutes, draft.horizon_start), resourcesL: terms.resourcesL })}</div>
                     </div>
                     {report.cpm.critical_path.length ? (
                       <ol className="small" style={{ margin: 0, paddingLeft: 20 }}>
@@ -94,11 +94,11 @@ export function ValidateTab() {
                       </ol>
                     ) : null}
                     <div className="small muted">
-                      {tr("common.nOfM", { n: Object.values(report.cpm.tasks).filter((t) => t.critical).length, m: Object.keys(report.cpm.tasks).length })} {terms.tasksL} have no slack.
+                      {tr("studio.validateTab.text.haveNoSlack", { tr: tr("common.nOfM", { n: Object.values(report.cpm.tasks).filter((t) => t.critical).length, m: Object.keys(report.cpm.tasks).length }), tasksL: terms.tasksL })}
                     </div>
                   </>
                 ) : (
-                  <div className="small muted">Available once structural errors (unknown references, loops) are fixed.</div>
+                  <div className="small muted">{tr("studio.validateTab.text.availableOnceStructuralErrorsUnknown")}</div>
                 )}
               </div>
             </div>

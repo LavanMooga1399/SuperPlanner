@@ -76,21 +76,21 @@ export function FloorOverview() {
       />
       <div className="kpis">
         <div className="card kpi">
-          <div className="kpi-label">Running</div>
+          <div className="kpi-label">{t("mfg.floorOverview.text.running")}</div>
           <div className="kpi-value">{counts.running}</div>
         </div>
         <div className="card kpi">
-          <div className="kpi-label">Paused</div>
+          <div className="kpi-label">{t("mfg.floorOverview.text.paused")}</div>
           <div className="kpi-value">{counts.paused}</div>
         </div>
         <div className="card kpi">
-          <div className="kpi-label">Down</div>
+          <div className="kpi-label">{t("mfg.floorOverview.text.down")}</div>
           <div className="kpi-value" style={{ color: counts.down ? "var(--danger)" : undefined }}>
             {counts.down}
           </div>
         </div>
         <div className="card kpi">
-          <div className="kpi-label">Idle</div>
+          <div className="kpi-label">{t("mfg.floorOverview.text.idle")}</div>
           <div className="kpi-value">{counts.idle}</div>
         </div>
       </div>
@@ -123,7 +123,7 @@ export function FloorOverview() {
               <span>
                 {r.dt ? (
                   <span className="badge danger">
-                    <Icon name="alert" /> Down: {DOWNTIME[r.dt.kind]?.label ?? r.dt.kind}
+                    <Icon name="alert" />{" "}{t("mfg.floorOverview.text.down2", { v: DOWNTIME[r.dt.kind]?.label ?? r.dt.kind })}
                   </span>
                 ) : r.cur ? (
                   <OpStatusChip status={r.cur.status} />
@@ -134,8 +134,7 @@ export function FloorOverview() {
                 )}
                 {r.dt ? (
                   <span className="vt-sub">
-                    since {clock.time(r.dt.start_at)}
-                    {r.dt.expected_end_at ? `, back ${clock.time(r.dt.expected_end_at)}` : ""}
+                    {t("mfg.floorOverview.text.since", { startat: clock.time(r.dt.start_at), v: r.dt.expected_end_at ? `, back ${clock.time(r.dt.expected_end_at)}` : "" })}
                   </span>
                 ) : null}
               </span>
@@ -158,7 +157,7 @@ export function FloorOverview() {
                   </span>
                 </span>
               ) : (
-                <span className="faint">nothing running</span>
+                <span className="faint">{t("mfg.floorOverview.text.nothingRunning")}</span>
               ),
           },
           {

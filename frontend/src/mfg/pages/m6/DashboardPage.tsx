@@ -17,9 +17,9 @@ import { errorText, useLoad } from "../../lib/useMfg";
 import { isPeriod, orderedTiles, PeriodSelect, TileCard } from "./dashboardBits";
 import { formatDateTime } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
-export const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+export const WEEKDAY_NAMES = ["Monday", tr("mfg.dashboardPage.str.tuesday"), tr("mfg.dashboardPage.str.wednesday"), tr("mfg.dashboardPage.str.thursday"), tr("mfg.dashboardPage.str.friday"), tr("mfg.dashboardPage.str.saturday"), tr("mfg.dashboardPage.str.sunday")];
 
 export function DashboardPage() {
   const [params, setParams] = useSearchParams();
@@ -30,7 +30,7 @@ export function DashboardPage() {
   const [exportErr, setExportErr] = useState<unknown>(null);
   const canTune = access.isOwner || access.can("owner") || Boolean(access.me?.roles?.includes("plant_admin"));
   useEffect(() => {
-    document.title = "Plant dashboard - SuperPlanner";
+    document.title = tr("mfg.dashboardPage.str.plantDashboardSuperplanner");
   }, []);
 
   const exp = async (format: "xlsx" | "csv") => {
@@ -54,7 +54,7 @@ export function DashboardPage() {
           <>
             <PeriodSelect value={period} onChange={(v) => setParams({ period: v }, { replace: true })} />
             <button type="button" className="btn" onClick={() => void exp("xlsx")} disabled={busy !== null} data-testid="dash-export-xlsx">
-            {busy === "xlsx" ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Excel
+            {busy === "xlsx" ? <span className="spinner" aria-hidden /> : <Icon name="download" />}{" "}{tr("mfg.dashboardPage.text.excel")}
             </button>
             <button type="button" className="btn ghost" onClick={() => void exp("csv")} disabled={busy !== null} data-testid="dash-export-csv">
             {busy === "csv" ? <span className="spinner" aria-hidden /> : <Icon name="download" />} CSV
@@ -65,7 +65,7 @@ export function DashboardPage() {
           </>
         }
       />
-      <MfgError error={exportErr} title="Export failed" />
+      <MfgError error={exportErr} title={tr("mfg.dashboardPage.attr.exportFailed")} />
       {dash.error && !d ? <MfgError error={dash.error} onRetry={dash.reload} /> : null}
       {dash.loading && !d ? <Spinner /> : null}
       {d ? (
@@ -79,7 +79,7 @@ export function DashboardPage() {
         <DigestSettings scope="plant" scopeId={access.me?.workspace_owner_id ?? ""} />
         {canTune && d ? <Thresholds dash={d} onSaved={dash.reload} /> : null}
         <p className="muted small" style={{ margin: 0 }}>
-          The organisation view with all plants is on the organisation page. <Link to="/orgs">Organisations</Link>
+          {tr("mfg.dashboardPage.text.theOrganisationViewWithAll")}{" "}<Link to="/orgs">{tr("mfg.dashboardPage.text.organisations")}</Link>
         </p>
       </div>
     </div>
@@ -120,22 +120,21 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
         {list.error && !list.data ? <MfgError error={list.error} onRetry={list.reload} /> : null}
         {emailOff ? (
           <p className="muted" style={{ margin: 0 }} data-testid="digest-no-smtp">
-            <Icon name="info" size={14} /> {t("mfg.dashboardPage.btn.emailIsNotSetUp")}
-            digest is ready (SuperPlanner mobile, Notifications).
+            <Icon name="info" size={14} />{" "}{tr("mfg.dashboardPage.text.digestIsReadySuperplannerMobile", { t: t("mfg.dashboardPage.btn.emailIsNotSetUp") })}
           </p>
         ) : (
           <>
             <p className="muted small" style={{ margin: 0 }}>
-              A summary of these tiles and the top 10 alerts, with a CSV attached. It only contains what you may see.
+              {tr("mfg.dashboardPage.text.aSummaryOfTheseTiles")}
             </p>
             {mine.length ? (
               <ul className="mfg-plain-list">
                 {mine.map((s) => (
                   <li key={s.id} className="row" style={{ gap: 8 }} data-testid="digest-row">
                     <Icon name="calendar" size={14} />
-                    {s.frequency === "daily" ? "Every day" : `Every ${WEEKDAY_NAMES[s.weekday ?? 0] ?? "week"}`} at {s.local_time}
+                    {tr("mfg.dashboardPage.text.at", { v: s.frequency === "daily" ? tr("mfg.dashboardPage.str.everyDay") : tr("mfg.dashboardPage.tpl.every", { v: WEEKDAY_NAMES[s.weekday ?? 0] ?? "week" }), localtime: s.local_time })}
                     {s.time_zone ? <span className="muted small">({s.time_zone})</span> : null}
-                    {s.last_sent_at ? <span className="muted small">last sent {formatDateTime(s.last_sent_at)}</span> : null}
+                    {s.last_sent_at ? <span className="muted small">{tr("mfg.dashboardPage.text.lastSent", { lastsentat: formatDateTime(s.last_sent_at) })}</span> : null}
                     <button type="button" className="btn ghost sm" onClick={() => void deleteDigest(s.id).then(list.reload, setErr)} aria-label={t("mfg.dashboardPage.aria.stopThisDigest")}>
                       <Icon name="trash" /> {t("mfg.dashboardPage.btn.stop")}
                     </button>
@@ -147,8 +146,8 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
               <div className="field" style={{ margin: 0 }}>
                 <label htmlFor="digest-freq">{t("mfg.dashboardPage.label.howOften")}</label>
                 <select id="digest-freq" className="select" value={f.frequency} onChange={(e) => setF({ ...f, frequency: e.target.value as "daily" | "weekly" })} data-testid="digest-frequency">
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
+                  <option value="daily">{tr("mfg.dashboardPage.text.daily")}</option>
+                  <option value="weekly">{tr("mfg.dashboardPage.text.weekly")}</option>
                 </select>
               </div>
               {f.frequency === "weekly" ? (
@@ -168,12 +167,12 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
                 <input id="digest-time" type="time" className="input" value={f.local_time} onChange={(e) => setF({ ...f, local_time: e.target.value })} />
               </div>
               <button type="button" className="btn" onClick={() => void add()} disabled={busy || !scopeId || !f.local_time} data-testid="digest-add">
-                {busy ? <span className="spinner" aria-hidden /> : <Icon name="plus" />} Send me this digest
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="plus" />}{" "}{tr("mfg.dashboardPage.text.sendMeThisDigest")}
               </button>
             </div>
           </>
         )}
-        <MfgError error={err} title="Could not save the digest" />
+        <MfgError error={err} title={tr("mfg.dashboardPage.attr.couldNotSaveTheDigest")} />
       </div>
     </section>
   );
@@ -181,12 +180,12 @@ export function DigestSettings({ scope, scopeId }: { scope: "plant" | "org"; sco
 
 /** D7 keys (`model_m6.DEFAULT_THRESHOLDS`): direction, unit and the server defaults. */
 const THRESHOLD_ROWS: { key: ThresholdKey; label: string; dir: "below" | "above"; unit: "%" | "count"; watch: number; alert: number }[] = [
-  { key: "otd", label: "On-time delivery", dir: "below", unit: "%", watch: 0.95, alert: 0.85 },
-  { key: "adherence", label: "Schedule adherence", dir: "below", unit: "%", watch: 0.85, alert: 0.7 },
-  { key: "fpy", label: "First-pass yield", dir: "below", unit: "%", watch: 0.98, alert: 0.95 },
-  { key: "backlog_load", label: "Backlog vs capacity", dir: "above", unit: "%", watch: 0.9, alert: 1.1 },
-  { key: "material_risk", label: "Items short (material risk)", dir: "above", unit: "count", watch: 1, alert: 10 },
-  { key: "late_pos", label: "Late purchase orders", dir: "above", unit: "count", watch: 1, alert: 10 },
+  { key: "otd", label: tr("mfg.dashboardPage.str.onTimeDelivery"), dir: "below", unit: "%", watch: 0.95, alert: 0.85 },
+  { key: "adherence", label: tr("mfg.dashboardPage.str.scheduleAdherence"), dir: "below", unit: "%", watch: 0.85, alert: 0.7 },
+  { key: "fpy", label: tr("mfg.dashboardPage.str.firstPassYield"), dir: "below", unit: "%", watch: 0.98, alert: 0.95 },
+  { key: "backlog_load", label: tr("mfg.dashboardPage.str.backlogVsCapacity"), dir: "above", unit: "%", watch: 0.9, alert: 1.1 },
+  { key: "material_risk", label: tr("mfg.dashboardPage.str.itemsShortMaterialRisk"), dir: "above", unit: "count", watch: 1, alert: 10 },
+  { key: "late_pos", label: tr("mfg.dashboardPage.str.latePurchaseOrders"), dir: "above", unit: "count", watch: 1, alert: 10 },
 ];
 const TILE_OF: Partial<Record<ThresholdKey, string>> = { otd: "otd", backlog_load: "backlog", material_risk: "material_risk", late_pos: "late_pos" };
 
@@ -221,7 +220,7 @@ function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): voi
     }
     try {
       await putDashboardThresholds({ thresholds: out });
-      setMsg("Saved");
+      setMsg(tr("mfg.dashboardPage.str.saved"));
       onSaved();
     } catch (e) {
       setErr(e);
@@ -239,7 +238,7 @@ function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): voi
         {open ? (
           <>
             <p className="muted small" style={{ margin: 0 }}>
-              A tile shows "Watch" past the watch value and "Needs attention" past the attention value. Percentages are entered as percent.
+              {tr("mfg.dashboardPage.text.aTileShowsWatchPast")}
             </p>
             <div className="table-wrap">
               <table className="table">
@@ -261,7 +260,7 @@ function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): voi
                           <input
                             className="input"
                             inputMode="decimal"
-                            aria-label={`${r.label}: ${which === "watch" ? "watch" : "needs attention"} ${r.dir}${r.unit === "%" ? " (%)" : ""}`}
+                            aria-label={`${r.label}: ${which === "watch" ? "watch" : tr("mfg.dashboardPage.str.needsAttention")} ${r.dir}${r.unit === "%" ? " (%)" : ""}`}
                             value={f[r.key][which]}
                             onChange={(e) => setF({ ...f, [r.key]: { ...f[r.key], [which]: e.target.value } })}
                             data-testid={`threshold-${r.key}-${which}`}
@@ -275,7 +274,7 @@ function Thresholds({ dash, onSaved }: { dash: DashboardResponse; onSaved(): voi
             </div>
             <div className="row" style={{ gap: 8 }}>
               <button type="button" className="btn primary" disabled={busy || bad} onClick={() => void save()} data-testid="thresholds-save">
-                {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save targets
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{tr("mfg.dashboardPage.text.saveTargets")}
               </button>
               {msg ? <span role="status">{msg}</span> : null}
             </div>

@@ -34,7 +34,7 @@ export function RunSummaryTab() {
   const { run } = useRun();
   const late = useLoad((signal) => (run.status === "completed" ? listRunDemand(run.id, { late_only: true, sort: "-late_days", limit: 10, offset: 0 }, signal) : null), [run.id]);
   const s = run.summary;
-  if (!s) return <p className="muted">No results{run.status === "running" ? " yet: the run is still in progress." : "."}</p>;
+  if (!s) return <p className="muted">{t("mfg.runSummaryTab.text.noResults", { v: run.status === "running" ? t("mfg.runSummaryTab.str.yetTheRunIsStill") : "." })}</p>;
   const codes = Object.entries(s.exceptions.by_code)
     .filter(([, n]) => n > 0)
     .sort((a, b) => MRP_SEVERITIES.indexOf(severityOfCode(a[0])) - MRP_SEVERITIES.indexOf(severityOfCode(b[0])) || b[1] - a[1]);
@@ -46,7 +46,7 @@ export function RunSummaryTab() {
           <div className="card-header">
             <h3>{t("mfg.runSummaryTab.head.latestDemandLines")}</h3>
             <Link to={mfgPaths.runDemand(run.id)} className="small">
-              All demand <Icon name="arrow-right" size={12} />
+              {t("mfg.runSummaryTab.text.allDemand")}{" "}<Icon name="arrow-right" size={12} />
             </Link>
           </div>
           <MfgError error={late.error} onRetry={late.reload} />
@@ -67,10 +67,10 @@ export function RunSummaryTab() {
                   <div className="row wrap" style={{ gap: 6 }}>
                     {d.link ? (
                       <Link to={d.link} className="mono">
-                        {d.order ? `${d.order.number}/${d.line_no}` : "What-if demand"}
+                        {d.order ? `${d.order.number}/${d.line_no}` : t("mfg.runSummaryTab.str.whatIfDemand")}
                       </Link>
                     ) : (
-                      <span className="mono">{d.order ? `${d.order.number}/${d.line_no}` : "What-if demand"}</span>
+                      <span className="mono">{d.order ? `${d.order.number}/${d.line_no}` : t("mfg.runSummaryTab.str.whatIfDemand")}</span>
                     )}
                     <span>
                       {d.qty} x <span className="mono">{d.item.part_number}</span>
@@ -80,7 +80,7 @@ export function RunSummaryTab() {
                     </span>
                   </div>
                   <div className="small muted">
-                    Due {fmtDate(d.due_date)}, projected {fmtDate(d.projected_date)}
+                    {t("mfg.runSummaryTab.text.dueProjected", { duedate: fmtDate(d.due_date), projecteddate: fmtDate(d.projected_date) })}
                   </div>
                   <LimitingPath steps={d.limiting} />
                 </div>
@@ -99,7 +99,7 @@ export function RunSummaryTab() {
               ))}
             </span>
           </div>
-          {s.exceptions_truncated ? <div className="card-body small muted">Only the most important exceptions were kept; the counts are complete.</div> : null}
+          {s.exceptions_truncated ? <div className="card-body small muted">{t("mfg.runSummaryTab.text.onlyTheMostImportantExceptions")}</div> : null}
           <ul className="mfg-plain-list">
             {codes.map(([code, n]) => (
               <li key={code} className="issue">
@@ -114,8 +114,7 @@ export function RunSummaryTab() {
         </section>
       </div>
       <p className="faint small" style={{ margin: 0 }}>
-        {s.iterations === 2 ? `Alternate parts used in ${s.alternates_used} places (second pass). ` : ""}
-        Computed in {((run.duration_ms ?? 0) / 1000).toFixed(1)} s.
+        {t("mfg.runSummaryTab.text.computedInS", { v: s.iterations === 2 ? t("mfg.runSummaryTab.tpl.alternatePartsUsedInPlaces", { alternatesused: s.alternates_used }) : "", toFixed: ((run.duration_ms ?? 0) / 1000).toFixed(1) })}
       </p>
     </div>
   );

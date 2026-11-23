@@ -7,7 +7,7 @@ import { instantiateFinanceTemplate, listFinanceTemplates } from "../api/client"
 import type { FinanceTemplateInfo, FinanceTemplateParameter } from "../api/types";
 import { useAsync } from "../../lib/useAsync";
 import { currentUtcMonth } from "../lib/months";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 const ICONS: Record<string, IconName> = {
   young_professional: "briefcase",
@@ -39,9 +39,9 @@ function paramLabelHint(p: FinanceTemplateParameter): string {
 }
 
 function valueError(p: FinanceTemplateParameter, v: number): string | null {
-  const range = p.min !== null && p.max !== null ? ` from ${p.min} to ${p.max}` : "";
-  if (!Number.isFinite(v)) return `Enter a number${range}.`;
-  if ((p.min !== null && v < p.min) || (p.max !== null && v > p.max)) return `${p.label} must be${range || " in range"}.`;
+  const range = p.min !== null && p.max !== null ? tr("finance.financeTemplateCards.tpl.fromTo", { min: p.min, max: p.max }) : "";
+  if (!Number.isFinite(v)) return tr("finance.financeTemplateCards.tpl.enterANumber", { range: range });
+  if ((p.min !== null && v < p.min) || (p.max !== null && v > p.max)) return tr("finance.financeTemplateCards.tpl.mustBe", { label: p.label, v: range || " in range" });
   return null;
 }
 
@@ -83,12 +83,12 @@ function FinTemplateCard({ template }: { template: FinanceTemplateInfo }) {
         </div>
         <p className="muted" style={{ margin: 0 }}>{template.description}</p>
         <div className="field">
-          <label htmlFor={`${idPrefix}-name`}>Plan name</label>
+          <label htmlFor={`${idPrefix}-name`}>{tr("finance.financeTemplateCards.text.planName")}</label>
           <input id={`${idPrefix}-name`} className="input" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
         </div>
         {template.parameters.length ? (
           <details>
-            <summary className="small" style={{ cursor: "pointer" }}>Adjust the example ({template.parameters.length} values)</summary>
+            <summary className="small" style={{ cursor: "pointer" }}>{tr("finance.financeTemplateCards.text.adjustTheExampleValues", { length: template.parameters.length })}</summary>
             <div className="fin-form mt">
               {template.parameters.map((p) => {
                 const id = `${idPrefix}-${p.name}`;
@@ -125,7 +125,7 @@ function FinTemplateCard({ template }: { template: FinanceTemplateInfo }) {
         {error ? <span className="small" role="alert" style={{ color: "var(--danger)" }}><Icon name="alert" /> {error}</span> : null}
         <div style={{ marginTop: "auto" }}>
           <button className="btn primary" type="submit" disabled={busy || !valid}>
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="plus" />} Create plan
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="plus" />}{" "}{tr("finance.financeTemplateCards.text.createPlan")}
           </button>
         </div>
       </form>

@@ -1,6 +1,7 @@
 import type { FinanceResult } from "../api/types";
 import { formatMoney, formatProb, roundDisplay } from "../lib/money";
 import { fmtMonth } from "../lib/months";
+import { t } from "../../lib/i18n";
 
 interface Kpi {
   label: string;
@@ -26,49 +27,49 @@ export function ResultKpis({ result, locale }: { result: FinanceResult; locale: 
   const fromSurplus = s.monthly_from_surplus_avg_12m;
   const fromSavings = s.monthly_from_savings_avg_12m;
   const hasAvg = s.monthly_surplus_avg_12m !== undefined;
-  const nowTitle = (v: number, what: string) => `This month: ${m(v)} ${what}`;
+  const nowTitle = (v: number, what: string) => t("finance.resultKpis.tpl.thisMonth", { v: m(v), what: what });
 
   const surplusCard: Kpi =
     surplus >= 0
       ? {
-          label: "Left over each month",
+          label: t("finance.resultKpis.str.leftOverEachMonth"),
           value: w(surplus),
-          sub: `${hasAvg ? "first-year average" : "this month"} after expenses and loans${ef >= 1 ? `; ${w(ef)} of it builds your emergency fund` : ""}`,
-          title: nowTitle(s.monthly_investable_now, "left to invest after expenses, loans and the emergency fund"),
+          sub: t("finance.resultKpis.tpl.afterExpensesAndLoans", { v: hasAvg ? t("finance.resultKpis.str.firstYearAverage") : t("finance.resultKpis.str.thisMonth"), v2: ef >= 1 ? t("finance.resultKpis.tpl.ofItBuildsYourEmergency", { ef: w(ef) }) : "" }),
+          title: nowTitle(s.monthly_investable_now, t("finance.resultKpis.str.leftToInvestAfterExpenses")),
         }
       : {
-          label: "Short each month",
+          label: t("finance.resultKpis.str.shortEachMonth"),
           value: w(-surplus),
-          sub: `${hasAvg ? "first-year average" : "this month"}: spending and loan payments are more than your income`,
-          title: nowTitle(s.monthly_investable_now, "left to invest"),
+          sub: t("finance.resultKpis.tpl.spendingAndLoanPaymentsAre", { v: hasAvg ? "first-year average" : "this month" }),
+          title: nowTitle(s.monthly_investable_now, t("finance.resultKpis.str.leftToInvest")),
           tone: "var(--danger)",
         };
 
   let investSub: string;
-  if (contributing < 0.5) investSub = "no new monthly investments needed in the first year";
+  if (contributing < 0.5) investSub = t("finance.resultKpis.str.noNewMonthlyInvestmentsNeeded");
   else if (fromSurplus !== undefined && fromSavings !== undefined && fromSavings >= 1)
-    investSub = `${w(fromSurplus)} from your monthly surplus + ${w(fromSavings)} from savings you already have`;
-  else if (fromSurplus !== undefined) investSub = "all from your monthly surplus";
-  else investSub = "per month across goals and emergency fund";
+    investSub = t("finance.resultKpis.tpl.fromYourMonthlySurplusFrom", { fromSurplus: w(fromSurplus), fromSavings: w(fromSavings) });
+  else if (fromSurplus !== undefined) investSub = t("finance.resultKpis.str.allFromYourMonthlySurplus");
+  else investSub = t("finance.resultKpis.str.perMonthAcrossGoalsAnd");
 
   const cards: Kpi[] = [
     surplusCard,
     {
-      label: "Plan invests",
+      label: t("finance.resultKpis.str.planInvests"),
       value: w(contributing),
-      sub: hasAvg ? `a month on average in the first year: ${investSub}` : investSub,
-      title: nowTitle(s.monthly_contribution_now, "invested across goals and emergency fund"),
+      sub: hasAvg ? t("finance.resultKpis.tpl.aMonthOnAverageIn", { investSub: investSub }) : investSub,
+      title: nowTitle(s.monthly_contribution_now, t("finance.resultKpis.str.investedAcrossGoalsAndEmergency")),
     },
     {
-      label: "Emergency fund",
+      label: t("finance.resultKpis.str.emergencyFund"),
       value: m(s.emergency_fund_target),
-      sub: s.emergency_fund_complete_month ? `target, complete by ${fmtMonth(s.emergency_fund_complete_month)}` : "target, not reached in the plan",
+      sub: s.emergency_fund_complete_month ? t("finance.resultKpis.tpl.targetCompleteBy", { emergencyfundcompletemonth: fmtMonth(s.emergency_fund_complete_month) }) : t("finance.resultKpis.str.targetNotReachedInThe"),
     },
-    { label: "Goals on track", value: `${s.goals_on_track} / ${s.goals_total}`, sub: s.goals_at_risk ? `${s.goals_at_risk} at risk, ${s.goals_off_track} off track` : `${s.goals_off_track} off track` },
+    { label: t("finance.resultKpis.str.goalsOnTrack"), value: `${s.goals_on_track} / ${s.goals_total}`, sub: s.goals_at_risk ? t("finance.resultKpis.tpl.atRiskOffTrack", { goalsatrisk: s.goals_at_risk, goalsofftrack: s.goals_off_track }) : t("finance.resultKpis.tpl.offTrack", { goalsofftrack: s.goals_off_track }) },
     {
-      label: "Cash shortfall risk",
+      label: t("finance.resultKpis.str.cashShortfallRisk"),
       value: formatProb(s.liquidity_risk_probability),
-      sub: "estimated chance of at least one month without enough cash",
+      sub: t("finance.resultKpis.str.estimatedChanceOfAtLeast"),
       tone: s.liquidity_risk_probability > 0.1 ? "var(--warn)" : undefined,
     },
   ];

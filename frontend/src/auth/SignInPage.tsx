@@ -27,7 +27,7 @@ export function SignInPage() {
   const ssoError = params.get("sso_error") ?? params.get("error");
 
   useEffect(() => {
-    document.title = "Sign in - SuperPlanner";
+    document.title = t("account.signInPage.str.signInSuperplanner");
     const ctl = new AbortController();
     fetchAuthConfig(ctl.signal)
       .then(setConfig)
@@ -35,7 +35,7 @@ export function SignInPage() {
     return () => ctl.abort();
   }, []);
   useEffect(() => {
-    if (ssoError) setError(authErrorMessage(new ApiError(403, ssoError, "")) ?? "Single sign-on did not complete. Try again or ask your administrator.");
+    if (ssoError) setError(authErrorMessage(new ApiError(403, ssoError, "")) ?? t("account.signInPage.str.singleSignOnDidNot"));
   }, [ssoError]);
 
   if (auth.status === "loading") return <AuthLoading />;
@@ -47,12 +47,12 @@ export function SignInPage() {
     if (busy) return;
     const addr = email.trim();
     if (!EMAIL_RE.test(addr)) {
-      setError("Enter your email address, for example ana@example.com.");
+      setError(t("account.signInPage.str.enterYourEmailAddressFor"));
       emailRef.current?.focus();
       return;
     }
     if (!password) {
-      setError("Enter your password.");
+      setError(t("account.signInPage.str.enterYourPassword"));
       passwordRef.current?.focus();
       return;
     }
@@ -93,21 +93,21 @@ export function SignInPage() {
         <div className="card-body">
           <h1 id="signin-title">{t("account.signInPage.head.signIn")}</h1>
           <p className="auth-lead">
-            {auth.expired ? "Your session has ended. Sign in again to continue where you left off." : "Sign in to see your plans."}
+            {auth.expired ? t("account.signInPage.str.yourSessionHasEndedSign") : t("account.signInPage.str.signInToSeeYour")}
           </p>
           {sso ? (
             <>
               <a className="btn primary auth-sso" href={oidcLoginUrl(next)} data-testid="signin-sso">
-                <Icon name="lock" /> {sso.label ? `Sign in with ${sso.label}` : "Sign in with your company account"}
+                <Icon name="lock" /> {sso.label ? t("account.signInPage.tpl.signInWith", { label: sso.label }) : t("account.signInPage.str.signInWithYourCompany")}
               </a>
               <div className="auth-or" role="separator">
-                <span>or with email and password</span>
+                <span>{t("account.signInPage.text.orWithEmailAndPassword")}</span>
               </div>
             </>
           ) : null}
           {sso && config?.sso_required_domains.length ? (
             <p className="small muted" style={{ margin: "0 0 8px" }}>
-              Accounts at {config.sso_required_domains.map((d) => `@${d}`).join(", ")} sign in with the button above.
+              {t("account.signInPage.text.accountsAtSignInWith", { join: config.sso_required_domains.map((d) => `@${d}`).join(", ") })}
             </p>
           ) : null}
           {!passwordLogin ? (
@@ -152,13 +152,13 @@ export function SignInPage() {
             </div>
             <button type="submit" className={`btn${sso ? "" : " primary"}`} disabled={busy} data-testid="signin-submit">
               {busy ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />}
-              {busy ? "Signing in…" : "Sign in"}
+              {busy ? t("account.signInPage.str.signingIn") : t("account.signInPage.str.signIn")}
             </button>
           </form>
           ) : null}
           {auth.signupEnabled ? (
             <p className="auth-switch">
-              New here?{" "}
+              {t("account.signInPage.text.newHere", { v: " " })}
               <Link to={signUpTo} data-testid="signin-to-signup">
                 {t("account.signInPage.btn.createAnAccount")}
               </Link>
@@ -186,12 +186,12 @@ function TotpStep({ pending, onBack, next }: { pending: PendingLogin; onBack(): 
     e.preventDefault();
     const c = code.replace(/\s+/g, "");
     if (!useRecovery && !/^\d{6}$/.test(c)) {
-      setError("Enter the 6-digit code shown in your authenticator app.");
+      setError(t("account.signInPage.str.enterThe6DigitCode"));
       ref.current?.focus();
       return;
     }
     if (useRecovery && c.length < 6) {
-      setError("Enter one of your recovery codes.");
+      setError(t("account.signInPage.str.enterOneOfYourRecovery"));
       ref.current?.focus();
       return;
     }
@@ -212,13 +212,13 @@ function TotpStep({ pending, onBack, next }: { pending: PendingLogin; onBack(): 
       <section className="card auth-card" aria-labelledby="totp-title" data-testid="signin-totp">
         <div className="card-body">
           <h1 id="totp-title">{t("account.signInPage.head.twostepVerification")}</h1>
-          <p className="auth-lead">{useRecovery ? "Enter one of the recovery codes you saved when you turned on two-step verification. Each code works once." : "Open your authenticator app and enter the 6-digit code for SuperPlanner."}</p>
+          <p className="auth-lead">{useRecovery ? t("account.signInPage.str.enterOneOfTheRecovery") : t("account.signInPage.str.openYourAuthenticatorAppAnd")}</p>
           <form className="auth-form" onSubmit={submit} noValidate aria-describedby={error ? "totp-error" : undefined}>
             <FormError id="totp-error" testId="totp-error">
               {error}
             </FormError>
             <div className="field">
-              <label htmlFor="totp-code">{useRecovery ? "Recovery code" : "Code"}</label>
+              <label htmlFor="totp-code">{useRecovery ? t("account.signInPage.str.recoveryCode") : t("account.signInPage.str.code")}</label>
               <input
                 ref={ref}
                 id="totp-code"
@@ -235,12 +235,12 @@ function TotpStep({ pending, onBack, next }: { pending: PendingLogin; onBack(): 
             </div>
             <button type="submit" className="btn primary" disabled={busy} data-testid="totp-submit">
               {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}
-              {busy ? "Checking…" : "Verify"}
+              {busy ? t("account.signInPage.str.checking") : t("account.signInPage.str.verify")}
             </button>
           </form>
           <p className="auth-switch">
             <button type="button" className="btn link" onClick={() => { setUseRecovery((v) => !v); setCode(""); setError(null); }} data-testid="totp-use-recovery">
-              {useRecovery ? "Use a code from the app instead" : "Lost your phone? Use a recovery code"}
+              {useRecovery ? t("account.signInPage.str.useACodeFromThe") : t("account.signInPage.str.lostYourPhoneUseA")}
             </button>
             {" · "}
             <button type="button" className="btn link" onClick={onBack}>
@@ -257,7 +257,7 @@ export function AuthLoading() {
   return (
     <div className="empty auth-loading" role="status">
       <span className="spinner" aria-hidden />
-      <span>Checking your sign-in…</span>
+      <span>{t("account.signInPage.text.checkingYourSignIn")}</span>
     </div>
   );
 }

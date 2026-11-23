@@ -22,7 +22,7 @@ function responseKind(data: unknown): string | null {
   if (data && typeof data === "object" && "kind" in data && typeof (data as { kind: unknown }).kind === "string") return (data as { kind: string }).kind;
   return null;
 }
-const KIND_WORDS: Record<string, string> = { what_if: "what-if run (cannot be published)", live: "live run" };
+const KIND_WORDS: Record<string, string> = { what_if: t("assistant.draftCardView.str.whatIfRunCannotBe"), live: t("assistant.draftCardView.str.liveRun") };
 
 function responseRef(data: unknown): string | null {
   if (data && typeof data === "object" && "id" in data && typeof (data as { id: unknown }).id === "string") return (data as { id: string }).id;
@@ -48,7 +48,7 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
       void reportDraftApplied(draft.draft_id, { status: "succeeded", response_ref: responseRef(r.data) }).catch(() => undefined);
     } catch (e) {
       const text = isConflict(e)
-        ? "The record changed after this suggestion was made, so nothing was changed. Open the record to check it, or ask again for a fresh suggestion."
+        ? t("assistant.draftCardView.str.theRecordChangedAfterThis")
         : errorText(e);
       setSt({ s: "error", text });
       void reportDraftApplied(draft.draft_id, { status: "failed", response_ref: errorCode(e) }).catch(() => undefined);
@@ -56,7 +56,7 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
   };
 
   return (
-    <article className="asst-draft" data-testid="asst-draft" data-kind={draft.kind} aria-label={`Suggestion: ${draftKindText(draft.kind)}`}>
+    <article className="asst-draft" data-testid="asst-draft" data-kind={draft.kind} aria-label={t("assistant.draftCardView.tpl.suggestion", { kind: draftKindText(draft.kind) })}>
       <header className="row" style={{ justifyContent: "space-between", gap: 8 }}>
         <strong>
           <Icon name="file" size={14} /> {draftKindText(draft.kind)}
@@ -83,7 +83,7 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
         <summary>{t("assistant.draftCardView.head.showTheExactRequest")}</summary>
         <div className="mono small" data-testid="asst-draft-request">
           {draft.method} {draft.path}
-          {draft.if_match_of ? ` (only if ${draft.if_match_of.type.replace(/_/g, " ")} is still at version ${draft.if_match_of.row_version})` : ""}
+          {draft.if_match_of ? t("assistant.draftCardView.tpl.onlyIfIsStillAt", { type: draft.if_match_of.type.replace(/_/g, " "), rowversion: draft.if_match_of.row_version }) : ""}
         </div>
         {draft.body !== undefined && draft.body !== null ? <pre className="asst-draft-body">{JSON.stringify(draft.body, null, 2)}</pre> : null}
       </details>
@@ -94,15 +94,15 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
       ) : null}
       {st.s === "done" ? (
         <div className="asst-draft-msg ok" role="status" data-testid="asst-draft-done">
-          <Icon name="check" size={14} /> Applied {formatDateTime(st.at)}
-          {st.kind ? <span data-testid="asst-draft-result-kind" data-kind={st.kind}>: created a {KIND_WORDS[st.kind] ?? st.kind.replace(/_/g, " ")}</span> : null}. It is recorded under your name like any change on the page.
+          <Icon name="check" size={14} />{" "}{t("assistant.draftCardView.text.applied", { at: formatDateTime(st.at) })}
+          {st.kind ? <span data-testid="asst-draft-result-kind" data-kind={st.kind}>{t("assistant.draftCardView.text.createdA", { v: KIND_WORDS[st.kind] ?? st.kind.replace(/_/g, " ") })}</span> : null}. It is recorded under your name like any change on the page.
         </div>
       ) : null}
       {st.s !== "done" ? (
         <div className="row wrap" style={{ gap: 8 }}>
           {st.s === "confirm" ? (
             <>
-              <span className="small">{draft.kind === "whatif_run" ? "Create this what-if run now, as you?" : "Apply this change now, as you?"}</span>
+              <span className="small">{draft.kind === "whatif_run" ? t("assistant.draftCardView.str.createThisWhatIfRun") : t("assistant.draftCardView.str.applyThisChangeNowAs")}</span>
               <button type="button" className="btn primary sm" onClick={() => void apply()} data-testid="asst-draft-confirm">
                 <Icon name="check" /> {t("assistant.draftCardView.btn.yesApply")}
               </button>
@@ -115,16 +115,16 @@ export function DraftCardView({ draft }: { draft: DraftCard }) {
               type="button"
               className="btn sm"
               disabled={!allowed || !sendable || st.s === "busy"}
-              title={!allowed ? (known ? needsText(perm) : "This suggestion needs a permission the app does not know.") : !sendable ? "This suggestion cannot be sent." : undefined}
+              title={!allowed ? (known ? needsText(perm) : t("assistant.draftCardView.str.thisSuggestionNeedsAPermission")) : !sendable ? t("assistant.draftCardView.str.thisSuggestionCannotBeSent") : undefined}
               onClick={() => setSt({ s: "confirm" })}
               data-testid="asst-draft-apply"
             >
-              {st.s === "busy" ? <span className="spinner" aria-hidden /> : <Icon name="play" />} Apply
+              {st.s === "busy" ? <span className="spinner" aria-hidden /> : <Icon name="play" />}{" "}{t("assistant.draftCardView.text.apply")}
             </button>
           )}
           {!allowed ? (
             <span className="muted small" data-testid="asst-draft-needs">
-              <Icon name="lock" size={12} /> {known ? needsText(perm) : "Not available for your role."}
+              <Icon name="lock" size={12} /> {known ? needsText(perm) : t("assistant.draftCardView.str.notAvailableForYourRole")}
             </span>
           ) : null}
         </div>

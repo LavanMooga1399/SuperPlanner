@@ -289,9 +289,9 @@ export function Toggle({ checked, onChange, label, hint }: { checked: boolean; o
 }
 
 export const FREQUENCY_OPTIONS = [
-  { value: "monthly" as const, label: "Every month" },
-  { value: "quarterly" as const, label: "Every 3 months" },
-  { value: "half_yearly" as const, label: "Every 6 months" },
-  { value: "yearly" as const, label: "Every year" },
-  { value: "once" as const, label: "Once" },
+  { value: "monthly" as const, label: t("finance.fields.str.everyMonth") },
+  { value: "quarterly" as const, label: t("finance.fields.str.every3Months") },
+  { value: "half_yearly" as const, label: t("finance.fields.str.every6Months") },
+  { value: "yearly" as const, label: t("finance.fields.str.everyYear") },
+  { value: "once" as const, label: t("finance.fields.str.once") },
 ];

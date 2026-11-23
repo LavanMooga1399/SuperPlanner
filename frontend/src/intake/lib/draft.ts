@@ -1,5 +1,6 @@
 /** Small pure helpers for editing drafts in the browser (keys, provenance, client-side checks). */
 import type { AnyDraft, DraftAmount, DraftDuration, FinanceDraft, Provenance, Question, ScheduleDraft } from "../api/types";
+import { t as tr } from "../../lib/i18n";
 
 const KEY_RE = /^[a-z][a-z0-9_]{0,31}$/;
 
@@ -55,32 +56,32 @@ function checkDuration(d: DraftDuration | null, path: string, out: DraftProblem[
   if (!d) return;
   const vals = [d.optimistic, d.likely, d.pessimistic];
   if (vals.some((v) => !Number.isFinite(v) || v <= 0 || v > 10000)) {
-    out.push({ path, message: "Each duration must be a number above 0 (at most 10,000)." });
+    out.push({ path, message: tr("studio.draft.str.eachDurationMustBeA") });
   } else if (!(d.optimistic <= d.likely && d.likely <= d.pessimistic)) {
-    out.push({ path, message: "Shortest must not be above likely, and likely not above longest." });
+    out.push({ path, message: tr("studio.draft.str.shortestMustNotBeAbove") });
   }
 }
 
 function checkAmount(a: DraftAmount | null, path: string, out: DraftProblem[]) {
   if (!a) return;
   if (!Number.isFinite(a.low) || !Number.isFinite(a.high) || a.low < 0 || a.high < 0) {
-    out.push({ path, message: "Enter an amount of 0 or more." });
+    out.push({ path, message: tr("studio.draft.str.enterAnAmountOf0") });
   } else if (a.low > a.high) {
-    out.push({ path, message: "The first amount of a range must not be above the second." });
+    out.push({ path, message: tr("studio.draft.str.theFirstAmountOfA") });
   }
 }
 
 /** Checks the server would reject with 422; the editor shows them next to the field and waits. */
 export function draftProblems(draft: AnyDraft): DraftProblem[] {
   const out: DraftProblem[] = [];
-  if (!draft.name.trim()) out.push({ path: "/name", message: "Give the plan a name." });
+  if (!draft.name.trim()) out.push({ path: "/name", message: tr("studio.draft.str.giveThePlanAName") });
   if (draft.domain === "schedule") {
     for (const t of draft.tasks) {
-      if (!t.name.trim()) out.push({ path: `/tasks/${t.key}/name`, message: "Give every step a name." });
+      if (!t.name.trim()) out.push({ path: `/tasks/${t.key}/name`, message: tr("studio.draft.str.giveEveryStepAName") });
       checkDuration(t.duration, `/tasks/${t.key}/duration`, out);
     }
     for (const r of draft.resources) {
-      if (!r.name.trim()) out.push({ path: `/resources/${r.key}/name`, message: "Give every resource a name." });
+      if (!r.name.trim()) out.push({ path: `/resources/${r.key}/name`, message: tr("studio.draft.str.giveEveryResourceAName") });
     }
   } else {
     const f = draft as FinanceDraft;
@@ -92,7 +93,7 @@ export function draftProblems(draft: AnyDraft): DraftProblem[] {
       ["goals", f.goals],
     ];
     for (const [c, items] of lists) {
-      for (const i of items) if (!i.name.trim()) out.push({ path: `/${c}/${i.key}/name`, message: "Give every row a name." });
+      for (const i of items) if (!i.name.trim()) out.push({ path: `/${c}/${i.key}/name`, message: tr("studio.draft.str.giveEveryRowAName") });
     }
     f.incomes.forEach((i) => checkAmount(i.amount, `/incomes/${i.key}/amount`, out));
     f.expenses.forEach((i) => checkAmount(i.amount, `/expenses/${i.key}/amount`, out));

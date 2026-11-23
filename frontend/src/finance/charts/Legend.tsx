@@ -1,10 +1,11 @@
-export interface LegendItem {
+
+import { t } from "../../lib/i18n";export interface LegendItem {
   label: string;
   color: string;
   kind?: "box" | "line" | "dashed" | "band";
 }
 
-export function Legend({ items, label = "Legend" }: { items: LegendItem[]; label?: string }) {
+export function Legend({ items, label = t("finance.legend.str.legend") }: { items: LegendItem[]; label?: string }) {
   return (
     <ul className="legend" aria-label={label} style={{ listStyle: "none", margin: 0, padding: 0 }}>
       {items.map((it) => (

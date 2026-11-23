@@ -1,19 +1,19 @@
 import { useEffect, useId, useState, type KeyboardEvent, type ReactElement } from "react";
 import type { DraftDuration, Question, WorkingTime, WindowHM, Weekday } from "../api/types";
 import { num, unitWord } from "../lib/pert";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 /** Local editing value of one question (strings for text-like kinds). */
 export type QValue = string | string[] | boolean | WorkingTime | null;
 
 const DAYS: { d: Weekday; label: string }[] = [
-  { d: "mon", label: "Mon" },
-  { d: "tue", label: "Tue" },
-  { d: "wed", label: "Wed" },
-  { d: "thu", label: "Thu" },
-  { d: "fri", label: "Fri" },
-  { d: "sat", label: "Sat" },
-  { d: "sun", label: "Sun" },
+  { d: "mon", label: tr("studio.questionInput.str.mon") },
+  { d: "tue", label: tr("studio.questionInput.str.tue") },
+  { d: "wed", label: tr("studio.questionInput.str.wed") },
+  { d: "thu", label: tr("studio.questionInput.str.thu") },
+  { d: "fri", label: tr("studio.questionInput.str.fri") },
+  { d: "sat", label: tr("studio.questionInput.str.sat") },
+  { d: "sun", label: tr("studio.questionInput.str.sun") },
 ];
 
 export function durationText(d: DraftDuration): string {
@@ -165,7 +165,7 @@ export function WorkingTimeFields({
           checked={!!value.weekend_windows}
           onChange={(e) => onChange({ ...value, weekend_windows: e.target.checked ? value.windows : null })}
         />
-        Different hours on Saturday and Sunday
+        {tr("studio.questionInput.text.differentHoursOnSaturdayAnd")}
       </label>
       {value.weekend_windows ? (
         <WindowsInput
@@ -210,21 +210,21 @@ function WindowsInput({ id, errId, label, initial, onValid }: { id: string; errI
       />
       {bad ? (
         <span id={errId} className="field-error" role="alert">
-          Use times like 09:00-13:00, separated by commas (up to 4).
+          {tr("studio.questionInput.text.useTimesLike0900")}
         </span>
       ) : (
-        <span className="hint">For example 09:00-13:00, 14:00-18:00</span>
+        <span className="hint">{tr("studio.questionInput.text.forExample090013")}</span>
       )}
     </div>
   );
 }
 
 const HINT: Partial<Record<Question["kind"], string>> = {
-  duration: 'A range like "2-3 days" is fine.',
-  money: 'A range like "40-50k" or "1.2 lakh" is fine.',
+  duration: tr("studio.questionInput.str.aRangeLike23"),
+  money: tr("studio.questionInput.str.aRangeLike4050k"),
   number: "",
-  percent: "In percent, for example 9.5",
-  people: "Names separated by commas",
+  percent: tr("studio.questionInput.str.inPercentForExample9"),
+  people: tr("studio.questionInput.str.namesSeparatedByCommas"),
 };
 
 /** One input per question kind (PHASE2.md 3.3). `onSubmit` fires on Enter in single-line inputs. */
@@ -287,10 +287,10 @@ export function QuestionInput({
       input = (
         <div role="radiogroup" aria-labelledby={labelId} aria-describedby={describedBy} className="row" style={{ gap: 12 }}>
           <label className="checkbox">
-            <input type="radio" name={`${base}-c`} checked={value === true} onChange={() => onChange(true)} /> Yes
+            <input type="radio" name={`${base}-c`} checked={value === true} onChange={() => onChange(true)} />{" "}{tr("studio.questionInput.text.yes")}
           </label>
           <label className="checkbox">
-            <input type="radio" name={`${base}-c`} checked={value === false} onChange={() => onChange(false)} /> No
+            <input type="radio" name={`${base}-c`} checked={value === false} onChange={() => onChange(false)} />{" "}{tr("studio.questionInput.text.no")}
           </label>
         </div>
       );

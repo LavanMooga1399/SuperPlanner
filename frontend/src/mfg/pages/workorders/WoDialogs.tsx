@@ -65,10 +65,10 @@ export function IssueDialog({
   const problems = chosen
     .map((r) => {
       const q = numOrNull(r.qty) ?? 0;
-      if (!r.location_id) return `${r.c.item.part_number}: choose a location.`;
-      if (isCountUom(r.c.item.uom) && !Number.isInteger(q)) return `${r.c.item.part_number}: whole ${r.c.item.uom} only.`;
-      if (mode === "issue" && q > r.c.open_qty + 1e-9 && !r.over) return `${r.c.item.part_number}: more than the ${fmtNum(r.c.open_qty)} still open; tick "over-issue" to allow.`;
-      if (mode === "return" && q > r.c.issued_qty + 1e-9) return `${r.c.item.part_number}: at most the ${fmtNum(r.c.issued_qty)} issued.`;
+      if (!r.location_id) return t("mfg.woDialogs.tpl.chooseALocation", { partnumber: r.c.item.part_number });
+      if (isCountUom(r.c.item.uom) && !Number.isInteger(q)) return t("mfg.woDialogs.tpl.wholeOnly", { partnumber: r.c.item.part_number, uom: r.c.item.uom });
+      if (mode === "issue" && q > r.c.open_qty + 1e-9 && !r.over) return t("mfg.woDialogs.tpl.moreThanTheStillOpen", { partnumber: r.c.item.part_number, openqty: fmtNum(r.c.open_qty) });
+      if (mode === "return" && q > r.c.issued_qty + 1e-9) return t("mfg.woDialogs.tpl.atMostTheIssued", { partnumber: r.c.item.part_number, issuedqty: fmtNum(r.c.issued_qty) });
       return null;
     })
     .filter((x): x is string => Boolean(x));
@@ -81,7 +81,7 @@ export function IssueDialog({
   };
   return (
     <Dialog
-      title={mode === "issue" ? `Issue components to ${wo.number}` : `Return components from ${wo.number}`}
+      title={mode === "issue" ? t("mfg.woDialogs.tpl.issueComponentsTo", { number: wo.number }) : t("mfg.woDialogs.tpl.returnComponentsFrom", { number: wo.number })}
       onClose={onClose}
       wide
       footer={
@@ -101,21 +101,21 @@ export function IssueDialog({
             {t("mfg.woDialogs.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || !chosen.length || problems.length > 0} data-testid={`wo-${mode}-submit`}>
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {mode === "issue" ? "Post issue" : "Post return"}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {mode === "issue" ? t("mfg.woDialogs.str.postIssue") : t("mfg.woDialogs.str.postReturn")}
           </button>
         </>
       }
     >
       <div className="col">
-        {mode === "issue" ? <p className="muted small" style={{ margin: 0 }}>Stock reserved for this work order is used first. Leave the lot empty to take the earliest expiry.</p> : null}
+        {mode === "issue" ? <p className="muted small" style={{ margin: 0 }}>{t("mfg.woDialogs.text.stockReservedForThisWork")}</p> : null}
         <div className="table-wrap" style={{ maxHeight: "50vh", overflow: "auto" }}>
           <table className="table mfg-grid-table">
             <thead>
               <tr>
                 <th>{t("mfg.woDialogs.head.part")}</th>
-                <th className="right">{mode === "issue" ? "Open" : "Issued"}</th>
+                <th className="right">{mode === "issue" ? t("mfg.woDialogs.str.open") : t("mfg.woDialogs.str.issued")}</th>
                 <th className="right">{t("mfg.woDialogs.head.reserved")}</th>
-                <th>{mode === "issue" ? "Issue now" : "Return"}</th>
+                <th>{mode === "issue" ? t("mfg.woDialogs.str.issueNow") : t("mfg.woDialogs.str.return")}</th>
                 <th>{t("mfg.woDialogs.head.location")}</th>
                 <th>{t("mfg.woDialogs.head.lot")}</th>
                 {mode === "issue" ? <th>Over-issue</th> : null}
@@ -132,17 +132,17 @@ export function IssueDialog({
                   </td>
                   <td className="right">{fmtNum(r.c.reserved_qty)}</td>
                   <td style={{ width: 100 }}>
-                    <input className="input sm num" type="number" min={0} aria-label={`Quantity ${r.c.item.part_number}`} value={r.qty} onChange={(e) => patch(i, { qty: e.target.value })} data-testid={`wo-${mode}-qty`} />
+                    <input className="input sm num" type="number" min={0} aria-label={t("mfg.woDialogs.tpl.quantity", { partnumber: r.c.item.part_number })} value={r.qty} onChange={(e) => patch(i, { qty: e.target.value })} data-testid={`wo-${mode}-qty`} />
                   </td>
                   <td style={{ minWidth: 170 }}>
-                    <LocationSelect label={`Location ${r.c.item.part_number}`} hideLabel value={r.location_id} onChange={(v) => patch(i, { location_id: v })} />
+                    <LocationSelect label={t("mfg.woDialogs.tpl.location", { partnumber: r.c.item.part_number })} hideLabel value={r.location_id} onChange={(v) => patch(i, { location_id: v })} />
                   </td>
                   <td>
-                    <input className="input sm" aria-label={`Lot ${r.c.item.part_number}`} value={r.lot_code} maxLength={64} placeholder={t("mfg.woDialogs.ph.earliestExpiry")} onChange={(e) => patch(i, { lot_code: e.target.value })} />
+                    <input className="input sm" aria-label={t("mfg.woDialogs.tpl.lot", { partnumber: r.c.item.part_number })} value={r.lot_code} maxLength={64} placeholder={t("mfg.woDialogs.ph.earliestExpiry")} onChange={(e) => patch(i, { lot_code: e.target.value })} />
                   </td>
                   {mode === "issue" ? (
                     <td>
-                      <input type="checkbox" aria-label={`Allow over-issue ${r.c.item.part_number}`} checked={r.over} onChange={(e) => patch(i, { over: e.target.checked })} />
+                      <input type="checkbox" aria-label={t("mfg.woDialogs.tpl.allowOverIssue", { partnumber: r.c.item.part_number })} checked={r.over} onChange={(e) => patch(i, { over: e.target.checked })} />
                     </td>
                   ) : null}
                 </tr>
@@ -157,7 +157,7 @@ export function IssueDialog({
             ))}
           </ul>
         ) : null}
-        <MfgError error={error} title="Nothing was posted" />
+        <MfgError error={error} title={t("mfg.woDialogs.attr.nothingWasPosted")} />
       </div>
     </Dialog>
   );
@@ -180,7 +180,7 @@ export function OutputDialog({ wo, onClose, onDone }: { wo: WorkOrderRecord; onC
   };
   return (
     <Dialog
-      title={`Report output of ${wo.number}`}
+      title={t("mfg.woDialogs.tpl.reportOutputOf", { number: wo.number })}
       onClose={onClose}
       footer={
         <>
@@ -188,14 +188,14 @@ export function OutputDialog({ wo, onClose, onDone }: { wo: WorkOrderRecord; onC
             {t("mfg.woDialogs.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || bad} data-testid="wo-receipt-submit">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Post output
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("mfg.woDialogs.text.postOutput")}
           </button>
         </>
       }
     >
       <div className="col">
         <p className="muted small" style={{ margin: 0 }}>
-          {t("common.nOfM", { n: fmtNum(wo.qty_completed), m: fmtNum(wo.qty) })} {wo.item.uom} done so far. Reaching the full quantity completes the work order and releases its reservations.
+          {t("mfg.woDialogs.text.doneSoFarReachingThe", { t: t("common.nOfM", { n: fmtNum(wo.qty_completed), m: fmtNum(wo.qty) }), uom: wo.item.uom })}
         </p>
         <div className="form-grid">
           <div className="field">
@@ -220,7 +220,7 @@ export function OutputDialog({ wo, onClose, onDone }: { wo: WorkOrderRecord; onC
             </>
           ) : null}
         </div>
-        <MfgError error={error} title="Nothing was posted" />
+        <MfgError error={error} title={t("mfg.woDialogs.attr.nothingWasPosted")} />
       </div>
     </Dialog>
   );
@@ -258,9 +258,9 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
   const problems = rows
     .map((r) => {
       const q = numOrNull(r.required);
-      if (!r.item) return "Choose a part for every new row.";
-      if (q === null || q < 0) return `${r.item.part_number}: enter the required quantity.`;
-      if (q < r.issued) return `${r.item.part_number}: cannot be less than the ${fmtNum(r.issued)} already issued.`;
+      if (!r.item) return t("mfg.woDialogs.str.chooseAPartForEvery");
+      if (q === null || q < 0) return t("mfg.woDialogs.tpl.enterTheRequiredQuantity", { partnumber: r.item.part_number });
+      if (q < r.issued) return t("mfg.woDialogs.tpl.cannotBeLessThanThe", { partnumber: r.item.part_number, issued: fmtNum(r.issued) });
       return null;
     })
     .filter((x): x is string => Boolean(x));
@@ -285,7 +285,7 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
   };
   return (
     <Dialog
-      title={`Components of ${wo.number}`}
+      title={t("mfg.woDialogs.tpl.componentsOf", { number: wo.number })}
       onClose={onClose}
       wide
       footer={
@@ -298,14 +298,14 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
             {t("mfg.woDialogs.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || problems.length > 0} data-testid="wo-components-save">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save components
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{t("mfg.woDialogs.text.saveComponents")}
           </button>
         </>
       }
     >
       <div className="col">
         <p className="muted small" style={{ margin: 0 }}>
-          The list was copied from the BOM when the order was created. Change it here, e.g. to use an alternate part. Issued components cannot be removed.
+          {t("mfg.woDialogs.text.theListWasCopiedFrom")}
         </p>
         <div className="table-wrap" style={{ maxHeight: "55vh", overflow: "auto" }}>
           <table className="table mfg-grid-table">
@@ -317,7 +317,7 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
                 <th className="right">{t("mfg.woDialogs.head.issued")}</th>
                 <th>{t("mfg.woDialogs.head.op")}</th>
                 <th>
-                  <span className="sr-only">Remove</span>
+                  <span className="sr-only">{t("mfg.woDialogs.text.remove")}</span>
                 </th>
               </tr>
             </thead>
@@ -325,20 +325,20 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
               {rows.map((r, i) => (
                 <tr key={r.key} data-testid="wo-component-edit-row">
                   <td style={{ width: 80 }}>
-                    <input className="input sm" aria-label={`Position ${i + 1}`} value={r.find_number} maxLength={16} onChange={(e) => patch(i, { find_number: e.target.value })} />
+                    <input className="input sm" aria-label={t("mfg.woDialogs.tpl.position", { v: i + 1 })} value={r.find_number} maxLength={16} onChange={(e) => patch(i, { find_number: e.target.value })} />
                   </td>
                   <td style={{ minWidth: 220 }}>
-                    {r.id ? <span className="mono">{r.item?.part_number}</span> : <ItemPicker label={`Component ${i + 1}`} hideLabel value={r.item} onChange={(it) => patch(i, { item: it })} />}
+                    {r.id ? <span className="mono">{r.item?.part_number}</span> : <ItemPicker label={t("mfg.woDialogs.tpl.component", { v: i + 1 })} hideLabel value={r.item} onChange={(it) => patch(i, { item: it })} />}
                   </td>
                   <td style={{ width: 110 }}>
-                    <input className="input sm num" type="number" min={r.issued} aria-label={`Required ${r.item?.part_number ?? i + 1}`} value={r.required} onChange={(e) => patch(i, { required: e.target.value })} />
+                    <input className="input sm num" type="number" min={r.issued} aria-label={t("mfg.woDialogs.tpl.required", { v: r.item?.part_number ?? i + 1 })} value={r.required} onChange={(e) => patch(i, { required: e.target.value })} />
                   </td>
                   <td className="right">{fmtNum(r.issued)}</td>
                   <td style={{ width: 80 }}>
-                    <input className="input sm num" type="number" aria-label={`Operation ${i + 1}`} value={r.operation_seq} onChange={(e) => patch(i, { operation_seq: e.target.value })} />
+                    <input className="input sm num" type="number" aria-label={t("mfg.woDialogs.tpl.operation", { v: i + 1 })} value={r.operation_seq} onChange={(e) => patch(i, { operation_seq: e.target.value })} />
                   </td>
                   <td>
-                    <button type="button" className="btn sm ghost icon" aria-label={`Remove component ${i + 1}`} disabled={r.issued > 0} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
+                    <button type="button" className="btn sm ghost icon" aria-label={t("mfg.woDialogs.tpl.removeComponent", { v: i + 1 })} disabled={r.issued > 0} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
                       <Icon name="trash" />
                     </button>
                   </td>
@@ -354,7 +354,7 @@ export function ComponentsEditor({ wo, input, onClose, onSaved }: { wo: WorkOrde
             ))}
           </ul>
         ) : null}
-        <MfgError error={error} title="Could not save" />
+        <MfgError error={error} title={t("mfg.woDialogs.attr.couldNotSave")} />
       </div>
     </Dialog>
   );

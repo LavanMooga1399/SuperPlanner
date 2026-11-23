@@ -44,10 +44,10 @@ export function previewWithCommitErrors(preview: PreviewData | null, details: Re
 }
 
 const STEPS: { key: Step; label: string }[] = [
-  { key: "upload", label: "Upload" },
-  { key: "map", label: "Map columns" },
-  { key: "preview", label: "Preview" },
-  { key: "done", label: "Done" },
+  { key: "upload", label: t("mfg.importWizard.str.upload") },
+  { key: "map", label: t("mfg.importWizard.str.mapColumns") },
+  { key: "preview", label: t("mfg.importWizard.str.preview") },
+  { key: "done", label: t("mfg.importWizard.str.done") },
 ];
 
 function Stepper({ current }: { current: Step }) {
@@ -108,14 +108,14 @@ export function ImportWizard() {
           <section className="card card-body col">
             <h3>{t("mfg.importWizard.head.startFromATemplate")}</h3>
             <p className="muted small" style={{ margin: 0 }}>
-              One sheet per kind of data with the expected columns, an example row and a README sheet explaining each field.
+              {t("mfg.importWizard.text.oneSheetPerKindOf")}
             </p>
             <TemplateButtons />
           </section>
           <section className="card card-body col">
             <h3>{t("mfg.importWizard.head.exportYourData")}</h3>
             <p className="muted small" style={{ margin: 0 }}>
-              Everything in the same format, ready to edit in Excel and import again.
+              {t("mfg.importWizard.text.everythingInTheSameFormat")}
             </p>
             <ExportButtons compact />
           </section>
@@ -168,7 +168,7 @@ function ImportSession({ importId }: { importId: string }) {
             </Link>
           }
         >
-          Uploaded files are kept for 24 hours. Upload the file again to continue.
+          {t("mfg.importWizard.text.uploadedFilesAreKeptFor")}
         </Banner>
       </div>
     );
@@ -195,7 +195,7 @@ function ImportSession({ importId }: { importId: string }) {
       setMapping(initialMapping(next));
       go("preview");
     } catch (e) {
-      if (isConflict(e)) await refresh("This import was changed in another tab; the latest version is shown.").catch(setError);
+      if (isConflict(e)) await refresh(t("mfg.importWizard.str.thisImportWasChangedIn")).catch(setError);
       else setError(e);
     } finally {
       setBusy(false);
@@ -228,10 +228,10 @@ function ImportSession({ importId }: { importId: string }) {
           /* keep the errors from the refused commit */
         }
       } else if (e instanceof ApiError && e.code === "MFG_IMPORT_ALREADY_COMMITTED") {
-        await refresh("This import was already saved.").catch(setError);
+        await refresh(t("mfg.importWizard.str.thisImportWasAlreadySaved")).catch(setError);
         go("done");
       } else if (isConflict(e)) {
-        await refresh("This import was changed in another tab; check the preview again.").catch(setError);
+        await refresh(t("mfg.importWizard.str.thisImportWasChangedIn2")).catch(setError);
       } else setError(e);
     } finally {
       setBusy(false);
@@ -257,17 +257,17 @@ function ImportSession({ importId }: { importId: string }) {
       <Stepper current={step} />
       <div className="row wrap small muted">
         <Icon name="file" /> <strong>{rec.filename}</strong> ({rec.format}) · {rec.sheets.length} {rec.sheets.length === 1 ? "sheet" : "sheets"}
-        {rec.status !== "committed" ? ` · kept until ${fmtTimestamp(rec.expires_at)}` : ""}
+        {rec.status !== "committed" ? t("mfg.importWizard.tpl.keptUntil", { expiresat: fmtTimestamp(rec.expires_at) }) : ""}
       </div>
       {notice ? <Banner tone="info" role="status" title={notice} /> : null}
-      <MfgError error={error} title={step === "preview" ? "Could not save the import" : "Could not check the file"} />
+      <MfgError error={error} title={step === "preview" ? t("mfg.importWizard.str.couldNotSaveTheImport") : t("mfg.importWizard.str.couldNotCheckTheFile")} />
       {isForbidden(error) ? (
         <ul className="mfg-problem-list" data-testid="import-sheet-permissions">
           {Object.values(mapping.sheets)
             .filter((m) => m.target)
             .map((m) => (
               <li key={m.target}>
-                {sheetLabel(m.target!)}: needs {sheetKind(m.target).perm}
+                {t("mfg.importWizard.text.needs", { sheetLabel: sheetLabel(m.target!), perm: sheetKind(m.target).perm })}
               </li>
             ))}
         </ul>
@@ -278,9 +278,9 @@ function ImportSession({ importId }: { importId: string }) {
           <ImportMapping record={rec} value={mapping} onChange={setMapping} />
           <div className="row mfg-sticky-actions">
             <button type="button" className="btn primary" onClick={() => void runPreview()} disabled={busy || blocked || !anyTarget} data-testid="import-preview-submit">
-              {busy ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />} Preview the changes
+              {busy ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />}{" "}{t("mfg.importWizard.text.previewTheChanges")}
             </button>
-            {!anyTarget ? <span className="small muted">Choose what at least one sheet contains.</span> : null}
+            {!anyTarget ? <span className="small muted">{t("mfg.importWizard.text.chooseWhatAtLeastOne")}</span> : null}
             <span className="grow" />
             <button type="button" className="btn ghost" onClick={() => void discard()} data-testid="import-discard">
               <Icon name="x" /> {t("mfg.importWizard.btn.cancelImport")}
@@ -293,12 +293,12 @@ function ImportSession({ importId }: { importId: string }) {
         <>
           {errors > 0 ? (
             <Banner tone="danger" icon="x" title={t("mfg.importWizard.title.fixTheseRowsBeforeImporting")} testId="import-has-errors">
-              {staleCommit ? "The data changed after the preview, so these rows can no longer be imported. Nothing was saved. " : null}
-              Nothing is saved while the file has errors. Correct them in your file and upload it again (your column mapping is kept), or change the mapping.
+              {staleCommit ? t("mfg.importWizard.str.theDataChangedAfterThe") : null}
+              {t("mfg.importWizard.text.nothingIsSavedWhileThe")}
             </Banner>
           ) : (
             <Banner tone="ok" title={t("mfg.importWizard.title.readyToImport")}>
-              All rows can be imported. Everything is saved in one step; if anything fails nothing is changed.
+              {t("mfg.importWizard.text.allRowsCanBeImported")}
             </Banner>
           )}
           <ImportPreview preview={rec.preview} filename={rec.filename} />
@@ -309,10 +309,10 @@ function ImportSession({ importId }: { importId: string }) {
               onClick={() => void commit()}
               disabled={busy || errors > 0}
               aria-disabled={errors > 0}
-              title={errors > 0 ? "Fix the row errors first" : undefined}
+              title={errors > 0 ? t("mfg.importWizard.str.fixTheRowErrorsFirst") : undefined}
               data-testid="import-commit"
             >
-              {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Import now
+              {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("mfg.importWizard.text.importNow")}
             </button>
             <button type="button" className="btn" onClick={() => go("map")} data-testid="import-back-to-map">
               {t("mfg.importWizard.btn.changeTheMapping")}

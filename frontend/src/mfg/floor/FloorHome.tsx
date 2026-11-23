@@ -22,12 +22,12 @@ function LinePicker({ current, onPick }: { current: string | null; onPick(id: st
   const lines = useLoad((signal) => listLines({ active: true }, signal), []);
   const groups = useLoad((signal) => listGroups({}, signal), []);
   useEffect(() => {
-    document.title = "Choose a line - Floor";
+    document.title = t("floor.floorHome.str.chooseALineFloor");
   }, []);
   const byGroup = new Map<string, { code: string; name: string; lines: { id: string; code: string; name: string }[] }>();
   for (const g of groups.data?.items ?? []) byGroup.set(g.id, { code: g.code, name: g.name, lines: [] });
   for (const l of lines.data?.items ?? []) {
-    const g = byGroup.get(l.group_id) ?? { code: "", name: "Other", lines: [] };
+    const g = byGroup.get(l.group_id) ?? { code: "", name: t("floor.floorHome.str.other"), lines: [] };
     g.lines.push({ id: l.id, code: l.code, name: l.name });
     byGroup.set(l.group_id, g);
   }
@@ -35,7 +35,7 @@ function LinePicker({ current, onPick }: { current: string | null; onPick(id: st
     <section className="floor-card">
       <h1>{t("floor.floorHome.head.whichLineIsThisTablet")}</h1>
       <p className="muted" style={{ margin: 0 }}>
-        The choice is remembered on this device. You can also scan the line's barcode (LIN:code).
+        {t("floor.floorHome.text.theChoiceIsRememberedOn")}
       </p>
       <MfgError error={lines.error ?? groups.error} onRetry={lines.reload} />
       {lines.loading && !lines.data ? <Spinner /> : null}

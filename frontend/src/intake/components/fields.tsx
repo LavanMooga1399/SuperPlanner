@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import type { DraftAmount, DraftDuration, DurationUnit } from "../api/types";
 import { formatRange, isRange, num, UNIT_LABEL } from "../lib/pert";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 function parseNum(s: string): number | null {
   const t = s.replace(/[,\s₹$€]/g, "");
@@ -56,7 +56,7 @@ export function NumField({
       aria-label={label}
       aria-invalid={bad || invalid || undefined}
       aria-describedby={describedBy}
-      title={bad ? "Enter a number" : undefined}
+      title={bad ? tr("studio.fields.str.enterANumber") : undefined}
       data-testid={testId}
       onChange={(e) => {
         setText(e.target.value);
@@ -101,7 +101,7 @@ export function AmountRangeInput({
       </span>
       <NumField
         value={high}
-        label={`${label}, to (leave empty for an exact amount)`}
+        label={tr("studio.fields.tpl.toLeaveEmptyForAn", { label: label })}
         describedBy={describedBy}
         invalid={invalid}
         onChange={(v) => {
@@ -191,12 +191,12 @@ export function DurationRangeInput({
     <span className="col" style={{ gap: 2 }}>
       <span className="row" style={{ gap: 4, flexWrap: "wrap" }}>
         <NumField value={value.optimistic} width={56} allowEmpty={false} label={`${label}, shortest`} describedBy={describedBy} invalid={invalid} onChange={set("optimistic")} />
-        <NumField value={value.likely} width={56} allowEmpty={false} label={`${label}, most likely`} describedBy={describedBy} invalid={invalid} onChange={set("likely")} />
+        <NumField value={value.likely} width={56} allowEmpty={false} label={tr("studio.fields.tpl.mostLikely", { label: label })} describedBy={describedBy} invalid={invalid} onChange={set("likely")} />
         <NumField value={value.pessimistic} width={56} allowEmpty={false} label={`${label}, longest`} describedBy={describedBy} invalid={invalid} onChange={set("pessimistic")} />
         {unitSel}
       </span>
       <span className="small muted">
-        <span aria-hidden>Shortest / likely / longest: </span>
+        <span aria-hidden>{tr("studio.fields.text.shortestLikelyLongest")}{" "}</span>
         {formatRange(value)}
       </span>
       {!isRange(value) ? (

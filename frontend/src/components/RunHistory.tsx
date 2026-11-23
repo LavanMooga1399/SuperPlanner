@@ -41,7 +41,7 @@ export function RunHistory({
             render: (r) => (
               <span>
                 {fmtLocal(r.created_at)}
-                {r.source_schedule_id ? <span className="chip" style={{ marginLeft: 6 }}>Replan</span> : null}
+                {r.source_schedule_id ? <span className="chip" style={{ marginLeft: 6 }}>{t("studio.runHistory.text.replan")}</span> : null}
               </span>
             ),
           },
@@ -53,7 +53,7 @@ export function RunHistory({
           { key: "took", header: "Took", width: "80px", align: "right", sortValue: (r) => r.elapsed_seconds ?? null, render: (r) => fmtSeconds(r.elapsed_seconds) },
           {
             key: "actions",
-            header: <span className="sr-only">Links</span>,
+            header: <span className="sr-only">{t("studio.runHistory.text.links")}</span>,
             label: "Links",
             width: "170px",
             exportValue: () => "",

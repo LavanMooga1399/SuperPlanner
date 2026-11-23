@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { Icon, type IconName } from "../../components/Icon";
 import type { Provenance } from "../api/types";
+import { t } from "../../lib/i18n";
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
@@ -10,9 +11,9 @@ export function confidenceLevel(c: number): ConfidenceLevel {
 }
 
 const LEVEL: Record<ConfidenceLevel, { label: string; icon: IconName; tone: string }> = {
-  high: { label: "High", icon: "check", tone: "ok" },
-  medium: { label: "Medium", icon: "info", tone: "warn" },
-  low: { label: "Low", icon: "alert", tone: "danger" },
+  high: { label: t("studio.confidenceBadge.str.high"), icon: "check", tone: "ok" },
+  medium: { label: t("studio.confidenceBadge.str.medium"), icon: "info", tone: "warn" },
+  low: { label: t("studio.confidenceBadge.str.low"), icon: "alert", tone: "danger" },
 };
 
 /** Where a value came from, in plain words. */
@@ -20,19 +21,19 @@ export function provenanceText(p: Provenance): string {
   const note = p.note ? ` (${p.note})` : "";
   switch (p.source) {
     case "text":
-      return p.span ? `Read from: "${p.span.text}"${note}` : `Read from your text${note}`;
+      return p.span ? t("studio.confidenceBadge.tpl.readFrom", { text: p.span.text, note: note }) : t("studio.confidenceBadge.tpl.readFromYourText", { note: note });
     case "table":
-      return p.cell ? `Read from row ${p.cell.row + 1}, column ${p.cell.column + 1} of your table${note}` : `Read from your table${note}`;
+      return p.cell ? t("studio.confidenceBadge.tpl.readFromRowColumnOf", { v: p.cell.row + 1, v2: p.cell.column + 1, note: note }) : t("studio.confidenceBadge.tpl.readFromYourTable", { note: note });
     case "ai":
       return `Suggested by AI assist${p.span ? `, from "${p.span.text}"` : ""}${note}`;
     case "default":
-      return `Default${note}`;
+      return t("studio.confidenceBadge.tpl.default", { note: note });
     case "derived":
-      return `${p.note || "Worked out from other values"}${p.span ? `, from "${p.span.text}"` : ""}`;
+      return `${p.note || t("studio.confidenceBadge.str.workedOutFromOtherValues")}${p.span ? `, from "${p.span.text}"` : ""}`;
     case "answer":
-      return "Your answer";
+      return t("studio.confidenceBadge.str.yourAnswer");
     case "edit":
-      return "You entered this";
+      return t("studio.confidenceBadge.str.youEnteredThis");
   }
 }
 
@@ -45,7 +46,7 @@ export function ConfidenceBadge({ path, provenance }: { path: string; provenance
   if (!provenance) return null;
   const mine = provenance.source === "edit" || provenance.source === "answer";
   const level = confidenceLevel(provenance.confidence);
-  const m = mine ? { label: "Yours", icon: "check" as IconName, tone: "info" } : LEVEL[level];
+  const m = mine ? { label: t("studio.confidenceBadge.str.yours"), icon: "check" as IconName, tone: "info" } : LEVEL[level];
   const text = provenanceText(provenance);
   return (
     <span

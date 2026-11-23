@@ -13,51 +13,51 @@ import { MfgError } from "./Feedback";
 import { t } from "../../lib/i18n";
 
 const SHEET_LABEL: Record<string, string> = {
-  plant: "Plant settings",
-  items: "Items",
-  skills: "Skills",
-  tool_pools: "Tooling",
-  groups: "Stages",
-  lines: "Lines",
-  shift_templates: "Shift templates",
-  shifts: "Shifts",
-  shift_assignments: "Shift assignments",
-  calendar_exceptions: "Holidays and maintenance",
-  operators: "Operators",
-  boms: "BOM headers",
-  bom_lines: "BOM lines",
-  routings: "Routing headers",
-  operations: "Operations",
-  locations: "Stores locations",
-  suppliers: "Suppliers",
-  item_suppliers: "Suppliers per part",
-  stock: "Stock on hand",
-  purchase_docs: "Purchase orders / requests",
-  purchase_lines: "Purchase lines",
-  purchase_schedules: "Purchase deliveries",
-  demand_orders: "Demand orders",
-  demand_lines: "Demand lines",
-  work_orders: "Work orders",
-  wo_components: "Work order components",
+  plant: t("mfg.importUpload.str.plantSettings"),
+  items: t("mfg.importUpload.str.items"),
+  skills: t("mfg.importUpload.str.skills"),
+  tool_pools: t("mfg.importUpload.str.tooling"),
+  groups: t("mfg.importUpload.str.stages"),
+  lines: t("mfg.importUpload.str.lines"),
+  shift_templates: t("mfg.importUpload.str.shiftTemplates"),
+  shifts: t("mfg.importUpload.str.shifts"),
+  shift_assignments: t("mfg.importUpload.str.shiftAssignments"),
+  calendar_exceptions: t("mfg.importUpload.str.holidaysAndMaintenance"),
+  operators: t("mfg.importUpload.str.operators"),
+  boms: t("mfg.importUpload.str.bomHeaders"),
+  bom_lines: t("mfg.importUpload.str.bomLines"),
+  routings: t("mfg.importUpload.str.routingHeaders"),
+  operations: t("mfg.importUpload.str.operations"),
+  locations: t("mfg.importUpload.str.storesLocations"),
+  suppliers: t("mfg.importUpload.str.suppliers"),
+  item_suppliers: t("mfg.importUpload.str.suppliersPerPart"),
+  stock: t("mfg.importUpload.str.stockOnHand"),
+  purchase_docs: t("mfg.importUpload.str.purchaseOrdersRequests"),
+  purchase_lines: t("mfg.importUpload.str.purchaseLines"),
+  purchase_schedules: t("mfg.importUpload.str.purchaseDeliveries"),
+  demand_orders: t("mfg.importUpload.str.demandOrders"),
+  demand_lines: t("mfg.importUpload.str.demandLines"),
+  work_orders: t("mfg.importUpload.str.workOrders"),
+  wo_components: t("mfg.importUpload.str.workOrderComponents"),
 };
 
 /** M2 11: what kind of data a sheet is, and which permission a commit with it needs (shown per card). */
 export const SHEET_KIND: Record<string, { label: string; perm: string }> = {
-  locations: { label: "Master data", perm: "Planner" },
-  suppliers: { label: "Master data", perm: "Planner or Purchaser" },
-  item_suppliers: { label: "Master data", perm: "Planner or Purchaser" },
-  stock: { label: "Stock (posted as a count)", perm: "Store keeper" },
-  purchase_docs: { label: "Purchasing", perm: "Purchaser (orders) or Planner (requests)" },
-  purchase_lines: { label: "Purchasing", perm: "Purchaser (orders) or Planner (requests)" },
-  purchase_schedules: { label: "Purchasing", perm: "Purchaser (orders) or Planner (requests)" },
-  demand_orders: { label: "Demand", perm: "Planner" },
-  demand_lines: { label: "Demand", perm: "Planner" },
-  work_orders: { label: "Work orders", perm: "Planner" },
-  wo_components: { label: "Work orders", perm: "Planner" },
+  locations: { label: t("mfg.importUpload.str.masterData"), perm: t("mfg.importUpload.str.planner") },
+  suppliers: { label: t("mfg.importUpload.str.masterData"), perm: t("mfg.importUpload.str.plannerOrPurchaser") },
+  item_suppliers: { label: t("mfg.importUpload.str.masterData"), perm: t("mfg.importUpload.str.plannerOrPurchaser") },
+  stock: { label: t("mfg.importUpload.str.stockPostedAsACount"), perm: t("mfg.importUpload.str.storeKeeper") },
+  purchase_docs: { label: t("mfg.importUpload.str.purchasing"), perm: t("mfg.importUpload.str.purchaserOrdersOrPlannerRequests") },
+  purchase_lines: { label: t("mfg.importUpload.str.purchasing"), perm: t("mfg.importUpload.str.purchaserOrdersOrPlannerRequests") },
+  purchase_schedules: { label: t("mfg.importUpload.str.purchasing"), perm: t("mfg.importUpload.str.purchaserOrdersOrPlannerRequests") },
+  demand_orders: { label: t("mfg.importUpload.str.demand"), perm: t("mfg.importUpload.str.planner") },
+  demand_lines: { label: t("mfg.importUpload.str.demand"), perm: t("mfg.importUpload.str.planner") },
+  work_orders: { label: t("mfg.importUpload.str.workOrders"), perm: t("mfg.importUpload.str.planner") },
+  wo_components: { label: t("mfg.importUpload.str.workOrders"), perm: t("mfg.importUpload.str.planner") },
 };
 
 export function sheetKind(name: string | null): { label: string; perm: string } {
-  return (name && SHEET_KIND[name]) || { label: "Master data", perm: "Planner" };
+  return (name && SHEET_KIND[name]) || { label: t("mfg.importUpload.str.masterData"), perm: t("mfg.importUpload.str.planner") };
 }
 
 export function sheetLabel(name: string): string {
@@ -121,11 +121,10 @@ export function ImportUpload({ onUploaded, reuseNote }: { onUploaded(rec: Import
         >
           <Icon name="upload" size={28} />
           <span>
-            <strong>Drop an Excel (.xlsx), CSV or zip file here</strong> or click to choose
+            <strong>{t("mfg.importUpload.text.dropAnExcelXlsxCsv")}</strong>{" "}{t("mfg.importUpload.text.orClickToChoose")}
           </span>
           <span className="muted small">
-            Column names do not need to match exactly: you map them in the next step.
-            {limit ? ` Up to ${fmtBytes(limit)}.` : ""}
+            {t("mfg.importUpload.text.columnNamesDoNotNeed", { v: limit ? t("mfg.importUpload.tpl.upTo", { limit: fmtBytes(limit) }) : "" })}
           </span>
           <input type="file" accept=".xlsx,.xlsm,.csv,.txt,.zip" className="sr-only" onChange={(e) => pick(e.target.files?.[0] ?? null)} data-testid="import-file-input" />
         </label>
@@ -138,7 +137,7 @@ export function ImportUpload({ onUploaded, reuseNote }: { onUploaded(rec: Import
         ) : null}
         {tooBig && limit !== null ? (
           <span className="field-error" role="alert" data-testid="import-too-big">
-            <Icon name="alert" size={12} /> This file is {fmtBytes(file.size)}; the server accepts at most {fmtBytes(limit)}. Split it into smaller files (for example items and BOMs separately).
+            <Icon name="alert" size={12} />{" "}{t("mfg.importUpload.text.thisFileIsTheServer", { size: fmtBytes(file.size), limit: fmtBytes(limit) })}
           </span>
         ) : null}
         {isCsv ? (
@@ -153,10 +152,10 @@ export function ImportUpload({ onUploaded, reuseNote }: { onUploaded(rec: Import
             </select>
           </div>
         ) : null}
-        <MfgError error={error} title="The file could not be read" />
+        <MfgError error={error} title={t("mfg.importUpload.attr.theFileCouldNotBe")} />
         <div className="row">
           <button type="button" className="btn primary" disabled={!file || tooBig || busy} onClick={() => void upload()} data-testid="import-upload-submit">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="upload" />} Upload and continue
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="upload" />}{" "}{t("mfg.importUpload.text.uploadAndContinue")}
           </button>
         </div>
       </div>

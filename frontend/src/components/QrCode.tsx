@@ -1,6 +1,7 @@
 /** QR code as SVG (M5 3.2 TOTP enrolment). Black on white with a quiet zone, whatever the theme. */
 import { useMemo } from "react";
 import { qrMatrix } from "../lib/qrcode";
+import { t } from "../lib/i18n";
 
 export function QrCode({ text, size = 200, label, testId }: { text: string; size?: number; label: string; testId?: string }) {
   const m = useMemo(() => {
@@ -10,7 +11,7 @@ export function QrCode({ text, size = 200, label, testId }: { text: string; size
       return null;
     }
   }, [text]);
-  if (!m) return <span className="badge danger">The code is too long to show as a QR code; enter the key by hand.</span>;
+  if (!m) return <span className="badge danger">{t("studio.qrCode.text.theCodeIsTooLong")}</span>;
   const q = 4;
   const n = m.length + q * 2;
   let d = "";

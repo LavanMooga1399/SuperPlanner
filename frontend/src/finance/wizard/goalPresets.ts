@@ -1,6 +1,7 @@
 import type { FinancePlan, Goal, GoalKind, Priority } from "../api/types";
 import { nextId } from "../lib/ids";
 import { addMonths, currentUtcMonth } from "../lib/months";
+import { t } from "../../lib/i18n";
 
 export interface GoalPreset {
   key: string;
@@ -27,13 +28,13 @@ export function presets(plan: FinancePlan): GoalPreset[] {
   const age = plan.profile.age;
   const retireYears = age !== null ? Math.max(1, plan.profile.retirement_age - age) : 25;
   return [
-    { key: "retirement", label: "Retirement", description: "A corpus for when you stop working", kind: "retirement", priority: "must", years: retireYears, amount: retirementTarget(plan), inflation_pct: null, flexibility_months: 0 },
-    { key: "education", label: "Child education", description: "Education costs often rise faster (9% a year)", kind: "education", priority: "must", years: 15, amount: 2500000, inflation_pct: 9, flexibility_months: 0 },
-    { key: "home", label: "Home down payment", description: "The part of a home price you pay upfront", kind: "home", priority: "must", years: 5, amount: 1500000, inflation_pct: null, flexibility_months: 6 },
-    { key: "vehicle", label: "Car", description: "A vehicle bought without a loan", kind: "vehicle", priority: "should", years: 4, amount: 800000, inflation_pct: null, flexibility_months: 12 },
-    { key: "travel", label: "Travel", description: "A big trip", kind: "travel", priority: "nice", years: 2, amount: 300000, inflation_pct: null, flexibility_months: 12 },
-    { key: "wedding", label: "Wedding", description: "Wedding costs for you or family", kind: "wedding", priority: "should", years: 3, amount: 1000000, inflation_pct: null, flexibility_months: 12 },
-    { key: "other", label: "Other goal", description: "Anything else you want to fund", kind: "other", priority: "should", years: 5, amount: 500000, inflation_pct: null, flexibility_months: 0 },
+    { key: "retirement", label: t("finance.goalPresets.str.retirement"), description: t("finance.goalPresets.str.aCorpusForWhenYou"), kind: "retirement", priority: "must", years: retireYears, amount: retirementTarget(plan), inflation_pct: null, flexibility_months: 0 },
+    { key: "education", label: t("finance.goalPresets.str.childEducation"), description: t("finance.goalPresets.str.educationCostsOftenRiseFaster"), kind: "education", priority: "must", years: 15, amount: 2500000, inflation_pct: 9, flexibility_months: 0 },
+    { key: "home", label: t("finance.goalPresets.str.homeDownPayment"), description: t("finance.goalPresets.str.thePartOfAHome"), kind: "home", priority: "must", years: 5, amount: 1500000, inflation_pct: null, flexibility_months: 6 },
+    { key: "vehicle", label: t("finance.goalPresets.str.car"), description: t("finance.goalPresets.str.aVehicleBoughtWithoutA"), kind: "vehicle", priority: "should", years: 4, amount: 800000, inflation_pct: null, flexibility_months: 12 },
+    { key: "travel", label: t("finance.goalPresets.str.travel"), description: t("finance.goalPresets.str.aBigTrip"), kind: "travel", priority: "nice", years: 2, amount: 300000, inflation_pct: null, flexibility_months: 12 },
+    { key: "wedding", label: t("finance.goalPresets.str.wedding"), description: t("finance.goalPresets.str.weddingCostsForYouOr"), kind: "wedding", priority: "should", years: 3, amount: 1000000, inflation_pct: null, flexibility_months: 12 },
+    { key: "other", label: t("finance.goalPresets.str.otherGoal"), description: t("finance.goalPresets.str.anythingElseYouWantTo"), kind: "other", priority: "should", years: 5, amount: 500000, inflation_pct: null, flexibility_months: 0 },
   ];
 }
 

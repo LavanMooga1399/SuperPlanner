@@ -22,7 +22,7 @@ export function mrpItemColumns(runId: string): Column<MrpItemRow>[] {
   return [
     {
       key: "pn",
-      header: "Part number",
+      header: t("mfg.runItemsTab.str.partNumber"),
       width: "minmax(150px, 1.2fr)",
       render: (r) => (
         <Link to={mfgPaths.runItem(runId, r.item.id)} className="mono mfg-ellipsis" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
@@ -30,21 +30,21 @@ export function mrpItemColumns(runId: string): Column<MrpItemRow>[] {
         </Link>
       ),
     },
-    { key: "desc", header: "Description", width: "minmax(150px, 1.4fr)", render: (r) => <span className="mfg-ellipsis">{r.item.description}</span> },
-    { key: "mb", header: "Make / buy", width: "100px", render: (r) => <MakeBuyBadge value={r.make_buy} /> },
-    { key: "llc", header: "Level", width: "56px", align: "right", render: (r) => r.llc },
-    { key: "oh", header: "On hand", width: "84px", align: "right", render: (r) => fmtNum(r.on_hand) },
-    { key: "gross", header: "Needed", width: "84px", align: "right", render: (r) => fmtNum(r.gross_qty) },
-    { key: "sup", header: "Open supply", width: "92px", align: "right", render: (r) => fmtNum(r.existing_supply_qty) },
-    { key: "pl", header: "Planned", width: "92px", align: "right", render: (r) => (r.planned_count ? `${fmtNum(r.planned_qty)} (${r.planned_count})` : <span className="faint">0</span>) },
+    { key: "desc", header: t("mfg.runItemsTab.str.description"), width: "minmax(150px, 1.4fr)", render: (r) => <span className="mfg-ellipsis">{r.item.description}</span> },
+    { key: "mb", header: t("mfg.runItemsTab.str.makeBuy"), width: "100px", render: (r) => <MakeBuyBadge value={r.make_buy} /> },
+    { key: "llc", header: t("mfg.runItemsTab.str.level"), width: "56px", align: "right", render: (r) => r.llc },
+    { key: "oh", header: t("mfg.runItemsTab.str.onHand"), width: "84px", align: "right", render: (r) => fmtNum(r.on_hand) },
+    { key: "gross", header: t("mfg.runItemsTab.str.needed"), width: "84px", align: "right", render: (r) => fmtNum(r.gross_qty) },
+    { key: "sup", header: t("mfg.runItemsTab.str.openSupply"), width: "92px", align: "right", render: (r) => fmtNum(r.existing_supply_qty) },
+    { key: "pl", header: t("mfg.runItemsTab.str.planned"), width: "92px", align: "right", render: (r) => (r.planned_count ? `${fmtNum(r.planned_qty)} (${r.planned_count})` : <span className="faint">0</span>) },
     {
       key: "short",
-      header: "Short",
+      header: t("mfg.runItemsTab.str.short"),
       width: "140px",
       render: (r) =>
         r.short_qty > 0 ? (
-          <span className="badge danger" title={`Short ${fmtNum(r.short_qty)} from ${fmtDate(r.first_short_date)} before planned orders`}>
-            <Icon name="alert" /> {fmtNum(r.short_qty)} from {fmtDate(r.first_short_date)}
+          <span className="badge danger" title={t("mfg.runItemsTab.tpl.shortFromBeforePlannedOrders", { shortqty: fmtNum(r.short_qty), firstshortdate: fmtDate(r.first_short_date) })}>
+            <Icon name="alert" />{" "}{t("mfg.runItemsTab.text.from", { shortqty: fmtNum(r.short_qty), firstshortdate: fmtDate(r.first_short_date) })}
           </span>
         ) : (
           <span className="faint">
@@ -52,9 +52,9 @@ export function mrpItemColumns(runId: string): Column<MrpItemRow>[] {
           </span>
         ),
     },
-    { key: "late", header: "Late qty", width: "76px", align: "right", render: (r) => (r.late_qty ? <span className="mfg-neg">{fmtNum(r.late_qty)}</span> : "") },
-    { key: "ex", header: "Messages", width: "80px", align: "right", render: (r) => (r.exception_count ? r.exception_count : "") },
-    { key: "lt", header: "Lead time", width: "minmax(130px, 1fr)", render: (r) => <span className="mfg-ellipsis small" title={leadTimeText(r.lead_time)}>{`${r.lead_time.days} ${r.lead_time.unit === "working" ? "wd" : "d"}`}</span> },
+    { key: "late", header: t("mfg.runItemsTab.str.lateQty"), width: "76px", align: "right", render: (r) => (r.late_qty ? <span className="mfg-neg">{fmtNum(r.late_qty)}</span> : "") },
+    { key: "ex", header: t("mfg.runItemsTab.str.messages"), width: "80px", align: "right", render: (r) => (r.exception_count ? r.exception_count : "") },
+    { key: "lt", header: t("mfg.runItemsTab.str.leadTime"), width: "minmax(130px, 1fr)", render: (r) => <span className="mfg-ellipsis small" title={leadTimeText(r.lead_time)}>{`${r.lead_time.days} ${r.lead_time.unit === "working" ? "wd" : "d"}`}</span> },
   ];
 }
 
@@ -83,28 +83,28 @@ export function RunItemsTab() {
         <div className="field">
           <label htmlFor="ri-mb">{t("mfg.runItemsTab.label.makeBuy")}</label>
           <select id="ri-mb" className="select" value={makeBuy} onChange={(e) => set("make_buy", e.target.value)}>
-            <option value="">All</option>
-            <option value="make">Make</option>
-            <option value="buy">Buy</option>
+            <option value="">{t("mfg.runItemsTab.text.all")}</option>
+            <option value="make">{t("mfg.runItemsTab.text.make")}</option>
+            <option value="buy">{t("mfg.runItemsTab.text.buy")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="ri-sort">{t("mfg.runItemsTab.label.sortBy")}</label>
           <select id="ri-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "llc" ? "" : e.target.value)}>
-            <option value="llc">BOM level</option>
-            <option value="part_number">Part number</option>
-            <option value="first_short_date">First short date</option>
-            <option value="-short_qty">Largest shortage</option>
+            <option value="llc">{t("mfg.runItemsTab.text.bomLevel")}</option>
+            <option value="part_number">{t("mfg.runItemsTab.text.partNumber")}</option>
+            <option value="first_short_date">{t("mfg.runItemsTab.text.firstShortDate")}</option>
+            <option value="-short_qty">{t("mfg.runItemsTab.text.largestShortage")}</option>
           </select>
         </div>
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
-          <input type="checkbox" checked={shortOnly} onChange={(e) => set("short", e.target.checked ? "1" : "")} data-testid="run-items-short" /> Only short
+          <input type="checkbox" checked={shortOnly} onChange={(e) => set("short", e.target.checked ? "1" : "")} data-testid="run-items-short" />{" "}{t("mfg.runItemsTab.text.onlyShort")}
         </label>
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
-          <input type="checkbox" checked={plannedOnly} onChange={(e) => set("planned", e.target.checked ? "1" : "")} /> With planned orders
+          <input type="checkbox" checked={plannedOnly} onChange={(e) => set("planned", e.target.checked ? "1" : "")} />{" "}{t("mfg.runItemsTab.text.withPlannedOrders")}
         </label>
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
-          <input type="checkbox" checked={exOnly} onChange={(e) => set("ex", e.target.checked ? "1" : "")} /> With messages
+          <input type="checkbox" checked={exOnly} onChange={(e) => set("ex", e.target.checked ? "1" : "")} />{" "}{t("mfg.runItemsTab.text.withMessages")}
         </label>
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
@@ -121,8 +121,8 @@ export function RunItemsTab() {
         onRowClick={(r) => navigate(mfgPaths.runItem(run.id, r.item.id))}
         onActivate={(r) => navigate(mfgPaths.runItem(run.id, r.item.id))}
         onEndReached={data.onEndReached}
-        empty={data.loading ? "Loading the plan…" : "No items match these filters."}
-        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} items · "Short" is before planned orders</span>}
+        empty={data.loading ? t("mfg.runItemsTab.str.loadingThePlan") : t("mfg.runItemsTab.str.noItemsMatchTheseFilters")}
+        footer={<span className="muted small">{t("mfg.runItemsTab.text.showingItemsShortIsBefore", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
       />
     </div>
   );

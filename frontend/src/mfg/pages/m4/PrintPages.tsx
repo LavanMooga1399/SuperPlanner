@@ -50,7 +50,7 @@ export function TravellerPage() {
   const opRows = ops.data?.items ?? [];
   return (
     <div className="col gap-lg print-page" data-testid="traveller">
-      <PrintBar title={`Traveller ${w.number}`} back={mfgPaths.workOrder(w.id)} />
+      <PrintBar title={t("mfg.printPages.tpl.traveller", { number: w.number })} back={mfgPaths.workOrder(w.id)} />
       {(!opRows.length || opRows.every((o) => !o.id)) && !ops.loading ? (
         <div className="banner warn no-print">
           <Icon name="alert" /> {t("mfg.printPages.btn.thisWorkOrderHasNo")}
@@ -59,7 +59,7 @@ export function TravellerPage() {
       <section className="traveller">
         <div className="traveller-head">
           <div className="col" style={{ gap: 4 }}>
-            <span className="faint small">WORK ORDER TRAVELLER</span>
+            <span className="faint small">{t("mfg.printPages.text.workOrderTraveller")}</span>
             <span style={{ fontSize: 26, fontWeight: 700 }} className="mono">
               {w.number}
             </span>
@@ -67,16 +67,16 @@ export function TravellerPage() {
               <span className="mono">{w.item.part_number}</span> {w.item.description ?? ""}
             </span>
             <span>
-              Qty <strong>{fmtNum(w.qty)}</strong> · start {fmtDate(w.start_date)} · due {fmtDate(w.due_date)} · priority P{w.priority}
+              {t("mfg.printPages.text.qty")}{" "}<strong>{fmtNum(w.qty)}</strong>{" "}{t("mfg.printPages.text.startDuePriorityP", { startdate: fmtDate(w.start_date), duedate: fmtDate(w.due_date), priority: w.priority })}
             </span>
             {w.demand_line ? (
               <span>
-                For {w.demand_line.order_number}/{w.demand_line.line_no}
+                {t("mfg.printPages.text.for", { ordernumber: w.demand_line.order_number, lineno: w.demand_line.line_no })}
               </span>
             ) : null}
             {w.serial_from !== null && w.serial_to !== null ? (
               <span>
-                Serials {w.serial_from} - {w.serial_to}
+                {t("mfg.printPages.text.serials", { serialfrom: w.serial_from, serialto: w.serial_to })}
               </span>
             ) : null}
           </div>
@@ -100,7 +100,7 @@ export function TravellerPage() {
                 <td>
                   {o.name}
                   {o.group?.code ? <div className="faint small">{o.group.code}</div> : null}
-                  {o.capture_serial ? <div className="small">Serial numbers captured here</div> : null}
+                  {o.capture_serial ? <div className="small">{t("mfg.printPages.text.serialNumbersCapturedHere")}</div> : null}
                 </td>
                 <td>
                   <Barcode value={`${w.number}/${o.seq}`} height={36} module={1.3} />
@@ -174,19 +174,19 @@ export function LabelsPage() {
     },
     [type, ids.join(","), params.get("item")],
   );
-  const title = type === "badge" ? "Operator badges" : type === "line" ? "Line cards" : type === "serial" ? "Serial labels" : "Lot labels";
+  const title = type === "badge" ? t("mfg.printPages.str.operatorBadges") : type === "line" ? t("mfg.printPages.str.lineCards") : type === "serial" ? t("mfg.printPages.str.serialLabels") : t("mfg.printPages.str.lotLabels");
   const labels = (data.data ?? []).flatMap((l) => Array.from({ length: copies }, (_, i) => ({ ...l, key: `${l.key}-${i}` })));
   return (
     <div className="col gap-lg print-page" data-testid="labels" data-type={type}>
       <PrintBar title={title} />
       {type === "badge" ? (
         <p className="muted no-print" style={{ margin: 0 }}>
-          Operators scan their badge on a shared station tablet to sign their work. Personal logins linked to an operator do not need one.
+          {t("mfg.printPages.text.operatorsScanTheirBadgeOn")}
         </p>
       ) : null}
       <MfgError error={data.error} onRetry={data.reload} />
       {data.loading && !data.data ? <Spinner /> : null}
-      {data.data && !labels.length ? <p className="muted">Nothing to print.</p> : null}
+      {data.data && !labels.length ? <p className="muted">{t("mfg.printPages.text.nothingToPrint")}</p> : null}
       <div className="label-sheet">
         {labels.map((l) => (
           <div key={l.key} className={`label${type === "badge" ? " label-badge" : ""}`} data-testid="label">

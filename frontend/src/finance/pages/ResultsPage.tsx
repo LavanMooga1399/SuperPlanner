@@ -88,7 +88,7 @@ export function ResultsPage() {
     try {
       const saved = await ctx.save();
       if (!saved) {
-        setRerunError("Your latest changes could not be saved, so the plan was not re-run. Open Setup to save them, then try again.");
+        setRerunError(t("finance.resultsPage.str.yourLatestChangesCouldNot"));
         return;
       }
       const created = await createFinanceRun(planId);
@@ -98,7 +98,7 @@ export function ResultsPage() {
       if (err instanceof ApiError && err.code === "RUN_ALREADY_ACTIVE" && typeof err.details.run_id === "string") {
         setParams({ run: err.details.run_id });
       } else if (err instanceof ApiError && err.code === "PREFLIGHT_FAILED") {
-        setRerunError("Your plan has errors. Open Setup > Review to fix them.");
+        setRerunError(t("finance.resultsPage.str.yourPlanHasErrorsOpen"));
       } else setRerunError(errorMessage(err));
     } finally {
       setRerunning(false);
@@ -114,10 +114,10 @@ export function ResultsPage() {
         <Banner
           tone={runEnd.status === "cancelled" ? "info" : "danger"}
           role="alert"
-          title={runEnd.status === "cancelled" ? "The run was cancelled." : "The run did not finish."}
-          actions={<button className="btn sm" onClick={() => void rerun()}>Try again</button>}
+          title={runEnd.status === "cancelled" ? t("finance.resultsPage.str.theRunWasCancelled") : t("finance.resultsPage.str.theRunDidNotFinish")}
+          actions={<button className="btn sm" onClick={() => void rerun()}>{t("finance.resultsPage.text.tryAgain")}</button>}
         >
-          {runEnd.error ?? "No result was stored."}
+          {runEnd.error ?? t("finance.resultsPage.str.noResultWasStored")}
         </Banner>
       ) : null}
       {rerunError ? <Banner tone="danger" role="alert">{rerunError}</Banner> : null}
@@ -127,7 +127,7 @@ export function ResultsPage() {
           <Icon name="layers" size={32} />
           <h2>{t("finance.resultsPage.head.noResultsYet")}</h2>
           <p>{t("finance.resultsPage.text.finishTheSetupAndBuild")}</p>
-          <Link className="btn primary" to={`/finance/${planId}/setup/review`}>Go to review</Link>
+          <Link className="btn primary" to={`/finance/${planId}/setup/review`}>{t("finance.resultsPage.text.goToReview")}</Link>
         </div>
       ) : null}
       {loading && !record ? <Loading label={t("finance.resultsPage.label.loadingResult")} /> : null}
@@ -194,8 +194,8 @@ function ResultView({
         <div className="card-body col">
           <span className="small muted">
             {basis === "real"
-              ? "Amounts in today's money. In practice, raise them with inflation each year."
-              : `Expected future amounts, assuming ${r.assumptions_used.inflation_pct}% inflation a year.`}
+              ? t("finance.resultsPage.str.amountsInTodaySMoney")
+              : t("finance.resultsPage.tpl.expectedFutureAmountsAssumingInflation", { inflationpct: r.assumptions_used.inflation_pct })}
           </span>
           <ContributionTable result={r} basis={basis} locale={locale} />
         </div>
@@ -221,8 +221,7 @@ function ResultView({
       {record.kind === "baseline" ? <FixList planId={planId} resultId={record.id} result={r} /> : null}
       <FinanceResultHistory planId={planId} currentId={record.id} currency={r.currency} locale={locale} refreshKey={historyKey} />
       <p className="small faint" style={{ margin: 0 }}>
-        Engine {r.engine_version} · {r.simulation_settings.n_paths} simulated market paths · solver {r.diagnostics.solver}
-        {r.optimality_proven ? "" : " (best found, not proven)"}
+        {t("finance.resultsPage.text.engineSimulatedMarketPathsSolver", { engineversion: r.engine_version, npaths: r.simulation_settings.n_paths, solver: r.diagnostics.solver, v: r.optimality_proven ? "" : t("finance.resultsPage.str.bestFoundNotProven") })}
       </p>
     </>
   );
@@ -239,9 +238,9 @@ export function CorpusCard({ result: r, locale }: { result: FinanceResult; local
       color: infos.get(k)?.color ?? "var(--fin-c8)",
       values: r.series.corpus_by_class[k],
     }));
-    out.push({ key: "emergency_fund", label: "Emergency fund", color: "var(--fin-c6)", values: r.series.emergency_fund });
-    out.push({ key: "cash_buffer", label: "Cash buffer", color: "var(--fin-c7)", values: r.series.cash_buffer });
-    out.push({ key: "unallocated", label: "Savings not assigned to a goal", color: "var(--fin-c8)", values: r.series.unallocated });
+    out.push({ key: "emergency_fund", label: t("finance.resultsPage.str.emergencyFund"), color: "var(--fin-c6)", values: r.series.emergency_fund });
+    out.push({ key: "cash_buffer", label: t("finance.resultsPage.str.cashBuffer"), color: "var(--fin-c7)", values: r.series.cash_buffer });
+    out.push({ key: "unallocated", label: t("finance.resultsPage.str.savingsNotAssignedToA"), color: "var(--fin-c8)", values: r.series.unallocated });
     return out.filter((l) => l.values.some((v) => v > 0.5));
   }, [r, infos]);
   const last = r.series.months.length - 1;
@@ -254,8 +253,7 @@ export function CorpusCard({ result: r, locale }: { result: FinanceResult; local
       </div>
       <div className="card-body">
         <span className="small muted">
-          Coloured areas show the plan with expected returns; the shaded band shows where 8 in 10 simulated outcomes fall (p10 to p90). Money
-          drops when a goal is paid.
+          {t("finance.resultsPage.text.colouredAreasShowThePlan")}
         </span>
         <StackedAreaChart
           months={r.series.months}
@@ -267,7 +265,7 @@ export function CorpusCard({ result: r, locale }: { result: FinanceResult; local
           ariaLabel={`Total savings and investments from ${r.start_month} to ${r.end_month}, stacked by asset class, emergency fund and cash, with the likely range.${
             last >= 0 ? ` At the end: ${fmt(r.series.total_p10[last] ?? 0)} to ${fmt(r.series.total_p90[last] ?? 0)}.` : ""
           }`}
-          caption="Savings and investments by asset class, yearly, today's money"
+          caption={t("finance.resultsPage.attr.savingsAndInvestmentsByAsset")}
         />
       </div>
     </section>
@@ -305,7 +303,7 @@ function GlideCard({ result: r }: { result: FinanceResult }) {
             formatY={(v) => `${Math.round(v)}%`}
             testId="glide-chart"
             ariaLabel={`Share of growth assets for ${goal?.name ?? "the goal"} from ${pts[0].month} to ${pts[pts.length - 1].month}: planned share starts at ${Math.round(pts[0].risky_share_pct)}% and ends at ${Math.round(pts[pts.length - 1].risky_share_pct)}%.`}
-            caption={`Glide path for ${goal?.name ?? "the goal"}`}
+            caption={t("finance.resultsPage.tpl.glidePathFor", { v: goal?.name ?? "the goal" })}
           />
         ) : (
           <div className="empty" data-testid="glide-chart">
@@ -313,8 +311,8 @@ function GlideCard({ result: r }: { result: FinanceResult }) {
           </div>
         )}
         <p className="small muted" style={{ margin: "8px 0 0" }}>
-          How much may be in <Term k="growth_assets">growth assets</Term> follows your <Term k="risk_level">risk level</Term> and the{" "}
-          <Term k="glide_path">glide path</Term>.
+          {t("finance.resultsPage.text.howMuchMayBeIn")}{" "}<Term k="growth_assets">{t("finance.resultsPage.text.growthAssets")}</Term>{" "}{t("finance.resultsPage.text.followsYour")}{" "}<Term k="risk_level">{t("finance.resultsPage.text.riskLevel")}</Term>{" "}{t("finance.resultsPage.text.andThe", { v: " " })}
+          <Term k="glide_path">{t("finance.resultsPage.text.glidePath")}</Term>.
         </p>
       </div>
     </section>

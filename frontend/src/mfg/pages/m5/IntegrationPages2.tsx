@@ -36,7 +36,7 @@ import { useCan } from "../../lib/permissions";
 import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 const EVENT_TYPES = [
   "work_order.created",
@@ -76,9 +76,9 @@ export function EndpointsTab() {
   return (
     <div className="col gap-lg" data-testid="int-endpoints">
       {created ? (
-        <Banner tone="ok" title={`Webhook "${created.name}" saved`} testId="endpoint-secret">
+        <Banner tone="ok" title={tr("mfg.integrationPages2.tpl.webhookSaved", { name: created.name })} testId="endpoint-secret">
           <div className="col" style={{ gap: 6 }}>
-            <span>Give this signing secret to the receiving system now; it is not shown again. The receiver checks the SP-Signature header with it.</span>
+            <span>{tr("mfg.integrationPages2.text.giveThisSigningSecretTo")}</span>
             <code className="totp-secret">{created.secret}</code>
             <div className="row">
               <button type="button" className="btn sm" onClick={() => void navigator.clipboard?.writeText(created.secret)}>
@@ -140,7 +140,7 @@ export function EndpointsTab() {
                       <Icon name="check" /> {t("mfg.integrationPages2.btn.upToDate")}
                     </span>
                   )}
-                  <span className="vt-sub">sent up to event #{e.cursor}</span>
+                  <span className="vt-sub">{tr("mfg.integrationPages2.text.sentUpToEvent", { cursor: e.cursor })}</span>
                   {testResult[e.id] ? (
                     <span className="vt-sub" data-testid="endpoint-test-result">
                       {testResult[e.id]}
@@ -153,7 +153,7 @@ export function EndpointsTab() {
               ? [
                   {
                     key: "actions",
-                    header: <span className="sr-only">Actions</span>,
+                    header: <span className="sr-only">{tr("mfg.integrationPages2.text.actions")}</span>,
                     label: "Actions",
                     width: "220px",
                     align: "right" as const,
@@ -164,7 +164,7 @@ export function EndpointsTab() {
                           type="button"
                           className="btn sm"
                           disabled={testing === e.id}
-                          title="Send what is waiting for this webhook now"
+                          title={tr("mfg.integrationPages2.attr.sendWhatIsWaitingFor")}
                           onClick={async () => {
                             setTesting(e.id);
                             try {
@@ -179,7 +179,7 @@ export function EndpointsTab() {
                           }}
                           data-testid="endpoint-test"
                         >
-                          Send now
+                          {tr("mfg.integrationPages2.text.sendNow")}
                         </button>
                         <button type="button" className="btn sm ghost" onClick={() => setEdit(e)}>
                           {t("mfg.integrationPages2.btn.edit")}
@@ -215,7 +215,7 @@ export function EndpointsTab() {
       ) : null}
       {del ? (
         <ConfirmDialog
-          title={`Remove webhook "${del.name}"?`}
+          title={tr("mfg.integrationPages2.tpl.removeWebhook", { name: del.name })}
           confirmLabel={t("mfg.integrationPages2.btn.remove")}
           danger
           onCancel={() => setDel(null)}
@@ -249,7 +249,7 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
   const urlOk = /^https:\/\/[^\s/]+/.test(url.trim());
   return (
     <Dialog
-      title={ep ? `Webhook ${ep.name}` : "Add webhook"}
+      title={ep ? tr("mfg.integrationPages2.tpl.webhook", { name: ep.name }) : tr("mfg.integrationPages2.str.addWebhook")}
       onClose={onClose}
       wide
       footer={
@@ -275,7 +275,7 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
             }}
             data-testid="endpoint-save"
           >
-            {ep ? "Save" : "Add"}
+            {ep ? tr("mfg.integrationPages2.str.save") : tr("mfg.integrationPages2.str.add")}
           </button>
         </>
       }
@@ -288,10 +288,10 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
         <div className="field">
           <label htmlFor="ep-url">{t("mfg.integrationPages2.label.addressHttps")}</label>
           <input id="ep-url" className="input mono" value={url} onChange={(e) => setUrl(e.target.value)} aria-invalid={!urlOk} data-testid="endpoint-url" />
-          <span className="hint">{urlOk ? "Each event is sent as a signed POST, in order; a failing event holds back later ones for this address." : "Use an https:// address."}</span>
+          <span className="hint">{urlOk ? tr("mfg.integrationPages2.str.eachEventIsSentAs") : "Use an https:// address."}</span>
         </div>
         <label className="checkbox">
-          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> All events
+          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />{" "}{tr("mfg.integrationPages2.text.allEvents")}
         </label>
         {!all ? (
           <div className="token-scopes">
@@ -315,14 +315,14 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
           </div>
         ) : null}
         <label className="checkbox">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active (off = pause sending; events wait)
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />{" "}{tr("mfg.integrationPages2.text.activeOffPauseSendingEvents")}
         </label>
         {ep ? (
           <label className="checkbox">
-            <input type="checkbox" checked={rotate} onChange={(e) => setRotate(e.target.checked)} /> Make a new signing secret (the receiver needs the new one)
+            <input type="checkbox" checked={rotate} onChange={(e) => setRotate(e.target.checked)} />{" "}{tr("mfg.integrationPages2.text.makeANewSigningSecret")}
           </label>
         ) : (
-          <span className="faint small">A signing secret is made for you and shown once after saving.</span>
+          <span className="faint small">{tr("mfg.integrationPages2.text.aSigningSecretIsMade")}</span>
         )}
         <MfgError error={error} />
       </div>
@@ -333,10 +333,10 @@ function EndpointDialog({ ep, onClose, onSaved }: { ep: Endpoint | null; onClose
 // ---------------------------------------------------------------- deliveries
 type DeliveryView = "pending" | "retrying" | "delivered" | "dead";
 const DELIVERY: Record<DeliveryView, { label: string; tone: string; icon: "check" | "clock" | "alert" | "refresh" }> = {
-  pending: { label: "Waiting", tone: "info", icon: "clock" },
-  retrying: { label: "Retrying", tone: "warn", icon: "refresh" },
-  delivered: { label: "Delivered", tone: "ok", icon: "check" },
-  dead: { label: "Failed (stopped)", tone: "danger", icon: "alert" },
+  pending: { label: tr("mfg.integrationPages2.str.waiting"), tone: "info", icon: "clock" },
+  retrying: { label: tr("mfg.integrationPages2.str.retrying"), tone: "warn", icon: "refresh" },
+  delivered: { label: tr("mfg.integrationPages2.str.delivered"), tone: "ok", icon: "check" },
+  dead: { label: tr("mfg.integrationPages2.str.failedStopped"), tone: "danger", icon: "alert" },
 };
 const viewOf = (d: Delivery): DeliveryView => (d.status === "pending" && d.attempts > 0 ? "retrying" : d.status);
 
@@ -367,19 +367,19 @@ export function DeliveriesTab() {
       <FilterBar>
         <div className="field">
           <span className="field-label" id="dl-status-label">
-            Status
+            {tr("mfg.integrationPages2.text.status")}
           </span>
           <div className="btn-group" role="group" aria-labelledby="dl-status-label">
             {(["", "dead", "pending", "delivered"] as const).map((s) => (
               <button key={s || "all"} type="button" className="btn" aria-pressed={status === s} onClick={() => setSearchParam(setParams, "status", s)}>
-                {s ? (s === "pending" ? "Waiting or retrying" : DELIVERY[s].label) : "All"}
+                {s ? (s === "pending" ? tr("mfg.integrationPages2.str.waitingOrRetrying") : DELIVERY[s].label) : tr("mfg.integrationPages2.str.all")}
               </button>
             ))}
           </div>
         </div>
       </FilterBar>
       <p className="muted small" style={{ margin: 0 }}>
-        Events go to each webhook one at a time, in order. A failing event is retried with growing pauses for up to 24 hours, then stops; events after it wait. Fix the receiver, then retry it.
+        {tr("mfg.integrationPages2.text.eventsGoToEachWebhook")}
       </p>
       <MfgError error={error ?? data.error} onRetry={data.reload} />
       <DataTable
@@ -401,7 +401,7 @@ export function DeliveriesTab() {
                   <span className={`badge ${m.tone}`}>
                     <Icon name={m.icon} /> {m.label}
                   </span>
-                  {v === "retrying" && d.next_attempt_at ? <span className="vt-sub">next try {when(d.next_attempt_at)}</span> : null}
+                  {v === "retrying" && d.next_attempt_at ? <span className="vt-sub">{tr("mfg.integrationPages2.text.nextTry", { nextattemptat: when(d.next_attempt_at) })}</span> : null}
                   {d.delivered_at ? <span className="vt-sub">{when(d.delivered_at)}</span> : null}
                 </span>
               );
@@ -411,7 +411,7 @@ export function DeliveriesTab() {
           { key: "answer", header: "Last answer", width: "minmax(180px, 1.4fr)", wrap: true, render: (d) => `${d.last_status_code ? `HTTP ${d.last_status_code}` : ""} ${d.last_error ?? ""}`.trim() },
           {
             key: "actions",
-            header: <span className="sr-only">Actions</span>,
+            header: <span className="sr-only">{tr("mfg.integrationPages2.text.actions")}</span>,
             label: "Actions",
             width: "120px",
             align: "right",
@@ -431,7 +431,7 @@ export function DeliveriesTab() {
         loading={data.loading}
         exportName="webhook-deliveries"
         rowExtras={(d) => ({ testId: "delivery-row", data: { status: d.status } })}
-        empty={status ? "No deliveries with this status." : "No deliveries yet. Events are sent once a webhook is set up."}
+        empty={status ? tr("mfg.integrationPages2.str.noDeliveriesWithThisStatus") : tr("mfg.integrationPages2.str.noDeliveriesYetEventsAre")}
         footer={<ShowMore shown={data.rows.length} total={data.total} noun="deliveries" loading={data.loading} onMore={data.onEndReached} />}
       />
     </div>
@@ -447,7 +447,7 @@ export function BatchesTab() {
   return (
     <div className="col gap-lg" data-testid="int-batches">
       <p className="muted small" style={{ margin: 0 }}>
-        Each batch from the ERP (REST, file drop or a publish from another plant) goes through the same checks as an edit here. Records that fail are rejected one by one; the rest are applied.
+        {tr("mfg.integrationPages2.text.eachBatchFromTheErp")}
       </p>
       <MfgError error={data.error} onRetry={data.reload} />
       <DataTable
@@ -492,9 +492,9 @@ export function BatchesTab() {
 }
 
 const ERROR_HELP: Record<string, string> = {
-  INT_SOR_CONFLICT: "This data is owned by SuperPlanner in this plant, so the ERP may not change it.",
-  INT_UNMAPPED_VALUE: "A code from the ERP has no mapping here. Add it under Code mappings and send the record again.",
-  INT_SCHEMA: "The record does not match the superplanner.v1 format.",
+  INT_SOR_CONFLICT: tr("mfg.integrationPages2.str.thisDataIsOwnedBy"),
+  INT_UNMAPPED_VALUE: tr("mfg.integrationPages2.str.aCodeFromTheErp"),
+  INT_SCHEMA: tr("mfg.integrationPages2.str.theRecordDoesNotMatch"),
 };
 
 const REC_STATUS: Record<BatchRecordResult["status"], { tone: string; icon: "plus" | "refresh" | "check" | "alert" }> = {
@@ -517,25 +517,25 @@ export function BatchPage() {
   return (
     <div className="col gap-lg" data-testid="batch-page" data-status={d.status}>
       <nav className="breadcrumb" aria-label={t("mfg.integrationPages2.aria.breadcrumb")}>
-        <Link to={mfgPaths.integration("batches")}>Data in</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.received_at)}</span>
+        <Link to={mfgPaths.integration("batches")}>{tr("mfg.integrationPages2.text.dataIn")}</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.received_at)}</span>
       </nav>
       <h2 style={{ margin: 0 }}>
         {d.entity} {d.source ? `from ${d.source}` : ""} <span className={`badge ${BATCH_TONE[d.status] ?? "info"}`}>{d.status}</span>
       </h2>
       <span className="muted small">
-        {d.idempotency_key ? <>Key <span className="mono">{d.idempotency_key}</span> · </> : null}
-        {d.filename ? <>File <span className="mono">{d.filename}</span> · </> : null}
-        resending the same batch with the same key changes nothing.
+        {d.idempotency_key ? <>{tr("mfg.integrationPages2.text.key")}{" "}<span className="mono">{d.idempotency_key}</span> · </> : null}
+        {d.filename ? <>{tr("mfg.integrationPages2.text.file")}{" "}<span className="mono">{d.filename}</span> · </> : null}
+        {tr("mfg.integrationPages2.text.resendingTheSameBatchWith")}
       </span>
       <FilterBar>
         <div className="field">
           <span className="field-label" id="br-show-label">
-            Show
+            {tr("mfg.integrationPages2.text.show")}
           </span>
           <div className="btn-group" role="group" aria-labelledby="br-show-label">
             {(["", "rejected", "created", "updated", "unchanged"] as const).map((s) => (
               <button key={s || "all"} type="button" className="btn" aria-pressed={only === s} onClick={() => setOnly(s)} data-testid={`batch-filter-${s || "all"}`}>
-                {s ? `${s[0].toUpperCase()}${s.slice(1)} (${d.counts[s] ?? 0})` : `All (${results.length})`}
+                {s ? `${s[0].toUpperCase()}${s.slice(1)} (${d.counts[s] ?? 0})` : tr("mfg.integrationPages2.tpl.all", { length: results.length })}
               </button>
             ))}
           </div>
@@ -572,7 +572,7 @@ export function BatchPage() {
                     {ERROR_HELP[e.code] ? <span className="vt-sub">{ERROR_HELP[e.code]}</span> : null}
                     {e.code === "INT_UNMAPPED_VALUE" ? (
                       <span className="vt-sub">
-                        <Link to={mfgPaths.integration("value-maps")}>Add a code mapping</Link>
+                        <Link to={mfgPaths.integration("value-maps")}>{tr("mfg.integrationPages2.text.addACodeMapping")}</Link>
                       </span>
                     ) : null}
                   </span>
@@ -602,13 +602,13 @@ export function EventsTab() {
   return (
     <div className="col gap-lg" data-testid="int-events">
       <p className="muted small" style={{ margin: 0 }}>
-        What SuperPlanner reports to the ERP, in order. The ERP can read this feed itself (GET /api/v1/integration/events?after=…) with a plant token, receive it by webhook, or as files.
+        {tr("mfg.integrationPages2.text.whatSuperplannerReportsToThe")}
       </p>
       <div className="toolbar">
         <div className="field">
           <label htmlFor="ev-type">{t("mfg.integrationPages2.label.type")}</label>
           <select id="ev-type" className="select sm" value={type} onChange={(e) => { setType(e.target.value); setAfter(0); }}>
-            <option value="">All</option>
+            <option value="">{tr("mfg.integrationPages2.text.all")}</option>
             {EVENT_TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -631,7 +631,7 @@ export function EventsTab() {
           { key: "ref", header: "Record", width: "minmax(180px, 1fr)", render: (e) => <span className="mono small">{e.entity_ref ?? ""}</span> },
           {
             key: "actions",
-            header: <span className="sr-only">Data</span>,
+            header: <span className="sr-only">{tr("mfg.integrationPages2.text.data")}</span>,
             label: "Data",
             width: "80px",
             align: "right",
@@ -661,7 +661,7 @@ export function EventsTab() {
       {open !== null && (ev.data?.items ?? []).some((e) => e.seq === open) ? (
         <section className="card">
           <div className="card-header">
-            <h2>Event #{open}</h2>
+            <h2>{tr("mfg.integrationPages2.text.event", { open: open })}</h2>
             <button type="button" className="btn sm ghost" onClick={() => setOpen(null)}>
               <Icon name="x" /> {t("mfg.integrationPages2.btn.close")}
             </button>
@@ -682,20 +682,20 @@ export function FiledropTab() {
   const profiles = useLoad((signal) => listMappingProfiles(signal), []);
   usePolling(st.reload, true, 30000);
   const s = st.data;
-  const code = settings.data?.plant_code || "<plant code>";
+  const code = settings.data?.plant_code || tr("mfg.integrationPages2.str.plantCode");
   return (
     <div className="col gap-lg" data-testid="int-filedrop">
       <MfgError error={st.error} onRetry={st.reload} />
       {s ? (
         <>
-          {!s.enabled ? <Banner tone="info" title={t("mfg.integrationPages2.title.fileDropIsOff")}>Turn it on under Settings, Files.</Banner> : null}
+          {!s.enabled ? <Banner tone="info" title={t("mfg.integrationPages2.title.fileDropIsOff")}>{tr("mfg.integrationPages2.text.turnItOnUnderSettings")}</Banner> : null}
           <p className="muted small" style={{ margin: 0 }}>
-            Folder <span className="mono">{s.root ? `${s.root}/` : ""}{code}/inbox</span>. Files are read once their size stops changing (or a .done file appears), checked like an import, then moved to archive with a .result.json, or to error with a report.
-            {s.last_poll_at ? ` Last check ${when(s.last_poll_at)}.` : ""}
+            {tr("mfg.integrationPages2.text.folder")}{" "}<span className="mono">{s.root ? `${s.root}/` : ""}{code}/inbox</span>. Files are read once their size stops changing (or a .done file appears), checked like an import, then moved to archive with a .result.json, or to error with a report.
+            {s.last_poll_at ? tr("mfg.integrationPages2.tpl.lastCheck", { lastpollat: when(s.last_poll_at) }) : ""}
           </p>
           <section className="card card-table">
             <div className="card-header">
-              <h2>Waiting in the inbox ({s.inbox.length})</h2>
+              <h2>{tr("mfg.integrationPages2.text.waitingInTheInbox", { length: s.inbox.length })}</h2>
             </div>
             <DataTable
               rows={s.inbox}
@@ -734,7 +734,7 @@ export function FiledropTab() {
                 { key: "counts", header: "Records", width: "minmax(160px, 1.4fr)", render: (r) => (r.counts ? Object.entries(r.counts).map(([k, v]) => `${v} ${k}`).join(" · ") : "") },
                 { key: "errors", header: "Row errors", width: "110px", sortValue: (r) => r.errors ?? 0, render: (r) => (r.errors ? `${r.errors} row errors` : "") },
                 { key: "at", header: "When", width: "160px", sortValue: (r) => r.at ?? null, render: (r) => when(r.at) },
-                { key: "batch", header: <span className="sr-only">Results</span>, label: "Results", width: "90px", exportValue: () => "", render: (r) => (r.batch_id ? <Link to={mfgPaths.integrationBatch(r.batch_id)}>Results</Link> : null) },
+                { key: "batch", header: <span className="sr-only">{tr("mfg.integrationPages2.text.results")}</span>, label: "Results", width: "90px", exportValue: () => "", render: (r) => (r.batch_id ? <Link to={mfgPaths.integrationBatch(r.batch_id)}>{tr("mfg.integrationPages2.text.results")}</Link> : null) },
               ]}
               rowKey={(_, i) => i}
               label={t("mfg.integrationPages2.label.recentFiles")}
@@ -766,7 +766,7 @@ export function FiledropTab() {
           loading={profiles.loading && !profiles.data}
           empty={
             <>
-              None. Save a mapping in <Link to={mfgPaths.importStart()}>Import</Link> for a sample file; files named like it use it. superplanner.v1 JSON needs no mapping.
+              {tr("mfg.integrationPages2.text.noneSaveAMappingIn")}{" "}<Link to={mfgPaths.importStart()}>{tr("mfg.integrationPages2.text.import")}</Link>{" "}{tr("mfg.integrationPages2.text.forASampleFileFiles")}
             </>
           }
         />
@@ -779,10 +779,10 @@ const fmtBytes = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` 
 
 // ---------------------------------------------------------------- code mappings
 const DOMAINS = [
-  { key: "uom", label: "Units of measure", hint: "e.g. NOS -> EA" },
-  { key: "location", label: "Locations", hint: "ERP storage location -> location code" },
-  { key: "reason", label: "Reason codes", hint: "" },
-  { key: "status", label: "Statuses", hint: "" },
+  { key: "uom", label: tr("mfg.integrationPages2.str.unitsOfMeasure"), hint: "e.g. NOS -> EA" },
+  { key: "location", label: tr("mfg.integrationPages2.str.locations"), hint: tr("mfg.integrationPages2.str.erpStorageLocationLocationCode") },
+  { key: "reason", label: tr("mfg.integrationPages2.str.reasonCodes"), hint: "" },
+  { key: "status", label: tr("mfg.integrationPages2.str.statuses"), hint: "" },
 ];
 
 export function ValueMapsTab() {
@@ -803,7 +803,7 @@ export function ValueMapsTab() {
     <section className="card" data-testid="int-value-maps">
       <div className="card-header">
         <h2>{t("mfg.integrationPages2.head.codeMappings")}</h2>
-        <span className="muted small">Translate the ERP's codes to this plant's. Unmapped codes reject the record.</span>
+        <span className="muted small">{tr("mfg.integrationPages2.text.translateTheErpSCodes")}</span>
       </div>
       <MfgError error={vm.error ?? error} onRetry={vm.reload} />
       <table className="table">
@@ -883,7 +883,7 @@ export function ValueMapsTab() {
 }
 
 // ---------------------------------------------------------------- reconciliation
-const RECON_KIND: Record<ReconKind, string> = { missing_in_sp: "Only in the ERP", missing_in_erp: "Only here", different: "Different" };
+const RECON_KIND: Record<ReconKind, string> = { missing_in_sp: tr("mfg.integrationPages2.str.onlyInTheErp"), missing_in_erp: tr("mfg.integrationPages2.str.onlyHere"), different: tr("mfg.integrationPages2.str.different") };
 
 /** CSV (item_ref,location_code,lot_code,qty) or superplanner.v1 JSON (records or a batch) -> stock snapshot records */
 function parseSnapshot(name: string, text: string): StockSnapshotV1[] {
@@ -906,7 +906,7 @@ function parseRaw(name: string, text: string): StockSnapshotV1[] {
   const cl = col(["location_code", "location"]);
   const clot = col(["lot_code", "lot"]);
   const cq = col(["qty", "quantity", "on_hand"]);
-  if (ci < 0 || cl < 0 || cq < 0) throw new Error("The file needs the columns item_ref, location_code and qty (lot_code optional).");
+  if (ci < 0 || cl < 0 || cq < 0) throw new Error(tr("mfg.integrationPages2.str.theFileNeedsTheColumns"));
   return lines.slice(1).map((l) => {
     const c = l.split(/[;,\t]/).map((x) => x.trim());
     return { item_ref: c[ci], location_code: c[cl], lot_code: clot >= 0 ? c[clot] || null : null, qty: Number(c[cq]) };
@@ -929,7 +929,7 @@ export function ReconciliationTab() {
         </div>
         <div className="card-body col">
           <p className="muted" style={{ margin: 0 }}>
-            Load the ERP's stock list (CSV with item_ref, location_code, lot_code, qty, or superplanner.v1 JSON). It is compared by item, location and lot with this plant. Nothing is changed; differences can be turned into a count posting after review.
+            {tr("mfg.integrationPages2.text.loadTheErpSStock")}
           </p>
           <div className="field">
             <label htmlFor="rc-file">{t("mfg.integrationPages2.label.erpStockFile")}</label>
@@ -951,7 +951,7 @@ export function ReconciliationTab() {
               }}
               data-testid="recon-file"
             />
-            {records ? <span className="hint">{records.length} stock lines read from {file}.</span> : null}
+            {records ? <span className="hint">{tr("mfg.integrationPages2.text.stockLinesReadFrom", { length: records.length, file: file })}</span> : null}
           </div>
           <MfgError error={error} />
           <div>
@@ -1001,7 +1001,7 @@ function summaryText(sum: Record<string, Partial<Record<string, number>>> | null
   const parts: string[] = [];
   for (const [ent, m] of Object.entries(sum))
     for (const k of Object.keys(RECON_KIND) as ReconKind[]) if (m?.[k]) parts.push(`${ent}: ${m[k]} ${RECON_KIND[k].toLowerCase()}`);
-  return parts.join(" · ") || "everything matches";
+  return parts.join(" · ") || tr("mfg.integrationPages2.str.everythingMatches");
 }
 
 export function ReconciliationPage() {
@@ -1029,14 +1029,14 @@ export function ReconciliationPage() {
   return (
     <div className="col gap-lg" data-testid="recon-page" data-status={d.status}>
       <nav className="breadcrumb" aria-label={t("mfg.integrationPages2.aria.breadcrumb")}>
-        <Link to={mfgPaths.integration("reconciliation")}>Reconciliation</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.created_at)}</span>
+        <Link to={mfgPaths.integration("reconciliation")}>{tr("mfg.integrationPages2.text.reconciliation")}</Link> <Icon name="chevron-right" size={12} /> <span>{when(d.created_at)}</span>
       </nav>
       {d.status === "queued" || d.status === "running" ? <Spinner label={t("mfg.integrationPages2.label.comparing")} /> : null}
-      {d.status === "failed" ? <Banner tone="danger" title={t("mfg.integrationPages2.title.theComparisonFailed")}>Try again; if it keeps failing, check the file.</Banner> : null}
+      {d.status === "failed" ? <Banner tone="danger" title={t("mfg.integrationPages2.title.theComparisonFailed")}>{tr("mfg.integrationPages2.text.tryAgainIfItKeeps")}</Banner> : null}
       {d.status === "completed" ? (
         <div className="row wrap" role="group" aria-label={t("mfg.integrationPages2.aria.show")}>
           <button type="button" className={`btn sm${!kind ? " primary" : ""}`} aria-pressed={!kind} onClick={() => setKind("")}>
-            All: {rows.length}
+            {tr("mfg.integrationPages2.text.all2", { length: rows.length })}
           </button>
           {(Object.keys(RECON_KIND) as ReconKind[]).map((k) => (
             <button key={k} type="button" className={`btn sm${kind === k ? " primary" : ""}`} aria-pressed={kind === k} onClick={() => setKind(k)} data-testid={`recon-kind-${k}`} data-count={count(k)}>
@@ -1045,15 +1045,15 @@ export function ReconciliationPage() {
           ))}
           <span className="grow" />
           {stockDiffs.length && canCount ? (
-            <button type="button" className="btn sm primary" onClick={() => void toCount()} data-testid="recon-to-count" title="Opens a count posting with the ERP quantities for review">
-              Review as stock count ({stockDiffs.length})
+            <button type="button" className="btn sm primary" onClick={() => void toCount()} data-testid="recon-to-count" title={tr("mfg.integrationPages2.attr.opensACountPostingWith")}>
+              {tr("mfg.integrationPages2.text.reviewAsStockCount", { length: stockDiffs.length })}
             </button>
           ) : null}
         </div>
       ) : null}
       {d.status === "completed" && !rows.length ? (
         <Banner tone="ok" title={t("mfg.integrationPages2.title.everythingMatches")} testId="recon-clean">
-          No differences between the ERP and this plant.
+          {tr("mfg.integrationPages2.text.noDifferencesBetweenTheErp")}
         </Banner>
       ) : null}
       {shown.length ? (
@@ -1072,7 +1072,7 @@ export function ReconciliationPage() {
               render: (x) => (
                 <span>
                   <span className={`badge ${x.kind === "different" ? "warn" : "info"}`}>{RECON_KIND[x.kind]}</span>
-                  {x.delta !== undefined ? <span className="small faint"> ERP {x.delta > 0 ? "+" : ""}{x.delta}</span> : null}
+                  {x.delta !== undefined ? <span className="small faint">{" "}{tr("mfg.integrationPages2.text.erp", { v: x.delta > 0 ? "+" : "" })}{x.delta}</span> : null}
                 </span>
               ),
             },
@@ -1098,11 +1098,11 @@ async function findItemRef(partNumber: string) {
 
 export function PlantTokensTab() {
   const can = useCan("integration_admin");
-  if (!can) return <p className="muted">Plant admins create plant tokens.</p>;
+  if (!can) return <p className="muted">{tr("mfg.integrationPages2.text.plantAdminsCreatePlantTokens")}</p>;
   return (
     <div className="col gap-lg">
       <p className="muted" style={{ margin: 0 }}>
-        A plant token lets the ERP or its middleware call SuperPlanner for this plant without a personal login: send batches (POST /api/v1/integration/batches with an Idempotency-Key) and read events.
+        {tr("mfg.integrationPages2.text.aPlantTokenLetsThe")}
       </p>
       <TokenManager kind="plant" />
     </div>

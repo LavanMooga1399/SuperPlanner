@@ -543,13 +543,13 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
     let ri = ri0;
     if (dRow) {
       if (!rowsAreLines) {
-        setKbMsg("Changing the line works in the By line view only.");
+        setKbMsg(tr("mfg.prodGantt.str.changingTheLineWorksIn"));
         return true;
       }
       let k = ri0 + dRow;
       while (k >= 0 && k < visibleRows.length && !lineIdOfRow(visibleRows[k].key)) k += dRow;
       if (k < 0 || k >= visibleRows.length) {
-        setKbMsg("No further line in that direction.");
+        setKbMsg(tr("mfg.prodGantt.str.noFurtherLineInThat"));
         return true;
       }
       ri = k;
@@ -630,7 +630,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
                       type="button"
                       className="mfg-chevron"
                       aria-expanded={!collapsed.has(r.key)}
-                      aria-label={`${collapsed.has(r.key) ? "Expand" : "Collapse"} ${r.label}`}
+                      aria-label={`${collapsed.has(r.key) ? tr("mfg.prodGantt.str.expand") : tr("mfg.prodGantt.str.collapse")} ${r.label}`}
                       onClick={() =>
                         setCollapsed((s) => {
                           const n = new Set(s);
@@ -668,7 +668,7 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
               onHover(null);
             }}
             role="img"
-            aria-label={`Gantt chart with ${data.bars.length} operations on ${visibleRows.length} rows`}
+            aria-label={tr("mfg.prodGantt.tpl.ganttChartWithOperationsOn", { length: data.bars.length, length2: visibleRows.length })}
             data-testid="gantt-canvas"
             data-bars={data.bars.length}
             data-rows={visibleRows.length}
@@ -683,25 +683,24 @@ export function ProdGantt({ data, clock, from, to, zoom, onZoom, editable, rowsA
           </div>
           <div className="small">
             {clock.dateTime(hover.bar.start)} – {clock.dateTime(hover.bar.end)}
-            {hover.bar.setup_end ? ` · setup until ${clock.time(hover.bar.setup_end)}` : ""}
+            {hover.bar.setup_end ? tr("mfg.prodGantt.tpl.setupUntil", { setupend: clock.time(hover.bar.setup_end) }) : ""}
           </div>
-          {hover.bar.late_minutes > 0 ? <div className="small mfg-neg">Late by {fmtDuration(hover.bar.late_minutes)}</div> : null}
-          {hover.bar.frozen ? <div className="small">Frozen (inside the freeze window of the published plan)</div> : null}
-          {hover.bar.locked ? <div className="small">Locked by an edit</div> : null}
-          {hover.bar.moved_by_downtime ? <div className="small">Moved because the line is down</div> : null}
-          {hover.bar.load_no ? <div className="small">Batch load B{hover.bar.load_no}</div> : null}
+          {hover.bar.late_minutes > 0 ? <div className="small mfg-neg">{tr("mfg.prodGantt.text.lateBy", { lateminutes: fmtDuration(hover.bar.late_minutes) })}</div> : null}
+          {hover.bar.frozen ? <div className="small">{tr("mfg.prodGantt.text.frozenInsideTheFreezeWindow")}</div> : null}
+          {hover.bar.locked ? <div className="small">{tr("mfg.prodGantt.text.lockedByAnEdit")}</div> : null}
+          {hover.bar.moved_by_downtime ? <div className="small">{tr("mfg.prodGantt.text.movedBecauseTheLineIs")}</div> : null}
+          {hover.bar.load_no ? <div className="small">{tr("mfg.prodGantt.text.batchLoadB", { loadno: hover.bar.load_no })}</div> : null}
           {hover.bar.actual && (hover.bar.actual.start ?? hover.bar.actual.actual_start) ? (
             <div className="small" data-testid="gantt-tooltip-actual">
-              Actual: {OP_STATUS[hover.bar.actual.status as WoOpStatus]?.label.toLowerCase() ?? hover.bar.actual.status} since {clock.dateTime(hover.bar.actual.start ?? hover.bar.actual.actual_start)}
-              {hover.bar.actual.end ?? hover.bar.actual.actual_end ? `, ended ${clock.dateTime(hover.bar.actual.end ?? hover.bar.actual.actual_end)}` : ""}
+              {tr("mfg.prodGantt.text.actualSince", { v: OP_STATUS[hover.bar.actual.status as WoOpStatus]?.label.toLowerCase() ?? hover.bar.actual.status, clock: clock.dateTime(hover.bar.actual.start ?? hover.bar.actual.actual_start), v2: hover.bar.actual.end ?? hover.bar.actual.actual_end ? `, ended ${clock.dateTime(hover.bar.actual.end ?? hover.bar.actual.actual_end)}` : "" })}
             </div>
           ) : null}
           {hover.bar.split && hover.bar.split.count > 1 ? (
             <div className="small">
-              Split part {tr("common.nOfM", { n: hover.bar.split.index + 1, m: hover.bar.split.count })}
+              {tr("mfg.prodGantt.text.splitPart", { tr: tr("common.nOfM", { n: hover.bar.split.index + 1, m: hover.bar.split.count }) })}
             </div>
           ) : null}
-          <div className="small muted">{hoverReason ?? "Why it starts here: loading…"}</div>
+          <div className="small muted">{hoverReason ?? tr("mfg.prodGantt.str.whyItStartsHereLoading")}</div>
         </div>
       ) : null}
     </div>

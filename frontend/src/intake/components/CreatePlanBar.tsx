@@ -33,18 +33,16 @@ function ScheduleSummary({ build, draft }: { build: ScheduleBuildResult; draft: 
     <div className="col" style={{ gap: 4 }} data-testid="intake-build-summary">
       <div>
         <strong>
-          {plural(p.tasks.length, taskWords[0], taskWords[1])} in {plural(draft.tasks.length, "step", "steps")}, {resWord}
+          {t("studio.createPlanBar.text.in", { length: plural(p.tasks.length, taskWords[0], taskWords[1]), length2: plural(draft.tasks.length, "step", "steps"), resWord: resWord })}
         </strong>
         {p.tasks.length > draft.tasks.length ? (
-          <span className="small muted"> (long steps are split into parts that fit the working hours)</span>
+          <span className="small muted">{" "}{t("studio.createPlanBar.text.longStepsAreSplitInto")}</span>
         ) : null}
       </div>
       {ds && ds.tasks_with_range > 0 ? (
         <div className="small" data-testid="intake-pert-note">
           <Icon name="info" size={14} /> {plural(ds.tasks_with_range, "step has", "steps have")} a{" "}
-          <Term k="duration_range">duration range</Term>. The plan uses the <Term k="expected_duration">expected values</Term>:
-          about {formatWorkMinutes(ds.expected_work_minutes)} of work in total, between {formatWorkMinutes(ds.optimistic_work_minutes)} and{" "}
-          {formatWorkMinutes(ds.pessimistic_work_minutes)}.
+          <Term k="duration_range">{t("studio.createPlanBar.text.durationRange")}</Term>. The plan uses the <Term k="expected_duration">{t("studio.createPlanBar.text.expectedValues")}</Term>{t("studio.createPlanBar.text.aboutOfWorkInTotal", { expectedworkminutes: formatWorkMinutes(ds.expected_work_minutes), optimisticworkminutes: formatWorkMinutes(ds.optimistic_work_minutes), v: " ", pessimisticworkminutes: formatWorkMinutes(ds.pessimistic_work_minutes) })}
         </div>
       ) : null}
     </div>
@@ -70,9 +68,9 @@ function FinanceSummary({ build, draft }: { build: FinanceBuildResult; draft: Fi
       {v !== undefined && v !== null ? (
         <div data-testid="intake-cashflow">
           {v >= 0
-            ? `About ${formatMoney(roundDisplay(v), cur, loc)} left each month in the first year`
-            : `About ${formatMoney(roundDisplay(-v), cur, loc)} short each month in the first year`}
-          <span className="small muted"> (after expenses and loan payments, before saving for goals)</span>
+            ? t("studio.createPlanBar.tpl.aboutLeftEachMonthIn", { formatMoney: formatMoney(roundDisplay(v), cur, loc) })
+            : t("studio.createPlanBar.tpl.aboutShortEachMonthIn", { formatMoney: formatMoney(roundDisplay(-v), cur, loc) })}
+          <span className="small muted">{" "}{t("studio.createPlanBar.text.afterExpensesAndLoanPayments")}</span>
         </div>
       ) : null}
     </div>
@@ -90,7 +88,7 @@ export function CreatePlanBar() {
   if (!resp) return null;
   const draft = resp.draft;
   const lines: Line[] = [];
-  for (const q of resp.questions.filter((x) => x.required)) lines.push({ severity: "needed", text: `Still needed: ${q.prompt}` });
+  for (const q of resp.questions.filter((x) => x.required)) lines.push({ severity: "needed", text: t("studio.createPlanBar.tpl.stillNeeded", { prompt: q.prompt }) });
   for (const p of draftProblems(draft)) lines.push({ severity: "error", text: `${pathLabel(draft, p.path)}: ${p.message}` });
   const build = buildFresh ? state.build : null;
   if (build) {
@@ -100,30 +98,30 @@ export function CreatePlanBar() {
       for (const i of (build as FinanceBuildResult).preflight?.issues ?? []) lines.push({ severity: i.severity, text: i.message });
     }
     for (const q of build.blocking) {
-      if (!resp.questions.some((x) => x.id === q.id)) lines.push({ severity: "needed", text: `Still needed: ${q.prompt}` });
+      if (!resp.questions.some((x) => x.id === q.id)) lines.push({ severity: "needed", text: t("studio.createPlanBar.tpl.stillNeeded", { prompt: q.prompt }) });
     }
   }
   const blocked = lines.some((l) => l.severity !== "warning");
   const canCreate = !!build && build.ready && !blocked && busy === null && !checking;
   const reason = checking
-    ? "Checking the draft…"
+    ? t("studio.createPlanBar.str.checkingTheDraft")
     : blocked
-      ? "Fix the points listed above to create the plan."
+      ? t("studio.createPlanBar.str.fixThePointsListedAbove")
       : !build
-        ? 'Press "Check draft" to see what the plan will contain.'
+        ? t("studio.createPlanBar.str.pressCheckDraftToSee")
         : !build.ready
-          ? "The draft is not ready yet."
-          : "Nothing is saved until you press Create plan. You can change everything afterwards.";
+          ? t("studio.createPlanBar.str.theDraftIsNotReady")
+          : t("studio.createPlanBar.str.nothingIsSavedUntilYou");
 
   return (
     <section className="card create-bar" aria-labelledby="intake-review-title">
       <div className="card-header">
         <h3 id="intake-review-title" style={{ margin: 0 }}>
-          Review
+          {t("studio.createPlanBar.text.review")}
         </h3>
         {checking ? (
           <span className="small muted row" role="status">
-            <span className="spinner" aria-hidden /> Checking the draft…
+            <span className="spinner" aria-hidden />{" "}{t("studio.createPlanBar.text.checkingTheDraft")}
           </span>
         ) : null}
       </div>
@@ -141,7 +139,7 @@ export function CreatePlanBar() {
               <li key={i} className={`issue-line ${l.severity}`} data-severity={l.severity}>
                 <Icon name={l.severity === "warning" ? "info" : "alert"} size={14} />
                 <span>
-                  <span className="sr-only">{l.severity === "warning" ? "Note: " : l.severity === "error" ? "Problem: " : ""}</span>
+                  <span className="sr-only">{l.severity === "warning" ? t("studio.createPlanBar.str.note") : l.severity === "error" ? t("studio.createPlanBar.str.problem") : ""}</span>
                   {l.text}
                 </span>
               </li>
@@ -154,7 +152,7 @@ export function CreatePlanBar() {
         ) : null}
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
           <button type="button" className="btn primary" data-testid="intake-create" disabled={!canCreate} aria-describedby="intake-create-why" onClick={() => void create()}>
-            {busy === "create" ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Create plan
+            {busy === "create" ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("studio.createPlanBar.text.createPlan")}
           </button>
           <button type="button" className="btn" data-testid="intake-build" disabled={busy !== null || checking} onClick={() => void checkDraft()}>
             <Icon name="refresh" /> {t("studio.createPlanBar.btn.checkDraft")}
@@ -179,7 +177,7 @@ export function CreatePlanBar() {
             startOver();
           }}
         >
-          The draft, your answers and your changes are discarded. Your {state.flow === "import" ? "table" : "text"} stays in the box.
+          {t("studio.createPlanBar.text.theDraftYourAnswersAnd", { v: state.flow === "import" ? "table" : "text" })}
         </ConfirmDialog>
       ) : null}
     </section>

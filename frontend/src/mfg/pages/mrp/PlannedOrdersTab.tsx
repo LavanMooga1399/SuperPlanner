@@ -63,7 +63,7 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
   };
   return (
     <Dialog
-      title={`Convert ${orders.length} planned ${orders.length === 1 ? "order" : "orders"}`}
+      title={t("mfg.plannedOrdersTab.tpl.convertPlanned", { length: orders.length, v: orders.length === 1 ? "order" : "orders" })}
       onClose={onClose}
       wide
       footer={
@@ -72,7 +72,7 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
             {t("mfg.plannedOrdersTab.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy} data-testid="convert-submit">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {mode === "firm" ? "Firm" : "Release"} {orders.length}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {mode === "firm" ? t("mfg.plannedOrdersTab.str.firm") : t("mfg.plannedOrdersTab.str.release")} {orders.length}
           </button>
         </>
       }
@@ -84,37 +84,37 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
               <input type="radio" name="conv-mode" checked={mode === "firm"} onChange={() => setMode("firm")} data-testid="convert-mode-firm" />
               <strong>{t("mfg.plannedOrdersTab.head.firm")}</strong>
             </span>
-            <span className="small muted">Work orders in status planned, purchase requests as drafts. Nothing goes to the floor or the supplier yet.</span>
+            <span className="small muted">{t("mfg.plannedOrdersTab.text.workOrdersInStatusPlanned")}</span>
           </label>
           <label className={`card card-body col${mode === "release" ? " mfg-inline-form" : ""}`} style={{ flex: "1 1 240px", gap: 4, cursor: "pointer" }}>
             <span className="row">
               <input type="radio" name="conv-mode" checked={mode === "release"} onChange={() => setMode("release")} data-testid="convert-mode-release" />
               <strong>{t("mfg.plannedOrdersTab.head.release")}</strong>
             </span>
-            <span className="small muted">Work orders released to the floor, purchase requests submitted for approval.</span>
+            <span className="small muted">{t("mfg.plannedOrdersTab.text.workOrdersReleasedToThe")}</span>
           </label>
         </div>
         <p className="small" style={{ margin: 0 }}>
-          {make} to make → work orders · {buy} to buy → purchase requests
+          {t("mfg.plannedOrdersTab.text.toMakeWorkOrdersTo", { make: make, buy: buy })}
         </p>
         <div className="form-grid">
           {buy ? (
             <div className="field">
               <label htmlFor="conv-group">{t("mfg.plannedOrdersTab.label.purchaseRequests")}</label>
               <select id="conv-group" className="select" value={grouping} onChange={(e) => setGrouping(e.target.value as "per_supplier" | "per_order")}>
-                <option value="per_supplier">One request per supplier</option>
-                <option value="per_order">One request per planned order</option>
+                <option value="per_supplier">{t("mfg.plannedOrdersTab.text.oneRequestPerSupplier")}</option>
+                <option value="per_order">{t("mfg.plannedOrdersTab.text.oneRequestPerPlannedOrder")}</option>
               </select>
             </div>
           ) : null}
           {make && mode === "release" ? (
             <label className="checkbox" style={{ alignSelf: "flex-end" }}>
-              <input type="checkbox" checked={reserve} onChange={(e) => setReserve(e.target.checked)} /> Reserve free stock for the released work orders
+              <input type="checkbox" checked={reserve} onChange={(e) => setReserve(e.target.checked)} />{" "}{t("mfg.plannedOrdersTab.text.reserveFreeStockForThe")}
             </label>
           ) : null}
         </div>
         <details>
-          <summary className="small">Change quantities or dates ({orders.length})</summary>
+          <summary className="small">{t("mfg.plannedOrdersTab.text.changeQuantitiesOrDates", { length: orders.length })}</summary>
           <div className="table-wrap" style={{ maxHeight: "40vh", overflow: "auto" }}>
             <table className="table mfg-grid-table">
               <thead>
@@ -134,7 +134,7 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
                       <input
                         className="input sm num"
                         type="number"
-                        aria-label={`Quantity P-${o.planned_no}`}
+                        aria-label={t("mfg.plannedOrdersTab.tpl.quantityP", { plannedno: o.planned_no })}
                         value={over[o.id]?.qty ?? String(o.qty)}
                         onChange={(e) => setOver((m) => ({ ...m, [o.id]: { qty: e.target.value, date: m[o.id]?.date ?? "" } }))}
                       />
@@ -148,7 +148,7 @@ function ConvertDialog({ runId, orders, onClose, onDone }: { runId: string; orde
             </table>
           </div>
         </details>
-        <MfgError error={error} title="Nothing was converted" />
+        <MfgError error={error} title={t("mfg.plannedOrdersTab.attr.nothingWasConverted")} />
       </div>
     </Dialog>
   );
@@ -207,21 +207,21 @@ export function PlannedOrdersTab() {
       ? [
           {
             key: "sel",
-            header: <span className="sr-only">Select</span>,
-            label: "Select",
+            header: <span className="sr-only">{t("mfg.plannedOrdersTab.text.select")}</span>,
+            label: t("mfg.plannedOrdersTab.str.select"),
             width: "36px",
             render: (r: PlannedOrderRow) =>
               r.status === "open" ? (
-                <input type="checkbox" tabIndex={-1} aria-label={`Select P-${r.planned_no}`} checked={selected.has(r.id)} onChange={() => toggle(r)} onClick={(e) => e.stopPropagation()} data-testid="planned-select" />
+                <input type="checkbox" tabIndex={-1} aria-label={t("mfg.plannedOrdersTab.tpl.selectP", { plannedno: r.planned_no })} checked={selected.has(r.id)} onChange={() => toggle(r)} onClick={(e) => e.stopPropagation()} data-testid="planned-select" />
               ) : null,
           } as Column<PlannedOrderRow>,
         ]
       : []),
-    { key: "no", header: "No.", width: "70px", render: (r) => <span className="mono">P-{r.planned_no}</span> },
-    { key: "kind", header: "Make / buy", width: "96px", render: (r) => <MakeBuyBadge value={r.kind} /> },
+    { key: "no", header: t("mfg.plannedOrdersTab.str.no"), width: "70px", render: (r) => <span className="mono">P-{r.planned_no}</span> },
+    { key: "kind", header: t("mfg.plannedOrdersTab.str.makeBuy"), width: "96px", render: (r) => <MakeBuyBadge value={r.kind} /> },
     {
       key: "pn",
-      header: "Item",
+      header: t("mfg.plannedOrdersTab.str.item"),
       width: "minmax(150px, 1.2fr)",
       render: (r) => (
         <Link to={mfgPaths.runItem(run.id, r.item.id)} className="mono mfg-ellipsis" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
@@ -229,17 +229,17 @@ export function PlannedOrdersTab() {
         </Link>
       ),
     },
-    { key: "qty", header: "Qty", width: "84px", align: "right", render: (r) => fmtNum(r.qty) },
-    { key: "start", header: "Start / order by", width: "120px", render: (r) => fmtDate(r.start_date) },
-    { key: "need", header: "Needed", width: "104px", render: (r) => fmtDate(r.need_date) },
-    { key: "rel", header: "Release", width: "160px", render: (r) => <ReleaseChip status={r.release_status} /> },
-    { key: "late", header: "Late", width: "84px", render: (r) => <LateBadge days={r.late_days} /> },
-    { key: "sup", header: "Supplier", width: "minmax(100px, 0.8fr)", render: (r) => <span className="mfg-ellipsis">{r.supplier?.code ?? (r.kind === "buy" ? <span className="faint">none</span> : "")}</span> },
-    { key: "for", header: "For", width: "minmax(140px, 1fr)", render: (r) => <span className="mfg-ellipsis small" title={r.peg_summary.map((p) => `${p.label} ${fmtNum(p.qty)}`).join(", ")}>{r.peg_summary.map((p) => p.label).join(", ")}{r.segment ? ` · ${segmentText(r.segment)}` : ""}</span> },
-    { key: "lot", header: "Sizing", width: "minmax(120px, 1fr)", render: (r) => <span className="mfg-ellipsis faint small">{r.lot_note}</span> },
+    { key: "qty", header: t("mfg.plannedOrdersTab.str.qty"), width: "84px", align: "right", render: (r) => fmtNum(r.qty) },
+    { key: "start", header: t("mfg.plannedOrdersTab.str.startOrderBy"), width: "120px", render: (r) => fmtDate(r.start_date) },
+    { key: "need", header: t("mfg.plannedOrdersTab.str.needed"), width: "104px", render: (r) => fmtDate(r.need_date) },
+    { key: "rel", header: t("mfg.plannedOrdersTab.str.release"), width: "160px", render: (r) => <ReleaseChip status={r.release_status} /> },
+    { key: "late", header: t("mfg.plannedOrdersTab.str.late"), width: "84px", render: (r) => <LateBadge days={r.late_days} /> },
+    { key: "sup", header: t("mfg.plannedOrdersTab.str.supplier"), width: "minmax(100px, 0.8fr)", render: (r) => <span className="mfg-ellipsis">{r.supplier?.code ?? (r.kind === "buy" ? <span className="faint">none</span> : "")}</span> },
+    { key: "for", header: t("mfg.plannedOrdersTab.str.for"), width: "minmax(140px, 1fr)", render: (r) => <span className="mfg-ellipsis small" title={r.peg_summary.map((p) => `${p.label} ${fmtNum(p.qty)}`).join(", ")}>{r.peg_summary.map((p) => p.label).join(", ")}{r.segment ? ` · ${segmentText(r.segment)}` : ""}</span> },
+    { key: "lot", header: t("mfg.plannedOrdersTab.str.sizing"), width: "minmax(120px, 1fr)", render: (r) => <span className="mfg-ellipsis faint small">{r.lot_note}</span> },
     {
       key: "conv",
-      header: "Converted",
+      header: t("mfg.plannedOrdersTab.str.converted"),
       width: "120px",
       render: (r) =>
         r.converted ? (
@@ -255,7 +255,7 @@ export function PlannedOrdersTab() {
     <div className="col gap-lg">
       {!isLatestLive ? (
         <Banner tone="info" icon="lock" title={t("mfg.plannedOrdersTab.title.convertingIsOnlyPossibleFrom")}>
-          {run.kind === "what_if" ? "This is a what-if scenario." : "A newer live run exists, or this run did not complete."} <Link to={mfgPaths.mrp()}>Open the runs list</Link>.
+          {run.kind === "what_if" ? t("mfg.plannedOrdersTab.str.thisIsAWhatIf") : t("mfg.plannedOrdersTab.str.aNewerLiveRunExists")} <Link to={mfgPaths.mrp()}>{t("mfg.plannedOrdersTab.text.openTheRunsList")}</Link>.
         </Banner>
       ) : !canRun ? (
         <Banner tone="info" icon="lock" title={t("mfg.plannedOrdersTab.title.readOnly")}>
@@ -263,10 +263,10 @@ export function PlannedOrdersTab() {
         </Banner>
       ) : null}
       {result ? (
-        <Banner tone="ok" role="status" title={`Converted ${result.converted.length} planned orders`} testId="convert-result">
+        <Banner tone="ok" role="status" title={t("mfg.plannedOrdersTab.tpl.convertedPlannedOrders", { length: result.converted.length })} testId="convert-result">
           {result.created.work_orders.length ? (
             <>
-              Work orders: {result.created.work_orders.slice(0, 10).map((w, i) => (
+              {t("mfg.plannedOrdersTab.text.workOrders")}{" "}{result.created.work_orders.slice(0, 10).map((w, i) => (
                 <span key={w.id}>
                   {i ? ", " : ""}
                   <Link to={mfgPaths.workOrder(w.id)}>{w.number}</Link>
@@ -277,7 +277,7 @@ export function PlannedOrdersTab() {
           ) : null}
           {result.created.purchase_requests.length ? (
             <>
-              Purchase requests: {result.created.purchase_requests.slice(0, 10).map((p, i) => (
+              {t("mfg.plannedOrdersTab.text.purchaseRequests")}{" "}{result.created.purchase_requests.slice(0, 10).map((p, i) => (
                 <span key={p.id}>
                   {i ? ", " : ""}
                   <Link to={mfgPaths.purchaseDoc("pr", p.id)}>{p.number}</Link>
@@ -286,49 +286,49 @@ export function PlannedOrdersTab() {
               {result.created.purchase_requests.length > 10 ? ` +${result.created.purchase_requests.length - 10}` : ""}.
             </>
           ) : null}{" "}
-          Run MRP again to see them as supply.
+          {t("mfg.plannedOrdersTab.text.runMrpAgainToSee")}
         </Banner>
       ) : null}
       <FilterBar search={{ id: "po-q", value: q, onChange: setQ, placeholder: "Part number", testId: "planned-search" }} pageKey="PlannedOrdersTab">
         <div className="field">
           <label htmlFor="po-kind">{t("mfg.plannedOrdersTab.label.makeBuy")}</label>
           <select id="po-kind" className="select" value={kind} onChange={(e) => set("kind", e.target.value)} data-testid="planned-kind">
-            <option value="">All {counts?.by_kind ? `(${(counts.by_kind.make ?? 0) + (counts.by_kind.buy ?? 0)})` : ""}</option>
-            <option value="make">Make{counts?.by_kind ? ` (${counts.by_kind.make ?? 0})` : ""}</option>
-            <option value="buy">Buy{counts?.by_kind ? ` (${counts.by_kind.buy ?? 0})` : ""}</option>
+            <option value="">{t("mfg.plannedOrdersTab.text.all", { v: counts?.by_kind ? `(${(counts.by_kind.make ?? 0) + (counts.by_kind.buy ?? 0)})` : "" })}</option>
+            <option value="make">{t("mfg.plannedOrdersTab.text.make", { v: counts?.by_kind ? ` (${counts.by_kind.make ?? 0})` : "" })}</option>
+            <option value="buy">{t("mfg.plannedOrdersTab.text.buy", { v: counts?.by_kind ? ` (${counts.by_kind.buy ?? 0})` : "" })}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="po-rel">{t("mfg.plannedOrdersTab.label.release")}</label>
           <select id="po-rel" className="select" value={release} onChange={(e) => set("release", e.target.value)} data-testid="planned-release">
-            <option value="">Any</option>
-            <option value="start_in_past">Should have started{counts?.by_release_status ? ` (${counts.by_release_status.start_in_past ?? 0})` : ""}</option>
-            <option value="release_now">Release now{counts?.by_release_status ? ` (${counts.by_release_status.release_now ?? 0})` : ""}</option>
-            <option value="later">Later{counts?.by_release_status ? ` (${counts.by_release_status.later ?? 0})` : ""}</option>
+            <option value="">{t("mfg.plannedOrdersTab.text.any")}</option>
+            <option value="start_in_past">{t("mfg.plannedOrdersTab.text.shouldHaveStarted", { v: counts?.by_release_status ? ` (${counts.by_release_status.start_in_past ?? 0})` : "" })}</option>
+            <option value="release_now">{t("mfg.plannedOrdersTab.text.releaseNow", { v: counts?.by_release_status ? ` (${counts.by_release_status.release_now ?? 0})` : "" })}</option>
+            <option value="later">{t("mfg.plannedOrdersTab.text.later", { v: counts?.by_release_status ? ` (${counts.by_release_status.later ?? 0})` : "" })}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="po-st">{t("mfg.plannedOrdersTab.label.status")}</label>
           <select id="po-st" className="select" value={status} onChange={(e) => set("status", e.target.value === "open" ? "" : e.target.value)}>
-            <option value="open">Not converted</option>
-            <option value="converted">Converted</option>
-            <option value="all">All</option>
+            <option value="open">{t("mfg.plannedOrdersTab.text.notConverted")}</option>
+            <option value="converted">{t("mfg.plannedOrdersTab.text.converted")}</option>
+            <option value="all">{t("mfg.plannedOrdersTab.text.all2")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="po-sort">{t("mfg.plannedOrdersTab.label.sortBy")}</label>
           <select id="po-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "start_date" ? "" : e.target.value)}>
-            <option value="start_date">Start date</option>
-            <option value="need_date">Need date</option>
-            <option value="part_number">Part number</option>
-            <option value="supplier">Supplier</option>
+            <option value="start_date">{t("mfg.plannedOrdersTab.text.startDate")}</option>
+            <option value="need_date">{t("mfg.plannedOrdersTab.text.needDate")}</option>
+            <option value="part_number">{t("mfg.plannedOrdersTab.text.partNumber")}</option>
+            <option value="supplier">{t("mfg.plannedOrdersTab.text.supplier")}</option>
           </select>
         </div>
       </FilterBar>
       {canConvert ? (
         <div className="row wrap">
           <button type="button" className="btn sm" onClick={selectShown} disabled={!data.rows.length}>
-            Select shown ({Math.min(MAX_SELECT, data.rows.filter((r) => r.status === "open").length)})
+            {t("mfg.plannedOrdersTab.text.selectShown", { MAXSELECT: Math.min(MAX_SELECT, data.rows.filter((r) => r.status === "open").length) })}
           </button>
           {selected.size ? (
             <button type="button" className="btn sm ghost" onClick={() => setSelected(new Map())}>
@@ -336,14 +336,14 @@ export function PlannedOrdersTab() {
             </button>
           ) : null}
           <span className="small muted" data-testid="planned-selected-count">
-            {selected.size} selected{selected.size >= MAX_SELECT ? ` (maximum ${MAX_SELECT})` : ""}
+            {t("mfg.plannedOrdersTab.text.selected", { size: selected.size, v: selected.size >= MAX_SELECT ? ` (maximum ${MAX_SELECT})` : "" })}
           </span>
           <button type="button" className="btn primary" onClick={() => setConverting(true)} disabled={!selected.size} data-testid="convert-open">
             <Icon name="check" /> {t("mfg.plannedOrdersTab.btn.firmRelease")}
           </button>
         </div>
       ) : (
-        <button type="button" className="btn" disabled aria-disabled title={!isLatestLive ? "Only from the latest live run" : needsText("mrp_run")} data-testid="convert-open" style={{ alignSelf: "flex-start" }}>
+        <button type="button" className="btn" disabled aria-disabled title={!isLatestLive ? t("mfg.plannedOrdersTab.str.onlyFromTheLatestLive") : needsText("mrp_run")} data-testid="convert-open" style={{ alignSelf: "flex-start" }}>
           <Icon name="lock" /> {t("mfg.plannedOrdersTab.btn.firmRelease")}
         </button>
       )}
@@ -372,8 +372,8 @@ export function PlannedOrdersTab() {
           return false;
         }}
         onEndReached={data.onEndReached}
-        empty={data.loading ? "Loading planned orders…" : "No planned orders match these filters."}
-        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} planned orders{canConvert ? " · Space selects the focused row" : ""}</span>}
+        empty={data.loading ? t("mfg.plannedOrdersTab.str.loadingPlannedOrders") : t("mfg.plannedOrdersTab.str.noPlannedOrdersMatchThese")}
+        footer={<span className="muted small">{t("mfg.plannedOrdersTab.text.showingPlannedOrders", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }), v: canConvert ? t("mfg.plannedOrdersTab.str.spaceSelectsTheFocusedRow") : "" })}</span>}
       />
       {converting ? (
         <ConvertDialog

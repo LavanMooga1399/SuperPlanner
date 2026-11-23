@@ -3,6 +3,7 @@ import { useState, type ReactNode, type Ref } from "react";
 import { errorMessage } from "../api/client";
 import { Icon } from "../components/Icon";
 import { authErrorMessage } from "./api";
+import { t } from "../lib/i18n";
 
 export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export const MIN_PASSWORD = 10;
@@ -73,9 +74,9 @@ export function PasswordInput({
         onClick={() => setShown((s) => !s)}
         aria-pressed={shown}
         aria-controls={id}
-        aria-label={shown ? "Hide password" : "Show password"}
+        aria-label={shown ? t("account.authFields.str.hidePassword") : t("account.authFields.str.showPassword")}
       >
-        {shown ? "Hide" : "Show"}
+        {shown ? t("account.authFields.str.hide") : t("account.authFields.str.show")}
       </button>
     </div>
   );

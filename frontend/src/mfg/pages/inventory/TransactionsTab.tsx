@@ -65,10 +65,10 @@ export function TransactionsTab() {
   const columns: Column<TransactionRow>[] = useMemo(
     () => [
       { key: "seq", header: "#", width: "74px", sortKey: "seq", sortKeyDesc: "-seq", align: "right", render: (t) => <span className="faint mono">{t.seq}</span> },
-      { key: "date", header: "Date", width: "100px", sortKey: "txn_date", sortKeyDesc: "-txn_date", render: (t) => fmtDate(t.txn_date) },
+      { key: "date", header: tr("mfg.transactionsTab.str.date"), width: "100px", sortKey: "txn_date", sortKeyDesc: "-txn_date", render: (t) => fmtDate(t.txn_date) },
       {
         key: "post",
-        header: "Posting",
+        header: tr("mfg.transactionsTab.str.posting"),
         width: "120px",
         render: (t) => (
           <Link to={mfgPaths.posting(t.posting_id)} className="mono" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
@@ -76,10 +76,10 @@ export function TransactionsTab() {
           </Link>
         ),
       },
-      { key: "type", header: "Type", width: "minmax(150px, 1fr)", sortKey: "txn_type", render: (t) => <span className="mfg-ellipsis">{POSTING_LABEL[t.txn_type] ?? t.txn_type}</span> },
+      { key: "type", header: tr("mfg.transactionsTab.str.type"), width: "minmax(150px, 1fr)", sortKey: "txn_type", render: (t) => <span className="mfg-ellipsis">{POSTING_LABEL[t.txn_type] ?? t.txn_type}</span> },
       {
         key: "pn",
-        header: "Part number",
+        header: tr("mfg.transactionsTab.str.partNumber"),
         width: "minmax(140px, 1fr)",
         sortKey: "part_number",
         render: (t) => (
@@ -88,11 +88,11 @@ export function TransactionsTab() {
           </Link>
         ),
       },
-      { key: "loc", header: "Location", width: "110px", render: (t) => <span className="mono mfg-ellipsis">{t.location.code}</span> },
-      { key: "lot", header: "Lot", width: "110px", render: (t) => <span className="mono mfg-ellipsis">{t.lot?.lot_code ?? ""}</span> },
+      { key: "loc", header: tr("mfg.transactionsTab.str.location"), width: "110px", render: (t) => <span className="mono mfg-ellipsis">{t.location.code}</span> },
+      { key: "lot", header: tr("mfg.transactionsTab.str.lot"), width: "110px", render: (t) => <span className="mono mfg-ellipsis">{t.lot?.lot_code ?? ""}</span> },
       {
         key: "qty",
-        header: "Change",
+        header: tr("mfg.transactionsTab.str.change"),
         width: "96px",
         sortKey: "qty",
         sortKeyDesc: "-qty",
@@ -104,10 +104,10 @@ export function TransactionsTab() {
           </span>
         ),
       },
-      { key: "after", header: "Balance after", width: "100px", align: "right", render: (t) => fmtNum(t.balance_after) },
+      { key: "after", header: tr("mfg.transactionsTab.str.balanceAfter"), width: "100px", align: "right", render: (t) => fmtNum(t.balance_after) },
       {
         key: "ref",
-        header: "Document",
+        header: tr("mfg.transactionsTab.str.document"),
         width: "minmax(130px, 1fr)",
         render: (t) => {
           const href = docRefLink(t.ref);
@@ -124,18 +124,18 @@ export function TransactionsTab() {
           );
         },
       },
-      { key: "who", header: "By", width: "110px", render: (t) => <span className="mfg-ellipsis" title={fmtTimestamp(t.created_at)}>{t.actor.name}</span> },
+      { key: "who", header: tr("mfg.transactionsTab.str.by"), width: "110px", render: (t) => <span className="mfg-ellipsis" title={fmtTimestamp(t.created_at)}>{t.actor.name}</span> },
     ],
     [],
   );
 
   const chips: FilterChip[] = [];
-  if (itemId) chips.push({ key: "item", label: "Item", value: "One item", onClear: () => set("item", "") });
-  if (postingId) chips.push({ key: "posting", label: "Posting", value: "One posting", onClear: () => set("posting", "") });
-  if (locationId) chips.push({ key: "loc", label: "Location", value: "One location", onClear: () => set("location", "") });
-  if (txnType) chips.push({ key: "type", label: "Type", value: POSTING_LABEL[txnType] ?? txnType, onClear: () => set("type", "") });
-  if (from) chips.push({ key: "from", label: "From", value: fmtDate(from), onClear: () => set("from", "") });
-  if (to) chips.push({ key: "to", label: "To", value: fmtDate(to), onClear: () => set("to", "") });
+  if (itemId) chips.push({ key: "item", label: tr("mfg.transactionsTab.str.item"), value: "One item", onClear: () => set("item", "") });
+  if (postingId) chips.push({ key: "posting", label: tr("mfg.transactionsTab.str.posting"), value: "One posting", onClear: () => set("posting", "") });
+  if (locationId) chips.push({ key: "loc", label: tr("mfg.transactionsTab.str.location"), value: "One location", onClear: () => set("location", "") });
+  if (txnType) chips.push({ key: "type", label: tr("mfg.transactionsTab.str.type"), value: POSTING_LABEL[txnType] ?? txnType, onClear: () => set("type", "") });
+  if (from) chips.push({ key: "from", label: tr("mfg.transactionsTab.str.from"), value: fmtDate(from), onClear: () => set("from", "") });
+  if (to) chips.push({ key: "to", label: tr("mfg.transactionsTab.str.to"), value: fmtDate(to), onClear: () => set("to", "") });
 
   return (
     <div className="col gap-lg">
@@ -154,7 +154,7 @@ export function TransactionsTab() {
         <div className="field">
           <label htmlFor="txn-type">{t("mfg.transactionsTab.label.type")}</label>
           <select id="txn-type" className="select" value={txnType} onChange={(e) => set("type", e.target.value)} data-testid="txn-type">
-            <option value="">All types</option>
+            <option value="">{tr("mfg.transactionsTab.text.allTypes")}</option>
             {POSTING_TYPES.map((t) => (
               <option key={t} value={t}>
                 {POSTING_LABEL[t]}
@@ -172,7 +172,7 @@ export function TransactionsTab() {
         </div>
         {postingId ? (
           <button type="button" className="btn sm" style={{ alignSelf: "flex-end" }} onClick={() => set("posting", "")}>
-            <Icon name="x" /> Only posting {data.rows[0]?.posting_number ?? ""}
+            <Icon name="x" />{" "}{tr("mfg.transactionsTab.text.onlyPosting", { v: data.rows[0]?.posting_number ?? "" })}
           </button>
         ) : null}
       </FilterBar>
@@ -191,10 +191,10 @@ export function TransactionsTab() {
         rowExtras={(t) => ({ testId: "txn-row", data: { type: t.txn_type, item: t.item.part_number, qty: t.qty, posting: t.posting_number } })}
         onActivate={(t) => navigate(mfgPaths.posting(t.posting_id))}
         onEndReached={data.onEndReached}
-        empty={data.loading ? <span className="row" role="status"><span className="spinner" aria-hidden /> Loading the ledger…</span> : "No stock movements match these filters."}
+        empty={data.loading ? <span className="row" role="status"><span className="spinner" aria-hidden />{" "}{tr("mfg.transactionsTab.text.loadingTheLedger")}</span> : tr("mfg.transactionsTab.str.noStockMovementsMatchThese")}
         footer={
           <span className="muted small" role="status">
-            Showing {tr("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} movements, newest first · Enter opens the posting
+            {tr("mfg.transactionsTab.text.showingMovementsNewestFirstEnter", { tr: tr("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}
           </span>
         }
       />

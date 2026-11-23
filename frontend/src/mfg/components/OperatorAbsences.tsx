@@ -15,7 +15,7 @@ import { MfgError } from "./Feedback";
 import { SelectField, TextField } from "./Field";
 import { t } from "../../lib/i18n";
 
-const KIND_LABEL: Record<AbsenceKind, string> = { leave: "Leave", training: "Training", sick: "Sick", other: "Other" };
+const KIND_LABEL: Record<AbsenceKind, string> = { leave: t("mfg.operatorAbsences.str.leave"), training: t("mfg.operatorAbsences.str.training"), sick: t("mfg.operatorAbsences.str.sick"), other: t("mfg.operatorAbsences.str.other") };
 
 export function OperatorAbsences({ operatorId }: { operatorId: string }) {
   const clock = usePlantClock();
@@ -36,7 +36,7 @@ export function OperatorAbsences({ operatorId }: { operatorId: string }) {
       </div>
       <MfgError error={list.error ?? error} onRetry={list.reload} />
       <ul className="mfg-plain-list">
-        {list.data && list.data.items.length === 0 ? <li className="issue muted">No absences planned.</li> : null}
+        {list.data && list.data.items.length === 0 ? <li className="issue muted">{t("mfg.operatorAbsences.text.noAbsencesPlanned")}</li> : null}
         {(list.data?.items ?? []).map((a) => (
           <li key={a.id} className="issue" data-testid="absence-row" data-kind={a.kind}>
             <span className="badge info">{KIND_LABEL[a.kind]}</span>
@@ -99,8 +99,8 @@ function AbsenceDialog({ operatorId, row, onClose, onSaved }: { operatorId: stri
   const bad = !f.start || !f.end || f.start >= f.end;
   return (
     <EntityFormDialog
-      title={row ? "Absence" : "New absence"}
-      submitLabel={row ? "Save" : "Add"}
+      title={row ? t("mfg.operatorAbsences.str.absence") : t("mfg.operatorAbsences.str.newAbsence")}
+      submitLabel={row ? t("mfg.operatorAbsences.str.save") : t("mfg.operatorAbsences.str.add")}
       testId="absence-form"
       disabled={bad}
       onClose={onClose}
@@ -112,8 +112,8 @@ function AbsenceDialog({ operatorId, row, onClose, onSaved }: { operatorId: stri
       }}
     >
       <div className="form-grid">
-        <TextField label={`From (${clock.zoneLabel})`} type="datetime-local" value={f.start} onChange={(v) => setF({ ...f, start: v })} testId="absence-start" />
-        <TextField label={t("mfg.operatorAbsences.label.until")} type="datetime-local" value={f.end} onChange={(v) => setF({ ...f, end: v })} testId="absence-end" hint={f.start && f.end && f.start >= f.end ? "Must be after the start." : undefined} />
+        <TextField label={t("mfg.operatorAbsences.tpl.from", { zoneLabel: clock.zoneLabel })} type="datetime-local" value={f.start} onChange={(v) => setF({ ...f, start: v })} testId="absence-start" />
+        <TextField label={t("mfg.operatorAbsences.label.until")} type="datetime-local" value={f.end} onChange={(v) => setF({ ...f, end: v })} testId="absence-end" hint={f.start && f.end && f.start >= f.end ? t("mfg.operatorAbsences.str.mustBeAfterTheStart") : undefined} />
         <SelectField label={t("mfg.operatorAbsences.label.kind")} value={f.kind} onChange={(v) => setF({ ...f, kind: v })} options={ABSENCE_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))} testId="absence-kind" />
       </div>
       <TextField label={t("mfg.operatorAbsences.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />

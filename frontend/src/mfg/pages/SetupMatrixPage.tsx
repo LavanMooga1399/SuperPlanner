@@ -33,8 +33,8 @@ function RowDialog({ row, family, families, onClose, onSaved }: { row: SetupMatr
   const bad = !body.line_setup_family || f.minutes.trim() === "" || body.setup_minutes < 0;
   return (
     <EntityFormDialog
-      title={row ? "Changeover time" : "New changeover time"}
-      submitLabel={row ? "Save" : "Add"}
+      title={row ? t("mfg.setupMatrixPage.str.changeoverTime") : t("mfg.setupMatrixPage.str.newChangeoverTime")}
+      submitLabel={row ? t("mfg.setupMatrixPage.str.save") : t("mfg.setupMatrixPage.str.add")}
       testId="setup-row-form"
       disabled={bad}
       onClose={onClose}
@@ -81,8 +81,7 @@ export function SetupMatrixPage() {
     <div className="col gap-lg" data-testid="setup-matrix">
       <div className="row between wrap">
         <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
-          Changeover time when a line switches from one item family to another (e.g. SMT boards PCBA-HDI to PCBA-STD). "*" means any family; the most specific row wins.
-          Lines are linked by their setup family (Stages &amp; lines). Without a row, the operation's own setup time applies.
+          {t("mfg.setupMatrixPage.text.changeoverTimeWhenALine")}
         </p>
         <PermissionGate perm="master_edit">
           <button type="button" className="btn primary" onClick={() => setEditing({ row: null, family: lineFamilies[0] ?? "" })} data-testid="setup-row-new">
@@ -92,14 +91,14 @@ export function SetupMatrixPage() {
       </div>
       <MfgError error={rows.error ?? error} onRetry={rows.reload} />
       {rows.loading && !rows.data ? <Spinner /> : null}
-      {rows.data && byFamily.length === 0 ? <p className="muted">No line has a setup family yet. Set one on the lines (Stages &amp; lines), then add changeover times here.</p> : null}
+      {rows.data && byFamily.length === 0 ? <p className="muted">{t("mfg.setupMatrixPage.text.noLineHasASetup")}</p> : null}
       {byFamily.map(([fam, list]) => (
         <section key={fam} className="card" data-testid="setup-family" data-family={fam}>
           <div className="card-header">
             <h3>
-              Lines of family <span className="mono">{fam}</span>
+              {t("mfg.setupMatrixPage.text.linesOfFamily")}{" "}<span className="mono">{fam}</span>
             </h3>
-            <span className="muted small">{(lines.data?.items ?? []).filter((l) => l.setup_family === fam).map((l) => l.code).join(", ") || "no line uses it"}</span>
+            <span className="muted small">{(lines.data?.items ?? []).filter((l) => l.setup_family === fam).map((l) => l.code).join(", ") || t("mfg.setupMatrixPage.str.noLineUsesIt")}</span>
           </div>
           <table className="table">
             <thead>
@@ -108,7 +107,7 @@ export function SetupMatrixPage() {
                 <th>{t("mfg.setupMatrixPage.head.toItemFamily")}</th>
                 <th className="right">{t("mfg.setupMatrixPage.head.changeover")}</th>
                 <th>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("mfg.setupMatrixPage.text.actions")}</span>
                 </th>
               </tr>
             </thead>
@@ -116,14 +115,14 @@ export function SetupMatrixPage() {
               {list.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="muted">
-                    No rows: operations use their own setup time.
+                    {t("mfg.setupMatrixPage.text.noRowsOperationsUseTheir")}
                   </td>
                 </tr>
               ) : null}
               {list.map((r) => (
                 <tr key={r.id} data-testid="setup-matrix-row" data-from={r.from_family} data-to={r.to_family}>
-                  <td className="mono">{r.from_family === "*" ? "any (*)" : r.from_family}</td>
-                  <td className="mono">{r.to_family === "*" ? "any (*)" : r.to_family}</td>
+                  <td className="mono">{r.from_family === "*" ? t("mfg.setupMatrixPage.str.any") : r.from_family}</td>
+                  <td className="mono">{r.to_family === "*" ? t("mfg.setupMatrixPage.str.any") : r.to_family}</td>
                   <td className="right">{r.setup_minutes} min</td>
                   <td className="right">
                     {canEdit ? (
@@ -131,7 +130,7 @@ export function SetupMatrixPage() {
                         <button type="button" className="btn sm" onClick={() => setEditing({ row: r, family: fam })}>
                           {t("mfg.setupMatrixPage.btn.edit")}
                         </button>
-                        <button type="button" className="btn sm ghost icon" aria-label={`Delete ${r.from_family} to ${r.to_family}`} onClick={() => setDeleting(r)}>
+                        <button type="button" className="btn sm ghost icon" aria-label={t("mfg.setupMatrixPage.tpl.deleteTo", { fromfamily: r.from_family, tofamily: r.to_family })} onClick={() => setDeleting(r)}>
                           <Icon name="trash" />
                         </button>
                       </span>
@@ -144,7 +143,7 @@ export function SetupMatrixPage() {
           {canEdit ? (
             <div className="card-footer">
               <button type="button" className="btn sm" onClick={() => setEditing({ row: null, family: fam })}>
-                <Icon name="plus" /> Add for {fam}
+                <Icon name="plus" />{" "}{t("mfg.setupMatrixPage.text.addFor", { fam: fam })}
               </button>
             </div>
           ) : null}

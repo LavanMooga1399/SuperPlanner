@@ -20,7 +20,7 @@ export function LimitingPath({ steps, runId }: { steps: LimitingStep[]; runId?: 
   if (!steps.length) return null;
   return (
     <div className="mfg-chip-row" aria-label={t("mfg.demandProjectionTab.aria.whyItIsLateLimiting")} data-testid="limiting-path">
-      <span className="faint small">Why:</span>
+      <span className="faint small">{t("mfg.demandProjectionTab.text.why")}</span>
       {steps.map((s, i) => (
         <span key={i} className="row" style={{ gap: 4 }}>
           {i > 0 ? (
@@ -63,17 +63,17 @@ export function DemandProjectionTab() {
         <div className="field">
           <label htmlFor="dp-status">{t("mfg.demandProjectionTab.label.show")}</label>
           <select id="dp-status" className="select" value={status} onChange={(e) => set("status", e.target.value)} data-testid="demand-proj-status">
-            <option value="">All demand lines</option>
-            <option value="late">Late</option>
-            <option value="past_due">Past due</option>
-            <option value="on_time">On time</option>
+            <option value="">{t("mfg.demandProjectionTab.text.allDemandLines")}</option>
+            <option value="late">{t("mfg.demandProjectionTab.text.late")}</option>
+            <option value="past_due">{t("mfg.demandProjectionTab.text.pastDue")}</option>
+            <option value="on_time">{t("mfg.demandProjectionTab.text.onTime")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="dp-sort">{t("mfg.demandProjectionTab.label.sortBy")}</label>
           <select id="dp-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "-late_days" ? "" : e.target.value)}>
-            <option value="-late_days">Most late first</option>
-            <option value="due_date">Due date</option>
+            <option value="-late_days">{t("mfg.demandProjectionTab.text.mostLateFirst")}</option>
+            <option value="due_date">{t("mfg.demandProjectionTab.text.dueDate")}</option>
           </select>
         </div>
       </FilterBar>
@@ -95,7 +95,7 @@ export function DemandProjectionTab() {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="muted">
-                  {data.loading ? "Loading…" : "No demand lines."}
+                  {data.loading ? t("mfg.demandProjectionTab.str.loading") : t("mfg.demandProjectionTab.str.noDemandLines")}
                 </td>
               </tr>
             ) : null}
@@ -107,7 +107,7 @@ export function DemandProjectionTab() {
                       {d.order ? `${d.order.number}/${d.line_no}` : "What-if"}
                     </Link>
                   ) : (
-                    <span className="mono">{d.order ? `${d.order.number}/${d.line_no}` : "What-if demand"}</span>
+                    <span className="mono">{d.order ? `${d.order.number}/${d.line_no}` : t("mfg.demandProjectionTab.str.whatIfDemand")}</span>
                   )}
                   {d.order?.program ? <span className="faint small"> · {d.order.program}</span> : null}
                   {d.segment ? <div className="faint small">{segmentText(d.segment)}</div> : null}
@@ -138,7 +138,7 @@ export function DemandProjectionTab() {
         {data.rows.length < data.total ? (
           <div className="card-footer">
             <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              <Icon name="chevron-down" /> Show more ({t("common.nOfM", { n: data.rows.length, m: data.total })})
+              <Icon name="chevron-down" />{" "}{t("mfg.demandProjectionTab.text.showMore", { t: t("common.nOfM", { n: data.rows.length, m: data.total }) })}
             </button>
           </div>
         ) : null}

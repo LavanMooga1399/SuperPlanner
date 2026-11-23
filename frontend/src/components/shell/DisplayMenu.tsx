@@ -2,16 +2,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../Icon";
 import { setDensity, setTheme, usePrefs, type Density, type ThemePref } from "../../lib/prefs";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 const THEMES: { v: ThemePref; label: string }[] = [
-  { v: "system", label: "Match system" },
-  { v: "light", label: "Light" },
-  { v: "dark", label: "Dark" },
+  { v: "system", label: tr("shell.displayMenu.str.matchSystem") },
+  { v: "light", label: tr("shell.displayMenu.str.light") },
+  { v: "dark", label: tr("shell.displayMenu.str.dark") },
 ];
 const DENSITIES: { v: Density; label: string; hint: string }[] = [
-  { v: "compact", label: "Compact", hint: "More rows on screen" },
-  { v: "comfortable", label: "Comfortable", hint: "Larger rows and controls" },
+  { v: "compact", label: tr("shell.displayMenu.str.compact"), hint: tr("shell.displayMenu.str.moreRowsOnScreen") },
+  { v: "comfortable", label: tr("shell.displayMenu.str.comfortable"), hint: tr("shell.displayMenu.str.largerRowsAndControls") },
 ];
 
 export function DisplayMenu() {
@@ -44,7 +44,7 @@ export function DisplayMenu() {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={t("studio.displayMenu.aria.displaySettings")}
-        title="Display settings"
+        title={tr("shell.displayMenu.attr.displaySettings")}
         onClick={() => setOpen((v) => !v)}
         data-testid="display-menu"
       >
@@ -87,8 +87,8 @@ export function ThemeToggle() {
       type="button"
       className="btn ghost icon"
       onClick={() => setTheme(next)}
-      aria-label={`Switch to ${next} theme`}
-      title={`Switch to ${next} theme`}
+      aria-label={tr("shell.displayMenu.tpl.switchToTheme", { next: next })}
+      title={tr("shell.displayMenu.tpl.switchToTheme", { next: next })}
       data-testid="theme-toggle"
     >
       <Icon name={resolved === "dark" ? "sun" : "moon"} />

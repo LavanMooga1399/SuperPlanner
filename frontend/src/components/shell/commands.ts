@@ -1,5 +1,6 @@
 /** Global command state: palette and shortcut help open flags (module store, so any button can open them). */
 import { useSyncExternalStore } from "react";
+import { t as tr } from "../../lib/i18n";
 
 let state = { palette: false, shortcuts: false };
 const listeners = new Set<() => void>();
@@ -34,18 +35,18 @@ export function isTyping(e: KeyboardEvent): boolean {
 }
 
 export const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
-export const MOD = isMac ? "⌘" : "Ctrl";
+export const MOD = isMac ? "⌘" : tr("shell.commands.str.ctrl");
 
 /** `g` then a letter (UX-STANDARD 4). */
 export const GO_KEYS: { key: string; label: string; to: string }[] = [
-  { key: "h", label: "Manufacturing overview", to: "/mfg" },
-  { key: "i", label: "Items", to: "/mfg/items" },
-  { key: "d", label: "Demand", to: "/mfg/demand" },
+  { key: "h", label: tr("shell.commands.str.manufacturingOverview"), to: "/mfg" },
+  { key: "i", label: tr("shell.commands.str.items"), to: "/mfg/items" },
+  { key: "d", label: tr("shell.commands.str.demand"), to: "/mfg/demand" },
   { key: "m", label: "MRP", to: "/mfg/mrp" },
-  { key: "s", label: "Schedule", to: "/mfg/schedule" },
-  { key: "w", label: "Work orders", to: "/mfg/work-orders" },
-  { key: "p", label: "Purchasing", to: "/mfg/purchasing" },
-  { key: "v", label: "Inventory", to: "/mfg/inventory" },
-  { key: "f", label: "Shop floor", to: "/mfg/floor/overview" },
+  { key: "s", label: tr("shell.commands.str.schedule"), to: "/mfg/schedule" },
+  { key: "w", label: tr("shell.commands.str.workOrders"), to: "/mfg/work-orders" },
+  { key: "p", label: tr("shell.commands.str.purchasing"), to: "/mfg/purchasing" },
+  { key: "v", label: tr("shell.commands.str.inventory"), to: "/mfg/inventory" },
+  { key: "f", label: tr("shell.commands.str.shopFloor"), to: "/mfg/floor/overview" },
   { key: "k", label: "KPIs", to: "/mfg/kpis" },
 ];

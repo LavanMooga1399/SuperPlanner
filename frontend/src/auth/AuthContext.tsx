@@ -14,6 +14,7 @@ import { registerAuthHandlers, setCsrfToken } from "./authFetch";
 import { forgetSignedInUser, noteSignedInUser } from "./drafts";
 import { pushSignOut } from "../pwa/pwa";
 import type { AuthMode, AuthUser, ChangePasswordRequest, SessionInfo, SignInRequest, SignUpRequest } from "./types";
+import { t } from "../lib/i18n";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
 
@@ -91,7 +92,7 @@ let bootSession: Promise<SessionInfo> | null = null;
 
 export function useAuth(): AuthApi {
   const v = useContext(Ctx);
-  if (!v) throw new Error("useAuth outside AuthProvider");
+  if (!v) throw new Error(t("account.authContext.str.useauthOutsideAuthprovider"));
   return v;
 }
 

@@ -4,9 +4,10 @@
  * the browser's zone.
  */
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_NAMES = [t("shell.time.str.sun"), t("shell.time.str.mon"), t("shell.time.str.tue"), t("shell.time.str.wed"), t("shell.time.str.thu"), t("shell.time.str.fri"), t("shell.time.str.sat")];
 import { formatDateTime } from "./locale";
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+import { t } from "./i18n";
+const MONTH_NAMES = [t("shell.time.str.jan"), t("shell.time.str.feb"), t("shell.time.str.mar"), t("shell.time.str.apr"), t("shell.time.str.may"), t("shell.time.str.jun"), t("shell.time.str.jul"), t("shell.time.str.aug"), t("shell.time.str.sep"), t("shell.time.str.oct"), t("shell.time.str.nov"), t("shell.time.str.dec")];
 
 const pad = (n: number, w = 2) => String(Math.abs(Math.trunc(n))).padStart(w, "0");
 
@@ -160,8 +161,8 @@ export function fmtRelative(iso: string | null | undefined): string {
   if (!iso) return "-";
   const diff = (Date.now() - isoToMs(iso)) / 1000;
   if (Number.isNaN(diff)) return "-";
-  if (diff < 45) return "just now";
-  if (diff < 3600) return `${Math.round(diff / 60)} min ago`;
+  if (diff < 45) return t("shell.time.str.justNow");
+  if (diff < 3600) return t("shell.time.tpl.minAgo", { Math: Math.round(diff / 60) });
   if (diff < 86400) return `${Math.round(diff / 3600)} h ago`;
   return `${Math.round(diff / 86400)} d ago`;
 }

@@ -27,49 +27,49 @@ import { AmountRangeInput, NumField } from "./fields";
 import { t } from "../../lib/i18n";
 
 const FREQ: { v: Frequency; label: string }[] = [
-  { v: "monthly", label: "Each month" },
-  { v: "quarterly", label: "Each quarter" },
-  { v: "half_yearly", label: "Twice a year" },
-  { v: "yearly", label: "Each year" },
-  { v: "once", label: "Once" },
+  { v: "monthly", label: t("studio.financeDraftEditor.str.eachMonth") },
+  { v: "quarterly", label: t("studio.financeDraftEditor.str.eachQuarter") },
+  { v: "half_yearly", label: t("studio.financeDraftEditor.str.twiceAYear") },
+  { v: "yearly", label: t("studio.financeDraftEditor.str.eachYear") },
+  { v: "once", label: t("studio.financeDraftEditor.str.once") },
 ];
 const INCOME_KINDS: { v: IncomeKind; label: string }[] = [
-  { v: "salary", label: "Salary" },
-  { v: "business", label: "Business" },
-  { v: "rental", label: "Rent received" },
-  { v: "pension", label: "Pension" },
-  { v: "interest", label: "Interest" },
-  { v: "other", label: "Other" },
+  { v: "salary", label: t("studio.financeDraftEditor.str.salary") },
+  { v: "business", label: t("studio.financeDraftEditor.str.business") },
+  { v: "rental", label: t("studio.financeDraftEditor.str.rentReceived") },
+  { v: "pension", label: t("studio.financeDraftEditor.str.pension") },
+  { v: "interest", label: t("studio.financeDraftEditor.str.interest") },
+  { v: "other", label: t("studio.financeDraftEditor.str.other") },
 ];
 const DEBT_KINDS: { v: DebtKind; label: string }[] = [
-  { v: "home", label: "Home loan" },
-  { v: "vehicle", label: "Vehicle loan" },
-  { v: "education", label: "Education loan" },
-  { v: "personal", label: "Personal loan" },
-  { v: "credit_card", label: "Credit card" },
-  { v: "other", label: "Other" },
+  { v: "home", label: t("studio.financeDraftEditor.str.homeLoan") },
+  { v: "vehicle", label: t("studio.financeDraftEditor.str.vehicleLoan") },
+  { v: "education", label: t("studio.financeDraftEditor.str.educationLoan") },
+  { v: "personal", label: t("studio.financeDraftEditor.str.personalLoan") },
+  { v: "credit_card", label: t("studio.financeDraftEditor.str.creditCard") },
+  { v: "other", label: t("studio.financeDraftEditor.str.other") },
 ];
 const GOAL_KINDS: { v: GoalKind; label: string }[] = [
-  { v: "retirement", label: "Retirement" },
-  { v: "education", label: "Education" },
+  { v: "retirement", label: t("studio.financeDraftEditor.str.retirement") },
+  { v: "education", label: t("studio.financeDraftEditor.str.education") },
   { v: "home", label: "Home" },
-  { v: "vehicle", label: "Vehicle" },
-  { v: "travel", label: "Travel" },
-  { v: "wedding", label: "Wedding" },
-  { v: "business", label: "Business" },
-  { v: "other", label: "Other" },
+  { v: "vehicle", label: t("studio.financeDraftEditor.str.vehicle") },
+  { v: "travel", label: t("studio.financeDraftEditor.str.travel") },
+  { v: "wedding", label: t("studio.financeDraftEditor.str.wedding") },
+  { v: "business", label: t("studio.financeDraftEditor.str.business") },
+  { v: "other", label: t("studio.financeDraftEditor.str.other") },
 ];
 const PRIORITIES: { v: Priority; label: string }[] = [
-  { v: "must", label: "Must have" },
-  { v: "should", label: "Should have" },
-  { v: "nice", label: "Nice to have" },
+  { v: "must", label: t("studio.financeDraftEditor.str.mustHave") },
+  { v: "should", label: t("studio.financeDraftEditor.str.shouldHave") },
+  { v: "nice", label: t("studio.financeDraftEditor.str.niceToHave") },
 ];
 const RISK = [
-  { v: 1, label: "1 - Very careful" },
+  { v: 1, label: t("studio.financeDraftEditor.str.1VeryCareful") },
   { v: 2, label: "2 - Careful" },
   { v: 3, label: "3 - Balanced" },
   { v: 4, label: "4 - Growth" },
-  { v: 5, label: "5 - Comfortable with big swings" },
+  { v: 5, label: t("studio.financeDraftEditor.str.5ComfortableWithBigSwings") },
 ];
 
 function Select<T extends string | number>({
@@ -97,7 +97,7 @@ function Select<T extends string | number>({
         onChange(o ? o.v : null);
       }}
     >
-      {empty !== undefined || value === null ? <option value="">{empty ?? "Not set"}</option> : null}
+      {empty !== undefined || value === null ? <option value="">{empty ?? t("studio.financeDraftEditor.str.notSet")}</option> : null}
       {options.map((o) => (
         <option key={String(o.v)} value={String(o.v)}>
           {o.label}
@@ -201,8 +201,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           <AmountRangeInput value={value} label={label} onChange={onChange} describedBy={err ? errId : undefined} invalid={!!err} />
           {value && value.low < value.high ? (
             <span className="chip range-chip">
-              range {formatMoney(value.low, cur, loc)}-{formatMoney(value.high, cur, loc)}, using{" "}
-              {formatMoney((value.low + value.high) / 2, cur, loc)}
+              {t("studio.financeDraftEditor.text.rangeUsing", { low: formatMoney(value.low, cur, loc), high: formatMoney(value.high, cur, loc), v: " ", formatMoney: formatMoney((value.low + value.high) / 2, cur, loc) })}
             </span>
           ) : null}
         </span>
@@ -221,14 +220,14 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
     </LinkedField>
   );
   const removeBtn = (list: ListName, key: string, name: string) => (
-    <button type="button" className="btn sm icon ghost" aria-label={`Remove ${name}`} onClick={() => removeItem(list, key, name)}>
+    <button type="button" className="btn sm icon ghost" aria-label={t("studio.financeDraftEditor.tpl.remove", { name: name })} onClick={() => removeItem(list, key, name)}>
       <Icon name="trash" />
     </button>
   );
 
   return (
     <div className="col" style={{ gap: 18 }}>
-      <Section id="profile" title="About you">
+      <Section id="profile" title={t("studio.financeDraftEditor.attr.aboutYou")}>
         <div className="form-grid">
           <LinkedField path="/name" error={errOf("/name")}>
             <div className="field grow">
@@ -245,7 +244,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           </LinkedField>
           <LinkedField path="/profile/age">
             <div className="field">
-              <span className="field-label">Your age</span>
+              <span className="field-label">{t("studio.financeDraftEditor.text.yourAge")}</span>
               <NumField
                 label={t("studio.financeDraftEditor.label.yourAge")}
                 value={draft.profile.age}
@@ -255,7 +254,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           </LinkedField>
           <LinkedField path="/profile/retirement_age">
             <div className="field">
-              <span className="field-label">Retire at age</span>
+              <span className="field-label">{t("studio.financeDraftEditor.text.retireAtAge")}</span>
               <NumField
                 label={t("studio.financeDraftEditor.label.retireAtAge")}
                 value={draft.profile.retirement_age}
@@ -266,7 +265,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           <LinkedField path="/profile/risk_tolerance">
             <div className="field">
               <span className="field-label">
-                Risk level <Term k="risk_level" bare />
+                {t("studio.financeDraftEditor.text.riskLevel")}{" "}<Term k="risk_level" bare />
               </span>
               <Select
                 label={t("studio.financeDraftEditor.label.riskLevel")}
@@ -279,7 +278,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           <LinkedField path="/emergency_fund_months">
             <div className="field">
               <span className="field-label">
-                Emergency fund (months) <Term k="emergency_fund" bare />
+                {t("studio.financeDraftEditor.text.emergencyFundMonths")}{" "}<Term k="emergency_fund" bare />
               </span>
               <NumField
                 label={t("studio.financeDraftEditor.label.emergencyFundInMonthsOf")}
@@ -293,9 +292,9 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
 
       <Section
         id="incomes"
-        title="Income"
+        title={t("studio.financeDraftEditor.attr.income")}
         count={draft.incomes.length}
-        emptyText="No income yet. Add what comes in after tax."
+        emptyText={t("studio.financeDraftEditor.attr.noIncomeYetAddWhat")}
         addLabel="Add income"
         onAdd={() =>
           addItem("incomes", "i", {
@@ -314,11 +313,11 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           {draft.incomes.map((i) => (
             <li key={i.key} className="draft-item">
               <div className="draft-cell">
-                <span className="field-label">Name</span>
-                {nameCell("incomes", i.key, i.name, "Income name")}
+                <span className="field-label">{t("studio.financeDraftEditor.text.name")}</span>
+                {nameCell("incomes", i.key, i.name, t("studio.financeDraftEditor.str.incomeName"))}
               </div>
               <div className="draft-cell">
-                <span className="field-label">Type</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.type")}</span>
                 <Select
                   label={`${i.name}: type`}
                   value={i.kind}
@@ -327,22 +326,22 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
                 />
               </div>
               <div className="draft-cell">
-                <span className="field-label">Amount after tax</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.amountAfterTax")}</span>
                 {amountCell(`/incomes/${i.key}/amount`, `${i.name}: amount`, i.amount, (v) =>
                   setItem("incomes", i.key, { amount: v }, ["amount"]),
                 )}
               </div>
               <div className="draft-cell">
-                <span className="field-label">How often</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.howOften")}</span>
                 <Select
-                  label={`${i.name}: how often`}
+                  label={t("studio.financeDraftEditor.tpl.howOften", { name: i.name })}
                   value={i.frequency}
                   options={FREQ}
                   onChange={(v) => v && setItem("incomes", i.key, { frequency: v }, ["frequency"])}
                 />
               </div>
               <div className="draft-cell">
-                <span className="field-label">Rises with inflation</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.risesWithInflation")}</span>
                 <LinkedField path={`/incomes/${i.key}/inflation_linked`}>
                   <label className="checkbox small">
                     <input
@@ -350,7 +349,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
                       checked={i.inflation_linked}
                       onChange={(e) => setItem("incomes", i.key, { inflation_linked: e.target.checked }, ["inflation_linked"])}
                     />
-                    Yes
+                    {t("studio.financeDraftEditor.text.yes")}
                   </label>
                 </LinkedField>
               </div>
@@ -362,9 +361,9 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
 
       <Section
         id="expenses"
-        title="Spending"
+        title={t("studio.financeDraftEditor.attr.spending")}
         count={draft.expenses.length}
-        emptyText="No spending yet. Add your regular costs, such as rent and groceries."
+        emptyText={t("studio.financeDraftEditor.attr.noSpendingYetAddYour")}
         addLabel="Add spending"
         onAdd={() =>
           addItem("expenses", "e", {
@@ -382,29 +381,29 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           {draft.expenses.map((x) => (
             <li key={x.key} className="draft-item">
               <div className="draft-cell">
-                <span className="field-label">Name</span>
-                {nameCell("expenses", x.key, x.name, "Spending name")}
+                <span className="field-label">{t("studio.financeDraftEditor.text.name")}</span>
+                {nameCell("expenses", x.key, x.name, t("studio.financeDraftEditor.str.spendingName"))}
               </div>
               <div className="draft-cell">
-                <span className="field-label">Amount</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.amount")}</span>
                 {amountCell(`/expenses/${x.key}/amount`, `${x.name}: amount`, x.amount, (v) =>
                   setItem("expenses", x.key, { amount: v }, ["amount"]),
                 )}
               </div>
               <div className="draft-cell">
-                <span className="field-label">How often</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.howOften")}</span>
                 <Select
-                  label={`${x.name}: how often`}
+                  label={t("studio.financeDraftEditor.tpl.howOften", { name: x.name })}
                   value={x.frequency}
                   options={FREQ}
                   onChange={(v) => v && setItem("expenses", x.key, { frequency: v }, ["frequency"])}
                 />
               </div>
               <div className="draft-cell">
-                <span className="field-label">Need or want</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.needOrWant")}</span>
                 <LinkedField path={`/expenses/${x.key}/essential`}>
                   <Select
-                    label={`${x.name}: need or want`}
+                    label={t("studio.financeDraftEditor.tpl.needOrWant", { name: x.name })}
                     value={x.essential === null ? null : x.essential ? "need" : "want"}
                     options={[
                       { v: "need", label: "Need (essential)" },
@@ -422,9 +421,9 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
 
       <Section
         id="debts"
-        title="Loans"
+        title={t("studio.financeDraftEditor.attr.loans")}
         count={draft.debts.length}
-        emptyText="No loans. Add one if you pay a monthly instalment."
+        emptyText={t("studio.financeDraftEditor.attr.noLoansAddOneIf")}
         addLabel="Add loan"
         onAdd={() =>
           addItem("debts", "d", {
@@ -441,11 +440,11 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           {draft.debts.map((d) => (
             <li key={d.key} className="draft-item">
               <div className="draft-cell">
-                <span className="field-label">Name</span>
-                {nameCell("debts", d.key, d.name, "Loan name")}
+                <span className="field-label">{t("studio.financeDraftEditor.text.name")}</span>
+                {nameCell("debts", d.key, d.name, t("studio.financeDraftEditor.str.loanName"))}
               </div>
               <div className="draft-cell">
-                <span className="field-label">Type</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.type")}</span>
                 <Select
                   label={`${d.name}: type`}
                   value={d.kind}
@@ -454,16 +453,16 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
                 />
               </div>
               <div className="draft-cell">
-                <span className="field-label">Still owed</span>
-                {amountCell(`/debts/${d.key}/balance`, `${d.name}: still owed`, d.balance, (v) =>
+                <span className="field-label">{t("studio.financeDraftEditor.text.stillOwed")}</span>
+                {amountCell(`/debts/${d.key}/balance`, t("studio.financeDraftEditor.tpl.stillOwed", { name: d.name }), d.balance, (v) =>
                   setItem("debts", d.key, { balance: v }, ["balance"]),
                 )}
               </div>
               <div className="draft-cell">
-                <span className="field-label">Interest % a year</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.interestAYear")}</span>
                 <LinkedField path={`/debts/${d.key}/interest_rate_pct`}>
                   <NumField
-                    label={`${d.name}: interest rate`}
+                    label={t("studio.financeDraftEditor.tpl.interestRate", { name: d.name })}
                     width={64}
                     value={d.interest_rate_pct}
                     onChange={(v) => setItem("debts", d.key, { interest_rate_pct: v }, ["interest_rate_pct"])}
@@ -471,8 +470,8 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
                 </LinkedField>
               </div>
               <div className="draft-cell">
-                <span className="field-label">Monthly instalment</span>
-                {amountCell(`/debts/${d.key}/emi`, `${d.name}: monthly instalment`, d.emi, (v) =>
+                <span className="field-label">{t("studio.financeDraftEditor.text.monthlyInstalment")}</span>
+                {amountCell(`/debts/${d.key}/emi`, t("studio.financeDraftEditor.tpl.monthlyInstalment", { name: d.name }), d.emi, (v) =>
                   setItem("debts", d.key, { emi: v }, ["emi"]),
                 )}
               </div>
@@ -484,9 +483,9 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
 
       <Section
         id="holdings"
-        title="Savings and investments"
+        title={t("studio.financeDraftEditor.attr.savingsAndInvestments")}
         count={draft.holdings.length}
-        emptyText="No savings yet. Add money in the bank, funds or deposits."
+        emptyText={t("studio.financeDraftEditor.attr.noSavingsYetAddMoney")}
         addLabel="Add savings"
         onAdd={() =>
           addItem("holdings", "h", { name: "Savings", asset_class_id: "cash", amount: null, locked_until_month: null } as Omit<
@@ -499,15 +498,15 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           {draft.holdings.map((h) => (
             <li key={h.key} className="draft-item">
               <div className="draft-cell">
-                <span className="field-label">Name</span>
-                {nameCell("holdings", h.key, h.name, "Savings name")}
+                <span className="field-label">{t("studio.financeDraftEditor.text.name")}</span>
+                {nameCell("holdings", h.key, h.name, t("studio.financeDraftEditor.str.savingsName"))}
               </div>
               <div className="draft-cell">
-                <span className="field-label">Held in</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.heldIn")}</span>
                 <LinkedField path={`/holdings/${h.key}/asset_class_id`}>
                   {classes.length ? (
                     <Select
-                      label={`${h.name}: held in`}
+                      label={t("studio.financeDraftEditor.tpl.heldIn", { name: h.name })}
                       value={h.asset_class_id}
                       options={
                         h.asset_class_id && !classes.some((c) => c.v === h.asset_class_id)
@@ -518,7 +517,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
                     />
                   ) : (
                     <TextInput
-                      label={`${h.name}: held in`}
+                      label={t("studio.financeDraftEditor.tpl.heldIn", { name: h.name })}
                       value={h.asset_class_id ?? ""}
                       onChange={(v) => setItem("holdings", h.key, { asset_class_id: v || null }, ["asset_class_id"])}
                     />
@@ -526,7 +525,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
                 </LinkedField>
               </div>
               <div className="draft-cell">
-                <span className="field-label">Amount now</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.amountNow")}</span>
                 {amountCell(`/holdings/${h.key}/amount`, `${h.name}: amount`, h.amount, (v) =>
                   setItem("holdings", h.key, { amount: v }, ["amount"]),
                 )}
@@ -539,9 +538,9 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
 
       <Section
         id="goals"
-        title="Goals"
+        title={t("studio.financeDraftEditor.attr.goals")}
         count={draft.goals.length}
-        emptyText="No goals yet. Add what you are saving for, such as a home or retirement."
+        emptyText={t("studio.financeDraftEditor.attr.noGoalsYetAddWhat")}
         addLabel="Add goal"
         onAdd={() =>
           addItem("goals", "g", {
@@ -559,11 +558,11 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
           {draft.goals.map((g) => (
             <li key={g.key} className="draft-item">
               <div className="draft-cell">
-                <span className="field-label">Name</span>
-                {nameCell("goals", g.key, g.name, "Goal name")}
+                <span className="field-label">{t("studio.financeDraftEditor.text.name")}</span>
+                {nameCell("goals", g.key, g.name, t("studio.financeDraftEditor.str.goalName"))}
               </div>
               <div className="draft-cell">
-                <span className="field-label">Type</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.type")}</span>
                 <Select
                   label={`${g.name}: type`}
                   value={g.kind}
@@ -573,30 +572,30 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
               </div>
               <div className="draft-cell">
                 <span className="field-label">
-                  Cost in <Term k="todays_money">today's money</Term>
+                  {t("studio.financeDraftEditor.text.costIn")}{" "}<Term k="todays_money">today's money</Term>
                 </span>
                 {amountCell(`/goals/${g.key}/target`, `${g.name}: cost`, g.target, (v) =>
                   setItem("goals", g.key, { target: v }, ["target"]),
                 )}
-                {g.kind === "retirement" && !g.target ? <span className="small muted">Empty: we suggest an amount</span> : null}
+                {g.kind === "retirement" && !g.target ? <span className="small muted">{t("studio.financeDraftEditor.text.emptyWeSuggestAnAmount")}</span> : null}
               </div>
               <div className="draft-cell">
-                <span className="field-label">By (month)</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.byMonth")}</span>
                 <LinkedField path={`/goals/${g.key}/target_month`}>
                   <input
                     type="month"
                     className="input sm"
-                    aria-label={`${g.name}: by month`}
+                    aria-label={t("studio.financeDraftEditor.tpl.byMonth", { name: g.name })}
                     value={g.target_month ?? ""}
                     onChange={(e) => setItem("goals", g.key, { target_month: e.target.value || null }, ["target_month"])}
                   />
                 </LinkedField>
               </div>
               <div className="draft-cell">
-                <span className="field-label">How important</span>
+                <span className="field-label">{t("studio.financeDraftEditor.text.howImportant")}</span>
                 <LinkedField path={`/goals/${g.key}/priority`}>
                   <Select
-                    label={`${g.name}: how important`}
+                    label={t("studio.financeDraftEditor.tpl.howImportant", { name: g.name })}
                     value={g.priority}
                     options={PRIORITIES}
                     onChange={(v) => setItem("goals", g.key, { priority: v }, ["priority"])}
@@ -610,7 +609,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
       </Section>
       {pending ? (
         <ConfirmDialog
-          title={`Remove "${pending.name}"?`}
+          title={t("studio.financeDraftEditor.tpl.remove2", { name: pending.name })}
           confirmLabel={t("studio.financeDraftEditor.btn.remove")}
           danger
           onCancel={() => setPending(null)}
@@ -619,7 +618,7 @@ export function FinanceDraftEditor({ draft }: { draft: FinanceDraft }) {
             setPending(null);
           }}
         >
-          It is removed from the draft.
+          {t("studio.financeDraftEditor.text.itIsRemovedFromThe")}
         </ConfirmDialog>
       ) : null}
     </div>

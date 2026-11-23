@@ -1,33 +1,34 @@
 /** Labels and number formatting for the M2 screens (plain words; codes only where planners use them). */
 import type { DemandType, PostingType, Role } from "../api/typesM2";
 import { fmtQty } from "./format";
+import { t as tr } from "../../lib/i18n";
 
 export const POSTING_LABEL: Record<PostingType, string> = {
-  receipt_misc: "Receipt (no order)",
-  issue_misc: "Issue (scrap, return, sample)",
-  adjust: "Adjustment",
-  count: "Stock count",
-  transfer: "Transfer",
-  po_receipt: "Goods receipt (purchase order)",
-  wo_issue: "Issue to work order",
-  wo_return: "Return from work order",
-  wo_receipt: "Work order output",
-  ship: "Shipment",
+  receipt_misc: tr("mfg.formatM2.str.receiptNoOrder"),
+  issue_misc: tr("mfg.formatM2.str.issueScrapReturnSample"),
+  adjust: tr("mfg.formatM2.str.adjustment"),
+  count: tr("mfg.formatM2.str.stockCount"),
+  transfer: tr("mfg.formatM2.str.transfer"),
+  po_receipt: tr("mfg.formatM2.str.goodsReceiptPurchaseOrder"),
+  wo_issue: tr("mfg.formatM2.str.issueToWorkOrder"),
+  wo_return: tr("mfg.formatM2.str.returnFromWorkOrder"),
+  wo_receipt: tr("mfg.formatM2.str.workOrderOutput"),
+  ship: tr("mfg.formatM2.str.shipment"),
 };
 
 export const DEMAND_TYPE_LABEL: Record<DemandType, string> = {
-  customer: "Customer order",
-  internal: "Internal",
-  spares: "Spares",
-  project: "Project / prototype",
+  customer: tr("mfg.formatM2.str.customerOrder"),
+  internal: tr("mfg.formatM2.str.internal"),
+  spares: tr("mfg.formatM2.str.spares"),
+  project: tr("mfg.formatM2.str.projectPrototype"),
 };
 
 export const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: "planner", label: "Planner" },
-  { value: "purchaser", label: "Purchaser" },
-  { value: "store_keeper", label: "Store keeper" },
-  { value: "approver", label: "Approver" },
-  { value: "viewer", label: "Viewer" },
+  { value: "planner", label: tr("mfg.formatM2.str.planner") },
+  { value: "purchaser", label: tr("mfg.formatM2.str.purchaser") },
+  { value: "store_keeper", label: tr("mfg.formatM2.str.storeKeeper") },
+  { value: "approver", label: tr("mfg.formatM2.str.approver") },
+  { value: "viewer", label: tr("mfg.formatM2.str.viewer") },
 ];
 
 /** Quantity with the unit, e.g. "30 EA". */

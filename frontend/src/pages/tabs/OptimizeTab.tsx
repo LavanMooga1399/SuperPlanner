@@ -15,10 +15,10 @@ import { useLoadedPlan } from "../../state/PlanContext";
 import { t } from "../../lib/i18n";
 
 const BUDGETS = [
-  { s: 5, label: "Quick", desc: "5 seconds" },
-  { s: 10, label: "Standard", desc: "10 seconds" },
-  { s: 30, label: "Thorough", desc: "30 seconds" },
-  { s: 120, label: "Extended", desc: "2 minutes" },
+  { s: 5, label: t("studio.optimizeTab.str.quick"), desc: "5 seconds" },
+  { s: 10, label: t("studio.optimizeTab.str.standard"), desc: "10 seconds" },
+  { s: 30, label: t("studio.optimizeTab.str.thorough"), desc: "30 seconds" },
+  { s: 120, label: t("studio.optimizeTab.str.extended"), desc: "2 minutes" },
 ];
 
 export function OptimizeTab() {
@@ -48,7 +48,7 @@ export function OptimizeTab() {
     try {
       const saved = await plan.save();
       if (!saved) {
-        setError("Your latest edits could not be saved. Resolve the save problem before optimizing.");
+        setError(t("studio.optimizeTab.str.yourLatestEditsCouldNot"));
         return;
       }
       const body: SolverRunRequest = { time_limit_seconds: budget, objectives: null };
@@ -105,7 +105,7 @@ export function OptimizeTab() {
             <h2>{t("studio.optimizeTab.head.whatMattersMost")}</h2>
             <label className="switch small">
               <input type="checkbox" checked={expertOpen} onChange={(e) => setExpertOpen(e.target.checked)} data-testid="expert-toggle" />
-              <span>Expert settings</span>
+              <span>{t("studio.optimizeTab.text.expertSettings")}</span>
             </label>
           </div>
           <div className="card-body col gap-lg">
@@ -125,7 +125,7 @@ export function OptimizeTab() {
                   <input id="budget-custom" className="input sm num" type="number" min={1} max={300} value={budget} onChange={(e) => setBudget(Math.max(1, Math.min(300, Number(e.target.value) || 1)))} />
                 </div>
               ) : null}
-              <span className="small muted">Longer searches can find better {terms.scheduleL}s on big plans. A first valid result usually appears within a second.</span>
+              <span className="small muted">{t("studio.optimizeTab.text.longerSearchesCanFindBetter", { scheduleL: terms.scheduleL })}</span>
             </div>
             {expertOpen ? <ExpertSettings value={expert} onChange={setExpert} /> : null}
           </div>
@@ -141,12 +141,12 @@ export function OptimizeTab() {
               ) : null}
               <button className="btn primary" onClick={start} disabled={busy || customInvalid || draft.tasks.length === 0} data-testid="start-run">
                 {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />}
-                Optimize
+                {t("studio.optimizeTab.text.optimize")}
               </button>
             </div>
             {draft.tasks.length === 0 ? (
               <p className="small muted" style={{ margin: "8px 0 0" }} data-testid="optimize-needs-tasks">
-                Add at least one {terms.taskL} on the <Link to="../tasks">{terms.tasks} tab</Link> to optimize.
+                {t("studio.optimizeTab.text.addAtLeastOneOn", { taskL: terms.taskL })}{" "}<Link to="../tasks">{terms.tasks} tab</Link>{" "}{t("studio.optimizeTab.text.toOptimize")}
               </p>
             ) : null}
           </div>
@@ -155,7 +155,7 @@ export function OptimizeTab() {
       <ErrorBanner error={error} />
       {preflight && preflight.length ? (
         <div className="col">
-          <Banner tone="danger" title={t("studio.optimizeTab.title.fixTheseProblemsBeforeOptimizing")} actions={<Link className="btn sm" to="../validate">Open Validate</Link>} />
+          <Banner tone="danger" title={t("studio.optimizeTab.title.fixTheseProblemsBeforeOptimizing")} actions={<Link className="btn sm" to="../validate">{t("studio.optimizeTab.text.openValidate")}</Link>} />
           <IssueList issues={preflight} draft={draft} terms={terms} />
         </div>
       ) : null}

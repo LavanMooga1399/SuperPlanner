@@ -6,6 +6,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { listItems } from "../api/client";
 import type { ItemRef, MakeBuy } from "../api/types";
 import { isAbortError, useDebounced } from "../lib/useMfg";
+import { t } from "../../lib/i18n";
 
 export interface ItemPickerProps {
   value: ItemRef | null;
@@ -30,7 +31,7 @@ export function ItemPicker({
   excludeId,
   disabled,
   testId,
-  placeholder = "Search part number",
+  placeholder = t("mfg.itemPicker.str.searchPartNumber"),
   autoFocus,
 }: ItemPickerProps) {
   const [text, setText] = useState(value?.part_number ?? "");
@@ -169,8 +170,8 @@ export function ItemPicker({
           aria-label={`${label} options`}
           style={rect ? { top: rect.top, left: rect.left, width: rect.width } : undefined}
         >
-          {loading && options.length === 0 ? <li className="mfg-picker-empty">Searching…</li> : null}
-          {!loading && options.length === 0 ? <li className="mfg-picker-empty">No matching items</li> : null}
+          {loading && options.length === 0 ? <li className="mfg-picker-empty">{t("mfg.itemPicker.text.searching")}</li> : null}
+          {!loading && options.length === 0 ? <li className="mfg-picker-empty">{t("mfg.itemPicker.text.noMatchingItems")}</li> : null}
           {options.map((it, i) => (
             <li
               key={it.id}

@@ -12,16 +12,16 @@ import { FinanceTemplateCards } from "../components/FinanceTemplateCards";
 import { StatusPill } from "../components/StatusPill";
 import { startBlankFinancePlan } from "../lib/startBlank";
 import { PageHeader } from "../../components/PageHeader";
-import { t, plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 function toExportFile(data: unknown): FinanceExportFile {
-  if (typeof data !== "object" || data === null) throw new Error("The file does not contain a JSON object.");
+  if (typeof data !== "object" || data === null) throw new Error(t("finance.financeHome.str.theFileDoesNotContain"));
   const obj = data as Record<string, unknown>;
   if (obj.format === "superplanner.finance_plan") return obj as unknown as FinanceExportFile;
   if ("goals" in obj && "name" in obj && !("tasks" in obj)) {
     return { format: "superplanner.finance_plan", format_version: 1, exported_at: new Date().toISOString(), plan: obj as unknown as FinancePlan };
   }
-  throw new Error('This is not a SuperPlanner financial plan file (expected format "superplanner.finance_plan").');
+  throw new Error(t("finance.financeHome.str.thisIsNotASuperplanner"));
 }
 
 export function FinanceHome() {
@@ -53,7 +53,7 @@ export function FinanceHome() {
       const rec = await importFinancePlan(toExportFile(JSON.parse(await file.text())));
       navigate(`/finance/${rec.id}/setup/review`);
     } catch (err) {
-      setError(err instanceof SyntaxError ? "The file is not valid JSON." : errorMessage(err));
+      setError(err instanceof SyntaxError ? t("finance.financeHome.str.theFileIsNotValid") : errorMessage(err));
       setBusy(null);
     }
   };
@@ -67,10 +67,10 @@ export function FinanceHome() {
           <>
             <input ref={fileRef} type="file" accept=".json,application/json" className="sr-only" onChange={onFile} id="fin-import-file" aria-label={t("finance.financeHome.aria.importFinancialPlanJsonFile")} />
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={busy !== null}>
-            {busy === "import" ? <span className="spinner" aria-hidden /> : <Icon name="upload" />} Import JSON
+            {busy === "import" ? <span className="spinner" aria-hidden /> : <Icon name="upload" />}{" "}{t("finance.financeHome.text.importJson")}
           </button>
           <button className="btn primary" onClick={() => void startBlank()} disabled={busy !== null} data-testid="fin-start-blank">
-            {busy === "blank" ? <span className="spinner" aria-hidden /> : <Icon name="plus" />} Start from scratch
+            {busy === "blank" ? <span className="spinner" aria-hidden /> : <Icon name="plus" />}{" "}{t("finance.financeHome.text.startFromScratch")}
           </button></>} />
       <ErrorBanner error={error} />
 
@@ -132,18 +132,18 @@ function PlanList({ items, onChanged }: { items: FinancePlanSummary[]; onChanged
                   {p.name}
                 </Link>
                 <span className="small muted">
-                  {plural(p.goal_count, "goal")} · {p.currency} · edited {fmtRelative(p.updated_at)}
+                  {t("finance.financeHome.text.edited", { goalcount: plural(p.goal_count, "goal"), currency: p.currency, updatedat: fmtRelative(p.updated_at) })}
                 </span>
               </div>
               {p.latest_result ? (
                 <span className="row small">
                   <StatusPill kind={p.latest_result.feasibility} />
                   <span className="muted">
-                    {t("common.nOfM", { n: p.latest_result.goals_on_track, m: p.latest_result.goals_total })} on track
+                    {t("finance.financeHome.text.onTrack", { t: t("common.nOfM", { n: p.latest_result.goals_on_track, m: p.latest_result.goals_total }) })}
                   </span>
                 </span>
               ) : (
-                <span className="small muted">Not built yet</span>
+                <span className="small muted">{t("finance.financeHome.text.notBuiltYet")}</span>
               )}
               {p.latest_run && (p.latest_run.status === "queued" || p.latest_run.status === "running") ? <StatusPill kind={p.latest_run.status} /> : null}
               <button className="btn sm ghost" onClick={() => setToDelete(p)} aria-label={`Delete ${p.name}`}>
@@ -156,7 +156,7 @@ function PlanList({ items, onChanged }: { items: FinancePlanSummary[]; onChanged
       {toDelete ? (
         <ConfirmDialog title={t("finance.financeHome.title.deleteFinancialPlan")} confirmLabel={t("finance.financeHome.btn.delete")} danger busy={busy} onConfirm={() => void doDelete()} onCancel={() => setToDelete(null)}>
           <p style={{ margin: 0 }}>
-            "{toDelete.name}" and all its results will be deleted. This cannot be undone.
+            {t("finance.financeHome.text.andAllItsResultsWill", { name: toDelete.name })}
           </p>
         </ConfirmDialog>
       ) : null}

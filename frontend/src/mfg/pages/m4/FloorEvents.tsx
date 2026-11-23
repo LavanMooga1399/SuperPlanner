@@ -22,7 +22,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { FilterBar } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 const TYPES = Object.keys(EVENT_LABEL) as FloorEventType[];
 
@@ -48,20 +48,20 @@ export function FloorEvents() {
   const columns: Column<FloorEventRecord>[] = [
     {
       key: "when",
-      header: "When",
+      header: tr("mfg.floorEvents.str.when"),
       width: "176px",
       wrap: true,
       exportValue: (e) => e.event_at,
       render: (e) => (
         <span>
           {clock.dateTime(e.event_at)}
-          {Math.abs(Date.parse(e.recorded_at) - Date.parse(e.event_at)) > 5 * 60000 ? <span className="vt-sub">recorded {clock.dateTime(e.recorded_at)}</span> : null}
+          {Math.abs(Date.parse(e.recorded_at) - Date.parse(e.event_at)) > 5 * 60000 ? <span className="vt-sub">{tr("mfg.floorEvents.text.recorded", { recordedat: clock.dateTime(e.recorded_at) })}</span> : null}
         </span>
       ),
     },
     {
       key: "wo",
-      header: "Work order / step",
+      header: tr("mfg.floorEvents.str.workOrderStep"),
       width: "160px",
       exportValue: (e) => `${e.wo_number ?? e.wo_id}${e.op_seq ? ` / ${e.op_seq}` : ""}`,
       render: (e) => (
@@ -75,14 +75,14 @@ export function FloorEvents() {
     },
     {
       key: "event",
-      header: "Event",
+      header: tr("mfg.floorEvents.str.event"),
       width: "minmax(200px, 1.5fr)",
       wrap: true,
       exportValue: (e) => EVENT_LABEL[e.event_type] ?? e.event_type,
       render: (e) => (
         <span>
           {EVENT_LABEL[e.event_type] ?? e.event_type}
-          {e.corrects_event_id ? <span className="faint small"> · corrects an earlier event</span> : null}
+          {e.corrects_event_id ? <span className="faint small">{" "}{tr("mfg.floorEvents.text.correctsAnEarlierEvent")}</span> : null}
           {e.corrected ? (
             <span className="small">
               {" "}
@@ -96,7 +96,7 @@ export function FloorEvents() {
     },
     {
       key: "qty",
-      header: "Quantities",
+      header: tr("mfg.floorEvents.str.quantities"),
       width: "minmax(150px, 1fr)",
       wrap: true,
       render: (e) =>
@@ -109,10 +109,10 @@ export function FloorEvents() {
           .filter(Boolean)
           .join(" · "),
     },
-    { key: "line", header: "Line", width: "90px", render: (e) => e.line?.code ?? "" },
+    { key: "line", header: tr("mfg.floorEvents.str.line"), width: "90px", render: (e) => e.line?.code ?? "" },
     {
       key: "who",
-      header: "Who",
+      header: tr("mfg.floorEvents.str.who"),
       width: "minmax(150px, 1fr)",
       wrap: true,
       exportValue: (e) => e.operators.map((o) => o.name || o.code).join(", "),
@@ -129,8 +129,8 @@ export function FloorEvents() {
   if (canSupervise)
     columns.push({
       key: "actions",
-      header: <span className="sr-only">Actions</span>,
-      label: "Actions",
+      header: <span className="sr-only">{tr("mfg.floorEvents.text.actions")}</span>,
+      label: tr("mfg.floorEvents.str.actions"),
       width: "150px",
       exportValue: () => "",
       render: (e) => (
@@ -160,7 +160,7 @@ export function FloorEvents() {
         <div className="field">
           <label htmlFor="fe-line">{t("mfg.floorEvents.label.line")}</label>
           <select id="fe-line" className="select" value={line} onChange={(e) => set("line", e.target.value)}>
-            <option value="">All lines</option>
+            <option value="">{tr("mfg.floorEvents.text.allLines")}</option>
             {(lines.data?.items ?? []).map((l) => (
               <option key={l.id} value={l.id}>
                 {l.code}
@@ -171,7 +171,7 @@ export function FloorEvents() {
         <div className="field">
           <label htmlFor="fe-type">{t("mfg.floorEvents.label.event")}</label>
           <select id="fe-type" className="select" value={type} onChange={(e) => set("type", e.target.value)}>
-            <option value="">All events</option>
+            <option value="">{tr("mfg.floorEvents.text.allEvents")}</option>
             {TYPES.map((t) => (
               <option key={t} value={t}>
                 {EVENT_LABEL[t]}
@@ -220,8 +220,8 @@ export function FloorEvents() {
       ) : null}
       {reopening ? (
         <ReasonDialog
-          title="Reopen this operation?"
-          text="Its completion postings (receipt, backflush) are reversed and the operation goes back to paused."
+          title={tr("mfg.floorEvents.attr.reopenThisOperation")}
+          text={tr("mfg.floorEvents.attr.itsCompletionPostingsReceiptBackflush")}
           confirm="Reopen"
           onClose={() => setReopening(null)}
           onConfirm={async (reason) => {
@@ -278,7 +278,7 @@ function CorrectDialog({ ev, onClose, onDone }: { ev: FloorEventRecord; onClose(
       }
     >
       <p className="muted" style={{ marginTop: 0 }}>
-        The original event stays in the log; the correction replaces its quantities. Stock postings follow.
+        {tr("mfg.floorEvents.text.theOriginalEventStaysIn")}
       </p>
       <div className="grid-3">
         <div className="field">

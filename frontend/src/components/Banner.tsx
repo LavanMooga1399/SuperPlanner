@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NETWORK_MESSAGE } from "../api/client";
 import { Icon, type IconName } from "./Icon";
 import { SkeletonPage } from "./Skeleton";
+import { t } from "../lib/i18n";
 
 export interface BannerProps {
   tone?: "ok" | "warn" | "danger" | "accent" | "info";
@@ -42,9 +43,9 @@ export function ErrorBanner({ error, onRetry }: { error: string | null; onRetry?
     <Banner
       tone="danger"
       role="alert"
-      title={network ? "Server not reachable" : "Something went wrong"}
+      title={network ? t("studio.banner.str.serverNotReachable") : t("studio.banner.str.somethingWentWrong")}
       testId={network ? "network-error" : undefined}
-      actions={onRetry ? <button className="btn sm" onClick={onRetry}><Icon name="refresh" /> Retry</button> : null}
+      actions={onRetry ? <button className="btn sm" onClick={onRetry}><Icon name="refresh" />{" "}{t("studio.banner.text.retry")}</button> : null}
     >
       {error}
     </Banner>
@@ -52,6 +53,6 @@ export function ErrorBanner({ error, onRetry }: { error: string | null; onRetry?
 }
 
 /** Page/section loading: skeleton placeholder (UX-STANDARD 4); `label` is announced to screen readers. */
-export function Loading({ label = "Loading…" }: { label?: string }) {
+export function Loading({ label = t("studio.banner.str.loading") }: { label?: string }) {
   return <SkeletonPage label={label} rows={5} />;
 }

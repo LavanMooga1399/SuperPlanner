@@ -26,17 +26,17 @@ import { fieldErrors, isAbortError, todayInOffset, usePlant } from "../../lib/us
 import { FORM_TYPES } from "./InventoryLayout";
 import { toast } from "../../../components/Toast";
 import { DateInput } from "../../../components/DateInput";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 const MAX_BACKDATE = 31;
 const REASONS = ["SCRAP", "RTV", "SAMPLE", "DAMAGE", "FOUND", "LOST", "CORRECTION"];
 
 const HELP: Record<string, string> = {
-  receipt_misc: "Stock that arrives without a purchase order (free samples, returns from a customer, opening stock).",
-  issue_misc: "Stock that leaves without a work order: scrap, return to vendor, samples. A reason is required.",
-  transfer: "Move stock between locations, e.g. from goods-in inspection to stores, or stores to line side.",
-  adjust: "Correct on-hand by a signed quantity (+ found, − lost). A reason is required.",
-  count: "Enter what you counted; the difference is posted as an adjustment with reason COUNT.",
+  receipt_misc: tr("mfg.postingForm.str.stockThatArrivesWithoutA"),
+  issue_misc: tr("mfg.postingForm.str.stockThatLeavesWithoutA"),
+  transfer: tr("mfg.postingForm.str.moveStockBetweenLocationsE"),
+  adjust: tr("mfg.postingForm.str.correctOnHandByA"),
+  count: tr("mfg.postingForm.str.enterWhatYouCountedThe"),
 };
 
 interface Line {
@@ -136,13 +136,13 @@ function PostLineRow({
   const fractional = qty !== null && isCountUom(uom) && !Number.isInteger(qty);
   const n = index + 1;
 
-  const qtyLabel = type === "count" ? "Counted" : type === "adjust" ? "Change (+/−)" : "Quantity";
+  const qtyLabel = type === "count" ? tr("mfg.postingForm.str.counted") : type === "adjust" ? tr("mfg.postingForm.str.change") : tr("mfg.postingForm.str.quantity");
 
   return (
     <tr data-testid="post-line" data-index={index} className={error ? "mfg-line-error" : undefined}>
       <td className="faint">{n}</td>
       <td style={{ minWidth: 220 }}>
-        <ItemPicker label={`Line ${n} item`} hideLabel value={line.item} onChange={(it) => onChange({ item: it, lot_code: "" })} testId="post-line-item" />
+        <ItemPicker label={tr("mfg.postingForm.tpl.lineItem", { n: n })} hideLabel value={line.item} onChange={(it) => onChange({ item: it, lot_code: "" })} testId="post-line-item" />
         {info ? (
           <div className="faint small mfg-ellipsis">
             {info.description}
@@ -152,7 +152,7 @@ function PostLineRow({
       </td>
       <td style={{ minWidth: 190 }}>
         <LocationSelect
-          label={type === "transfer" ? `Line ${n} from location` : `Line ${n} location`}
+          label={type === "transfer" ? tr("mfg.postingForm.tpl.lineFromLocation", { n: n }) : tr("mfg.postingForm.tpl.lineLocation", { n: n })}
           hideLabel
           value={line.location_id}
           onChange={(v) => onChange({ location_id: v, lot_code: isOut ? "" : line.lot_code })}
@@ -160,29 +160,29 @@ function PostLineRow({
         />
         {balances && type !== "receipt_misc" ? (
           <div className="faint small" data-testid="post-line-available">
-            {type === "count" ? `Now on hand: ${fmtNum(onHand ?? 0)} ${uom}` : `Available: ${fmtNum(available ?? 0)} ${uom}`}
+            {type === "count" ? tr("mfg.postingForm.tpl.nowOnHand", { fmtNum: fmtNum(onHand ?? 0), uom: uom }) : tr("mfg.postingForm.tpl.available", { fmtNum: fmtNum(available ?? 0), uom: uom })}
           </div>
         ) : null}
       </td>
       {type === "transfer" ? (
         <td style={{ minWidth: 190 }}>
-          <LocationSelect label={`Line ${n} to location`} hideLabel value={line.to_location_id} onChange={(v) => onChange({ to_location_id: v })} testId="post-line-to-location" />
-          {line.to_location_id && line.to_location_id === line.location_id ? <div className="field-error">Choose another location.</div> : null}
+          <LocationSelect label={tr("mfg.postingForm.tpl.lineToLocation", { n: n })} hideLabel value={line.to_location_id} onChange={(v) => onChange({ to_location_id: v })} testId="post-line-to-location" />
+          {line.to_location_id && line.to_location_id === line.location_id ? <div className="field-error">{tr("mfg.postingForm.text.chooseAnotherLocation")}</div> : null}
         </td>
       ) : null}
       <td style={{ minWidth: 150 }}>
         {!line.item ? (
           <span className="faint small">-</span>
         ) : !lotTracked ? (
-          <span className="faint small">Not lot-tracked</span>
+          <span className="faint small">{tr("mfg.postingForm.text.notLotTracked")}</span>
         ) : isOut ? (
-          <select className="select sm" aria-label={`Line ${n} lot`} value={line.lot_code} onChange={(e) => onChange({ lot_code: e.target.value })} data-testid="post-line-lot">
-            <option value="">Earliest expiry first</option>
+          <select className="select sm" aria-label={tr("mfg.postingForm.tpl.lineLot", { n: n })} value={line.lot_code} onChange={(e) => onChange({ lot_code: e.target.value })} data-testid="post-line-lot">
+            <option value="">{tr("mfg.postingForm.text.earliestExpiryFirst")}</option>
             {lotsHere.map((l) => (
               <option key={l.id} value={l.lot_code} disabled={l.hold}>
                 {l.lot_code}
                 {l.expires_on ? ` (exp. ${fmtDate(l.expires_on)})` : ""}
-                {l.hold ? " - on hold" : ""}
+                {l.hold ? tr("mfg.postingForm.str.onHold") : ""}
               </option>
             ))}
           </select>
@@ -190,12 +190,12 @@ function PostLineRow({
           <>
             <input
               className="input sm"
-              aria-label={`Line ${n} lot`}
+              aria-label={tr("mfg.postingForm.tpl.lineLot", { n: n })}
               list={`lots-${line.key}`}
               value={line.lot_code}
               maxLength={64}
               onChange={(e) => onChange({ lot_code: e.target.value })}
-              placeholder={type === "receipt_misc" ? "Required" : "Lot code"}
+              placeholder={type === "receipt_misc" ? tr("mfg.postingForm.str.required") : tr("mfg.postingForm.str.lotCode")}
               aria-invalid={type === "receipt_misc" && !line.lot_code.trim()}
               data-testid="post-line-lot"
             />
@@ -208,7 +208,7 @@ function PostLineRow({
         )}
         {pick && pick.length ? (
           <div className="mfg-fefo" data-testid="post-line-fefo">
-            Takes {pick.map((p) => `${fmtNum(p.qty)} from ${p.lot}`).join(", ")}
+            {tr("mfg.postingForm.text.takes", { join: pick.map((p) => `${fmtNum(p.qty)} from ${p.lot}`).join(", ") })}
           </div>
         ) : null}
       </td>
@@ -217,17 +217,16 @@ function PostLineRow({
           className="input sm num"
           type="number"
           step="any"
-          aria-label={`Line ${n} ${qtyLabel.toLowerCase()}`}
+          aria-label={tr("mfg.postingForm.tpl.line", { n: n, qtyLabel: qtyLabel.toLowerCase() })}
           value={line.qty}
           onChange={(e) => onChange({ qty: e.target.value })}
           aria-invalid={fractional}
           data-testid="post-line-qty"
         />
-        {fractional ? <div className="field-error">Whole {uom} only.</div> : null}
+        {fractional ? <div className="field-error">{tr("mfg.postingForm.text.wholeOnly", { uom: uom })}</div> : null}
         {type === "count" && qty !== null && onHand !== undefined ? (
           <div className="faint small" data-testid="post-line-delta">
-            Difference {qty - onHand >= 0 ? "+" : "−"}
-            {fmtNum(Math.abs(qty - onHand))}
+            {tr("mfg.postingForm.text.difference", { v: qty - onHand >= 0 ? "+" : "−", fmtNum: fmtNum(Math.abs(qty - onHand)) })}
           </div>
         ) : null}
       </td>
@@ -242,15 +241,15 @@ function PostLineRow({
       {type === "receipt_misc" ? (
         <>
           <td style={{ width: 130 }}>
-            <input className="input sm" aria-label={`Line ${n} supplier lot`} value={line.supplier_lot} maxLength={64} onChange={(e) => onChange({ supplier_lot: e.target.value })} />
+            <input className="input sm" aria-label={tr("mfg.postingForm.tpl.lineSupplierLot", { n: n })} value={line.supplier_lot} maxLength={64} onChange={(e) => onChange({ supplier_lot: e.target.value })} />
           </td>
           <td style={{ width: 110 }}>
-            <input className="input sm num" type="number" step="any" aria-label={`Line ${n} unit cost`} value={line.unit_cost} onChange={(e) => onChange({ unit_cost: e.target.value })} placeholder={info?.standard_cost != null ? String(info.standard_cost) : ""} />
+            <input className="input sm num" type="number" step="any" aria-label={tr("mfg.postingForm.tpl.lineUnitCost", { n: n })} value={line.unit_cost} onChange={(e) => onChange({ unit_cost: e.target.value })} placeholder={info?.standard_cost != null ? String(info.standard_cost) : ""} />
           </td>
         </>
       ) : null}
       <td>
-        <button type="button" className="btn sm ghost icon" aria-label={`Remove line ${n}`} onClick={onRemove} disabled={!canRemove}>
+        <button type="button" className="btn sm ghost icon" aria-label={tr("mfg.postingForm.tpl.removeLine", { n: n })} onClick={onRemove} disabled={!canRemove}>
           <Icon name="trash" />
         </button>
       </td>
@@ -259,14 +258,14 @@ function PostLineRow({
 }
 
 function lineProblem(type: PostingType, l: Line): string | null {
-  if (!l.item) return "Choose an item.";
-  if (!l.location_id) return "Choose a location.";
+  if (!l.item) return tr("mfg.postingForm.str.chooseAnItem");
+  if (!l.location_id) return tr("mfg.postingForm.str.chooseALocation");
   const q = numOrNull(l.qty);
-  if (q === null) return type === "count" ? "Enter the counted quantity." : "Enter a quantity.";
+  if (q === null) return type === "count" ? tr("mfg.postingForm.str.enterTheCountedQuantity") : tr("mfg.postingForm.str.enterAQuantity");
   if (type === "count" ? q < 0 : type === "adjust" ? q === 0 : q <= 0)
-    return type === "adjust" ? "The change cannot be 0." : type === "count" ? "Counted quantity cannot be negative." : "Quantity must be more than 0.";
-  if (isCountUom(l.item.uom) && !Number.isInteger(q)) return `${l.item.uom} quantities are whole numbers.`;
-  if (type === "transfer" && (!l.to_location_id || l.to_location_id === l.location_id)) return "Choose a different destination location.";
+    return type === "adjust" ? tr("mfg.postingForm.str.theChangeCannotBe0") : type === "count" ? tr("mfg.postingForm.str.countedQuantityCannotBeNegative") : tr("mfg.postingForm.str.quantityMustBeMoreThan");
+  if (isCountUom(l.item.uom) && !Number.isInteger(q)) return tr("mfg.postingForm.tpl.quantitiesAreWholeNumbers", { uom: l.item.uom });
+  if (type === "transfer" && (!l.to_location_id || l.to_location_id === l.location_id)) return tr("mfg.postingForm.str.chooseADifferentDestinationLocation");
   return null;
 }
 
@@ -409,7 +408,7 @@ export function PostingForm() {
     setError(null);
     try {
       const { record, replay } = await createPosting(body, keyRef.current.key);
-      if (!replay) toast(record.number ? `Posting ${record.number} saved` : "Posting saved");
+      if (!replay) toast(record.number ? tr("mfg.postingForm.tpl.postingSaved", { number: record.number }) : tr("mfg.postingForm.str.postingSaved"));
       keyRef.current = null;
       navigate(mfgPaths.posting(record.id), { state: { posted: true, replay } });
     } catch (e) {
@@ -422,7 +421,7 @@ export function PostingForm() {
   if (!canPost)
     return (
       <Banner tone="warn" icon="lock" title={t("mfg.postingForm.title.postingIsNotAvailableFor")} testId="forbidden-banner">
-        Stock postings need the Store keeper role in this plant. You can still look at <Link to={mfgPaths.inventory()}>stock</Link> and the{" "}
+        {tr("mfg.postingForm.text.stockPostingsNeedTheStore")}{" "}<Link to={mfgPaths.inventory()}>stock</Link>{" "}{tr("mfg.postingForm.text.andThe", { v: " " })}
         <Link to={mfgPaths.transactions()}>ledger</Link>.
       </Banner>
     );
@@ -456,11 +455,11 @@ export function PostingForm() {
           <div className="field">
             <label htmlFor="post-date">{t("mfg.postingForm.label.postingDate")}</label>
             <input id="post-date" className="input" type="date" value={date} min={minDate} max={today} placeholder={today} onChange={(e) => setDate(e.target.value)} aria-invalid={dateBad} data-testid="post-date" />
-            <span className="hint">{dateBad ? `Between ${fmtDate(minDate)} and today.` : `Empty = today (${fmtDate(today)}). Up to ${MAX_BACKDATE} days back.`}</span>
+            <span className="hint">{dateBad ? tr("mfg.postingForm.tpl.betweenAndToday", { minDate: fmtDate(minDate) }) : tr("mfg.postingForm.tpl.emptyTodayUpToDays", { today: fmtDate(today), MAXBACKDATE: MAX_BACKDATE })}</span>
           </div>
           <div className="field">
             <label htmlFor="post-reason">
-              Reason{reasonRequired ? <span className="mfg-required" aria-hidden> *</span> : null}
+              {tr("mfg.postingForm.text.reason")}{reasonRequired ? <span className="mfg-required" aria-hidden> *</span> : null}
             </label>
             <input
               id="post-reason"
@@ -471,7 +470,7 @@ export function PostingForm() {
               onChange={(e) => setReason(e.target.value.toUpperCase())}
               aria-required={reasonRequired}
               aria-invalid={touched && reasonRequired && !reason.trim()}
-              placeholder={reasonRequired ? "e.g. SCRAP" : "Optional"}
+              placeholder={reasonRequired ? "e.g. SCRAP" : tr("mfg.postingForm.str.optional")}
               data-testid="post-reason"
             />
             <datalist id="post-reasons">
@@ -479,7 +478,7 @@ export function PostingForm() {
                 <option key={r} value={r} />
               ))}
             </datalist>
-            {touched && reasonRequired && !reason.trim() ? <span className="field-error">A reason is required for this movement.</span> : null}
+            {touched && reasonRequired && !reason.trim() ? <span className="field-error">{tr("mfg.postingForm.text.aReasonIsRequiredFor")}</span> : null}
           </div>
           <div className="field" style={{ gridColumn: "span 2" }}>
             <label htmlFor="post-note">{t("mfg.postingForm.label.note")}</label>
@@ -494,12 +493,12 @@ export function PostingForm() {
             <tr>
               <th>#</th>
               <th>{t("mfg.postingForm.head.item")}</th>
-              <th>{type === "transfer" ? "From" : "Location"}</th>
-              {type === "transfer" ? <th>To</th> : null}
+              <th>{type === "transfer" ? tr("mfg.postingForm.str.from") : tr("mfg.postingForm.str.location")}</th>
+              {type === "transfer" ? <th>{tr("mfg.postingForm.text.to")}</th> : null}
               <th>{t("mfg.postingForm.head.lot")}</th>
-              <th>{type === "count" ? "Counted" : type === "adjust" ? "Change (+/−)" : "Quantity"}</th>
+              <th>{type === "count" ? tr("mfg.postingForm.str.counted") : type === "adjust" ? tr("mfg.postingForm.str.change") : tr("mfg.postingForm.str.quantity")}</th>
               <th>{t("mfg.postingForm.head.unit")}</th>
-              {showExpiry ? <th>Expires on</th> : null}
+              {showExpiry ? <th>{tr("mfg.postingForm.text.expiresOn")}</th> : null}
               {type === "receipt_misc" ? (
                 <>
                   <th>{t("mfg.postingForm.head.supplierLot")}</th>
@@ -507,7 +506,7 @@ export function PostingForm() {
                 </>
               ) : null}
               <th>
-                <span className="sr-only">Remove</span>
+                <span className="sr-only">{tr("mfg.postingForm.text.remove")}</span>
               </th>
             </tr>
           </thead>
@@ -531,27 +530,27 @@ export function PostingForm() {
           <button type="button" className="btn sm" onClick={() => setLines((ls) => [...ls, newLine(null, ls[ls.length - 1]?.location_id ?? "")])} disabled={lines.length >= 500} data-testid="post-add-line">
             <Icon name="plus" /> {t("mfg.postingForm.btn.addLine")}
           </button>
-          <span className="faint small">{lines.length} of up to 500 lines</span>
+          <span className="faint small">{tr("mfg.postingForm.text.ofUpTo500Lines", { length: lines.length })}</span>
         </div>
       </div>
 
       {touched && problems.some(Boolean) ? (
         <ul className="mfg-problem-list" role="alert">
-          {problems.map((p, i) => (p ? <li key={i}>Line {i + 1}: {p}</li> : null))}
+          {problems.map((p, i) => (p ? <li key={i}>{tr("mfg.postingForm.text.line", { v: i + 1, p: p })}</li> : null))}
         </ul>
       ) : null}
-      <MfgError error={error} title="Nothing was posted" />
+      <MfgError error={error} title={tr("mfg.postingForm.attr.nothingWasPosted")} />
 
       <div className="row mfg-sticky-actions">
         <PermissionGate perm="inventory" mode="disable">
           <button type="submit" className="btn primary" disabled={busy} data-testid="post-submit">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Post {POSTING_LABEL[type].toLowerCase()}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{tr("mfg.postingForm.text.post", { toLowerCase: POSTING_LABEL[type].toLowerCase() })}
           </button>
         </PermissionGate>
         <Link className="btn" to={mfgPaths.inventory()}>
           {t("mfg.postingForm.btn.cancel")}
         </Link>
-        <span className="faint small">All lines are posted together, or none of them.</span>
+        <span className="faint small">{tr("mfg.postingForm.text.allLinesArePostedTogether")}</span>
       </div>
     </form>
   );

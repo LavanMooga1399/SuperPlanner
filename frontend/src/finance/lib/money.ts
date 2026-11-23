@@ -1,4 +1,5 @@
-/** Money formatting (FINANCE.md 12, 20.2). INR uses the ₹ symbol and lakh/crore grouping. */
+
+import { t } from "../../lib/i18n";/** Money formatting (FINANCE.md 12, 20.2). INR uses the ₹ symbol and lakh/crore grouping. */
 
 export interface MoneyOptions {
   /** "₹12.5 L", "₹1.2 Cr" for INR; Intl compact notation otherwise. */
@@ -47,7 +48,7 @@ export function formatMoney(
   const sym = currencySymbol(currency, locale);
   if (opts.compact) {
     if (currency === "INR") {
-      if (abs >= 1e7) return `${sign}${sym}${trim(abs / 1e7)} Cr`;
+      if (abs >= 1e7) return t("finance.money.tpl.cr", { sign: sign, sym: sym, trim: trim(abs / 1e7) });
       if (abs >= 1e5) return `${sign}${sym}${trim(abs / 1e5)} L`;
       if (abs >= 1e3) return `${sign}${sym}${trim(abs / 1e3)}K`;
       return `${sign}${sym}${Math.round(abs)}`;

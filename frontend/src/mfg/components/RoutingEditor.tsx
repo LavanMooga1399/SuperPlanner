@@ -99,13 +99,13 @@ export function blankOp(ops: OpDraft[], groupId: string): OpDraft {
 
 export function opProblems(o: OpDraft): string[] {
   const p: string[] = [];
-  if (!o.name.trim()) p.push("Name is required");
-  if (!o.group_id) p.push("Pick a stage");
-  if (o.run_per === "panel" && !(Number(o.units_per_panel) >= 1)) p.push("Units per panel is required");
-  if (o.run_per === "batch" && !(Number(o.units_per_batch) >= 1)) p.push("Units per batch is required");
+  if (!o.name.trim()) p.push(tr("mfg.routingEditor.str.nameIsRequired"));
+  if (!o.group_id) p.push(tr("mfg.routingEditor.str.pickAStage"));
+  if (o.run_per === "panel" && !(Number(o.units_per_panel) >= 1)) p.push(tr("mfg.routingEditor.str.unitsPerPanelIsRequired"));
+  if (o.run_per === "batch" && !(Number(o.units_per_batch) >= 1)) p.push(tr("mfg.routingEditor.str.unitsPerBatchIsRequired"));
   const y = Number(o.yield_pct);
-  if (!(y > 0 && y <= 100)) p.push("Yield must be more than 0 and at most 100 %");
-  if (o.labor === "attended" && Number(o.crew_size) < 1) p.push("Attended work needs a crew of at least 1");
+  if (!(y > 0 && y <= 100)) p.push(tr("mfg.routingEditor.str.yieldMustBeMoreThan"));
+  if (o.labor === "attended" && Number(o.crew_size) < 1) p.push(tr("mfg.routingEditor.str.attendedWorkNeedsACrew"));
   return p;
 }
 
@@ -199,7 +199,7 @@ export function RoutingEditor({
           <tr>
             {readOnly ? null : (
               <th>
-                <span className="sr-only">Reorder</span>
+                <span className="sr-only">{tr("mfg.routingEditor.text.reorder")}</span>
               </th>
             )}
             <th>{tr("mfg.routingEditor.head.op")}</th>
@@ -211,7 +211,7 @@ export function RoutingEditor({
             <th className="num">{tr("mfg.routingEditor.head.yield")}</th>
             <th>{tr("mfg.routingEditor.head.work")}</th>
             <th>
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">{tr("mfg.routingEditor.text.actions")}</span>
             </th>
           </tr>
         </thead>
@@ -219,7 +219,7 @@ export function RoutingEditor({
           {ops.length === 0 ? (
             <tr>
               <td colSpan={10} className="muted">
-                No operations yet. Add the steps in the order they are done.
+                {tr("mfg.routingEditor.text.noOperationsYetAddThe")}
               </td>
             </tr>
           ) : null}
@@ -250,7 +250,7 @@ export function RoutingEditor({
                         className="mfg-drag"
                         draggable
                         aria-hidden
-                        title="Drag to reorder (or use Move up / Move down)"
+                        title={tr("mfg.routingEditor.attr.dragToReorderOrUse")}
                         data-testid="op-drag-handle"
                         onDragStart={(e) => {
                           setDragKey(o.key);
@@ -269,16 +269,16 @@ export function RoutingEditor({
                   <td className="mono">
                     {o.seq}
                     {referencedSeqs.has(o.seq) ? (
-                      <span className="sr-only"> (BOM lines are consumed here)</span>
+                      <span className="sr-only">{" "}{tr("mfg.routingEditor.text.bomLinesAreConsumedHere")}</span>
                     ) : null}
-                    {referencedSeqs.has(o.seq) ? <span title="BOM lines are consumed at this operation"> <Icon name="layers" size={12} /></span> : null}
+                    {referencedSeqs.has(o.seq) ? <span title={tr("mfg.routingEditor.attr.bomLinesAreConsumedAt")}> <Icon name="layers" size={12} /></span> : null}
                   </td>
                   <td>
-                    <input className="input sm" style={{ minWidth: 140 }} aria-label={`Name, operation ${o.seq}`} value={o.name} readOnly={readOnly} maxLength={100} onChange={(e) => update(i, { name: e.target.value })} data-testid="op-name" />
+                    <input className="input sm" style={{ minWidth: 140 }} aria-label={tr("mfg.routingEditor.tpl.nameOperation", { seq: o.seq })} value={o.name} readOnly={readOnly} maxLength={100} onChange={(e) => update(i, { name: e.target.value })} data-testid="op-name" />
                   </td>
                   <td>
-                    <select className="select sm" aria-label={`Stage, operation ${o.seq}`} value={o.group_id} disabled={readOnly} onChange={(e) => update(i, { group_id: e.target.value })} style={{ minWidth: 110 }}>
-                      {o.group_id ? null : <option value="">Pick a stage</option>}
+                    <select className="select sm" aria-label={tr("mfg.routingEditor.tpl.stageOperation", { seq: o.seq })} value={o.group_id} disabled={readOnly} onChange={(e) => update(i, { group_id: e.target.value })} style={{ minWidth: 110 }}>
+                      {o.group_id ? null : <option value="">{tr("mfg.routingEditor.text.pickAStage")}</option>}
                       {groups.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.code} - {g.name}
@@ -286,32 +286,32 @@ export function RoutingEditor({
                       ))}
                     </select>
                   </td>
-                  <td className="num">{num(i, "setup_minutes", "Setup minutes")}</td>
-                  <td className="num">{num(i, "run_minutes", "Run minutes")}</td>
+                  <td className="num">{num(i, "setup_minutes", tr("mfg.routingEditor.str.setupMinutes"))}</td>
+                  <td className="num">{num(i, "run_minutes", tr("mfg.routingEditor.str.runMinutes"))}</td>
                   <td>
                     <span className="row" style={{ gap: 4 }}>
-                      <select className="select sm" aria-label={`Run time per, operation ${o.seq}`} value={o.run_per} disabled={readOnly} onChange={(e) => update(i, { run_per: e.target.value as RunPer })} style={{ width: 82 }}>
+                      <select className="select sm" aria-label={tr("mfg.routingEditor.tpl.runTimePerOperation", { seq: o.seq })} value={o.run_per} disabled={readOnly} onChange={(e) => update(i, { run_per: e.target.value as RunPer })} style={{ width: 82 }}>
                         <option value="unit">unit</option>
                         <option value="panel">panel</option>
                         <option value="batch">batch</option>
                       </select>
                       {o.run_per === "panel" ? (
                         <label className="row small" style={{ gap: 2 }}>
-                          of {num(i, "units_per_panel", "Units per panel", 56)}
+                          of {num(i, "units_per_panel", tr("mfg.routingEditor.str.unitsPerPanel"), 56)}
                         </label>
                       ) : null}
                       {o.run_per === "batch" ? (
                         <label className="row small" style={{ gap: 2 }}>
-                          of {num(i, "units_per_batch", "Units per batch", 64)}
+                          of {num(i, "units_per_batch", tr("mfg.routingEditor.str.unitsPerBatch"), 64)}
                         </label>
                       ) : null}
                     </span>
                   </td>
-                  <td className="num">{num(i, "yield_pct", "Yield percent", 62)}</td>
+                  <td className="num">{num(i, "yield_pct", tr("mfg.routingEditor.str.yieldPercent"), 62)}</td>
                   <td className="small">
-                    {o.labor === "unattended" ? "Unattended" : `Crew ${o.crew_size || 0}`}
+                    {o.labor === "unattended" ? tr("mfg.routingEditor.str.unattended") : tr("mfg.routingEditor.tpl.crew", { v: o.crew_size || 0 })}
                     {o.inspection_gate ? " · gate" : ""}
-                    {!o.interruptible ? " · no pause" : ""}
+                    {!o.interruptible ? tr("mfg.routingEditor.str.noPause") : ""}
                   </td>
                   <td>
                     <span className="row nowrap" style={{ gap: 2 }}>
@@ -320,8 +320,8 @@ export function RoutingEditor({
                           <button
                             type="button"
                             className="btn sm ghost icon"
-                            aria-label={`Move operation ${o.seq} up`}
-                            title="Move up"
+                            aria-label={tr("mfg.routingEditor.tpl.moveOperationUp", { seq: o.seq })}
+                            title={tr("mfg.routingEditor.attr.moveUp")}
                             disabled={i === 0}
                             data-move="up"
                             data-testid="op-move-up"
@@ -335,8 +335,8 @@ export function RoutingEditor({
                           <button
                             type="button"
                             className="btn sm ghost icon"
-                            aria-label={`Move operation ${o.seq} down`}
-                            title="Move down"
+                            aria-label={tr("mfg.routingEditor.tpl.moveOperationDown", { seq: o.seq })}
+                            title={tr("mfg.routingEditor.attr.moveDown")}
                             disabled={i === ops.length - 1}
                             data-move="down"
                             data-testid="op-move-down"
@@ -363,10 +363,10 @@ export function RoutingEditor({
                         }
                         data-testid="op-more"
                       >
-                        More
+                        {tr("mfg.routingEditor.text.more")}
                       </button>
                       {readOnly ? null : (
-                        <button type="button" className="btn sm ghost icon" aria-label={`Delete operation ${o.seq}`} onClick={() => onChange(ops.filter((_, j) => j !== i))} data-testid="op-delete">
+                        <button type="button" className="btn sm ghost icon" aria-label={tr("mfg.routingEditor.tpl.deleteOperation", { seq: o.seq })} onClick={() => onChange(ops.filter((_, j) => j !== i))} data-testid="op-delete">
                           <Icon name="trash" />
                         </button>
                       )}
@@ -414,17 +414,17 @@ function OpDetails({
     <div className="col" style={{ padding: "4px 0" }} data-testid="op-details">
       <div className="form-grid">
         <div className="field">
-          <label htmlFor={`${id}-labor`}>Work</label>
+          <label htmlFor={`${id}-labor`}>{tr("mfg.routingEditor.text.work")}</label>
           <select id={`${id}-labor`} className="select sm" value={o.labor} disabled={readOnly} onChange={(e) => onPatch({ labor: e.target.value as Labor, crew_size: e.target.value === "unattended" && o.crew_size === "1" ? "0" : o.crew_size })}>
-            <option value="attended">Attended (operators present)</option>
-            <option value="unattended">Unattended (machine runs alone)</option>
+            <option value="attended">{tr("mfg.routingEditor.text.attendedOperatorsPresent")}</option>
+            <option value="unattended">{tr("mfg.routingEditor.text.unattendedMachineRunsAlone")}</option>
           </select>
         </div>
-        {numField("crew_size", "Crew size", "Operators needed while running")}
+        {numField("crew_size", tr("mfg.routingEditor.str.crewSize"), tr("mfg.routingEditor.str.operatorsNeededWhileRunning"))}
         <div className="field">
-          <label htmlFor={`${id}-skill`}>Required skill</label>
+          <label htmlFor={`${id}-skill`}>{tr("mfg.routingEditor.text.requiredSkill")}</label>
           <select id={`${id}-skill`} className="select sm" value={o.skill_id} disabled={readOnly} onChange={(e) => onPatch({ skill_id: e.target.value })}>
-            <option value="">None</option>
+            <option value="">{tr("mfg.routingEditor.text.none")}</option>
             {skills.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.code} - {s.name}
@@ -432,27 +432,27 @@ function OpDetails({
             ))}
           </select>
         </div>
-        {numField("queue_minutes", "Wait before (min)", "Queue time, no machine")}
-        {numField("move_minutes", "Move after (min)")}
-        {numField("wait_minutes", "Wait after (min)", "e.g. cool-down")}
-        {numField("transfer_batch", "Pass on after (units)", "Empty = when the whole lot is done")}
+        {numField("queue_minutes", tr("mfg.routingEditor.str.waitBeforeMin"), tr("mfg.routingEditor.str.queueTimeNoMachine"))}
+        {numField("move_minutes", tr("mfg.routingEditor.str.moveAfterMin"))}
+        {numField("wait_minutes", tr("mfg.routingEditor.str.waitAfterMin"), "e.g. cool-down")}
+        {numField("transfer_batch", tr("mfg.routingEditor.str.passOnAfterUnits"), tr("mfg.routingEditor.str.emptyWhenTheWholeLot"))}
         <label className="checkbox">
           <input type="checkbox" checked={o.inspection_gate} disabled={readOnly} onChange={(e) => onPatch({ inspection_gate: e.target.checked })} />
-          Quality gate (inspection)
+          {tr("mfg.routingEditor.text.qualityGateInspection")}
         </label>
         {o.capture_serial !== undefined ? (
-          <label className="checkbox" title="Operators scan or type one serial per good unit when this operation completes (serialized items).">
+          <label className="checkbox" title={tr("mfg.routingEditor.attr.operatorsScanOrTypeOne")}>
             <input type="checkbox" checked={o.capture_serial} disabled={readOnly} onChange={(e) => onPatch({ capture_serial: e.target.checked })} data-testid="op-capture-serial" />
-            Capture serial numbers here
+            {tr("mfg.routingEditor.text.captureSerialNumbersHere")}
           </label>
         ) : null}
         <label className="checkbox">
           <input type="checkbox" checked={!o.interruptible} disabled={readOnly} onChange={(e) => onPatch({ interruptible: !e.target.checked })} />
-          Must not pause (one continuous run)
+          {tr("mfg.routingEditor.text.mustNotPauseOneContinuous")}
         </label>
       </div>
       <div className="field">
-        <label htmlFor={`${id}-desc`}>Description</label>
+        <label htmlFor={`${id}-desc`}>{tr("mfg.routingEditor.text.description")}</label>
         <input id={`${id}-desc`} className="input sm" value={o.description} maxLength={500} readOnly={readOnly} onChange={(e) => onPatch({ description: e.target.value })} />
       </div>
       <fieldset className="mfg-fieldset">
@@ -461,13 +461,13 @@ function OpDetails({
           <div className="row" key={j}>
             <select
               className="select sm"
-              aria-label={`Tool ${j + 1}`}
+              aria-label={tr("mfg.routingEditor.tpl.tool", { v: j + 1 })}
               value={tl.tool_pool_id}
               disabled={readOnly}
               onChange={(e) => onPatch({ tools: o.tools.map((x, n) => (n === j ? { ...x, tool_pool_id: e.target.value } : x)) })}
               style={{ maxWidth: 320 }}
             >
-              {tl.tool_pool_id ? null : <option value="">Pick a tool</option>}
+              {tl.tool_pool_id ? null : <option value="">{tr("mfg.routingEditor.text.pickATool")}</option>}
               {tools.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.code} - {p.name} ({p.quantity} available)
@@ -479,20 +479,20 @@ function OpDetails({
               type="number"
               min={1}
               style={{ width: 70 }}
-              aria-label={`Tool ${j + 1} quantity`}
+              aria-label={tr("mfg.routingEditor.tpl.toolQuantity", { v: j + 1 })}
               value={tl.qty}
               readOnly={readOnly}
               onChange={(e) => onPatch({ tools: o.tools.map((x, n) => (n === j ? { ...x, qty: e.target.value } : x)) })}
             />
             {readOnly ? null : (
-              <button type="button" className="btn sm ghost icon" aria-label={`Remove tool ${j + 1}`} onClick={() => onPatch({ tools: o.tools.filter((_, n) => n !== j) })}>
+              <button type="button" className="btn sm ghost icon" aria-label={tr("mfg.routingEditor.tpl.removeTool", { v: j + 1 })} onClick={() => onPatch({ tools: o.tools.filter((_, n) => n !== j) })}>
                 <Icon name="trash" />
               </button>
             )}
           </div>
         ))}
         {readOnly ? (
-          o.tools.length === 0 ? <span className="muted small">None</span> : null
+          o.tools.length === 0 ? <span className="muted small">{tr("mfg.routingEditor.text.none")}</span> : null
         ) : (
           <div>
             <button type="button" className="btn sm" onClick={() => onPatch({ tools: [...o.tools, { tool_pool_id: tools[0]?.id ?? "", qty: "1" }] })} disabled={tools.length === 0}>

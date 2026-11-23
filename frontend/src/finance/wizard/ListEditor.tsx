@@ -32,7 +32,7 @@ export function ListEditor<T extends { id: string; name: string }>({ items, rowT
         <div className="list-row" key={it.id} data-testid={`${rowTestId}-row-${it.id}`}>
           <div className="list-row-head">
             <span className="grow">{it.name || "(unnamed)"}</span>
-            <button type="button" className="btn sm ghost" onClick={() => setToRemove(i)} aria-label={`Remove ${it.name || "item"}`}>
+            <button type="button" className="btn sm ghost" onClick={() => setToRemove(i)} aria-label={t("finance.listEditor.tpl.remove", { v: it.name || "item" })}>
               <Icon name="trash" /> {t("finance.listEditor.btn.remove")}
             </button>
           </div>
@@ -44,11 +44,11 @@ export function ListEditor<T extends { id: string; name: string }>({ items, rowT
           <Icon name="plus" /> {addLabel}
         </button>
         {addExtra}
-        {full ? <span className="small muted">Limit of {max} reached.</span> : null}
+        {full ? <span className="small muted">{t("finance.listEditor.text.limitOfReached", { max: max })}</span> : null}
       </div>
       {pending ? (
         <ConfirmDialog
-          title={`Remove ${pending.name || "this item"}?`}
+          title={t("finance.listEditor.tpl.remove2", { v: pending.name || "this item" })}
           confirmLabel={t("finance.listEditor.btn.remove")}
           danger
           onConfirm={() => {

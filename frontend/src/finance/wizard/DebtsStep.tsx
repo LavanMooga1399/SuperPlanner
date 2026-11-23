@@ -8,12 +8,12 @@ import { ListEditor } from "./ListEditor";
 import { t } from "../../lib/i18n";
 
 const DEBT_KINDS: { value: DebtKind; label: string }[] = [
-  { value: "home", label: "Home loan" },
-  { value: "vehicle", label: "Vehicle loan" },
-  { value: "education", label: "Education loan" },
-  { value: "personal", label: "Personal loan" },
-  { value: "credit_card", label: "Credit card" },
-  { value: "other", label: "Other" },
+  { value: "home", label: t("finance.debtsStep.str.homeLoan") },
+  { value: "vehicle", label: t("finance.debtsStep.str.vehicleLoan") },
+  { value: "education", label: t("finance.debtsStep.str.educationLoan") },
+  { value: "personal", label: t("finance.debtsStep.str.personalLoan") },
+  { value: "credit_card", label: t("finance.debtsStep.str.creditCard") },
+  { value: "other", label: t("finance.debtsStep.str.other") },
 ];
 
 export function DebtsStep({ plan, update, preview, expert }: StepProps) {
@@ -22,7 +22,7 @@ export function DebtsStep({ plan, update, preview, expert }: StepProps) {
   const payoff = new Map((preview.data?.cashflow?.debts_paid_off ?? []).map((d) => [d.debt_id, d.month]));
   const newDebt = (): Debt => ({
     id: nextId(plan, "debt"),
-    name: `Loan ${plan.debts.length + 1}`,
+    name: t("finance.debtsStep.tpl.loan", { v: plan.debts.length + 1 }),
     kind: "other",
     balance: 0,
     interest_rate_pct: 10,
@@ -32,14 +32,13 @@ export function DebtsStep({ plan, update, preview, expert }: StepProps) {
   return (
     <div className="col gap-lg">
       <HelpText>
-        List loans you are paying off. The monthly instalment (EMI) is paid before anything is invested; when a loan ends, that money becomes
-        available for your goals. No loans? Just press Next.
+        {t("finance.debtsStep.text.listLoansYouArePaying")}
       </HelpText>
       <ListEditor
         items={plan.debts}
         rowTestId="debt"
         addLabel="Add loan"
-        emptyText="No loans. Add one if you pay a monthly instalment on a home, car or other loan."
+        emptyText={t("finance.debtsStep.attr.noLoansAddOneIf")}
         max={20}
         onAdd={() => update((p) => addItem(p, "debts", newDebt()))}
         onRemove={(i) => update((p) => removeItem(p, "debts", i))}
@@ -61,7 +60,7 @@ export function DebtsStep({ plan, update, preview, expert }: StepProps) {
                 ) : null}
               </div>
               <span className="small muted" role="status">
-                {payoff.has(it.id) ? (m ? `Paid off by ${fmtMonth(m)}.` : "Not paid off within the plan.") : "Payoff month appears after a moment."}
+                {payoff.has(it.id) ? (m ? t("finance.debtsStep.tpl.paidOffBy", { m: fmtMonth(m) }) : t("finance.debtsStep.str.notPaidOffWithinThe")) : t("finance.debtsStep.str.payoffMonthAppearsAfterA")}
               </span>
             </>
           );

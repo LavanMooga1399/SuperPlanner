@@ -351,13 +351,13 @@ export function VirtualTable<T>({
         key: "__select",
         width: "36px",
         align: "center",
-        label: "Select",
+        label: t("mfg.virtualTable.str.select"),
         hideable: false,
         header: (
           <input
             type="checkbox"
             className="vt-check"
-            aria-label={all ? "Clear the selection" : "Select all loaded rows"}
+            aria-label={all ? t("mfg.virtualTable.str.clearTheSelection") : t("mfg.virtualTable.str.selectAllLoadedRows")}
             checked={all}
             ref={(el) => {
               if (el) el.indeterminate = some;
@@ -372,7 +372,7 @@ export function VirtualTable<T>({
             type="checkbox"
             className="vt-check"
             tabIndex={-1}
-            aria-label={`Select ${sel.rowLabel(r)}`}
+            aria-label={t("mfg.virtualTable.tpl.select", { r: sel.rowLabel(r) })}
             checked={sel.selected.has(sel.rowId(r))}
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => toggle(sel.rowId(r), e.target.checked)}
@@ -653,7 +653,7 @@ export function VirtualTable<T>({
               {selection ? cell(columns[0], row, i, "vt-card-check") : null}
               {cell(byKey.get(card.title), row, i, "vt-card-title")}
               {card.status ? cell(byKey.get(card.status), row, i, "vt-card-status") : null}
-              {card.actions && virtual ? cell(byKey.get(card.actions), row, i, "vt-card-status vt-card-actions") : null}
+              {card.actions && virtual ? cell(byKey.get(card.actions), row, i, t("mfg.virtualTable.str.vtCardStatusVtCard")) : null}
             </div>
             <div className="vt-card-fields">{card.fields.map((k) => cell(byKey.get(k), row, i, "vt-card-field", true))}</div>
             {/* short lists: row buttons get their own line so the title keeps its width */}
@@ -737,7 +737,7 @@ export function VirtualTable<T>({
             })}
           </div>
           {n === 0 && loading ? (
-            <div role="status" aria-label="Loading">
+            <div role="status" aria-label={t("mfg.virtualTable.attr.loading")}>
               {Array.from({ length: 6 }, (_, i) => (
                 <div key={i} className="vt-skel-row" style={{ height: ROW_HEIGHT }} aria-hidden>
                   <span className="skel" style={{ width: 90, height: 10 }} />
@@ -824,7 +824,7 @@ function ColumnMenu<T>({ all, prefs, canHide, onChange, label, autoHidden }: { a
         <Icon name="columns" size={14} /> {hiddenCount ? t("table.columnsHidden", { count: hiddenCount }) : t("table.columns")}
       </button>
       {open ? (
-        <div className="popover col-menu" role="dialog" aria-label={`Columns of ${label}`} style={pos}>
+        <div className="popover col-menu" role="dialog" aria-label={t("mfg.virtualTable.tpl.columnsOf", { label: label })} style={pos}>
           <div className="popover-group">
             <span className="small muted" style={{ padding: "0 6px" }}>
               {t("table.columnsHelp")}

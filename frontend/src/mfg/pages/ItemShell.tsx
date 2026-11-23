@@ -7,7 +7,7 @@ import { MfgError, NotFoundPanel, Spinner } from "../components/Feedback";
 import { ActiveBadge, MakeBuyBadge } from "../components/StatusChip";
 import { mfgPaths } from "../lib/paths";
 import { isNotFound, useLoad } from "../lib/useMfg";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 export interface ItemContext {
   item: ItemRecord;
@@ -27,7 +27,7 @@ export function ItemShell() {
   if (item.error && isNotFound(item.error))
     return (
       <NotFoundPanel
-        what="Item"
+        what={tr("mfg.itemShell.attr.item")}
         back={
           <Link className="btn" to={mfgPaths.items()}>
             {t("mfg.itemShell.btn.backToItems")}
@@ -39,27 +39,27 @@ export function ItemShell() {
   if (!it) return <Spinner label={t("mfg.itemShell.label.loadingItem")} />;
 
   const tabs = [
-    { to: mfgPaths.item(it.id), label: "Details", end: true as boolean, testId: "item-tab-details" },
+    { to: mfgPaths.item(it.id), label: tr("mfg.itemShell.str.details"), end: true as boolean, testId: "item-tab-details" },
     { to: mfgPaths.itemBom(it.id), label: "BOM", testId: "item-tab-bom" },
-    { to: mfgPaths.whereUsed(it.id), label: "Where used", testId: "item-tab-where-used" },
-    { to: mfgPaths.routing(it.id), label: "Routing", testId: "item-tab-routing" },
-    { to: mfgPaths.itemStock(it.id), label: "Stock", testId: "item-tab-stock" },
-    ...(it.make_buy === "buy" ? [{ to: mfgPaths.itemSuppliers(it.id), label: "Suppliers", testId: "item-tab-suppliers" }] : []),
+    { to: mfgPaths.whereUsed(it.id), label: tr("mfg.itemShell.str.whereUsed"), testId: "item-tab-where-used" },
+    { to: mfgPaths.routing(it.id), label: tr("mfg.itemShell.str.routing"), testId: "item-tab-routing" },
+    { to: mfgPaths.itemStock(it.id), label: tr("mfg.itemShell.str.stock"), testId: "item-tab-stock" },
+    ...(it.make_buy === "buy" ? [{ to: mfgPaths.itemSuppliers(it.id), label: tr("mfg.itemShell.str.suppliers"), testId: "item-tab-suppliers" }] : []),
   ];
   const ctx: ItemContext = { item: it, setItem: (x) => item.setData(x), reloadItem: item.reload };
 
   return (
     <div className="col" style={{ gap: 12 }}>
       <nav aria-label={t("mfg.itemShell.aria.breadcrumb")} className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.items()}>Items</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{it.part_number}</span>
+        <Link to={mfgPaths.items()}>{tr("mfg.itemShell.text.items")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{it.part_number}</span>
       </nav>
       <div className="ws-header">
         <div className="ws-title">
           <h1 className="mono" data-testid="item-title">
             {it.part_number}
           </h1>
-          <span className="chip" title="Revision">
-            Rev. {it.revision}
+          <span className="chip" title={tr("mfg.itemShell.attr.revision")}>
+            {tr("mfg.itemShell.text.rev", { revision: it.revision })}
           </span>
           <MakeBuyBadge value={it.make_buy} />
           <ActiveBadge active={it.active} />

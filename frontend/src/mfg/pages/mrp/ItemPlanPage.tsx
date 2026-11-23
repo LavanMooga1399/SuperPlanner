@@ -26,13 +26,13 @@ export function ItemPlanPage() {
   const [bucket, setBucket] = useState<BucketSize>("week");
   const plan = useLoad((signal) => getRunItemPlan(run.id, itemId, { bucket }, signal), [run.id, itemId, bucket]);
   const p = plan.data;
-  if (plan.error && isNotFound(plan.error)) return <NotFoundPanel what="Item in this plan" back={<Link className="btn" to={mfgPaths.runItems(run.id)}>Back to the material plan</Link>} />;
+  if (plan.error && isNotFound(plan.error)) return <NotFoundPanel what={t("mfg.itemPlanPage.attr.itemInThisPlan")} back={<Link className="btn" to={mfgPaths.runItems(run.id)}>{t("mfg.itemPlanPage.text.backToTheMaterialPlan")}</Link>} />;
   if (plan.error && !p) return <MfgError error={plan.error} onRetry={plan.reload} />;
   if (!p) return <Spinner label={t("mfg.itemPlanPage.label.loadingTheItemPlan")} />;
   const r = p.row;
   const uom = r.uom;
   const lotBits = [
-    p.lot.rule === "lot_for_lot" ? "order what is needed" : p.lot.rule === "fixed" ? `fixed lots of ${fmtNum(p.lot.fixed_qty)}` : `combine ${p.lot.period_days} days`,
+    p.lot.rule === "lot_for_lot" ? t("mfg.itemPlanPage.str.orderWhatIsNeeded") : p.lot.rule === "fixed" ? t("mfg.itemPlanPage.tpl.fixedLotsOf", { fixedqty: fmtNum(p.lot.fixed_qty) }) : t("mfg.itemPlanPage.tpl.combineDays", { perioddays: p.lot.period_days }),
     p.lot.moq ? `min. ${fmtNum(p.lot.moq)}` : "",
     p.lot.multiple ? `multiple ${fmtNum(p.lot.multiple)}` : "",
     p.lot.pack > 1 ? `pack ${fmtNum(p.lot.pack)}` : "",
@@ -41,7 +41,7 @@ export function ItemPlanPage() {
   return (
     <div className="col gap-lg" data-testid="item-plan" data-item={r.item.part_number}>
       <nav aria-label={t("mfg.itemPlanPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.runItems(run.id)}>Material plan</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{r.item.part_number}</span>
+        <Link to={mfgPaths.runItems(run.id)}>{t("mfg.itemPlanPage.text.materialPlan")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{r.item.part_number}</span>
       </nav>
       <div className="ws-header">
         <div className="ws-title">
@@ -78,10 +78,10 @@ export function ItemPlanPage() {
           ) : null}
           <dt>{t("mfg.itemPlanPage.head.totals")}</dt>
           <dd>
-            on hand {fmtNum(r.on_hand)} · needed {fmtNum(r.gross_qty)} · open supply {fmtNum(r.existing_supply_qty)} · planned {fmtNum(r.planned_qty)} {uom}
+            {t("mfg.itemPlanPage.text.onHandNeededOpenSupply", { onhand: fmtNum(r.on_hand), grossqty: fmtNum(r.gross_qty), existingsupplyqty: fmtNum(r.existing_supply_qty), plannedqty: fmtNum(r.planned_qty), uom: uom })}
             {r.short_qty > 0 ? (
               <span className="badge danger" style={{ marginLeft: 6 }}>
-                <Icon name="alert" /> short {fmtNum(r.short_qty)} from {fmtDate(r.first_short_date)}
+                <Icon name="alert" />{" "}{t("mfg.itemPlanPage.text.shortFrom", { shortqty: fmtNum(r.short_qty), firstshortdate: fmtDate(r.first_short_date) })}
               </span>
             ) : null}
           </dd>
@@ -94,7 +94,7 @@ export function ItemPlanPage() {
           <div className="row" role="group" aria-label={t("mfg.itemPlanPage.aria.period")}>
             {(["day", "week", "month"] as BucketSize[]).map((b) => (
               <button key={b} type="button" className={`btn sm${b === bucket ? " primary" : ""}`} aria-pressed={b === bucket} onClick={() => setBucket(b)}>
-                {b === "day" ? "Days" : b === "week" ? "Weeks" : "Months"}
+                {b === "day" ? t("mfg.itemPlanPage.str.days") : b === "week" ? t("mfg.itemPlanPage.str.weeks") : t("mfg.itemPlanPage.str.months")}
               </button>
             ))}
           </div>
@@ -142,8 +142,8 @@ export function ItemPlanPage() {
 
       <section className="card" data-testid="item-plan-requirements">
         <div className="card-header">
-          <h3>Requirements ({p.requirements.length})</h3>
-          <span className="muted small">What needs this part, and what covers it</span>
+          <h3>{t("mfg.itemPlanPage.text.requirements", { length: p.requirements.length })}</h3>
+          <span className="muted small">{t("mfg.itemPlanPage.text.whatNeedsThisPartAnd")}</span>
         </div>
         <div className="table-wrap" style={{ maxHeight: 420, overflow: "auto" }}>
           <table className="table">
@@ -155,7 +155,7 @@ export function ItemPlanPage() {
                 <th>{t("mfg.itemPlanPage.head.coveredBy")}</th>
                 <th>{t("mfg.itemPlanPage.head.coveredOn")}</th>
                 <th>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("mfg.itemPlanPage.text.actions")}</span>
                 </th>
               </tr>
             </thead>
@@ -175,7 +175,7 @@ export function ItemPlanPage() {
                   <td className="small">
                     {q.pegs.map((g, i) => (
                       <div key={i}>
-                        {fmtNum(g.qty)} from {g.supply_label} {g.late_days > 0 ? <LateBadge days={g.late_days} /> : null}
+                        {t("mfg.itemPlanPage.text.from", { qty: fmtNum(g.qty), supplylabel: g.supply_label })}{" "}{g.late_days > 0 ? <LateBadge days={g.late_days} /> : null}
                       </div>
                     ))}
                   </td>
@@ -183,10 +183,10 @@ export function ItemPlanPage() {
                     {fmtDate(q.satisfied_date)} <LateBadge days={q.late_days} />
                   </td>
                   <td>
-                    <Link className="btn sm ghost" to={mfgPaths.runPegging(run.id, { item: r.item.id, node: q.node, kind: "requirement", direction: "up" })} title="Which demand does this serve?">
+                    <Link className="btn sm ghost" to={mfgPaths.runPegging(run.id, { item: r.item.id, node: q.node, kind: "requirement", direction: "up" })} title={t("mfg.itemPlanPage.attr.whichDemandDoesThisServe")}>
                       {t("mfg.itemPlanPage.btn.pegUp")}
                     </Link>
-                    <Link className="btn sm ghost" to={mfgPaths.runPegging(run.id, { item: r.item.id, node: q.node, kind: "requirement", direction: "down" })} title="What covers this, down the BOM?">
+                    <Link className="btn sm ghost" to={mfgPaths.runPegging(run.id, { item: r.item.id, node: q.node, kind: "requirement", direction: "down" })} title={t("mfg.itemPlanPage.attr.whatCoversThisDownThe")}>
                       {t("mfg.itemPlanPage.btn.pegDown")}
                     </Link>
                   </td>
@@ -199,8 +199,8 @@ export function ItemPlanPage() {
 
       <section className="card" data-testid="item-plan-supplies">
         <div className="card-header">
-          <h3>Supplies ({p.supplies.length})</h3>
-          <span className="muted small">Stock, deliveries, work orders and planned orders</span>
+          <h3>{t("mfg.itemPlanPage.text.supplies", { length: p.supplies.length })}</h3>
+          <span className="muted small">{t("mfg.itemPlanPage.text.stockDeliveriesWorkOrdersAnd")}</span>
         </div>
         <div className="table-wrap" style={{ maxHeight: 420, overflow: "auto" }}>
           <table className="table">
@@ -213,7 +213,7 @@ export function ItemPlanPage() {
                 <th className="right">{t("mfg.itemPlanPage.head.used")}</th>
                 <th>{t("mfg.itemPlanPage.head.messages")}</th>
                 <th>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("mfg.itemPlanPage.text.actions")}</span>
                 </th>
               </tr>
             </thead>
@@ -223,12 +223,12 @@ export function ItemPlanPage() {
                   <td>
                     <div className="small muted">{SUPPLY_KIND[s.kind] ?? s.kind}</div>
                     {s.ref.link ? <Link to={s.ref.link}>{s.label}</Link> : s.label}
-                    {s.expires_on ? <div className="faint small">expires {fmtDate(s.expires_on)}</div> : null}
+                    {s.expires_on ? <div className="faint small">{t("mfg.itemPlanPage.text.expires", { expireson: fmtDate(s.expires_on) })}</div> : null}
                   </td>
                   <td>{fmtDate(s.avail_date)}</td>
                   <td>{fmtDate(s.projected_date)}</td>
                   <td className="right">{fmtNum(s.qty)}</td>
-                  <td className="right">{s.pegged_qty < s.qty - 1e-6 ? <span title="Part of this supply is not needed">{fmtNum(s.pegged_qty)}</span> : fmtNum(s.pegged_qty)}</td>
+                  <td className="right">{s.pegged_qty < s.qty - 1e-6 ? <span title={t("mfg.itemPlanPage.attr.partOfThisSupplyIs")}>{fmtNum(s.pegged_qty)}</span> : fmtNum(s.pegged_qty)}</td>
                   <td className="small">
                     {s.exception_codes.map((c) => (
                       <Link key={c} to={mfgPaths.runExceptions(run.id, { code: c })} className="badge warn" style={{ marginRight: 4 }}>

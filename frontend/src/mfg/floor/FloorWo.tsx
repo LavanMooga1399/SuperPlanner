@@ -22,7 +22,7 @@ export function FloorWo() {
             <span className="floor-qmain">
               <span className="floor-qtitle">{o.name}</span>
               <span className="muted">
-                {t("common.nOfM", { n: fmtQty(o.qty_good), m: fmtQty(o.qty_planned) })} good{o.qty_scrap ? ` · ${fmtQty(o.qty_scrap)} scrap` : ""}
+                {t("floor.floorWo.text.good", { t: t("common.nOfM", { n: fmtQty(o.qty_good), m: fmtQty(o.qty_planned) }), v: o.qty_scrap ? ` · ${fmtQty(o.qty_scrap)} scrap` : "" })}
               </span>
             </span>
             <span className="floor-qside">
@@ -30,7 +30,7 @@ export function FloorWo() {
             </span>
           </Link>
         ))}
-        {ops.data && !ops.data.items.some((o) => o.id) ? <span className="muted">This work order has no operations yet (not released to the floor).</span> : null}
+        {ops.data && !ops.data.items.some((o) => o.id) ? <span className="muted">{t("floor.floorWo.text.thisWorkOrderHasNo")}</span> : null}
       </div>
     </section>
   );

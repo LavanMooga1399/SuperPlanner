@@ -14,9 +14,9 @@ export function StartPage() {
   const steps = useStepByStep();
   const valid = isPlanKind(kind);
   useEffect(() => {
-    if (valid) document.title = `New ${KINDS[kind].label.toLowerCase()} - SuperPlanner`;
+    if (valid) document.title = t("studio.startPage.tpl.newSuperplanner", { label: KINDS[kind].label.toLowerCase() });
     return () => {
-      document.title = "SuperPlanner Studio";
+      document.title = t("studio.startPage.str.superplannerStudio");
     };
   }, [kind, valid]);
   if (!valid) return <NotFound />;
@@ -28,7 +28,7 @@ export function StartPage() {
           <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {t("studio.startPage.btn.allKindsOfPlan")}
         </Link>
       </nav>
-      <PageHeader title={`New ${info.label.toLowerCase()}`} description={t("studio.startPage.desc.howDoYouWantTo")} />
+      <PageHeader title={t("studio.startPage.tpl.new", { label: info.label.toLowerCase() })} description={t("studio.startPage.desc.howDoYouWantTo")} />
       <KindCard kind={kind} steps={steps} headingLevel={2} large />
     </div>
   );

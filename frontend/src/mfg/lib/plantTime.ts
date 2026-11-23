@@ -7,6 +7,7 @@ import type { PlantRecord } from "../api/types";
 import type { PlantM3Fields } from "../api/typesM3";
 import { offsetMinutes } from "./format";
 import { usePlant } from "./useMfg";
+import { t } from "../../lib/i18n";
 
 export interface PlantClock {
   zoneLabel: string;
@@ -24,8 +25,8 @@ export interface PlantClock {
   toLocal(iso: string): string;
 }
 
-const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WD = [t("mfg.plantTime.str.sun"), t("mfg.plantTime.str.mon"), t("mfg.plantTime.str.tue"), t("mfg.plantTime.str.wed"), t("mfg.plantTime.str.thu"), t("mfg.plantTime.str.fri"), t("mfg.plantTime.str.sat")];
+const MO = [t("mfg.plantTime.str.jan"), t("mfg.plantTime.str.feb"), t("mfg.plantTime.str.mar"), t("mfg.plantTime.str.apr"), t("mfg.plantTime.str.may"), t("mfg.plantTime.str.jun"), t("mfg.plantTime.str.jul"), t("mfg.plantTime.str.aug"), t("mfg.plantTime.str.sep"), t("mfg.plantTime.str.oct"), t("mfg.plantTime.str.nov"), t("mfg.plantTime.str.dec")];
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export function makeClock(plant: (PlantRecord & PlantM3Fields) | null | undefined): PlantClock {

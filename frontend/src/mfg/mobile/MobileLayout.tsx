@@ -16,7 +16,7 @@ import { usePolling } from "../lib/usePolling";
 import { useLoad } from "../lib/useMfg";
 import { currentWorkspace, switchWorkspace } from "../lib/workspace";
 import "./mobile.css";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 function useStoredTheme() {
   useEffect(() => {
@@ -35,11 +35,11 @@ function PlantSwitch() {
   const access = useAccess();
   const ws = access.workspaces;
   const current = currentWorkspace() ?? access.me?.workspace_owner_id ?? "";
-  if (ws.length <= 1) return <span className="m-plant" data-testid="m-plant">{access.me?.workspace_name || ws[0]?.plant_name || "My plant"}</span>;
+  if (ws.length <= 1) return <span className="m-plant" data-testid="m-plant">{access.me?.workspace_name || ws[0]?.plant_name || tr("mobile.mobileLayout.str.myPlant")}</span>;
   return (
     <>
       <label htmlFor="m-plant" className="sr-only">
-        Plant
+        {tr("mobile.mobileLayout.text.plant")}
       </label>
       <select
         id="m-plant"
@@ -67,9 +67,9 @@ function QueueStatus({ online }: { online: boolean }) {
     <div className={`m-queue ${q.failed.length ? "danger" : ""}`} role="status" data-testid="m-queue">
       <button type="button" className="m-queue-head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
         <Icon name={q.failed.length ? "alert" : "clock"} size={16} />
-        {q.pending.length ? `${q.pending.length} waiting to sync` : ""}
+        {q.pending.length ? tr("mobile.mobileLayout.tpl.waitingToSync", { length: q.pending.length }) : ""}
         {q.pending.length && q.failed.length ? " · " : ""}
-        {q.failed.length ? `${q.failed.length} not accepted` : ""}
+        {q.failed.length ? tr("mobile.mobileLayout.tpl.notAccepted", { length: q.failed.length }) : ""}
         <Icon name={open ? "chevron-down" : "chevron-right"} size={14} />
       </button>
       {open ? (
@@ -97,7 +97,7 @@ function QueueStatus({ online }: { online: boolean }) {
           {online && q.pending.length ? (
             <li>
               <button type="button" className="btn sm" onClick={() => void syncNow()} disabled={q.syncing}>
-                {q.syncing ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Sync now
+                {q.syncing ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />}{" "}{tr("mobile.mobileLayout.text.syncNow")}
               </button>
             </li>
           ) : null}
@@ -109,10 +109,10 @@ function QueueStatus({ online }: { online: boolean }) {
 
 const TABS: { to: string; label: string; icon: IconName; end?: boolean; key: string }[] = [
   { to: "/m", label: "Home", icon: "factory", end: true, key: "home" },
-  { to: "/m/lines", label: "Lines", icon: "layers", key: "lines" },
-  { to: "/m/alerts", label: "Alerts", icon: "alert", key: "alerts" },
-  { to: "/m/approvals", label: "Approvals", icon: "check", key: "approvals" },
-  { to: "/m/more", label: "More", icon: "list", key: "more" },
+  { to: "/m/lines", label: tr("mobile.mobileLayout.str.lines"), icon: "layers", key: "lines" },
+  { to: "/m/alerts", label: tr("mobile.mobileLayout.str.alerts"), icon: "alert", key: "alerts" },
+  { to: "/m/approvals", label: tr("mobile.mobileLayout.str.approvals"), icon: "check", key: "approvals" },
+  { to: "/m/more", label: tr("mobile.mobileLayout.str.more"), icon: "list", key: "more" },
 ];
 
 function BottomNav() {
@@ -157,7 +157,7 @@ function Shell() {
       if (d?.type === "push") window.dispatchEvent(new CustomEvent("sp-push", { detail: d }));
     };
     navigator.serviceWorker?.addEventListener("message", onMsg);
-    document.title = "SuperPlanner mobile";
+    document.title = tr("mobile.mobileLayout.str.superplannerMobile");
     return () => navigator.serviceWorker?.removeEventListener("message", onMsg);
   }, [navigate]);
   return (
@@ -173,7 +173,7 @@ function Shell() {
         </Link>
         <PlantSwitch />
         <span className={`m-online ${online ? "ok" : "off"}`} role="status" data-testid="m-online" data-online={online}>
-          <Icon name={online ? "check" : "alert"} size={14} /> {online ? "Online" : "Offline"}
+          <Icon name={online ? "check" : "alert"} size={14} /> {online ? tr("mobile.mobileLayout.str.online") : tr("mobile.mobileLayout.str.offline")}
         </span>
       </header>
       <main className="m-main">
@@ -184,7 +184,7 @@ function Shell() {
           </div>
         ) : null}
         <QueueStatus online={online} />
-        {access.error ? <MfgError error={access.error} onRetry={access.retry} title="Your plant permissions could not be loaded" /> : null}
+        {access.error ? <MfgError error={access.error} onRetry={access.retry} title={tr("mobile.mobileLayout.attr.yourPlantPermissionsCouldNot")} /> : null}
         <Outlet />
       </main>
       <BottomNav />

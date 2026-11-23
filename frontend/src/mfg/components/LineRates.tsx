@@ -21,7 +21,7 @@ export function LineRates({ operationId, groupId, readOnly }: { operationId: str
   const [draft, setDraft] = useState<Record<string, { setup: string; run: string }>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
-  if (!operationId) return <p className="hint" style={{ margin: 0 }}>Line rates can be set after the routing is saved.</p>;
+  if (!operationId) return <p className="hint" style={{ margin: 0 }}>{t("mfg.lineRates.text.lineRatesCanBeSet")}</p>;
   const byLine = new Map((rates.data?.items ?? []).map((r) => [r.line_id, r]));
   const val = (lineId: string, k: "setup" | "run", r: OperationLineRateRecord | undefined) =>
     draft[lineId]?.[k] ?? (r ? String((k === "setup" ? r.setup_minutes : r.run_minutes) ?? "") : "");
@@ -55,7 +55,7 @@ export function LineRates({ operationId, groupId, readOnly }: { operationId: str
     <fieldset className="mfg-fieldset" data-testid="line-rates">
       <legend>{t("mfg.lineRates.head.lineRatesOptional")}</legend>
       <p className="hint" style={{ margin: 0 }}>
-        Own times on a particular line. An own run time replaces "run time / speed factor" for that line. Empty = the operation's times.
+        {t("mfg.lineRates.text.ownTimesOnAParticular")}
       </p>
       <MfgError error={rates.error ?? lines.error ?? error} />
       <table className="table mfg-grid-table">
@@ -66,7 +66,7 @@ export function LineRates({ operationId, groupId, readOnly }: { operationId: str
             <th>{t("mfg.lineRates.head.setupMin")}</th>
             <th>{t("mfg.lineRates.head.runMinPerLoad")}</th>
             <th>
-              <span className="sr-only">Save</span>
+              <span className="sr-only">{t("mfg.lineRates.text.save")}</span>
             </th>
           </tr>
         </thead>
@@ -79,20 +79,20 @@ export function LineRates({ operationId, groupId, readOnly }: { operationId: str
                 <td className="mono">{l.code}</td>
                 <td className="faint">{l.speed_factor}</td>
                 <td style={{ width: 120 }}>
-                  <input className="input sm num" type="number" min={0} step="any" aria-label={`${l.code} setup minutes`} placeholder={t("mfg.lineRates.ph.operations")} value={val(l.id, "setup", r)} readOnly={!canEdit}
+                  <input className="input sm num" type="number" min={0} step="any" aria-label={t("mfg.lineRates.tpl.setupMinutes", { code: l.code })} placeholder={t("mfg.lineRates.ph.operations")} value={val(l.id, "setup", r)} readOnly={!canEdit}
                     onChange={(e) => setDraft((d) => ({ ...d, [l.id]: { setup: e.target.value, run: d[l.id]?.run ?? val(l.id, "run", r) } }))} />
                 </td>
                 <td style={{ width: 140 }}>
-                  <input className="input sm num" type="number" min={0} step="any" aria-label={`${l.code} run minutes`} placeholder={t("mfg.lineRates.ph.operations")} value={val(l.id, "run", r)} readOnly={!canEdit}
+                  <input className="input sm num" type="number" min={0} step="any" aria-label={t("mfg.lineRates.tpl.runMinutes", { code: l.code })} placeholder={t("mfg.lineRates.ph.operations")} value={val(l.id, "run", r)} readOnly={!canEdit}
                     onChange={(e) => setDraft((d) => ({ ...d, [l.id]: { run: e.target.value, setup: d[l.id]?.setup ?? val(l.id, "setup", r) } }))} data-testid="line-rate-run" />
                 </td>
                 <td>
                   {canEdit && dirty ? (
                     <button type="button" className="btn sm" onClick={() => void save(l.id)} disabled={busy === l.id} data-testid="line-rate-save">
-                      {busy === l.id ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save
+                      {busy === l.id ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{t("mfg.lineRates.text.save")}
                     </button>
                   ) : r ? (
-                    <span className="badge accent">own rate</span>
+                    <span className="badge accent">{t("mfg.lineRates.text.ownRate")}</span>
                   ) : null}
                 </td>
               </tr>

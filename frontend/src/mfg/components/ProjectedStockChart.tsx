@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import type { Bucket, TimelineEvent } from "../api/typesM2";
 import { fmtDate } from "../lib/format";
 import { fmtNum } from "../lib/formatM2";
+import { t as tr } from "../../lib/i18n";
 
 const W = 960;
 const H = 260;
@@ -99,8 +100,8 @@ export function ProjectedStockChart({ timeline, buckets, asOf, uom }: { timeline
   }, [timeline, buckets, asOf]);
 
   const summary = model.firstShort
-    ? `Projected stock: short from ${fmtDate(new Date(model.firstShort.day * DAY).toISOString().slice(0, 10))}, lowest ${fmtNum(model.minExisting)} ${uom} without planned orders.`
-    : `Projected stock never drops below zero with existing supply.`;
+    ? tr("mfg.projectedStockChart.tpl.projectedStockShortFromLowest", { fmtDate: fmtDate(new Date(model.firstShort.day * DAY).toISOString().slice(0, 10)), minExisting: fmtNum(model.minExisting), uom: uom })
+    : tr("mfg.projectedStockChart.str.projectedStockNeverDropsBelow");
 
   return (
     <figure className="mfg-chart" style={{ margin: 0 }}>
@@ -140,7 +141,7 @@ export function ProjectedStockChart({ timeline, buckets, asOf, uom }: { timeline
           const hs = ((b.existing_supply + b.planned) / model.barMax) * BAR_H;
           return (
             <g key={b.start}>
-              <title>{`${fmtDate(b.start)}: needed ${fmtNum(b.gross)}, existing supply ${fmtNum(b.existing_supply)}, planned ${fmtNum(b.planned)}${b.short ? " (short)" : ""}`}</title>
+              <title>{tr("mfg.projectedStockChart.tpl.neededExistingSupplyPlanned", { start: fmtDate(b.start), gross: fmtNum(b.gross), existingsupply: fmtNum(b.existing_supply), planned: fmtNum(b.planned), v: b.short ? " (short)" : "" })}</title>
               <rect x={xa + 1} y={BAR_TOP + BAR_H - hg} width={w} height={hg} fill="var(--warn)" />
               <rect x={xa + 1 + w + 1} y={BAR_TOP + BAR_H - hs} width={w} height={hs} fill="none" stroke="var(--ok)" strokeWidth={1.5} />
             </g>
@@ -153,31 +154,31 @@ export function ProjectedStockChart({ timeline, buckets, asOf, uom }: { timeline
           <svg width="26" height="8" aria-hidden>
             <line x1="0" y1="4" x2="26" y2="4" stroke="var(--accent)" strokeWidth="2" />
           </svg>
-          With existing supply only (solid)
+          {tr("mfg.projectedStockChart.text.withExistingSupplyOnlySolid")}
         </span>
         <span className="row" style={{ gap: 4 }}>
           <svg width="26" height="8" aria-hidden>
             <line x1="0" y1="4" x2="26" y2="4" stroke="var(--ok)" strokeWidth="2" strokeDasharray="6 4" />
           </svg>
-          With planned orders (dashed)
+          {tr("mfg.projectedStockChart.text.withPlannedOrdersDashed")}
         </span>
         <span className="row" style={{ gap: 4 }}>
           <svg width="14" height="10" aria-hidden>
             <rect width="14" height="10" fill="url(#mfg-short-hatch)" />
           </svg>
-          Shortage (hatched)
+          {tr("mfg.projectedStockChart.text.shortageHatched")}
         </span>
         <span className="row" style={{ gap: 4 }}>
           <svg width="10" height="10" aria-hidden>
             <rect width="10" height="10" fill="var(--warn)" />
           </svg>
-          Needed per period (filled bar)
+          {tr("mfg.projectedStockChart.text.neededPerPeriodFilledBar")}
         </span>
         <span className="row" style={{ gap: 4 }}>
           <svg width="10" height="10" aria-hidden>
             <rect x="1" y="1" width="8" height="8" fill="none" stroke="var(--ok)" strokeWidth="1.5" />
           </svg>
-          Supply per period (outlined bar)
+          {tr("mfg.projectedStockChart.text.supplyPerPeriodOutlinedBar")}
         </span>
         <span>{summary}</span>
       </figcaption>

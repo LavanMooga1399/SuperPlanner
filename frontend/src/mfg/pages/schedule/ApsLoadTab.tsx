@@ -63,17 +63,17 @@ export function ApsLoadTab() {
         <div className="row" role="group" aria-label={t("mfg.apsLoadTab.aria.period")}>
           {(["day", "week"] as const).map((b) => (
             <button key={b} type="button" className={`btn sm${bucket === b ? " primary" : ""}`} aria-pressed={bucket === b} onClick={() => setBucket(b)}>
-              {b === "day" ? "Days" : "Weeks"}
+              {b === "day" ? t("mfg.apsLoadTab.str.days") : t("mfg.apsLoadTab.str.weeks")}
             </button>
           ))}
         </div>
         <div className="field">
           <label htmlFor="ld-group">{t("mfg.apsLoadTab.label.show")}</label>
           <select id="ld-group" className="select sm" value={group} onChange={(e) => setGroup(e.target.value)}>
-            <option value="">All stages</option>
+            <option value="">{t("mfg.apsLoadTab.text.allStages")}</option>
             {groups.map(([id, label]) => (
               <option key={id} value={id}>
-                Lines of {label}
+                {t("mfg.apsLoadTab.text.linesOf", { label: label })}
               </option>
             ))}
           </select>
@@ -84,19 +84,19 @@ export function ApsLoadTab() {
           <span className="pg-swatch" style={{ background: "var(--bar)" }} /> scheduled
         </span>
         <span>
-          <span className="pg-swatch" style={{ border: "1px solid var(--text-muted)" }} /> regular capacity
+          <span className="pg-swatch" style={{ border: "1px solid var(--text-muted)" }} />{" "}{t("mfg.apsLoadTab.text.regularCapacity")}
         </span>
         <span>
-          <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} /> optional (overtime) capacity
+          <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} />{" "}{t("mfg.apsLoadTab.text.optionalOvertimeCapacity")}
         </span>
         <span>
-          <span className="pg-swatch" style={{ borderTop: "3px solid var(--danger)" }} /> required by MRP dates
+          <span className="pg-swatch" style={{ borderTop: "3px solid var(--danger)" }} />{" "}{t("mfg.apsLoadTab.text.requiredByMrpDates")}
         </span>
-        <span>"!" over regular capacity</span>
+        <span>{t("mfg.apsLoadTab.text.overRegularCapacity")}</span>
       </div>
       <MfgError error={load.error} onRetry={load.reload} />
       {load.loading && !load.data ? <Spinner /> : null}
-      {series.length === 0 && load.data ? <p className="muted">No load in this run.</p> : null}
+      {series.length === 0 && load.data ? <p className="muted">{t("mfg.apsLoadTab.text.noLoadInThisRun")}</p> : null}
       {series.map((s) => {
         const max = Math.max(1, ...s.rows.map((r) => Math.max(r.base_minutes + r.optional_minutes, r.scheduled_minutes, r.required_minutes)));
         return (

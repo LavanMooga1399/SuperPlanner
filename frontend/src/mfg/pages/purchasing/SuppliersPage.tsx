@@ -24,12 +24,12 @@ import { plural, t } from "../../../lib/i18n";
 import { FilterBar } from "../../../components/FilterBar";
 
 const SUPPLIER_COLS: Column<SupplierRecord>[] = [
-  { key: "code", header: "Code", width: "140px", sortValue: (s) => s.code, exportValue: (s) => s.code, render: (s) => <Link to={mfgPaths.supplier(s.id)} className="mono">{s.code}</Link> },
-  { key: "name", header: "Name", width: "minmax(200px, 2fr)", sortValue: (s) => s.name, render: (s) => s.name },
-  { key: "lead", header: "Lead time", width: "100px", align: "right", sortValue: (s) => s.lead_time_days, render: (s) => (s.lead_time_days === null ? "" : `${s.lead_time_days} d`) },
-  { key: "parts", header: "Parts", width: "80px", align: "right", sortValue: (s) => s.item_count, render: (s) => s.item_count },
-  { key: "contact", header: "Contact", width: "minmax(200px, 2fr)", render: (s) => [s.contact_name, s.email, s.phone].filter(Boolean).join(" · ") },
-  { key: "status", header: "Status", width: "100px", sortValue: (s) => (s.active ? 0 : 1), exportValue: (s) => (s.active ? "Active" : "Inactive"), render: (s) => <ActiveBadge active={s.active} /> },
+  { key: "code", header: t("mfg.suppliersPage.str.code"), width: "140px", sortValue: (s) => s.code, exportValue: (s) => s.code, render: (s) => <Link to={mfgPaths.supplier(s.id)} className="mono">{s.code}</Link> },
+  { key: "name", header: t("mfg.suppliersPage.str.name"), width: "minmax(200px, 2fr)", sortValue: (s) => s.name, render: (s) => s.name },
+  { key: "lead", header: t("mfg.suppliersPage.str.leadTime"), width: "100px", align: "right", sortValue: (s) => s.lead_time_days, render: (s) => (s.lead_time_days === null ? "" : `${s.lead_time_days} d`) },
+  { key: "parts", header: t("mfg.suppliersPage.str.parts"), width: "80px", align: "right", sortValue: (s) => s.item_count, render: (s) => s.item_count },
+  { key: "contact", header: t("mfg.suppliersPage.str.contact"), width: "minmax(200px, 2fr)", render: (s) => [s.contact_name, s.email, s.phone].filter(Boolean).join(" · ") },
+  { key: "status", header: t("mfg.suppliersPage.str.status"), width: "100px", sortValue: (s) => (s.active ? 0 : 1), exportValue: (s) => (s.active ? t("mfg.suppliersPage.str.active") : t("mfg.suppliersPage.str.inactive")), render: (s) => <ActiveBadge active={s.active} /> },
 ];
 
 function SupplierDialog({ sup, onClose, onSaved }: { sup: SupplierRecord | null; onClose(): void; onSaved(s: SupplierRecord): void }) {
@@ -61,8 +61,8 @@ function SupplierDialog({ sup, onClose, onSaved }: { sup: SupplierRecord | null;
   };
   return (
     <EntityFormDialog
-      title={sup ? `Supplier ${sup.code}` : "New supplier"}
-      submitLabel={sup ? "Save supplier" : "Create supplier"}
+      title={sup ? t("mfg.suppliersPage.tpl.supplier", { code: sup.code }) : t("mfg.suppliersPage.str.newSupplier")}
+      submitLabel={sup ? t("mfg.suppliersPage.str.saveSupplier") : t("mfg.suppliersPage.str.createSupplier")}
       testId="supplier-form"
       wide
       disabled={!body.code || !body.name}
@@ -113,7 +113,7 @@ export function SuppliersPage() {
         exportName="suppliers"
         rowExtras={(s) => ({ testId: "supplier-row", data: { code: s.code } })}
         onActivate={(s) => navigate(mfgPaths.supplier(s.id))}
-        empty={dq ? "No suppliers match the search." : "No suppliers yet. Add one with New supplier or import them."}
+        empty={dq ? t("mfg.suppliersPage.str.noSuppliersMatchTheSearch") : t("mfg.suppliersPage.str.noSuppliersYetAddOne")}
         card={{ title: "code", status: "status", fields: ["name", "lead", "parts"] }}
       />
       {creating ? <SupplierDialog sup={null} onClose={() => setCreating(false)} onSaved={(s) => navigate(mfgPaths.supplier(s.id))} /> : null}
@@ -139,14 +139,14 @@ export function SupplierPage() {
     if (highlight && s) document.querySelector(".mfg-highlight")?.scrollIntoView({ block: "center" });
   }, [highlight, s]);
 
-  if (sup.error && isNotFound(sup.error)) return <NotFoundPanel what="Supplier" back={<Link className="btn" to={mfgPaths.suppliers()}>Back to suppliers</Link>} />;
+  if (sup.error && isNotFound(sup.error)) return <NotFoundPanel what={t("mfg.suppliersPage.attr.supplier")} back={<Link className="btn" to={mfgPaths.suppliers()}>{t("mfg.suppliersPage.text.backToSuppliers")}</Link>} />;
   if (sup.error && !s) return <MfgError error={sup.error} onRetry={sup.reload} />;
   if (!s) return <Spinner />;
 
   return (
     <div className="col gap-lg" data-testid="supplier-page">
       <nav aria-label={t("mfg.suppliersPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.suppliers()}>Suppliers</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{s.code}</span>
+        <Link to={mfgPaths.suppliers()}>{t("mfg.suppliersPage.text.suppliers")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{s.code}</span>
       </nav>
       <ErpOwnedNotice entity="suppliers" label={t("mfg.suppliersPage.label.suppliersExceptThePreferredFlag")} />
       <section className="card">
@@ -190,7 +190,7 @@ export function SupplierPage() {
       </section>
       <MfgError error={error} />
       <div className="row between">
-        <h3 style={{ margin: 0 }}>Parts supplied ({s.items.length})</h3>
+        <h3 style={{ margin: 0 }}>{t("mfg.suppliersPage.text.partsSupplied", { length: s.items.length })}</h3>
         <div className="mfg-actions">
           <Link className="btn sm" to={`${mfgPaths.purchaseDocs("po")}?supplier=${encodeURIComponent(s.id)}`}>
             {t("mfg.suppliersPage.btn.purchaseOrders")}
@@ -226,7 +226,7 @@ export function SupplierPage() {
       ) : null}
       {deleting ? (
         <ConfirmDialog
-          title={deleting === "supplier" ? `Delete supplier ${s.code}?` : `Remove ${deleting.item.part_number}?`}
+          title={deleting === "supplier" ? t("mfg.suppliersPage.tpl.deleteSupplier", { code: s.code }) : t("mfg.suppliersPage.tpl.remove", { partnumber: deleting.item.part_number })}
           confirmLabel={t("mfg.suppliersPage.btn.delete")}
           danger
           onCancel={() => setDeleting(null)}
@@ -239,7 +239,7 @@ export function SupplierPage() {
           }}
         >
           <p style={{ margin: 0 }}>
-            {deleting === "supplier" ? "A supplier with purchase documents cannot be deleted; make it inactive instead. Its part rows are removed." : "Existing purchase documents are not changed."}
+            {deleting === "supplier" ? t("mfg.suppliersPage.str.aSupplierWithPurchaseDocuments") : t("mfg.suppliersPage.str.existingPurchaseDocumentsAreNot")}
           </p>
         </ConfirmDialog>
       ) : null}

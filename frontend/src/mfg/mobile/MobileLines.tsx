@@ -21,10 +21,10 @@ import { formatDateTime, formatTime } from "../../lib/locale";
 import { t } from "../../lib/i18n";
 
 export const LINE_STATE: Record<LineState, { label: string; icon: IconName; tone: string }> = {
-  running: { label: "Running", icon: "play", tone: "ok" },
-  paused: { label: "Paused", icon: "stop", tone: "warn" },
-  down: { label: "Down", icon: "alert", tone: "danger" },
-  idle: { label: "Idle", icon: "circle", tone: "info" },
+  running: { label: t("mobile.mobileLines.str.running"), icon: "play", tone: "ok" },
+  paused: { label: t("mobile.mobileLines.str.paused"), icon: "stop", tone: "warn" },
+  down: { label: t("mobile.mobileLines.str.down"), icon: "alert", tone: "danger" },
+  idle: { label: t("mobile.mobileLines.str.idle"), icon: "circle", tone: "info" },
 };
 
 export function LineStateBadge({ state }: { state: LineState }) {
@@ -45,14 +45,14 @@ export function MobileLines() {
       <h1>{t("mobile.mobileLines.head.lines")}</h1>
       {lines.error && !lines.data ? <MfgError error={lines.error} onRetry={lines.reload} /> : null}
       {lines.loading && !lines.data ? <Spinner /> : null}
-      {lines.data && !lines.data.length ? <p className="muted">No active lines.</p> : null}
+      {lines.data && !lines.data.length ? <p className="muted">{t("mobile.mobileLines.text.noActiveLines")}</p> : null}
       <ul className="m-list">
         {(lines.data ?? []).map((l) => (
           <li key={l.id}>
             <Link to={`/m/lines/${encodeURIComponent(l.id)}`} className="m-row" data-testid="m-line-row" data-state={l.state}>
               <div className="grow">
                 <strong>{l.code}</strong> <span className="muted">{l.name}</span>
-                <div className="m-sub">{l.state === "down" && l.downtime ? `${DOWNTIME[l.downtime.kind]?.label ?? l.downtime.kind}${l.downtime.reason ? `: ${l.downtime.reason}` : ""}` : l.current ?? "Nothing running"}</div>
+                <div className="m-sub">{l.state === "down" && l.downtime ? `${DOWNTIME[l.downtime.kind]?.label ?? l.downtime.kind}${l.downtime.reason ? `: ${l.downtime.reason}` : ""}` : l.current ?? t("mobile.mobileLines.str.nothingRunning")}</div>
               </div>
               <LineStateBadge state={l.state} />
               <Icon name="chevron-right" />
@@ -79,9 +79,9 @@ function DowntimeCard({ d, onChanged }: { d: DowntimeM6; onChanged(): void }) {
     try {
       const out =
         what === "ack"
-          ? await submitDowntimeAck(d.id, `${d.line.code}: downtime acknowledged`)
-          : await submitDowntimeUpdate(d.id, d.row_version, { close: true }, `${d.line.code} back up`);
-      setMsg(out.status === "queued" ? { text: "Saved on this phone; it is sent when you are back online.", tone: "ok" } : { text: what === "ack" ? "Acknowledged." : "Downtime closed.", tone: "ok" });
+          ? await submitDowntimeAck(d.id, t("mobile.mobileLines.tpl.downtimeAcknowledged", { code: d.line.code }))
+          : await submitDowntimeUpdate(d.id, d.row_version, { close: true }, t("mobile.mobileLines.tpl.backUp", { code: d.line.code }));
+      setMsg(out.status === "queued" ? { text: t("mobile.mobileLines.str.savedOnThisPhoneIt"), tone: "ok" } : { text: what === "ack" ? t("mobile.mobileLines.str.acknowledged") : t("mobile.mobileLines.str.downtimeClosed"), tone: "ok" });
       onChanged();
     } catch (e) {
       setMsg({ text: floorErrorText(e), tone: "danger" });
@@ -92,7 +92,7 @@ function DowntimeCard({ d, onChanged }: { d: DowntimeM6; onChanged(): void }) {
   return (
     <section className="m-card" data-testid="m-downtime" aria-label={t("mobile.mobileLines.aria.openDowntime")}>
       <h2>
-        <Icon name={kind.icon} /> Down: {kind.label}
+        <Icon name={kind.icon} />{" "}{t("mobile.mobileLines.text.down", { label: kind.label })}
       </h2>
       <dl className="m-dl">
         <dt>{t("mobile.mobileLines.head.since")}</dt>
@@ -135,12 +135,12 @@ function DowntimeCard({ d, onChanged }: { d: DowntimeM6; onChanged(): void }) {
       <div className="m-actions">
         {!d.acknowledged_at && !ackWaiting ? (
           <button type="button" className="btn primary" disabled={!canSee || busy !== null} onClick={() => void run("ack")} data-testid="m-downtime-ack-btn">
-            {busy === "ack" ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Acknowledge
+            {busy === "ack" ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("mobile.mobileLines.text.acknowledge")}
           </button>
         ) : null}
         {canClose && !closeWaiting ? (
           <button type="button" className="btn" disabled={busy !== null} onClick={() => void run("close")} data-testid="m-downtime-close">
-            {busy === "close" ? <span className="spinner" aria-hidden /> : <Icon name="play" />} Line is back up
+            {busy === "close" ? <span className="spinner" aria-hidden /> : <Icon name="play" />}{" "}{t("mobile.mobileLines.text.lineIsBackUp")}
           </button>
         ) : null}
         {closeWaiting ? (
@@ -176,7 +176,7 @@ export function MobileLine() {
         <Icon name="chevron-right" size={12} style={{ transform: "rotate(180deg)" }} /> {t("mobile.mobileLines.btn.allLines")}
       </Link>
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
-        <h1>{q.data?.line.code ?? "Line"}</h1>
+        <h1>{q.data?.line.code ?? t("mobile.mobileLines.str.line")}</h1>
         {st ? <LineStateBadge state={st.state} /> : null}
       </div>
       {q.error && !q.data ? <MfgError error={q.error} onRetry={q.reload} /> : null}
@@ -185,15 +185,15 @@ export function MobileLine() {
       {q.data ? (
         <section className="m-card" aria-labelledby="m-ops-h">
           <h2 id="m-ops-h">{t("mobile.mobileLines.head.currentAndNextOperations")}</h2>
-          {open.length === 0 ? <p className="muted" style={{ margin: 0 }}>Nothing planned for this shift.</p> : null}
+          {open.length === 0 ? <p className="muted" style={{ margin: 0 }}>{t("mobile.mobileLines.text.nothingPlannedForThisShift")}</p> : null}
           <ul className="m-list">
             {open.slice(0, 6).map((r, i) => (
               <li key={r.wo_operation_id ?? `${r.wo.id}-${r.seq}`}>
                 <Link to={`/m/wo/${encodeURIComponent(r.wo.id)}`} className="m-row" data-testid="m-op-row">
                   <div className="grow">
-                    <strong>{r.wo.number}</strong> op {r.seq} {r.name}
+                    <strong>{r.wo.number}</strong>{" "}{t("mobile.mobileLines.text.op", { seq: r.seq, name: r.name })}
                     <div className="m-sub">
-                      {i === 0 ? "Now · " : ""}
+                      {i === 0 ? t("mobile.mobileLines.str.now") : ""}
                       {r.wo.item.part_number} · {r.qty_good}/{r.qty_planned}
                       {r.planned_start ? ` · planned ${new Date(r.planned_start).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : ""}
                     </div>

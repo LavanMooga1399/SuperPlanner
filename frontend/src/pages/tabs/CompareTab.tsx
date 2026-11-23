@@ -48,7 +48,7 @@ export function CompareTab() {
       <div className="card empty">
         <Icon name="compare" size={32} />
         <strong>{t("studio.compareTab.head.nothingToCompareYet")}</strong>
-        <span>You need at least two {terms.scheduleL}s. Each optimization run creates a recommended one and usually some alternatives.</span>
+        <span>{t("studio.compareTab.text.youNeedAtLeastTwo", { scheduleL: terms.scheduleL })}</span>
       </div>
     );
 
@@ -68,7 +68,7 @@ export function CompareTab() {
             {items.map((s) => <option key={s.id} value={s.id}>{scheduleOptionLabel(s)}</option>)}
           </select>
         </div>
-        <button className="btn icon" aria-label={t("studio.compareTab.aria.swapAAndB")} title="Swap" onClick={() => setParams({ a: b, b: a })}>
+        <button className="btn icon" aria-label={t("studio.compareTab.aria.swapAAndB")} title={t("studio.compareTab.attr.swap")} onClick={() => setParams({ a: b, b: a })}>
           <Icon name="refresh" />
         </button>
         <div className="field" style={{ minWidth: 280 }}>
@@ -78,7 +78,7 @@ export function CompareTab() {
           </select>
         </div>
       </div>
-      {a === b ? <div className="small muted">Choose two different {terms.scheduleL}s.</div> : null}
+      {a === b ? <div className="small muted">{t("studio.compareTab.text.chooseTwoDifferentS", { scheduleL: terms.scheduleL })}</div> : null}
       <ErrorBanner error={error} />
       {loading && !cmp ? <Loading label={t("studio.compareTab.label.comparing")} /> : null}
       {cmp ? <ScheduleComparison cmp={cmp} draft={draft} terms={terms} /> : null}

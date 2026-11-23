@@ -37,7 +37,7 @@ function SimStatus({ s }: { s: Simulation }) {
     );
   return (
     <span className="badge accent" role="status">
-      <span className="spinner" aria-hidden /> {s.status === "queued" ? "Waiting" : `Running${s.results ? ` ${s.results.samples_done}/${s.samples}` : ""}`}
+      <span className="spinner" aria-hidden /> {s.status === "queued" ? t("mfg.simulationsPage.str.waiting") : `Running${s.results ? ` ${s.results.samples_done}/${s.samples}` : ""}`}
     </span>
   );
 }
@@ -60,7 +60,7 @@ export function SimulationsPage() {
   const baseId = base || published.data?.id || "";
   const runLabel = (id: string) => {
     const r = (runs.data?.items ?? []).find((x) => x.id === id);
-    return r ? `${t("common.scheduleNo", { n: r.run_no })}${r.label ? ` · ${r.label}` : ""}` : "an earlier schedule";
+    return r ? `${t("common.scheduleNo", { n: r.run_no })}${r.label ? ` · ${r.label}` : ""}` : t("mfg.simulationsPage.str.anEarlierSchedule");
   };
 
   const start = async () => {
@@ -83,7 +83,7 @@ export function SimulationsPage() {
   return (
     <div className="col gap-lg" data-testid="sim-page">
       <nav className="breadcrumb" aria-label={t("mfg.simulationsPage.aria.breadcrumb")}>
-        <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <span>Risk</span>
+        <Link to={mfgPaths.schedule()}>{t("mfg.simulationsPage.text.schedule")}</Link> <Icon name="chevron-right" size={12} /> <span>{t("mfg.simulationsPage.text.risk")}</span>
       </nav>
       <PageHeader title={t("mfg.simulationsPage.title.deliveryRisk")} />
       <section className="card">
@@ -92,13 +92,13 @@ export function SimulationsPage() {
         </div>
         <div className="card-body col">
           <p className="muted" style={{ margin: 0 }}>
-            The plan is replayed many times with supplier delays and line breakdowns like the ones this plant has seen. You get the chance each demand line ships on time.
+            {t("mfg.simulationsPage.text.thePlanIsReplayedMany")}
           </p>
           <div className="row wrap">
             <div className="field" style={{ minWidth: 320 }}>
               <label htmlFor="sim-base">{t("mfg.simulationsPage.label.plan")}</label>
               <select id="sim-base" className="select" value={baseId} onChange={(e) => setBase(e.target.value)} data-testid="sim-base">
-                {!baseId ? <option value="">Choose a schedule…</option> : null}
+                {!baseId ? <option value="">{t("mfg.simulationsPage.text.chooseASchedule")}</option> : null}
                 {(runs.data?.items ?? []).map((r) => (
                   <option key={r.id} value={r.id}>
                     {t("common.scheduleNo", { n: r.run_no })}
@@ -121,7 +121,7 @@ export function SimulationsPage() {
               <div className="field" style={{ width: 160 }}>
                 <label htmlFor="sim-seed">{t("mfg.simulationsPage.label.randomSeed")}</label>
                 <input id="sim-seed" className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder={t("mfg.simulationsPage.ph.automatic")} />
-                <span className="faint small">Same seed, same result.</span>
+                <span className="faint small">{t("mfg.simulationsPage.text.sameSeedSameResult")}</span>
               </div>
               <div className="field" style={{ width: 160 }}>
                 <label htmlFor="sim-h">{t("mfg.simulationsPage.label.horizonDays")}</label>
@@ -141,7 +141,7 @@ export function SimulationsPage() {
       <DataTable
         rows={sims.data?.items ?? []}
         columns={[
-          { key: "check", header: "Check", width: "minmax(160px, 1fr)", exportValue: (s) => `Risk check ${s.id.slice(-6)}`, render: (s) => <Link to={mfgPaths.simulation(s.id)}>Risk check {s.id.slice(-6)}</Link> },
+          { key: "check", header: "Check", width: "minmax(160px, 1fr)", exportValue: (s) => `Risk check ${s.id.slice(-6)}`, render: (s) => <Link to={mfgPaths.simulation(s.id)}>{t("mfg.simulationsPage.text.riskCheck", { id: s.id.slice(-6) })}</Link> },
           { key: "plan", header: "Plan", width: "minmax(180px, 1.4fr)", sortValue: (s) => runLabel(s.base_run_id), render: (s) => runLabel(s.base_run_id) },
           { key: "samples", header: "Replays", width: "90px", align: "right", sortValue: (s) => s.samples, render: (s) => s.samples },
           { key: "status", header: "Status", width: "150px", sortValue: (s) => s.status, exportValue: (s) => s.status, render: (s) => <SimStatus s={s} /> },
@@ -161,8 +161,8 @@ export function SimulationsPage() {
 /** Without per-sample detail: due date against base plan, P50 and P90 on one time strip. */
 function RangeStrip({ r, clock }: { r: SimulationDemand; clock: ReturnType<typeof usePlantClock> }) {
   const pts = [
-    { k: "Due", t: r.due, c: "var(--text)" },
-    { k: "Plan", t: r.base_end, c: "var(--text-muted)" },
+    { k: t("mfg.simulationsPage.str.due"), t: r.due, c: "var(--text)" },
+    { k: t("mfg.simulationsPage.str.plan"), t: r.base_end, c: "var(--text-muted)" },
     { k: "P50", t: r.p50, c: "var(--accent)" },
     { k: "P90", t: r.p90, c: "var(--warn)" },
   ].filter((p): p is { k: string; t: string; c: string } => Boolean(p.t));
@@ -185,7 +185,7 @@ function RangeStrip({ r, clock }: { r: SimulationDemand; clock: ReturnType<typeo
           </g>
         ))}
       </svg>
-      <figcaption className="faint small">Shaded: half of the replays finish after P50, one in ten after P90.</figcaption>
+      <figcaption className="faint small">{t("mfg.simulationsPage.text.shadedHalfOfTheReplays")}</figcaption>
     </figure>
   );
 }
@@ -195,7 +195,7 @@ function Histogram({ r, clock }: { r: SimulationDemand; clock: ReturnType<typeof
   if (!vals.length) return <RangeStrip r={r} clock={clock} />;
   // bins: early/on time, then late in 4 h steps up to 3 days, rest
   const edges = [0, 240, 480, 1440, 2880, 4320];
-  const labels = ["on time", "< 4 h", "4-8 h", "8 h-1 d", "1-2 d", "2-3 d", "> 3 d"];
+  const labels = [t("mfg.simulationsPage.str.onTime"), "< 4 h", "4-8 h", "8 h-1 d", "1-2 d", "2-3 d", "> 3 d"];
   const counts = new Array(labels.length).fill(0) as number[];
   for (const v of vals) {
     if (v <= 0) counts[0]++;
@@ -226,7 +226,7 @@ function Histogram({ r, clock }: { r: SimulationDemand; clock: ReturnType<typeof
           );
         })}
       </svg>
-      <figcaption className="faint small">Replays by how late the line finished</figcaption>
+      <figcaption className="faint small">{t("mfg.simulationsPage.text.replaysByHowLateThe")}</figcaption>
     </figure>
   );
 }
@@ -253,44 +253,44 @@ export function SimulationPage() {
   return (
     <div className="col gap-lg" data-testid="sim-detail" data-status={sim.status}>
       <nav className="breadcrumb" aria-label={t("mfg.simulationsPage.aria.breadcrumb")}>
-        <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <Link to={mfgPaths.simulations()}>Risk</Link> <Icon name="chevron-right" size={12} />{" "}
-        <span>Check {sim.id.slice(-6)}</span>
+        <Link to={mfgPaths.schedule()}>{t("mfg.simulationsPage.text.schedule")}</Link> <Icon name="chevron-right" size={12} /> <Link to={mfgPaths.simulations()}>{t("mfg.simulationsPage.text.risk")}</Link> <Icon name="chevron-right" size={12} />{" "}
+        <span>{t("mfg.simulationsPage.text.check", { id: sim.id.slice(-6) })}</span>
       </nav>
       <PageHeader
         title={t("mfg.simulationsPage.title.deliveryRisk")}
         actions={
           <>
             <SimStatus s={sim} />
-            <Link to={mfgPaths.apsRun(sim.base_run_id)}>Plan: {base.data ? `${t("common.scheduleNoInline", { n: base.data.run_no })}${base.data.label ? ` · ${base.data.label}` : ""}` : "schedule"}</Link>
+            <Link to={mfgPaths.apsRun(sim.base_run_id)}>{t("mfg.simulationsPage.text.plan", { v: base.data ? `${t("common.scheduleNoInline", { n: base.data.run_no })}${base.data.label ? ` · ${base.data.label}` : ""}` : "schedule" })}</Link>
             <span className="faint small">
-            {sim.samples} replays{sim.params.seed !== undefined ? ` · seed ${sim.params.seed}` : ""}
+            {t("mfg.simulationsPage.text.replays", { samples: sim.samples, v: sim.params.seed !== undefined ? ` · seed ${sim.params.seed}` : "" })}
             </span>
           </>
         }
       />
-      {sim.status === "failed" ? <div className="banner danger">{sim.error?.message ?? "The risk check failed."}</div> : null}
+      {sim.status === "failed" ? <div className="banner danger">{sim.error?.message ?? t("mfg.simulationsPage.str.theRiskCheckFailed")}</div> : null}
       {active(sim) ? <Spinner label={t("mfg.simulationsPage.label.replayingThePlan")} /> : null}
       {res ? (
         <>
           <div className="kpis">
             <div className="card kpi">
-              <div className="kpi-label">Demand lines at risk</div>
+              <div className="kpi-label">{t("mfg.simulationsPage.text.demandLinesAtRisk")}</div>
               <div className="kpi-value">{atRisk}</div>
-              <div className="kpi-sub">less than 80% chance on time, of {lines.length}</div>
+              <div className="kpi-sub">{t("mfg.simulationsPage.text.lessThan80ChanceOn", { length: lines.length })}</div>
             </div>
             <div className="card kpi">
-              <div className="kpi-label">Biggest supplier risk</div>
+              <div className="kpi-label">{t("mfg.simulationsPage.text.biggestSupplierRisk")}</div>
               <div className="kpi-value" style={{ fontSize: 20 }}>
                 {topSupplier ? topSupplier.supplier.code : "none"}
               </div>
               {topSupplier ? (
                 <div className="kpi-sub">
-                  {plural(topSupplier.late_lines, "late line")} in the replays · typically {topSupplier.mean_delay_days.toFixed(1)} days late
+                  {t("mfg.simulationsPage.text.inTheReplaysTypicallyDays", { latelines: plural(topSupplier.late_lines, "late line"), meandelaydays: topSupplier.mean_delay_days.toFixed(1) })}
                 </div>
               ) : null}
             </div>
             <div className="card kpi">
-              <div className="kpi-label">Expected lost line time</div>
+              <div className="kpi-label">{t("mfg.simulationsPage.text.expectedLostLineTime")}</div>
               <div className="kpi-value">{fmtDuration(res.lines.reduce((a, l) => a + l.expected_lost_hours, 0) * 60) || "0"}</div>
             </div>
           </div>
@@ -298,8 +298,8 @@ export function SimulationPage() {
             <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
               <h2>{t("mfg.simulationsPage.head.demandLines")}</h2>
               <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.simulationsPage.aria.sort")} value={sort} onChange={(e) => setSort(e.target.value as "risk" | "due")}>
-                <option value="risk">Most at risk first</option>
-                <option value="due">By due date</option>
+                <option value="risk">{t("mfg.simulationsPage.text.mostAtRiskFirst")}</option>
+                <option value="due">{t("mfg.simulationsPage.text.byDueDate")}</option>
               </select>
             </div>
             <div className="table-wrap">
@@ -329,8 +329,8 @@ export function SimulationPage() {
                             <Icon name={tone === "ok" ? "check" : "alert"} /> {p}%
                           </span>
                         </td>
-                        <td className="small">{l.p50 ? clock.dateTime(l.p50) : "not finished"}</td>
-                        <td className="small">{l.p90 ? clock.dateTime(l.p90) : "not finished"}</td>
+                        <td className="small">{l.p50 ? clock.dateTime(l.p50) : t("mfg.simulationsPage.str.notFinished")}</td>
+                        <td className="small">{l.p90 ? clock.dateTime(l.p90) : t("mfg.simulationsPage.str.notFinished")}</td>
                         <td>
                           <button type="button" className="btn sm ghost" aria-expanded={open === l.demand_line_id} onClick={() => setOpen(open === l.demand_line_id ? null : l.demand_line_id)}>
                             {t("mfg.simulationsPage.btn.spread")}
@@ -359,7 +359,7 @@ export function SimulationPage() {
                 <tbody>
                   {res.suppliers.length === 0 ? (
                     <tr>
-                      <td className="muted">No supplier caused lateness in the replays.</td>
+                      <td className="muted">{t("mfg.simulationsPage.text.noSupplierCausedLatenessIn")}</td>
                     </tr>
                   ) : null}
                   {[...res.suppliers].sort((a, b) => b.late_lines - a.late_lines).map((x) => (
@@ -368,10 +368,10 @@ export function SimulationPage() {
                         {x.supplier.code}
                         {x.supplier.name ? <div className="faint small">{x.supplier.name}</div> : null}
                       </td>
-                      <td className="right">{x.late_lines} late lines</td>
+                      <td className="right">{t("mfg.simulationsPage.text.lateLines", { latelines: x.late_lines })}</td>
                       <td className="right">
-                        {x.mean_delay_days.toFixed(1)} days late on average
-                        <div className="faint small">from {x.history_receipts} past deliveries</div>
+                        {t("mfg.simulationsPage.text.daysLateOnAverage", { meandelaydays: x.mean_delay_days.toFixed(1) })}
+                        <div className="faint small">{t("mfg.simulationsPage.text.fromPastDeliveries", { historyreceipts: x.history_receipts })}</div>
                       </td>
                     </tr>
                   ))}
@@ -388,7 +388,7 @@ export function SimulationPage() {
                     <tr key={x.line.id}>
                       <td>{x.line.code}</td>
                       <td className="right">{x.expected_lost_hours.toFixed(1)} h</td>
-                      <td className="right faint small">{x.mtbf_hours ? `a breakdown every ${Math.round(x.mtbf_hours)} h on average` : "no breakdown history"}</td>
+                      <td className="right faint small">{x.mtbf_hours ? t("mfg.simulationsPage.tpl.aBreakdownEveryHOn", { mtbfhours: Math.round(x.mtbf_hours) }) : t("mfg.simulationsPage.str.noBreakdownHistory")}</td>
                     </tr>
                   ))}
                 </tbody>

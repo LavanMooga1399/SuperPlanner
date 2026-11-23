@@ -140,7 +140,7 @@ export function BomEditPage() {
   }, [error]);
 
   if (loaded.error && isNotFound(loaded.error))
-    return <NotFoundPanel what="BOM" back={<Link className="btn" to={mfgPaths.itemBom(item.id)}>Back to BOM versions</Link>} />;
+    return <NotFoundPanel what="BOM" back={<Link className="btn" to={mfgPaths.itemBom(item.id)}>{t("mfg.bomEditPage.text.backToBomVersions")}</Link>} />;
   if (loaded.error && !base) return <MfgError error={loaded.error} onRetry={loaded.reload} />;
   if (!base || !header) return <Spinner label={t("mfg.bomEditPage.label.loadingBom")} />;
 
@@ -194,7 +194,7 @@ export function BomEditPage() {
           <Icon name="chevron-right" style={{ transform: "rotate(180deg)" }} /> {t("mfg.bomEditPage.btn.bomVersions")}
         </Link>
         <h2>
-          BOM rev. {base.revision} v{base.version}
+          {t("mfg.bomEditPage.text.bomRevV", { revision: base.revision, version: base.version })}
         </h2>
         <StatusChip status={base.status} />
         <span className="muted small">{plural(lines.length, "line")}</span>
@@ -205,19 +205,19 @@ export function BomEditPage() {
           tone="info"
           icon="lock"
           testId="bom-readonly"
-          title={base.status === "released" ? "Released - copy to a new version to edit" : "Obsolete - copy to a new version to edit"}
+          title={base.status === "released" ? t("mfg.bomEditPage.str.releasedCopyToANew") : t("mfg.bomEditPage.str.obsoleteCopyToANew")}
           actions={
             <button type="button" className="btn sm primary" onClick={() => void copy()} data-testid="bom-copy-banner">
               <Icon name="copy" /> {t("mfg.bomEditPage.btn.copyToANewVersion")}
             </button>
           }
         >
-          Released and obsolete BOMs are read-only so that plans keep using exactly what was approved.
+          {t("mfg.bomEditPage.text.releasedAndObsoleteBomsAre")}
         </Banner>
       ) : null}
-      {conflict ? <ConflictBanner onReload={() => void reload()} what="this BOM" /> : null}
+      {conflict ? <ConflictBanner onReload={() => void reload()} what={t("mfg.bomEditPage.attr.thisBom")} /> : null}
       <ErpOwnedNotice entity="boms" label={t("mfg.bomEditPage.label.boms")} />
-      <MfgError error={error} title="Could not save the BOM" />
+      <MfgError error={error} title={t("mfg.bomEditPage.attr.couldNotSaveTheBom")} />
 
       <section className="card">
         <div className="card-header">
@@ -241,7 +241,7 @@ export function BomEditPage() {
       <section className="card">
         <div className="card-header">
           <h3>{t("mfg.bomEditPage.head.lines")}</h3>
-          <span className="muted small">Quantities are per 1 {t("common.nOfM", { n: item.uom, m: item.part_number })}. Alternates share an alternate group; priority 1 is the primary part.</span>
+          <span className="muted small">{t("mfg.bomEditPage.text.quantitiesArePer1Alternates", { t: t("common.nOfM", { n: item.uom, m: item.part_number }) })}</span>
         </div>
         <div className="card-body col">
           <BomLinesGrid
@@ -268,27 +268,27 @@ export function BomEditPage() {
             <ul className="small mfg-problem-list" role="status">
               {problems.slice(0, 8).map((x) => (
                 <li key={x.i}>
-                  <Icon name="alert" size={12} /> Line {x.i + 1}: {x.p.join("; ")}
+                  <Icon name="alert" size={12} />{" "}{t("mfg.bomEditPage.text.line", { v: x.i + 1, p: x.p.join("; ") })}
                 </li>
               ))}
-              {problems.length > 8 ? <li>and {problems.length - 8} more lines</li> : null}
+              {problems.length > 8 ? <li>{t("mfg.bomEditPage.text.andMoreLines", { v: problems.length - 8 })}</li> : null}
             </ul>
           ) : null}
         </div>
       </section>
 
-      <UnsavedChangesGuard when={!readOnly && dirty && !busy} what="this BOM" />
+      <UnsavedChangesGuard when={!readOnly && dirty && !busy} what={t("mfg.bomEditPage.attr.thisBom")} />
       {!readOnly ? (
         <div className="row mfg-sticky-actions">
-          <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0} title={!dirty ? "No changes to save" : problems.length ? "Fix the problems listed above first" : undefined} data-testid="bom-save">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save BOM
+          <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0} title={!dirty ? t("mfg.bomEditPage.str.noChangesToSave") : problems.length ? t("mfg.bomEditPage.str.fixTheProblemsListedAbove") : undefined} data-testid="bom-save">
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{t("mfg.bomEditPage.text.saveBom")}
           </button>
           <button type="button" className="btn" disabled={!dirty || busy} onClick={() => reset(base)}>
             {t("mfg.bomEditPage.btn.undoChanges")}
           </button>
           <SaveState busy={false} saved={saved && !dirty} />
           <span className="grow" />
-          <button type="button" className="btn" disabled={dirty || busy || lines.length === 0} onClick={() => setReleasing(true)} title={dirty ? "Save first" : undefined} data-testid="bom-release">
+          <button type="button" className="btn" disabled={dirty || busy || lines.length === 0} onClick={() => setReleasing(true)} title={dirty ? t("mfg.bomEditPage.str.saveFirst") : undefined} data-testid="bom-release">
             <Icon name="check" /> {t("mfg.bomEditPage.btn.release")}
           </button>
         </div>

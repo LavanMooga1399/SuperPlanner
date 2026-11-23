@@ -23,7 +23,7 @@ import { currentWorkspace } from "../lib/workspace";
 import { floorErrorText } from "./floorText";
 import { discardFailed, retryFailed, syncNow, useAutoSync, useFloorQueue } from "./offlineQueue";
 import { formatTime } from "../../lib/locale";
-import { t, plural } from "../../lib/i18n";
+import { plural, t, t as tr } from "../../lib/i18n";
 
 export interface CrewMember {
   id?: string;
@@ -53,7 +53,7 @@ const Ctx = createContext<FloorCtx | null>(null);
 
 export function useFloor(): FloorCtx {
   const c = useContext(Ctx);
-  if (!c) throw new Error("useFloor outside FloorLayout");
+  if (!c) throw new Error(tr("floor.floorLayout.str.usefloorOutsideFloorlayout"));
   return c;
 }
 
@@ -173,11 +173,11 @@ function FloorShell({ children }: { children: ReactNode }) {
 
   const addCrew = (m: CrewMember) => {
     if (crew.some((c) => c.code.toUpperCase() === m.code.toUpperCase())) {
-      flash(`${m.name ?? m.code} is already signed in on this tablet`, "warn");
+      flash(tr("floor.floorLayout.tpl.isAlreadySignedInOn", { v: m.name ?? m.code }), "warn");
       return;
     }
     saveCrew([...crew, m]);
-    flash(`${m.name ?? m.code} signed in on this tablet`);
+    flash(tr("floor.floorLayout.tpl.signedInOnThisTablet", { v: m.name ?? m.code }));
   };
 
   const openWo = async (woId: string) => {
@@ -204,7 +204,7 @@ function FloorShell({ children }: { children: ReactNode }) {
       }
       for (const h of handlers.current) if (await h(text, resolved)) return;
       if (unknown || !resolved) {
-        flash(`Unknown barcode "${text}"`, "danger");
+        flash(tr("floor.floorLayout.tpl.unknownBarcode", { text: text }), "danger");
         return;
       }
       switch (resolved.type) {
@@ -259,7 +259,7 @@ function FloorShell({ children }: { children: ReactNode }) {
         <header className="floor-head">
           <Link to={lineId ? mfgPaths.floorLine(lineId) : mfgPaths.floor()} className="floor-home" aria-label={t("floor.floorLayout.aria.floorHome")}>
             <Icon name="factory" size={22} />
-            <span>Floor</span>
+            <span>{tr("floor.floorLayout.text.floor")}</span>
           </Link>
           <form
             className="floor-scan-form"
@@ -269,7 +269,7 @@ function FloorShell({ children }: { children: ReactNode }) {
             }}
           >
             <label htmlFor="floor-scan" className="sr-only">
-              Scan a barcode
+              {tr("floor.floorLayout.text.scanABarcode")}
             </label>
             <Icon name="zoom-in" size={20} />
             <input
@@ -296,9 +296,9 @@ function FloorShell({ children }: { children: ReactNode }) {
             {waiting || queue.failed.length ? (
               <button type="button" className={`btn floor-sync ${queue.failed.length ? "danger" : ""}`} onClick={() => setShowQueue((v) => !v)} data-testid="floor-sync-pending" data-count={waiting} data-failed={queue.failed.length} aria-expanded={showQueue}>
                 <Icon name={queue.syncing ? "loader" : "refresh"} />
-                {waiting ? `${plural(waiting, "action")} waiting to sync` : ""}
+                {waiting ? tr("floor.floorLayout.tpl.waitingToSync", { waiting: plural(waiting, "action") }) : ""}
                 {waiting && queue.failed.length ? " · " : ""}
-                {queue.failed.length ? `${queue.failed.length} need${queue.failed.length === 1 ? "s" : ""} attention` : ""}
+                {queue.failed.length ? tr("floor.floorLayout.tpl.needAttention", { length: queue.failed.length, v: queue.failed.length === 1 ? "s" : "" }) : ""}
               </button>
             ) : null}
             {canSupervise ? (
@@ -324,7 +324,7 @@ function FloorShell({ children }: { children: ReactNode }) {
             </div>
             {queue.pending.map((a) => (
               <div key={a.id} className="floor-sync-item">
-                <Icon name="clock" /> {a.label} <span className="faint small">saved {formatTime(a.created_at)}</span>
+                <Icon name="clock" /> {a.label} <span className="faint small">{tr("floor.floorLayout.text.saved", { createdat: formatTime(a.created_at) })}</span>
               </div>
             ))}
             {queue.failed.map((a) => (
@@ -355,15 +355,15 @@ function CrewBar() {
       <Icon name="briefcase" />
       {me && !crew.length ? (
         <span>
-          Signed in as <strong>{me.name}</strong> ({me.code})
+          {tr("floor.floorLayout.text.signedInAs")}{" "}<strong>{me.name}</strong> ({me.code})
         </span>
       ) : crew.length ? (
         <>
-          <span className="faint">Working:</span>
+          <span className="faint">{tr("floor.floorLayout.text.working")}</span>
           {crew.map((c) => (
             <span key={c.code} className="floor-crew-chip" data-code={c.code}>
               {c.name ?? c.code}
-              <button type="button" className="btn ghost icon" aria-label={`Sign out ${c.name ?? c.code}`} onClick={() => removeCrew(c.code)}>
+              <button type="button" className="btn ghost icon" aria-label={tr("floor.floorLayout.tpl.signOut", { v: c.name ?? c.code })} onClick={() => removeCrew(c.code)}>
                 <Icon name="x" />
               </button>
             </span>
@@ -375,7 +375,7 @@ function CrewBar() {
           ) : null}
         </>
       ) : (
-        <span className="faint">Scan your operator badge to sign your actions (or sign in with your own account).</span>
+        <span className="faint">{tr("floor.floorLayout.text.scanYourOperatorBadgeTo")}</span>
       )}
     </div>
   );
@@ -384,10 +384,10 @@ function CrewBar() {
 /** `/mfg/floor/**` tablet routes. */
 export function FloorLayout() {
   useEffect(() => {
-    document.title = "Floor - SuperPlanner";
+    document.title = tr("floor.floorLayout.str.floorSuperplanner");
     document.body.classList.add("floor-mode");
     return () => {
-      document.title = "SuperPlanner Studio";
+      document.title = tr("floor.floorLayout.str.superplannerStudio");
       document.body.classList.remove("floor-mode");
     };
   }, []);

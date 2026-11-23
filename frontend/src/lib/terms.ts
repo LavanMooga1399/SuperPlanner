@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { DEFAULT_TERMINOLOGY, type Terminology } from "../api/types";
 import { PlanContextRaw } from "../state/PlanContext";
+import { t as tr } from "./i18n";
 
 export interface Terms extends Terminology {
   /** lower-case singular/plural */
@@ -33,8 +34,8 @@ export function makeTerms(t: Partial<Terminology> | null | undefined): Terms {
     scheduleL: lower(base.schedule),
     countTasks: (n) => `${n} ${n === 1 ? base.task : base.tasks}`,
     countResources: (n) => `${n} ${n === 1 ? base.resource : base.resources}`,
-    newTask: `New ${base.task}`,
-    newResource: `New ${base.resource}`,
+    newTask: tr("shell.terms.tpl.new", { task: base.task }),
+    newResource: tr("shell.terms.tpl.new2", { resource: base.resource }),
   };
 }
 

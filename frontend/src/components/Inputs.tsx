@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { fmtDuration, inputToIso, isoToInput } from "../lib/time";
 import { parseDuration } from "../lib/planEdit";
 import { Icon } from "./Icon";
+import { t } from "../lib/i18n";
 
 /** Duration in minutes, typed as "90", "1h 30m", "2d"... Commits on blur/Enter. */
 export function DurationInput({
@@ -11,7 +12,7 @@ export function DurationInput({
   min = 1,
   disabled,
   id,
-  className = "input sm",
+  className = t("studio.inputs.str.inputSm"),
 }: {
   value: number;
   onChange(v: number): void;
@@ -35,7 +36,7 @@ export function DurationInput({
     if (v !== value) onChange(v);
     else setText(fmtDuration(value));
   };
-  const message = `Enter a duration such as 90, 1h 30m or 2d (at least ${min} min)`;
+  const message = t("studio.inputs.tpl.enterADurationSuchAs", { min: min });
   const input = (
     <input
       id={id}
@@ -76,7 +77,7 @@ export function PlanDateTimeInput({
   offsetMin,
   label,
   id,
-  className = "input sm",
+  className = t("studio.inputs.str.inputSm"),
   allowEmpty = true,
 }: {
   value: string | null;
@@ -124,7 +125,7 @@ export function MultiSelect({
   value,
   onChange,
   label,
-  placeholder = "None",
+  placeholder = t("studio.inputs.str.none"),
   ordered,
 }: {
   options: Option[];
@@ -170,7 +171,7 @@ export function MultiSelect({
       </button>
       {open ? (
         <div className="multi-select-pop" id={popId} role="group" aria-label={label}>
-          {options.length === 0 ? <div className="small muted" style={{ padding: 6 }}>Nothing to choose</div> : null}
+          {options.length === 0 ? <div className="small muted" style={{ padding: 6 }}>{t("studio.inputs.text.nothingToChoose")}</div> : null}
           {options.map((o) => {
             const checked = value.includes(o.value);
             return (
@@ -202,7 +203,7 @@ export function NumberInput({
   step = 1,
   width = 72,
   id,
-  className = "input sm",
+  className = t("studio.inputs.str.inputSm"),
 }: {
   value: number;
   onChange(v: number): void;
@@ -253,7 +254,7 @@ export function TextInput({
   label,
   placeholder,
   id,
-  className = "input sm",
+  className = t("studio.inputs.str.inputSm"),
   required,
   maxLength = 200,
   style,

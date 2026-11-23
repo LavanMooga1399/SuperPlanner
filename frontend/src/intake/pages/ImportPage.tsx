@@ -15,20 +15,20 @@ export const MAX_FILE_BYTES = 1024 * 1024;
 const FILE_EXT = /\.(csv|tsv|txt)$/i;
 
 const EXAMPLE: Record<PlanKind, string> = {
-  project: "Task\tDuration\tAfter\tOwner\tDue\nRequirements\t2-3 d\t\tPriya\t\nDesign\t1 w\tRequirements\tPriya\t",
-  study: "Subject\tSession\tHours\tAfter\nPhysics\tMechanics\t6\t\nPhysics\tRevision 1\t3\tMechanics",
-  production: "Job\tOperation\tHours\tAfter\tMachine\tDue\nOrder A\tCutting\t3\t\tM1\t2026-11-20\nOrder A\tWelding\t2\tCutting\tM2\t",
-  money: "Type\tName\tAmount\tHow often\nIncome\tSalary\t120000\tmonthly\nExpense\tRent\t25000\tmonthly\nGoal\tCar\t800000\t2028-06",
+  project: tr("studio.importPage.str.taskDurationAfterOwnerDue"),
+  study: tr("studio.importPage.str.subjectSessionHoursAfterPhysics"),
+  production: tr("studio.importPage.str.jobOperationHoursAfterMachine"),
+  money: tr("studio.importPage.str.typeNameAmountHowOften"),
 };
 
 /** Plain message if a file cannot be used; null if it is fine. Checked before anything is sent. */
 export function fileProblem(file: File): string | null {
-  if (!FILE_EXT.test(file.name)) return "Choose a .csv, .tsv or .txt file. For a spreadsheet, copy the cells and paste them in the box instead.";
-  if (file.size > MAX_FILE_BYTES) return `"${file.name}" is larger than 1 MB. Split it into smaller files, or paste only the rows you need.`;
+  if (!FILE_EXT.test(file.name)) return tr("studio.importPage.str.chooseACsvTsvOr");
+  if (file.size > MAX_FILE_BYTES) return tr("studio.importPage.tpl.isLargerThan1Mb", { name: file.name });
   return null;
 }
 
-const STEPS = ["Paste or upload", "Match the columns", "Answer and check", "Create the plan"];
+const STEPS = [tr("studio.importPage.str.pasteOrUpload"), tr("studio.importPage.str.matchTheColumns"), tr("studio.importPage.str.answerAndCheck"), tr("studio.importPage.str.createThePlan")];
 
 function ImportInner({ kind }: { kind: PlanKind }) {
   const { state, busy, limits, setTable, parseTable, setStep } = useIntake();
@@ -55,7 +55,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
       const text = await file.text();
       setTable({ text, fileName: file.name, parse: null, mapping: [] });
     } catch {
-      setFileError(`"${file.name}" could not be read. Try saving it again as CSV.`);
+      setFileError(tr("studio.importPage.tpl.couldNotBeReadTry", { name: file.name }));
     }
   };
 
@@ -65,7 +65,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
   return (
     <IntakeShell
       kind={kind}
-      title={`Import a table for your ${info.planNoun === "money" ? "money goals" : `${info.planNoun} plan`}`}
+      title={`Import a table for your ${info.planNoun === "money" ? tr("studio.importPage.str.moneyGoals") : `${info.planNoun} plan`}`}
       intro="Paste cells from a spreadsheet or upload a CSV file. Each row becomes one item of a draft you can check and change before anything is saved."
       steps={STEPS}
       current={current}
@@ -75,7 +75,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
           <div className="card-body col" style={{ gap: 12 }}>
             <div className="field">
               <label htmlFor={pasteId} style={{ fontSize: 14 }}>
-                Paste your table
+                {tr("studio.importPage.text.pasteYourTable")}
               </label>
               <textarea
                 id={pasteId}
@@ -83,21 +83,21 @@ function ImportInner({ kind }: { kind: PlanKind }) {
                 data-testid="import-paste"
                 rows={10}
                 value={t.text}
-                placeholder={`For example (copied from a spreadsheet):\n${EXAMPLE[kind]}`}
+                placeholder={tr("studio.importPage.tpl.forExampleCopiedFromA", { v: EXAMPLE[kind] })}
                 aria-invalid={tooLong || (tried && empty)}
                 aria-describedby={`${pasteId}-help`}
                 onChange={(e) => setTable({ text: e.target.value, fileName: null, parse: null, mapping: [] })}
               />
               <span id={`${pasteId}-help`} className={tooLong || (tried && empty) ? "field-error" : "small muted"} role={tooLong || (tried && empty) ? "alert" : undefined}>
                 {tooLong
-                  ? `The table is too long: at most ${limits.max_table_chars.toLocaleString("en-IN")} characters.`
+                  ? tr("studio.importPage.tpl.theTableIsTooLong", { maxtablechars: limits.max_table_chars.toLocaleString("en-IN") })
                   : tried && empty
-                    ? "Paste a table or choose a file first."
-                    : `Up to ${limits.max_table_rows.toLocaleString("en-IN")} rows and ${limits.max_table_columns} columns. The first row may hold column names.`}
+                    ? tr("studio.importPage.str.pasteATableOrChoose")
+                    : tr("studio.importPage.tpl.upToRowsAndColumns", { maxtablerows: limits.max_table_rows.toLocaleString("en-IN"), maxtablecolumns: limits.max_table_columns })}
               </span>
             </div>
             <div className="field">
-              <label htmlFor={fileId}>Or choose a file (.csv, .tsv or .txt, up to 1 MB)</label>
+              <label htmlFor={fileId}>{tr("studio.importPage.text.orChooseAFileCsv")}</label>
               <input
                 id={fileId}
                 ref={fileRef}
@@ -114,7 +114,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
                 </span>
               ) : t.fileName ? (
                 <span className="small muted" data-testid="import-file-name">
-                  <Icon name="file" size={12} /> Loaded "{t.fileName}". It is read in your browser and sent only to this server.
+                  <Icon name="file" size={12} />{" "}{tr("studio.importPage.text.loadedItIsReadIn", { fileName: t.fileName })}
                 </span>
               ) : null}
             </div>
@@ -129,7 +129,7 @@ function ImportInner({ kind }: { kind: PlanKind }) {
                   if (!empty && !tooLong) void parseTable();
                 }}
               >
-                {busy === "parse" ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />} Read the table
+                {busy === "parse" ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />}{" "}{tr("studio.importPage.text.readTheTable")}
               </button>
               {state.response ? (
                 <button type="button" className="btn ghost" onClick={() => setStep("review")}>

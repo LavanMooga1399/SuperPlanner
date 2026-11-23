@@ -5,7 +5,7 @@ import { formatMoney } from "../lib/money";
 import { addMonths, fmtMonthShort, monthsBetween } from "../lib/months";
 import { classInfos, className, goalLabel, priceIndex } from "../lib/resultView";
 import type { MoneyBasis } from "./RealNominalToggle";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 /** Rows goal x class; columns = next 24 months, then the first month of each later plan year (FINANCE.md 20.4). */
 export function ContributionTable({ result, basis, locale }: { result: FinanceResult; basis: MoneyBasis; locale: string }) {
@@ -55,7 +55,7 @@ export function ContributionTable({ result, basis, locale }: { result: FinanceRe
     <div className="table-wrap" style={{ maxHeight: 460 }}>
       <table className="table contrib-table" data-testid="contribution-table">
         <caption className="sr-only">
-          Monthly contributions per goal and asset class, {basis === "real" ? "in today's money" : "in expected future money"}
+          {tr("finance.contributionTable.text.monthlyContributionsPerGoalAnd", { v: basis === "real" ? tr("finance.contributionTable.str.inTodaySMoney") : tr("finance.contributionTable.str.inExpectedFutureMoney") })}
         </caption>
         <thead>
           <tr>

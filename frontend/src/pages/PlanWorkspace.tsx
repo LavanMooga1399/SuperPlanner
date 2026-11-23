@@ -9,7 +9,7 @@ import { makeTerms } from "../lib/terms";
 import { inputToIso, isoToInput, offsetLabel, offsetMinutesOf, offsetText, parseOffsetText } from "../lib/time";
 import { PlanProvider, usePlan, type SaveState } from "../state/PlanContext";
 import { UnsavedChangesGuard } from "../components/UnsavedChangesGuard";
-import { t } from "../lib/i18n";
+import { t, t as tr } from "../lib/i18n";
 
 export function PlanWorkspace() {
   const { planId } = useParams();
@@ -23,11 +23,11 @@ export function PlanWorkspace() {
 
 function SaveIndicator({ state, dirty, error }: { state: SaveState; dirty: boolean; error: string | null }) {
   let content;
-  if (state === "saving") content = (<><span className="spinner" aria-hidden /> Saving…</>);
-  else if (state === "conflict") content = (<><Icon name="alert" /> Conflict</>);
-  else if (state === "error") content = (<><Icon name="x" /> Not saved{error ? `: ${error}` : ""}</>);
-  else if (dirty) content = (<><Icon name="clock" /> Edited</>);
-  else content = (<><Icon name="check" /> Saved</>);
+  if (state === "saving") content = (<><span className="spinner" aria-hidden />{" "}{tr("studio.planWorkspace.text.saving")}</>);
+  else if (state === "conflict") content = (<><Icon name="alert" />{" "}{tr("studio.planWorkspace.text.conflict")}</>);
+  else if (state === "error") content = (<><Icon name="x" />{" "}{tr("studio.planWorkspace.text.notSaved", { v: error ? `: ${error}` : "" })}</>);
+  else if (dirty) content = (<><Icon name="clock" />{" "}{tr("studio.planWorkspace.text.edited")}</>);
+  else content = (<><Icon name="check" />{" "}{tr("studio.planWorkspace.text.saved")}</>);
   const stateAttr = state === "saved" && dirty ? "dirty" : state;
   return (
     <span className="save-state" data-testid="save-state" data-state={stateAttr} role="status" aria-live="polite"
@@ -53,7 +53,7 @@ function PlanSettingsDialog({ draft, onClose, onApply }: { draft: Problem; onClo
       onClose={onClose}
       footer={
         <>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>{tr("studio.planWorkspace.text.cancel")}</button>
           <button
             className="btn primary"
             disabled={!valid}
@@ -87,7 +87,7 @@ function PlanSettingsDialog({ draft, onClose, onApply }: { draft: Problem; onClo
               <Icon name="alert" /> {t("studio.planWorkspace.btn.enterAnOffsetBetween1200")}
             </span>
           ) : (
-            <span id="ps-offset-hint" className="hint">All plan times use this offset.</span>
+            <span id="ps-offset-hint" className="hint">{tr("studio.planWorkspace.text.allPlanTimesUseThis")}</span>
           )}
         </div>
         <div className="field">
@@ -128,7 +128,7 @@ function WorkspaceInner() {
   useEffect(() => {
     if (draft) document.title = `${draft.name} - SuperPlanner`;
     return () => {
-      document.title = "SuperPlanner Studio";
+      document.title = tr("studio.planWorkspace.str.superplannerStudio");
     };
   }, [draft?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -146,11 +146,11 @@ function WorkspaceInner() {
   const tabs = [
     { to: "tasks", label: terms.tasks, count: draft.tasks.length, icon: "list" as const },
     { to: "resources", label: terms.resources, count: draft.resources.length, icon: "layers" as const },
-    { to: "dependencies", label: "Dependencies", count: draft.dependencies.length, icon: "graph" as const },
-    { to: "validate", label: "Validate", icon: "check" as const },
-    { to: "optimize", label: "Optimize", icon: "play" as const },
+    { to: "dependencies", label: tr("studio.planWorkspace.str.dependencies"), count: draft.dependencies.length, icon: "graph" as const },
+    { to: "validate", label: tr("studio.planWorkspace.str.validate"), icon: "check" as const },
+    { to: "optimize", label: tr("studio.planWorkspace.str.optimize"), icon: "play" as const },
     { to: "schedule", label: terms.schedule, icon: "calendar" as const },
-    { to: "compare", label: "Compare", icon: "compare" as const },
+    { to: "compare", label: tr("studio.planWorkspace.str.compare"), icon: "compare" as const },
   ];
 
   const doExport = async () => {
@@ -185,11 +185,11 @@ function WorkspaceInner() {
             }}
             size={Math.min(40, Math.max(8, name.length + 1))}
           />
-          <span className="chip" title="Server version of this plan">v{record.version}</span>
+          <span className="chip" title={tr("studio.planWorkspace.attr.serverVersionOfThisPlan")}>v{record.version}</span>
           <SaveIndicator state={saveState} dirty={dirty} error={saveError} />
-          <UnsavedChangesGuard when={dirty && saveState !== "saving"} what="this plan" scope={`/plans/${record.id}`} />
+          <UnsavedChangesGuard when={dirty && saveState !== "saving"} what={tr("studio.planWorkspace.attr.thisPlan")} scope={`/plans/${record.id}`} />
         </div>
-        <span className="small muted hide-sm">Times in {offsetLabel(offsetMinutesOf(draft.horizon_start))}</span>
+        <span className="small muted hide-sm">{tr("studio.planWorkspace.text.timesIn", { offsetLabel: offsetLabel(offsetMinutesOf(draft.horizon_start)) })}</span>
         <button className="btn sm" onClick={() => setSettingsOpen(true)}>
           <Icon name="settings" /> {t("studio.planWorkspace.btn.planSettings")}
         </button>
@@ -218,8 +218,7 @@ function WorkspaceInner() {
             </>
           }
         >
-          Your latest edits were not saved, so nothing was overwritten. Reload to see the other changes, or keep editing to
-          replace them with your version on the next save.
+          {tr("studio.planWorkspace.text.yourLatestEditsWereNot")}
         </Banner>
       ) : null}
       <ErrorBanner error={exportError} />

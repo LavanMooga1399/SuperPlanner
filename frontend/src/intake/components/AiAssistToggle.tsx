@@ -36,7 +36,7 @@ export function AiAssistToggle({
           data-testid="intake-ai-toggle"
           onChange={(e) => onChange(e.target.checked)}
         />
-        <span>Use AI assist for this request</span>
+        <span>{t("studio.aiAssistToggle.text.useAiAssistForThis")}</span>
       </label>
       {on ? (
         <div className="banner warn ai-notice" id="intake-ai-notice" data-testid="intake-ai-notice">
@@ -48,7 +48,7 @@ export function AiAssistToggle({
         </div>
       ) : (
         <span id="intake-ai-help" className="small muted">
-          Off: your text is read only on this server by the built-in reader.
+          {t("studio.aiAssistToggle.text.offYourTextIsRead")}
         </span>
       )}
     </div>

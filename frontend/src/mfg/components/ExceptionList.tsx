@@ -9,6 +9,7 @@ import { fmtDate } from "../lib/format";
 import { fmtNum } from "../lib/formatM2";
 import { exceptionLabel } from "../lib/mrpText";
 import { MrpSeverityBadge, mrpSeverityIcon } from "./StatusM2";
+import { t } from "../../lib/i18n";
 
 export function ExceptionDetail({ ex, compact, testId = "exception-row" }: { ex: MrpExceptionRow; compact?: boolean; testId?: string }) {
   return (
@@ -26,16 +27,16 @@ export function ExceptionDetail({ ex, compact, testId = "exception-row" }: { ex:
         <div>{ex.message}</div>
         {ex.action ? (
           <div className="muted small">
-            <strong>What to do:</strong> {ex.action}
-            {ex.suggested?.date ? ` Suggested date ${fmtDate(ex.suggested.date)}.` : ""}
-            {ex.suggested?.qty !== undefined ? ` Suggested quantity ${fmtNum(ex.suggested.qty)}.` : ""}
+            <strong>{t("mfg.exceptionList.text.whatToDo")}</strong> {ex.action}
+            {ex.suggested?.date ? t("mfg.exceptionList.tpl.suggestedDate", { date: fmtDate(ex.suggested.date) }) : ""}
+            {ex.suggested?.qty !== undefined ? t("mfg.exceptionList.tpl.suggestedQuantity", { qty: fmtNum(ex.suggested.qty) }) : ""}
           </div>
         ) : null}
-        {!compact && ex.related.length ? <div className="faint small">Related: {ex.related.map((r) => r.label).join(", ")}</div> : null}
+        {!compact && ex.related.length ? <div className="faint small">{t("mfg.exceptionList.text.related", { join: ex.related.map((r) => r.label).join(", ") })}</div> : null}
       </div>
       {ex.link ? (
         <Link className="btn sm" to={ex.link} data-testid={testId === "exception-row" ? "exception-link" : `${testId}-link`}>
-          Open <Icon name="arrow-right" />
+          {t("mfg.exceptionList.text.open")}{" "}<Icon name="arrow-right" />
         </Link>
       ) : null}
     </div>

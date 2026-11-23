@@ -18,26 +18,26 @@ import { StatusBadge } from "./StatusBadge";
 import { t, t as tr } from "../lib/i18n";
 
 export const PHASE_LABEL: Record<string, string> = {
-  heuristic: "Priority rules",
-  cpsat: "Constraint solver",
-  ga: "Genetic algorithm",
-  cpm: "Critical path shortcut",
+  heuristic: tr("studio.runProgress.str.priorityRules"),
+  cpsat: tr("studio.runProgress.str.constraintSolver"),
+  ga: tr("studio.runProgress.str.geneticAlgorithm"),
+  cpm: tr("studio.runProgress.str.criticalPathShortcut"),
 };
 
 export const methodOf = (solver: string) => solver.split(":")[0];
 export const methodLabel = (solver: string) => PHASE_LABEL[methodOf(solver)] ?? methodOf(solver);
 
 export const TERMINATION_TEXT: Record<TerminationReason, string> = {
-  optimal: "Proven best possible",
-  proven_infeasible: "Proven impossible",
-  time_limit: "Time budget used",
-  generation_limit: "Generation limit reached",
-  stagnation: "No further improvement",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  preflight_failed: "Plan has errors",
-  no_solution: "No solution found",
-  error: "Error",
+  optimal: tr("studio.runProgress.str.provenBestPossible"),
+  proven_infeasible: tr("studio.runProgress.str.provenImpossible"),
+  time_limit: tr("studio.runProgress.str.timeBudgetUsed"),
+  generation_limit: tr("studio.runProgress.str.generationLimitReached"),
+  stagnation: tr("studio.runProgress.str.noFurtherImprovement"),
+  completed: tr("studio.runProgress.str.completed"),
+  cancelled: tr("studio.runProgress.str.cancelled"),
+  preflight_failed: tr("studio.runProgress.str.planHasErrors"),
+  no_solution: tr("studio.runProgress.str.noSolutionFound"),
+  error: tr("studio.runProgress.str.error"),
 };
 
 interface PhaseView {
@@ -57,7 +57,7 @@ interface PhaseView {
 
 /** PHASE2B 2.11: shown when a run was handed to another worker (`run_requeued`). */
 export function requeueNote(ev: { attempt: number; max_attempts: number }): string {
-  return `Restarting on another worker (attempt ${tr("common.nOfM", { n: ev.attempt, m: ev.max_attempts })})`;
+  return tr("studio.runProgress.tpl.restartingOnAnotherWorkerAttempt", { tr: tr("common.nOfM", { n: ev.attempt, m: ev.max_attempts }) });
 }
 
 export function lastRequeue(events: RunEvent[]): RunRequeuedEvent | null {
@@ -130,19 +130,19 @@ function Sparkline({ points }: { points: Array<[number, number]> }) {
   let d = `M${sx(points[0][0])},${sy(points[0][1])}`;
   for (let i = 1; i < points.length; i++) d += ` H${sx(points[i][0])} V${sy(points[i][1])}`;
   return (
-    <svg className="spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label={`Best score improved from ${ys[0].toFixed(3)} to ${ys[ys.length - 1].toFixed(3)}`}>
+    <svg className="spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label={tr("studio.runProgress.tpl.bestScoreImprovedFromTo", { toFixed: ys[0].toFixed(3), toFixed2: ys[ys.length - 1].toFixed(3) })}>
       <path d={d} fill="none" stroke="var(--accent)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
 
 function ObjectivesLine({ o, currency, terms }: { o: ObjectiveValues | null; currency: string; terms: Terms }) {
-  if (!o) return <span className="faint">No complete {terms.scheduleL} yet</span>;
+  if (!o) return <span className="faint">{tr("studio.runProgress.text.noCompleteYet", { scheduleL: terms.scheduleL })}</span>;
   return (
     <span className="row wrap small" style={{ gap: 12 }}>
-      <span title="Total duration from the plan start"><Icon name="clock" /> {fmtDuration(o.makespan_minutes)}</span>
-      <span title="Lateness weighted by priority"><Icon name="flag" /> {o.weighted_tardiness ? `${fmtDuration(o.weighted_tardiness)} weighted late` : "nothing late"}</span>
-      <span title="Cost">{fmtMoney(o.cost, currency)}</span>
+      <span title={tr("studio.runProgress.attr.totalDurationFromThePlan")}><Icon name="clock" /> {fmtDuration(o.makespan_minutes)}</span>
+      <span title={tr("studio.runProgress.attr.latenessWeightedByPriority")}><Icon name="flag" /> {o.weighted_tardiness ? tr("studio.runProgress.tpl.weightedLate", { weightedtardiness: fmtDuration(o.weighted_tardiness) }) : tr("studio.runProgress.str.nothingLate")}</span>
+      <span title={tr("studio.runProgress.attr.cost")}>{fmtMoney(o.cost, currency)}</span>
     </span>
   );
 }
@@ -295,7 +295,7 @@ export function RunProgress({
           <StatusBadge kind={run.status} testId="run-status" />
           {active ? (
             <span className="small muted">
-              {mode === "live" ? "Live" : mode === "polling" ? "Updating every 2 s" : mode === "reconnecting" ? "Reconnecting…" : "Connecting…"}
+              {mode === "live" ? tr("studio.runProgress.str.live") : mode === "polling" ? tr("studio.runProgress.str.updatingEvery2S") : mode === "reconnecting" ? tr("studio.runProgress.str.reconnecting") : tr("studio.runProgress.str.connecting")}
             </span>
           ) : null}
         </div>
@@ -303,7 +303,7 @@ export function RunProgress({
           {active ? (
             <button className="btn danger sm" onClick={doCancel} disabled={cancelling || run.status === "cancelled"}>
               {cancelling ? <span className="spinner" aria-hidden /> : <Icon name="stop" />}
-              Cancel
+              {tr("studio.runProgress.text.cancel")}
             </button>
           ) : null}
         </div>
@@ -312,15 +312,15 @@ export function RunProgress({
         <ErrorBanner error={cancelError} />
         {requeue ? (
           <div className="small muted row" role="status" data-testid="run-requeued">
-            <Icon name="refresh" /> {active ? requeueNote(requeue) : `Finished after a restart on another worker (attempt ${tr("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts })}).`}
+            <Icon name="refresh" /> {active ? requeueNote(requeue) : tr("studio.runProgress.tpl.finishedAfterARestartOn", { tr: tr("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts }) })}
           </div>
         ) : null}
         <div className="col" style={{ gap: 4 }}>
           <div className="row between small">
             <span className="muted">
-              {active ? "Searching" : "Took"} {tr("common.nOfM", { n: fmtSeconds(elapsed), m: fmtSeconds(limit) })} budget
+              {active ? tr("studio.runProgress.str.searching") : tr("studio.runProgress.str.took")} {tr("common.nOfM", { n: fmtSeconds(elapsed), m: fmtSeconds(limit) })} budget
             </span>
-            <span className="muted">{run.request?.strategy ? `Method: ${String(run.request.strategy)}` : null}</span>
+            <span className="muted">{run.request?.strategy ? tr("studio.runProgress.tpl.method", { strategy: String(run.request.strategy) }) : null}</span>
           </div>
           <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(active ? pct : 100)} aria-label={t("studio.runProgress.aria.timeBudgetUsed")}>
             <div style={{ width: `${active ? pct : 100}%` }} />
@@ -331,7 +331,7 @@ export function RunProgress({
           <div className="col">
             <h3>{t("studio.runProgress.head.phases")}</h3>
             {phases.length === 0 ? (
-              <div className="small muted row">{active ? <><span className="spinner" aria-hidden /> Waiting for the solver to start…</> : "No phase information recorded."}</div>
+              <div className="small muted row">{active ? <><span className="spinner" aria-hidden />{" "}{tr("studio.runProgress.text.waitingForTheSolverTo")}</> : tr("studio.runProgress.str.noPhaseInformationRecorded")}</div>
             ) : (
               <ol className="phase-list" aria-label={t("studio.runProgress.aria.solverPhases")}>
                 {phases.map((p, i) => {
@@ -353,10 +353,10 @@ export function RunProgress({
                         <ObjectivesLine o={p.objectives} currency={currency} terms={terms} />
                         {p.solver === "ga" && typeof p.extra.mutation_rate === "number" ? (
                           <div className="small faint">
-                            generation {p.iteration ?? 0} · {Math.round(Number(p.extra.feasible_fraction ?? 0) * 100)}% valid · mutation {Number(p.extra.mutation_rate).toFixed(2)}
+                            {tr("studio.runProgress.text.generationValidMutation", { v: p.iteration ?? 0, Math: Math.round(Number(p.extra.feasible_fraction ?? 0) * 100), toFixed: Number(p.extra.mutation_rate).toFixed(2) })}
                           </div>
                         ) : null}
-                        {p.solver === "cpsat" && p.iteration ? <div className="small faint">{p.iteration} improving solutions found</div> : null}
+                        {p.solver === "cpsat" && p.iteration ? <div className="small faint">{tr("studio.runProgress.text.improvingSolutionsFound", { iteration: p.iteration })}</div> : null}
                       </div>
                     </li>
                   );
@@ -368,21 +368,21 @@ export function RunProgress({
             <h3>{t("studio.runProgress.head.bestSoFar")}</h3>
             <div className="kpis" style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))" }}>
               <div className="card kpi">
-                <div className="kpi-label">Duration</div>
+                <div className="kpi-label">{tr("studio.runProgress.text.duration")}</div>
                 <div className="kpi-value">{best ? fmtDuration(best.makespan_minutes) : "-"}</div>
               </div>
               <div className="card kpi">
-                <div className="kpi-label">Weighted lateness</div>
+                <div className="kpi-label">{tr("studio.runProgress.text.weightedLateness")}</div>
                 <div className="kpi-value">{best ? fmtDuration(best.weighted_tardiness) : "-"}</div>
               </div>
               <div className="card kpi">
-                <div className="kpi-label">Cost</div>
+                <div className="kpi-label">{tr("studio.runProgress.text.cost")}</div>
                 <div className="kpi-value" style={{ fontSize: 17 }}>{best ? fmtMoney(best.cost, currency) : "-"}</div>
               </div>
             </div>
             {scorePoints.length > 1 ? (
               <div>
-                <div className="small muted">Overall score over time (lower is better)</div>
+                <div className="small muted">{tr("studio.runProgress.text.overallScoreOverTimeLower")}</div>
                 <Sparkline points={scorePoints} />
               </div>
             ) : null}
@@ -396,15 +396,15 @@ export function RunProgress({
                 tone={run.feasibility === "feasible" ? "ok" : run.feasibility === "infeasible" ? "danger" : "warn"}
                 title={
                   run.feasibility === "feasible"
-                    ? `A valid ${terms.scheduleL} was found${run.optimality_proven ? " and it is proven to be the best possible" : ""}.`
+                    ? tr("studio.runProgress.tpl.aValidWasFound", { scheduleL: terms.scheduleL, v: run.optimality_proven ? " and it is proven to be the best possible" : "" })
                     : run.feasibility === "infeasible"
-                      ? `No valid ${terms.scheduleL} exists for this plan.`
-                      : `No valid ${terms.scheduleL} was found in time.`
+                      ? tr("studio.runProgress.tpl.noValidExistsForThis", { scheduleL: terms.scheduleL })
+                      : tr("studio.runProgress.tpl.noValidWasFoundIn", { scheduleL: terms.scheduleL })
                 }
                 actions={
                   primaryId ? (
                     <Link className="btn primary sm" to={`../schedule?id=${encodeURIComponent(primaryId)}`} data-testid="view-schedule">
-                      View {terms.scheduleL} <Icon name="arrow-right" />
+                      {tr("studio.runProgress.text.view", { scheduleL: terms.scheduleL })}{" "}<Icon name="arrow-right" />
                     </Link>
                   ) : null
                 }
@@ -412,15 +412,15 @@ export function RunProgress({
                 <div className="row wrap" style={{ gap: 8, marginTop: 4 }}>
                   {run.feasibility ? <StatusBadge kind={run.feasibility} /> : null}
                   {run.termination_reason ? <span className="small muted">{TERMINATION_TEXT[run.termination_reason]}</span> : null}
-                  {run.status === "cancelled" ? <span className="small muted">Stopped early; the best result so far was kept.</span> : null}
+                  {run.status === "cancelled" ? <span className="small muted">{tr("studio.runProgress.text.stoppedEarlyTheBestResult")}</span> : null}
                   {run.feasibility !== "feasible" && run.feasibility !== null ? (
-                    <span className="small muted">{run.feasibility === "infeasible" ? "Relax a hard deadline, a lock or add capacity." : "Try a longer time budget, or check hard deadlines and locks."}</span>
+                    <span className="small muted">{run.feasibility === "infeasible" ? tr("studio.runProgress.str.relaxAHardDeadlineA") : tr("studio.runProgress.str.tryALongerTimeBudget")}</span>
                   ) : null}
                 </div>
               </Banner>
             ) : run.status === "failed" ? (
               <Banner tone="danger" title={t("studio.runProgress.title.theRunFailed")} role="alert">
-                {run.error ?? "Unknown error"}
+                {run.error ?? tr("studio.runProgress.str.unknownError")}
               </Banner>
             ) : null}
             {run.selection?.reasons.length ? (

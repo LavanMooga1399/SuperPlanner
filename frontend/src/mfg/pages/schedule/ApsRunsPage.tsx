@@ -47,7 +47,7 @@ export function ApsRunsPage() {
   const columns: Column<ApsRunRecord>[] = [
     {
       key: "run",
-      header: "Run",
+      header: t("mfg.apsRunsPage.str.run"),
       width: "minmax(220px, 2fr)",
       sortValue: (r) => r.run_no,
       exportValue: (r) => apsRunTitle(r),
@@ -57,18 +57,18 @@ export function ApsRunsPage() {
             {apsRunTitle(r)}
           </Link>
           {r.is_published ? <PublishedBadge /> : null}
-          {r.parent_run_id ? <span className="faint small">edited copy</span> : null}
+          {r.parent_run_id ? <span className="faint small">{t("mfg.apsRunsPage.text.editedCopy")}</span> : null}
         </span>
       ),
     },
-    { key: "kind", header: "Kind", width: "100px", sortValue: (r) => r.kind, render: (r) => <RunKindBadge kind={r.kind} /> },
-    { key: "status", header: "Status", width: "150px", sortValue: (r) => r.status, exportValue: (r) => r.status, render: (r) => (isActive(r) ? <ApsProgress run={r} /> : <ApsStatusChip run={r} />) },
-    { key: "policy", header: "Overtime policy", width: "140px", render: (r) => <PolicyBadge policy={r.policy} /> },
-    { key: "from", header: "From", width: "140px", sortValue: (r) => r.as_of, render: (r) => clock.dateTime(r.as_of) },
-    { key: "late", header: "Late orders", width: "100px", align: "right", sortValue: (r) => r.summary?.late_orders, render: (r) => (r.summary ? <span className={r.summary.late_orders ? "mfg-neg" : undefined}>{r.summary.late_orders}</span> : "") },
-    { key: "tardiness", header: "Weighted lateness", width: "140px", align: "right", sortValue: (r) => r.summary?.weighted_tardiness, render: (r) => (r.summary ? fmtDuration(r.summary.weighted_tardiness) || "0" : "") },
-    { key: "overtime", header: "Overtime used", width: "120px", align: "right", sortValue: (r) => r.summary?.overtime_minutes, render: (r) => (r.summary ? fmtDuration(r.summary.overtime_minutes) || "none" : "") },
-    { key: "finished", header: "Finished", width: "minmax(200px, 1fr)", sortValue: (r) => r.finished_at, render: (r) => `${fmtTimestamp(r.finished_at)} ${r.actor.name}` },
+    { key: "kind", header: t("mfg.apsRunsPage.str.kind"), width: "100px", sortValue: (r) => r.kind, render: (r) => <RunKindBadge kind={r.kind} /> },
+    { key: "status", header: t("mfg.apsRunsPage.str.status"), width: "150px", sortValue: (r) => r.status, exportValue: (r) => r.status, render: (r) => (isActive(r) ? <ApsProgress run={r} /> : <ApsStatusChip run={r} />) },
+    { key: "policy", header: t("mfg.apsRunsPage.str.overtimePolicy"), width: "140px", render: (r) => <PolicyBadge policy={r.policy} /> },
+    { key: "from", header: t("mfg.apsRunsPage.str.from"), width: "140px", sortValue: (r) => r.as_of, render: (r) => clock.dateTime(r.as_of) },
+    { key: "late", header: t("mfg.apsRunsPage.str.lateOrders"), width: "100px", align: "right", sortValue: (r) => r.summary?.late_orders, render: (r) => (r.summary ? <span className={r.summary.late_orders ? "mfg-neg" : undefined}>{r.summary.late_orders}</span> : "") },
+    { key: "tardiness", header: t("mfg.apsRunsPage.str.weightedLateness"), width: "140px", align: "right", sortValue: (r) => r.summary?.weighted_tardiness, render: (r) => (r.summary ? fmtDuration(r.summary.weighted_tardiness) || "0" : "") },
+    { key: "overtime", header: t("mfg.apsRunsPage.str.overtimeUsed"), width: "120px", align: "right", sortValue: (r) => r.summary?.overtime_minutes, render: (r) => (r.summary ? fmtDuration(r.summary.overtime_minutes) || "none" : "") },
+    { key: "finished", header: t("mfg.apsRunsPage.str.finished"), width: "minmax(200px, 1fr)", sortValue: (r) => r.finished_at, render: (r) => `${fmtTimestamp(r.finished_at)} ${r.actor.name}` },
   ];
   return (
     <div className="col gap-lg">
@@ -101,8 +101,7 @@ export function ApsRunsPage() {
       <MfgError error={runs.error} onRetry={runs.reload} />
       {runs.data && items.length === 0 && !form ? (
         <Banner tone="info" title={t("mfg.apsRunsPage.title.noScheduleYet")} testId="aps-empty">
-          {canRun ? "Create a schedule to place every operation on the lines." : "Nobody has scheduled this plant yet."} It uses the latest MRP run for planned orders and
-          material dates.
+          {t("mfg.apsRunsPage.text.itUsesTheLatestMrp", { v: canRun ? t("mfg.apsRunsPage.str.createAScheduleToPlace") : t("mfg.apsRunsPage.str.nobodyHasScheduledThisPlant") })}
         </Banner>
       ) : null}
       {items.length || (runs.loading && !runs.data) ? (

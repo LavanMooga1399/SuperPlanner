@@ -38,7 +38,7 @@ export function NotificationBell() {
         className="btn ghost"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={count ? `${count} new notification${count === 1 ? "" : "s"}` : "Notifications, none new"}
+        aria-label={count ? t("mfg.notificationBell.tpl.newNotification", { count: count, v: count === 1 ? "" : "s" }) : t("mfg.notificationBell.str.notificationsNoneNew")}
         onClick={() => setOpen((v) => !v)}
         data-testid="notif-bell"
         data-count={count}

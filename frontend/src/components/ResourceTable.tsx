@@ -7,12 +7,12 @@ import { CalendarEditor } from "./CalendarEditor";
 import { Icon } from "./Icon";
 import { Term } from "./Term";
 import { NumberInput, TextInput } from "./Inputs";
-import { t, plural } from "../lib/i18n";
+import { plural, t, t as tr } from "../lib/i18n";
 
 const KINDS = ["generic", "person", "machine", "room", "team", "time"];
 
 export function calendarSummary(cal: Calendar | null): string {
-  if (!cal) return "Always available";
+  if (!cal) return tr("studio.resourceTable.str.alwaysAvailable");
   const blocked = cal.blocked.length ? `, ${cal.blocked.length} blocked` : "";
   if (cal.weekly === null) return `24/7${blocked}`;
   let minutes = 0;
@@ -64,17 +64,17 @@ export function ResourceTable({
       <table className="table">
         <thead>
           <tr>
-            <th style={{ width: 28 }}><span className="sr-only">Details</span></th>
+            <th style={{ width: 28 }}><span className="sr-only">{tr("studio.resourceTable.text.details")}</span></th>
             <th>{t("studio.resourceTable.head.id")}</th>
             <th>{t("studio.resourceTable.head.name")}</th>
             <th>{t("studio.resourceTable.head.kind")}</th>
-            <th className="num" title="How many can be used at the same time">{t("studio.resourceTable.head.capacity")}</th>
-            <th className="num">Cost / hour ({draft.currency})</th>
+            <th className="num" title={tr("studio.resourceTable.attr.howManyCanBeUsed")}>{t("studio.resourceTable.head.capacity")}</th>
+            <th className="num">{tr("studio.resourceTable.text.costHour", { currency: draft.currency })}</th>
             <th>
-              Availability <Term k="calendar_window" bare />
+              {tr("studio.resourceTable.text.availability")}{" "}<Term k="calendar_window" bare />
             </th>
             <th className="num">{t("studio.resourceTable.head.usedBy")}</th>
-            <th><span className="sr-only">Actions</span></th>
+            <th><span className="sr-only">{tr("studio.resourceTable.text.actions")}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -85,25 +85,25 @@ export function ResourceTable({
               <Fragment key={r.id}>
                 <tr data-testid={`resource-row-${r.id}`} className={focusId === r.id ? "highlight" : undefined}>
                   <td>
-                    <button type="button" className="btn ghost sm icon" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} availability of ${r.name}`} onClick={() => toggle(r.id)}>
+                    <button type="button" className="btn ghost sm icon" aria-expanded={open} aria-label={tr("studio.resourceTable.tpl.availabilityOf", { v: open ? "Hide" : "Show", name: r.name })} onClick={() => toggle(r.id)}>
                       <Icon name={open ? "chevron-down" : "chevron-right"} />
                     </button>
                   </td>
                   <td className="mono faint">{r.id}</td>
                   <td style={{ minWidth: 180 }}>
-                    <TextInput value={r.name} required label={`Name of ${r.id}`} onChange={(v) => setRes(r.id, (x) => ({ ...x, name: v }))} />
+                    <TextInput value={r.name} required label={tr("studio.resourceTable.tpl.nameOf", { id: r.id })} onChange={(v) => setRes(r.id, (x) => ({ ...x, name: v }))} />
                   </td>
                   <td>
-                    <select className="select sm" style={{ width: 110 }} value={KINDS.includes(r.kind) ? r.kind : "__other"} aria-label={`Kind of ${r.name}`} onChange={(e) => e.target.value !== "__other" && setRes(r.id, (x) => ({ ...x, kind: e.target.value }))}>
+                    <select className="select sm" style={{ width: 110 }} value={KINDS.includes(r.kind) ? r.kind : "__other"} aria-label={tr("studio.resourceTable.tpl.kindOf", { name: r.name })} onChange={(e) => e.target.value !== "__other" && setRes(r.id, (x) => ({ ...x, kind: e.target.value }))}>
                       {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
                       {!KINDS.includes(r.kind) ? <option value="__other">{r.kind}</option> : null}
                     </select>
                   </td>
                   <td className="num">
-                    <NumberInput value={r.capacity} min={1} max={1000} width={70} label={`Capacity of ${r.name}`} onChange={(v) => setRes(r.id, (x) => ({ ...x, capacity: v }))} />
+                    <NumberInput value={r.capacity} min={1} max={1000} width={70} label={tr("studio.resourceTable.tpl.capacityOf", { name: r.name })} onChange={(v) => setRes(r.id, (x) => ({ ...x, capacity: v }))} />
                   </td>
                   <td className="num">
-                    <NumberInput value={r.cost_per_hour} min={0} step={0.01} width={96} label={`Cost per hour of ${r.name}`} onChange={(v) => setRes(r.id, (x) => ({ ...x, cost_per_hour: v }))} />
+                    <NumberInput value={r.cost_per_hour} min={0} step={0.01} width={96} label={tr("studio.resourceTable.tpl.costPerHourOf", { name: r.name })} onChange={(v) => setRes(r.id, (x) => ({ ...x, cost_per_hour: v }))} />
                   </td>
                   <td>
                     <button type="button" className="btn ghost sm" onClick={() => toggle(r.id)}>
@@ -111,7 +111,7 @@ export function ResourceTable({
                     </button>
                   </td>
                   <td className="num">
-                    {used ? `${used} ${used === 1 ? terms.taskL : terms.tasksL}` : <span className="badge warn"><Icon name="alert" /> Unused</span>}
+                    {used ? `${used} ${used === 1 ? terms.taskL : terms.tasksL}` : <span className="badge warn"><Icon name="alert" />{" "}{tr("studio.resourceTable.text.unused")}</span>}
                   </td>
                   <td>
                     <button type="button" className="btn ghost sm icon" aria-label={`Delete ${r.name}`} title="Delete" onClick={() => onDelete(r)}>

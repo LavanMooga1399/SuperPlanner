@@ -25,7 +25,7 @@ export function SignUpPage() {
   const passwordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    document.title = "Create an account - SuperPlanner";
+    document.title = t("account.signUpPage.str.createAnAccountSuperplanner");
   }, []);
 
   if (auth.status === "loading") return <AuthLoading />;
@@ -46,10 +46,10 @@ export function SignUpPage() {
     if (busy) return;
     const addr = email.trim();
     const display = name.trim();
-    if (display.length > 100) return fail("Use at most 100 characters for your name.", "name");
-    if (!EMAIL_RE.test(addr) || addr.length > 254) return fail("Enter a valid email address, for example ana@example.com.", "email");
-    if ([...password].length < MIN_PASSWORD) return fail(`Use at least ${MIN_PASSWORD} characters for your password.`, "password");
-    if ([...password].length > MAX_PASSWORD) return fail(`Use at most ${MAX_PASSWORD} characters for your password.`, "password");
+    if (display.length > 100) return fail(t("account.signUpPage.str.useAtMost100Characters"), "name");
+    if (!EMAIL_RE.test(addr) || addr.length > 254) return fail(t("account.signUpPage.str.enterAValidEmailAddress"), "email");
+    if ([...password].length < MIN_PASSWORD) return fail(t("account.signUpPage.tpl.useAtLeastCharactersFor", { MINPASSWORD: MIN_PASSWORD }), "password");
+    if ([...password].length > MAX_PASSWORD) return fail(t("account.signUpPage.tpl.useAtMostCharactersFor", { MAXPASSWORD: MAX_PASSWORD }), "password");
     setBusy(true);
     setError(null);
     setErrorField(null);
@@ -70,10 +70,10 @@ export function SignUpPage() {
             <h1 id="signup-title">{t("account.signUpPage.head.createAnAccount")}</h1>
             <div className="banner warn" role="status" data-testid="signup-disabled">
               <Icon name="lock" />
-              <div className="banner-body">New accounts cannot be created on this server. Ask your administrator for an account.</div>
+              <div className="banner-body">{t("account.signUpPage.text.newAccountsCannotBeCreated")}</div>
             </div>
             <p className="auth-switch">
-              <Link to={signInTo}>Back to sign in</Link>
+              <Link to={signInTo}>{t("account.signUpPage.text.backToSignIn")}</Link>
             </p>
           </div>
         </section>
@@ -93,7 +93,7 @@ export function SignUpPage() {
             </FormError>
             <div className="field">
               <label htmlFor="signup-name">
-                Your name <span className="faint">(optional)</span>
+                {t("account.signUpPage.text.yourName")}{" "}<span className="faint">(optional)</span>
               </label>
               <input
                 ref={nameRef}
@@ -142,16 +142,16 @@ export function SignUpPage() {
                 describedBy={errorField === "password" ? "signup-password-hint signup-error" : "signup-password-hint"}
               />
               <span className="hint" id="signup-password-hint">
-                At least {MIN_PASSWORD} characters. A short phrase of several words is easy to remember and hard to guess.
+                {t("account.signUpPage.text.atLeastCharactersAShort", { MINPASSWORD: MIN_PASSWORD })}
               </span>
             </div>
             <button type="submit" className="btn primary" disabled={busy} data-testid="signup-submit">
               {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}
-              {busy ? "Creating your account…" : "Create account"}
+              {busy ? t("account.signUpPage.str.creatingYourAccount") : t("account.signUpPage.str.createAccount")}
             </button>
           </form>
           <p className="auth-switch">
-            Already have an account? <Link to={signInTo}>Sign in</Link>
+            {t("account.signUpPage.text.alreadyHaveAnAccount")}{" "}<Link to={signInTo}>{t("account.signUpPage.text.signIn")}</Link>
           </p>
         </div>
       </section>

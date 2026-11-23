@@ -27,7 +27,7 @@ function LotDialog({ lot, onClose, onSaved }: { lot: LotRecord; onClose(): void;
   const [conflict, setConflict] = useState(false);
   return (
     <EntityFormDialog
-      title={`Lot ${lot.lot_code}`}
+      title={t("mfg.lotsTab.tpl.lot", { lotcode: lot.lot_code })}
       submitLabel={t("mfg.lotsTab.btn.saveLot")}
       testId="lot-form"
       onClose={onClose}
@@ -40,9 +40,9 @@ function LotDialog({ lot, onClose, onSaved }: { lot: LotRecord; onClose(): void;
         }
       }}
     >
-      {conflict ? <ConflictBanner onReload={onClose} what="this lot" /> : null}
+      {conflict ? <ConflictBanner onReload={onClose} what={t("mfg.lotsTab.attr.thisLot")} /> : null}
       <p className="muted small" style={{ margin: 0 }}>
-        <span className="mono">{lot.item.part_number}</span> {lot.item.description} · on hand {fmtNum(lot.on_hand)} {lot.item.uom}
+        <span className="mono">{lot.item.part_number}</span>{" "}{t("mfg.lotsTab.text.onHand", { description: lot.item.description, onhand: fmtNum(lot.on_hand), uom: lot.item.uom })}
       </p>
       <div className="form-grid">
         <TextField label={t("mfg.lotsTab.label.expiresOn")} type="date" value={f.expires_on} onChange={(v) => setF({ ...f, expires_on: v })} testId="lot-expires" />
@@ -93,10 +93,10 @@ export function LotsTab() {
   };
 
   const columns: Column<LotRecord>[] = [
-    { key: "lot", header: "Lot", width: "minmax(130px, 1fr)", sortKey: "lot_code", sortKeyDesc: "-lot_code", render: (l) => <span className="mono mfg-ellipsis">{l.lot_code}</span> },
+    { key: "lot", header: t("mfg.lotsTab.str.lot"), width: "minmax(130px, 1fr)", sortKey: "lot_code", sortKeyDesc: "-lot_code", render: (l) => <span className="mono mfg-ellipsis">{l.lot_code}</span> },
     {
       key: "pn",
-      header: "Part number",
+      header: t("mfg.lotsTab.str.partNumber"),
       width: "minmax(150px, 1fr)",
       sortKey: "part_number",
       render: (l) => (
@@ -105,10 +105,10 @@ export function LotsTab() {
         </Link>
       ),
     },
-    { key: "desc", header: "Description", width: "minmax(160px, 1.5fr)", render: (l) => <span className="mfg-ellipsis">{l.item.description}</span> },
+    { key: "desc", header: t("mfg.lotsTab.str.description"), width: "minmax(160px, 1.5fr)", render: (l) => <span className="mfg-ellipsis">{l.item.description}</span> },
     {
       key: "exp",
-      header: "Expires",
+      header: t("mfg.lotsTab.str.expires"),
       width: "130px",
       sortKey: "expires_on",
       sortKeyDesc: "-expires_on",
@@ -116,31 +116,31 @@ export function LotsTab() {
         l.expires_on ? (
           l.expires_on <= today ? (
             <span className="badge danger">
-              <Icon name="x" /> Expired {fmtDate(l.expires_on)}
+              <Icon name="x" />{" "}{t("mfg.lotsTab.text.expired", { expireson: fmtDate(l.expires_on) })}
             </span>
           ) : (
             fmtDate(l.expires_on)
           )
         ) : (
-          <span className="faint">No expiry</span>
+          <span className="faint">{t("mfg.lotsTab.text.noExpiry")}</span>
         ),
     },
-    { key: "rcv", header: "Received", width: "110px", sortKey: "received_on", sortKeyDesc: "-received_on", render: (l) => fmtDate(l.received_on) },
-    { key: "sl", header: "Supplier lot", width: "110px", render: (l) => <span className="mono mfg-ellipsis">{l.supplier_lot}</span> },
-    { key: "oh", header: "On hand", width: "90px", align: "right", render: (l) => `${fmtNum(l.on_hand)} ${l.item.uom}` },
-    { key: "hold", header: "Status", width: "100px", render: (l) => (l.hold ? <HoldBadge /> : <span className="faint">Usable</span>) },
+    { key: "rcv", header: t("mfg.lotsTab.str.received"), width: "110px", sortKey: "received_on", sortKeyDesc: "-received_on", render: (l) => fmtDate(l.received_on) },
+    { key: "sl", header: t("mfg.lotsTab.str.supplierLot"), width: "110px", render: (l) => <span className="mono mfg-ellipsis">{l.supplier_lot}</span> },
+    { key: "oh", header: t("mfg.lotsTab.str.onHand"), width: "90px", align: "right", render: (l) => `${fmtNum(l.on_hand)} ${l.item.uom}` },
+    { key: "hold", header: t("mfg.lotsTab.str.status"), width: "100px", render: (l) => (l.hold ? <HoldBadge /> : <span className="faint">{t("mfg.lotsTab.text.usable")}</span>) },
     {
       key: "act",
-      header: <span className="sr-only">Actions</span>,
-      label: "Actions",
+      header: <span className="sr-only">{t("mfg.lotsTab.text.actions")}</span>,
+      label: t("mfg.lotsTab.str.actions"),
       width: "170px",
       render: (l) =>
         canEdit ? (
           <span className="row" style={{ gap: 4 }}>
             <button type="button" className="btn sm" onClick={() => void toggleHold(l)} data-testid="lot-hold-toggle" aria-pressed={l.hold}>
-              <Icon name={l.hold ? "unlock" : "lock"} /> {l.hold ? "Release" : "Hold"}
+              <Icon name={l.hold ? "unlock" : "lock"} /> {l.hold ? t("mfg.lotsTab.str.release") : t("mfg.lotsTab.str.hold")}
             </button>
-            <button type="button" className="btn sm ghost" onClick={() => setEditing(l)} aria-label={`Edit lot ${l.lot_code}`}>
+            <button type="button" className="btn sm ghost" onClick={() => setEditing(l)} aria-label={t("mfg.lotsTab.tpl.editLot", { lotcode: l.lot_code })}>
               {t("mfg.lotsTab.btn.edit")}
             </button>
           </span>
@@ -149,9 +149,9 @@ export function LotsTab() {
   ];
 
   const chips: FilterChip[] = [];
-  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
-  if (before) chips.push({ key: "before", label: "Expiring before", value: fmtDate(before), onClear: () => set("before", "") });
-  if (hold) chips.push({ key: "hold", label: "Status", value: hold === "true" ? "On hold" : "Released", onClear: () => set("hold", "") });
+  if (q.trim()) chips.push({ key: "q", label: t("mfg.lotsTab.str.search"), value: q.trim(), onClear: () => setQ("") });
+  if (before) chips.push({ key: "before", label: t("mfg.lotsTab.str.expiringBefore"), value: fmtDate(before), onClear: () => set("before", "") });
+  if (hold) chips.push({ key: "hold", label: t("mfg.lotsTab.str.status"), value: hold === "true" ? "On hold" : "Released", onClear: () => set("hold", "") });
 
   return (
     <div className="col gap-lg">
@@ -163,9 +163,9 @@ export function LotsTab() {
         <div className="field">
           <label htmlFor="lots-hold">{t("mfg.lotsTab.label.status")}</label>
           <select id="lots-hold" className="select" value={hold} onChange={(e) => set("hold", e.target.value)}>
-            <option value="">All</option>
-            <option value="true">On hold</option>
-            <option value="false">Usable</option>
+            <option value="">{t("mfg.lotsTab.text.all")}</option>
+            <option value="true">{t("mfg.lotsTab.text.onHold")}</option>
+            <option value="false">{t("mfg.lotsTab.text.usable")}</option>
           </select>
         </div>
       </FilterBar>
@@ -183,8 +183,8 @@ export function LotsTab() {
         scrollTo={scrollTo}
         rowExtras={(l) => ({ testId: "lot-row", data: { lot: l.lot_code, hold: l.hold }, className: l.id === lotParam ? "mfg-selected" : undefined })}
         onEndReached={data.onEndReached}
-        empty={data.loading ? "Loading lots…" : "No lots. Lots are created by receipts of lot-tracked items."}
-        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} lots, earliest expiry first</span>}
+        empty={data.loading ? t("mfg.lotsTab.str.loadingLots") : t("mfg.lotsTab.str.noLotsLotsAreCreated")}
+        footer={<span className="muted small">{t("mfg.lotsTab.text.showingLotsEarliestExpiryFirst", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
       />
       {editing ? (
         <LotDialog

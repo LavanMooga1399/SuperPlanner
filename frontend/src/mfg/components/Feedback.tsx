@@ -10,7 +10,7 @@ import { t } from "../../lib/i18n";
 const NETWORK_MESSAGE = networkError().message;
 
 /** Version conflict (412): the user's edits stay on screen until they choose to reload. */
-export function ConflictBanner({ onReload, what = "this record" }: { onReload(): void; what?: string }) {
+export function ConflictBanner({ onReload, what = t("mfg.feedback.str.thisRecord") }: { onReload(): void; what?: string }) {
   return (
     <Banner
       tone="warn"
@@ -23,8 +23,7 @@ export function ConflictBanner({ onReload, what = "this record" }: { onReload():
         </button>
       }
     >
-      Your changes to {what} were not saved. They are still in the form below; copy anything you need, then reload
-      to see the latest version.
+      {t("mfg.feedback.text.yourChangesToWereNot", { what: what })}
     </Banner>
   );
 }
@@ -43,7 +42,7 @@ export function MfgError({ error, onRetry, title }: { error: unknown; onRetry?()
     <Banner
       tone="danger"
       role="alert"
-      title={title ?? (network ? "Server not reachable" : isNotFound(error) ? "Not found" : "Something went wrong")}
+      title={title ?? (network ? t("mfg.feedback.str.serverNotReachable") : isNotFound(error) ? t("mfg.feedback.str.notFound") : t("mfg.feedback.str.somethingWentWrong"))}
       testId={network ? "network-error" : "mfg-error"}
       actions={
         onRetry ? (
@@ -77,7 +76,7 @@ export function NotFoundPanel({ what, back }: { what: string; back?: ReactNode }
   return (
     <div className="empty" data-testid="mfg-not-found">
       <Icon name="help" size={32} />
-      <h2>{what} not found</h2>
+      <h2>{t("mfg.feedback.text.notFound", { what: what })}</h2>
       <p>{t("mfg.feedback.text.itDoesNotExistOr")}</p>
       {back}
     </div>
@@ -85,7 +84,7 @@ export function NotFoundPanel({ what, back }: { what: string; back?: ReactNode }
 }
 
 /** Page/section loading state: a skeleton that reserves the layout (UX-STANDARD 4); `label` is announced. */
-export function Spinner({ label = "Loading…" }: { label?: string }) {
+export function Spinner({ label = t("mfg.feedback.str.loading") }: { label?: string }) {
   return <SkeletonPage label={label} rows={5} />;
 }
 
@@ -94,7 +93,7 @@ export function SaveState({ busy, saved }: { busy: boolean; saved: boolean }) {
   if (busy)
     return (
       <span className="save-state" role="status">
-        <span className="spinner" aria-hidden /> Saving…
+        <span className="spinner" aria-hidden />{" "}{t("mfg.feedback.text.saving")}
       </span>
     );
   if (saved)

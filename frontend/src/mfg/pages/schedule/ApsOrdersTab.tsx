@@ -18,15 +18,15 @@ import { FilterBar } from "../../../components/FilterBar";
 const KIND_LABEL: Record<string, string> = {
   material: "material",
   capacity: "capacity",
-  calendar: "no shift",
-  lead_time: "processing time",
+  calendar: t("mfg.apsOrdersTab.str.noShift"),
+  lead_time: t("mfg.apsOrdersTab.str.processingTime"),
   frozen: "frozen",
   locked: "locked",
   crew: "operators",
   tool: "tooling",
-  predecessor: "previous step",
+  predecessor: t("mfg.apsOrdersTab.str.previousStep"),
   setup: "changeover",
-  as_of: "plan start",
+  as_of: t("mfg.apsOrdersTab.str.planStart"),
 };
 
 /** Link of a work order / planned order reference. */
@@ -73,13 +73,13 @@ export function ApsOrdersTab() {
         <div className="field">
           <label htmlFor="ao-type">{t("mfg.apsOrdersTab.label.orders")}</label>
           <select id="ao-type" className="select" value={type} onChange={(e) => setSearchParam(setParams, "type", e.target.value)}>
-            <option value="">Work orders and planned orders</option>
-            <option value="wo">Work orders</option>
-            <option value="planned">MRP planned orders</option>
+            <option value="">{t("mfg.apsOrdersTab.text.workOrdersAndPlannedOrders")}</option>
+            <option value="wo">{t("mfg.apsOrdersTab.text.workOrders")}</option>
+            <option value="planned">{t("mfg.apsOrdersTab.text.mrpPlannedOrders")}</option>
           </select>
         </div>
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
-          <input type="checkbox" checked={lateOnly} onChange={(e) => setSearchParam(setParams, "late", e.target.checked ? "1" : "")} data-testid="aps-orders-late" /> Only late
+          <input type="checkbox" checked={lateOnly} onChange={(e) => setSearchParam(setParams, "late", e.target.checked ? "1" : "")} data-testid="aps-orders-late" />{" "}{t("mfg.apsOrdersTab.text.onlyLate")}
         </label>
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
@@ -97,10 +97,10 @@ export function ApsOrdersTab() {
                 <Link to={orderLink(o.order, run.id)} className="mono">
                   {o.order.number}
                 </Link>{" "}
-                <Link to={mfgPaths.apsGantt(run.id, { view: "order", order: o.order.id })} className="small" title="Show in the Gantt" aria-label={`Show ${o.order.number} in the Gantt`}>
+                <Link to={mfgPaths.apsGantt(run.id, { view: "order", order: o.order.id })} className="small" title={t("mfg.apsOrdersTab.attr.showInTheGantt")} aria-label={t("mfg.apsOrdersTab.tpl.showInTheGantt", { number: o.order.number })}>
                   <Icon name="calendar" size={12} />
                 </Link>
-                {o.unscheduled_ops ? <span className="vt-sub">{plural(o.unscheduled_ops, "operation")} not scheduled</span> : null}
+                {o.unscheduled_ops ? <span className="vt-sub">{t("mfg.apsOrdersTab.text.notScheduled", { unscheduledops: plural(o.unscheduled_ops, "operation") })}</span> : null}
               </span>
             ),
           },
@@ -151,7 +151,7 @@ export function ApsOrdersTab() {
         exportName={`schedule-${run.run_no}-orders`}
         rowExtras={(o) => ({ testId: "aps-order-row", data: { number: o.order.number, "late-minutes": o.late_minutes } })}
         rowDetail={(o) => (o.late_text || o.late_chain.length ? <LateChain text={o.late_text} steps={o.late_chain} /> : null)}
-        empty={lateOnly || type || dq ? "No orders match these filters." : "No orders in this schedule."}
+        empty={lateOnly || type || dq ? t("mfg.apsOrdersTab.str.noOrdersMatchTheseFilters") : t("mfg.apsOrdersTab.str.noOrdersInThisSchedule")}
         footer={<ShowMore shown={data.rows.length} total={data.total} noun="orders" loading={data.loading} onMore={data.onEndReached} />}
         card={{ title: "order", status: "late", fields: ["item", "qty", "due"] }}
       />
@@ -171,13 +171,13 @@ export function ApsDemandTab() {
         end={
           c ? (
             <span className="small muted">
-              {c.on_time} on time · {c.late} late{c.unscheduled ? ` · ${c.unscheduled} not scheduled` : ""}
+              {t("mfg.apsOrdersTab.text.onTimeLate", { ontime: c.on_time, late: c.late, v: c.unscheduled ? t("mfg.apsOrdersTab.tpl.notScheduled", { unscheduled: c.unscheduled }) : "" })}
             </span>
           ) : undefined
         }
       >
         <label className="checkbox">
-          <input type="checkbox" checked={lateOnly} onChange={(e) => setLateOnly(e.target.checked)} /> Only late
+          <input type="checkbox" checked={lateOnly} onChange={(e) => setLateOnly(e.target.checked)} />{" "}{t("mfg.apsOrdersTab.text.onlyLate")}
         </label>
       </FilterBar>
       <MfgError error={d.error} onRetry={d.reload} />
@@ -203,7 +203,7 @@ export function ApsDemandTab() {
           { key: "item", header: "Item", width: "minmax(130px, 1fr)", sortValue: (x) => x.part_number, render: (x) => <span className="mono">{x.part_number}</span> },
           { key: "qty", header: "Qty", width: "80px", align: "right", sortValue: (x) => x.qty, render: (x) => fmtNum(x.qty) },
           { key: "due", header: "Due", width: "140px", sortValue: (x) => x.due, render: (x) => clock.dateTime(x.due) },
-          { key: "end", header: "Scheduled completion", width: "170px", sortValue: (x) => x.scheduled_end, render: (x) => (x.scheduled_end ? clock.dateTime(x.scheduled_end) : <span className="faint">not scheduled</span>) },
+          { key: "end", header: "Scheduled completion", width: "170px", sortValue: (x) => x.scheduled_end, render: (x) => (x.scheduled_end ? clock.dateTime(x.scheduled_end) : <span className="faint">{t("mfg.apsOrdersTab.text.notScheduled2")}</span>) },
           {
             key: "status",
             header: "Status",
@@ -213,7 +213,7 @@ export function ApsDemandTab() {
             render: (x) =>
               !x.scheduled_end ? (
                 <span className="badge warn">
-                  <Icon name="help" /> Not scheduled{x.late_minutes ? `, ≥ ${fmtDuration(x.late_minutes)} late` : ""}
+                  <Icon name="help" />{" "}{t("mfg.apsOrdersTab.text.notScheduled3", { v: x.late_minutes ? `, ≥ ${fmtDuration(x.late_minutes)} late` : "" })}
                 </span>
               ) : x.late_minutes > 0 ? (
                 <span className="badge danger">
@@ -249,7 +249,7 @@ export function ApsDemandTab() {
         exportName={`schedule-${run.run_no}-demand`}
         rowExtras={(x) => ({ testId: "aps-demand-row", data: { "late-minutes": x.late_minutes, line: `${x.order_number}/${x.line_no}` } })}
         rowDetail={(x) => (x.late_text ? x.late_text : null)}
-        empty={lateOnly ? "No late demand lines." : "No open demand lines."}
+        empty={lateOnly ? t("mfg.apsOrdersTab.str.noLateDemandLines") : t("mfg.apsOrdersTab.str.noOpenDemandLines")}
         card={{ title: "line", status: "status", fields: ["item", "qty", "due"] }}
       />
     </div>

@@ -43,7 +43,7 @@ export function MobileWo() {
               <dd>{w.status.replace(/_/g, " ")}</dd>
               <dt>{t("mobile.mobileMisc.head.quantity")}</dt>
               <dd>
-                {tr("common.nOfM", { n: w.qty_completed, m: w.qty })} done{w.qty_scrapped ? `, ${w.qty_scrapped} scrapped` : ""}
+                {tr("mobile.mobileMisc.text.done", { tr: tr("common.nOfM", { n: w.qty_completed, m: w.qty }), v: w.qty_scrapped ? `, ${w.qty_scrapped} scrapped` : "" })}
               </dd>
               <dt>{t("mobile.mobileMisc.head.due")}</dt>
               <dd>{formatDay(w.due_date)}</dd>
@@ -59,7 +59,7 @@ export function MobileWo() {
                 <>
                   <dt>{t("mobile.mobileMisc.head.shortages")}</dt>
                   <dd className="m-state">
-                    <Icon name="alert" size={14} /> {w.shortage_count} components short
+                    <Icon name="alert" size={14} />{" "}{tr("mobile.mobileMisc.text.componentsShort", { shortagecount: w.shortage_count })}
                   </dd>
                 </>
               ) : null}
@@ -84,7 +84,7 @@ export function MobileWo() {
             </section>
           ) : null}
           <Link to={`/mfg/work-orders/${encodeURIComponent(w.id)}`} className="btn ghost">
-            Open on the full site <Icon name="external" />
+            {tr("mobile.mobileMisc.text.openOnTheFullSite")}{" "}<Icon name="external" />
           </Link>
         </>
       ) : null}
@@ -156,7 +156,7 @@ export function MobileScan() {
           await new Promise((r) => setTimeout(r, 250));
         }
       } catch {
-        setErr("The camera could not be opened. Type the code instead.");
+        setErr(tr("mobile.mobileMisc.str.theCameraCouldNotBe"));
         setCamera(false);
       }
     })();
@@ -179,7 +179,7 @@ export function MobileScan() {
         }}
       >
         <label htmlFor="m-scan-code" style={{ fontWeight: 600 }}>
-          Code (work order, operation, line, lot, serial)
+          {tr("mobile.mobileMisc.text.codeWorkOrderOperationLine")}
         </label>
         <input
           id="m-scan-code"
@@ -194,14 +194,14 @@ export function MobileScan() {
         />
         <div className="m-actions">
           <button type="submit" className="btn primary" disabled={busy || !code.trim()}>
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />} Open
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="arrow-right" />}{" "}{tr("mobile.mobileMisc.text.open")}
           </button>
           {Ctor ? (
             <button type="button" className="btn" onClick={() => setCamera((v) => !v)} aria-pressed={camera} data-testid="m-scan-camera">
-              <Icon name={camera ? "stop" : "zoom-in"} /> {camera ? "Stop camera" : "Use the camera"}
+              <Icon name={camera ? "stop" : "zoom-in"} /> {camera ? tr("mobile.mobileMisc.str.stopCamera") : tr("mobile.mobileMisc.str.useTheCamera")}
             </button>
           ) : (
-            <span className="muted small">This browser cannot read codes with the camera; a scanner or typing works.</span>
+            <span className="muted small">{tr("mobile.mobileMisc.text.thisBrowserCannotReadCodes")}</span>
           )}
         </div>
       </form>
@@ -273,8 +273,8 @@ function PushSettings() {
   return (
     <div className="col" style={{ gap: 8 }} data-testid="m-push">
       <span className="m-state" data-testid="m-push-state" data-on={Boolean(sub)}>
-        <Icon name={sub ? "check" : "circle"} size={14} /> {sub ? "Notifications are on for this phone." : "Notifications are off for this phone."}
-        {sub && mine.data?.items.find((x) => x.id === sub.id)?.active === false ? " Deliveries stopped working; turn them off and on again." : ""}
+        <Icon name={sub ? "check" : "circle"} size={14} /> {sub ? tr("mobile.mobileMisc.str.notificationsAreOnForThis") : tr("mobile.mobileMisc.str.notificationsAreOffForThis")}
+        {sub && mine.data?.items.find((x) => x.id === sub.id)?.active === false ? tr("mobile.mobileMisc.str.deliveriesStoppedWorkingTurnThem") : ""}
       </span>
       <fieldset className="mfg-fieldset">
         <legend>{t("mobile.mobileMisc.head.tellMeAbout")}</legend>
@@ -296,7 +296,7 @@ function PushSettings() {
       </fieldset>
       <div className="m-actions">
         <button type="button" className="btn primary" disabled={busy || !topics.length} onClick={() => void save(topics)} data-testid="m-push-save">
-          {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {sub ? "Save" : "Turn on notifications"}
+          {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} {sub ? tr("mobile.mobileMisc.str.save") : tr("mobile.mobileMisc.str.turnOnNotifications")}
         </button>
         {sub ? (
           <button type="button" className="btn" disabled={busy} onClick={() => void save(null)} data-testid="m-push-off-btn">
@@ -304,13 +304,13 @@ function PushSettings() {
           </button>
         ) : null}
       </div>
-      {saved ? <span role="status" className="small">Saved.</span> : null}
+      {saved ? <span role="status" className="small">{tr("mobile.mobileMisc.text.saved")}</span> : null}
       {err ? (
         <p className="field-error" role="alert" style={{ margin: 0 }} data-testid="m-push-error">
           {err}
         </p>
       ) : null}
-      <span className="muted small">Messages show a title and a short line only; details open in the app after sign-in.</span>
+      <span className="muted small">{tr("mobile.mobileMisc.text.messagesShowATitleAnd")}</span>
     </div>
   );
 }
@@ -330,18 +330,18 @@ export function MobileMore() {
       <h1>{t("mobile.mobileMisc.head.more")}</h1>
       <nav className="m-list" aria-label={t("mobile.mobileMisc.aria.more")}>
         <Link to="/m/scan" className="m-row">
-          <Icon name="zoom-in" /> <span className="grow">Scan a code</span> <Icon name="chevron-right" />
+          <Icon name="zoom-in" /> <span className="grow">{tr("mobile.mobileMisc.text.scanACode")}</span> <Icon name="chevron-right" />
         </Link>
         {canAsk ? (
           <Link to="/m/assistant" className="m-row" data-testid="m-more-assistant">
-            <Icon name="help" /> <span className="grow">Planning assistant</span> <Icon name="chevron-right" />
+            <Icon name="help" /> <span className="grow">{tr("mobile.mobileMisc.text.planningAssistant")}</span> <Icon name="chevron-right" />
           </Link>
         ) : null}
         <Link to="/mfg/dashboard" className="m-row">
-          <Icon name="graph" /> <span className="grow">Dashboard</span> <Icon name="chevron-right" />
+          <Icon name="graph" /> <span className="grow">{tr("mobile.mobileMisc.text.dashboard")}</span> <Icon name="chevron-right" />
         </Link>
         <Link to="/mfg" className="m-row">
-          <Icon name="external" /> <span className="grow">Full site</span> <Icon name="chevron-right" />
+          <Icon name="external" /> <span className="grow">{tr("mobile.mobileMisc.text.fullSite")}</span> <Icon name="chevron-right" />
         </Link>
       </nav>
       <section className="m-card" aria-labelledby="m-push-h">
@@ -368,7 +368,7 @@ export function MobileAssistant() {
     <div className="col" style={{ gap: 12 }} data-testid="m-assistant">
       <h1>{t("mobile.mobileMisc.head.planningAssistant")}</h1>
       <p className="muted small" style={{ margin: 0 }}>
-        Explains your plan and suggests actions. It never changes anything by itself.
+        {tr("mobile.mobileMisc.text.explainsYourPlanAndSuggests")}
       </p>
       <AssistantBody />
     </div>

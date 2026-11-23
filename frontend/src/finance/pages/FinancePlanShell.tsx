@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet, useLocation, useParams } from "react-router";
 import { Banner, ErrorBanner, Loading } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
 import { FinancePlanProvider, useFinancePlan, type FinSaveState } from "../state/FinancePlanContext";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 export function FinancePlanShell() {
   const { planId } = useParams();
@@ -16,11 +16,11 @@ export function FinancePlanShell() {
 
 export function FinSaveIndicator({ state, dirty, error }: { state: FinSaveState; dirty: boolean; error: string | null }) {
   let content;
-  if (state === "saving") content = (<><span className="spinner" aria-hidden /> Saving…</>);
-  else if (state === "conflict") content = (<><Icon name="alert" /> Conflict</>);
-  else if (state === "error") content = (<><Icon name="x" /> Not saved{error ? `: ${error}` : ""}</>);
-  else if (dirty) content = (<><Icon name="clock" /> Edited</>);
-  else content = (<><Icon name="check" /> Saved</>);
+  if (state === "saving") content = (<><span className="spinner" aria-hidden />{" "}{tr("finance.financePlanShell.text.saving")}</>);
+  else if (state === "conflict") content = (<><Icon name="alert" />{" "}{tr("finance.financePlanShell.text.conflict")}</>);
+  else if (state === "error") content = (<><Icon name="x" />{" "}{tr("finance.financePlanShell.text.notSaved", { v: error ? `: ${error}` : "" })}</>);
+  else if (dirty) content = (<><Icon name="clock" />{" "}{tr("finance.financePlanShell.text.edited")}</>);
+  else content = (<><Icon name="check" />{" "}{tr("finance.financePlanShell.text.saved")}</>);
   return (
     <span
       className="save-state"
@@ -47,7 +47,7 @@ function ShellInner() {
           <Icon name="help" size={32} />
           <h2>{t("finance.financePlanShell.head.planNotFound")}</h2>
           <p>{t("finance.financePlanShell.text.thisFinancialPlanDoesNot")}</p>
-          <Link className="btn" to="/finance">Back to financial plans</Link>
+          <Link className="btn" to="/finance">{tr("finance.financePlanShell.text.backToFinancialPlans")}</Link>
         </div>
       );
     }
@@ -56,10 +56,10 @@ function ShellInner() {
   if (!draft || !record) return null;
   const base = `/finance/${record.id}`;
   const tabs = [
-    { to: `${base}/setup/profile`, label: "Setup", icon: "settings" as const, active: pathname.startsWith(`${base}/setup`) },
-    { to: `${base}/results`, label: "Results", icon: "layers" as const, active: pathname.startsWith(`${base}/results`) },
+    { to: `${base}/setup/profile`, label: tr("finance.financePlanShell.str.setup"), icon: "settings" as const, active: pathname.startsWith(`${base}/setup`) },
+    { to: `${base}/results`, label: tr("finance.financePlanShell.str.results"), icon: "layers" as const, active: pathname.startsWith(`${base}/results`) },
     { to: `${base}/what-if`, label: "What-if", icon: "refresh" as const, active: pathname.startsWith(`${base}/what-if`) },
-    { to: `${base}/compare`, label: "Compare", icon: "compare" as const, active: pathname.startsWith(`${base}/compare`) },
+    { to: `${base}/compare`, label: tr("finance.financePlanShell.str.compare"), icon: "compare" as const, active: pathname.startsWith(`${base}/compare`) },
   ];
   return (
     <div className="col gap-lg">
@@ -70,7 +70,7 @@ function ShellInner() {
           </Link>
           <Icon name="chevron-right" size={12} />
           <strong>{draft.name}</strong>
-          <span className="chip" title="Server version of this plan">v{record.version}</span>
+          <span className="chip" title={tr("finance.financePlanShell.attr.serverVersionOfThisPlan")}>v{record.version}</span>
         </div>
       </div>
       <nav className="tabs" aria-label={t("finance.financePlanShell.aria.financialPlanSections")}>
@@ -89,13 +89,12 @@ function ShellInner() {
           title={t("finance.financePlanShell.title.thisPlanWasChangedElsewhere")}
           actions={
             <>
-              <button className="btn sm" onClick={() => void plan.reload()}>Reload (discard your edits)</button>
-              <button className="btn sm" onClick={() => void plan.keepEditing()}>Keep editing</button>
+              <button className="btn sm" onClick={() => void plan.reload()}>{tr("finance.financePlanShell.text.reloadDiscardYourEdits")}</button>
+              <button className="btn sm" onClick={() => void plan.keepEditing()}>{tr("finance.financePlanShell.text.keepEditing")}</button>
             </>
           }
         >
-          Your latest edits were not saved, so nothing was overwritten. Reload to see the other changes, or keep editing to replace them
-          with your version on the next save.
+          {tr("finance.financePlanShell.text.yourLatestEditsWereNot")}
         </Banner>
       ) : null}
       <Outlet />

@@ -3,7 +3,7 @@ import { fmtMonth } from "../lib/months";
 import { ChartPoint, ChartTooltip, type TooltipRow } from "./ChartTooltip";
 import { Legend } from "./Legend";
 import { linearScale, monthTickIndices, niceMax, niceTicks, useWidth } from "./scales";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 export interface AreaLayer {
   key: string;
@@ -78,8 +78,8 @@ export function StackedAreaChart({ months, layers, band, format, formatAxis, ari
     const rows: TooltipRow[] = layers
       .filter((l) => (l.values[i] ?? 0) > 0.5)
       .map((l) => ({ label: l.label, value: format(l.values[i] ?? 0), color: l.color }));
-    rows.push({ label: "Total (expected returns)", value: format(totals[i] ?? 0) });
-    if (band) rows.push({ label: "Likely range p10 - p90", value: `${format(band.p10[i] ?? 0)} - ${format(band.p90[i] ?? 0)}` });
+    rows.push({ label: tr("finance.stackedAreaChart.str.totalExpectedReturns"), value: format(totals[i] ?? 0) });
+    if (band) rows.push({ label: tr("finance.stackedAreaChart.str.likelyRangeP10P90"), value: `${format(band.p10[i] ?? 0)} - ${format(band.p90[i] ?? 0)}` });
     return rows;
   };
   const pointY = (i: number) => y(band ? band.p50[i] ?? 0 : totals[i] ?? 0);
@@ -95,8 +95,8 @@ export function StackedAreaChart({ months, layers, band, format, formatAxis, ari
     ...layers.map((l) => ({ label: l.label, color: l.color })),
     ...(band
       ? [
-          { label: "Likely range (p10 - p90)", color: "var(--fin-band)", kind: "band" as const },
-          { label: "Middle outcome (p50)", color: "var(--text)", kind: "dashed" as const },
+          { label: tr("finance.stackedAreaChart.str.likelyRangeP10P902"), color: "var(--fin-band)", kind: "band" as const },
+          { label: tr("finance.stackedAreaChart.str.middleOutcomeP50"), color: "var(--text)", kind: "dashed" as const },
         ]
       : []),
   ];
@@ -132,7 +132,7 @@ export function StackedAreaChart({ months, layers, band, format, formatAxis, ari
               key={i}
               x={x(i)}
               y={pointY(i)}
-              label={`${fmtMonth(months[i])}: total ${format(totals[i] ?? 0)}${band ? `, likely range ${format(band.p10[i] ?? 0)} to ${format(band.p90[i] ?? 0)}` : ""}`}
+              label={`${fmtMonth(months[i])}: total ${format(totals[i] ?? 0)}${band ? tr("finance.stackedAreaChart.tpl.likelyRangeTo", { format: format(band.p10[i] ?? 0), format2: format(band.p90[i] ?? 0) }) : ""}`}
               onFocus={() => setHover(i)}
               onBlur={() => setHover(null)}
             />

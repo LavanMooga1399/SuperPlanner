@@ -5,6 +5,7 @@
  */
 import type { Calendar, Terminology } from "../api/types";
 import type { IconName } from "../components/Icon";
+import { t } from "../lib/i18n";
 
 export type PlanKind = "project" | "study" | "production" | "money";
 export type ScheduleKind = Exclude<PlanKind, "money">;
@@ -43,32 +44,32 @@ const weekdays = (windows: [string, string][]) =>
 export const KINDS: Record<PlanKind, KindInfo> = {
   project: {
     kind: "project",
-    label: "Project or schedule",
-    description: "Tasks, people and deadlines",
+    label: t("studio.kinds.str.projectOrSchedule"),
+    description: t("studio.kinds.str.tasksPeopleAndDeadlines"),
     icon: "briefcase",
     scheduling: true,
     templateId: "project",
     terminology: {
-      task: "Task", tasks: "Tasks", resource: "Team member", resources: "Team", group: "Workstream",
-      milestone: "Milestone", schedule: "Project schedule", deadline: "Deadline",
+      task: t("studio.kinds.str.task"), tasks: t("studio.kinds.str.tasks"), resource: t("studio.kinds.str.teamMember"), resources: t("studio.kinds.str.team"), group: t("studio.kinds.str.workstream"),
+      milestone: t("studio.kinds.str.milestone"), schedule: t("studio.kinds.str.projectSchedule"), deadline: t("studio.kinds.str.deadline"),
     },
-    starterResource: { id: "ME", name: "Me", kind: "person", calendar: { weekly: weekdays([["09:00", "17:00"]]), blocked: [] } },
+    starterResource: { id: "ME", name: t("studio.kinds.str.me"), kind: "person", calendar: { weekly: weekdays([["09:00", "17:00"]]), blocked: [] } },
     planNoun: "project",
   },
   study: {
     kind: "study",
-    label: "Study plan",
-    description: "Subjects, revision and an exam date",
+    label: t("studio.kinds.str.studyPlan"),
+    description: t("studio.kinds.str.subjectsRevisionAndAnExam"),
     icon: "book",
     scheduling: true,
     templateId: "exam_prep",
     terminology: {
-      task: "Study session", tasks: "Study sessions", resource: "Study time", resources: "Study time", group: "Subject",
-      milestone: "Exam", schedule: "Study plan", deadline: "Target date",
+      task: t("studio.kinds.str.studySession"), tasks: t("studio.kinds.str.studySessions"), resource: t("studio.kinds.str.studyTime"), resources: t("studio.kinds.str.studyTime"), group: t("studio.kinds.str.subject"),
+      milestone: t("studio.kinds.str.exam"), schedule: t("studio.kinds.str.studyPlan"), deadline: t("studio.kinds.str.targetDate"),
     },
     starterResource: {
       id: "STUDENT",
-      name: "My study time",
+      name: t("studio.kinds.str.myStudyTime"),
       kind: "time",
       calendar: {
         weekly: {
@@ -83,18 +84,18 @@ export const KINDS: Record<PlanKind, KindInfo> = {
   },
   production: {
     kind: "production",
-    label: "Production",
-    description: "Orders, machines and shifts",
+    label: t("studio.kinds.str.production"),
+    description: t("studio.kinds.str.ordersMachinesAndShifts"),
     icon: "factory",
     scheduling: true,
     templateId: "manufacturing",
     terminology: {
-      task: "Operation", tasks: "Operations", resource: "Machine", resources: "Machines", group: "Job",
-      milestone: "Milestone", schedule: "Production schedule", deadline: "Due date",
+      task: t("studio.kinds.str.operation"), tasks: t("studio.kinds.str.operations"), resource: t("studio.kinds.str.machine"), resources: t("studio.kinds.str.machines"), group: t("studio.kinds.str.job"),
+      milestone: t("studio.kinds.str.milestone"), schedule: t("studio.kinds.str.productionSchedule"), deadline: t("studio.kinds.str.dueDate"),
     },
     starterResource: {
       id: "M1",
-      name: "Machine 1",
+      name: t("studio.kinds.str.machine1"),
       kind: "machine",
       calendar: { weekly: { ...weekdays([["06:00", "14:00"], ["14:00", "22:00"]]), sat: [["06:00", "14:00"]] }, blocked: [] },
     },
@@ -102,8 +103,8 @@ export const KINDS: Record<PlanKind, KindInfo> = {
   },
   money: {
     kind: "money",
-    label: "Money goals",
-    description: "Income, savings and goals like a home or retirement",
+    label: t("studio.kinds.str.moneyGoals"),
+    description: t("studio.kinds.str.incomeSavingsAndGoalsLike"),
     icon: "star",
     scheduling: false,
     templateId: null,
@@ -114,17 +115,17 @@ export const KINDS: Record<PlanKind, KindInfo> = {
 };
 
 export const ACTION_LABEL: Record<StartAction, string> = {
-  describe: "Describe it",
-  example: "Start from an example",
-  import: "Import a table",
-  steps: "Build step by step",
+  describe: t("studio.kinds.str.describeIt"),
+  example: t("studio.kinds.str.startFromAnExample"),
+  import: t("studio.kinds.str.importATable"),
+  steps: t("studio.kinds.str.buildStepByStep"),
 };
 
 export const ACTION_HINT: Record<StartAction, string> = {
-  describe: "Write it in your own words; we turn it into a draft",
-  example: "Begin with a ready-made plan and change it",
-  import: "Paste from a spreadsheet or upload a CSV file",
-  steps: "Fill in the details yourself, one screen at a time",
+  describe: t("studio.kinds.str.writeItInYourOwn"),
+  example: t("studio.kinds.str.beginWithAReadyMade"),
+  import: t("studio.kinds.str.pasteFromASpreadsheetOr"),
+  steps: t("studio.kinds.str.fillInTheDetailsYourself"),
 };
 
 export const ACTION_ICON: Record<StartAction, IconName> = {

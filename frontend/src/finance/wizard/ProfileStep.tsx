@@ -16,20 +16,19 @@ export function ProfileStep({ plan, update, expert }: StepProps) {
   return (
     <div className="col gap-lg">
       <HelpText>
-        Tell us a little about yourself. Use take-home amounts everywhere; taxes are not calculated. Everything here is optional
-        except the plan name.
+        {t("finance.profileStep.text.tellUsALittleAbout")}
       </HelpText>
       {stale ? (
         <Banner
           tone="warn"
-          title={`This plan starts in ${fmtMonth(plan.start_month)}, which has already passed.`}
+          title={t("finance.profileStep.tpl.thisPlanStartsInWhich", { startmonth: fmtMonth(plan.start_month) })}
           actions={
             <button className="btn sm" onClick={() => update((p) => ({ ...p, start_month: now }))} data-testid="fin-move-start">
               {t("finance.profileStep.btn.moveToThisMonth")}
             </button>
           }
         >
-          Amounts you enter are treated as values at the plan start. Move the start to {fmtMonth(now)} if your numbers are current.
+          {t("finance.profileStep.text.amountsYouEnterAreTreated", { now: fmtMonth(now) })}
         </Banner>
       ) : null}
       <div className="fin-form">
@@ -78,7 +77,7 @@ export function ProfileStep({ plan, update, expert }: StepProps) {
             update((p) => ({ ...p, profile: { ...p.profile, tax_note: v } }));
           }}
         />
-        <span className="hint">Shown back with your results. No tax is computed.</span>
+        <span className="hint">{t("finance.profileStep.text.shownBackWithYourResults")}</span>
       </div>
       {expert ? (
         <div className="fin-form">

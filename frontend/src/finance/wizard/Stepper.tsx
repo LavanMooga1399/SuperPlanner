@@ -12,7 +12,7 @@ export function Stepper({ planId, current, done, issues }: { planId: string; cur
           const hasIssue = issues.has(s.key);
           const isDone = done.has(s.key);
           const mark = hasIssue ? "issue" : isDone ? "done" : isCur ? "current" : "";
-          const stateText = hasIssue ? "needs attention" : isDone ? "done" : isCur ? "current step" : "not started";
+          const stateText = hasIssue ? t("finance.stepper.str.needsAttention") : isDone ? "done" : isCur ? t("finance.stepper.str.currentStep") : t("finance.stepper.str.notStarted");
           return (
             <li key={s.key}>
               <Link to={`/finance/${planId}/setup/${s.key}`} aria-current={isCur ? "step" : undefined} data-testid={`wizard-step-${s.key}`}>

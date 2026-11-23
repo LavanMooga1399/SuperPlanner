@@ -26,10 +26,10 @@ export function KittingTable({ components, kitting, highlight, showKitting }: { 
   const scrollTo = useMemo(() => (hi >= 0 ? { index: hi, seq: 1 } : null), [hi]);
 
   const columns: Column<KitRow>[] = [
-    { key: "fn", header: "Pos.", width: "64px", render: (r) => <span className="mono">{r.c.find_number ?? ""}</span> },
+    { key: "fn", header: t("mfg.kittingTable.str.pos"), width: "64px", render: (r) => <span className="mono">{r.c.find_number ?? ""}</span> },
     {
       key: "pn",
-      header: "Part number",
+      header: t("mfg.kittingTable.str.partNumber"),
       width: "minmax(150px, 1.2fr)",
       render: (r) => (
         <Link to={mfgPaths.itemStock(r.c.item.id)} className="mono mfg-ellipsis" tabIndex={-1}>
@@ -37,52 +37,52 @@ export function KittingTable({ components, kitting, highlight, showKitting }: { 
         </Link>
       ),
     },
-    { key: "desc", header: "Description", width: "minmax(140px, 1.4fr)", render: (r) => <span className="mfg-ellipsis">{r.c.item.description}</span> },
-    { key: "op", header: "Op.", width: "54px", align: "right", render: (r) => r.c.operation_seq ?? "" },
-    { key: "req", header: "Required", width: "96px", align: "right", render: (r) => fmtNum(r.c.required_qty) },
-    { key: "iss", header: "Issued", width: "96px", align: "right", render: (r) => fmtNum(r.c.issued_qty) },
-    { key: "open", header: "Open", width: "90px", align: "right", render: (r) => fmtNum(r.c.open_qty) },
-    { key: "res", header: "Reserved", width: "80px", align: "right", render: (r) => (r.c.reserved_qty ? fmtNum(r.c.reserved_qty) : <span className="faint">0</span>) },
+    { key: "desc", header: t("mfg.kittingTable.str.description"), width: "minmax(140px, 1.4fr)", render: (r) => <span className="mfg-ellipsis">{r.c.item.description}</span> },
+    { key: "op", header: t("mfg.kittingTable.str.op"), width: "54px", align: "right", render: (r) => r.c.operation_seq ?? "" },
+    { key: "req", header: t("mfg.kittingTable.str.required"), width: "96px", align: "right", render: (r) => fmtNum(r.c.required_qty) },
+    { key: "iss", header: t("mfg.kittingTable.str.issued"), width: "96px", align: "right", render: (r) => fmtNum(r.c.issued_qty) },
+    { key: "open", header: t("mfg.kittingTable.str.open"), width: "90px", align: "right", render: (r) => fmtNum(r.c.open_qty) },
+    { key: "res", header: t("mfg.kittingTable.str.reserved"), width: "80px", align: "right", render: (r) => (r.c.reserved_qty ? fmtNum(r.c.reserved_qty) : <span className="faint">0</span>) },
     ...(showKitting
       ? ([
-          { key: "free", header: "Free stock", width: "96px", align: "right", render: (r) => (r.k ? fmtNum(r.k.free) : "") },
+          { key: "free", header: t("mfg.kittingTable.str.freeStock"), width: "96px", align: "right", render: (r) => (r.k ? fmtNum(r.k.free) : "") },
           {
             key: "short",
-            header: "Kit",
+            header: t("mfg.kittingTable.str.kit"),
             width: "110px",
             render: (r) =>
               !r.k ? (
                 ""
               ) : r.k.shortage > 0 ? (
-                <span className="badge danger" title={`${fmtNum(r.k.shortage)} missing after reservations and free stock`}>
-                  <Icon name="alert" /> Short {fmtNum(r.k.shortage)}
+                <span className="badge danger" title={t("mfg.kittingTable.tpl.missingAfterReservationsAndFree", { shortage: fmtNum(r.k.shortage) })}>
+                  <Icon name="alert" />{" "}{t("mfg.kittingTable.text.short", { shortage: fmtNum(r.k.shortage) })}
                 </span>
               ) : r.c.open_qty > 0 ? (
                 <span className="badge ok">
                   <Icon name="check" /> {t("mfg.kittingTable.btn.covered")}
                 </span>
               ) : (
-                <span className="faint">Issued</span>
+                <span className="faint">{t("mfg.kittingTable.text.issued")}</span>
               ),
           },
           {
             key: "next",
-            header: "Next supply",
+            header: t("mfg.kittingTable.str.nextSupply"),
             width: "minmax(150px, 1fr)",
             render: (r) =>
               r.k?.next_supply ? (
                 <Link to={r.k.next_supply.link} className="mfg-ellipsis small" tabIndex={-1}>
-                  {fmtNum(r.k.next_supply.qty)} on {fmtDate(r.k.next_supply.date)} · {r.k.next_supply.label}
+                  {t("mfg.kittingTable.text.on", { qty: fmtNum(r.k.next_supply.qty), date: fmtDate(r.k.next_supply.date), label: r.k.next_supply.label })}
                 </Link>
               ) : r.k && r.k.shortage > 0 ? (
-                <span className="faint small">No open supply</span>
+                <span className="faint small">{t("mfg.kittingTable.text.noOpenSupply")}</span>
               ) : (
                 ""
               ),
           },
           {
             key: "where",
-            header: "Where",
+            header: t("mfg.kittingTable.str.where"),
             width: "minmax(120px, 1fr)",
             render: (r) => <span className="mfg-ellipsis small faint">{(r.k?.locations ?? []).map((l) => `${l.location_code}${l.lot_code ? `/${l.lot_code}` : ""} ${fmtNum(l.available)}`).join(", ")}</span>,
           },

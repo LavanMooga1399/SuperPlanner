@@ -1,5 +1,6 @@
 import type { Feasibility, RunStatus, ScheduleStatus } from "../api/types";
 import { Icon, type IconName } from "./Icon";
+import { t } from "../lib/i18n";
 
 type Tone = "ok" | "warn" | "danger" | "info" | "accent";
 
@@ -13,21 +14,21 @@ export type BadgeKind =
   | "warning";
 
 const MAP: Record<BadgeKind, { label: string; tone: Tone; icon: IconName }> = {
-  feasible: { label: "Feasible", tone: "ok", icon: "check" },
-  infeasible: { label: "Not feasible", tone: "danger", icon: "ban" },
-  unknown: { label: "Unknown", tone: "warn", icon: "help" },
-  queued: { label: "Queued", tone: "info", icon: "clock" },
-  running: { label: "Running", tone: "accent", icon: "loader" },
-  completed: { label: "Completed", tone: "ok", icon: "check" },
-  failed: { label: "Failed", tone: "danger", icon: "x" },
-  cancelled: { label: "Cancelled", tone: "info", icon: "stop" },
-  candidate: { label: "Candidate", tone: "info", icon: "circle" },
-  approved: { label: "Approved", tone: "ok", icon: "star" },
-  superseded: { label: "Superseded", tone: "info", icon: "refresh" },
-  late: { label: "Late", tone: "danger", icon: "clock" },
-  on_time: { label: "On time", tone: "ok", icon: "check" },
-  error: { label: "Error", tone: "danger", icon: "x" },
-  warning: { label: "Warning", tone: "warn", icon: "alert" },
+  feasible: { label: t("studio.statusBadge.str.feasible"), tone: "ok", icon: "check" },
+  infeasible: { label: t("studio.statusBadge.str.notFeasible"), tone: "danger", icon: "ban" },
+  unknown: { label: t("studio.statusBadge.str.unknown"), tone: "warn", icon: "help" },
+  queued: { label: t("studio.statusBadge.str.queued"), tone: "info", icon: "clock" },
+  running: { label: t("studio.statusBadge.str.running"), tone: "accent", icon: "loader" },
+  completed: { label: t("studio.statusBadge.str.completed"), tone: "ok", icon: "check" },
+  failed: { label: t("studio.statusBadge.str.failed"), tone: "danger", icon: "x" },
+  cancelled: { label: t("studio.statusBadge.str.cancelled"), tone: "info", icon: "stop" },
+  candidate: { label: t("studio.statusBadge.str.candidate"), tone: "info", icon: "circle" },
+  approved: { label: t("studio.statusBadge.str.approved"), tone: "ok", icon: "star" },
+  superseded: { label: t("studio.statusBadge.str.superseded"), tone: "info", icon: "refresh" },
+  late: { label: t("studio.statusBadge.str.late"), tone: "danger", icon: "clock" },
+  on_time: { label: t("studio.statusBadge.str.onTime"), tone: "ok", icon: "check" },
+  error: { label: t("studio.statusBadge.str.error"), tone: "danger", icon: "x" },
+  warning: { label: t("studio.statusBadge.str.warning"), tone: "warn", icon: "alert" },
 };
 
 export interface StatusBadgeProps {

@@ -10,7 +10,7 @@ import { t } from "../../lib/i18n";
 /** Creates a scheduling plan ("money calendar") for the next 1-12 months (FINANCE.md 16.1). */
 export function SendToPlannerDialog({ resultId, planName, onClose }: { resultId: string; planName: string; onClose(): void }) {
   const navigate = useNavigate();
-  const [name, setName] = useState(`${planName} - money calendar`.slice(0, 200));
+  const [name, setName] = useState(t("finance.sendToPlannerDialog.tpl.moneyCalendar", { planName: planName }).slice(0, 200));
   const [months, setMonths] = useState(12);
   const [review, setReview] = useState(3);
   const [rebalances, setRebalances] = useState(true);
@@ -42,16 +42,15 @@ export function SendToPlannerDialog({ resultId, planName, onClose }: { resultId:
       onClose={onClose}
       footer={
         <>
-          <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="btn" onClick={onClose} disabled={busy}>{t("finance.sendToPlannerDialog.text.cancel")}</button>
           <button className="btn primary" onClick={() => void submit()} disabled={!valid || busy} data-testid="send-to-planner-confirm">
-            {busy ? <span className="spinner" aria-hidden /> : null} Create money calendar
+            {busy ? <span className="spinner" aria-hidden /> : null}{" "}{t("finance.sendToPlannerDialog.text.createMoneyCalendar")}
           </button>
         </>
       }
     >
       <p className="muted" style={{ margin: 0 }}>
-        Creates a regular scheduling plan with one action per contribution start, change, stop and review, between the 1st and the 5th
-        of each month. You can then schedule and adjust it like any other plan.
+        {t("finance.sendToPlannerDialog.text.createsARegularSchedulingPlan")}
       </p>
       <div className="fin-form">
         <div className="field wide">
@@ -70,7 +69,7 @@ export function SendToPlannerDialog({ resultId, planName, onClose }: { resultId:
       </div>
       <label className="checkbox">
         <input type="checkbox" checked={rebalances} onChange={(e) => setRebalances(e.target.checked)} />
-        Include rebalancing actions
+        {t("finance.sendToPlannerDialog.text.includeRebalancingActions")}
       </label>
       {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
     </Dialog>

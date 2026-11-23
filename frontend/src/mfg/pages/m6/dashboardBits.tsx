@@ -7,24 +7,24 @@ import { Link } from "react-router";
 import { Icon, type IconName } from "../../../components/Icon";
 import type { DashboardPeriod, DashboardTile, TileStatus } from "../../api/typesM6";
 import { safeInternalLink } from "../../assistant/AnswerText";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 export const PERIODS: { value: DashboardPeriod; label: string }[] = [
-  { value: "4w", label: "Last 4 weeks" },
-  { value: "13w", label: "Last 13 weeks" },
-  { value: "52w", label: "Last 52 weeks" },
+  { value: "4w", label: tr("mfg.dashboardBits.str.last4Weeks") },
+  { value: "13w", label: tr("mfg.dashboardBits.str.last13Weeks") },
+  { value: "52w", label: tr("mfg.dashboardBits.str.last52Weeks") },
 ];
 
 /** Display order and names of the S0 tiles (`model_m6.TILE_NAMES`); unknown ones follow in server order. */
 export const TILE_NAMES: Record<string, { name: string; help: string }> = {
-  otd: { name: "On-time delivery", help: "Demand lines shipped on time" },
-  backlog: { name: "Backlog vs capacity", help: "Load of the next 4 weeks against base capacity" },
-  material_risk: { name: "Material risk", help: "Items short within 4 weeks" },
-  execution: { name: "Execution", help: "Schedule adherence" },
-  inventory: { name: "Inventory", help: "Value on hand at standard cost" },
-  late_pos: { name: "Late purchase orders", help: "Open overdue deliveries" },
-  quality: { name: "Quality", help: "Open recalls" },
-  integration: { name: "ERP integration", help: "Problems needing attention" },
+  otd: { name: tr("mfg.dashboardBits.str.onTimeDelivery"), help: tr("mfg.dashboardBits.str.demandLinesShippedOnTime") },
+  backlog: { name: tr("mfg.dashboardBits.str.backlogVsCapacity"), help: tr("mfg.dashboardBits.str.loadOfTheNext4") },
+  material_risk: { name: tr("mfg.dashboardBits.str.materialRisk"), help: tr("mfg.dashboardBits.str.itemsShortWithin4Weeks") },
+  execution: { name: tr("mfg.dashboardBits.str.execution"), help: tr("mfg.dashboardBits.str.scheduleAdherence") },
+  inventory: { name: tr("mfg.dashboardBits.str.inventory"), help: tr("mfg.dashboardBits.str.valueOnHandAtStandard") },
+  late_pos: { name: tr("mfg.dashboardBits.str.latePurchaseOrders"), help: tr("mfg.dashboardBits.str.openOverdueDeliveries") },
+  quality: { name: tr("mfg.dashboardBits.str.quality"), help: tr("mfg.dashboardBits.str.openRecalls") },
+  integration: { name: tr("mfg.dashboardBits.str.erpIntegration"), help: tr("mfg.dashboardBits.str.problemsNeedingAttention") },
 };
 
 export function orderedTiles(tiles: Record<string, DashboardTile>): [string, DashboardTile][] {
@@ -50,10 +50,10 @@ export function tileName(key: string): string {
 }
 
 const STATUS: Record<string, { text: string; icon: IconName; tone: string }> = {
-  ok: { text: "On track", icon: "check", tone: "ok" },
-  watch: { text: "Watch", icon: "alert", tone: "warn" },
-  alert: { text: "Needs attention", icon: "alert", tone: "danger" },
-  "n/a": { text: "No data yet", icon: "circle", tone: "info" },
+  ok: { text: tr("mfg.dashboardBits.str.onTrack"), icon: "check", tone: "ok" },
+  watch: { text: tr("mfg.dashboardBits.str.watch"), icon: "alert", tone: "warn" },
+  alert: { text: tr("mfg.dashboardBits.str.needsAttention"), icon: "alert", tone: "danger" },
+  "n/a": { text: tr("mfg.dashboardBits.str.noDataYet"), icon: "circle", tone: "info" },
 };
 
 export function TileStatusBadge({ status }: { status: TileStatus }) {
@@ -142,7 +142,7 @@ export function Sparkline({ tile, name }: { tile: DashboardTile; name: string })
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       className="kpi-spark"
-      aria-label={`${name}: ${vals[0]?.period ?? ""} to ${vals[vals.length - 1]?.period ?? ""}, from ${fmtValue(first.v, tile.unit)} to ${fmtValue(last.v, tile.unit)} (${dir})`}
+      aria-label={tr("mfg.dashboardBits.tpl.toFromTo", { name: name, v: vals[0]?.period ?? "", v2: vals[vals.length - 1]?.period ?? "", v3: fmtValue(first.v, tile.unit), v4: fmtValue(last.v, tile.unit), dir: dir })}
     >
       <path d={d} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
       <circle cx={x(last.i)} cy={y(last.v)} r={2.5} fill="var(--accent)" />
@@ -154,11 +154,11 @@ export function thresholdText(t: DashboardTile): string | null {
   const th = t.thresholds ?? {};
   const f = (v: unknown) => (typeof v === "number" ? fmtValue(v, t.unit) : null);
   const parts: string[] = [];
-  if (f(th.alert_below)) parts.push(`needs attention below ${f(th.alert_below)}`);
-  if (f(th.watch_below)) parts.push(`watch below ${f(th.watch_below)}`);
-  if (f(th.watch_above)) parts.push(`watch above ${f(th.watch_above)}`);
-  if (f(th.alert_above)) parts.push(`needs attention above ${f(th.alert_above)}`);
-  return parts.length ? `Targets: ${parts.join(", ")}.` : null;
+  if (f(th.alert_below)) parts.push(tr("mfg.dashboardBits.tpl.needsAttentionBelow", { alertbelow: f(th.alert_below) }));
+  if (f(th.watch_below)) parts.push(tr("mfg.dashboardBits.tpl.watchBelow", { watchbelow: f(th.watch_below) }));
+  if (f(th.watch_above)) parts.push(tr("mfg.dashboardBits.tpl.watchAbove", { watchabove: f(th.watch_above) }));
+  if (f(th.alert_above)) parts.push(tr("mfg.dashboardBits.tpl.needsAttentionAbove", { alertabove: f(th.alert_above) }));
+  return parts.length ? tr("mfg.dashboardBits.tpl.targets", { parts: parts.join(", ") }) : null;
 }
 
 export function drillLinks(t: DashboardTile): { label: string; to: string }[] {
@@ -221,7 +221,7 @@ export function PeriodSelect({ value, onChange }: { value: DashboardPeriod; onCh
   return (
     <div className="field" style={{ margin: 0 }}>
       <label htmlFor="dash-period" className="sr-only">
-        Period
+        {tr("mfg.dashboardBits.text.period")}
       </label>
       <select id="dash-period" className="select" value={value} onChange={(e) => onChange(e.target.value as DashboardPeriod)} data-testid="dash-period">
         {PERIODS.map((p) => (

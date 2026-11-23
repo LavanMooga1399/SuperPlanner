@@ -28,7 +28,7 @@ export function KittingCheckPage() {
   return (
     <div className="col gap-lg">
       <nav aria-label={t("mfg.kittingCheckPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.workOrders()}>Work orders</Link> <Icon name="chevron-right" size={12} /> <span>Kitting check</span>
+        <Link to={mfgPaths.workOrders()}>{t("mfg.kittingCheckPage.text.workOrders")}</Link> <Icon name="chevron-right" size={12} /> <span>{t("mfg.kittingCheckPage.text.kittingCheck")}</span>
       </nav>
       <PageHeader
         title={t("mfg.kittingCheckPage.title.kittingCheck")}
@@ -37,8 +37,8 @@ export function KittingCheckPage() {
         <div className="field">
           <label htmlFor="kc-order">{t("mfg.kittingCheckPage.label.whoGetsStockFirst")}</label>
           <select id="kc-order" className="select" value={order} onChange={(e) => setOrder(e.target.value as KittingCheckRequest["order"])} data-testid="kitting-order">
-            <option value="priority">Highest priority first</option>
-            <option value="start_date">Earliest start first</option>
+            <option value="priority">{t("mfg.kittingCheckPage.text.highestPriorityFirst")}</option>
+            <option value="start_date">{t("mfg.kittingCheckPage.text.earliestStartFirst")}</option>
           </select>
         </div>
         <div className="field" style={{ width: 160 }}>
@@ -46,7 +46,7 @@ export function KittingCheckPage() {
           <input id="kc-h" className="input" type="number" min={0} max={365} value={horizon} aria-invalid={!valid} onChange={(e) => setHorizon(e.target.value)} />
         </div>
         <button type="button" className="btn" style={{ alignSelf: "flex-end" }} onClick={res.reload} disabled={res.loading}>
-          {res.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Check again
+          {res.loading ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />}{" "}{t("mfg.kittingCheckPage.text.checkAgain")}
         </button>
       </FilterBar>
       <MfgError error={res.error} onRetry={res.reload} />
@@ -55,7 +55,7 @@ export function KittingCheckPage() {
         <div className="grid-2" style={{ alignItems: "start" }}>
           <section className="card card-table" data-testid="kitting-check-rows">
             <div className="card-header">
-              <h3>Work orders ({r.rows.length})</h3>
+              <h3>{t("mfg.kittingCheckPage.text.workOrders2", { length: r.rows.length })}</h3>
               <span className="muted small">{r.rows.filter((x) => x.kit_complete).length} complete</span>
             </div>
             <DataTable
@@ -131,7 +131,7 @@ export function KittingCheckPage() {
   );
 }
 
-export function ItemsShortTable({ rows, testId = "kitting-items-short", title = "Component shortage list" }: { rows: ItemShort[]; testId?: string; title?: string }) {
+export function ItemsShortTable({ rows, testId = "kitting-items-short", title = t("mfg.kittingCheckPage.str.componentShortageList") }: { rows: ItemShort[]; testId?: string; title?: string }) {
   return (
     <section className="card card-table" data-testid={testId}>
       <div className="card-header">
@@ -169,7 +169,7 @@ export function ItemsShortTable({ rows, testId = "kitting-items-short", title = 
             render: (s) =>
               s.next_supply ? (
                 <Link to={s.next_supply.link} className="mfg-ellipsis">
-                  {fmtNum(s.next_supply.qty)} on {fmtDate(s.next_supply.date)} ({s.next_supply.label})
+                  {t("mfg.kittingCheckPage.text.on", { qty: fmtNum(s.next_supply.qty), date: fmtDate(s.next_supply.date), label: s.next_supply.label })}
                 </Link>
               ) : (
                 <span className="badge danger">

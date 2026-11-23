@@ -29,9 +29,9 @@ import { CheckField, SelectField, TextField } from "../components/Field";
 import { LineCalendar } from "../components/LineCalendar";
 import { addDays, fmtLocalDateTime, isoToLocal, localToIso } from "../lib/format";
 import { isConflict, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
-const KIND_LABEL: Record<ExceptionKind, string> = { holiday: "Holiday", shutdown: "Shutdown", maintenance: "Maintenance" };
+const KIND_LABEL: Record<ExceptionKind, string> = { holiday: tr("mfg.calendarPage.str.holiday"), shutdown: tr("mfg.calendarPage.str.shutdown"), maintenance: tr("mfg.calendarPage.str.maintenance") };
 
 export function CalendarPage() {
   const [params, setParams] = useSearchParams();
@@ -89,7 +89,7 @@ export function CalendarPage() {
           <h2 id="cal-title">{t("mfg.calendarPage.head.workingTimeOfALine")}</h2>
           <div className="row wrap">
             <label className="row small">
-              <span className="muted">Line</span>
+              <span className="muted">{tr("mfg.calendarPage.text.line")}</span>
               <select className="select sm" value={line?.id ?? ""} onChange={(e) => setParam("line", e.target.value)} data-testid="calendar-line" style={{ minWidth: 180 }}>
                 {allLines.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -112,7 +112,7 @@ export function CalendarPage() {
         <div className="card-body">
           <MfgError error={lines.error} onRetry={lines.reload} />
           {lines.loading && !lines.data ? <Spinner /> : null}
-          {lines.data && !line ? <p className="muted" style={{ margin: 0 }}>No lines yet. Add stages and lines first.</p> : null}
+          {lines.data && !line ? <p className="muted" style={{ margin: 0 }}>{tr("mfg.calendarPage.text.noLinesYetAddStages")}</p> : null}
           {line ? <LineCalendar line={line} month={month} utcOffset={offset} exceptions={list} refreshKey={tick} /> : null}
         </div>
       </section>
@@ -126,11 +126,10 @@ export function CalendarPage() {
         </div>
         <div className="card-body col">
           <p className="muted small" style={{ margin: 0 }}>
-            These remove working time (base and optional) from the whole plant, a stage or one line. Times are plant
-            time ({offset}).
+            {tr("mfg.calendarPage.text.theseRemoveWorkingTimeBase", { offset: offset })}
           </p>
           <MfgError error={exceptions.error} onRetry={exceptions.reload} />
-          <MfgError error={delError} title="Could not delete" />
+          <MfgError error={delError} title={tr("mfg.calendarPage.attr.couldNotDelete")} />
           <div ref={listRef}>
             <DataTable
               rows={list}
@@ -153,7 +152,7 @@ export function CalendarPage() {
                 { key: "label", header: "Label", width: "minmax(160px, 1.4fr)", sortValue: (x) => x.label, render: (x) => x.label },
                 {
                   key: "actions",
-                  header: <span className="sr-only">Actions</span>,
+                  header: <span className="sr-only">{tr("mfg.calendarPage.text.actions")}</span>,
                   label: "Actions",
                   width: "96px",
                   align: "right",
@@ -298,11 +297,11 @@ function ExceptionForm({
       data-testid="exception-form"
     >
       <div className="card-header">
-        <h3>{exception ? "Edit entry" : "New holiday, shutdown or maintenance"}</h3>
+        <h3>{exception ? tr("mfg.calendarPage.str.editEntry") : tr("mfg.calendarPage.str.newHolidayShutdownOrMaintenance")}</h3>
       </div>
       <div className="card-body col">
-        {conflict ? <ConflictBanner onReload={() => window.location.reload()} what="this entry" /> : null}
-        <MfgError error={error} title="Could not save" />
+        {conflict ? <ConflictBanner onReload={() => window.location.reload()} what={tr("mfg.calendarPage.attr.thisEntry")} /> : null}
+        <MfgError error={error} title={tr("mfg.calendarPage.attr.couldNotSave")} />
         <div className="form-grid">
           <SelectField label={t("mfg.calendarPage.label.what")} value={kind} onChange={setKind} options={(Object.keys(KIND_LABEL) as ExceptionKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))} testId="exception-kind" />
           <SelectField
@@ -334,12 +333,12 @@ function ExceptionForm({
         )}
         <div className="row">
           <button type="submit" className="btn primary sm" disabled={busy || invalid} data-testid="exception-save">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{tr("mfg.calendarPage.text.save")}
           </button>
           <button type="button" className="btn sm" onClick={onClose}>
             {t("mfg.calendarPage.btn.cancel")}
           </button>
-          {invalid ? <span className="field-error">The end must be after the start.</span> : null}
+          {invalid ? <span className="field-error">{tr("mfg.calendarPage.text.theEndMustBeAfter")}</span> : null}
         </div>
       </div>
     </form>

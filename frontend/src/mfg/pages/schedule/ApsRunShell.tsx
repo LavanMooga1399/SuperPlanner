@@ -54,13 +54,13 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
   const why = !can
     ? needsText("schedule_publish")
     : run.kind !== "live"
-      ? "What-if runs cannot be published"
+      ? tr("mfg.apsRunShell.str.whatIfRunsCannotBe")
       : run.status !== "completed"
-        ? "Only completed runs can be published"
+        ? tr("mfg.apsRunShell.str.onlyCompletedRunsCanBe")
         : !run.validation?.ok
-          ? "The plan breaks hard rules (see validation)"
+          ? tr("mfg.apsRunShell.str.thePlanBreaksHardRules")
           : !run.publishable
-            ? "This run cannot be published"
+            ? tr("mfg.apsRunShell.str.thisRunCannotBePublished")
             : undefined;
   // 409 APS_RUN_STALE_BASIS: another run was published after this one was computed; publish only on confirmation.
   const staleBasis = error instanceof ApiError && error.code === "APS_RUN_STALE_BASIS";
@@ -69,7 +69,7 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
     setError(null);
     try {
       onDone(await publishApsRun(run.id, run.row_version, staleBasis));
-      toast(`${tr("common.scheduleNo", { n: run.run_no })} published to the shop floor`);
+      toast(tr("mfg.apsRunShell.tpl.publishedToTheShopFloor", { tr: tr("common.scheduleNo", { n: run.run_no }) }));
       setConfirm(false);
     } catch (e) {
       setError(e);
@@ -83,16 +83,14 @@ export function PublishButton({ run, onDone, testId = "aps-publish" }: { run: Ap
         <Icon name="flag" /> {t("mfg.apsRunShell.btn.publish")}
       </button>
       {confirm ? (
-        <ConfirmDialog title={`Publish ${apsRunTitle(run)}?`} confirmLabel={staleBasis ? "Publish anyway" : "Publish"} busy={busy} onCancel={() => { setConfirm(false); setError(null); }} onConfirm={() => void go()}>
+        <ConfirmDialog title={tr("mfg.apsRunShell.tpl.publish", { run: apsRunTitle(run) })} confirmLabel={staleBasis ? tr("mfg.apsRunShell.str.publishAnyway") : tr("mfg.apsRunShell.str.publish")} busy={busy} onCancel={() => { setConfirm(false); setError(null); }} onConfirm={() => void go()}>
           <p style={{ margin: 0 }}>{t("mfg.apsRunShell.text.itBecomesThePlantPlan")}</p>
           {staleBasis ? (
             <p style={{ margin: "8px 0 0" }} data-testid="aps-publish-stale-basis">
-              <strong>Another schedule was published after this run was computed.</strong> This run froze the next hours
-              from the older plan, so publishing it changes work already planned for the floor. Re-run to plan from the
-              current schedule, or publish anyway.
+              <strong>{tr("mfg.apsRunShell.text.anotherScheduleWasPublishedAfter")}</strong>{" "}{tr("mfg.apsRunShell.text.thisRunFrozeTheNext")}
             </p>
           ) : (
-            <MfgError error={error} title={isConflict(error) ? "The run changed meanwhile; reload" : "Could not publish"} />
+            <MfgError error={error} title={isConflict(error) ? tr("mfg.apsRunShell.str.theRunChangedMeanwhileReload") : tr("mfg.apsRunShell.str.couldNotPublish")} />
           )}
         </ConfirmDialog>
       ) : null}
@@ -124,17 +122,16 @@ export function RerunAllowBanner({ run }: { run: ApsRunRecord }) {
     <Banner
       tone="warn"
       icon="clock"
-      title={`${s.late_demand_count || s.late_orders} ${s.late_demand_count ? (s.late_demand_count === 1 ? "demand line" : "demand lines") : "orders"} still late without overtime`}
+      title={tr("mfg.apsRunShell.tpl.stillLateWithoutOvertime", { v: s.late_demand_count || s.late_orders, v2: s.late_demand_count ? (s.late_demand_count === 1 ? "demand line" : "demand lines") : "orders" })}
       testId="aps-rerun-allow-banner"
       actions={
         <button type="button" className="btn primary" onClick={() => void go()} disabled={!can || busy} title={can ? undefined : needsText("schedule_run")} data-testid="aps-rerun-allow">
-          {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} Re-run with automatic overtime (Allow)
+          {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />}{" "}{tr("mfg.apsRunShell.text.reRunWithAutomaticOvertime")}
         </button>
       }
     >
-      A re-run with the same inputs opens extra shifts where work would otherwise be late and compares lateness saved against overtime added.
-      {saved ? ` Estimated saving: about ${formatNumber(Math.round(saved / 60), 0)} priority-weighted late hours.` : ""} You then publish the plan you prefer.
-      <MfgError error={error} title="Could not start the re-run" />
+      {tr("mfg.apsRunShell.text.aReRunWithThe", { v: saved ? tr("mfg.apsRunShell.tpl.estimatedSavingAboutPriorityWeighted", { formatNumber: formatNumber(Math.round(saved / 60), 0) }) : "" })}
+      <MfgError error={error} title={tr("mfg.apsRunShell.attr.couldNotStartTheRe")} />
     </Banner>
   );
 }
@@ -149,7 +146,7 @@ export function ApsRunShell() {
   const [error, setError] = useState<unknown>(null);
   usePolling(run.reload, Boolean(r && isActive(r)));
 
-  if (run.error && isNotFound(run.error)) return <NotFoundPanel what="Schedule run" back={<Link className="btn" to={mfgPaths.schedule()}>Back to schedules</Link>} />;
+  if (run.error && isNotFound(run.error)) return <NotFoundPanel what={tr("mfg.apsRunShell.attr.scheduleRun")} back={<Link className="btn" to={mfgPaths.schedule()}>{tr("mfg.apsRunShell.text.backToSchedules")}</Link>} />;
   if (run.error && !r) return <MfgError error={run.error} onRetry={run.reload} />;
   if (!r) return <Spinner label={t("mfg.apsRunShell.label.loadingSchedule")} />;
 
@@ -174,15 +171,15 @@ export function ApsRunShell() {
   };
 
   const tabs = [
-    { to: mfgPaths.apsRun(r.id), label: "Summary", key: "summary", end: true },
-    { to: mfgPaths.apsGantt(r.id), label: "Gantt", key: "gantt" },
-    { to: mfgPaths.apsLoad(r.id), label: "Capacity load", key: "load" },
-    { to: mfgPaths.apsDispatch(r.id), label: "Dispatch lists", key: "dispatch" },
-    { to: mfgPaths.apsOrders(r.id), label: "Orders", key: "orders" },
-    { to: mfgPaths.apsDemand(r.id), label: "Demand", key: "demand" },
-    { to: mfgPaths.apsOvertime(r.id), label: "Overtime", key: "overtime" },
-    { to: mfgPaths.apsExceptions(r.id), label: "Exceptions", key: "exceptions" },
-    { to: mfgPaths.apsCompare(r.id), label: "Compare", key: "compare" },
+    { to: mfgPaths.apsRun(r.id), label: tr("mfg.apsRunShell.str.summary"), key: "summary", end: true },
+    { to: mfgPaths.apsGantt(r.id), label: tr("mfg.apsRunShell.str.gantt"), key: "gantt" },
+    { to: mfgPaths.apsLoad(r.id), label: tr("mfg.apsRunShell.str.capacityLoad"), key: "load" },
+    { to: mfgPaths.apsDispatch(r.id), label: tr("mfg.apsRunShell.str.dispatchLists"), key: "dispatch" },
+    { to: mfgPaths.apsOrders(r.id), label: tr("mfg.apsRunShell.str.orders"), key: "orders" },
+    { to: mfgPaths.apsDemand(r.id), label: tr("mfg.apsRunShell.str.demand"), key: "demand" },
+    { to: mfgPaths.apsOvertime(r.id), label: tr("mfg.apsRunShell.str.overtime"), key: "overtime" },
+    { to: mfgPaths.apsExceptions(r.id), label: tr("mfg.apsRunShell.str.exceptions"), key: "exceptions" },
+    { to: mfgPaths.apsCompare(r.id), label: tr("mfg.apsRunShell.str.compare"), key: "compare" },
   ];
   const ctx: ApsRunContext = { run: r, reload: run.reload, setRun: (x) => run.setData(x) };
   const done = r.status === "completed" || r.status === "cancelled";
@@ -190,7 +187,7 @@ export function ApsRunShell() {
   return (
     <div className="col" style={{ gap: 12 }} data-testid="aps-run-shell" data-run-no={r.run_no} data-status={r.status} data-kind={r.kind}>
       <nav aria-label={t("mfg.apsRunShell.aria.breadcrumb")} className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.schedule()}>Schedule</Link> <Icon name="chevron-right" size={12} /> <span>{tr("common.runNo", { n: r.run_no })}</span>
+        <Link to={mfgPaths.schedule()}>{tr("mfg.apsRunShell.text.schedule")}</Link> <Icon name="chevron-right" size={12} /> <span>{tr("common.runNo", { n: r.run_no })}</span>
       </nav>
       <div className="ws-header">
         <div className="ws-title">
@@ -199,12 +196,12 @@ export function ApsRunShell() {
           <ApsStatusChip run={r} />
           <PolicyBadge policy={r.policy} />
           {r.parent_run_id ? (
-            <Link className="badge info" to={mfgPaths.apsRun(r.parent_run_id)} title="Created by manual edits of another run">
+            <Link className="badge info" to={mfgPaths.apsRun(r.parent_run_id)} title={tr("mfg.apsRunShell.attr.createdByManualEditsOf")}>
               <Icon name="copy" /> {t("mfg.apsRunShell.btn.editedCopy")}
             </Link>
           ) : null}
           <span className="muted small">
-            From {clock.dateTime(r.as_of)} ({clock.zoneLabel}){r.mrp_run ? ` · ${tr("common.mrpRunNo", { n: r.mrp_run.run_no })}` : ""} · {fmtTimestamp(r.finished_at ?? r.started_at)} by {r.actor.name}
+            {tr("mfg.apsRunShell.text.fromBy", { asof: clock.dateTime(r.as_of), zoneLabel: clock.zoneLabel, v: r.mrp_run ? ` · ${tr("common.mrpRunNo", { n: r.mrp_run.run_no })}` : "", fmtTimestamp: fmtTimestamp(r.finished_at ?? r.started_at), name: r.actor.name })}
           </span>
         </div>
         <div className="mfg-actions">
@@ -247,25 +244,24 @@ export function ApsRunShell() {
             </Link>
           }
         >
-          {[r.stale.master_changed ? "master data (routings, lines, shifts, people)" : "", r.stale.transactions_changed ? "orders, stock or progress" : ""].filter(Boolean).join(" and ") ||
-            "Inputs"}{" "}
-          changed. The plan is still readable but may be out of date.
+          {tr("mfg.apsRunShell.text.changedThePlanIsStill", { v: [r.stale.master_changed ? tr("mfg.apsRunShell.str.masterDataRoutingsLinesShifts") : "", r.stale.transactions_changed ? tr("mfg.apsRunShell.str.ordersStockOrProgress") : ""].filter(Boolean).join(" and ") ||
+            tr("mfg.apsRunShell.str.inputs"), v2: " " })}
         </Banner>
       ) : null}
       {r.kind === "what_if" ? (
         <Banner tone="info" icon="help" title={t("mfg.apsRunShell.title.whatifScenario")}>
-          For comparison only; it cannot be published.
+          {tr("mfg.apsRunShell.text.forComparisonOnlyItCannot")}
         </Banner>
       ) : null}
-      {r.status === "failed" ? <Banner tone="danger" title={t("mfg.apsRunShell.title.thisRunFailed")}>{r.error?.message ?? "Unexpected error."}</Banner> : null}
+      {r.status === "failed" ? <Banner tone="danger" title={t("mfg.apsRunShell.title.thisRunFailed")}>{r.error?.message ?? tr("mfg.apsRunShell.str.unexpectedError")}</Banner> : null}
       {r.status === "cancelled" ? (
         <Banner tone="warn" title={t("mfg.apsRunShell.title.cancelled")}>
-          {r.summary ? "The best plan found before cancelling is shown." : "No plan was finished before cancelling."}
+          {r.summary ? tr("mfg.apsRunShell.str.theBestPlanFoundBefore") : tr("mfg.apsRunShell.str.noPlanWasFinishedBefore")}
         </Banner>
       ) : null}
       {r.status === "completed" && r.validation && !r.validation.ok ? (
         <Banner tone="danger" icon="x" title={t("mfg.apsRunShell.title.thisPlanBreaksHardRules")} testId="aps-invalid-banner">
-          {r.summary?.violations ? `${r.summary.violations} rule violations. ` : null}
+          {r.summary?.violations ? tr("mfg.apsRunShell.tpl.ruleViolations", { violations: r.summary.violations }) : null}
           {(r.validation.violations ?? []).slice(0, 5).map((v, i) => (
             <div key={i}>
               <code>{v.code}</code> {v.message}
@@ -285,7 +281,7 @@ export function ApsRunShell() {
         {isActive(r) ? (
           <div className="empty" role="status" data-testid="aps-waiting">
             <span className="spinner" aria-hidden />
-            <span>The schedule is being calculated; results appear here when it finishes. You can leave this page.</span>
+            <span>{tr("mfg.apsRunShell.text.theScheduleIsBeingCalculated")}</span>
           </div>
         ) : done ? (
           <Outlet key={r.id} context={ctx} />

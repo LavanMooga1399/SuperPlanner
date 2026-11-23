@@ -14,7 +14,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../lib/i18n";
 
 const resultLabel = (r: FinanceResultSummary) =>
-  `${r.kind === "what_if" ? `What-if${r.label ? `: ${r.label}` : ""}` : `Plan v${r.base_plan_version}`} (${fmtLocal(r.created_at)})`;
+  `${r.kind === "what_if" ? `What-if${r.label ? `: ${r.label}` : ""}` : t("finance.comparePage.tpl.planV", { baseplanversion: r.base_plan_version })} (${fmtLocal(r.created_at)})`;
 
 export function ComparePage() {
   const ctx = useLoadedFinancePlan();
@@ -76,10 +76,10 @@ export function ComparePage() {
         <div className="row wrap gap-lg">
           {(["a", "b"] as const).map((side) => (
             <div className="field" key={side} style={{ minWidth: 280 }}>
-              <label htmlFor={`cmp-${side}`}>Scenario {side.toUpperCase()}</label>
+              <label htmlFor={`cmp-${side}`}>{t("finance.comparePage.text.scenario", { side: side.toUpperCase() })}</label>
               <select id={`cmp-${side}`} className="select" value={(side === "a" ? a : b) ?? ""} onChange={(e) => choose(side, e.target.value)}>
                 <option value="" disabled>
-                  Choose a result
+                  {t("finance.comparePage.text.chooseAResult")}
                 </option>
                 {items.map((r) => (
                   <option key={r.id} value={r.id}>

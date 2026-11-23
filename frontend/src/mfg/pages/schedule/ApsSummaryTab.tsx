@@ -19,13 +19,13 @@ export function ApsSummaryTab() {
   const names = useResourceNames();
   const late = useLoad((signal) => listApsOrders(run.id, { late_only: true, sort: "-late_minutes", limit: 10, offset: 0 }, signal), [run.id]);
   const bn = useLoad((signal) => getBottlenecks(run.id, signal), [run.id]);
-  if (!s) return <p className="muted">No results.</p>;
+  if (!s) return <p className="muted">{tr("mfg.apsSummaryTab.text.noResults")}</p>;
   const util = Object.entries(s.utilisation ?? {}).map(([gid, f]) => ({ gid, pct: f * 100 }));
   const top = util.length ? [...util].sort((a, b) => b.pct - a.pct)[0] : null;
   const tiles: { key: string; label: string; value: string; sub: string; icon: IconName; bad?: boolean; to: string }[] = [
     {
       key: "late",
-      label: "Late demand lines",
+      label: tr("mfg.apsSummaryTab.str.lateDemandLines"),
       value: String(s.demand_lines_late),
       sub: `${tr("common.nOfM", { n: s.demand_lines_on_time, m: s.demand_lines })} on time · ${s.late_orders} late orders${s.max_lateness_minutes ? ` · worst ${fmtDuration(s.max_lateness_minutes)}` : ""}`,
       icon: s.demand_lines_late ? "alert" : "check",
@@ -34,26 +34,26 @@ export function ApsSummaryTab() {
     },
     {
       key: "overtime",
-      label: s.overtime_minutes ? "Overtime used" : "Overtime",
+      label: s.overtime_minutes ? tr("mfg.apsSummaryTab.str.overtimeUsed") : tr("mfg.apsSummaryTab.str.overtime"),
       value: s.overtime_minutes ? fmtDuration(s.overtime_minutes) : "none",
       sub: s.overtime_minutes
         ? `cost ${fmtNum(Math.round(s.overtime_cost))}`
         : s.suggested_overtime_minutes
-          ? `${fmtDuration(s.suggested_overtime_minutes)} suggested, saves ${fmtDuration(s.suggested_tardiness_saved)} weighted lateness`
-          : "regular shifts only",
+          ? tr("mfg.apsSummaryTab.tpl.suggestedSavesWeightedLateness", { suggestedovertimeminutes: fmtDuration(s.suggested_overtime_minutes), suggestedtardinesssaved: fmtDuration(s.suggested_tardiness_saved) })
+          : tr("mfg.apsSummaryTab.str.regularShiftsOnly"),
       icon: "clock",
       to: mfgPaths.apsOvertime(run.id),
     },
     {
       key: "util",
-      label: "Busiest stage",
+      label: tr("mfg.apsSummaryTab.str.busiestStage"),
       value: top ? `${Math.round(top.pct)}%` : "-",
       sub: top ? `${names.group(top.gid).code} ${names.group(top.gid).name}` : "",
       icon: "factory",
       bad: Boolean(top && top.pct >= 95),
       to: mfgPaths.apsLoad(run.id),
     },
-    { key: "setup", label: "Setups", value: fmtDuration(s.setup_minutes) || "0", sub: `${s.changeovers} changeovers`, icon: "refresh", to: mfgPaths.apsGantt(run.id) },
+    { key: "setup", label: tr("mfg.apsSummaryTab.str.setups"), value: fmtDuration(s.setup_minutes) || "0", sub: `${s.changeovers} changeovers`, icon: "refresh", to: mfgPaths.apsGantt(run.id) },
   ];
   const unscheduled = Object.entries(s.unscheduled ?? {}).filter(([, n]) => n > 0);
   return (
@@ -78,22 +78,21 @@ export function ApsSummaryTab() {
           </span>
         ) : (
           <span className="badge danger">
-            <Icon name="x" /> Rules broken: {s.violations}
+            <Icon name="x" />{" "}{tr("mfg.apsSummaryTab.text.rulesBroken", { violations: s.violations })}
           </span>
         )}
         <span>
-          {tr("common.nOfM", { n: s.scheduled_operations, m: s.operations })} operations placed
-          {unscheduled.length ? ` · not placed: ${unscheduled.map(([k, n]) => `${n} ${k.replace(/_/g, " ")}`).join(", ")}` : ""}
+          {tr("mfg.apsSummaryTab.text.operationsPlaced", { tr: tr("common.nOfM", { n: s.scheduled_operations, m: s.operations }), v: unscheduled.length ? ` · not placed: ${unscheduled.map(([k, n]) => `${n} ${k.replace(/_/g, " ")}`).join(", ")}` : "" })}
         </span>
-        {s.avg_flow_days !== null ? <span>· average work order flow {s.avg_flow_days.toFixed(1)} days</span> : null}
-        {s.budget_cut ? <span className="badge warn">improvement time cut short</span> : null}
+        {s.avg_flow_days !== null ? <span>{tr("mfg.apsSummaryTab.text.averageWorkOrderFlowDays", { avgflowdays: s.avg_flow_days.toFixed(1) })}</span> : null}
+        {s.budget_cut ? <span className="badge warn">{tr("mfg.apsSummaryTab.text.improvementTimeCutShort")}</span> : null}
       </div>
       <div className="grid-2" style={{ alignItems: "start" }}>
         <section className="card" data-testid="aps-late-orders">
           <div className="card-header">
             <h3>{t("mfg.apsSummaryTab.head.latestOrders")}</h3>
             <Link to={mfgPaths.apsOrders(run.id)} className="small">
-              All orders <Icon name="arrow-right" size={12} />
+              {tr("mfg.apsSummaryTab.text.allOrders")}{" "}<Icon name="arrow-right" size={12} />
             </Link>
           </div>
           <MfgError error={late.error} onRetry={late.reload} />
@@ -120,7 +119,7 @@ export function ApsSummaryTab() {
                       <Icon name="alert" /> {fmtDuration(o.late_minutes)} late
                     </span>
                     <span className="small muted">
-                      due {clock.dateTime(o.due)}, ends {clock.dateTime(o.end)} · {o.rank_label || `P${o.priority}`}
+                      {tr("mfg.apsSummaryTab.text.dueEnds", { due: clock.dateTime(o.due), end: clock.dateTime(o.end), v: o.rank_label || `P${o.priority}` })}
                     </span>
                   </div>
                   <LateChain text={o.late_text} steps={o.late_chain} />
@@ -135,7 +134,7 @@ export function ApsSummaryTab() {
           </div>
           <MfgError error={bn.error} onRetry={bn.reload} />
           <ul className="mfg-plain-list">
-            {bn.data?.items.length === 0 ? <li className="issue muted">No bottleneck.</li> : null}
+            {bn.data?.items.length === 0 ? <li className="issue muted">{tr("mfg.apsSummaryTab.text.noBottleneck")}</li> : null}
             {bn.data?.items.map((b) => (
               <li key={b.group_id} className="issue" data-testid="bottleneck-row" data-group={b.group.code}>
                 <div className="grow col" style={{ gap: 2 }}>
@@ -146,12 +145,12 @@ export function ApsSummaryTab() {
                     <span className={`badge ${b.utilisation >= 0.95 ? "danger" : "warn"}`}>
                       <Icon name="factory" /> {Math.round(b.utilisation * 100)}% busy
                     </span>
-                    {b.late_chains ? <span className="small muted">holds up {b.late_chains} late orders</span> : null}
+                    {b.late_chains ? <span className="small muted">{tr("mfg.apsSummaryTab.text.holdsUpLateOrders", { latechains: b.late_chains })}</span> : null}
                   </div>
                   {b.suggestion ? (
                     <div className="small">
                       <Icon name="info" size={12} /> {b.suggestion}{" "}
-                      <Link to={mfgPaths.apsOvertime(run.id)}>See overtime</Link>
+                      <Link to={mfgPaths.apsOvertime(run.id)}>{tr("mfg.apsSummaryTab.text.seeOvertime")}</Link>
                     </div>
                   ) : null}
                 </div>

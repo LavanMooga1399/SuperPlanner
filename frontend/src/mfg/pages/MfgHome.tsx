@@ -17,17 +17,17 @@ import { SampleLoader } from "../components/SampleLoader";
 import { MakeBuyBadge } from "../components/StatusChip";
 import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
-import { plural, t as tr, t } from "../../lib/i18n";
+import { plural, t, t as tr } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
 
 const KPIS: { key: keyof SummaryCounts; label: string; sub?: (c: SummaryCounts) => string; to: string }[] = [
-  { key: "items", label: "Items", sub: (c) => `${c.make} make · ${c.buy} buy · ${c.phantom} phantom`, to: mfgPaths.items() },
-  { key: "bom_lines", label: "BOM lines", sub: (c) => `in ${c.boms} BOMs`, to: mfgPaths.items() },
-  { key: "operations", label: "Operations", sub: (c) => `in ${c.routings} routings`, to: mfgPaths.items() },
-  { key: "lines", label: "Lines", sub: (c) => `in ${c.groups} stages`, to: mfgPaths.groups() },
-  { key: "shift_templates", label: "Shift templates", to: mfgPaths.shifts() },
-  { key: "operators", label: "Operators", to: mfgPaths.operators() },
-  { key: "tool_pools", label: "Tool pools", to: mfgPaths.tooling() },
+  { key: "items", label: tr("mfg.mfgHome.str.items"), sub: (c) => `${c.make} make · ${c.buy} buy · ${c.phantom} phantom`, to: mfgPaths.items() },
+  { key: "bom_lines", label: tr("mfg.mfgHome.str.bomLines"), sub: (c) => tr("mfg.mfgHome.tpl.inBoms", { boms: c.boms }), to: mfgPaths.items() },
+  { key: "operations", label: tr("mfg.mfgHome.str.operations"), sub: (c) => tr("mfg.mfgHome.tpl.inRoutings", { routings: c.routings }), to: mfgPaths.items() },
+  { key: "lines", label: tr("mfg.mfgHome.str.lines"), sub: (c) => tr("mfg.mfgHome.tpl.inStages", { groups: c.groups }), to: mfgPaths.groups() },
+  { key: "shift_templates", label: tr("mfg.mfgHome.str.shiftTemplates"), to: mfgPaths.shifts() },
+  { key: "operators", label: tr("mfg.mfgHome.str.operators"), to: mfgPaths.operators() },
+  { key: "tool_pools", label: tr("mfg.mfgHome.str.toolPools"), to: mfgPaths.tooling() },
 ];
 
 function HealthCard({ tick }: { tick: number }) {
@@ -38,13 +38,13 @@ function HealthCard({ tick }: { tick: number }) {
       <div className="card-header">
         <h2>{t("mfg.mfgHome.head.dataHealth")}</h2>
         <Link to={mfgPaths.health()} className="btn sm">
-          Open data health <Icon name="arrow-right" />
+          {tr("mfg.mfgHome.text.openDataHealth")}{" "}<Icon name="arrow-right" />
         </Link>
       </div>
       <div className="card-body">
         {health.loading && !r ? (
           <span className="row muted" role="status">
-            <span className="spinner" aria-hidden /> Checking your data…
+            <span className="spinner" aria-hidden />{" "}{tr("mfg.mfgHome.text.checkingYourData")}
           </span>
         ) : null}
         <MfgError error={health.error} onRetry={health.reload} />
@@ -55,16 +55,16 @@ function HealthCard({ tick }: { tick: number }) {
                 <Icon name="check" /> {tr("mfg.mfgHome.btn.readyForPlanning")}
               </span>
               <span className="muted small">
-                {plural(r.counts.warning, "warning")} · {plural(r.counts.info, "note")}. Nothing blocks planning.
+                {tr("mfg.mfgHome.text.nothingBlocksPlanning", { warning: plural(r.counts.warning, "warning"), info: plural(r.counts.info, "note") })}
               </span>
             </div>
           ) : (
             <div className="row wrap">
               <span className="badge danger">
-                <Icon name="x" /> {r.counts.error} {r.counts.error === 1 ? "problem blocks" : "problems block"} planning
+                <Icon name="x" /> {r.counts.error} {r.counts.error === 1 ? tr("mfg.mfgHome.str.problemBlocks") : tr("mfg.mfgHome.str.problemsBlock")} planning
               </span>
               <span className="muted small">
-                {plural(r.counts.warning, "warning")} · {plural(r.counts.info, "note")}. Each problem has a "Fix" link.
+                {tr("mfg.mfgHome.text.eachProblemHasAFix", { warning: plural(r.counts.warning, "warning"), info: plural(r.counts.info, "note") })}
               </span>
             </div>
           )
@@ -106,18 +106,17 @@ function ResetDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) {
             data-testid="mfg-reset-confirm"
           >
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="trash" />}
-            Delete everything
+            {tr("mfg.mfgHome.text.deleteEverything")}
           </button>
         </>
       }
     >
       <p style={{ margin: 0 }}>
-        Items, BOMs, routings, plant setup, shifts, people and tooling are deleted. Scheduling and finance plans are
-        not affected. This cannot be undone.
+        {tr("mfg.mfgHome.text.itemsBomsRoutingsPlantSetup")}
       </p>
       <div className="field">
         <label htmlFor="mfg-reset-phrase">
-          Type <code>{RESET_PHRASE}</code> to confirm
+          {tr("mfg.mfgHome.text.type")}{" "}<code>{RESET_PHRASE}</code>{" "}{tr("mfg.mfgHome.text.toConfirm")}
         </label>
         <input
           id="mfg-reset-phrase"
@@ -128,7 +127,7 @@ function ResetDialog({ onClose, onDone }: { onClose(): void; onDone(): void }) {
           data-testid="mfg-reset-phrase"
         />
       </div>
-      <MfgError error={error} title="Could not delete the data" />
+      <MfgError error={error} title={tr("mfg.mfgHome.attr.couldNotDeleteTheData")} />
     </Dialog>
   );
 }
@@ -138,10 +137,10 @@ function FloorCard({ summary }: { summary: Summary }) {
   const f = (summary as Summary & { floor?: FloorSummary }).floor;
   if (!f) return null;
   const tiles: { label: string; value: number; to: string; bad?: boolean; testId: string }[] = [
-    { label: "Operations running", value: f.running_ops, to: mfgPaths.floorOverview(), testId: "mfg-floor-running" },
-    { label: "Lines down", value: f.lines_down, to: mfgPaths.floorOverview(), bad: f.lines_down > 0, testId: "mfg-floor-down" },
-    { label: "Changes to replan", value: f.open_triggers, to: mfgPaths.replan(), bad: f.open_triggers > 0, testId: "mfg-floor-triggers" },
-    { label: "Backflush waiting for stock", value: f.pending_backflush, to: mfgPaths.kitting(), bad: f.pending_backflush > 0, testId: "mfg-floor-backflush" },
+    { label: tr("mfg.mfgHome.str.operationsRunning"), value: f.running_ops, to: mfgPaths.floorOverview(), testId: "mfg-floor-running" },
+    { label: tr("mfg.mfgHome.str.linesDown"), value: f.lines_down, to: mfgPaths.floorOverview(), bad: f.lines_down > 0, testId: "mfg-floor-down" },
+    { label: tr("mfg.mfgHome.str.changesToReplan"), value: f.open_triggers, to: mfgPaths.replan(), bad: f.open_triggers > 0, testId: "mfg-floor-triggers" },
+    { label: tr("mfg.mfgHome.str.backflushWaitingForStock"), value: f.pending_backflush, to: mfgPaths.kitting(), bad: f.pending_backflush > 0, testId: "mfg-floor-backflush" },
   ];
   return (
     <section className="card" data-testid="mfg-floor-card">
@@ -176,35 +175,35 @@ function PlanningCard({ summary }: { summary: Summary }) {
   if (c.open_demand_lines === undefined) return null;
   const run = x.latest_run ?? null;
   const tiles: { label: string; value: number; to: string; bad?: boolean; testId: string }[] = [
-    { label: "Open demand lines", value: c.open_demand_lines ?? 0, to: mfgPaths.demand(), testId: "mfg-count-open-demand" },
-    { label: "Open work orders", value: c.open_work_orders ?? 0, to: mfgPaths.workOrders(), testId: "mfg-count-open-wo" },
-    { label: "Open purchase orders", value: c.open_purchase_orders ?? 0, to: mfgPaths.purchaseDocs("po"), testId: "mfg-count-open-po" },
-    { label: "Open purchase requests", value: c.open_purchase_requests ?? 0, to: mfgPaths.purchaseDocs("pr"), testId: "mfg-count-open-pr" },
-    { label: "Overdue deliveries", value: c.overdue_schedules ?? 0, to: mfgPaths.deliveryBoard({ overdue: "1" }), bad: (c.overdue_schedules ?? 0) > 0, testId: "mfg-count-overdue" },
+    { label: tr("mfg.mfgHome.str.openDemandLines"), value: c.open_demand_lines ?? 0, to: mfgPaths.demand(), testId: "mfg-count-open-demand" },
+    { label: tr("mfg.mfgHome.str.openWorkOrders"), value: c.open_work_orders ?? 0, to: mfgPaths.workOrders(), testId: "mfg-count-open-wo" },
+    { label: tr("mfg.mfgHome.str.openPurchaseOrders"), value: c.open_purchase_orders ?? 0, to: mfgPaths.purchaseDocs("po"), testId: "mfg-count-open-po" },
+    { label: tr("mfg.mfgHome.str.openPurchaseRequests"), value: c.open_purchase_requests ?? 0, to: mfgPaths.purchaseDocs("pr"), testId: "mfg-count-open-pr" },
+    { label: tr("mfg.mfgHome.str.overdueDeliveries"), value: c.overdue_schedules ?? 0, to: mfgPaths.deliveryBoard({ overdue: "1" }), bad: (c.overdue_schedules ?? 0) > 0, testId: "mfg-count-overdue" },
   ];
   return (
     <section className="card" data-testid="mfg-planning-card">
       <div className="card-header">
-        <h2>Planning & stores</h2>
+        <h2>{tr("mfg.mfgHome.text.planningStores")}</h2>
         <span className="row" style={{ gap: 6 }}>
         {ps ? (
           <Link to={mfgPaths.apsRun(ps.id)} className="btn sm" data-testid="mfg-published-schedule">
-            {tr("common.scheduleNo", { n: ps.run_no })}: {ps.late_orders ? `${ps.late_orders} late orders` : "all on time"}
-            {ps.stale ? " (out of date)" : ""} <Icon name="arrow-right" />
+            {tr("common.scheduleNo", { n: ps.run_no })}: {ps.late_orders ? tr("mfg.mfgHome.tpl.lateOrders", { lateorders: ps.late_orders }) : tr("mfg.mfgHome.str.allOnTime")}
+            {ps.stale ? tr("mfg.mfgHome.str.outOfDate") : ""} <Icon name="arrow-right" />
           </Link>
         ) : (
           <Link to={mfgPaths.schedule()} className="btn sm">
-            Schedule production <Icon name="arrow-right" />
+            {tr("mfg.mfgHome.text.scheduleProduction")}{" "}<Icon name="arrow-right" />
           </Link>
         )}
         {run ? (
           <Link to={mfgPaths.run(run.id)} className="btn sm">
-            {tr("common.mrpRunNo", { n: run.run_no })}: {run.demand_late ? `${run.demand_late} late` : "all on time"}
-            {run.stale ? " (out of date)" : ""} <Icon name="arrow-right" />
+            {tr("common.mrpRunNo", { n: run.run_no })}: {run.demand_late ? `${run.demand_late} late` : tr("mfg.mfgHome.str.allOnTime")}
+            {run.stale ? tr("mfg.mfgHome.str.outOfDate") : ""} <Icon name="arrow-right" />
           </Link>
         ) : (
           <Link to={mfgPaths.mrp()} className="btn sm">
-            Run MRP <Icon name="arrow-right" />
+            {tr("mfg.mfgHome.text.runMrp")}{" "}<Icon name="arrow-right" />
           </Link>
         )}
         </span>
@@ -255,7 +254,7 @@ export function MfgHome() {
           tone={loaded.health.ok ? "ok" : "warn"}
           role="status"
           testId="sample-loaded"
-          title={`Sample "${loaded.sample_id}" loaded`}
+          title={tr("mfg.mfgHome.tpl.sampleLoaded", { sampleid: loaded.sample_id })}
           actions={
             <Link className="btn sm" to={mfgPaths.items()}>
               {tr("mfg.mfgHome.btn.browseItems")}
@@ -263,8 +262,8 @@ export function MfgHome() {
           }
         >
           {loaded.health.ok
-            ? `Data health: ready for planning (${plural(loaded.health.counts.warning, "warning")}, ${plural(loaded.health.counts.info, "note")}).`
-            : `Data health: ${plural(loaded.health.counts.error, "problem")} to fix.`}
+            ? tr("mfg.mfgHome.tpl.dataHealthReadyForPlanning", { warning: plural(loaded.health.counts.warning, "warning"), info: plural(loaded.health.counts.info, "note") })
+            : tr("mfg.mfgHome.tpl.dataHealthToFix", { error: plural(loaded.health.counts.error, "problem") })}
         </Banner>
       ) : null}
       {resetDone ? (
@@ -275,8 +274,7 @@ export function MfgHome() {
 
       {empty ? (
         <Banner tone="accent" title={tr("mfg.mfgHome.title.noManufacturingDataYet")} testId="mfg-empty">
-          Load a sample below to explore, or import your item master and BOMs from Excel. You can also start by
-          describing the plant (stages, lines and shifts) under Plant.
+          {tr("mfg.mfgHome.text.loadASampleBelowTo")}
         </Banner>
       ) : null}
 
@@ -303,14 +301,13 @@ export function MfgHome() {
           <div className="card-header">
             <h2>{t("mfg.mfgHome.head.endItems")}</h2>
             <Link to={mfgPaths.items()} className="btn sm ghost">
-              All items <Icon name="arrow-right" />
+              {tr("mfg.mfgHome.text.allItems")}{" "}<Icon name="arrow-right" />
             </Link>
           </div>
           <div className="card-body">
             {summary.data && summary.data.end_items.length === 0 ? (
               <p className="muted small" style={{ margin: 0 }}>
-                End items are the finished products: make items with a BOM or routing that are not used inside
-                another item.
+                {tr("mfg.mfgHome.text.endItemsAreTheFinished")}
               </p>
             ) : null}
             <ul className="mfg-plain-list">
@@ -347,7 +344,7 @@ export function MfgHome() {
         </summary>
         <div className="card-body row wrap">
           <span className="grow muted small">
-            Start over: delete all manufacturing data of your account (scheduling and finance plans stay).
+            {tr("mfg.mfgHome.text.startOverDeleteAllManufacturing")}
           </span>
           <button type="button" className="btn danger sm" onClick={() => setResetOpen(true)} data-testid="mfg-reset">
             <Icon name="trash" /> {tr("mfg.mfgHome.btn.deleteAllManufacturingData")}

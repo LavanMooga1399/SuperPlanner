@@ -44,7 +44,7 @@ export function FloorBatch() {
     try {
       await createBatchLoad({ line_id: lineId, members });
       setPick({});
-      floor.flash("Load created");
+      floor.flash(t("floor.floorBatch.str.loadCreated"));
       loads.reload();
     } catch (e) {
       setError(floorErrorText(e));
@@ -68,9 +68,9 @@ export function FloorBatch() {
           ...crewForEvent(floor.crew),
           ...(type === "complete" ? { qty_good: l.members.reduce((a, m) => a + m.qty, 0) } : {}),
         },
-        `${type === "start" ? "Start" : "Complete"} load`,
+        `${type === "start" ? t("floor.floorBatch.str.start") : t("floor.floorBatch.str.complete")} load`,
       );
-      floor.flash(out.status === "queued" ? "Saved on this tablet; it will sync when the network is back" : type === "start" ? "Load started" : "Load completed");
+      floor.flash(out.status === "queued" ? t("floor.floorBatch.str.savedOnThisTabletIt") : type === "start" ? t("floor.floorBatch.str.loadStarted") : t("floor.floorBatch.str.loadCompleted"));
       loads.reload();
       queue.reload();
     } catch (e) {
@@ -84,7 +84,7 @@ export function FloorBatch() {
     <>
       <section className="floor-card">
         <div className="row wrap" style={{ justifyContent: "space-between" }}>
-          <h1>Batch loads{queue.data ? ` · ${queue.data.line.code}` : ""}</h1>
+          <h1>{t("floor.floorBatch.text.batchLoads", { v: queue.data ? ` · ${queue.data.line.code}` : "" })}</h1>
           <Link className="btn floor-btn" to={mfgPaths.floorLine(lineId)}>
             {t("floor.floorBatch.btn.backToTheQueue")}
           </Link>
@@ -101,7 +101,7 @@ export function FloorBatch() {
         <section key={l.id} className={`floor-card${focusLoad === l.id ? " floor-tile active" : ""}`} data-testid="floor-batch-load" data-status={l.status}>
           <div className="row wrap" style={{ justifyContent: "space-between" }}>
             <h2>
-              Load {l.load_no || l.id.slice(-6)} · {fmtQty(l.units)} units · {l.status === "running" ? `running since ${clock.time(l.started_at)}` : "ready to start"}
+              {t("floor.floorBatch.text.loadUnits", { v: l.load_no || l.id.slice(-6), units: fmtQty(l.units), v2: l.status === "running" ? t("floor.floorBatch.tpl.runningSince", { startedat: clock.time(l.started_at) }) : t("floor.floorBatch.str.readyToStart") })}
             </h2>
             {canReport ? (
               <div className="row">
@@ -134,7 +134,7 @@ export function FloorBatch() {
       {canReport ? (
         <section className="floor-card">
           <h2>{t("floor.floorBatch.head.newLoad")}</h2>
-          {waiting.length === 0 ? <span className="muted">No waiting operations on this line.</span> : null}
+          {waiting.length === 0 ? <span className="muted">{t("floor.floorBatch.text.noWaitingOperationsOnThis")}</span> : null}
           <table className="floor-table">
             <tbody>
               {waiting.map((r) => (
@@ -148,13 +148,13 @@ export function FloorBatch() {
                   </td>
                   <td style={{ width: 160 }}>
                     <label className="sr-only" htmlFor={`bq-${r.wo_operation_id}`}>
-                      Units of {r.wo.number}
+                      {t("floor.floorBatch.text.unitsOf", { number: r.wo.number })}
                     </label>
                     <input
                       id={`bq-${r.wo_operation_id}`}
                       className="input"
                       inputMode="decimal"
-                      placeholder={`up to ${fmtQty((r.qty_planned || r.wo.qty) - r.qty_good)}`}
+                      placeholder={t("floor.floorBatch.tpl.upTo", { fmtQty: fmtQty((r.qty_planned || r.wo.qty) - r.qty_good) })}
                       value={pick[r.wo_operation_id] ?? ""}
                       onChange={(e) => setPick({ ...pick, [r.wo_operation_id]: e.target.value.replace(/[^0-9.]/g, "") })}
                     />

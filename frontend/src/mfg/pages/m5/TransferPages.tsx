@@ -28,16 +28,16 @@ import { FilterBar } from "../../../components/FilterBar";
 import { DataTable } from "../../components/DataTable";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { DateInput } from "../../../components/DateInput";
-import { t as tr, plural } from "../../../lib/i18n";
+import { plural, t as tr } from "../../../lib/i18n";
 
 type TransferLine = TransferOrder["lines"][number];
 const LINE_COLS: Column<TransferLine>[] = [
-  { key: "line", header: "Line", width: "72px", sortValue: (l) => l.line_no, render: (l) => l.line_no },
-  { key: "item", header: "Item", width: "minmax(160px, 1.5fr)", exportValue: (l) => l.item_id, render: (l) => <ItemCode id={l.item_id} /> },
-  { key: "qty", header: "Qty", width: "100px", align: "right", sortValue: (l) => l.qty, render: (l) => fmtNum(l.qty) },
-  { key: "shipped", header: "Shipped", width: "100px", align: "right", sortValue: (l) => l.shipped_qty, render: (l) => fmtNum(l.shipped_qty) },
-  { key: "received", header: "Received", width: "100px", align: "right", sortValue: (l) => l.received_qty, render: (l) => fmtNum(l.received_qty) },
-  { key: "dates", header: "Ship → arrives", width: "minmax(200px, 1fr)", sortValue: (l) => l.ship_date, render: (l) => `${fmtDate(l.ship_date)} → ${fmtDate(l.receive_date)}` },
+  { key: "line", header: tr("mfg.transferPages.str.line"), width: "72px", sortValue: (l) => l.line_no, render: (l) => l.line_no },
+  { key: "item", header: tr("mfg.transferPages.str.item"), width: "minmax(160px, 1.5fr)", exportValue: (l) => l.item_id, render: (l) => <ItemCode id={l.item_id} /> },
+  { key: "qty", header: tr("mfg.transferPages.str.qty"), width: "100px", align: "right", sortValue: (l) => l.qty, render: (l) => fmtNum(l.qty) },
+  { key: "shipped", header: tr("mfg.transferPages.str.shipped"), width: "100px", align: "right", sortValue: (l) => l.shipped_qty, render: (l) => fmtNum(l.shipped_qty) },
+  { key: "received", header: tr("mfg.transferPages.str.received"), width: "100px", align: "right", sortValue: (l) => l.received_qty, render: (l) => fmtNum(l.received_qty) },
+  { key: "dates", header: tr("mfg.transferPages.str.shipArrives"), width: "minmax(200px, 1fr)", sortValue: (l) => l.ship_date, render: (l) => `${fmtDate(l.ship_date)} → ${fmtDate(l.receive_date)}` },
 ];
 
 /** part number of an item id (transfer lines carry ids only) */
@@ -47,13 +47,13 @@ function ItemCode({ id }: { id: string }) {
 }
 
 const STATUS: Record<TransferStatus, { label: string; tone: string }> = {
-  draft: { label: "Draft", tone: "info" },
-  open: { label: "Open", tone: "accent" },
-  partly_shipped: { label: "Partly shipped", tone: "warn" },
-  shipped: { label: "Shipped", tone: "warn" },
-  received: { label: "Received", tone: "ok" },
-  closed: { label: "Closed", tone: "info" },
-  cancelled: { label: "Cancelled", tone: "info" },
+  draft: { label: tr("mfg.transferPages.str.draft"), tone: "info" },
+  open: { label: tr("mfg.transferPages.str.open"), tone: "accent" },
+  partly_shipped: { label: tr("mfg.transferPages.str.partlyShipped"), tone: "warn" },
+  shipped: { label: tr("mfg.transferPages.str.shipped"), tone: "warn" },
+  received: { label: tr("mfg.transferPages.str.received"), tone: "ok" },
+  closed: { label: tr("mfg.transferPages.str.closed"), tone: "info" },
+  cancelled: { label: tr("mfg.transferPages.str.cancelled"), tone: "info" },
 };
 
 function TrfStatus({ s }: { s: TransferStatus }) {
@@ -73,7 +73,7 @@ export function TransfersPage() {
   const data = usePaged<TransferOrder>((offset, limit, signal) => listTransfers({ direction: dir === "inbound" ? "in" : "out", limit, offset }, signal), [dir]);
   const [creating, setCreating] = useState(false);
   useEffect(() => {
-    document.title = "Transfers - SuperPlanner";
+    document.title = tr("mfg.transferPages.str.transfersSuperplanner");
   }, []);
   const plantOf = (t: TransferOrder) => {
     const p = dir === "outbound" ? t.dest_plant : t.source_plant;
@@ -82,7 +82,7 @@ export function TransfersPage() {
   const columns: Column<TransferOrder>[] = [
     {
       key: "number",
-      header: "Transfer",
+      header: tr("mfg.transferPages.str.transfer"),
       width: "140px",
       exportValue: (t) => t.number,
       render: (t) => (
@@ -91,10 +91,10 @@ export function TransfersPage() {
         </Link>
       ),
     },
-    { key: "plant", header: dir === "outbound" ? "To" : "From", label: "Plant", width: "minmax(200px, 1.5fr)", render: plantOf },
-    { key: "status", header: "Status", width: "150px", exportValue: (t) => STATUS[t.status]?.label ?? t.status, render: (t) => <TrfStatus s={t.status} /> },
-    { key: "lines", header: "Lines", width: "minmax(150px, 1fr)", render: (t) => `${plural(t.lines.length, "line")}, ${fmtNum(t.lines.reduce((a, l) => a + l.qty, 0))} units` },
-    { key: "dates", header: "Ship → arrives", width: "200px", render: (t) => (t.lines[0] ? `${fmtDate(t.lines[0].ship_date)} → ${fmtDate(t.lines[0].receive_date)}` : "") },
+    { key: "plant", header: dir === "outbound" ? tr("mfg.transferPages.str.to") : tr("mfg.transferPages.str.from"), label: tr("mfg.transferPages.str.plant"), width: "minmax(200px, 1.5fr)", render: plantOf },
+    { key: "status", header: tr("mfg.transferPages.str.status"), width: "150px", exportValue: (t) => STATUS[t.status]?.label ?? t.status, render: (t) => <TrfStatus s={t.status} /> },
+    { key: "lines", header: tr("mfg.transferPages.str.lines"), width: "minmax(150px, 1fr)", render: (t) => `${plural(t.lines.length, "line")}, ${fmtNum(t.lines.reduce((a, l) => a + l.qty, 0))} units` },
+    { key: "dates", header: tr("mfg.transferPages.str.shipArrives"), width: "200px", render: (t) => (t.lines[0] ? `${fmtDate(t.lines[0].ship_date)} → ${fmtDate(t.lines[0].receive_date)}` : "") },
   ];
   return (
     <div className="col gap-lg" data-testid="transfers-page">
@@ -112,7 +112,7 @@ export function TransfersPage() {
       <FilterBar>
         <div className="field">
           <span className="field-label" id="trf-dir-label">
-            Direction
+            {tr("mfg.transferPages.text.direction")}
           </span>
           <div className="btn-group" role="group" aria-labelledby="trf-dir-label">
             <button type="button" className="btn" aria-pressed={dir === "outbound"} onClick={() => setSearchParam(setParams, "dir", "outbound")}>
@@ -129,7 +129,7 @@ export function TransfersPage() {
         rows={data.rows}
         columns={columns}
         rowKey={(t) => t.id}
-        label={dir === "outbound" ? "Outgoing transfers" : "Incoming transfers"}
+        label={dir === "outbound" ? tr("mfg.transferPages.str.outgoingTransfers") : tr("mfg.transferPages.str.incomingTransfers")}
         testId="transfer-table"
         tableId="transfer-table"
         totalCount={data.total}
@@ -137,7 +137,7 @@ export function TransfersPage() {
         onEndReached={data.onEndReached}
         exportName={`transfers-${dir}`}
         rowExtras={(t) => ({ testId: "transfer-row", data: { status: t.status } })}
-        empty={dir === "outbound" ? "No outgoing transfers. Create one to send stock to another plant of your organisation." : "No incoming transfers. Transfers other plants send here appear in this list."}
+        empty={dir === "outbound" ? tr("mfg.transferPages.str.noOutgoingTransfersCreateOne") : tr("mfg.transferPages.str.noIncomingTransfersTransfersOther")}
         card={{ title: "number", status: "status", fields: ["plant", "lines", "dates"] }}
       />
       {creating ? <NewTransferDialog onClose={() => setCreating(false)} onSaved={(t) => navigate(mfgPaths.transfer(t.id))} /> : null}
@@ -185,7 +185,7 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
             }}
             data-testid="transfer-save"
           >
-            Create
+            {tr("mfg.transferPages.text.create")}
           </button>
         </>
       }
@@ -194,7 +194,7 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
         <div className="field">
           <label htmlFor="tf-dest">{tr("mfg.transferPages.label.toPlant")}</label>
           <select id="tf-dest" className="select" value={dest} onChange={(e) => setDest(e.target.value)} data-testid="transfer-dest">
-            <option value="">{targets.length ? "Choose…" : "No other plant of your organisation is open to you"}</option>
+            <option value="">{targets.length ? tr("mfg.transferPages.str.choose") : tr("mfg.transferPages.str.noOtherPlantOfYour")}</option>
             {targets.map((w) => (
               <option key={w.owner_id} value={w.owner_id}>
                 {w.plant_code ? `${w.plant_code} · ` : ""}
@@ -246,7 +246,7 @@ function NewTransferDialog({ onClose, onSaved }: { onClose(): void; onSaved(t: T
           <label htmlFor="tf-note">{tr("mfg.transferPages.label.note")}</label>
           <input id="tf-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
-        <span className="faint small">The receiving plant needs the same items (same external reference or part number); publish master data first if not.</span>
+        <span className="faint small">{tr("mfg.transferPages.text.theReceivingPlantNeedsThe")}</span>
         <MfgError error={error} />
       </div>
     </Dialog>
@@ -281,7 +281,7 @@ export function TransferPage() {
   return (
     <div className="col gap-lg" data-testid="transfer-page" data-status={d.status} data-direction={d.direction}>
       <nav className="breadcrumb" aria-label={tr("mfg.transferPages.aria.breadcrumb")}>
-        <Link to={`${mfgPaths.transfers()}?dir=${out ? "outbound" : "inbound"}`}>Transfers</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{d.number}</span>
+        <Link to={`${mfgPaths.transfers()}?dir=${out ? "outbound" : "inbound"}`}>{tr("mfg.transferPages.text.transfers")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{d.number}</span>
       </nav>
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
         <div className="col" style={{ gap: 4 }}>
@@ -292,7 +292,7 @@ export function TransferPage() {
             {d.source_plant.code}
             {d.source_plant.name ? ` · ${d.source_plant.name}` : ""} <Icon name="arrow-right" size={12} /> {d.dest_plant.code}
             {d.dest_plant.name ? ` · ${d.dest_plant.name}` : ""}
-            {out ? " (sent from this plant)" : " (coming to this plant)"}
+            {out ? tr("mfg.transferPages.str.sentFromThisPlant") : tr("mfg.transferPages.str.comingToThisPlant")}
           </span>
         </div>
         <div className="row wrap">
@@ -323,13 +323,13 @@ export function TransferPage() {
           ) : null}
         </div>
       </div>
-      {!out && d.status === "open" ? <Banner tone="info" title={tr("mfg.transferPages.title.notShippedYet")}>The sending plant has not shipped; planning here already counts it as arriving on the dates below.</Banner> : null}
+      {!out && d.status === "open" ? <Banner tone="info" title={tr("mfg.transferPages.title.notShippedYet")}>{tr("mfg.transferPages.text.theSendingPlantHasNot")}</Banner> : null}
       <MfgError error={error} />
       <DataTable
         rows={d.lines}
         columns={LINE_COLS}
         rowKey={(l) => l.id}
-        label={`Lines of ${d.number}`}
+        label={tr("mfg.transferPages.tpl.linesOf", { number: d.number })}
         testId="transfer-lines"
         exportName={`transfer-${d.number}`}
         rowExtras={() => ({ testId: "transfer-line-row" })}
@@ -365,7 +365,7 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
   }, [locs.data, ship]);
   return (
     <Dialog
-      title={`${ship ? "Ship" : "Receive"} ${t.number}`}
+      title={`${ship ? tr("mfg.transferPages.str.ship") : tr("mfg.transferPages.str.receive")} ${t.number}`}
       onClose={onClose}
       wide
       footer={
@@ -394,7 +394,7 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
             }}
             data-testid="transfer-move-submit"
           >
-            {ship ? "Post shipment" : "Post receipt"}
+            {ship ? tr("mfg.transferPages.str.postShipment") : tr("mfg.transferPages.str.postReceipt")}
           </button>
         </>
       }
@@ -403,7 +403,7 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
         <thead>
           <tr>
             <th>{tr("mfg.transferPages.head.item")}</th>
-            <th>{ship ? "From" : "Into"}</th>
+            <th>{ship ? tr("mfg.transferPages.str.from") : tr("mfg.transferPages.str.into")}</th>
             <th>{tr("mfg.transferPages.head.lot")}</th>
             <th>{tr("mfg.transferPages.head.qty")}</th>
           </tr>
@@ -416,7 +416,7 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
               </td>
               <td>
                 <select className="select sm" aria-label={tr("mfg.transferPages.aria.location")} value={r.loc} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, loc: e.target.value } : y)))}>
-                  <option value="">Choose…</option>
+                  <option value="">{tr("mfg.transferPages.text.choose")}</option>
                   {(locs.data?.items ?? []).map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.code}
@@ -425,7 +425,7 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
                 </select>
               </td>
               <td>
-                <input className="input sm mono" aria-label={tr("mfg.transferPages.aria.lot")} value={r.lot} placeholder={ship ? "FEFO if empty" : "as shipped"} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, lot: e.target.value } : y)))} />
+                <input className="input sm mono" aria-label={tr("mfg.transferPages.aria.lot")} value={r.lot} placeholder={ship ? tr("mfg.transferPages.str.fefoIfEmpty") : tr("mfg.transferPages.str.asShipped")} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, lot: e.target.value } : y)))} />
               </td>
               <td>
                 <input className="input sm" inputMode="decimal" aria-label={tr("mfg.transferPages.aria.quantity")} value={r.qty} onChange={(e) => setRows((x) => x.map((y, k) => (k === i ? { ...y, qty: e.target.value } : y)))} data-testid="transfer-move-qty" />
@@ -434,7 +434,7 @@ function MoveDialog({ t, type, onClose, onDone }: { t: TransferOrder; type: "tra
           ))}
         </tbody>
       </table>
-      <p className="faint small">{ship ? "Stock leaves this plant now and is in transit until the other plant receives it." : "Lots and serial numbers keep their identity from the sending plant."}</p>
+      <p className="faint small">{ship ? tr("mfg.transferPages.str.stockLeavesThisPlantNow") : tr("mfg.transferPages.str.lotsAndSerialNumbersKeep")}</p>
       <MfgError error={error} />
     </Dialog>
   );

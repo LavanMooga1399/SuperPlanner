@@ -3,7 +3,7 @@ import type { ResultCashflow } from "../api/types";
 import { ChartPoint, ChartTooltip, type TooltipRow } from "./ChartTooltip";
 import { Legend } from "./Legend";
 import { linearScale, niceTicks, useWidth } from "./scales";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 interface YearRow {
   label: string;
@@ -20,12 +20,12 @@ interface YearRow {
 }
 
 const OUT_KEYS: { key: keyof YearRow; label: string; color: string }[] = [
-  { key: "essential", label: "Essential expenses", color: "var(--fin-c8)" },
-  { key: "discretionary", label: "Other expenses", color: "var(--fin-c3)" },
-  { key: "debt", label: "Loan payments", color: "var(--fin-c5)" },
-  { key: "oneOffOut", label: "One-off expenses", color: "var(--fin-c4)" },
-  { key: "ef", label: "Emergency fund", color: "var(--fin-c2)" },
-  { key: "goals", label: "Goal contributions", color: "var(--fin-c1)" },
+  { key: "essential", label: tr("finance.cashflowChart.str.essentialExpenses"), color: "var(--fin-c8)" },
+  { key: "discretionary", label: tr("finance.cashflowChart.str.otherExpenses"), color: "var(--fin-c3)" },
+  { key: "debt", label: tr("finance.cashflowChart.str.loanPayments"), color: "var(--fin-c5)" },
+  { key: "oneOffOut", label: tr("finance.cashflowChart.str.oneOffExpenses"), color: "var(--fin-c4)" },
+  { key: "ef", label: tr("finance.cashflowChart.str.emergencyFund"), color: "var(--fin-c2)" },
+  { key: "goals", label: tr("finance.cashflowChart.str.goalContributions"), color: "var(--fin-c1)" },
 ];
 
 const M = { l: 64, r: 14, t: 14, b: 26 };
@@ -88,16 +88,16 @@ export function CashflowChart({
   const labelEvery = Math.max(1, Math.ceil(years.length / Math.max(3, Math.floor(innerW / 60))));
 
   const rowsFor = (r: YearRow): TooltipRow[] => [
-    { label: "Income", value: format(r.income), color: "var(--fin-income)" },
-    ...(r.inflow > 0 ? [{ label: "One-off inflows", value: format(r.inflow), color: "var(--fin-c6)" }] : []),
+    { label: tr("finance.cashflowChart.str.income"), value: format(r.income), color: "var(--fin-income)" },
+    ...(r.inflow > 0 ? [{ label: tr("finance.cashflowChart.str.oneOffInflows"), value: format(r.inflow), color: "var(--fin-c6)" }] : []),
     ...OUT_KEYS.filter((k) => (r[k.key] as number) > 0.5).map((k) => ({ label: k.label, value: format(r[k.key] as number), color: k.color })),
-    { label: "Surplus before saving", value: format(r.surplus) },
+    { label: tr("finance.cashflowChart.str.surplusBeforeSaving"), value: format(r.surplus) },
   ];
 
   return (
     <figure className="chart-box" data-testid={testId} style={{ margin: 0 }}>
       <div ref={ref} style={{ position: "relative" }}>
-        <svg width={width} height={height} role="img" aria-label={`Yearly cash flow over ${years.length} years: income compared with expenses, loan payments and savings, in today's money.`}>
+        <svg width={width} height={height} role="img" aria-label={tr("finance.cashflowChart.tpl.yearlyCashFlowOverYears", { length: years.length })}>
           {ticks.map((t) => (
             <g key={t}>
               <line x1={M.l} x2={M.l + innerW} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--grid-strong)" : "var(--grid)"} />
@@ -122,7 +122,7 @@ export function CashflowChart({
                 })}
                 {Math.abs(r.oneOffNet) > 0.5 ? (
                   <path d={`M${cx(i)},${M.t - 2}l4,-6h-8z`} fill="var(--fin-c4)" transform={`translate(0, 8)`}>
-                    <title>One-off in this year</title>
+                    <title>{tr("finance.cashflowChart.text.oneOffInThisYear")}</title>
                   </path>
                 ) : null}
                 {i % labelEvery === 0 ? (
@@ -144,14 +144,14 @@ export function CashflowChart({
               key={r.label}
               x={cx(i)}
               y={y(r.surplus)}
-              label={`Year from ${r.label}: income ${format(r.income)}, surplus ${format(r.surplus)}, goal contributions ${format(r.goals)}`}
+              label={tr("finance.cashflowChart.tpl.yearFromIncomeSurplusGoal", { label: r.label, income: format(r.income), surplus: format(r.surplus), goals: format(r.goals) })}
               onFocus={() => setHover(i)}
               onBlur={() => setHover(null)}
             />
           ))}
         </div>
         {hover !== null && years[hover] ? (
-          <ChartTooltip x={cx(hover)} y={y(years[hover].surplus)} width={width} title={`Year from ${years[hover].label}`} rows={rowsFor(years[hover])} />
+          <ChartTooltip x={cx(hover)} y={y(years[hover].surplus)} width={width} title={tr("finance.cashflowChart.tpl.yearFrom", { label: years[hover].label })} rows={rowsFor(years[hover])} />
         ) : null}
       </div>
       <Legend
@@ -164,7 +164,7 @@ export function CashflowChart({
         ]}
       />
       <table className="sr-only">
-        <caption>Cash flow per plan year, today's money</caption>
+        <caption>{tr("finance.cashflowChart.text.cashFlowPerPlanYear")}</caption>
         <thead>
           <tr>
             <th scope="col">{t("finance.cashflowChart.head.yearFrom")}</th>

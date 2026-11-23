@@ -38,7 +38,7 @@ export function SkillsPage() {
           </button>
         </div>
         <MfgError error={skills.error} onRetry={skills.reload} />
-        <MfgError error={error} title="The action failed" />
+        <MfgError error={error} title={t("mfg.skillsPage.attr.theActionFailed")} />
         {skills.loading && !skills.data ? <Spinner /> : null}
         {skills.data ? (
           <RecordList
@@ -67,7 +67,7 @@ export function SkillsPage() {
             onDelete={() => setDel(selected)}
           />
         ) : (
-          <div className="card card-body muted">Select a skill to see who holds it and when they work.</div>
+          <div className="card card-body muted">{t("mfg.skillsPage.text.selectASkillToSee")}</div>
         )}
       </aside>
       {editing ? (
@@ -83,7 +83,7 @@ export function SkillsPage() {
       ) : null}
       {del ? (
         <ConfirmDialog
-          title={`Delete skill ${del.code}?`}
+          title={t("mfg.skillsPage.tpl.deleteSkill", { code: del.code })}
           confirmLabel={t("mfg.skillsPage.btn.delete")}
           danger
           onCancel={() => setDel(null)}
@@ -116,7 +116,7 @@ function SkillHolders({ skill, onEdit, onDelete }: { skill: SkillRecord; onEdit(
           <button type="button" className="btn sm" onClick={onEdit} data-testid="skill-edit">
             {t("mfg.skillsPage.btn.edit")}
           </button>
-          <button type="button" className="btn sm ghost icon" onClick={onDelete} aria-label={`Delete skill ${skill.code}`}>
+          <button type="button" className="btn sm ghost icon" onClick={onDelete} aria-label={t("mfg.skillsPage.tpl.deleteSkill2", { code: skill.code })}>
             <Icon name="trash" />
           </button>
         </span>
@@ -128,7 +128,7 @@ function SkillHolders({ skill, onEdit, onDelete }: { skill: SkillRecord; onEdit(
         {ops.loading && !ops.data ? <Spinner /> : null}
         {ops.data && ops.data.items.length === 0 ? (
           <p className="muted small" style={{ margin: 0 }}>
-            Nobody yet. Operations needing {skill.code} cannot be staffed. <Link to={mfgPaths.operators()}>Add the skill to an operator</Link>.
+            {t("mfg.skillsPage.text.nobodyYetOperationsNeedingCannot", { code: skill.code })}{" "}<Link to={mfgPaths.operators()}>{t("mfg.skillsPage.text.addTheSkillToAn")}</Link>.
           </p>
         ) : null}
         {ops.data && ops.data.items.length ? (
@@ -150,20 +150,19 @@ function SkillHolders({ skill, onEdit, onDelete }: { skill: SkillRecord; onEdit(
                   </span>
                 ),
               },
-              { key: "template", header: "Shift template", width: "minmax(130px, 1fr)", sortValue: (o) => o.shift_template?.code ?? "", exportValue: (o) => o.shift_template?.code ?? "", render: (o) => (o.shift_template ? <Link to={mfgPaths.shifts({ template: o.shift_template.id })}>{o.shift_template.code}</Link> : <span className="faint">None</span>) },
+              { key: "template", header: "Shift template", width: "minmax(130px, 1fr)", sortValue: (o) => o.shift_template?.code ?? "", exportValue: (o) => o.shift_template?.code ?? "", render: (o) => (o.shift_template ? <Link to={mfgPaths.shifts({ template: o.shift_template.id })}>{o.shift_template.code}</Link> : <span className="faint">{t("mfg.skillsPage.text.none")}</span>) },
               { key: "shifts", header: "Shifts", width: "minmax(130px, 1fr)", render: (o) => (o.shift_template ? (o.shift_names.length ? o.shift_names.join(", ") : "All") : "") },
               { key: "status", header: "Status", width: "100px", sortValue: (o) => (o.active ? 0 : 1), exportValue: (o) => (o.active ? "Active" : "Inactive"), render: (o) => <ActiveBadge active={o.active} /> },
             ]}
             rowKey={(o) => o.id}
-            label={`Holders of ${skill.code}`}
+            label={t("mfg.skillsPage.tpl.holdersOf", { code: skill.code })}
             testId="skill-holders"
             exportName={`skill-${skill.code}-holders`}
             rowExtras={() => ({ testId: "skill-holder" })}
           />
         ) : null}
         <p className="faint small" style={{ margin: 0 }}>
-          The data-health check warns when a line with an operation needing this skill works at a time when nobody
-          holding it is on shift (e.g. overtime).
+          {t("mfg.skillsPage.text.theDataHealthCheckWarns")}
         </p>
       </div>
     </section>
@@ -176,7 +175,7 @@ function SkillDialog({ skill, onClose, onSaved }: { skill: SkillRecord | null; o
   const [description, setDescription] = useState(skill?.description ?? "");
   return (
     <EntityFormDialog
-      title={skill ? `Edit skill ${skill.code}` : "New skill"}
+      title={skill ? t("mfg.skillsPage.tpl.editSkill", { code: skill.code }) : t("mfg.skillsPage.str.newSkill")}
       submitLabel={t("mfg.skillsPage.btn.save")}
       onClose={onClose}
       testId="skill-form"

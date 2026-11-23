@@ -6,7 +6,7 @@ import { fmtMonth } from "../lib/months";
 import { StatusPill } from "./StatusPill";
 import { t } from "../../lib/i18n";
 
-const PRIORITY_LABEL = { must: "Must have", should: "Should have", nice: "Nice to have" } as const;
+const PRIORITY_LABEL = { must: t("finance.goalCard.str.mustHave"), should: t("finance.goalCard.str.shouldHave"), nice: t("finance.goalCard.str.niceToHave") } as const;
 
 /** The goal's "why this mix" reason (PHASE2 1.10): its first reason when that is a `GROWTH_*` one. */
 export function growthReason(reasons: Reason[] | undefined): Reason | null {
@@ -29,7 +29,7 @@ export function GoalCard({ goal, currency, locale, reason }: { goal: GoalResult;
           <div>
             <h3 id={`gc-${goal.goal_id}`}>{goal.name}</h3>
             <div className="small muted">
-              {PRIORITY_LABEL[goal.priority]} · due {fmtMonth(goal.target_month)}
+              {t("finance.goalCard.text.due", { v: PRIORITY_LABEL[goal.priority], targetmonth: fmtMonth(goal.target_month) })}
             </div>
           </div>
           <StatusPill kind={goal.status} testId={`goal-status-${goal.goal_id}`} />
@@ -37,51 +37,51 @@ export function GoalCard({ goal, currency, locale, reason }: { goal: GoalResult;
         <div className="chance">
           <div className="chance-text" data-testid={`goal-success-${goal.goal_id}`}>
             <span>
-              <Term k="chance_of_success">Estimated chance</Term>: <strong>{formatProb(goal.success_probability)}</strong>
+              <Term k="chance_of_success">{t("finance.goalCard.text.estimatedChance")}</Term>: <strong>{formatProb(goal.success_probability)}</strong>
             </span>
-            <span className="small muted">you asked for {formatProb(goal.min_success_probability)}</span>
+            <span className="small muted">{t("finance.goalCard.text.youAskedFor", { minsuccessprobability: formatProb(goal.min_success_probability) })}</span>
           </div>
           <div
             className="chance-bar"
             role="meter"
-            aria-label={`Estimated chance of reaching ${goal.name} on time`}
+            aria-label={t("finance.goalCard.tpl.estimatedChanceOfReachingOn", { name: goal.name })}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(pct * 100)}
             aria-valuetext={`${formatProb(pct)}, target at least ${formatProb(goal.min_success_probability)}`}
           >
             <div className={`fill ${goal.status}`} style={{ width: `${pct * 100}%` }} />
-            <div className="target" style={{ left: `${goal.min_success_probability * 100}%` }} title="Your minimum" />
+            <div className="target" style={{ left: `${goal.min_success_probability * 100}%` }} title={t("finance.goalCard.attr.yourMinimum")} />
           </div>
         </div>
         {likelyPct !== null ? (
           <div className="small" data-testid={`goal-likely-${goal.goal_id}`}>
-            Likely outcome: about {likelyPct}% of the target
-            <span className="muted"> (in a typical market{likelyPct < 100 && goal.success_probability < goal.min_success_probability ? "; the gap may be smaller than the chance suggests" : ""})</span>
+            {t("finance.goalCard.text.likelyOutcomeAboutOfThe", { likelyPct: likelyPct })}
+            <span className="muted">{" "}{t("finance.goalCard.text.inATypicalMarket", { v: likelyPct < 100 && goal.success_probability < goal.min_success_probability ? t("finance.goalCard.str.theGapMayBeSmaller") : "" })}</span>
           </div>
         ) : null}
         {hasGrowth ? (
           <div className="chance" data-testid={`goal-growth-${goal.goal_id}`}>
             <div className="small">
-              <Term k="growth_assets">Growth assets</Term> now: {fmtPct(share)} (limit {fmtPct(cap)})
+              <Term k="growth_assets">{t("finance.goalCard.text.growthAssets")}</Term>{" "}{t("finance.goalCard.text.nowLimit", { share: fmtPct(share), cap: fmtPct(cap) })}
             </div>
             <div
               className="chance-bar growth-bar"
               role="meter"
-              aria-label={`Share of growth assets for ${goal.name} now`}
+              aria-label={t("finance.goalCard.tpl.shareOfGrowthAssetsFor", { name: goal.name })}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(share)}
               aria-valuetext={`${fmtPct(share)}, limit ${fmtPct(cap)}`}
             >
               <div className="fill" style={{ width: `${Math.max(0, Math.min(100, share))}%` }} />
-              <div className="target" style={{ left: `${Math.max(0, Math.min(100, cap))}%` }} title="Limit for this goal now" />
+              <div className="target" style={{ left: `${Math.max(0, Math.min(100, cap))}%` }} title={t("finance.goalCard.attr.limitForThisGoalNow")} />
             </div>
           </div>
         ) : null}
         {reason ? (
           <div className="small why-mix" data-testid={`goal-why-${goal.goal_id}`}>
-            <strong>Why this mix:</strong> {reason.message}
+            <strong>{t("finance.goalCard.text.whyThisMix")}</strong> {reason.message}
           </div>
         ) : null}
         <dl className="goal-facts">
@@ -103,7 +103,7 @@ export function GoalCard({ goal, currency, locale, reason }: { goal: GoalResult;
           <dd>
             {goal.contribution_start_month
               ? `${fmtMonth(goal.contribution_start_month)} - ${fmtMonth(goal.contribution_end_month)}`
-              : "none planned"}
+              : t("finance.goalCard.str.nonePlanned")}
           </dd>
           {goal.holdings_used_real > 0 ? (
             <>
@@ -114,11 +114,11 @@ export function GoalCard({ goal, currency, locale, reason }: { goal: GoalResult;
         </dl>
         {goal.shortfall_real > 0.5 ? (
           <div className="small row" style={{ color: "var(--danger)" }}>
-            <Icon name="alert" /> Short by {m(goal.shortfall_real)} even with cautious planning. <Term k="shortfall" bare />
+            <Icon name="alert" />{" "}{t("finance.goalCard.text.shortByEvenWithCautious", { shortfallreal: m(goal.shortfall_real) })}{" "}<Term k="shortfall" bare />
           </div>
         ) : null}
         <div className="small faint">
-          All values in <Term k="todays_money">today's money</Term> unless marked as future.
+          {t("finance.goalCard.text.allValuesIn")}{" "}<Term k="todays_money">today's money</Term>{" "}{t("finance.goalCard.text.unlessMarkedAsFuture")}
         </div>
       </div>
     </article>

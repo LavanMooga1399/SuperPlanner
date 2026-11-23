@@ -50,7 +50,7 @@ export function ReleaseDialog({
   };
   return (
     <Dialog
-      title={`Release ${what}`}
+      title={t("mfg.documentActions.tpl.release", { what: what })}
       onClose={onClose}
       wide={issues.length > 0}
       footer={
@@ -59,14 +59,13 @@ export function ReleaseDialog({
             {t("mfg.documentActions.btn.cancel")}
           </button>
           <button type="button" className="btn primary" disabled={busy || needsDate} onClick={() => void run()} data-testid="release-confirm">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Release
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("mfg.documentActions.text.release")}
           </button>
         </>
       }
     >
       <p className="muted small" style={{ margin: 0 }}>
-        A released version is read-only and is used for planning from its start date. To change it later, copy it
-        to a new version.
+        {t("mfg.documentActions.text.aReleasedVersionIsRead")}
       </p>
       <TextField
         label={t("mfg.documentActions.label.useFrom")}
@@ -82,12 +81,12 @@ export function ReleaseDialog({
           checked={supersede}
           onChange={setSupersede}
           testId="release-supersede"
-          hint={needsDate ? "Choose a start date to replace the current version." : "The older version gets this date as its end date."}
+          hint={needsDate ? t("mfg.documentActions.str.chooseAStartDateTo") : t("mfg.documentActions.str.theOlderVersionGetsThis")}
         />
       ) : null}
       {issues.length ? (
         <div className="col" role="alert" data-testid="release-blocked">
-          <strong>{error instanceof ApiError ? error.message : "Release blocked"}</strong>
+          <strong>{error instanceof ApiError ? error.message : t("mfg.documentActions.str.releaseBlocked")}</strong>
           <ul className="mfg-plain-list">
             {issues.map((i, n) => (
               <li key={n} className="issue">
@@ -106,7 +105,7 @@ export function ReleaseDialog({
           </ul>
         </div>
       ) : (
-        <MfgError error={error} title="Could not release" />
+        <MfgError error={error} title={t("mfg.documentActions.attr.couldNotRelease")} />
       )}
     </Dialog>
   );

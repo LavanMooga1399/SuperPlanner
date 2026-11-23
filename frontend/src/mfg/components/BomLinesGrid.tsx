@@ -68,12 +68,12 @@ export function uomAfterChildChange(line: Pick<LineDraft, "uom" | "child">, next
 /** Client-side checks per line (empty = fine). */
 export function lineProblems(l: LineDraft): string[] {
   const p: string[] = [];
-  if (!l.find_number.trim()) p.push("Find number is required");
-  if (!l.child) p.push("Pick a component");
+  if (!l.find_number.trim()) p.push(t("mfg.bomLinesGrid.str.findNumberIsRequired"));
+  if (!l.child) p.push(t("mfg.bomLinesGrid.str.pickAComponent"));
   const q = Number(l.qty_per);
-  if (!l.qty_per.trim() || !Number.isFinite(q) || q <= 0) p.push("Quantity must be more than 0");
+  if (!l.qty_per.trim() || !Number.isFinite(q) || q <= 0) p.push(t("mfg.bomLinesGrid.str.quantityMustBeMoreThan"));
   const s = Number(l.scrap_pct || "0");
-  if (!Number.isFinite(s) || s < 0 || s >= 100) p.push("Scrap must be 0 to 99.9 %");
+  if (!Number.isFinite(s) || s < 0 || s >= 100) p.push(t("mfg.bomLinesGrid.str.scrapMustBe0To"));
   return p;
 }
 
@@ -121,10 +121,10 @@ export function BomLinesGrid({
 
   const columns: Column<LineDraft>[] = useMemo(
     () => [
-      { key: "fn", header: "Find no.", width: "76px", render: (_l, i) => cell(i, "find_number", "Find number", 62) },
+      { key: "fn", header: t("mfg.bomLinesGrid.str.findNo"), width: "76px", render: (_l, i) => cell(i, "find_number", t("mfg.bomLinesGrid.str.findNumber"), 62) },
       {
         key: "child",
-        header: "Component",
+        header: t("mfg.bomLinesGrid.str.component"),
         width: "minmax(190px, 1.2fr)",
         render: (l, i) =>
           readOnly ? (
@@ -132,7 +132,7 @@ export function BomLinesGrid({
           ) : (
             <ItemPicker
               value={l.child}
-              label={`Component, line ${i + 1}`}
+              label={t("mfg.bomLinesGrid.tpl.componentLine", { v: i + 1 })}
               hideLabel
               excludeId={parentId}
               testId="bom-line-child"
@@ -140,14 +140,14 @@ export function BomLinesGrid({
             />
           ),
       },
-      { key: "desc", header: "Description", width: "minmax(140px, 1fr)", render: (l) => <span className="mfg-ellipsis small muted">{l.child?.description ?? ""}</span> },
-      { key: "qty", header: "Qty per", width: "86px", render: (_l, i) => cell(i, "qty_per", "Quantity per", 72, "number") },
+      { key: "desc", header: t("mfg.bomLinesGrid.str.description"), width: "minmax(140px, 1fr)", render: (l) => <span className="mfg-ellipsis small muted">{l.child?.description ?? ""}</span> },
+      { key: "qty", header: t("mfg.bomLinesGrid.str.qtyPer"), width: "86px", render: (_l, i) => cell(i, "qty_per", t("mfg.bomLinesGrid.str.quantityPer"), 72, "number") },
       {
         key: "uom",
-        header: "Unit",
+        header: t("mfg.bomLinesGrid.str.unit"),
         width: "76px",
         render: (l, i) => (
-          <select className="select sm" aria-label={`Unit, line ${i + 1}`} value={l.uom} disabled={readOnly} onChange={(e) => update(i, { uom: e.target.value })} style={{ width: 66 }}>
+          <select className="select sm" aria-label={t("mfg.bomLinesGrid.tpl.unitLine", { v: i + 1 })} value={l.uom} disabled={readOnly} onChange={(e) => update(i, { uom: e.target.value })} style={{ width: 66 }}>
             <option value="">{l.child?.uom ?? "-"}</option>
             {uoms.map((u) => (
               <option key={u} value={u}>
@@ -157,24 +157,24 @@ export function BomLinesGrid({
           </select>
         ),
       },
-      { key: "scrap", header: "Scrap %", width: "72px", render: (_l, i) => cell(i, "scrap_pct", "Scrap percent", 58, "number") },
-      { key: "ref", header: "Ref. des.", width: "minmax(110px, 0.8fr)", render: (_l, i) => cell(i, "ref_designators", "Reference designators", 160) },
-      { key: "ag", header: "Alt. group", width: "80px", render: (_l, i) => cell(i, "alt_group", "Alternate group", 66) },
-      { key: "ap", header: "Alt. prio", width: "70px", render: (_l, i) => cell(i, "alt_priority", "Alternate priority", 56, "number") },
-      { key: "op", header: "At op.", width: "70px", render: (_l, i) => cell(i, "operation_seq", "Consumed at operation", 56, "number") },
-      { key: "note", header: "Note", width: "minmax(100px, 0.6fr)", render: (_l, i) => cell(i, "note", "Note", 140) },
+      { key: "scrap", header: t("mfg.bomLinesGrid.str.scrap"), width: "72px", render: (_l, i) => cell(i, "scrap_pct", t("mfg.bomLinesGrid.str.scrapPercent"), 58, "number") },
+      { key: "ref", header: t("mfg.bomLinesGrid.str.refDes"), width: "minmax(110px, 0.8fr)", render: (_l, i) => cell(i, "ref_designators", t("mfg.bomLinesGrid.str.referenceDesignators"), 160) },
+      { key: "ag", header: t("mfg.bomLinesGrid.str.altGroup"), width: "80px", render: (_l, i) => cell(i, "alt_group", t("mfg.bomLinesGrid.str.alternateGroup"), 66) },
+      { key: "ap", header: t("mfg.bomLinesGrid.str.altPrio"), width: "70px", render: (_l, i) => cell(i, "alt_priority", t("mfg.bomLinesGrid.str.alternatePriority"), 56, "number") },
+      { key: "op", header: t("mfg.bomLinesGrid.str.atOp"), width: "70px", render: (_l, i) => cell(i, "operation_seq", t("mfg.bomLinesGrid.str.consumedAtOperation"), 56, "number") },
+      { key: "note", header: t("mfg.bomLinesGrid.str.note"), width: "minmax(100px, 0.6fr)", render: (_l, i) => cell(i, "note", t("mfg.bomLinesGrid.str.note"), 140) },
       {
         key: "act",
-        header: <span className="sr-only">Actions</span>,
-        label: "Actions",
+        header: <span className="sr-only">{t("mfg.bomLinesGrid.text.actions")}</span>,
+        label: t("mfg.bomLinesGrid.str.actions"),
         width: "72px",
         render: (_l, i) =>
           readOnly ? null : (
             <span className="row" style={{ gap: 2 }}>
-              <button type="button" className="btn sm ghost icon" aria-label={`Duplicate line ${i + 1}`} title="Duplicate" onClick={() => duplicate(i)}>
+              <button type="button" className="btn sm ghost icon" aria-label={t("mfg.bomLinesGrid.tpl.duplicateLine", { v: i + 1 })} title={t("mfg.bomLinesGrid.attr.duplicate")} onClick={() => duplicate(i)}>
                 <Icon name="copy" />
               </button>
-              <button type="button" className="btn sm ghost icon" aria-label={`Delete line ${i + 1}`} title="Delete" onClick={() => remove(i)} data-testid="bom-line-delete">
+              <button type="button" className="btn sm ghost icon" aria-label={t("mfg.bomLinesGrid.tpl.deleteLine", { v: i + 1 })} title="Delete" onClick={() => remove(i)} data-testid="bom-line-delete">
                 <Icon name="trash" />
               </button>
             </span>
@@ -206,7 +206,7 @@ export function BomLinesGrid({
       height={lines.length > 100 ? "min(60vh, 640px)" : "100000px"}
       rowExtras={extras}
       scrollTo={scrollTo}
-      empty={readOnly ? "No lines." : "No lines yet. Add the first component below."}
+      empty={readOnly ? t("mfg.bomLinesGrid.str.noLines") : t("mfg.bomLinesGrid.str.noLinesYetAddThe")}
     />
   );
 }

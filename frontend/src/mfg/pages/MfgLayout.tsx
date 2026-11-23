@@ -10,7 +10,7 @@ import { mfgPaths } from "../lib/paths";
 import { MFG_NAV, sectionFor, type NavGroupDef } from "../lib/nav";
 import { AccessProvider, useAccess } from "../lib/permissions";
 import { useStoredState } from "../../lib/useAsync";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 function NavGroup({ group, ownerVisible, collapsed }: { group: NavGroupDef; ownerVisible: boolean; collapsed: boolean }) {
   const sections = group.sections.filter((s) => !s.ownerOnly || ownerVisible);
@@ -45,7 +45,7 @@ function AccessError() {
   if (!error) return null;
   return (
     <div data-testid="mfg-access-error">
-      <MfgError error={error} onRetry={retry} title="Your workspace permissions could not be loaded" />
+      <MfgError error={error} onRetry={retry} title={tr("mfg.mfgLayout.attr.yourWorkspacePermissionsCouldNot")} />
     </div>
   );
 }
@@ -64,9 +64,9 @@ function MfgSidebar({ collapsed, onToggle, open, onClose }: { collapsed: boolean
             <NavGroup key={g.key} group={g} ownerVisible={isOwner && !assumed} collapsed={collapsed} />
           ))}
         </nav>
-        <button type="button" className="side-toggle" onClick={onToggle} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} aria-expanded={!collapsed} data-testid="side-toggle">
+        <button type="button" className="side-toggle" onClick={onToggle} aria-label={collapsed ? tr("mfg.mfgLayout.str.expandNavigation") : tr("mfg.mfgLayout.str.collapseNavigation")} aria-expanded={!collapsed} data-testid="side-toggle">
           <Icon name="sidebar" size={16} />
-          <span className="side-text">Collapse</span>
+          <span className="side-text">{tr("mfg.mfgLayout.text.collapse")}</span>
         </button>
       </aside>
     </>
@@ -86,7 +86,7 @@ function MfgBreadcrumbs({ onMenu }: { onMenu(): void }) {
       <nav aria-label={t("mfg.mfgLayout.aria.breadcrumb")} className="crumbs auto-crumbs">
         <ol>
           <li>
-            <Link to={mfgPaths.home()}>Manufacturing</Link>
+            <Link to={mfgPaths.home()}>{tr("mfg.mfgLayout.text.manufacturing")}</Link>
           </li>
           {hit && hit.section.key !== "overview" ? (
             <>
@@ -118,9 +118,9 @@ export function MfgLayout() {
   const [collapsed, setCollapsed] = useStoredState<boolean>("sp.side.collapsed", false);
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    document.title = "Manufacturing - SuperPlanner";
+    document.title = tr("mfg.mfgLayout.str.manufacturingSuperplanner");
     return () => {
-      document.title = "SuperPlanner Studio";
+      document.title = tr("mfg.mfgLayout.str.superplannerStudio");
     };
   }, []);
   return (

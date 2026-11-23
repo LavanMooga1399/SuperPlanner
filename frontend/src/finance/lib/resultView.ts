@@ -2,6 +2,7 @@
 import type { AssetClass, FinanceResult } from "../api/types";
 import { CASH_BUFFER_ID, EF_ID, UNALLOCATED_ID } from "../api/types";
 import { paletteColor } from "../charts/scales";
+import { t as tr } from "../../lib/i18n";
 
 export interface ClassInfo {
   id: string;
@@ -19,9 +20,9 @@ export function classInfos(result: FinanceResult): Map<string, ClassInfo> {
 export const className = (infos: Map<string, ClassInfo>, id: string) => infos.get(id)?.name ?? id;
 
 export function goalLabel(result: FinanceResult, id: string): string {
-  if (id === EF_ID) return "Emergency fund";
-  if (id === CASH_BUFFER_ID) return "Cash buffer";
-  if (id === UNALLOCATED_ID) return "Not assigned to a goal";
+  if (id === EF_ID) return tr("finance.resultView.str.emergencyFund");
+  if (id === CASH_BUFFER_ID) return tr("finance.resultView.str.cashBuffer");
+  if (id === UNALLOCATED_ID) return tr("finance.resultView.str.notAssignedToAGoal");
   return result.goals.find((g) => g.goal_id === id)?.name ?? id;
 }
 

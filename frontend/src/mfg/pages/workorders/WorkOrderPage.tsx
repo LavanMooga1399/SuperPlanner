@@ -40,7 +40,7 @@ import { isConflict, isNotFound, useLoad } from "../../lib/useMfg";
 import { ComponentsEditor, IssueDialog, OutputDialog } from "./WoDialogs";
 import { toast } from "../../../components/Toast";
 import { UnsavedChangesGuard } from "../../../components/UnsavedChangesGuard";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 interface Form {
   number: string;
@@ -143,7 +143,7 @@ export function WorkOrderPage() {
     );
   }, [isNew, itemParam]);
 
-  if (!isNew && loaded.error && isNotFound(loaded.error)) return <NotFoundPanel what="Work order" back={<Link className="btn" to={mfgPaths.workOrders()}>Back to work orders</Link>} />;
+  if (!isNew && loaded.error && isNotFound(loaded.error)) return <NotFoundPanel what={tr("mfg.workOrderPage.attr.workOrder")} back={<Link className="btn" to={mfgPaths.workOrders()}>{tr("mfg.workOrderPage.text.backToWorkOrders")}</Link>} />;
   if (!isNew && loaded.error && !wo) return <MfgError error={loaded.error} onRetry={loaded.reload} />;
   if (!isNew && !wo) return <Spinner />;
 
@@ -159,21 +159,21 @@ export function WorkOrderPage() {
   const sf = numOrNull(f.serial_from);
   const st = numOrNull(f.serial_to);
   const problem = !f.item
-    ? "Choose the item to make."
+    ? tr("mfg.workOrderPage.str.chooseTheItemToMake")
     : q === null || q <= 0
-      ? "Enter the quantity."
+      ? tr("mfg.workOrderPage.str.enterTheQuantity")
       : isCountUom(f.item.uom) && !Number.isInteger(q)
-        ? `${f.item.uom} quantities are whole numbers.`
+        ? tr("mfg.workOrderPage.tpl.quantitiesAreWholeNumbers", { uom: f.item.uom })
         : !f.due_date
-          ? "Enter the due date."
+          ? tr("mfg.workOrderPage.str.enterTheDueDate")
           : f.start_date && f.start_date > f.due_date
-            ? "The start date must be on or before the due date."
+            ? tr("mfg.workOrderPage.str.theStartDateMustBe")
             : (sf === null) !== (st === null)
-              ? "Give both serial numbers or neither."
+              ? tr("mfg.workOrderPage.str.giveBothSerialNumbersOr")
               : sf !== null && st !== null && st - sf + 1 !== q
-                ? `Serials ${sf}-${st} are ${st - sf + 1} units; the quantity is ${q}.`
+                ? tr("mfg.workOrderPage.tpl.serialsAreUnitsTheQuantity", { sf: sf, st: st, v: st - sf + 1, q: q })
                 : wo && q < wo.qty_completed
-                  ? `Cannot be less than the ${fmtNum(wo.qty_completed)} already completed.`
+                  ? tr("mfg.workOrderPage.tpl.cannotBeLessThanThe", { qtycompleted: fmtNum(wo.qty_completed) })
                   : null;
 
   const guard = async (fn: () => Promise<WorkOrderRecord | void>, msg?: string) => {
@@ -196,12 +196,12 @@ export function WorkOrderPage() {
     guard(async () => {
       if (isNew) {
         const created = await createWorkOrder(body);
-        toast(`Work order ${created.number} created`);
+        toast(tr("mfg.workOrderPage.tpl.workOrderCreated", { number: created.number }));
         navigate(mfgPaths.workOrder(created.id), { replace: true, state: { warnings: created.warnings } });
         return;
       }
       return updateWorkOrder(wo!.id, body, wo!.row_version);
-    }, isNew ? undefined : "Saved.");
+    }, isNew ? undefined : tr("mfg.workOrderPage.str.saved"));
 
   const afterPost = (msg: string) => {
     setDlg(null);
@@ -214,14 +214,14 @@ export function WorkOrderPage() {
 
   return (
     <div className="col gap-lg" data-testid="wo-page" data-status={status}>
-      <UnsavedChangesGuard when={!isNew && dirty && !busy} what="this work order" />
+      <UnsavedChangesGuard when={!isNew && dirty && !busy} what={tr("mfg.workOrderPage.attr.thisWorkOrder")} />
       <nav aria-label={t("mfg.workOrderPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.workOrders()}>Work orders</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{wo?.number ?? "New work order"}</span>
+        <Link to={mfgPaths.workOrders()}>{tr("mfg.workOrderPage.text.workOrders")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{wo?.number ?? tr("mfg.workOrderPage.str.newWorkOrder")}</span>
       </nav>
       <div className="ws-header">
         <div className="ws-title">
           <h1 className="mono" data-testid="wo-title">
-            {wo?.number ?? "New work order"}
+            {wo?.number ?? tr("mfg.workOrderPage.str.newWorkOrder")}
           </h1>
           {wo ? <WoStatusChip status={wo.status} testId="wo-status" /> : null}
           {wo ? <SourceBadge source={wo.source} runNo={wo.source_run_no} /> : null}
@@ -294,19 +294,19 @@ export function WorkOrderPage() {
         </div>
       ) : null}
 
-      {conflict ? <ConflictBanner onReload={() => void getWorkOrder(woId).then(reset, setError)} what="this work order" /> : null}
+      {conflict ? <ConflictBanner onReload={() => void getWorkOrder(woId).then(reset, setError)} what={tr("mfg.workOrderPage.attr.thisWorkOrder")} /> : null}
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
       {wo?.reserved?.some((r) => r.shortage > 0) ? (
         <Banner tone="warn" title={t("mfg.workOrderPage.title.notEverythingCouldBeReserved")}>
-          {wo.reserved.filter((r) => r.shortage > 0).length} components lack free stock; see the Kit column.
+          {tr("mfg.workOrderPage.text.componentsLackFreeStockSee", { length: wo.reserved.filter((r) => r.shortage > 0).length })}
         </Banner>
       ) : null}
       {[...(wo?.warnings ?? []), ...createdWarnings.filter((c) => !wo?.warnings?.some((w) => w.code === c.code))].map((w) => (
-        <Banner key={w.code} tone="warn" title={w.code === "WO_NO_EFFECTIVE_BOM" ? "No effective BOM: no components were generated" : w.code}>
+        <Banner key={w.code} tone="warn" title={w.code === "WO_NO_EFFECTIVE_BOM" ? tr("mfg.workOrderPage.str.noEffectiveBomNoComponents") : w.code}>
           {w.message}
         </Banner>
       ))}
-      <MfgError error={error} title="That did not work" />
+      <MfgError error={error} title={tr("mfg.workOrderPage.attr.thatDidNotWork")} />
 
       <section className="card">
         <div className="card-body form-grid">
@@ -314,7 +314,7 @@ export function WorkOrderPage() {
             <ItemPicker label={t("mfg.workOrderPage.label.itemToMake")} value={f.item} makeBuy="make" onChange={(it) => setF({ ...f, item: it })} testId="wo-item" />
           ) : (
             <div className="field">
-              <span className="field-label">Item</span>
+              <span className="field-label">{tr("mfg.workOrderPage.text.item")}</span>
               <span>
                 <Link to={mfgPaths.item(f.item?.id ?? "")} className="mono">
                   {f.item?.part_number}
@@ -334,18 +334,18 @@ export function WorkOrderPage() {
               setF({ ...f, start_date: v });
             }}
             disabled={!partEdit && !isNew}
-            hint={isNew && !startTouched ? "Empty = due date minus the manufacturing lead time" : undefined}
+            hint={isNew && !startTouched ? tr("mfg.workOrderPage.str.emptyDueDateMinusThe") : undefined}
             testId="wo-start"
           />
           <TextField label={t("mfg.workOrderPage.label.priority1MostImportant")} type="number" value={f.priority} onChange={(v) => setF({ ...f, priority: v })} disabled={!partEdit && !isNew} />
           <TextField label={t("mfg.workOrderPage.label.number")} value={f.number} onChange={(v) => setF({ ...f, number: v })} maxLength={32} placeholder={t("mfg.workOrderPage.ph.nextFreeNumber")} disabled={!isNew} />
           <div className="field">
-            <span className="field-label">Unit serials</span>
+            <span className="field-label">{tr("mfg.workOrderPage.text.unitSerials")}</span>
             <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
               <input className="input num" type="number" aria-label={t("mfg.workOrderPage.aria.serialFrom")} placeholder={t("mfg.workOrderPage.ph.from")} value={f.serial_from} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_from: e.target.value })} />
               <input className="input num" type="number" aria-label={t("mfg.workOrderPage.aria.serialTo")} placeholder={t("mfg.workOrderPage.ph.to")} value={f.serial_to} disabled={!fullEdit} onChange={(e) => setF({ ...f, serial_to: e.target.value })} />
             </div>
-            <span className="hint">Serialized items: selects the BOM valid for these units.</span>
+            <span className="hint">{tr("mfg.workOrderPage.text.serializedItemsSelectsTheBom")}</span>
           </div>
           <div style={{ gridColumn: "span 2" }}>
             <TextField label={t("mfg.workOrderPage.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} disabled={!partEdit && !isNew} />
@@ -354,14 +354,14 @@ export function WorkOrderPage() {
         {wo ? (
           <div className="card-footer row wrap small muted">
             <span>
-              Done {fmtNum(wo.qty_completed)} · scrapped {fmtNum(wo.qty_scrapped)} · open {fmtNum(wo.open_qty)} {wo.item.uom}
+              {tr("mfg.workOrderPage.text.doneScrappedOpen", { qtycompleted: fmtNum(wo.qty_completed), qtyscrapped: fmtNum(wo.qty_scrapped), openqty: fmtNum(wo.open_qty), uom: wo.item.uom })}
             </span>
-            {wo.bom ? <span>· BOM rev. {wo.bom.revision} v{wo.bom.version}</span> : <span>· no BOM</span>}
-            {wo.routing ? <span>· routing {wo.routing.code} v{wo.routing.version}</span> : null}
-            {wo.serial_from !== null ? <span>· units {serialText(wo.serial_from, wo.serial_to)}</span> : null}
+            {wo.bom ? <span>{tr("mfg.workOrderPage.text.bomRevV", { revision: wo.bom.revision, version: wo.bom.version })}</span> : <span>{tr("mfg.workOrderPage.text.noBom")}</span>}
+            {wo.routing ? <span>{tr("mfg.workOrderPage.text.routingV", { code: wo.routing.code, version: wo.routing.version })}</span> : null}
+            {wo.serial_from !== null ? <span>{tr("mfg.workOrderPage.text.units", { serialfrom: serialText(wo.serial_from, wo.serial_to) })}</span> : null}
             {wo.demand_line ? (
               <span>
-                · for{" "}
+                {tr("mfg.workOrderPage.text.for", { v: " " })}
                 <Link to={mfgPaths.demandOrder(wo.demand_line.order_id, wo.demand_line.id)}>
                   {wo.demand_line.order_number}/{wo.demand_line.line_no}
                 </Link>
@@ -374,17 +374,17 @@ export function WorkOrderPage() {
       {fullEdit || partEdit ? (
         <div className="row mfg-sticky-actions">
           <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || Boolean(problem)} data-testid="wo-save">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {isNew ? "Create work order" : "Save changes"}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {isNew ? tr("mfg.workOrderPage.str.createWorkOrder") : tr("mfg.workOrderPage.str.saveChanges")}
           </button>
           {problem && dirty ? <span className="field-error">{problem}</span> : null}
-          {isNew ? <span className="faint small">Components are copied from the BOM valid at the start date.</span> : null}
+          {isNew ? <span className="faint small">{tr("mfg.workOrderPage.text.componentsAreCopiedFromThe")}</span> : null}
         </div>
       ) : null}
 
       {wo ? (
         <section className="col" style={{ gap: 8 }}>
           <div className="row between">
-            <h3 style={{ margin: 0 }}>Components ({wo.components.length})</h3>
+            <h3 style={{ margin: 0 }}>{tr("mfg.workOrderPage.text.components", { length: wo.components.length })}</h3>
             {partEdit ? (
               <div className="mfg-actions">
                 {status === "planned" ? (
@@ -398,7 +398,7 @@ export function WorkOrderPage() {
               </div>
             ) : null}
           </div>
-          <MfgError error={kitting.error} onRetry={kitting.reload} title="Kitting could not be checked" />
+          <MfgError error={kitting.error} onRetry={kitting.reload} title={tr("mfg.workOrderPage.attr.kittingCouldNotBeChecked")} />
           <KittingTable components={wo.components} kitting={kitting.data?.rows ?? null} highlight={params.get("component")} showKitting={active} />
         </section>
       ) : null}
@@ -435,7 +435,7 @@ export function WorkOrderPage() {
 
       {dlg === "release" && wo ? (
         <ConfirmDialog
-          title={`Release ${wo.number}?`}
+          title={tr("mfg.workOrderPage.tpl.release", { number: wo.number })}
           confirmLabel={t("mfg.workOrderPage.btn.release")}
           onCancel={() => setDlg(null)}
           onConfirm={() => {
@@ -456,7 +456,7 @@ export function WorkOrderPage() {
         >
           <p style={{ margin: 0 }}>{t("mfg.workOrderPage.text.theWorkOrderCanThen")}</p>
           <label className="checkbox" style={{ marginTop: 8 }}>
-            <input type="checkbox" checked={reserveOnRelease} onChange={(e) => setReserveOnRelease(e.target.checked)} data-testid="wo-release-reserve" /> Reserve free stock for the components now
+            <input type="checkbox" checked={reserveOnRelease} onChange={(e) => setReserveOnRelease(e.target.checked)} data-testid="wo-release-reserve" />{" "}{tr("mfg.workOrderPage.text.reserveFreeStockForThe")}
           </label>
         </ConfirmDialog>
       ) : null}
@@ -511,8 +511,8 @@ export function WorkOrderPage() {
       ) : null}
       {dlg && ["complete", "close", "cancel", "delete", "refresh"].includes(dlg) && wo ? (
         <ConfirmDialog
-          title={dlg === "complete" ? "Complete now (short close)?" : dlg === "close" ? "Close the work order?" : dlg === "cancel" ? "Cancel the work order?" : dlg === "refresh" ? "Regenerate components?" : "Delete the work order?"}
-          confirmLabel={dlg === "complete" ? "Complete" : dlg === "close" ? "Close" : dlg === "cancel" ? "Cancel work order" : dlg === "refresh" ? "Regenerate" : "Delete"}
+          title={dlg === "complete" ? tr("mfg.workOrderPage.str.completeNowShortClose") : dlg === "close" ? tr("mfg.workOrderPage.str.closeTheWorkOrder") : dlg === "cancel" ? tr("mfg.workOrderPage.str.cancelTheWorkOrder") : dlg === "refresh" ? tr("mfg.workOrderPage.str.regenerateComponents") : tr("mfg.workOrderPage.str.deleteTheWorkOrder")}
+          confirmLabel={dlg === "complete" ? tr("mfg.workOrderPage.str.complete") : dlg === "close" ? tr("mfg.workOrderPage.str.close") : dlg === "cancel" ? tr("mfg.workOrderPage.str.cancelWorkOrder") : dlg === "refresh" ? tr("mfg.workOrderPage.str.regenerate") : "Delete"}
           cancelLabel={t("mfg.workOrderPage.btn.keep")}
           danger={dlg === "cancel" || dlg === "delete"}
           onCancel={() => setDlg(null)}
@@ -525,14 +525,14 @@ export function WorkOrderPage() {
         >
           <p style={{ margin: 0 }}>
             {dlg === "complete"
-              ? `The ${fmtNum(wo.open_qty)} ${wo.item.uom} still open will not be made and stop counting as supply. Reservations are released.`
+              ? tr("mfg.workOrderPage.tpl.theStillOpenWillNot", { openqty: fmtNum(wo.open_qty), uom: wo.item.uom })
               : dlg === "close"
-                ? "Closing is final."
+                ? tr("mfg.workOrderPage.str.closingIsFinal")
                 : dlg === "cancel"
-                  ? "Only possible without issues or receipts (return material first)."
+                  ? tr("mfg.workOrderPage.str.onlyPossibleWithoutIssuesOr")
                   : dlg === "refresh"
-                    ? "The component list is replaced by the BOM valid at the start date."
-                    : "Only planned or cancelled orders without stock movements can be deleted."}
+                    ? tr("mfg.workOrderPage.str.theComponentListIsReplaced")
+                    : tr("mfg.workOrderPage.str.onlyPlannedOrCancelledOrders")}
           </p>
         </ConfirmDialog>
       ) : null}

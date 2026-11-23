@@ -8,6 +8,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { Citation, QuickExplanation } from "../api/typesM6";
+import { t } from "../../lib/i18n";
 
 /** Only same-origin app paths (no scheme, no `//host`, no backslash tricks). */
 export function safeInternalLink(link: string | null | undefined): string | null {
@@ -30,7 +31,7 @@ function CitationLink({ c, onNavigate }: { c: Citation; onNavigate?: () => void 
       </span>
     );
   return (
-    <Link to={to} className="asst-cite" title={`${c.label} (opens the record)`} aria-label={`Source ${c.ref}: ${c.label}`} data-testid="asst-cite" data-ref={c.ref} onClick={onNavigate}>
+    <Link to={to} className="asst-cite" title={t("assistant.answerText.tpl.opensTheRecord", { label: c.label })} aria-label={t("assistant.answerText.tpl.source", { ref: c.ref, label: c.label })} data-testid="asst-cite" data-ref={c.ref} onClick={onNavigate}>
       [{text}]
     </Link>
   );
@@ -144,7 +145,7 @@ export function CitationList({ citations, onNavigate }: { citations: Citation[];
   if (!citations.length) return null;
   return (
     <details className="asst-sources" data-testid="asst-sources">
-      <summary>Sources ({citations.length})</summary>
+      <summary>{t("assistant.answerText.text.sources", { length: citations.length })}</summary>
       <ol>
         {citations.map((c) => {
           const to = safeInternalLink(c.link);
@@ -174,7 +175,7 @@ export function QuickView({ q, onNavigate }: { q: QuickExplanation; onNavigate?:
   if (!sections.length)
     return (
       <p className="muted" style={{ margin: 0 }} data-testid="asst-quick-empty">
-        {q.empty_message || "Nothing to explain here."}
+        {q.empty_message || t("assistant.answerText.str.nothingToExplainHere")}
       </p>
     );
   return (

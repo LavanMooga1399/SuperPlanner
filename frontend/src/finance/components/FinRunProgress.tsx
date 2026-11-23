@@ -9,13 +9,13 @@ import { StatusPill } from "./StatusPill";
 import { t } from "../../lib/i18n";
 
 export const STAGE_LABEL: Record<FinStage, string> = {
-  preflight: "Checking your inputs",
-  cashflow: "Projecting your cash flow",
-  optimize: "Planning contributions",
-  simulate: "Testing many possible market outcomes",
-  calibrate: "Adjusting for your target chances",
-  validate: "Independent check of every rule",
-  fixes: "Looking for simple fixes",
+  preflight: t("finance.finRunProgress.str.checkingYourInputs"),
+  cashflow: t("finance.finRunProgress.str.projectingYourCashFlow"),
+  optimize: t("finance.finRunProgress.str.planningContributions"),
+  simulate: t("finance.finRunProgress.str.testingManyPossibleMarketOutcomes"),
+  calibrate: t("finance.finRunProgress.str.adjustingForYourTargetChances"),
+  validate: t("finance.finRunProgress.str.independentCheckOfEveryRule"),
+  fixes: t("finance.finRunProgress.str.lookingForSimpleFixes"),
 };
 
 type StageState = "pending" | "active" | "done";
@@ -49,7 +49,7 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
 
   const stages = new Map<FinStage, StageState>();
   let fraction = 0;
-  let message = "Waiting for a free worker…";
+  let message = t("finance.finRunProgress.str.waitingForAFreeWorker");
   let status: "queued" | "running" | "completed" | "failed" | "cancelled" = "queued";
   let error: string | null = null;
   let requeue: FinRunRequeuedEvent | null = null;
@@ -60,10 +60,10 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
       stages.clear();
       fraction = 0;
       status = "queued";
-      message = `Restarting on another worker (attempt ${t("common.nOfM", { n: ev.attempt, m: ev.max_attempts })})`;
+      message = t("finance.finRunProgress.tpl.restartingOnAnotherWorkerAttempt", { t: t("common.nOfM", { n: ev.attempt, m: ev.max_attempts }) });
     } else if (ev.type === "run_started") {
       status = "running";
-      message = "Started";
+      message = t("finance.finRunProgress.str.started");
     } else if (ev.type === "stage_started") {
       stages.set(ev.stage, "active");
       message = ev.message || STAGE_LABEL[ev.stage];
@@ -76,14 +76,14 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
       stages.set(ev.stage, "done");
     } else if (ev.type === "run_completed") {
       status = "completed";
-      message = "Done";
+      message = t("finance.finRunProgress.str.done");
     } else if (ev.type === "run_cancelled") {
       status = "cancelled";
-      message = "Cancelled";
+      message = t("finance.finRunProgress.str.cancelled");
     } else if (ev.type === "run_failed") {
       status = "failed";
       error = ev.error;
-      message = "Failed";
+      message = t("finance.finRunProgress.str.failed");
     }
   }
   const doneCount = FIN_STAGES.filter((s) => stages.get(s) === "done").length;
@@ -107,7 +107,7 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
       <div className="card-header">
         <h2 id={`frp-${runId}`} className="row">
           {active ? <span className="spinner" aria-hidden /> : null}
-          {active ? "Building your plan" : "Plan run"}
+          {active ? t("finance.finRunProgress.str.buildingYourPlan") : t("finance.finRunProgress.str.planRun")}
         </h2>
         <div className="row">
           <span data-testid="fin-run-status" role="status" aria-live="polite" className="row">
@@ -142,7 +142,7 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
                     {st === "done" ? <Icon name="check" style={{ color: "var(--ok)" }} /> : st === "active" ? <span className="spinner" /> : <Icon name="circle" style={{ color: "var(--text-faint)" }} />}
                   </span>
                   <span className="grow">{STAGE_LABEL[s]}</span>
-                  <span className="small muted">{st === "done" ? "Done" : st === "active" ? "In progress" : "Waiting"}</span>
+                  <span className="small muted">{st === "done" ? t("finance.finRunProgress.str.done") : st === "active" ? t("finance.finRunProgress.str.inProgress") : t("finance.finRunProgress.str.waiting")}</span>
                 </li>
               );
             })}
@@ -152,11 +152,11 @@ export function FinRunProgress({ runId, onDone, compact }: FinRunProgressProps) 
           <span className="small muted row" data-testid="fin-run-requeued">
             <Icon name="refresh" />{" "}
             {active
-              ? `Restarting on another worker (attempt ${t("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts })})`
-              : `Finished after a restart on another worker (attempt ${t("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts })}).`}
+              ? t("finance.finRunProgress.tpl.restartingOnAnotherWorkerAttempt", { t: t("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts }) })
+              : t("finance.finRunProgress.tpl.finishedAfterARestartOn", { t: t("common.nOfM", { n: requeue.attempt, m: requeue.max_attempts }) })}
           </span>
         ) : null}
-        {mode === "polling" ? <span className="small muted">Live updates unavailable; checking every few seconds.</span> : null}
+        {mode === "polling" ? <span className="small muted">{t("finance.finRunProgress.text.liveUpdatesUnavailableCheckingEvery")}</span> : null}
         {error ? <Banner tone="danger" role="alert" title={t("finance.finRunProgress.title.theRunFailed")}>{error}</Banner> : null}
         {cancelError ? <Banner tone="danger" role="alert">{cancelError}</Banner> : null}
       </div>

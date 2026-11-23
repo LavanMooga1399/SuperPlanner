@@ -1,13 +1,13 @@
 import { PRESET_WEIGHTS, type Objectives, type Preset, type Weights } from "../api/types";
 import type { Terms } from "../lib/terms";
 import { Icon, type IconName } from "./Icon";
-import { t } from "../lib/i18n";
+import { t, t as tr } from "../lib/i18n";
 
 const PRESETS: Array<{ id: Exclude<Preset, "custom">; label: string; icon: IconName; desc: (t: Terms) => string }> = [
-  { id: "balanced", label: "Balanced", icon: "star", desc: (t) => `Finish early, keep ${t.deadlineL}s and watch costs - a sensible default.` },
-  { id: "finish_asap", label: "Finish ASAP", icon: "play", desc: (t) => `Complete all ${t.tasksL} as early as possible.` },
-  { id: "meet_deadlines", label: "Meet deadlines", icon: "flag", desc: (t) => `Avoid late ${t.tasksL}, important ones first.` },
-  { id: "lowest_cost", label: "Lowest cost", icon: "briefcase", desc: (t) => `Prefer cheaper ${t.resourcesL}, even if it takes longer.` },
+  { id: "balanced", label: tr("studio.goalPresetPicker.str.balanced"), icon: "star", desc: (t) => tr("studio.goalPresetPicker.tpl.finishEarlyKeepSAnd", { deadlineL: t.deadlineL }) },
+  { id: "finish_asap", label: tr("studio.goalPresetPicker.str.finishAsap"), icon: "play", desc: (t) => tr("studio.goalPresetPicker.tpl.completeAllAsEarlyAs", { tasksL: t.tasksL }) },
+  { id: "meet_deadlines", label: tr("studio.goalPresetPicker.str.meetDeadlines"), icon: "flag", desc: (t) => tr("studio.goalPresetPicker.tpl.avoidLateImportantOnesFirst", { tasksL: t.tasksL }) },
+  { id: "lowest_cost", label: tr("studio.goalPresetPicker.str.lowestCost"), icon: "briefcase", desc: (t) => tr("studio.goalPresetPicker.tpl.preferCheaperEvenIfIt", { resourcesL: t.resourcesL }) },
 ];
 
 export function GoalPresetPicker({
@@ -53,9 +53,9 @@ export function GoalPresetPicker({
           >
             <span className="preset-title">
               <Icon name={value.preset === "custom" ? "check" : "settings"} />
-              Custom weights
+              {tr("studio.goalPresetPicker.text.customWeights")}
             </span>
-            <span className="preset-desc">Set your own balance between duration, lateness and cost.</span>
+            <span className="preset-desc">{tr("studio.goalPresetPicker.text.setYourOwnBalanceBetween")}</span>
           </button>
         ) : null}
       </div>
@@ -63,9 +63,9 @@ export function GoalPresetPicker({
         <div className="form-grid">
           {(
             [
-              ["makespan", "Total duration"],
-              ["tardiness", "Lateness (weighted by priority)"],
-              ["cost", "Cost"],
+              ["makespan", tr("studio.goalPresetPicker.str.totalDuration")],
+              ["tardiness", tr("studio.goalPresetPicker.str.latenessWeightedByPriority")],
+              ["cost", tr("studio.goalPresetPicker.str.cost")],
             ] as Array<[keyof Weights, string]>
           ).map(([k, label]) => (
             <div className="field" key={k}>
@@ -77,7 +77,7 @@ export function GoalPresetPicker({
           ))}
           {allZero ? (
             <div className="small" style={{ color: "var(--danger)" }} role="alert">
-              At least one weight must be above zero.
+              {tr("studio.goalPresetPicker.text.atLeastOneWeightMust")}
             </div>
           ) : null}
         </div>

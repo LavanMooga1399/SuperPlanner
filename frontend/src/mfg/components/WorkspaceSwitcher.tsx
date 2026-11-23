@@ -16,7 +16,7 @@ export function WorkspaceSwitcher() {
   return (
     <label className="row small mfg-workspace">
       <Icon name="factory" size={14} />
-      <span className="muted">Plant</span>
+      <span className="muted">{t("mfg.workspaceSwitcher.text.plant")}</span>
       <select
         className="select sm"
         value={selected}
@@ -57,20 +57,20 @@ function groupByOrg(ws: WorkspaceInfo[]): [string | null, WorkspaceInfo[]][] {
 }
 
 function wsLabel(w: WorkspaceInfo): string {
-  const name = `${w.plant_code ? `${w.plant_code} · ` : ""}${w.plant_name || "Plant"}`;
+  const name = `${w.plant_code ? `${w.plant_code} · ` : ""}${w.plant_name || t("mfg.workspaceSwitcher.str.plant")}`;
   return `${name}${w.is_owner ? " (mine)" : ` (${w.roles.map((r) => ROLE_LABEL[r]).join(", ")})`}`;
 }
 
 export function RoleBadge() {
   const { me, assumed } = useAccess();
   if (!me || assumed) return null;
-  const roles = me.is_owner ? ["Owner"] : me.roles.map((r) => ROLE_LABEL[r]);
+  const roles = me.is_owner ? [t("mfg.workspaceSwitcher.str.owner")] : me.roles.map((r) => ROLE_LABEL[r]);
   return (
     <span
       className={`badge ${me.is_owner ? "accent" : "info"}`}
       data-testid="role-badge"
       data-roles={me.is_owner ? "owner" : me.roles.join(",")}
-      title={me.is_owner ? "You own this plant workspace" : `Your roles in ${me.workspace_name || "this plant"}`}
+      title={me.is_owner ? t("mfg.workspaceSwitcher.str.youOwnThisPlantWorkspace") : t("mfg.workspaceSwitcher.tpl.yourRolesIn", { v: me.workspace_name || "this plant" })}
     >
       <Icon name={me.is_owner ? "star" : "lock"} />
       {roles.join(", ")}

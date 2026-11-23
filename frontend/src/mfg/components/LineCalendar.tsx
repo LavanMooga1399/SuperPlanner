@@ -10,6 +10,7 @@ import type { CalendarExceptionRecord, LineRecord } from "../api/types";
 import { addDays, fmtHours, offsetMinutes } from "../lib/format";
 import { useLoad } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
+import { t } from "../../lib/i18n";
 
 const DAY_MS = 86400000;
 
@@ -81,24 +82,24 @@ export function LineCalendar({
       <MfgError error={win.error} onRetry={win.reload} />
       <div className="legend">
         <span className="legend-item">
-          <span className="swatch mfg-sw-base" /> Base shift
+          <span className="swatch mfg-sw-base" />{" "}{t("mfg.lineCalendar.text.baseShift")}
         </span>
         <span className="legend-item">
-          <span className="swatch mfg-sw-optional" /> Optional (overtime)
+          <span className="swatch mfg-sw-optional" />{" "}{t("mfg.lineCalendar.text.optionalOvertime")}
         </span>
         <span className="legend-item">
-          <span className="swatch mfg-sw-exception" /> Holiday / shutdown / maintenance
+          <span className="swatch mfg-sw-exception" />{" "}{t("mfg.lineCalendar.text.holidayShutdownMaintenance")}
         </span>
         {win.data ? (
           <span className="legend-item" data-testid="line-calendar-totals">
-            Month: {fmtHours(win.data.totals.base_minutes)} base, {fmtHours(win.data.totals.optional_minutes)} optional
+            {t("mfg.lineCalendar.text.monthBaseOptional", { baseminutes: fmtHours(win.data.totals.base_minutes), optionalminutes: fmtHours(win.data.totals.optional_minutes) })}
           </span>
         ) : null}
         {win.loading ? <span className="spinner" aria-hidden /> : null}
       </div>
-      <div className="mfg-month" data-testid="line-calendar" data-line-id={line.id} data-month={month} data-loading={win.loading ? "true" : "false"} role="grid" aria-label={`Working time of ${line.code} in ${month}`}>
+      <div className="mfg-month" data-testid="line-calendar" data-line-id={line.id} data-month={month} data-loading={win.loading ? "true" : "false"} role="grid" aria-label={t("mfg.lineCalendar.tpl.workingTimeOfIn", { code: line.code, month: month })}>
         <div role="row" className="mfg-month-row mfg-month-head">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          {[t("mfg.lineCalendar.str.mon"), t("mfg.lineCalendar.str.tue"), t("mfg.lineCalendar.str.wed"), t("mfg.lineCalendar.str.thu"), t("mfg.lineCalendar.str.fri"), t("mfg.lineCalendar.str.sat"), t("mfg.lineCalendar.str.sun")].map((d) => (
             <div role="columnheader" key={d}>
               {d}
             </div>

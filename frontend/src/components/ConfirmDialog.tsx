@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Dialog } from "./Dialog";
+import { t } from "../lib/i18n";
 
 export interface ConfirmDialogProps {
   title: string;
@@ -18,7 +19,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
-  cancelLabel = "Cancel",
+  cancelLabel = t("studio.confirmDialog.str.cancel"),
   danger,
   busy,
   confirmDisabled,

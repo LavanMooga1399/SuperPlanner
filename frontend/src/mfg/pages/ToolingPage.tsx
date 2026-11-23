@@ -10,7 +10,7 @@ import { MfgError, Spinner } from "../components/Feedback";
 import { numOr, strOrNull, TextField } from "../components/Field";
 import { RecordList, withParam } from "../components/RecordList";
 import { useLoad } from "../lib/useMfg";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 export function ToolingPage() {
   const [params, setParams] = useSearchParams();
@@ -37,7 +37,7 @@ export function ToolingPage() {
           <input className="input sm" type="search" placeholder={t("mfg.toolingPage.ph.searchCodeNameOrKind")} aria-label={t("mfg.toolingPage.aria.searchTooling")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <MfgError error={tools.error} onRetry={tools.reload} />
-        <MfgError error={error} title="The action failed" />
+        <MfgError error={error} title={tr("mfg.toolingPage.attr.theActionFailed")} />
         {tools.loading && !tools.data ? <Spinner /> : null}
         {tools.data ? (
           <RecordList
@@ -90,7 +90,7 @@ export function ToolingPage() {
             </div>
           </section>
         ) : (
-          <div className="card card-body muted">Select a tool pool to see it.</div>
+          <div className="card card-body muted">{tr("mfg.toolingPage.text.selectAToolPoolTo")}</div>
         )}
       </aside>
       {editing ? (
@@ -106,7 +106,7 @@ export function ToolingPage() {
       ) : null}
       {del ? (
         <ConfirmDialog
-          title={`Delete ${del.code}?`}
+          title={tr("mfg.toolingPage.tpl.delete", { code: del.code })}
           confirmLabel={t("mfg.toolingPage.btn.delete")}
           danger
           onCancel={() => setDel(null)}
@@ -135,7 +135,7 @@ function ToolDialog({ tool, onClose, onSaved }: { tool: ToolPoolRecord | null; o
   const [note, setNote] = useState(tool?.note ?? "");
   return (
     <EntityFormDialog
-      title={tool ? `Edit ${tool.code}` : "New tool pool"}
+      title={tool ? tr("mfg.toolingPage.tpl.edit", { code: tool.code }) : tr("mfg.toolingPage.str.newToolPool")}
       submitLabel={t("mfg.toolingPage.btn.save")}
       onClose={onClose}
       testId="tool-form"

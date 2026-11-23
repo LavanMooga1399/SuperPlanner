@@ -26,7 +26,7 @@ function yes(v: boolean, label: string) {
       <Icon name="check" size={14} /> {t("mfg.itemsPage.btn.yes")}
     </span>
   ) : (
-    <span className="faint">No</span>
+    <span className="faint">{t("mfg.itemsPage.text.no")}</span>
   );
 }
 
@@ -121,7 +121,7 @@ export function ItemsPage() {
     () => [
       {
         key: "pn",
-        header: "Part number",
+        header: t("mfg.itemsPage.str.partNumber"),
         width: "minmax(150px, 1.1fr)",
         sortKey: "part_number",
         exportValue: (it) => it.part_number,
@@ -131,34 +131,34 @@ export function ItemsPage() {
           </Link>
         ),
       },
-      { key: "rev", header: "Rev.", width: "52px", render: (it) => <span className="mono">{it.revision}</span> },
-      { key: "desc", header: "Description", width: "minmax(200px, 2fr)", sortKey: "description", render: (it) => <span className="mfg-ellipsis">{it.description}</span> },
-      { key: "mb", header: "Make / buy", width: "104px", render: (it) => <MakeBuyBadge value={it.make_buy} /> },
-      { key: "uom", header: "Unit", width: "52px", render: (it) => it.uom },
-      { key: "family", header: "Family", width: "110px", render: (it) => <span className="mfg-ellipsis">{it.family ?? ""}</span> },
+      { key: "rev", header: t("mfg.itemsPage.str.rev"), width: "52px", render: (it) => <span className="mono">{it.revision}</span> },
+      { key: "desc", header: t("mfg.itemsPage.str.description"), width: "minmax(200px, 2fr)", sortKey: "description", render: (it) => <span className="mfg-ellipsis">{it.description}</span> },
+      { key: "mb", header: t("mfg.itemsPage.str.makeBuy"), width: "104px", render: (it) => <MakeBuyBadge value={it.make_buy} /> },
+      { key: "uom", header: t("mfg.itemsPage.str.unit"), width: "52px", render: (it) => it.uom },
+      { key: "family", header: t("mfg.itemsPage.str.family"), width: "110px", render: (it) => <span className="mfg-ellipsis">{it.family ?? ""}</span> },
       {
         key: "lead",
-        header: "Lead time (d)",
+        header: t("mfg.itemsPage.str.leadTimeD"),
         width: "100px",
         align: "right",
         render: (it) => (it.lead_time_days === null ? <span className="faint">-</span> : it.lead_time_days),
       },
-      { key: "bom", header: "BOM", width: "64px", render: (it) => yes(it.has_bom, "Has a BOM") },
-      { key: "rtg", header: "Routing", width: "72px", render: (it) => yes(it.has_routing, "Has a routing") },
-      { key: "used", header: "Used in", width: "76px", align: "right", render: (it) => it.used_in_count },
-      { key: "act", header: <span className="sr-only">Status</span>, label: "Status", width: "90px", render: (it) => <ActiveBadge active={it.active} /> },
+      { key: "bom", header: "BOM", width: "64px", render: (it) => yes(it.has_bom, t("mfg.itemsPage.str.hasABom")) },
+      { key: "rtg", header: t("mfg.itemsPage.str.routing"), width: "72px", render: (it) => yes(it.has_routing, t("mfg.itemsPage.str.hasARouting")) },
+      { key: "used", header: t("mfg.itemsPage.str.usedIn"), width: "76px", align: "right", render: (it) => it.used_in_count },
+      { key: "act", header: <span className="sr-only">{t("mfg.itemsPage.text.status")}</span>, label: t("mfg.itemsPage.str.status"), width: "90px", render: (it) => <ActiveBadge active={it.active} /> },
     ],
     [],
   );
 
   const filtered = Boolean(query.q || query.make_buy || query.family || active || hasBom || hasRouting);
   const chips: FilterChip[] = [];
-  if (query.q) chips.push({ key: "q", label: "Search", value: query.q, onClear: () => setQ("") });
-  if (makeBuy) chips.push({ key: "mb", label: "Make / buy", value: makeBuy, onClear: () => setParam("make_buy", "") });
-  if (query.family) chips.push({ key: "fam", label: "Family", value: query.family, onClear: () => setFamily("") });
-  if (active) chips.push({ key: "act", label: "Status", value: active === "true" ? "Active" : "Inactive", onClear: () => setParam("active", "") });
+  if (query.q) chips.push({ key: "q", label: t("mfg.itemsPage.str.search"), value: query.q, onClear: () => setQ("") });
+  if (makeBuy) chips.push({ key: "mb", label: t("mfg.itemsPage.str.makeBuy"), value: makeBuy, onClear: () => setParam("make_buy", "") });
+  if (query.family) chips.push({ key: "fam", label: t("mfg.itemsPage.str.family"), value: query.family, onClear: () => setFamily("") });
+  if (active) chips.push({ key: "act", label: t("mfg.itemsPage.str.status"), value: active === "true" ? "Active" : "Inactive", onClear: () => setParam("active", "") });
   if (hasBom) chips.push({ key: "bom", label: "BOM", value: hasBom === "true" ? "Has a BOM" : "No BOM", onClear: () => setParam("has_bom", "") });
-  if (hasRouting) chips.push({ key: "rtg", label: "Routing", value: hasRouting === "true" ? "Has a routing" : "No routing", onClear: () => setParam("has_routing", "") });
+  if (hasRouting) chips.push({ key: "rtg", label: t("mfg.itemsPage.str.routing"), value: hasRouting === "true" ? "Has a routing" : "No routing", onClear: () => setParam("has_routing", "") });
 
   return (
     <div className="col gap-lg">
@@ -187,10 +187,10 @@ export function ItemsPage() {
         <div className="field">
           <label htmlFor="items-mb">{t("mfg.itemsPage.label.makeBuy")}</label>
           <select id="items-mb" className="select" value={makeBuy} onChange={(e) => setParam("make_buy", e.target.value)} data-testid="items-filter-make-buy">
-            <option value="">All</option>
-            <option value="make">Make</option>
-            <option value="buy">Buy</option>
-            <option value="phantom">Phantom</option>
+            <option value="">{t("mfg.itemsPage.text.all")}</option>
+            <option value="make">{t("mfg.itemsPage.text.make")}</option>
+            <option value="buy">{t("mfg.itemsPage.text.buy")}</option>
+            <option value="phantom">{t("mfg.itemsPage.text.phantom")}</option>
           </select>
         </div>
         <div className="field" style={{ width: 140 }}>
@@ -200,33 +200,33 @@ export function ItemsPage() {
         <div className="field">
           <label htmlFor="items-active">{t("mfg.itemsPage.label.status")}</label>
           <select id="items-active" className="select" value={active} onChange={(e) => setParam("active", e.target.value)}>
-            <option value="">All</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
+            <option value="">{t("mfg.itemsPage.text.all")}</option>
+            <option value="true">{t("mfg.itemsPage.text.active")}</option>
+            <option value="false">{t("mfg.itemsPage.text.inactive")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="items-bom">{t("mfg.itemsPage.label.bom")}</label>
           <select id="items-bom" className="select" value={hasBom} onChange={(e) => setParam("has_bom", e.target.value)}>
-            <option value="">Any</option>
-            <option value="true">Has a BOM</option>
-            <option value="false">No BOM</option>
+            <option value="">{t("mfg.itemsPage.text.any")}</option>
+            <option value="true">{t("mfg.itemsPage.text.hasABom")}</option>
+            <option value="false">{t("mfg.itemsPage.text.noBom")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="items-rtg">{t("mfg.itemsPage.label.routing")}</label>
           <select id="items-rtg" className="select" value={hasRouting} onChange={(e) => setParam("has_routing", e.target.value)}>
-            <option value="">Any</option>
-            <option value="true">Has a routing</option>
-            <option value="false">No routing</option>
+            <option value="">{t("mfg.itemsPage.text.any")}</option>
+            <option value="true">{t("mfg.itemsPage.text.hasARouting")}</option>
+            <option value="false">{t("mfg.itemsPage.text.noRouting")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="items-sort">{t("mfg.itemsPage.label.sortBy")}</label>
           <select id="items-sort" className="select" value={sort} onChange={(e) => setParam("sort", e.target.value === "part_number" ? "" : e.target.value)}>
-            <option value="part_number">Part number</option>
-            <option value="description">Description</option>
-            <option value="-updated_at">Recently changed</option>
+            <option value="part_number">{t("mfg.itemsPage.text.partNumber")}</option>
+            <option value="description">{t("mfg.itemsPage.text.description")}</option>
+            <option value="-updated_at">{t("mfg.itemsPage.text.recentlyChanged")}</option>
           </select>
         </div>
       </FilterBar>
@@ -253,21 +253,20 @@ export function ItemsPage() {
         empty={
           loading ? (
             <span className="row" role="status">
-              <span className="spinner" aria-hidden /> Loading items…
+              <span className="spinner" aria-hidden />{" "}{t("mfg.itemsPage.text.loadingItems")}
             </span>
           ) : filtered ? (
-            "No items match these filters."
+            t("mfg.itemsPage.str.noItemsMatchTheseFilters")
           ) : (
             <span>
-              No items yet. Create one, <Link to={mfgPaths.importStart()}>import a file</Link> or{" "}
-              <Link to={mfgPaths.home()}>load a sample</Link>.
+              {t("mfg.itemsPage.text.noItemsYetCreateOne")}{" "}<Link to={mfgPaths.importStart()}>{t("mfg.itemsPage.text.importAFile")}</Link>{" "}{t("mfg.itemsPage.text.or", { v: " " })}
+              <Link to={mfgPaths.home()}>{t("mfg.itemsPage.text.loadASample")}</Link>.
             </span>
           )
         }
         footer={
           <span role="status" data-testid="items-count">
-            {loading && items.length ? <span className="spinner" aria-hidden /> : null} Showing {items.length.toLocaleString("en-IN")} of{" "}
-            {total.toLocaleString("en-IN")} items
+            {loading && items.length ? <span className="spinner" aria-hidden /> : null}{" "}{t("mfg.itemsPage.text.showingOfItems", { length: items.length.toLocaleString("en-IN"), v: " ", total: total.toLocaleString("en-IN") })}
           </span>
         }
       />

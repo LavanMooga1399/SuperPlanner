@@ -49,18 +49,18 @@ export function ExceptionsTab() {
     set(key, [...n].join(","));
   };
   const columns: Column<MrpExceptionRow>[] = [
-    { key: "sev", header: "Severity", width: "104px", render: (e) => <MrpSeverityBadge severity={e.severity} /> },
-    { key: "what", header: "Message", width: "minmax(150px, 1fr)", render: (e) => <span className="mfg-ellipsis">{exceptionLabel(e.code)}</span> },
-    { key: "subj", header: "About", width: "minmax(150px, 1fr)", render: (e) => <span className="mono mfg-ellipsis">{e.subject.label}</span> },
-    { key: "item", header: "Part", width: "minmax(120px, 0.9fr)", render: (e) => <span className="mono mfg-ellipsis">{e.item?.part_number ?? ""}</span> },
-    { key: "date", header: "Date", width: "100px", render: (e) => fmtDate(e.date) },
-    { key: "qty", header: "Qty", width: "80px", align: "right", render: (e) => (e.qty === null ? "" : fmtNum(e.qty)) },
-    { key: "days", header: "Days", width: "60px", align: "right", render: (e) => e.days ?? "" },
-    { key: "text", header: "Details", width: "minmax(220px, 2.5fr)", render: (e) => <span className="mfg-ellipsis small" title={e.message}>{e.message}</span> },
+    { key: "sev", header: t("mfg.exceptionsTab.str.severity"), width: "104px", render: (e) => <MrpSeverityBadge severity={e.severity} /> },
+    { key: "what", header: t("mfg.exceptionsTab.str.message"), width: "minmax(150px, 1fr)", render: (e) => <span className="mfg-ellipsis">{exceptionLabel(e.code)}</span> },
+    { key: "subj", header: t("mfg.exceptionsTab.str.about"), width: "minmax(150px, 1fr)", render: (e) => <span className="mono mfg-ellipsis">{e.subject.label}</span> },
+    { key: "item", header: t("mfg.exceptionsTab.str.part"), width: "minmax(120px, 0.9fr)", render: (e) => <span className="mono mfg-ellipsis">{e.item?.part_number ?? ""}</span> },
+    { key: "date", header: t("mfg.exceptionsTab.str.date"), width: "100px", render: (e) => fmtDate(e.date) },
+    { key: "qty", header: t("mfg.exceptionsTab.str.qty"), width: "80px", align: "right", render: (e) => (e.qty === null ? "" : fmtNum(e.qty)) },
+    { key: "days", header: t("mfg.exceptionsTab.str.days"), width: "60px", align: "right", render: (e) => e.days ?? "" },
+    { key: "text", header: t("mfg.exceptionsTab.str.details"), width: "minmax(220px, 2.5fr)", render: (e) => <span className="mfg-ellipsis small" title={e.message}>{e.message}</span> },
     {
       key: "go",
-      header: <span className="sr-only">Open</span>,
-      label: "Open",
+      header: <span className="sr-only">{t("mfg.exceptionsTab.text.open")}</span>,
+      label: t("mfg.exceptionsTab.str.open"),
       width: "76px",
       render: (e) =>
         e.link ? (
@@ -76,7 +76,7 @@ export function ExceptionsTab() {
       <div className="row wrap" role="group" aria-label={t("mfg.exceptionsTab.aria.filterBySeverity")}>
         {MRP_SEVERITIES.map((s) => (
           <button key={s} type="button" className="btn sm" aria-pressed={sevs.has(s)} onClick={() => toggle("severity", sevs, s)} data-testid={`exception-filter-${s}`}>
-            <MrpSeverityBadge severity={s} label={`${s === "critical" ? "Critical" : s === "warning" ? "Warnings" : "Info"}: ${all?.by_severity[s] ?? 0}`} />
+            <MrpSeverityBadge severity={s} label={`${s === "critical" ? t("mfg.exceptionsTab.str.critical") : s === "warning" ? t("mfg.exceptionsTab.str.warnings") : t("mfg.exceptionsTab.str.info")}: ${all?.by_severity[s] ?? 0}`} />
           </button>
         ))}
         <div className="field" style={{ marginLeft: "auto", width: 260 }}>
@@ -127,8 +127,8 @@ export function ExceptionsTab() {
         onActiveChange={setActive}
         rowExtras={(e) => ({ testId: "exception-row", data: { code: e.code, severity: e.severity, subject: e.subject.label } })}
         onEndReached={data.onEndReached}
-        empty={data.loading ? "Loading messages…" : "No messages match these filters."}
-        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} messages · the focused message is shown in full below</span>}
+        empty={data.loading ? t("mfg.exceptionsTab.str.loadingMessages") : t("mfg.exceptionsTab.str.noMessagesMatchTheseFilters")}
+        footer={<span className="muted small">{t("mfg.exceptionsTab.text.showingMessagesTheFocusedMessage", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
       />
       {cur ? (
         <section className="card card-body" aria-live="polite" data-testid="exception-focus">

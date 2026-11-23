@@ -50,8 +50,8 @@ function MemberDialog({ member, onClose, onSaved }: { member: MemberRecord | nul
   const [active, setActive] = useState(member?.active ?? true);
   return (
     <EntityFormDialog
-      title={member ? `Roles of ${member.user.display_name || member.user.email}` : "Add a member"}
-      submitLabel={member ? "Save" : "Add member"}
+      title={member ? t("mfg.membersPage.tpl.rolesOf", { v: member.user.display_name || member.user.email }) : t("mfg.membersPage.str.addAMember")}
+      submitLabel={member ? t("mfg.membersPage.str.save") : t("mfg.membersPage.str.addMember")}
       testId="member-form"
       disabled={!roles.length || (!member && !email.trim())}
       onClose={onClose}
@@ -67,7 +67,7 @@ function MemberDialog({ member, onClose, onSaved }: { member: MemberRecord | nul
       <RolePicker value={roles} onChange={setRoles} />
       {member ? (
         <label className="checkbox">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active (an inactive member cannot open this plant)
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />{" "}{t("mfg.membersPage.text.activeAnInactiveMemberCannot")}
         </label>
       ) : null}
     </EntityFormDialog>
@@ -81,11 +81,11 @@ export function MembersPage() {
   const [removing, setRemoving] = useState<MemberRecord | null>(null);
   const [error, setError] = useState<unknown>(null);
   const columns: Column<MemberRecord>[] = [
-    { key: "name", header: "Name", width: "minmax(160px, 1fr)", sortValue: (m) => m.user.display_name, render: (m) => m.user.display_name },
-    { key: "email", header: "Email", width: "minmax(200px, 1.4fr)", sortValue: (m) => m.user.email, render: (m) => m.user.email },
+    { key: "name", header: t("mfg.membersPage.str.name"), width: "minmax(160px, 1fr)", sortValue: (m) => m.user.display_name, render: (m) => m.user.display_name },
+    { key: "email", header: t("mfg.membersPage.str.email"), width: "minmax(200px, 1.4fr)", sortValue: (m) => m.user.email, render: (m) => m.user.email },
     {
       key: "roles",
-      header: "Roles",
+      header: t("mfg.membersPage.str.roles"),
       width: "minmax(200px, 1.6fr)",
       exportValue: (m) => m.roles.map((r) => ROLE_LABEL[r]).join("; "),
       render: (m) => (
@@ -100,10 +100,10 @@ export function MembersPage() {
     },
     {
       key: "status",
-      header: "Status",
+      header: t("mfg.membersPage.str.status"),
       width: "110px",
       sortValue: (m) => (m.active ? 0 : 1),
-      exportValue: (m) => (m.active ? "Active" : "Inactive"),
+      exportValue: (m) => (m.active ? t("mfg.membersPage.str.active") : t("mfg.membersPage.str.inactive")),
       render: (m) =>
         m.active ? (
           <span className="badge ok">
@@ -115,11 +115,11 @@ export function MembersPage() {
           </span>
         ),
     },
-    { key: "added", header: "Added", width: "150px", sortValue: (m) => m.created_at, render: (m) => fmtTimestamp(m.created_at) },
+    { key: "added", header: t("mfg.membersPage.str.added"), width: "150px", sortValue: (m) => m.created_at, render: (m) => fmtTimestamp(m.created_at) },
     {
       key: "actions",
-      header: <span className="sr-only">Actions</span>,
-      label: "Actions",
+      header: <span className="sr-only">{t("mfg.membersPage.text.actions")}</span>,
+      label: t("mfg.membersPage.str.actions"),
       width: "96px",
       align: "right",
       hideable: false,
@@ -129,7 +129,7 @@ export function MembersPage() {
           <button type="button" className="btn sm" onClick={() => setEditing(m)} data-testid="member-edit">
             {t("mfg.membersPage.btn.edit")}
           </button>
-          <button type="button" className="btn sm ghost icon" aria-label={`Remove ${m.user.email}`} onClick={() => setRemoving(m)} data-testid="member-remove">
+          <button type="button" className="btn sm ghost icon" aria-label={t("mfg.membersPage.tpl.remove", { email: m.user.email })} onClick={() => setRemoving(m)} data-testid="member-remove">
             <Icon name="trash" />
           </button>
         </span>
@@ -140,7 +140,7 @@ export function MembersPage() {
   if (!isOwner || assumed)
   return (
       <Banner tone="warn" icon="lock" title={t("mfg.membersPage.title.onlyTheOwnerOfThis")} testId="forbidden-banner">
-        Members and their roles are set by the account that owns the plant.
+        {t("mfg.membersPage.text.membersAndTheirRolesAre")}
       </Banner>
     );
   const unavailable = list.error instanceof ApiError && list.error.code === "MBR_UNAVAILABLE";
@@ -161,7 +161,7 @@ export function MembersPage() {
       />
       {unavailable ? (
         <Banner tone="info" title={t("mfg.membersPage.title.membersNeedAccountsMode")}>
-          This server runs in single-user mode, so there are no other accounts to add.
+          {t("mfg.membersPage.text.thisServerRunsInSingle")}
         </Banner>
       ) : (
         <MfgError error={list.error ?? error} onRetry={list.reload} />
@@ -192,7 +192,7 @@ export function MembersPage() {
       ) : null}
       {removing ? (
         <ConfirmDialog
-          title={`Remove ${removing.user.email}?`}
+          title={t("mfg.membersPage.tpl.remove2", { email: removing.user.email })}
           confirmLabel={t("mfg.membersPage.btn.removeMember")}
           danger
           onCancel={() => setRemoving(null)}

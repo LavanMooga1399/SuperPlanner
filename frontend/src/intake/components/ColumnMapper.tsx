@@ -9,60 +9,60 @@ import { t as tr } from "../../lib/i18n";
 export function fieldOptions(domain: "schedule" | "finance", kind: keyof typeof KINDS): { value: string; label: string }[] {
   if (domain === "finance") {
     return [
-      { value: "row_kind", label: "Row type (income, expense, goal, loan, savings)" },
-      { value: "name", label: "Name" },
-      { value: "amount", label: "Amount" },
-      { value: "frequency", label: "How often" },
-      { value: "category", label: "Category" },
-      { value: "essential", label: "Essential (yes / no)" },
-      { value: "date", label: "Date (goal date)" },
-      { value: "priority", label: "Priority" },
-      { value: "asset_class", label: "Held in (savings type)" },
-      { value: "interest_rate", label: "Interest rate" },
-      { value: "emi", label: "Monthly instalment" },
-      { value: "balance", label: "Loan balance" },
+      { value: "row_kind", label: tr("studio.columnMapper.str.rowTypeIncomeExpenseGoal") },
+      { value: "name", label: tr("studio.columnMapper.str.name") },
+      { value: "amount", label: tr("studio.columnMapper.str.amount") },
+      { value: "frequency", label: tr("studio.columnMapper.str.howOften") },
+      { value: "category", label: tr("studio.columnMapper.str.category") },
+      { value: "essential", label: tr("studio.columnMapper.str.essentialYesNo") },
+      { value: "date", label: tr("studio.columnMapper.str.dateGoalDate") },
+      { value: "priority", label: tr("studio.columnMapper.str.priority") },
+      { value: "asset_class", label: tr("studio.columnMapper.str.heldInSavingsType") },
+      { value: "interest_rate", label: tr("studio.columnMapper.str.interestRate") },
+      { value: "emi", label: tr("studio.columnMapper.str.monthlyInstalment") },
+      { value: "balance", label: tr("studio.columnMapper.str.loanBalance") },
     ];
   }
   const t = KINDS[kind].terminology ?? KINDS.project.terminology!;
   return [
     { value: "name", label: `${t.task} name` },
-    { value: "id", label: "ID (used by 'comes after')" },
-    { value: "duration", label: "Duration (a range like 2-3 is fine)" },
-    { value: "optimistic", label: "Shortest duration" },
-    { value: "likely", label: "Most likely duration" },
-    { value: "pessimistic", label: "Longest duration" },
-    { value: "predecessors", label: "Comes after" },
-    { value: "resources", label: `Who / which ${t.resource.toLowerCase()}` },
+    { value: "id", label: tr("studio.columnMapper.str.idUsedByComesAfter") },
+    { value: "duration", label: tr("studio.columnMapper.str.durationARangeLike2") },
+    { value: "optimistic", label: tr("studio.columnMapper.str.shortestDuration") },
+    { value: "likely", label: tr("studio.columnMapper.str.mostLikelyDuration") },
+    { value: "pessimistic", label: tr("studio.columnMapper.str.longestDuration") },
+    { value: "predecessors", label: tr("studio.columnMapper.str.comesAfter") },
+    { value: "resources", label: tr("studio.columnMapper.tpl.whoWhich", { resource: t.resource.toLowerCase() }) },
     { value: "deadline", label: t.deadline },
-    { value: "earliest_start", label: "Not before (start date)" },
-    { value: "priority", label: "Priority" },
+    { value: "earliest_start", label: tr("studio.columnMapper.str.notBeforeStartDate") },
+    { value: "priority", label: tr("studio.columnMapper.str.priority") },
     { value: "group", label: t.group },
-    { value: "notes", label: "Notes" },
+    { value: "notes", label: tr("studio.columnMapper.str.notes") },
   ];
 }
 
 const DELIMS: { v: Delimiter; label: string }[] = [
-  { v: "\t", label: "Tab (pasted from a spreadsheet)" },
-  { v: ",", label: "Comma" },
-  { v: ";", label: "Semicolon" },
-  { v: "|", label: "Vertical bar" },
+  { v: "\t", label: tr("studio.columnMapper.str.tabPastedFromASpreadsheet") },
+  { v: ",", label: tr("studio.columnMapper.str.comma") },
+  { v: ";", label: tr("studio.columnMapper.str.semicolon") },
+  { v: "|", label: tr("studio.columnMapper.str.verticalBar") },
 ];
 
 const FREQ: { v: Frequency; label: string }[] = [
-  { v: "monthly", label: "Each month" },
-  { v: "quarterly", label: "Each quarter" },
-  { v: "half_yearly", label: "Twice a year" },
-  { v: "yearly", label: "Each year" },
-  { v: "once", label: "Once" },
+  { v: "monthly", label: tr("studio.columnMapper.str.eachMonth") },
+  { v: "quarterly", label: tr("studio.columnMapper.str.eachQuarter") },
+  { v: "half_yearly", label: tr("studio.columnMapper.str.twiceAYear") },
+  { v: "yearly", label: tr("studio.columnMapper.str.eachYear") },
+  { v: "once", label: tr("studio.columnMapper.str.once") },
 ];
 
 /** Problems with the chosen mapping that the server would reject as BAD_MAPPING. */
 export function mappingProblems(mapping: (string | null)[]): string[] {
   const out: string[] = [];
-  if (!mapping.includes("name")) out.push('Choose which column holds the name ("Name").');
+  if (!mapping.includes("name")) out.push(tr("studio.columnMapper.str.chooseWhichColumnHoldsThe"));
   const seen = new Map<string, number>();
   for (const f of mapping) if (f) seen.set(f, (seen.get(f) ?? 0) + 1);
-  for (const [f, n] of seen) if (n > 1) out.push(`"${f}" is chosen for ${n} columns; choose it for one column only.`);
+  for (const [f, n] of seen) if (n > 1) out.push(tr("studio.columnMapper.tpl.isChosenForColumnsChoose", { f: f, n: n }));
   return out;
 }
 
@@ -81,7 +81,7 @@ export function ColumnMapper() {
     <section className="card" aria-labelledby="map-title">
       <div className="card-header">
         <h2 id="map-title" style={{ margin: 0, fontSize: 16 }}>
-          Match the columns
+          {tr("studio.columnMapper.text.matchTheColumns")}
         </h2>
         <span className="small muted">
           {parse.row_count} {parse.row_count === 1 ? "row" : "rows"}, {parse.columns.length} columns
@@ -89,7 +89,7 @@ export function ColumnMapper() {
       </div>
       <div className="card-body col" style={{ gap: 12 }}>
         <p className="small muted" style={{ margin: 0 }}>
-          We suggested what each column means. Change any that are wrong, or choose "Ignore".
+          {tr("studio.columnMapper.text.weSuggestedWhatEachColumn")}
         </p>
         <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
           <label className="checkbox">
@@ -99,10 +99,10 @@ export function ColumnMapper() {
               disabled={busy !== null}
               onChange={(e) => void parseTable({ delimiter: parse.delimiter, has_header: e.target.checked })}
             />
-            The first row holds column names
+            {tr("studio.columnMapper.text.theFirstRowHoldsColumn")}
           </label>
           <label className="small row" style={{ gap: 6 }}>
-            Columns separated by
+            {tr("studio.columnMapper.text.columnsSeparatedBy")}
             <select
               className="select sm"
               value={parse.delimiter}
@@ -133,7 +133,7 @@ export function ColumnMapper() {
                 {parse.columns.map((c) => (
                   <th key={c.index} scope="col">
                     <div className="col" style={{ gap: 4 }}>
-                      <span>{c.header ?? `Column ${c.index + 1}`}</span>
+                      <span>{c.header ?? tr("studio.columnMapper.tpl.column", { v: c.index + 1 })}</span>
                       <select
                         className="select sm"
                         data-testid={`import-map-${c.index}`}
@@ -146,7 +146,7 @@ export function ColumnMapper() {
                           setTable({ mapping: m });
                         }}
                       >
-                        <option value="">Ignore</option>
+                        <option value="">{tr("studio.columnMapper.text.ignore")}</option>
                         {fields.map((f) => (
                           <option key={f.value} value={f.value}>
                             {f.label}
@@ -155,11 +155,11 @@ export function ColumnMapper() {
                       </select>
                       {c.suggested_field ? (
                         <span className="small muted" style={{ fontWeight: 400 }}>
-                          Suggested ({c.confidence >= 0.8 ? "high" : c.confidence >= 0.5 ? "medium" : "low"} confidence)
+                          {tr("studio.columnMapper.text.suggestedConfidence", { v: c.confidence >= 0.8 ? "high" : c.confidence >= 0.5 ? "medium" : "low" })}
                         </span>
                       ) : (
                         <span className="small faint" style={{ fontWeight: 400 }}>
-                          No suggestion
+                          {tr("studio.columnMapper.text.noSuggestion")}
                         </span>
                       )}
                     </div>
@@ -181,7 +181,7 @@ export function ColumnMapper() {
           </table>
         </div>
         {parse.row_count > parse.preview.length ? (
-          <span className="small muted">Showing the first {parse.preview.length} rows.</span>
+          <span className="small muted">{tr("studio.columnMapper.text.showingTheFirstRows", { length: parse.preview.length })}</span>
         ) : null}
 
         <fieldset className="plain-fieldset">
@@ -190,7 +190,7 @@ export function ColumnMapper() {
             {domain === "schedule" ? (
               <>
                 <label className="small row" style={{ gap: 6 }}>
-                  Numbers without a unit are
+                  {tr("studio.columnMapper.text.numbersWithoutAUnitAre")}
                   <select className="select sm" value={t.options.duration_unit} onChange={(e) => setOpt({ duration_unit: e.target.value as DurationUnit })}>
                     {(["minutes", "hours", "days", "weeks"] as DurationUnit[]).map((u) => (
                       <option key={u} value={u}>
@@ -200,29 +200,29 @@ export function ColumnMapper() {
                   </select>
                 </label>
                 <label className="small row" style={{ gap: 6 }}>
-                  "Comes after" refers to
+                  {tr("studio.columnMapper.text.comesAfterRefersTo")}
                   <select className="select sm" value={t.options.predecessor_ref} onChange={(e) => setOpt({ predecessor_ref: e.target.value as TableOptions["predecessor_ref"] })}>
-                    <option value="auto">Work it out</option>
-                    <option value="id">The ID column</option>
-                    <option value="name">Names</option>
-                    <option value="row">Row numbers</option>
+                    <option value="auto">{tr("studio.columnMapper.text.workItOut")}</option>
+                    <option value="id">{tr("studio.columnMapper.text.theIdColumn")}</option>
+                    <option value="name">{tr("studio.columnMapper.text.names")}</option>
+                    <option value="row">{tr("studio.columnMapper.text.rowNumbers")}</option>
                   </select>
                 </label>
               </>
             ) : (
               <>
                 <label className="small row" style={{ gap: 6 }}>
-                  Rows without a type are
+                  {tr("studio.columnMapper.text.rowsWithoutATypeAre")}
                   <select className="select sm" value={t.options.default_row_kind} onChange={(e) => setOpt({ default_row_kind: e.target.value as TableOptions["default_row_kind"] })}>
-                    <option value="expense">Spending</option>
-                    <option value="income">Income</option>
-                    <option value="goal">Goals</option>
-                    <option value="debt">Loans</option>
-                    <option value="holding">Savings</option>
+                    <option value="expense">{tr("studio.columnMapper.text.spending")}</option>
+                    <option value="income">{tr("studio.columnMapper.text.income")}</option>
+                    <option value="goal">{tr("studio.columnMapper.text.goals")}</option>
+                    <option value="debt">{tr("studio.columnMapper.text.loans")}</option>
+                    <option value="holding">{tr("studio.columnMapper.text.savings")}</option>
                   </select>
                 </label>
                 <label className="small row" style={{ gap: 6 }}>
-                  Amounts without "a month" or "a year" are
+                  {tr("studio.columnMapper.text.amountsWithoutAMonthOr")}
                   <select className="select sm" value={t.options.amount_frequency} onChange={(e) => setOpt({ amount_frequency: e.target.value as Frequency })}>
                     {FREQ.map((f) => (
                       <option key={f.v} value={f.v}>
@@ -260,7 +260,7 @@ export function ColumnMapper() {
               if (!problems.length) void applyTable();
             }}
           >
-            {busy === "apply" ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Use these columns
+            {busy === "apply" ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{tr("studio.columnMapper.text.useTheseColumns")}
           </button>
         </div>
       </div>

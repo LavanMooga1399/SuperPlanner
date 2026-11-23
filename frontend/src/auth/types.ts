@@ -1,4 +1,5 @@
-/** Auth contract types (PHASE2B 4.5). */
+
+import { t } from "../lib/i18n";/** Auth contract types (PHASE2B 4.5). */
 
 export type AuthMode = "single_user" | "accounts";
 
@@ -45,4 +46,4 @@ export interface ChangePasswordRequest {
 }
 
 /** Shown when a protected request answers 401 AUTH_REQUIRED; also the API's own message. */
-export const SESSION_ENDED_MESSAGE = "Your session has ended. Sign in again to continue.";
+export const SESSION_ENDED_MESSAGE = t("account.types.str.yourSessionHasEndedSign");

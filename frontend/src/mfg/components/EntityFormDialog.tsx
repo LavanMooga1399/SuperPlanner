@@ -76,7 +76,7 @@ export function EntityFormDialog({
       }
     >
       <form id={formId} onSubmit={submit} className="col" data-testid={testId} noValidate>
-        {error ? <MfgError error={error} title="Could not save" /> : null}
+        {error ? <MfgError error={error} title={t("mfg.entityFormDialog.attr.couldNotSave")} /> : null}
         <FormErrors error={error}>{children}</FormErrors>
       </form>
     </Dialog>

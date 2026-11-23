@@ -11,7 +11,7 @@ import { t, t as tr } from "../lib/i18n";
 
 function DeltaCell({ v, kind, currency }: { v: number | null; kind: "min" | "count" | "money"; currency: string }) {
   if (v === null || v === undefined) return <span className="faint">-</span>;
-  if (v === 0) return <span className="faint">no change</span>;
+  if (v === 0) return <span className="faint">{tr("studio.scheduleComparison.text.noChange")}</span>;
   const better = v < 0;
   const text = kind === "min" ? fmtDelta(v) : kind === "money" ? (v > 0 ? "+" : "-") + fmtMoney(Math.abs(v), currency) : (v > 0 ? "+" : "") + v;
   return (
@@ -72,16 +72,16 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
         <StatusBadge kind={s.status} />
         <StatusBadge kind={s.feasibility} />
       </div>
-      <span className="small muted" title={s.solver}>{methodLabel(s.solver)} · plan v{s.base_problem_version}</span>
+      <span className="small muted" title={s.solver}>{tr("studio.scheduleComparison.text.planV", { solver: methodLabel(s.solver), baseproblemversion: s.base_problem_version })}</span>
     </div>
   );
   const rows: Array<{ label: string; a: string; b: string; d: JSX.Element }> = [
-    { label: "Duration", a: a ? fmtDuration(a.makespan_minutes) : "-", b: b ? fmtDuration(b.makespan_minutes) : "-", d: <DeltaCell v={md.makespan_minutes} kind="min" currency={cur} /> },
-    { label: `Late ${terms.tasksL}`, a: a ? String(a.late_tasks) : "-", b: b ? String(b.late_tasks) : "-", d: <DeltaCell v={md.late_tasks} kind="count" currency={cur} /> },
-    { label: "Total lateness", a: a ? fmtDuration(a.total_tardiness_minutes) : "-", b: b ? fmtDuration(b.total_tardiness_minutes) : "-", d: <DeltaCell v={md.total_tardiness_minutes} kind="min" currency={cur} /> },
-    { label: "Weighted lateness", a: a ? fmtDuration(a.weighted_tardiness) : "-", b: b ? fmtDuration(b.weighted_tardiness) : "-", d: <DeltaCell v={md.weighted_tardiness} kind="min" currency={cur} /> },
-    { label: "Cost", a: a ? fmtMoney(a.cost, cur) : "-", b: b ? fmtMoney(b.cost, cur) : "-", d: <DeltaCell v={md.cost} kind="money" currency={cur} /> },
-    { label: `Avg. ${terms.resourceL} use`, a: ua === null ? "-" : `${Math.round(ua * 100)}%`, b: ub === null ? "-" : `${Math.round(ub * 100)}%`, d: <span className="faint">-</span> },
+    { label: tr("studio.scheduleComparison.str.duration"), a: a ? fmtDuration(a.makespan_minutes) : "-", b: b ? fmtDuration(b.makespan_minutes) : "-", d: <DeltaCell v={md.makespan_minutes} kind="min" currency={cur} /> },
+    { label: tr("studio.scheduleComparison.tpl.late", { tasksL: terms.tasksL }), a: a ? String(a.late_tasks) : "-", b: b ? String(b.late_tasks) : "-", d: <DeltaCell v={md.late_tasks} kind="count" currency={cur} /> },
+    { label: tr("studio.scheduleComparison.str.totalLateness"), a: a ? fmtDuration(a.total_tardiness_minutes) : "-", b: b ? fmtDuration(b.total_tardiness_minutes) : "-", d: <DeltaCell v={md.total_tardiness_minutes} kind="min" currency={cur} /> },
+    { label: tr("studio.scheduleComparison.str.weightedLateness"), a: a ? fmtDuration(a.weighted_tardiness) : "-", b: b ? fmtDuration(b.weighted_tardiness) : "-", d: <DeltaCell v={md.weighted_tardiness} kind="min" currency={cur} /> },
+    { label: tr("studio.scheduleComparison.str.cost"), a: a ? fmtMoney(a.cost, cur) : "-", b: b ? fmtMoney(b.cost, cur) : "-", d: <DeltaCell v={md.cost} kind="money" currency={cur} /> },
+    { label: tr("studio.scheduleComparison.tpl.avgUse", { resourceL: terms.resourceL }), a: ua === null ? "-" : `${Math.round(ua * 100)}%`, b: ub === null ? "-" : `${Math.round(ub * 100)}%`, d: <span className="faint">-</span> },
   ];
   const tasks = onlyChanged
     ? cmp.task_deltas.filter((d) => d.start_delta_minutes !== 0 || d.end_delta_minutes !== 0 || d.resource_changed || !d.in_a || !d.in_b)
@@ -116,8 +116,8 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
         <MiniGantt deltas={cmp.task_deltas} side="a" title={`A: ${cmp.a.label}`} names={names} />
         <MiniGantt deltas={cmp.task_deltas} side="b" title={`B: ${cmp.b.label}`} names={names} />
         <div className="legend">
-          <span className="legend-item"><span className="swatch" style={{ background: "var(--bar)", opacity: 0.7 }} /> Unchanged</span>
-          <span className="legend-item"><span className="swatch" style={{ background: "var(--warn)" }} /> Moved, changed {terms.resourceL} or only in one</span>
+          <span className="legend-item"><span className="swatch" style={{ background: "var(--bar)", opacity: 0.7 }} />{" "}{tr("studio.scheduleComparison.text.unchanged")}</span>
+          <span className="legend-item"><span className="swatch" style={{ background: "var(--warn)" }} />{" "}{tr("studio.scheduleComparison.text.movedChangedOrOnlyIn", { resourceL: terms.resourceL })}</span>
         </div>
       </div>
 
@@ -126,7 +126,7 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
           <h3>{tr("common.nOfM", { n: cmp.changed_task_count, m: cmp.task_deltas.length })} {terms.tasksL} changed</h3>
           <div className="grow" />
           <label className="checkbox small">
-            <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} /> Only changed
+            <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />{" "}{tr("studio.scheduleComparison.text.onlyChanged")}
           </label>
         </div>
         <VirtualTable
@@ -141,8 +141,8 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
               render: (d) => (
                 <span className="row" style={{ gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
                   <span className="mfg-ellipsis">{names.get(d.task_id) ?? d.name}</span>
-                  {!d.in_a ? <span className="badge accent">only in B</span> : null}
-                  {!d.in_b ? <span className="badge warn">only in A</span> : null}
+                  {!d.in_a ? <span className="badge accent">{tr("studio.scheduleComparison.text.onlyInB")}</span> : null}
+                  {!d.in_b ? <span className="badge warn">{tr("studio.scheduleComparison.text.onlyInA")}</span> : null}
                 </span>
               ),
             },

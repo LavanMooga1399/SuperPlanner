@@ -7,9 +7,9 @@ import { useMeta } from "../lib/useMfg";
 import { t } from "../../lib/i18n";
 
 export const MAKE_BUY_OPTIONS: { value: MakeBuy; label: string }[] = [
-  { value: "make", label: "Make - produced in this plant" },
-  { value: "buy", label: "Buy - bought from a supplier" },
-  { value: "phantom", label: "Phantom - kit, never stocked (parts used directly)" },
+  { value: "make", label: t("mfg.newItemDialog.str.makeProducedInThisPlant") },
+  { value: "buy", label: t("mfg.newItemDialog.str.buyBoughtFromASupplier") },
+  { value: "phantom", label: t("mfg.newItemDialog.str.phantomKitNeverStockedParts") },
 ];
 
 export function useUomOptions(): { value: string; label: string }[] {

@@ -35,6 +35,7 @@ import type {
   TableParseResult,
 } from "../api/types";
 import { draftProblems, markEdited } from "../lib/draft";
+import { t as tr } from "../../lib/i18n";
 
 export type IntakeFlow = "describe" | "import";
 export type IntakeStep = "write" | "map" | "review";
@@ -192,7 +193,7 @@ const Ctx = createContext<IntakeApi | null>(null);
 
 export function useIntake(): IntakeApi {
   const v = useContext(Ctx);
-  if (!v) throw new Error("useIntake outside IntakeProvider");
+  if (!v) throw new Error(tr("studio.intakeContext.str.useintakeOutsideIntakeprovider"));
   return v;
 }
 
@@ -382,7 +383,7 @@ export function IntakeProvider({ kind, flow, children }: { kind: PlanKind; flow:
     async (useAi: boolean) => {
       const text = stateRef.current.text;
       if (!text.trim()) {
-        setError("Write a few lines about your plan first.");
+        setError(tr("studio.intakeContext.str.writeAFewLinesAbout"));
         return;
       }
       const { ac, done, timedOut } = startForeground("describe", useAi ? AI_TIMEOUT_MS : undefined);
@@ -392,7 +393,7 @@ export function IntakeProvider({ kind, flow, children }: { kind: PlanKind; flow:
         applyResponse(resp, null, { step: "review", sourceText: text, history: [] });
       } catch (err) {
         if (isAbort(err)) {
-          if (timedOut()) setError("AI assist took too long, so we stopped waiting. Try again, or turn AI assist off to use the built-in reader.");
+          if (timedOut()) setError(tr("studio.intakeContext.str.aiAssistTookTooLong"));
         } else setError(errorMessage(err));
       } finally {
         done();
@@ -450,7 +451,7 @@ export function IntakeProvider({ kind, flow, children }: { kind: PlanKind; flow:
         .map((q) => ({
           id: q.id,
           prompt: q.prompt,
-          answer: q.default !== null && q.default !== undefined ? `Suggestion used${q.default_label ? `: ${q.default_label}` : ""}` : "Skipped",
+          answer: q.default !== null && q.default !== undefined ? `Suggestion used${q.default_label ? `: ${q.default_label}` : ""}` : tr("studio.intakeContext.str.skipped"),
         }));
       const revBefore = s.rev;
       await answer(answers, history);
@@ -462,7 +463,7 @@ export function IntakeProvider({ kind, flow, children }: { kind: PlanKind; flow:
     const s = stateRef.current;
     if (!s.response) return;
     if (draftProblems(s.response.draft).length) {
-      setError("Some fields in the draft need fixing first; they are marked in the draft.");
+      setError(tr("studio.intakeContext.str.someFieldsInTheDraft"));
       return;
     }
     if (timerRef.current) {
@@ -483,7 +484,7 @@ export function IntakeProvider({ kind, flow, children }: { kind: PlanKind; flow:
     async (override: { delimiter?: TableParseResult["delimiter"]; has_header?: boolean } = {}) => {
       const t = stateRef.current.table;
       if (!t.text.trim()) {
-        setError("Paste a table or choose a file first.");
+        setError(tr("studio.intakeContext.str.pasteATableOrChoose"));
         return;
       }
       const { ac, done } = startForeground("parse");

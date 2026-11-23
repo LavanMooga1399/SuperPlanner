@@ -53,7 +53,7 @@ export function DisclaimerDialog() {
     >
       <p style={{ margin: 0 }}>{DISCLAIMER}</p>
       <p className="small muted" style={{ margin: 0 }}>
-        Your plan data stays on this computer's SuperPlanner server. No market data is fetched and no products are recommended.
+        {t("finance.disclaimerBanner.text.yourPlanDataStaysOn")}
       </p>
     </Dialog>
   );

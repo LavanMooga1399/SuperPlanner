@@ -36,7 +36,7 @@ import { isConflict, todayInOffset, useLoad, usePlant } from "../lib/useMfg";
 import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
-import { plural, t } from "../../lib/i18n";
+import { plural, t, t as tr } from "../../lib/i18n";
 
 interface RHeader {
   code: string;
@@ -174,8 +174,8 @@ export function RoutingTab() {
 
   if (item.make_buy !== "make")
     return (
-      <Banner tone="info" title={item.make_buy === "buy" ? "Bought items have no routing" : "Phantom items have no routing"}>
-        A routing lists the production steps of a make item. {item.part_number} is {item.make_buy === "buy" ? "bought" : "a phantom kit"}; change it to Make on the Details tab if it is produced here.
+      <Banner tone="info" title={item.make_buy === "buy" ? tr("mfg.routingTab.str.boughtItemsHaveNoRouting") : tr("mfg.routingTab.str.phantomItemsHaveNoRouting")}>
+        {tr("mfg.routingTab.text.aRoutingListsTheProduction", { partnumber: item.part_number, v: item.make_buy === "buy" ? "bought" : tr("mfg.routingTab.str.aPhantomKit") })}
       </Banner>
     );
 
@@ -188,7 +188,7 @@ export function RoutingTab() {
             type="button"
             className="btn sm primary"
             disabled={busy || dirty}
-            title={dirty ? "Save or undo the changes of the open routing first" : undefined}
+            title={dirty ? tr("mfg.routingTab.str.saveOrUndoTheChanges") : undefined}
             onClick={() =>
               void act(async () => {
                 const r = await createRouting({ item_id: item.id, operations: [] });
@@ -201,14 +201,13 @@ export function RoutingTab() {
           </button>
         </div>
         <MfgError error={list.error} onRetry={list.reload} />
-        <MfgError error={actionError} title="The action failed" />
+        <MfgError error={actionError} title={tr("mfg.routingTab.attr.theActionFailed")} />
         {dirty ? (
           <p className="small mfg-problem-list" role="status" style={{ margin: 0, padding: "8px 16px" }} data-testid="routing-unsaved-hint">
-            <Icon name="alert" size={12} /> {selectedCode ? `${selectedCode.code} v${selectedCode.version}` : "The open routing"} has unsaved changes. Save or undo
-            them before releasing, copying or removing a routing.
+            <Icon name="alert" size={12} />{" "}{tr("mfg.routingTab.text.hasUnsavedChangesSaveOr", { v: selectedCode ? `${selectedCode.code} v${selectedCode.version}` : tr("mfg.routingTab.str.theOpenRouting") })}
           </p>
         ) : null}
-        {routings.length === 0 && !list.loading ? <div className="card-body muted">No routing yet. Create one to describe how this item is made, step by step.</div> : null}
+        {routings.length === 0 && !list.loading ? <div className="card-body muted">{tr("mfg.routingTab.text.noRoutingYetCreateOne")}</div> : null}
         <ul className="mfg-plain-list mfg-version-list">
           {routings.map((r) => (
             <li key={r.id} className={`mfg-version${r.id === selectedId ? " mfg-selected" : ""}`} data-testid={`routing-version-${r.id}`} data-status={r.status}>
@@ -216,8 +215,8 @@ export function RoutingTab() {
                 <strong>
                   {r.code} v{r.version}
                 </strong>
-                <span className="chip" title={r.priority === 1 ? "Primary routing" : "Alternate routing (the planner may choose it)"}>
-                  {r.priority === 1 ? "Primary" : `Alternate ${r.priority}`}
+                <span className="chip" title={r.priority === 1 ? tr("mfg.routingTab.str.primaryRouting") : tr("mfg.routingTab.str.alternateRoutingThePlannerMay")}>
+                  {r.priority === 1 ? tr("mfg.routingTab.str.primary") : tr("mfg.routingTab.tpl.alternate", { priority: r.priority })}
                 </span>
                 <StatusChip status={r.status} />
                 <EffectivityBadge from={r.effective_from} to={r.effective_to} serialFrom={r.serial_from} serialTo={r.serial_to} />
@@ -225,7 +224,7 @@ export function RoutingTab() {
               </button>
               <span className="row">
                 {r.status === "draft" ? (
-                  <button type="button" className="btn sm" onClick={() => setPending({ kind: "release", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} data-testid="routing-release">
+                  <button type="button" className="btn sm" onClick={() => setPending({ kind: "release", r })} disabled={busy || dirty} title={dirty ? tr("mfg.routingTab.str.saveOrUndoYourChanges") : undefined} data-testid="routing-release">
                     <Icon name="check" /> {t("mfg.routingTab.btn.release")}
                   </button>
                 ) : null}
@@ -233,7 +232,7 @@ export function RoutingTab() {
                   type="button"
                   className="btn sm"
                   disabled={busy || dirty}
-                  title={dirty ? "Save or undo your changes first" : undefined}
+                  title={dirty ? tr("mfg.routingTab.str.saveOrUndoYourChanges") : undefined}
                   onClick={() =>
                     void act(async () => {
                       const c = await copyRouting(r.id, { revision: null, code: null }, r.row_version);
@@ -245,11 +244,11 @@ export function RoutingTab() {
                   <Icon name="copy" /> {t("mfg.routingTab.btn.copy")}
                 </button>
                 {r.status === "released" ? (
-                  <button type="button" className="btn sm ghost" onClick={() => setPending({ kind: "obsolete", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} data-testid="routing-obsolete">
+                  <button type="button" className="btn sm ghost" onClick={() => setPending({ kind: "obsolete", r })} disabled={busy || dirty} title={dirty ? tr("mfg.routingTab.str.saveOrUndoYourChanges") : undefined} data-testid="routing-obsolete">
                     <Icon name="ban" /> {t("mfg.routingTab.btn.makeObsolete")}
                   </button>
                 ) : (
-                  <button type="button" className="btn sm ghost icon" onClick={() => setPending({ kind: "delete", r })} disabled={busy || dirty} title={dirty ? "Save or undo your changes first" : undefined} aria-label={`Delete ${r.code} v${r.version}`} data-testid="routing-delete">
+                  <button type="button" className="btn sm ghost icon" onClick={() => setPending({ kind: "delete", r })} disabled={busy || dirty} title={dirty ? tr("mfg.routingTab.str.saveOrUndoYourChanges") : undefined} aria-label={tr("mfg.routingTab.tpl.deleteV", { code: r.code, version: r.version })} data-testid="routing-delete">
                     <Icon name="trash" />
                   </button>
                 )}
@@ -310,12 +309,12 @@ export function RoutingTab() {
         />
       ) : null}
       {pending?.kind === "obsolete" ? (
-        <ConfirmDialog title={`Make ${pending.r.code} v${pending.r.version} obsolete?`} confirmLabel={t("mfg.routingTab.btn.makeObsolete")} busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => obsoleteRouting(pending.r.id, pending.r.row_version))}>
+        <ConfirmDialog title={tr("mfg.routingTab.tpl.makeVObsolete", { code: pending.r.code, version: pending.r.version })} confirmLabel={t("mfg.routingTab.btn.makeObsolete")} busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => obsoleteRouting(pending.r.id, pending.r.row_version))}>
           <p style={{ margin: 0 }}>{t("mfg.routingTab.text.itStopsBeingUsedFor")}</p>
         </ConfirmDialog>
       ) : null}
       {pending?.kind === "delete" ? (
-        <ConfirmDialog title={`Delete ${pending.r.code} v${pending.r.version}?`} confirmLabel={t("mfg.routingTab.btn.delete")} danger busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => deleteRouting(pending.r.id, pending.r.row_version))}>
+        <ConfirmDialog title={tr("mfg.routingTab.tpl.deleteV2", { code: pending.r.code, version: pending.r.version })} confirmLabel={t("mfg.routingTab.btn.delete")} danger busy={busy} onCancel={() => setPending(null)} onConfirm={() => void act(() => deleteRouting(pending.r.id, pending.r.row_version))}>
           <p style={{ margin: 0 }}>{t("mfg.routingTab.text.theRoutingAndItsOperations")}</p>
         </ConfirmDialog>
       ) : null}
@@ -438,7 +437,7 @@ function RoutingDocument({
               tone="info"
               icon="lock"
               testId="routing-readonly"
-              title={base.status === "released" ? "Released - copy to a new version to edit" : "Obsolete - copy to a new version to edit"}
+              title={base.status === "released" ? tr("mfg.routingTab.str.releasedCopyToANew") : tr("mfg.routingTab.str.obsoleteCopyToANew")}
               actions={
                 <button type="button" className="btn sm primary" onClick={() => void copy()} data-testid="routing-copy-banner">
                   <Icon name="copy" /> {t("mfg.routingTab.btn.copyToANewVersion")}
@@ -446,9 +445,9 @@ function RoutingDocument({
               }
             />
           ) : null}
-          {conflict ? <ConflictBanner onReload={() => void reload()} what="this routing" /> : null}
+          {conflict ? <ConflictBanner onReload={() => void reload()} what={tr("mfg.routingTab.attr.thisRouting")} /> : null}
           <ErpOwnedNotice entity="routings" label={t("mfg.routingTab.label.routings")} />
-          <MfgError error={error} title="Could not save the routing" />
+          <MfgError error={error} title={tr("mfg.routingTab.attr.couldNotSaveTheRouting")} />
           {settings ? (
             <div className="form-grid">
               <TextField label={t("mfg.routingTab.label.routingCode")} value={header.code} onChange={(v) => setHeader({ ...header, code: v })} maxLength={32} disabled={readOnly} hint={t("mfg.routingTab.hint.tellsAlternateRoutingsApartEg")} />
@@ -460,8 +459,7 @@ function RoutingDocument({
           ) : null}
           {movedRefs.length ? (
             <Banner tone="warn" testId="routing-renumber-warning" title={t("mfg.routingTab.title.checkTheBomAfterReordering")}>
-              BOM lines of this item are consumed at operation {movedRefs.join(", ")}. After renumbering, that number now
-              belongs to a different step. Update the "At op." column of the BOM if needed.
+              {tr("mfg.routingTab.text.bomLinesOfThisItem", { movedRefs: movedRefs.join(", ") })}
             </Banner>
           ) : null}
           <RoutingEditor
@@ -483,7 +481,7 @@ function RoutingDocument({
               <button type="button" className="btn sm" onClick={() => setOps([...ops, blankOp(ops, groups[0]?.id ?? "")])} data-testid="op-add">
                 <Icon name="plus" /> {t("mfg.routingTab.btn.addOperation")}
               </button>
-              {groups.length === 0 ? <span className="small muted">Create stages under Plant first; every operation runs on a stage.</span> : null}
+              {groups.length === 0 ? <span className="small muted">{tr("mfg.routingTab.text.createStagesUnderPlantFirst")}</span> : null}
             </div>
           ) : null}
           {!readOnly && (problems.length || duplicateSeq) ? (
@@ -495,16 +493,16 @@ function RoutingDocument({
               ) : null}
               {problems.map((x) => (
                 <li key={x.seq}>
-                  <Icon name="alert" size={12} /> Operation {x.seq}: {x.p.join("; ")}
+                  <Icon name="alert" size={12} />{" "}{tr("mfg.routingTab.text.operation", { seq: x.seq, p: x.p.join("; ") })}
                 </li>
               ))}
             </ul>
           ) : null}
-          <UnsavedChangesGuard when={!readOnly && dirty && !busy} what="this routing" />
+          <UnsavedChangesGuard when={!readOnly && dirty && !busy} what={tr("mfg.routingTab.attr.thisRouting")} />
           {!readOnly ? (
             <div className="row">
-              <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0 || duplicateSeq} title={!dirty ? "No changes to save" : problems.length || duplicateSeq ? "Fix the problems listed above first" : undefined} data-testid="routing-save">
-                {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} Save routing
+              <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0 || duplicateSeq} title={!dirty ? tr("mfg.routingTab.str.noChangesToSave") : problems.length || duplicateSeq ? tr("mfg.routingTab.str.fixTheProblemsListedAbove") : undefined} data-testid="routing-save">
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />}{" "}{tr("mfg.routingTab.text.saveRouting")}
               </button>
               <button type="button" className="btn" onClick={() => reset(base)} disabled={!dirty || busy}>
                 {t("mfg.routingTab.btn.undoChanges")}

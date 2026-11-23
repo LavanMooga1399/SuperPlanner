@@ -112,10 +112,10 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
   };
 
   const columns: Column<ExplosionRow>[] = [
-    { key: "fn", header: "Find no.", width: "64px", render: (r) => <span className="mono">{r.find_number ?? ""}</span> },
+    { key: "fn", header: t("mfg.bomTree.str.findNo"), width: "64px", render: (r) => <span className="mono">{r.find_number ?? ""}</span> },
     {
       key: "pn",
-      header: "Part number",
+      header: t("mfg.bomTree.str.partNumber"),
       width: "minmax(240px, 1.4fr)",
       render: (r) => (
         <span className="mfg-tree-cell" style={{ paddingLeft: r.level * 18 }}>
@@ -124,7 +124,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
               type="button"
               className="mfg-chevron"
               tabIndex={-1}
-              aria-label={collapsed.has(r.row) ? `Expand ${r.part_number}` : `Collapse ${r.part_number}`}
+              aria-label={collapsed.has(r.row) ? t("mfg.bomTree.tpl.expand", { partnumber: r.part_number }) : t("mfg.bomTree.tpl.collapse", { partnumber: r.part_number })}
               onClick={(e) => {
                 e.stopPropagation();
                 toggle(r);
@@ -139,44 +139,44 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
             {r.part_number}
           </Link>
           {r.is_phantom ? (
-            <span className="chip" title="Phantom: never stocked, its parts are used directly">
+            <span className="chip" title={t("mfg.bomTree.attr.phantomNeverStockedItsParts")}>
               <Icon name="layers" size={12} /> {t("mfg.bomTree.btn.phantom")}
             </span>
           ) : null}
           {r.is_shared ? (
-            <span className="chip" title="Used under more than one parent in this structure">
+            <span className="chip" title={t("mfg.bomTree.attr.usedUnderMoreThanOne")}>
               <Icon name="copy" size={12} /> {t("mfg.bomTree.btn.shared")}
             </span>
           ) : null}
           {!r.active ? (
-            <span className="badge warn" title="Inactive item">
+            <span className="badge warn" title={t("mfg.bomTree.attr.inactiveItem")}>
               <Icon name="ban" /> {t("mfg.bomTree.btn.inactive")}
             </span>
           ) : null}
         </span>
       ),
     },
-    { key: "desc", header: "Description", width: "minmax(180px, 1.4fr)", render: (r) => <span className="mfg-ellipsis">{r.description}</span> },
-    { key: "qty", header: "Qty per", width: "76px", align: "right", render: (r) => fmtQty(r.qty_per) },
-    { key: "uom", header: "Unit", width: "50px", render: (r) => r.line_uom ?? r.uom },
-    { key: "scrap", header: "Scrap %", width: "64px", align: "right", render: (r) => (r.scrap_pct ? fmtQty(r.scrap_pct) : "") },
+    { key: "desc", header: t("mfg.bomTree.str.description"), width: "minmax(180px, 1.4fr)", render: (r) => <span className="mfg-ellipsis">{r.description}</span> },
+    { key: "qty", header: t("mfg.bomTree.str.qtyPer"), width: "76px", align: "right", render: (r) => fmtQty(r.qty_per) },
+    { key: "uom", header: t("mfg.bomTree.str.unit"), width: "50px", render: (r) => r.line_uom ?? r.uom },
+    { key: "scrap", header: t("mfg.bomTree.str.scrap"), width: "64px", align: "right", render: (r) => (r.scrap_pct ? fmtQty(r.scrap_pct) : "") },
     {
       key: "ext",
-      header: "Total qty",
-      label: "Total quantity needed, in the item's unit",
+      header: t("mfg.bomTree.str.totalQty"),
+      label: t("mfg.bomTree.str.totalQuantityNeededInThe"),
       width: "112px",
       align: "right",
       render: (r) => (
-        <span title={`${fmtQty(r.extended_qty)} ${r.uom} needed in total`} data-value={r.extended_qty}>
+        <span title={t("mfg.bomTree.tpl.neededInTotal", { extendedqty: fmtQty(r.extended_qty), uom: r.uom })} data-value={r.extended_qty}>
           {fmtQty(r.extended_qty)} <span className="faint">{r.uom}</span>
         </span>
       ),
     },
-    { key: "mb", header: "Make / buy", width: "100px", render: (r) => <MakeBuyBadge value={r.make_buy} /> },
-    { key: "lt", header: "Lead time", width: "76px", align: "right", render: (r) => (r.lead_time_days === null ? "" : `${r.lead_time_days} d`) },
+    { key: "mb", header: t("mfg.bomTree.str.makeBuy"), width: "100px", render: (r) => <MakeBuyBadge value={r.make_buy} /> },
+    { key: "lt", header: t("mfg.bomTree.str.leadTime"), width: "76px", align: "right", render: (r) => (r.lead_time_days === null ? "" : `${r.lead_time_days} d`) },
     {
       key: "ref",
-      header: "Ref. des.",
+      header: t("mfg.bomTree.str.refDes"),
       width: "minmax(100px, 0.8fr)",
       render: (r) => (
         <span className="row" style={{ gap: 4, minWidth: 0 }}>
@@ -194,7 +194,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
               }}
               data-testid="bom-alternates"
             >
-              +{r.alternates.length} alt.
+              {t("mfg.bomTree.text.alt", { length: r.alternates.length })}
             </button>
           ) : null}
         </span>
@@ -215,7 +215,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
           <Icon name="chevron-right" /> {t("mfg.bomTree.btn.collapseAll")}
         </button>
         <label className="row small">
-          <span className="muted">Show levels</span>
+          <span className="muted">{t("mfg.bomTree.text.showLevels")}</span>
           <select
             className="select sm"
             style={{ width: 70 }}
@@ -260,7 +260,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
           />
           {q ? (
             <span className="small muted" role="status" aria-live="polite">
-              {matches.length ? `${t("common.nOfM", { n: matchPos + 1, m: matches.length })}` : "No match"}
+              {matches.length ? `${t("common.nOfM", { n: matchPos + 1, m: matches.length })}` : t("mfg.bomTree.str.noMatch")}
             </span>
           ) : null}
           <button type="button" className="btn sm icon" aria-label={t("mfg.bomTree.aria.previousMatch")} disabled={!matches.length} onClick={() => goToMatch(matchPos - 1)}>
@@ -301,13 +301,13 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
         })}
         footer={
           <span className="small muted" role="status">
-            {t("common.nOfM", { n: vis.length.toLocaleString("en-IN"), m: rows.length.toLocaleString("en-IN") })} rows shown
+            {t("mfg.bomTree.text.rowsShown", { t: t("common.nOfM", { n: vis.length.toLocaleString("en-IN"), m: rows.length.toLocaleString("en-IN") }) })}
           </span>
         }
       />
       {alts ? (
         <Dialog
-          title={`Alternatives for ${alts.part_number}`}
+          title={t("mfg.bomTree.tpl.alternativesFor", { partnumber: alts.part_number })}
           onClose={() => setAlts(null)}
           footer={
             <button type="button" className="btn" onClick={() => setAlts(null)} data-dialog-close>
@@ -316,7 +316,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
           }
         >
           <p className="muted small" style={{ margin: 0 }}>
-            Quantities use the primary part. Alternatives can replace it, in this order of preference.
+            {t("mfg.bomTree.text.quantitiesUseThePrimaryPart")}
           </p>
           <table className="table">
             <thead>

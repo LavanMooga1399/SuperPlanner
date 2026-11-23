@@ -7,15 +7,15 @@ import { addItem, patchItem, removeItem, type StepProps } from "./common";
 import { Field, FinNumber, FinOptionalNumber, FinText, FREQUENCY_OPTIONS, MonthInput, MoneyInput, Select, Toggle } from "./fields";
 import { HelpText } from "./HelpText";
 import { ListEditor } from "./ListEditor";
-import { t, plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 const INCOME_KINDS: { value: IncomeKind; label: string }[] = [
-  { value: "salary", label: "Salary" },
-  { value: "business", label: "Business" },
-  { value: "rental", label: "Rent received" },
-  { value: "pension", label: "Pension" },
-  { value: "interest", label: "Interest" },
-  { value: "other", label: "Other" },
+  { value: "salary", label: t("finance.incomeExpenseStep.str.salary") },
+  { value: "business", label: t("finance.incomeExpenseStep.str.business") },
+  { value: "rental", label: t("finance.incomeExpenseStep.str.rentReceived") },
+  { value: "pension", label: t("finance.incomeExpenseStep.str.pension") },
+  { value: "interest", label: t("finance.incomeExpenseStep.str.interest") },
+  { value: "other", label: t("finance.incomeExpenseStep.str.other") },
 ];
 
 /** PHASE2 3.4: "range 70,000-80,000, using 75,000" for items that came with an amount range. */
@@ -24,8 +24,8 @@ export function RangeChip({ range, used, locale, testId }: { range: AmountRange 
   const n = (v: number) => Math.round(v).toLocaleString(locale);
   return (
     <div className="fin-check-row">
-      <span className="chip" data-testid={testId} title="You gave a range; the plan uses this amount">
-        <Icon name="info" /> range {n(range.low)}-{n(range.high)}, using {n(used)}
+      <span className="chip" data-testid={testId} title={t("finance.incomeExpenseStep.attr.youGaveARangeThe")}>
+        <Icon name="info" />{" "}{t("finance.incomeExpenseStep.text.rangeUsing", { low: n(range.low), high: n(range.high), used: n(used) })}
       </span>
     </div>
   );
@@ -38,18 +38,18 @@ export function InvestablePreview({ preview, currency, locale }: Pick<StepProps,
     <div className="preview-figure" role="status" aria-live="polite" data-testid="fin-preview-investable">
       <Icon name="info" />
       {v === null ? (
-        <span className="muted">{preview.loading ? "Calculating what you can invest…" : "Add your income and expenses to see what you can invest."}</span>
+        <span className="muted">{preview.loading ? t("finance.incomeExpenseStep.str.calculatingWhatYouCanInvest") : t("finance.incomeExpenseStep.str.addYourIncomeAndExpenses")}</span>
       ) : v >= 0 ? (
         <>
-          <span>You can invest about</span>
+          <span>{t("finance.incomeExpenseStep.text.youCanInvestAbout")}</span>
           <strong>{formatMoney(roundDisplay(v), currency, locale)}</strong>
-          <span>a month in the first year (after expenses and loan payments).</span>
+          <span>{t("finance.incomeExpenseStep.text.aMonthInTheFirst")}</span>
         </>
       ) : (
         <>
-          <span>Your expenses are higher than your income by about</span>
+          <span>{t("finance.incomeExpenseStep.text.yourExpensesAreHigherThan")}</span>
           <strong style={{ color: "var(--danger)" }}>{formatMoney(roundDisplay(-v), currency, locale)}</strong>
-          <span>a month.</span>
+          <span>{t("finance.incomeExpenseStep.text.aMonth")}</span>
         </>
       )}
       {preview.loading && v !== null ? <span className="spinner" aria-label={t("finance.incomeExpenseStep.aria.updating")} /> : null}
@@ -64,7 +64,7 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
 
   const newIncome = (): IncomeStream => ({
     id: nextId(plan, "inc"),
-    name: plan.incomes.length ? `Income ${plan.incomes.length + 1}` : "Salary",
+    name: plan.incomes.length ? t("finance.incomeExpenseStep.tpl.income", { v: plan.incomes.length + 1 }) : t("finance.incomeExpenseStep.str.salary"),
     kind: plan.incomes.length ? "other" : "salary",
     amount: 0,
     frequency: "monthly",
@@ -98,8 +98,7 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
   return (
     <div className="col gap-lg">
       <HelpText>
-        Enter take-home income (after tax) and your regular spending. Essentials (rent, food, school fees, insurance) set the size of your
-        emergency fund; other spending is where small cuts can help. Amounts are in today's money.
+        {t("finance.incomeExpenseStep.text.enterTakeHomeIncomeAfter")}
       </HelpText>
       <InvestablePreview preview={preview} currency={cur} locale={loc} />
 
@@ -109,7 +108,7 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
           items={plan.incomes}
           rowTestId="income"
           addLabel="Add income"
-          emptyText="No income yet. Add your take-home pay."
+          emptyText={t("finance.incomeExpenseStep.attr.noIncomeYetAddYour")}
           max={20}
           onAdd={() => update((p) => addItem(p, "incomes", newIncome()))}
           onRemove={(i) => update((p) => removeItem(p, "incomes", i))}
@@ -124,7 +123,7 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
                 </Field>
                 <Field label={t("finance.incomeExpenseStep.label.howOften")}>{(id) => <Select id={id} value={it.frequency} options={FREQUENCY_OPTIONS} onChange={(v) => set({ frequency: v })} />}</Field>
                 <RangeChip range={it.amount_range} used={it.amount} locale={loc} testId={`income-range-${it.id}`} />
-                <Field label={it.inflation_linked ? "Yearly raise above inflation (%)" : "Yearly raise (%)"} hint={t("finance.incomeExpenseStep.hint.typicalSalaryIncrease")}>
+                <Field label={it.inflation_linked ? t("finance.incomeExpenseStep.str.yearlyRaiseAboveInflation") : t("finance.incomeExpenseStep.str.yearlyRaise")} hint={t("finance.incomeExpenseStep.hint.typicalSalaryIncrease")}>
                   {(id) => <FinNumber id={id} value={it.growth_pct} min={-50} max={50} step={0.5} onChange={(v) => set({ growth_pct: v })} />}
                 </Field>
                 <div className="fin-check-row">
@@ -156,7 +155,7 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
           items={plan.expenses}
           rowTestId="expense"
           addLabel="Add expense"
-          emptyText="No expenses yet. A single 'Essentials' line is enough to start."
+          emptyText={t("finance.incomeExpenseStep.attr.noExpensesYetASingle")}
           max={100}
           onAdd={() => update((p) => addItem(p, "expenses", newExpense(p.expenses.length ? `Expense ${p.expenses.length + 1}` : "Essentials", true)))}
           onRemove={(i) => update((p) => removeItem(p, "expenses", i))}
@@ -207,7 +206,7 @@ export function IncomeExpenseStep({ plan, update, preview, expert }: StepProps) 
             items={plan.one_offs}
             rowTestId="oneoff"
             addLabel="Add one-off"
-            emptyText="For example a wedding gift you will pay, a bonus or a maturing deposit. The plan saves ahead for one-off expenses."
+            emptyText={t("finance.incomeExpenseStep.attr.forExampleAWeddingGift")}
             max={200}
             onAdd={() => update((p) => addItem(p, "one_offs", newOneOff()))}
             onRemove={(i) => update((p) => removeItem(p, "one_offs", i))}

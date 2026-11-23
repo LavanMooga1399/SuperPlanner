@@ -1,4 +1,5 @@
-/**
+
+import { t } from "./i18n";/**
  * One place for number/date formatting (UX-STANDARD 4): Indian English, 24-hour clock, digit grouping.
  * Plant-local values keep their own offset (see mfg/lib/plantTime.ts); browser-local timestamps use these.
  */
@@ -46,7 +47,7 @@ export function formatTime(d: Date | string | number | null | undefined): string
   return Number.isNaN(x.getTime()) ? String(d) : tf.format(x);
 }
 
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MON = [t("shell.locale.str.jan"), t("shell.locale.str.feb"), t("shell.locale.str.mar"), t("shell.locale.str.apr"), t("shell.locale.str.may"), t("shell.locale.str.jun"), t("shell.locale.str.jul"), t("shell.locale.str.aug"), t("shell.locale.str.sep"), t("shell.locale.str.oct"), t("shell.locale.str.nov"), t("shell.locale.str.dec")];
 
 /** Calendar date ("2026-11-02", or the date part of an ISO timestamp) without a time-zone shift: "2 Nov 2026". */
 export function formatDay(d: string | null | undefined): string {

@@ -8,7 +8,7 @@ import { ResourceTable } from "../../components/ResourceTable";
 import { makeResource, removeResource } from "../../lib/planEdit";
 import { useTerms } from "../../lib/terms";
 import { useLoadedPlan } from "../../state/PlanContext";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 export function ResourcesTab() {
   const { draft, update } = useLoadedPlan();
@@ -33,16 +33,16 @@ export function ResourcesTab() {
         <Term k="resource" bare />
         <div className="grow" />
         <button className="btn primary" onClick={add}>
-          <Icon name="plus" /> Add {terms.resourceL}
+          <Icon name="plus" />{" "}{tr("studio.resourcesTab.text.add", { resourceL: terms.resourceL })}
         </button>
       </div>
       {draft.resources.length === 0 ? (
         <div className="card empty">
           <Icon name="layers" size={32} />
-          <strong>No {terms.resourcesL} yet</strong>
-          <span>{terms.resources} are what {terms.tasksL} need: people, machines, rooms or time slots, each with a capacity and opening hours.</span>
+          <strong>{tr("studio.resourcesTab.text.noYet", { resourcesL: terms.resourcesL })}</strong>
+          <span>{tr("studio.resourcesTab.text.areWhatNeedPeopleMachines", { resources: terms.resources, tasksL: terms.tasksL })}</span>
           <button className="btn primary" onClick={add}>
-            <Icon name="plus" /> Add {terms.resourceL}
+            <Icon name="plus" />{" "}{tr("studio.resourcesTab.text.add", { resourceL: terms.resourceL })}
           </button>
         </div>
       ) : (
@@ -50,7 +50,7 @@ export function ResourcesTab() {
       )}
       {toDelete ? (
         <ConfirmDialog
-          title={`Delete ${terms.resourceL}?`}
+          title={tr("studio.resourcesTab.tpl.delete", { resourceL: terms.resourceL })}
           confirmLabel={t("studio.resourcesTab.btn.delete")}
           danger
           onCancel={() => setToDelete(null)}
@@ -60,8 +60,7 @@ export function ResourcesTab() {
           }}
         >
           <p style={{ margin: 0 }}>
-            “{toDelete.name}” will be removed.
-            {refs ? ` It is an option for ${terms.countTasks(refs)}; it will be removed from their requirements.` : ""}
+            {tr("studio.resourcesTab.text.willBeRemoved", { name: toDelete.name, v: refs ? tr("studio.resourcesTab.tpl.itIsAnOptionFor", { refs: terms.countTasks(refs) }) : "" })}
           </p>
         </ConfirmDialog>
       ) : null}

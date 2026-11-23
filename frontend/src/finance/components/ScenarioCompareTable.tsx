@@ -6,7 +6,7 @@ import { goalStatusLabel } from "./StatusPill";
 import { t as tr } from "../../lib/i18n";
 
 function Delta({ v, fmt, higherIsBetter = true }: { v: number | null; fmt(v: number): string; higherIsBetter?: boolean }) {
-  if (v === null || Math.abs(v) < 1e-9) return <span className="muted">no change</span>;
+  if (v === null || Math.abs(v) < 1e-9) return <span className="muted">{tr("finance.scenarioCompareTable.text.noChange")}</span>;
   const good = higherIsBetter ? v > 0 : v < 0;
   return (
     <span className={good ? "delta-up" : "delta-down"}>
@@ -39,7 +39,7 @@ export function ScenarioCompareTable({
   return (
     <div className="table-wrap">
       <table className="table" data-testid={testId}>
-        <caption className="sr-only">Comparison of {labelA} and {labelB}</caption>
+        <caption className="sr-only">{tr("finance.scenarioCompareTable.text.comparisonOfAnd", { labelA: labelA, labelB: labelB })}</caption>
         <thead>
           <tr>
             <th scope="col">{tr("finance.scenarioCompareTable.head.measure")}</th>
@@ -65,7 +65,7 @@ export function ScenarioCompareTable({
             <th scope="row">{tr("finance.scenarioCompareTable.head.emergencyFundComplete")}</th>
             <td className="num">{fmtMonth(t.ef_complete_month_a)}</td>
             <td className="num">{fmtMonth(t.ef_complete_month_b)}</td>
-            <td className="num">{t.ef_complete_month_a === t.ef_complete_month_b ? <span className="muted">no change</span> : "changed"}</td>
+            <td className="num">{t.ef_complete_month_a === t.ef_complete_month_b ? <span className="muted">{tr("finance.scenarioCompareTable.text.noChange")}</span> : "changed"}</td>
           </tr>
           <tr>
             <th scope="row">{tr("finance.scenarioCompareTable.head.cashShortfallRisk")}</th>
@@ -83,7 +83,7 @@ export function ScenarioCompareTable({
 }
 
 function GoalRows({ g, m, ms }: { g: FinanceComparison["goals"][number]; m(v: number | null): string; ms(v: number): string }) {
-  const absent = (side: boolean) => (side ? null : <span className="muted">not in this scenario</span>);
+  const absent = (side: boolean) => (side ? null : <span className="muted">{tr("finance.scenarioCompareTable.text.notInThisScenario")}</span>);
   return (
     <>
       <tr>
@@ -105,7 +105,7 @@ function GoalRows({ g, m, ms }: { g: FinanceComparison["goals"][number]; m(v: nu
         <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>{tr("finance.scenarioCompareTable.head.due")}</th>
         <td className="num">{fmtMonth(g.target_month_a)}</td>
         <td className="num">{fmtMonth(g.target_month_b)}</td>
-        <td className="num">{g.target_month_a === g.target_month_b ? <span className="muted">no change</span> : "moved"}</td>
+        <td className="num">{g.target_month_a === g.target_month_b ? <span className="muted">{tr("finance.scenarioCompareTable.text.noChange")}</span> : "moved"}</td>
       </tr>
       <tr>
         <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>{tr("finance.scenarioCompareTable.head.monthlyNow")}</th>
@@ -121,7 +121,7 @@ function GoalRows({ g, m, ms }: { g: FinanceComparison["goals"][number]; m(v: nu
         <th scope="row" style={{ paddingLeft: 20, fontWeight: 500 }}>{tr("finance.scenarioCompareTable.head.status")}</th>
         <td className="num">{goalStatusLabel(g.status_a)}</td>
         <td className="num">{goalStatusLabel(g.status_b)}</td>
-        <td className="num">{g.status_a === g.status_b ? <span className="muted">no change</span> : "changed"}</td>
+        <td className="num">{g.status_a === g.status_b ? <span className="muted">{tr("finance.scenarioCompareTable.text.noChange")}</span> : "changed"}</td>
       </tr>
     </>
   );

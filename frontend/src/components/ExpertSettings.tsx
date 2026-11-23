@@ -19,23 +19,23 @@ export const DEFAULT_EXPERT: ExpertValues = {
 };
 
 const STRATEGIES: Array<{ id: Strategy; label: string; desc: string }> = [
-  { id: "auto", label: "Automatic", desc: "Picks a method from the problem size and time budget (recommended)." },
-  { id: "heuristic", label: "Priority rules only", desc: "Very fast, good first schedule." },
-  { id: "cpsat", label: "Constraint solver (CP-SAT)", desc: "Exact; can prove a schedule is optimal on small and medium plans." },
-  { id: "ga", label: "Genetic algorithm", desc: "Scales to large plans; improves over generations." },
-  { id: "hybrid", label: "Hybrid", desc: "Constraint solver for 60% of the budget, then the genetic algorithm." },
+  { id: "auto", label: t("studio.expertSettings.str.automatic"), desc: t("studio.expertSettings.str.picksAMethodFromThe") },
+  { id: "heuristic", label: t("studio.expertSettings.str.priorityRulesOnly"), desc: t("studio.expertSettings.str.veryFastGoodFirstSchedule") },
+  { id: "cpsat", label: t("studio.expertSettings.str.constraintSolverCpSat"), desc: t("studio.expertSettings.str.exactCanProveASchedule") },
+  { id: "ga", label: t("studio.expertSettings.str.geneticAlgorithm"), desc: t("studio.expertSettings.str.scalesToLargePlansImproves") },
+  { id: "hybrid", label: t("studio.expertSettings.str.hybrid"), desc: t("studio.expertSettings.str.constraintSolverFor60Of") },
 ];
 
 const GA_FIELDS: Array<{ k: keyof GaParams; label: string; min: number; max: number; step: number }> = [
-  { k: "max_generations", label: "Max generations", min: 1, max: 10000, step: 1 },
-  { k: "stagnation_generations", label: "Stop after no improvement for", min: 5, max: 1000, step: 1 },
-  { k: "crossover_rate", label: "Crossover rate", min: 0, max: 1, step: 0.05 },
-  { k: "mutation_rate", label: "Mutation rate", min: 0.01, max: 0.5, step: 0.01 },
-  { k: "mutation_sigma", label: "Mutation sigma", min: 0.01, max: 0.5, step: 0.01 },
-  { k: "swap_rate", label: "Swap rate", min: 0, max: 1, step: 0.05 },
-  { k: "elite_count", label: "Elite count", min: 0, max: 10, step: 1 },
-  { k: "tournament_size", label: "Tournament size", min: 2, max: 10, step: 1 },
-  { k: "archive_size", label: "Archive size", min: 1, max: 50, step: 1 },
+  { k: "max_generations", label: t("studio.expertSettings.str.maxGenerations"), min: 1, max: 10000, step: 1 },
+  { k: "stagnation_generations", label: t("studio.expertSettings.str.stopAfterNoImprovementFor"), min: 5, max: 1000, step: 1 },
+  { k: "crossover_rate", label: t("studio.expertSettings.str.crossoverRate"), min: 0, max: 1, step: 0.05 },
+  { k: "mutation_rate", label: t("studio.expertSettings.str.mutationRate"), min: 0.01, max: 0.5, step: 0.01 },
+  { k: "mutation_sigma", label: t("studio.expertSettings.str.mutationSigma"), min: 0.01, max: 0.5, step: 0.01 },
+  { k: "swap_rate", label: t("studio.expertSettings.str.swapRate"), min: 0, max: 1, step: 0.05 },
+  { k: "elite_count", label: t("studio.expertSettings.str.eliteCount"), min: 0, max: 10, step: 1 },
+  { k: "tournament_size", label: t("studio.expertSettings.str.tournamentSize"), min: 2, max: 10, step: 1 },
+  { k: "archive_size", label: t("studio.expertSettings.str.archiveSize"), min: 1, max: 50, step: 1 },
 ];
 
 export function ExpertSettings({ value, onChange }: { value: ExpertValues; onChange(v: ExpertValues): void }) {
@@ -58,7 +58,7 @@ export function ExpertSettings({ value, onChange }: { value: ExpertValues; onCha
         <div className="field">
           <label htmlFor="ex-seed">{t("studio.expertSettings.label.randomSeed")}</label>
           <NumberInput id="ex-seed" className="input" value={value.seed} width={120} label={t("studio.expertSettings.label.randomSeed")} onChange={(v) => onChange({ ...value, seed: v })} />
-          <span className="hint">Same seed, same result (when stopped by generations).</span>
+          <span className="hint">{t("studio.expertSettings.text.sameSeedSameResultWhen")}</span>
         </div>
         <div className="field">
           <label htmlFor="ex-alt">{t("studio.expertSettings.label.alternativeSchedules")}</label>
@@ -76,7 +76,7 @@ export function ExpertSettings({ value, onChange }: { value: ExpertValues; onCha
             <div className="field">
               <label htmlFor="ex-gap">{t("studio.expertSettings.label.acceptGap")}</label>
               <NumberInput id="ex-gap" className="input" value={value.cpsat.relative_gap} min={0} max={1} step={0.01} width={120} label={t("studio.expertSettings.label.cpsatRelativeGap")} onChange={(v) => onChange({ ...value, cpsat: { ...value.cpsat, relative_gap: v } })} />
-              <span className="hint">0 = prove optimal</span>
+              <span className="hint">{t("studio.expertSettings.text.0ProveOptimal")}</span>
             </div>
           </div>
         </fieldset>
@@ -97,7 +97,7 @@ export function ExpertSettings({ value, onChange }: { value: ExpertValues; onCha
                 value={value.ga.population_size ?? ""}
                 onChange={(e) => onChange({ ...value, ga: { ...value.ga, population_size: e.target.value === "" ? null : Math.max(10, Math.min(300, Number(e.target.value))) } })}
               />
-              <span className="hint">Empty = automatic</span>
+              <span className="hint">{t("studio.expertSettings.text.emptyAutomatic")}</span>
             </div>
             {GA_FIELDS.map((f) => (
               <div className="field" key={f.k}>

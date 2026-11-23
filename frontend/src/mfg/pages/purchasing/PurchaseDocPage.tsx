@@ -53,21 +53,21 @@ interface ActionDef {
 }
 
 const PR_ACTIONS: ActionDef[] = [
-  { key: "submit", label: "Submit for approval", perm: "pr_edit", from: ["draft"], icon: "arrow-right", primary: true },
-  { key: "approve", label: "Approve", perm: "pr_approve", from: ["submitted"], icon: "check", primary: true },
-  { key: "reject", label: "Reject", perm: "pr_approve", from: ["submitted"], icon: "x" },
-  { key: "convert", label: "Convert to purchase order", perm: "po_edit", from: ["approved"], icon: "briefcase", primary: true },
-  { key: "revise", label: "Back to draft", perm: "pr_edit", from: ["submitted", "rejected"], icon: "refresh" },
-  { key: "cancel", label: "Cancel request", perm: "pr_edit", from: ["draft", "submitted", "approved", "rejected"], icon: "ban", confirm: "The request and its open lines are cancelled. Lines already converted stay on their purchase orders." },
-  { key: "delete", label: "Delete", perm: "pr_edit", from: ["draft", "cancelled"], icon: "trash", danger: true, confirm: "The request is deleted for good." },
+  { key: "submit", label: t("mfg.purchaseDocPage.str.submitForApproval"), perm: "pr_edit", from: ["draft"], icon: "arrow-right", primary: true },
+  { key: "approve", label: t("mfg.purchaseDocPage.str.approve"), perm: "pr_approve", from: ["submitted"], icon: "check", primary: true },
+  { key: "reject", label: t("mfg.purchaseDocPage.str.reject"), perm: "pr_approve", from: ["submitted"], icon: "x" },
+  { key: "convert", label: t("mfg.purchaseDocPage.str.convertToPurchaseOrder"), perm: "po_edit", from: ["approved"], icon: "briefcase", primary: true },
+  { key: "revise", label: t("mfg.purchaseDocPage.str.backToDraft"), perm: "pr_edit", from: ["submitted", "rejected"], icon: "refresh" },
+  { key: "cancel", label: t("mfg.purchaseDocPage.str.cancelRequest"), perm: "pr_edit", from: ["draft", "submitted", "approved", "rejected"], icon: "ban", confirm: t("mfg.purchaseDocPage.str.theRequestAndItsOpen") },
+  { key: "delete", label: "Delete", perm: "pr_edit", from: ["draft", "cancelled"], icon: "trash", danger: true, confirm: t("mfg.purchaseDocPage.str.theRequestIsDeletedFor") },
 ];
 
 const PO_ACTIONS: ActionDef[] = [
-  { key: "issue", label: "Issue to supplier", perm: "po_edit", from: ["draft"], icon: "arrow-right", primary: true, confirm: "The order becomes open: its deliveries are expected and can be received." },
-  { key: "receive", label: "Receive", perm: "inventory", from: ["open", "partially_received"], icon: "download", primary: true },
-  { key: "close", label: "Close", perm: "po_edit", from: ["open", "partially_received", "received"], icon: "lock", confirm: "Deliveries still open are closed and are no longer expected (short close)." },
-  { key: "cancel", label: "Cancel order", perm: "po_edit", from: ["draft", "open"], icon: "ban", confirm: "The order is cancelled. Orders with receipts cannot be cancelled; close them instead." },
-  { key: "delete", label: "Delete", perm: "po_edit", from: ["draft"], icon: "trash", danger: true, confirm: "The draft order is deleted for good." },
+  { key: "issue", label: t("mfg.purchaseDocPage.str.issueToSupplier"), perm: "po_edit", from: ["draft"], icon: "arrow-right", primary: true, confirm: t("mfg.purchaseDocPage.str.theOrderBecomesOpenIts") },
+  { key: "receive", label: t("mfg.purchaseDocPage.str.receive"), perm: "inventory", from: ["open", "partially_received"], icon: "download", primary: true },
+  { key: "close", label: t("mfg.purchaseDocPage.str.close"), perm: "po_edit", from: ["open", "partially_received", "received"], icon: "lock", confirm: t("mfg.purchaseDocPage.str.deliveriesStillOpenAreClosed") },
+  { key: "cancel", label: t("mfg.purchaseDocPage.str.cancelOrder"), perm: "po_edit", from: ["draft", "open"], icon: "ban", confirm: t("mfg.purchaseDocPage.str.theOrderIsCancelledOrders") },
+  { key: "delete", label: "Delete", perm: "po_edit", from: ["draft"], icon: "trash", danger: true, confirm: t("mfg.purchaseDocPage.str.theDraftOrderIsDeleted") },
 ];
 
 interface Header {
@@ -117,7 +117,7 @@ function ConvertDialog({ pr, onClose, onDone }: { pr: PurchaseDocRecord; onClose
   };
   return (
     <Dialog
-      title={`Convert ${pr.number} to a purchase order`}
+      title={t("mfg.purchaseDocPage.tpl.convertToAPurchaseOrder", { number: pr.number })}
       onClose={onClose}
       wide
       footer={
@@ -126,14 +126,14 @@ function ConvertDialog({ pr, onClose, onDone }: { pr: PurchaseDocRecord; onClose
             {t("mfg.purchaseDocPage.btn.cancel")}
           </button>
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || ids.size === 0} data-testid="convert-pr-submit">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="briefcase" />} Create purchase order
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="briefcase" />}{" "}{t("mfg.purchaseDocPage.text.createPurchaseOrder")}
           </button>
         </>
       }
     >
       <div className="col">
         <p className="muted small" style={{ margin: 0 }}>
-          One purchase order line is created per request line, with the same deliveries and the supplier's price.
+          {t("mfg.purchaseDocPage.text.onePurchaseOrderLineIs")}
         </p>
         <fieldset className="mfg-fieldset">
           <legend>{t("mfg.purchaseDocPage.head.lines")}</legend>
@@ -159,11 +159,11 @@ function ConvertDialog({ pr, onClose, onDone }: { pr: PurchaseDocRecord; onClose
           <SupplierPicker label={t("mfg.purchaseDocPage.label.supplier")} value={supplier} onChange={setSupplier} allowClear testId="convert-pr-supplier" />
           <TextField label={t("mfg.purchaseDocPage.label.orderNumber")} value={number} onChange={setNumber} maxLength={32} placeholder={t("mfg.purchaseDocPage.ph.nextFreeNumber")} hint={t("mfg.purchaseDocPage.hint.emptyNextNumberOf")} />
         </div>
-        {!supplier ? <p className="hint" style={{ margin: 0 }}>Without a supplier, the preferred supplier common to all chosen parts is used.</p> : null}
+        {!supplier ? <p className="hint" style={{ margin: 0 }}>{t("mfg.purchaseDocPage.text.withoutASupplierThePreferred")}</p> : null}
         <label className="checkbox">
-          <input type="checkbox" checked={issue} onChange={(e) => setIssue(e.target.checked)} /> Issue the order to the supplier right away
+          <input type="checkbox" checked={issue} onChange={(e) => setIssue(e.target.checked)} />{" "}{t("mfg.purchaseDocPage.text.issueTheOrderToThe")}
         </label>
-        <MfgError error={error} title="Could not convert" />
+        <MfgError error={error} title={t("mfg.purchaseDocPage.attr.couldNotConvert")} />
       </div>
     </Dialog>
   );
@@ -194,7 +194,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
   const [reason, setReason] = useState("");
   const [receiving, setReceiving] = useState(false);
   const [converting, setConverting] = useState(false);
-  const word = docType === "pr" ? "purchase request" : "purchase order";
+  const word = docType === "pr" ? t("mfg.purchaseDocPage.str.purchaseRequest") : t("mfg.purchaseDocPage.str.purchaseOrder");
 
   const reset = (d: PurchaseDocRecord) => {
     setDoc(d);
@@ -207,7 +207,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
   }, [loaded.data]);
 
   if (!isNew && loaded.error && isNotFound(loaded.error))
-    return <NotFoundPanel what={docType === "pr" ? "Purchase request" : "Purchase order"} back={<Link className="btn" to={mfgPaths.purchaseDocs(docType)}>Back to the list</Link>} />;
+    return <NotFoundPanel what={docType === "pr" ? t("mfg.purchaseDocPage.str.purchaseRequest2") : t("mfg.purchaseDocPage.str.purchaseOrder2")} back={<Link className="btn" to={mfgPaths.purchaseDocs(docType)}>{t("mfg.purchaseDocPage.text.backToTheList")}</Link>} />;
   if (!isNew && loaded.error && !doc) return <MfgError error={loaded.error} onRetry={loaded.reload} />;
   if (!isNew && !doc) return <Spinner />;
 
@@ -224,7 +224,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
     lines: linesToInput(lines),
   };
   const dirty = isNew || (doc !== null && JSON.stringify(body) !== JSON.stringify(docBody(doc)));
-  const problems = [...linesProblems(lines), ...(docType === "po" && !head.supplier ? ["Choose the supplier."] : [])];
+  const problems = [...linesProblems(lines), ...(docType === "po" && !head.supplier ? [t("mfg.purchaseDocPage.str.chooseTheSupplier")] : [])];
 
   const save = async () => {
     setBusy(true);
@@ -233,12 +233,12 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
     try {
       if (isNew) {
         const created = await createPurchaseDoc(docType, body);
-        toast(`${docType === "po" ? "Purchase order" : "Purchase request"} ${created.number} created`);
+        toast(`${docType === "po" ? t("mfg.purchaseDocPage.str.purchaseOrder2") : t("mfg.purchaseDocPage.str.purchaseRequest2")} ${created.number} created`);
         navigate(mfgPaths.purchaseDoc(docType, created.id), { replace: true });
       } else if (doc) {
         reset(await updatePurchaseDoc(docType, doc.id, body, doc.row_version));
         toast(t("mfg.purchaseDocPage.toast.changesSaved"));
-        setNotice("Saved.");
+        setNotice(t("mfg.purchaseDocPage.str.saved"));
       }
     } catch (e) {
       if (isConflict(e)) setConflict(true);
@@ -260,7 +260,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
         return;
       }
       reset(await purchaseAction(docType, doc.id, a.key as PrAction | PoAction, doc.row_version, extra ?? {}));
-      setNotice(`${a.label}: done.`);
+      setNotice(t("mfg.purchaseDocPage.tpl.done", { label: a.label }));
     } catch (e) {
       if (isConflict(e)) setConflict(true);
       else setError(e);
@@ -282,15 +282,15 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
 
   return (
     <div className="col gap-lg" data-testid="doc-page" data-doc-type={docType} data-status={status}>
-      <UnsavedChangesGuard when={!isNew && editable && dirty && !busy} what={`this ${docType === "po" ? "purchase order" : "purchase request"}`} />
+      <UnsavedChangesGuard when={!isNew && editable && dirty && !busy} what={`this ${docType === "po" ? t("mfg.purchaseDocPage.str.purchaseOrder") : t("mfg.purchaseDocPage.str.purchaseRequest")}`} />
       <nav aria-label={t("mfg.purchaseDocPage.aria.breadcrumb")} className="small muted mfg-breadcrumb">
-        <Link to={mfgPaths.purchaseDocs(docType)}>{docType === "pr" ? "Purchase requests" : "Purchase orders"}</Link> <Icon name="chevron-right" size={12} />{" "}
-        <span className="mono">{doc?.number ?? `New ${word}`}</span>
+        <Link to={mfgPaths.purchaseDocs(docType)}>{docType === "pr" ? t("mfg.purchaseDocPage.str.purchaseRequests") : t("mfg.purchaseDocPage.str.purchaseOrders")}</Link> <Icon name="chevron-right" size={12} />{" "}
+        <span className="mono">{doc?.number ?? t("mfg.purchaseDocPage.tpl.new", { word: word })}</span>
       </nav>
       <div className="ws-header">
         <div className="ws-title">
           <h1 className="mono" data-testid="doc-title">
-            {doc?.number ?? `New ${word}`}
+            {doc?.number ?? t("mfg.purchaseDocPage.tpl.new", { word: word })}
           </h1>
           {doc ? <PurchaseStatusChip status={doc.status} testId="doc-status" /> : null}
           {doc ? <SourceBadge source={doc.source} runNo={doc.source_run_no} /> : null}
@@ -306,7 +306,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
                   className={`btn${a.primary ? " primary" : ""}${a.danger ? " danger" : ""}`}
                   onClick={() => click(a)}
                   disabled={busy || (a.key !== "receive" && a.key !== "convert" && dirty && a.key !== "delete")}
-                  title={dirty && a.key !== "receive" ? "Save your changes first" : undefined}
+                  title={dirty && a.key !== "receive" ? t("mfg.purchaseDocPage.str.saveYourChangesFirst") : undefined}
                   data-testid={a.key === "receive" ? "receive-open" : `doc-action-${a.key}`}
                 >
                   <Icon name={a.icon} /> {a.label}
@@ -324,7 +324,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
       {conflict ? <ConflictBanner onReload={() => void getPurchaseDoc(docType, docId).then(reset, setError)} what={`this ${word}`} /> : null}
       {docType === "po" ? <ErpOwnedNotice entity="purchase_orders" label={t("mfg.purchaseDocPage.label.purchaseOrders")} /> : null}
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
-      <MfgError error={error} title="That did not work" />
+      <MfgError error={error} title={t("mfg.purchaseDocPage.attr.thatDidNotWork")} />
       {doc?.status === "rejected" && doc.rejected_reason ? (
         <Banner tone="danger" icon="x" title={t("mfg.purchaseDocPage.title.rejected")}>
           {doc.rejected_reason}
@@ -335,7 +335,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
         <div className="card-body form-grid">
           <TextField label={t("mfg.purchaseDocPage.label.number")} value={head.number} onChange={(v) => setHead({ ...head, number: v })} maxLength={32} placeholder={t("mfg.purchaseDocPage.ph.nextFreeNumber")} disabled={!editable || !isNew} testId="doc-number" />
           <SupplierPicker
-            label={docType === "po" ? "Supplier *" : "Suggested supplier"}
+            label={docType === "po" ? t("mfg.purchaseDocPage.str.supplier") : t("mfg.purchaseDocPage.str.suggestedSupplier")}
             value={head.supplier}
             onChange={(s) => setHead({ ...head, supplier: s, currency: head.currency || "" })}
             allowClear={docType === "pr"}
@@ -351,11 +351,11 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
         </div>
         {doc ? (
           <div className="card-footer row wrap small muted">
-            <span>Value {fmtMoney(doc.value, doc.currency) || "-"}</span>
-            <span>· Open {fmtMoney(doc.open_value, doc.currency) || "-"}</span>
-            {doc.submitted_at ? <span>· Submitted {fmtTimestamp(doc.submitted_at)}</span> : null}
-            {doc.approved_at ? <span>· Approved {fmtTimestamp(doc.approved_at)}</span> : null}
-            <span>· Changed {fmtTimestamp(doc.updated_at)}</span>
+            <span>{t("mfg.purchaseDocPage.text.value", { v: fmtMoney(doc.value, doc.currency) || "-" })}</span>
+            <span>{t("mfg.purchaseDocPage.text.open", { v: fmtMoney(doc.open_value, doc.currency) || "-" })}</span>
+            {doc.submitted_at ? <span>{t("mfg.purchaseDocPage.text.submitted", { submittedat: fmtTimestamp(doc.submitted_at) })}</span> : null}
+            {doc.approved_at ? <span>{t("mfg.purchaseDocPage.text.approved", { approvedat: fmtTimestamp(doc.approved_at) })}</span> : null}
+            <span>{t("mfg.purchaseDocPage.text.changed", { updatedat: fmtTimestamp(doc.updated_at) })}</span>
           </div>
         ) : null}
       </section>
@@ -373,7 +373,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
           ) : null}
           <div className="row mfg-sticky-actions">
             <button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !dirty || problems.length > 0} data-testid="doc-save">
-              {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {isNew ? `Create ${word}` : "Save changes"}
+              {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {isNew ? t("mfg.purchaseDocPage.tpl.create", { word: word }) : t("mfg.purchaseDocPage.str.saveChanges")}
             </button>
             {!isNew && doc ? (
               <button type="button" className="btn" disabled={!dirty || busy} onClick={() => reset(doc)}>
@@ -384,7 +384,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
         </>
       ) : !isNew && doc && !can(editPerm) ? null : doc && !EDITABLE[docType].includes(status) ? (
         <p className="muted small" style={{ margin: 0 }}>
-          <Icon name="lock" size={12} /> {docType === "pr" ? "Only draft or rejected requests can be changed." : "Received, closed and cancelled orders are read-only."}
+          <Icon name="lock" size={12} /> {docType === "pr" ? t("mfg.purchaseDocPage.str.onlyDraftOrRejectedRequests") : t("mfg.purchaseDocPage.str.receivedClosedAndCancelledOrders")}
         </p>
       ) : null}
 
@@ -402,7 +402,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
                 <span>{fmtDate(r.txn_date)}</span>
                 <span className="muted small">
                   {POSTING_LABEL[r.type]} · {r.line_count} lines · {r.actor.name}
-                  {r.reversed_by_number ? ` · reversed by ${r.reversed_by_number}` : ""}
+                  {r.reversed_by_number ? t("mfg.purchaseDocPage.tpl.reversedBy", { reversedbynumber: r.reversed_by_number }) : ""}
                 </span>
               </li>
             ))}
@@ -427,7 +427,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
       ) : null}
       {rejecting ? (
         <Dialog
-          title={`Reject ${doc?.number}`}
+          title={t("mfg.purchaseDocPage.tpl.reject", { number: doc?.number })}
           onClose={() => setRejecting(false)}
           footer={
             <>

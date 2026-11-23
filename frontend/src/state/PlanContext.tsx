@@ -14,6 +14,7 @@ import {
 } from "react";
 import { ApiError, errorMessage, getProblem, updateProblem } from "../api/client";
 import type { Problem, ProblemRecord } from "../api/types";
+import { t } from "../lib/i18n";
 
 export type SaveState = "saved" | "saving" | "error" | "conflict";
 
@@ -141,7 +142,7 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
           conflictRef.current = true;
           setConflictDismissed(false);
           setSaveState("conflict");
-          setSaveError("This plan was changed elsewhere.");
+          setSaveError(t("shell.planContext.str.thisPlanWasChangedElsewhere"));
         } else {
           setSaveState("error");
           setSaveError(errorMessage(err));
@@ -275,13 +276,13 @@ export function PlanProvider({ planId, children }: { planId: string; children: R
 
 export function usePlan(): PlanContextValue {
   const ctx = useContext(PlanContextRaw);
-  if (!ctx) throw new Error("usePlan must be used inside <PlanProvider>");
+  if (!ctx) throw new Error(t("shell.planContext.str.useplanMustBeUsedInside"));
   return ctx;
 }
 
 /** Same as usePlan but asserts the draft is loaded (use inside workspace tabs). */
 export function useLoadedPlan(): PlanContextValue & { draft: Problem; record: ProblemRecord } {
   const ctx = usePlan();
-  if (!ctx.draft || !ctx.record) throw new Error("Plan not loaded");
+  if (!ctx.draft || !ctx.record) throw new Error(t("shell.planContext.str.planNotLoaded"));
   return ctx as PlanContextValue & { draft: Problem; record: ProblemRecord };
 }

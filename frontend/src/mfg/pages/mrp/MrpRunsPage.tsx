@@ -44,7 +44,7 @@ export function MrpRunsPage() {
   const columns: Column<MrpRunRecord>[] = [
     {
       key: "run",
-      header: "Run",
+      header: t("mfg.mrpRunsPage.str.run"),
       width: "minmax(250px, 2fr)",
       sortValue: (r) => r.run_no,
       exportValue: (r) => runTitle(r),
@@ -54,7 +54,7 @@ export function MrpRunsPage() {
             {runTitle(r)}
           </Link>
           {r.id === latestLive?.id ? (
-            <span className="badge accent" title="Planned orders can be firmed or released only from this run">
+            <span className="badge accent" title={t("mfg.mrpRunsPage.attr.plannedOrdersCanBeFirmed")}>
               <Icon name="star" /> {t("mfg.mrpRunsPage.btn.latest")}
             </span>
           ) : null}
@@ -64,19 +64,19 @@ export function MrpRunsPage() {
             </span>
           ) : null}
           {r.stale?.is_stale ? (
-            <span className="badge warn" title="Data changed after this run">
+            <span className="badge warn" title={t("mfg.mrpRunsPage.attr.dataChangedAfterThisRun")}>
               <Icon name="clock" /> {t("mfg.mrpRunsPage.btn.outOfDate")}
             </span>
           ) : null}
         </span>
       ),
     },
-    { key: "kind", header: "Kind", width: "84px", sortValue: (r) => r.kind, render: (r) => <RunKindBadge kind={r.kind} /> },
-    { key: "status", header: "Status", width: "116px", sortValue: (r) => r.status, render: (r) => <RunStatusChip status={r.status} /> },
-    { key: "as_of", header: "As of", width: "100px", sortValue: (r) => r.as_of, render: (r) => fmtDate(r.as_of) },
+    { key: "kind", header: t("mfg.mrpRunsPage.str.kind"), width: "84px", sortValue: (r) => r.kind, render: (r) => <RunKindBadge kind={r.kind} /> },
+    { key: "status", header: t("mfg.mrpRunsPage.str.status"), width: "116px", sortValue: (r) => r.status, render: (r) => <RunStatusChip status={r.status} /> },
+    { key: "as_of", header: t("mfg.mrpRunsPage.str.asOf"), width: "100px", sortValue: (r) => r.as_of, render: (r) => fmtDate(r.as_of) },
     {
       key: "late",
-      header: "Late demand",
+      header: t("mfg.mrpRunsPage.str.lateDemand"),
       width: "100px",
       align: "right",
       sortValue: (r) => (r.summary ? r.summary.demand_late + r.summary.demand_past_due : null),
@@ -85,29 +85,29 @@ export function MrpRunsPage() {
         return s ? <span className={s.demand_late + s.demand_past_due ? "mfg-neg" : undefined}>{t("common.nOfM", { n: s.demand_late + s.demand_past_due, m: s.demand_lines })}</span> : "";
       },
     },
-    { key: "short", header: "Parts short", width: "88px", align: "right", sortValue: (r) => r.summary?.items_short, render: (r) => (r.summary ? r.summary.items_short.toLocaleString("en-IN") : "") },
+    { key: "short", header: t("mfg.mrpRunsPage.str.partsShort"), width: "88px", align: "right", sortValue: (r) => r.summary?.items_short, render: (r) => (r.summary ? r.summary.items_short.toLocaleString("en-IN") : "") },
     {
       key: "planned",
-      header: "Planned make / buy",
+      header: t("mfg.mrpRunsPage.str.plannedMakeBuy"),
       width: "132px",
       align: "right",
       sortValue: (r) => (r.summary ? r.summary.planned_make + r.summary.planned_buy : null),
       render: (r) => (r.summary ? `${r.summary.planned_make.toLocaleString("en-IN")} / ${r.summary.planned_buy.toLocaleString("en-IN")}` : ""),
     },
-    { key: "finished", header: "Finished", width: "136px", sortValue: (r) => r.finished_at, render: (r) => fmtTimestamp(r.finished_at) },
-    { key: "by", header: "By", width: "minmax(80px, 1fr)", sortValue: (r) => r.actor.name, render: (r) => r.actor.name },
+    { key: "finished", header: t("mfg.mrpRunsPage.str.finished"), width: "136px", sortValue: (r) => r.finished_at, render: (r) => fmtTimestamp(r.finished_at) },
+    { key: "by", header: t("mfg.mrpRunsPage.str.by"), width: "minmax(80px, 1fr)", sortValue: (r) => r.actor.name, render: (r) => r.actor.name },
   ];
   if (canRun)
     columns.push({
       key: "actions",
-      header: <span className="sr-only">Actions</span>,
-      label: "Actions",
+      header: <span className="sr-only">{t("mfg.mrpRunsPage.text.actions")}</span>,
+      label: t("mfg.mrpRunsPage.str.actions"),
       width: "84px",
       align: "right",
       exportValue: () => "",
       render: (r) => (
-        <button type="button" className="btn sm ghost" onClick={() => void pin(r)} title={r.pinned ? "Allow automatic clean-up of this run" : "Keep this run (otherwise only the last 10 are kept)"}>
-          <Icon name={r.pinned ? "unlock" : "lock"} /> {r.pinned ? "Unkeep" : "Keep"}
+        <button type="button" className="btn sm ghost" onClick={() => void pin(r)} title={r.pinned ? t("mfg.mrpRunsPage.str.allowAutomaticCleanUpOf") : t("mfg.mrpRunsPage.str.keepThisRunOtherwiseOnly")}>
+          <Icon name={r.pinned ? "unlock" : "lock"} /> {r.pinned ? t("mfg.mrpRunsPage.str.unkeep") : t("mfg.mrpRunsPage.str.keep")}
         </button>
       ),
     });
@@ -131,7 +131,7 @@ export function MrpRunsPage() {
       <MfgError error={runs.error ?? error} onRetry={runs.reload} />
       {runs.data && items.length === 0 && !form ? (
         <Banner tone="info" title={t("mfg.mrpRunsPage.title.noPlanYet")} testId="mrp-empty">
-          {canRun ? "Run MRP to plan materials for every open demand order." : "Nobody has run MRP in this plant yet."} Demand orders must be open, and data health must have no errors.
+          {t("mfg.mrpRunsPage.text.demandOrdersMustBeOpen", { v: canRun ? t("mfg.mrpRunsPage.str.runMrpToPlanMaterials") : t("mfg.mrpRunsPage.str.nobodyHasRunMrpIn") })}
         </Banner>
       ) : null}
       {items.length || runs.loading ? (

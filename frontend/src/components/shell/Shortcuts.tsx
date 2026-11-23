@@ -46,21 +46,21 @@ export function GlobalShortcuts() {
 }
 
 const GENERAL: [string[], string][] = [
-  [[MOD, "K"], "Search pages, actions and records"],
-  [["/"], "Focus the search box of the page"],
-  [["?"], "Show this help"],
-  [["Esc"], "Close a dialog, drawer or menu"],
+  [[MOD, "K"], t("shell.shortcuts.str.searchPagesActionsAndRecords")],
+  [["/"], t("shell.shortcuts.str.focusTheSearchBoxOf")],
+  [["?"], t("shell.shortcuts.str.showThisHelp")],
+  [[t("shell.shortcuts.str.esc")], t("shell.shortcuts.str.closeADialogDrawerOr")],
 ];
 const TABLES: [string[], string][] = [
-  [["↑", "↓"], "Move between rows"],
-  [["PgUp", "PgDn"], "Move a page of rows"],
-  [["Home", "End"], "First or last row"],
-  [["Enter"], "Open the focused row"],
-  [["←", "→"], "Collapse or expand (trees); scroll (Gantt)"],
-  [["[", "]"], "Previous or next operation (Gantt)"],
-  [["+", "−"], "Zoom in or out (Gantt)"],
-  [["Alt", "←", "→"], "Move the selected operation by one zoom step (Gantt, preview)"],
-  [["Shift", "Alt", "↑", "↓"], "Move it to the previous or next line (Gantt, preview)"],
+  [["↑", "↓"], t("shell.shortcuts.str.moveBetweenRows")],
+  [["PgUp", "PgDn"], t("shell.shortcuts.str.moveAPageOfRows")],
+  [["Home", "End"], t("shell.shortcuts.str.firstOrLastRow")],
+  [["Enter"], t("shell.shortcuts.str.openTheFocusedRow")],
+  [["←", "→"], t("shell.shortcuts.str.collapseOrExpandTreesScroll")],
+  [["[", "]"], t("shell.shortcuts.str.previousOrNextOperationGantt")],
+  [["+", "−"], t("shell.shortcuts.str.zoomInOrOutGantt")],
+  [["Alt", "←", "→"], t("shell.shortcuts.str.moveTheSelectedOperationBy")],
+  [["Shift", "Alt", "↑", "↓"], t("shell.shortcuts.str.moveItToThePrevious")],
 ];
 
 function Keys({ keys }: { keys: string[] }) {

@@ -10,7 +10,7 @@ import { t } from "../lib/i18n";
 
 const automated = typeof navigator !== "undefined" && navigator.webdriver === true;
 
-export function UnsavedChangesGuard({ when, what = "this page", scope }: { when: boolean; what?: string; scope?: string }) {
+export function UnsavedChangesGuard({ when, what = t("studio.unsavedChangesGuard.str.thisPage"), scope }: { when: boolean; what?: string; scope?: string }) {
   const active = when && !automated;
   // `scope`: a path prefix whose sub-pages keep the edits (e.g. the tabs of a plan workspace)
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>

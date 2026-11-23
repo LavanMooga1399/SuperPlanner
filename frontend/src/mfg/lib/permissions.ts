@@ -10,6 +10,7 @@ import { ApiError } from "../../api/client";
 import { getMe, listWorkspaces } from "../api/clientM2";
 import type { MeResponse, Permission, Role, WorkspaceInfo } from "../api/typesM2";
 import { clearWorkspace, currentWorkspace } from "./workspace";
+import { t } from "../../lib/i18n";
 
 export const ALL_PERMISSIONS: readonly Permission[] = [
   "view",
@@ -40,26 +41,26 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
 ];
 
 export const ROLE_LABEL: Record<Role | "owner", string> = {
-  owner: "Owner",
-  viewer: "Viewer",
-  planner: "Planner",
-  purchaser: "Purchaser",
-  store_keeper: "Store keeper",
-  approver: "Approver",
-  operator: "Operator",
-  supervisor: "Supervisor",
-  plant_admin: "Plant admin",
+  owner: t("mfg.permissions.str.owner"),
+  viewer: t("mfg.permissions.str.viewer"),
+  planner: t("mfg.permissions.str.planner"),
+  purchaser: t("mfg.permissions.str.purchaser"),
+  store_keeper: t("mfg.permissions.str.storeKeeper"),
+  approver: t("mfg.permissions.str.approver"),
+  operator: t("mfg.permissions.str.operator"),
+  supervisor: t("mfg.permissions.str.supervisor"),
+  plant_admin: t("mfg.permissions.str.plantAdmin"),
 };
 
 export const ROLE_HELP: Record<Role, string> = {
-  viewer: "Sees everything, changes nothing.",
-  planner: "Master data, demand, work orders, MRP and schedule runs, publishing the schedule, purchase requests, imports.",
-  purchaser: "Suppliers, purchase requests and purchase orders (incl. converting approved requests).",
-  store_keeper: "Stock postings: receipts, issues, transfers, counts, reversals, lots.",
-  approver: "Approves or rejects purchase requests.",
-  operator: "Shop floor: starts, reports and completes operations, reports downtime. Sees the floor pages and reads the rest. Use it for shared station accounts too.",
-  supervisor: "Shop floor lead: everything an operator does plus corrections, reopen and skip of operations.",
-  plant_admin: "Everything in this plant, like its owner: members, integration, API tokens for the plant.",
+  viewer: t("mfg.permissions.str.seesEverythingChangesNothing"),
+  planner: t("mfg.permissions.str.masterDataDemandWorkOrders"),
+  purchaser: t("mfg.permissions.str.suppliersPurchaseRequestsAndPurchase"),
+  store_keeper: t("mfg.permissions.str.stockPostingsReceiptsIssuesTransfers"),
+  approver: t("mfg.permissions.str.approvesOrRejectsPurchaseRequests"),
+  operator: t("mfg.permissions.str.shopFloorStartsReportsAnd"),
+  supervisor: t("mfg.permissions.str.shopFloorLeadEverythingAn"),
+  plant_admin: t("mfg.permissions.str.everythingInThisPlantLike"),
 };
 
 /** 10.2 matrix: which member roles hold a permission (the owner holds all). */
@@ -92,12 +93,12 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
 };
 
 export function rolesText(roles: Role[]): string {
-  return roles.length ? roles.map((r) => ROLE_LABEL[r]).join(" or ") : "Owner";
+  return roles.length ? roles.map((r) => ROLE_LABEL[r]).join(" or ") : t("mfg.permissions.str.owner");
 }
 
 /** Tooltip for a hidden/disabled action. */
 export function needsText(p: Permission): string {
-  return `Your role in this workspace does not allow this (needs: ${rolesText(PERMISSION_ROLES[p])}).`;
+  return t("mfg.permissions.tpl.yourRoleInThisWorkspace", { rolesText: rolesText(PERMISSION_ROLES[p]) });
 }
 
 export interface Access {

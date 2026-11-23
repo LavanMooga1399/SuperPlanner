@@ -45,7 +45,7 @@ export function DemandList() {
     () => [
       {
         key: "no",
-        header: "Order",
+        header: tr("mfg.demandList.str.order"),
         width: "130px",
         sortKey: "number",
         sortKeyDesc: "-number",
@@ -56,17 +56,17 @@ export function DemandList() {
           </Link>
         ),
       },
-      { key: "st", header: "Status", width: "158px", sortKey: "status", render: (o) => <DemandStatusChip status={o.status} /> },
-      { key: "type", header: "Type", width: "140px", drop: 2, render: (o) => DEMAND_TYPE_LABEL[o.demand_type] ?? o.demand_type },
-      { key: "cust", header: "Customer", width: "minmax(150px, 1.4fr)", sortKey: "customer", render: (o) => <span className="mfg-ellipsis">{o.customer}</span> },
-      { key: "prog", header: "Programme", width: "110px", drop: 1, render: (o) => <span className="mono">{o.program ?? ""}</span> },
-      { key: "prio", header: "Priority", width: "80px", drop: 4, sortKey: "priority", align: "right", render: (o) => `P${o.priority}` },
-      { key: "lines", header: "Lines", width: "60px", drop: 3, align: "right", render: (o) => o.line_count },
-      { key: "open", header: "Open qty", width: "90px", align: "right", render: (o) => fmtNum(o.open_qty) },
-      { key: "due", header: "Next due", width: "106px", sortKey: "due_date", sortKeyDesc: "-due_date", render: (o) => fmtDate(o.next_due) },
+      { key: "st", header: tr("mfg.demandList.str.status"), width: "158px", sortKey: "status", render: (o) => <DemandStatusChip status={o.status} /> },
+      { key: "type", header: tr("mfg.demandList.str.type"), width: "140px", drop: 2, render: (o) => DEMAND_TYPE_LABEL[o.demand_type] ?? o.demand_type },
+      { key: "cust", header: tr("mfg.demandList.str.customer"), width: "minmax(150px, 1.4fr)", sortKey: "customer", render: (o) => <span className="mfg-ellipsis">{o.customer}</span> },
+      { key: "prog", header: tr("mfg.demandList.str.programme"), width: "110px", drop: 1, render: (o) => <span className="mono">{o.program ?? ""}</span> },
+      { key: "prio", header: tr("mfg.demandList.str.priority"), width: "80px", drop: 4, sortKey: "priority", align: "right", render: (o) => `P${o.priority}` },
+      { key: "lines", header: tr("mfg.demandList.str.lines"), width: "60px", drop: 3, align: "right", render: (o) => o.line_count },
+      { key: "open", header: tr("mfg.demandList.str.openQty"), width: "90px", align: "right", render: (o) => fmtNum(o.open_qty) },
+      { key: "due", header: tr("mfg.demandList.str.nextDue"), width: "106px", sortKey: "due_date", sortKeyDesc: "-due_date", render: (o) => fmtDate(o.next_due) },
       {
         key: "late",
-        header: "Late lines",
+        header: tr("mfg.demandList.str.lateLines"),
         width: "100px",
         render: (o) =>
           o.late_lines > 0 ? (
@@ -85,17 +85,17 @@ export function DemandList() {
 
   const canEdit = useCan("demand_edit");
   const [selected, setSelected] = useSelection(params.toString());
-  const orders = (n: number) => (n === 1 ? "this demand order" : `these ${n} demand orders`);
+  const orders = (n: number) => (n === 1 ? tr("mfg.demandList.str.thisDemandOrder") : tr("mfg.demandList.tpl.theseDemandOrders", { n: n }));
   const bulkDefs: BulkActionDef[] = [
-    { action: "demand-orders/close", label: "Close", icon: "check", testId: "bulk-demand-close", eligible: ["open"], what: (n) => `Close ${orders(n)}.`, effect: "Closed orders are no longer planned by MRP." },
-    { action: "demand-orders/cancel", label: "Cancel", icon: "ban", danger: true, testId: "bulk-demand-cancel", eligible: ["draft", "open"], what: (n) => `Cancel ${orders(n)}.`, effect: "Cancelled orders leave planning; this cannot be undone." },
+    { action: "demand-orders/close", label: tr("mfg.demandList.str.close"), icon: "check", testId: "bulk-demand-close", eligible: ["open"], what: (n) => tr("mfg.demandList.tpl.close", { n: orders(n) }), effect: tr("mfg.demandList.str.closedOrdersAreNoLonger") },
+    { action: "demand-orders/cancel", label: tr("mfg.demandList.str.cancel"), icon: "ban", danger: true, testId: "bulk-demand-cancel", eligible: ["draft", "open"], what: (n) => tr("mfg.demandList.tpl.cancel", { n: orders(n) }), effect: tr("mfg.demandList.str.cancelledOrdersLeavePlanningThis") },
   ];
   const chips: FilterChip[] = [];
-  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
-  if (status) chips.push({ key: "st", label: "Status", value: status, onClear: () => set("status", "") });
-  if (type) chips.push({ key: "type", label: "Type", value: DEMAND_TYPE_LABEL[type] ?? type, onClear: () => set("type", "") });
-  if (program.trim()) chips.push({ key: "prog", label: "Programme", value: program.trim(), onClear: () => setProgram("") });
-  if (lateOnly) chips.push({ key: "late", label: "Lines", value: "Late only", onClear: () => set("late", "") });
+  if (q.trim()) chips.push({ key: "q", label: tr("mfg.demandList.str.search"), value: q.trim(), onClear: () => setQ("") });
+  if (status) chips.push({ key: "st", label: tr("mfg.demandList.str.status"), value: status, onClear: () => set("status", "") });
+  if (type) chips.push({ key: "type", label: tr("mfg.demandList.str.type"), value: DEMAND_TYPE_LABEL[type] ?? type, onClear: () => set("type", "") });
+  if (program.trim()) chips.push({ key: "prog", label: tr("mfg.demandList.str.programme"), value: program.trim(), onClear: () => setProgram("") });
+  if (lateOnly) chips.push({ key: "late", label: tr("mfg.demandList.str.lines"), value: "Late only", onClear: () => set("late", "") });
 
   return (
     <div className="col gap-lg">
@@ -126,17 +126,17 @@ export function DemandList() {
         <div className="field">
           <label htmlFor="dm-status">{t("mfg.demandList.label.status")}</label>
           <select id="dm-status" className="select" value={status} onChange={(e) => set("status", e.target.value)} data-testid="demand-status">
-            <option value="">All</option>
-            <option value="draft">Draft</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="">{tr("mfg.demandList.text.all")}</option>
+            <option value="draft">{tr("mfg.demandList.text.draft")}</option>
+            <option value="open">{tr("mfg.demandList.text.open")}</option>
+            <option value="closed">{tr("mfg.demandList.text.closed")}</option>
+            <option value="cancelled">{tr("mfg.demandList.text.cancelled")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="dm-type">{t("mfg.demandList.label.type")}</label>
           <select id="dm-type" className="select" value={type} onChange={(e) => set("type", e.target.value)}>
-            <option value="">All types</option>
+            <option value="">{tr("mfg.demandList.text.allTypes")}</option>
             {DEMAND_TYPES.map((t) => (
               <option key={t} value={t}>
                 {DEMAND_TYPE_LABEL[t]}
@@ -149,11 +149,11 @@ export function DemandList() {
           <input id="dm-prog" className="input" value={program} onChange={(e) => setProgram(e.target.value)} />
         </div>
         <label className="checkbox" style={{ alignSelf: "flex-end", height: "var(--control-h)" }}>
-          <input type="checkbox" checked={lateOnly} onChange={(e) => set("late", e.target.checked ? "1" : "")} data-testid="demand-late-only" /> Only late (latest MRP run)
+          <input type="checkbox" checked={lateOnly} onChange={(e) => set("late", e.target.checked ? "1" : "")} data-testid="demand-late-only" />{" "}{tr("mfg.demandList.text.onlyLateLatestMrpRun")}
         </label>
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
-      {canEdit ? <BulkActions rows={bulkRows(data.rows, selected)} noun={["demand order", "demand orders"]} actions={bulkDefs} onDone={() => (setSelected(new Set()), data.reload())} onClear={() => setSelected(new Set())} /> : null}
+      {canEdit ? <BulkActions rows={bulkRows(data.rows, selected)} noun={[tr("mfg.demandList.str.demandOrder"), tr("mfg.demandList.str.demandOrders")]} actions={bulkDefs} onDone={() => (setSelected(new Set()), data.reload())} onClear={() => setSelected(new Set())} /> : null}
       <VirtualTable
         rows={data.rows}
         columns={columns}
@@ -171,8 +171,8 @@ export function DemandList() {
         sort={{ key: sort, dir: sort.startsWith("-") ? "desc" : "asc" }}
         onSortChange={(x) => set("sort", !x || x.key === "number" ? "" : x.key)}
         exportName="demand-orders"
-        empty={data.loading ? "Loading…" : "No demand orders match these filters."}
-        footer={<span>Showing {tr("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} orders</span>}
+        empty={data.loading ? tr("mfg.demandList.str.loading") : tr("mfg.demandList.str.noDemandOrdersMatchThese")}
+        footer={<span>{tr("mfg.demandList.text.showingOrders", { tr: tr("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
       />
     </div>
   );

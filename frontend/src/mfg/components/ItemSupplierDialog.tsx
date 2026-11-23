@@ -61,8 +61,8 @@ export function ItemSupplierDialog({
       : null;
   return (
     <EntityFormDialog
-      title={row ? `${row.item.part_number} from ${row.supplier.code}` : "Add supplier for a part"}
-      submitLabel={row ? "Save" : "Add"}
+      title={row ? `${row.item.part_number} from ${row.supplier.code}` : t("mfg.itemSupplierDialog.str.addSupplierForAPart")}
+      submitLabel={row ? t("mfg.itemSupplierDialog.str.save") : t("mfg.itemSupplierDialog.str.add")}
       testId="item-supplier-form"
       wide
       disabled={!body || packBad}
@@ -84,7 +84,7 @@ export function ItemSupplierDialog({
           hint={t("mfg.itemSupplierDialog.hint.calendarDaysFromOrderTo")}
           testId="item-supplier-lead"
         />
-        <TextField label={t("mfg.itemSupplierDialog.label.unitPrice")} type="number" value={f.unit_price} onChange={(v) => setF({ ...f, unit_price: v })} hint={`Per ${it?.uom ?? "stock unit"}`} testId="item-supplier-price" />
+        <TextField label={t("mfg.itemSupplierDialog.label.unitPrice")} type="number" value={f.unit_price} onChange={(v) => setF({ ...f, unit_price: v })} hint={t("mfg.itemSupplierDialog.tpl.per", { v: it?.uom ?? "stock unit" })} testId="item-supplier-price" />
         <TextField label={t("mfg.itemSupplierDialog.label.currency")} value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} />
         <TextField label={t("mfg.itemSupplierDialog.label.minimumOrderQuantity")} type="number" value={f.min_order_qty} onChange={(v) => setF({ ...f, min_order_qty: v })} hint={t("mfg.itemSupplierDialog.hint.0TheItemsValue")} />
         <TextField label={t("mfg.itemSupplierDialog.label.orderMultiple")} type="number" value={f.order_multiple} onChange={(v) => setF({ ...f, order_multiple: v })} hint={t("mfg.itemSupplierDialog.hint.0TheItemsValue")} />
@@ -94,7 +94,7 @@ export function ItemSupplierDialog({
           type="number"
           value={f.units_per_purchase_unit}
           onChange={(v) => setF({ ...f, units_per_purchase_unit: v })}
-          hint={packBad ? "A whole number greater than 0." : "Orders are rounded up to whole packs."}
+          hint={packBad ? t("mfg.itemSupplierDialog.str.aWholeNumberGreaterThan") : t("mfg.itemSupplierDialog.str.ordersAreRoundedUpTo")}
         />
       </div>
       <CheckField label={t("mfg.itemSupplierDialog.label.preferredSupplier")} checked={f.preferred} onChange={(v) => setF({ ...f, preferred: v })} hint={t("mfg.itemSupplierDialog.hint.mrpOrdersFromThePreferred")} testId="item-supplier-preferred" />

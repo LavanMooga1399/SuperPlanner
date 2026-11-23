@@ -12,7 +12,7 @@ export interface WhatIfControlsProps {
   avgSurplus: number;
 }
 
-const RISK_TEXT = ["", "Very cautious", "Cautious", "Balanced", "Growth", "High growth"];
+const RISK_TEXT = ["", t("finance.whatIfControls.str.veryCautious"), t("finance.whatIfControls.str.cautious"), t("finance.whatIfControls.str.balanced"), t("finance.whatIfControls.str.growth"), t("finance.whatIfControls.str.highGrowth")];
 
 function roundTo(v: number, step: number) {
   return Math.round(v / step) * step;
@@ -82,7 +82,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
           onKeyDown={onSaveKey}
           onChange={(e) => setExtra(Number(e.target.value))}
         />
-        <span className="small faint">Negative means saving less (for example, spending more each month).</span>
+        <span className="small faint">{t("finance.whatIfControls.text.negativeMeansSavingLessFor")}</span>
       </div>
 
       {goals.map((g) => {
@@ -94,9 +94,9 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
             <legend className="small" style={{ fontWeight: 650, padding: "0 4px" }}>{g.name}</legend>
             <div className="slider-field">
               <div className="slider-head">
-                <label htmlFor={`wi-shift-${g.id}`}>Move the date</label>
+                <label htmlFor={`wi-shift-${g.id}`}>{t("finance.whatIfControls.text.moveTheDate")}</label>
                 <span>
-                  {months === 0 ? "as planned" : `${months > 0 ? "later by" : "earlier by"} ${fmtDurationMonths(Math.abs(months))}`} ({fmtMonth(addMonths(g.target_month, months))})
+                  {months === 0 ? t("finance.whatIfControls.str.asPlanned") : `${months > 0 ? t("finance.whatIfControls.str.laterBy") : t("finance.whatIfControls.str.earlierBy")} ${fmtDurationMonths(Math.abs(months))}`} ({fmtMonth(addMonths(g.target_month, months))})
                 </span>
               </div>
               <input
@@ -117,7 +117,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
               />
             </div>
             <div className="field">
-              <label htmlFor={`wi-amount-${g.id}`}>Target amount (today's money)</label>
+              <label htmlFor={`wi-amount-${g.id}`}>{t("finance.whatIfControls.text.targetAmountTodaySMoney")}</label>
               <input
                 id={`wi-amount-${g.id}`}
                 className="input sm"
@@ -140,7 +140,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
       <div className="slider-field">
         <div className="slider-head">
           <label htmlFor="wi-risk">{t("finance.whatIfControls.label.riskLevel")}</label>
-          <span>{risk} - {RISK_TEXT[risk]}{changes.risk_tolerance == null ? " (your plan)" : ""}</span>
+          <span>{risk} - {RISK_TEXT[risk]}{changes.risk_tolerance == null ? t("finance.whatIfControls.str.yourPlan") : ""}</span>
         </div>
         <input
           id="wi-risk"
@@ -161,7 +161,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
       <div className="slider-field">
         <div className="slider-head">
           <label htmlFor="wi-return">{t("finance.whatIfControls.label.marketReturnsComparedWithYour")}</label>
-          <span>{shift === 0 ? "as assumed" : `${formatPct(shift, 1, true)} a year`}</span>
+          <span>{shift === 0 ? t("finance.whatIfControls.str.asAssumed") : `${formatPct(shift, 1, true)} a year`}</span>
         </div>
         <input
           id="wi-return"
@@ -181,7 +181,7 @@ export function WhatIfControls({ plan, changes, onChange, avgSurplus }: WhatIfCo
         <div className="slider-field">
           <div className="slider-head">
             <label htmlFor="wi-drop-months">{t("finance.whatIfControls.label.howLong")}</label>
-            <span>{drop ? fmtDurationMonths(drop.months) : "no drop"}</span>
+            <span>{drop ? fmtDurationMonths(drop.months) : t("finance.whatIfControls.str.noDrop")}</span>
           </div>
           <input
             id="wi-drop-months"

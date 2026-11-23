@@ -24,7 +24,7 @@ import { CheckField, SelectField, TextField } from "../components/Field";
 import { RecordList, withParam } from "../components/RecordList";
 import { ActiveBadge } from "../components/StatusChip";
 import { isConflict, useDebounced, useLoad } from "../lib/useMfg";
-import { t } from "../../lib/i18n";
+import { t, t as tr } from "../../lib/i18n";
 
 export function OperatorsPage() {
   const [params, setParams] = useSearchParams();
@@ -80,7 +80,7 @@ export function OperatorsPage() {
                 <span className="muted small mfg-ellipsis" style={{ maxWidth: 160 }}>
                   {o.skills.map((s) => s.code).join(", ")}
                 </span>
-                <span className="chip">{o.shift_template?.code ?? "no shift"}</span>
+                <span className="chip">{o.shift_template?.code ?? tr("mfg.operatorsPage.str.noShift")}</span>
                 <ActiveBadge active={o.active} />
               </>
             )}
@@ -116,7 +116,7 @@ export function OperatorsPage() {
             }}
           />
         ) : (
-          <div className="card card-body muted">Select an operator, or add a new one.</div>
+          <div className="card card-body muted">{tr("mfg.operatorsPage.text.selectAnOperatorOrAdd")}</div>
         )}
         {!creating && opParam ? <OperatorAbsences key={`abs-${opParam}`} operatorId={opParam} /> : null}
       </aside>
@@ -204,18 +204,18 @@ function OperatorForm({
       data-operator-id={base?.id}
     >
       <div className="card-header">
-        <h2>{base ? `Operator ${base.code}` : "New operator"}</h2>
+        <h2>{base ? tr("mfg.operatorsPage.tpl.operator", { code: base.code }) : tr("mfg.operatorsPage.str.newOperator")}</h2>
         <SaveState busy={false} saved={saved} />
       </div>
       <div className="card-body col">
-        {conflict && base ? <ConflictBanner onReload={() => void getOperator(base.id).then(reset, setError)} what="this operator" /> : null}
-        <MfgError error={error} title="Could not save" />
+        {conflict && base ? <ConflictBanner onReload={() => void getOperator(base.id).then(reset, setError)} what={tr("mfg.operatorsPage.attr.thisOperator")} /> : null}
+        <MfgError error={error} title={tr("mfg.operatorsPage.attr.couldNotSave")} />
         <div className="form-grid">
           <TextField label={t("mfg.operatorsPage.label.code")} value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} hint={t("mfg.operatorsPage.hint.egBadgeNumber")} testId="operator-code" />
           <TextField label={t("mfg.operatorsPage.label.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="operator-name" />
         </div>
         <div className="field">
-          <span className="field-label">Skills</span>
+          <span className="field-label">{tr("mfg.operatorsPage.text.skills")}</span>
           <MultiSelect options={skillOptions} value={f.skill_ids} onChange={(v) => setF({ ...f, skill_ids: v })} label={t("mfg.operatorsPage.label.skills")} placeholder={t("mfg.operatorsPage.ph.noSkills")} />
         </div>
         <div className="form-grid">
@@ -243,7 +243,7 @@ function OperatorForm({
         </div>
         {template ? (
           <fieldset className="mfg-fieldset">
-            <legend>Shifts of {template.code}</legend>
+            <legend>{tr("mfg.operatorsPage.text.shiftsOf", { code: template.code })}</legend>
             <div className="row wrap">
               {template.shifts.map((s) => (
                 <label key={s.name} className="checkbox">
@@ -252,13 +252,13 @@ function OperatorForm({
                 </label>
               ))}
             </div>
-            <span className="hint">None ticked = all shifts of the template.</span>
+            <span className="hint">{tr("mfg.operatorsPage.text.noneTickedAllShiftsOf")}</span>
           </fieldset>
         ) : null}
         <CheckField label={t("mfg.operatorsPage.label.active")} checked={f.active} onChange={(v) => setF({ ...f, active: v })} />
         <div className="row">
           <button type="submit" className="btn primary sm" disabled={busy || !f.code.trim() || !f.name.trim()} data-testid="operator-save">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {base ? "Save operator" : "Create operator"}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {base ? tr("mfg.operatorsPage.str.saveOperator") : tr("mfg.operatorsPage.str.createOperator")}
           </button>
           {onCancel ? (
             <button type="button" className="btn sm" onClick={onCancel}>
@@ -275,7 +275,7 @@ function OperatorForm({
       </div>
       {confirm && base && onDeleted ? (
         <ConfirmDialog
-          title={`Delete operator ${base.code}?`}
+          title={tr("mfg.operatorsPage.tpl.deleteOperator", { code: base.code })}
           confirmLabel={t("mfg.operatorsPage.btn.delete")}
           danger
           onCancel={() => setConfirm(false)}

@@ -58,7 +58,7 @@ const PALETTE = ["var(--accent)", "var(--fin-c2, #0d9488)", "var(--fin-c4, #7c3a
  * new template previews before they are filled in (and their own validation never shows up as a pattern error).
  */
 export function previewBody(template: Pick<ShiftTemplateInput, "shifts">): ShiftTemplateInput {
-  return { code: "PREVIEW", name: "Preview", description: "", shifts: template.shifts };
+  return { code: "PREVIEW", name: t("mfg.shiftWeekPreview.str.preview"), description: "", shifts: template.shifts };
 }
 
 export function ShiftWeekPreview({ template }: { template: Pick<ShiftTemplateInput, "shifts"> }) {
@@ -75,7 +75,7 @@ export function ShiftWeekPreview({ template }: { template: Pick<ShiftTemplateInp
   const height = HEAD_H + HOUR_H * 24;
   const errors = fieldErrors(preview.error);
   const describe = segments
-    .map((s) => `${WEEKDAY_LABEL[WEEKDAYS[s.day]]} ${hhmm(s.from)}-${hhmm(s.to)} ${s.shift}${s.split === "start" ? " (continues next day)" : s.split === "end" ? " (from the previous day)" : ""}`)
+    .map((s) => `${WEEKDAY_LABEL[WEEKDAYS[s.day]]} ${hhmm(s.from)}-${hhmm(s.to)} ${s.shift}${s.split === "start" ? t("mfg.shiftWeekPreview.str.continuesNextDay") : s.split === "end" ? t("mfg.shiftWeekPreview.str.fromThePreviousDay") : ""}`)
     .join("; ");
 
   return (
@@ -101,7 +101,7 @@ export function ShiftWeekPreview({ template }: { template: Pick<ShiftTemplateInp
           height={height}
           className="mfg-week"
           role="img"
-          aria-label={`Working time in a week: ${describe || "none"}`}
+          aria-label={t("mfg.shiftWeekPreview.tpl.workingTimeInAWeek", { v: describe || "none" })}
           data-testid="shift-week-preview"
           data-loading={preview.loading ? "true" : "false"}
         >
@@ -149,12 +149,12 @@ export function ShiftWeekPreview({ template }: { template: Pick<ShiftTemplateInp
             </li>
           ))}
           <li className="chip">
-            <strong>Week: {fmtHours(preview.data.total_minutes)}</strong>
+            <strong>{t("mfg.shiftWeekPreview.text.week", { totalminutes: fmtHours(preview.data.total_minutes) })}</strong>
           </li>
         </ul>
       ) : null}
       <p className="faint small" style={{ margin: 0 }}>
-        Breaks are shown as gaps. A shift belongs to the day it starts; night shifts continue at the top of the next day (↓).
+        {t("mfg.shiftWeekPreview.text.breaksAreShownAsGaps")}
       </p>
     </div>
   );

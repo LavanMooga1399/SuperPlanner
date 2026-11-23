@@ -122,7 +122,7 @@ export function BomTab() {
   if (item.make_buy === "buy")
     return (
       <Banner tone="info" title={t("mfg.bomTab.title.boughtItemsHaveNoBom")}>
-        {item.part_number} is bought from a supplier. To give it a bill of materials, change it to Make on the Details tab.
+        {t("mfg.bomTab.text.isBoughtFromASupplier", { partnumber: item.part_number })}
       </Banner>
     );
 
@@ -136,9 +136,9 @@ export function BomTab() {
           </button>
         </div>
         <MfgError error={versions.error} onRetry={versions.reload} />
-        <MfgError error={actionError} title="The action failed" />
+        <MfgError error={actionError} title={t("mfg.bomTab.attr.theActionFailed")} />
         {list.length === 0 && !versions.loading ? (
-          <div className="card-body muted">No BOM yet. Create one to list the parts this item is made of.</div>
+          <div className="card-body muted">{t("mfg.bomTab.text.noBomYetCreateOne")}</div>
         ) : null}
         <ul className="mfg-plain-list mfg-version-list">
           {list.map((b) => (
@@ -154,10 +154,10 @@ export function BomTab() {
                 className="mfg-version-main"
                 onClick={() => setParam("bom", b.id === bomParam ? "" : b.id)}
                 aria-pressed={b.id === bomParam}
-                title="Show this version's lines"
+                title={t("mfg.bomTab.attr.showThisVersionSLines")}
               >
                 <strong>
-                  Rev. {b.revision} v{b.version}
+                  {t("mfg.bomTab.text.revV", { revision: b.revision, version: b.version })}
                 </strong>
                 <StatusChip status={b.status} />
                 <EffectivityBadge from={b.effective_from} to={b.effective_to} serialFrom={b.serial_from} serialTo={b.serial_to} />
@@ -175,7 +175,7 @@ export function BomTab() {
                     </button>
                   </>
                 ) : null}
-                <button type="button" className="btn sm" onClick={() => void copy(b)} disabled={busy} data-testid="bom-copy" title="Copy to a new draft version">
+                <button type="button" className="btn sm" onClick={() => void copy(b)} disabled={busy} data-testid="bom-copy" title={t("mfg.bomTab.attr.copyToANewDraft")}>
                   <Icon name="copy" /> {t("mfg.bomTab.btn.copy")}
                 </button>
                 {b.status === "released" ? (
@@ -183,7 +183,7 @@ export function BomTab() {
                     <Icon name="ban" /> {t("mfg.bomTab.btn.makeObsolete")}
                   </button>
                 ) : (
-                  <button type="button" className="btn sm ghost icon" onClick={() => setPending({ kind: "delete", bom: b })} disabled={busy} aria-label={`Delete version ${b.version}`} data-testid="bom-delete">
+                  <button type="button" className="btn sm ghost icon" onClick={() => setPending({ kind: "delete", bom: b })} disabled={busy} aria-label={t("mfg.bomTab.tpl.deleteVersion", { version: b.version })} data-testid="bom-delete">
                     <Icon name="trash" />
                   </button>
                 )}
@@ -193,7 +193,7 @@ export function BomTab() {
         </ul>
       </section>
 
-      {bomParam ? <SelectedLines loading={selected.loading} error={selected.error} lines={selected.data?.lines ?? null} title={selected.data ? `Lines of rev. ${selected.data.revision} v${selected.data.version}` : "Lines"} line={lineParam} status={selected.data?.status} editTo={selected.data ? mfgPaths.bomEdit(item.id, selected.data.id) : null} onClose={() => setParam("bom", "")} /> : null}
+      {bomParam ? <SelectedLines loading={selected.loading} error={selected.error} lines={selected.data?.lines ?? null} title={selected.data ? t("mfg.bomTab.tpl.linesOfRevV", { revision: selected.data.revision, version: selected.data.version }) : t("mfg.bomTab.str.lines")} line={lineParam} status={selected.data?.status} editTo={selected.data ? mfgPaths.bomEdit(item.id, selected.data.id) : null} onClose={() => setParam("bom", "")} /> : null}
 
       <section className="card" aria-labelledby="bom-structure-title">
         <div className="card-header">
@@ -224,7 +224,7 @@ export function BomTab() {
               </div>
             ) : null}
             <span className="muted small" style={{ alignSelf: "flex-end" }}>
-              {explosion.data ? `Released BOMs effective on ${fmtDate(explosion.data.on ?? (on || today))}; quantities include scrap and yield.` : null}
+              {explosion.data ? t("mfg.bomTab.tpl.releasedBomsEffectiveOnQuantities", { fmtDate: fmtDate(explosion.data.on ?? (on || today)) }) : null}
             </span>
           </div>
           {tooLarge ? (
@@ -255,7 +255,7 @@ export function BomTab() {
           {explosion.data && explosion.data.mode === "indented" && mode === "indented" ? (
             explosion.data.rows.length <= 1 && !explosion.data.rows[0]?.has_children ? (
               <p className="muted" style={{ margin: 0 }}>
-                No released BOM is effective on this date. Release a version above to see its structure.
+                {t("mfg.bomTab.text.noReleasedBomIsEffective")}
               </p>
             ) : (
               <BomTree rows={explosion.data.rows} selectLineId={lineParam} />
@@ -264,8 +264,7 @@ export function BomTab() {
           {explosion.data && explosion.data.mode === "summarized" && mode === "summarized" ? <SummaryTable rows={explosion.data.rows} /> : null}
           {explosion.data ? (
             <p className="small muted" style={{ margin: 0 }} data-testid="bom-totals">
-              {explosion.data.totals.distinct_items.toLocaleString("en-IN")} distinct items · {explosion.data.totals.make_items} make ·{" "}
-              {explosion.data.totals.buy_items} buy · {explosion.data.totals.phantom_items} phantom · {explosion.data.totals.max_level + 1} levels
+              {t("mfg.bomTab.text.distinctItemsMakeBuyPhantom", { distinctitems: explosion.data.totals.distinct_items.toLocaleString("en-IN"), makeitems: explosion.data.totals.make_items, v: " ", buyitems: explosion.data.totals.buy_items, phantomitems: explosion.data.totals.phantom_items, v2: explosion.data.totals.max_level + 1 })}
             </p>
           ) : null}
         </div>
@@ -287,7 +286,7 @@ export function BomTab() {
       ) : null}
       {pending?.kind === "obsolete" ? (
         <ConfirmDialog
-          title={`Make rev. ${pending.bom.revision} v${pending.bom.version} obsolete?`}
+          title={t("mfg.bomTab.tpl.makeRevVObsolete", { revision: pending.bom.revision, version: pending.bom.version })}
           confirmLabel={t("mfg.bomTab.btn.makeObsolete")}
           busy={busy}
           onCancel={() => setPending(null)}
@@ -298,7 +297,7 @@ export function BomTab() {
       ) : null}
       {pending?.kind === "delete" ? (
         <ConfirmDialog
-          title={`Delete rev. ${pending.bom.revision} v${pending.bom.version}?`}
+          title={t("mfg.bomTab.tpl.deleteRevV", { revision: pending.bom.revision, version: pending.bom.version })}
           confirmLabel={t("mfg.bomTab.btn.delete")}
           danger
           busy={busy}
@@ -339,10 +338,10 @@ function SelectedLines({
   const index = useMemo(() => (lines && line ? lines.findIndex((l) => l.id === line) : -1), [lines, line]);
   const scrollTo = useMemo(() => (index >= 0 ? { index, seq: index + 1 } : null), [index]);
   const columns: Column<BomLineRecord>[] = [
-    { key: "fn", header: "Find no.", width: "70px", render: (l) => <span className="mono">{l.find_number}</span> },
+    { key: "fn", header: t("mfg.bomTab.str.findNo"), width: "70px", render: (l) => <span className="mono">{l.find_number}</span> },
     {
       key: "pn",
-      header: "Component",
+      header: t("mfg.bomTab.str.component"),
       width: "minmax(160px, 1fr)",
       render: (l) => (
         <Link to={mfgPaths.item(l.child.id)} className="mono" tabIndex={-1}>
@@ -350,21 +349,21 @@ function SelectedLines({
         </Link>
       ),
     },
-    { key: "desc", header: "Description", width: "minmax(160px, 1.4fr)", render: (l) => <span className="mfg-ellipsis">{l.child.description}</span> },
-    { key: "mb", header: "Make / buy", width: "100px", render: (l) => <MakeBuyBadge value={l.child.make_buy} /> },
-    { key: "qty", header: "Qty per", width: "80px", align: "right", render: (l) => fmtQty(l.qty_per) },
-    { key: "uom", header: "Unit", width: "54px", render: (l) => l.uom },
-    { key: "scrap", header: "Scrap %", width: "68px", align: "right", render: (l) => (l.scrap_pct ? fmtQty(l.scrap_pct) : "") },
-    { key: "alt", header: "Alternate", width: "90px", render: (l) => (l.alt_group ? `${l.alt_group} / ${l.alt_priority}` : "") },
-    { key: "op", header: "At operation", width: "90px", align: "right", render: (l) => l.operation_seq ?? "" },
-    { key: "ref", header: "Ref. des.", width: "minmax(100px, 1fr)", render: (l) => <span className="mfg-ellipsis small">{l.ref_designators}</span> },
+    { key: "desc", header: t("mfg.bomTab.str.description"), width: "minmax(160px, 1.4fr)", render: (l) => <span className="mfg-ellipsis">{l.child.description}</span> },
+    { key: "mb", header: t("mfg.bomTab.str.makeBuy"), width: "100px", render: (l) => <MakeBuyBadge value={l.child.make_buy} /> },
+    { key: "qty", header: t("mfg.bomTab.str.qtyPer"), width: "80px", align: "right", render: (l) => fmtQty(l.qty_per) },
+    { key: "uom", header: t("mfg.bomTab.str.unit"), width: "54px", render: (l) => l.uom },
+    { key: "scrap", header: t("mfg.bomTab.str.scrap"), width: "68px", align: "right", render: (l) => (l.scrap_pct ? fmtQty(l.scrap_pct) : "") },
+    { key: "alt", header: t("mfg.bomTab.str.alternate"), width: "90px", render: (l) => (l.alt_group ? `${l.alt_group} / ${l.alt_priority}` : "") },
+    { key: "op", header: t("mfg.bomTab.str.atOperation"), width: "90px", align: "right", render: (l) => l.operation_seq ?? "" },
+    { key: "ref", header: t("mfg.bomTab.str.refDes"), width: "minmax(100px, 1fr)", render: (l) => <span className="mfg-ellipsis small">{l.ref_designators}</span> },
   ];
   return (
     <section className="card" aria-label={title} data-testid="bom-selected-lines">
       <div className="card-header">
         <h2>{title}</h2>
         <span className="row">
-          {status && status !== "draft" ? <span className="muted small">Read-only ({status}); copy it to change it.</span> : null}
+          {status && status !== "draft" ? <span className="muted small">{t("mfg.bomTab.text.readOnlyCopyItTo", { status: status })}</span> : null}
           {status === "draft" && editTo ? (
             <Link className="btn sm" to={editTo}>
               <Icon name="settings" /> {t("mfg.bomTab.btn.editLines")}
@@ -399,7 +398,7 @@ function SummaryTable({ rows }: { rows: SummarizedRow[] }) {
   const columns: Column<SummarizedRow>[] = [
     {
       key: "pn",
-      header: "Part number",
+      header: t("mfg.bomTab.str.partNumber"),
       width: "minmax(160px, 1fr)",
       render: (r) => (
         <Link to={mfgPaths.item(r.item_id)} className="mono" tabIndex={-1}>
@@ -407,12 +406,12 @@ function SummaryTable({ rows }: { rows: SummarizedRow[] }) {
         </Link>
       ),
     },
-    { key: "desc", header: "Description", width: "minmax(180px, 1.6fr)", render: (r) => <span className="mfg-ellipsis">{r.description}</span> },
-    { key: "mb", header: "Make / buy", width: "100px", render: (r) => <MakeBuyBadge value={r.make_buy} /> },
-    { key: "qty", header: "Total qty", width: "110px", align: "right", render: (r) => `${fmtQty(r.total_qty)} ${r.uom}` },
-    { key: "lv", header: "Levels", width: "70px", align: "right", render: (r) => (r.min_level === r.max_level ? r.min_level : `${r.min_level}-${r.max_level}`) },
-    { key: "occ", header: "Used", width: "70px", align: "right", render: (r) => `${r.occurrences}x` },
-    { key: "lt", header: "Lead time", width: "80px", align: "right", render: (r) => (r.lead_time_days === null ? "" : `${r.lead_time_days} d`) },
+    { key: "desc", header: t("mfg.bomTab.str.description"), width: "minmax(180px, 1.6fr)", render: (r) => <span className="mfg-ellipsis">{r.description}</span> },
+    { key: "mb", header: t("mfg.bomTab.str.makeBuy"), width: "100px", render: (r) => <MakeBuyBadge value={r.make_buy} /> },
+    { key: "qty", header: t("mfg.bomTab.str.totalQty"), width: "110px", align: "right", render: (r) => `${fmtQty(r.total_qty)} ${r.uom}` },
+    { key: "lv", header: t("mfg.bomTab.str.levels"), width: "70px", align: "right", render: (r) => (r.min_level === r.max_level ? r.min_level : `${r.min_level}-${r.max_level}`) },
+    { key: "occ", header: t("mfg.bomTab.str.used"), width: "70px", align: "right", render: (r) => `${r.occurrences}x` },
+    { key: "lt", header: t("mfg.bomTab.str.leadTime"), width: "80px", align: "right", render: (r) => (r.lead_time_days === null ? "" : `${r.lead_time_days} d`) },
   ];
   return <VirtualTable rows={rows} columns={columns} rowKey={(r) => r.item_id} label={t("mfg.bomTab.label.totalQuantities")} testId="bom-summary" rowExtras={(r) => ({ testId: "bom-summary-row", data: { "part-number": r.part_number } })} />;
 }

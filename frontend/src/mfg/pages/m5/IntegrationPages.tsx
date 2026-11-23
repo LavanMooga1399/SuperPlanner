@@ -19,44 +19,44 @@ import { mfgPaths } from "../../lib/paths";
 import { needsText, useCan } from "../../lib/permissions";
 import { isConflict, useLoad } from "../../lib/useMfg";
 import { formatDateTime, formatTime } from "../../../lib/locale";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 import { DataTable } from "../../components/DataTable";
 
 export const SOR_LABEL: Record<SorEntity, { label: string; help: string; allowed: SorValue[] }> = {
-  items: { label: "Items", help: "Part number, description, unit, make/buy, cost. Planning settings (lot sizes, safety stock, families) always stay here.", allowed: ["erp", "superplanner", "shared"] },
-  boms: { label: "BOMs", help: "Whole structure; changes from the ERP are recorded as engineering changes.", allowed: ["erp", "superplanner"] },
-  routings: { label: "Routings", help: "Operations and times; line rates and changeovers stay here.", allowed: ["erp", "superplanner"] },
-  suppliers: { label: "Suppliers", help: "All except the preferred flag.", allowed: ["erp", "superplanner", "shared"] },
-  item_suppliers: { label: "Item suppliers", help: "Prices, lead times, MOQ per supplier.", allowed: ["erp", "superplanner", "shared"] },
-  purchase_orders: { label: "Purchase orders", help: "Header, lines and delivery schedules.", allowed: ["erp", "superplanner"] },
-  po_receipts: { label: "Goods receipts", help: "See below.", allowed: ["erp", "superplanner"] },
-  demand_orders: { label: "Customer demand", help: "All except priority.", allowed: ["erp", "superplanner"] },
-  purchase_requests: { label: "Purchase requests", help: "Raised here, sent to the ERP.", allowed: ["superplanner"] },
-  work_orders: { label: "Work orders", help: "Created and run here, sent to the ERP.", allowed: ["superplanner", "erp"] },
-  floor: { label: "Shop-floor results", help: "Good, scrap, labour; sent to the ERP.", allowed: ["superplanner"] },
-  transfers: { label: "Transfers between plants", help: "Sent to the ERP.", allowed: ["superplanner"] },
-  stock: { label: "Stock movements", help: "The ledger here is the record; ERP stock is compared in Reconciliation.", allowed: ["superplanner", "erp"] },
+  items: { label: tr("mfg.integrationPages.str.items"), help: tr("mfg.integrationPages.str.partNumberDescriptionUnitMake"), allowed: ["erp", "superplanner", "shared"] },
+  boms: { label: "BOMs", help: tr("mfg.integrationPages.str.wholeStructureChangesFromThe"), allowed: ["erp", "superplanner"] },
+  routings: { label: tr("mfg.integrationPages.str.routings"), help: tr("mfg.integrationPages.str.operationsAndTimesLineRates"), allowed: ["erp", "superplanner"] },
+  suppliers: { label: tr("mfg.integrationPages.str.suppliers"), help: tr("mfg.integrationPages.str.allExceptThePreferredFlag"), allowed: ["erp", "superplanner", "shared"] },
+  item_suppliers: { label: tr("mfg.integrationPages.str.itemSuppliers"), help: tr("mfg.integrationPages.str.pricesLeadTimesMoqPer"), allowed: ["erp", "superplanner", "shared"] },
+  purchase_orders: { label: tr("mfg.integrationPages.str.purchaseOrders"), help: tr("mfg.integrationPages.str.headerLinesAndDeliverySchedules"), allowed: ["erp", "superplanner"] },
+  po_receipts: { label: tr("mfg.integrationPages.str.goodsReceipts"), help: tr("mfg.integrationPages.str.seeBelow"), allowed: ["erp", "superplanner"] },
+  demand_orders: { label: tr("mfg.integrationPages.str.customerDemand"), help: tr("mfg.integrationPages.str.allExceptPriority"), allowed: ["erp", "superplanner"] },
+  purchase_requests: { label: tr("mfg.integrationPages.str.purchaseRequests"), help: tr("mfg.integrationPages.str.raisedHereSentToThe"), allowed: ["superplanner"] },
+  work_orders: { label: tr("mfg.integrationPages.str.workOrders"), help: tr("mfg.integrationPages.str.createdAndRunHereSent"), allowed: ["superplanner", "erp"] },
+  floor: { label: tr("mfg.integrationPages.str.shopFloorResults"), help: tr("mfg.integrationPages.str.goodScrapLabourSentTo"), allowed: ["superplanner"] },
+  transfers: { label: tr("mfg.integrationPages.str.transfersBetweenPlants"), help: tr("mfg.integrationPages.str.sentToTheErp"), allowed: ["superplanner"] },
+  stock: { label: tr("mfg.integrationPages.str.stockMovements"), help: tr("mfg.integrationPages.str.theLedgerHereIsThe"), allowed: ["superplanner", "erp"] },
 };
 
-const SOR_TEXT: Record<SorValue, string> = { erp: "ERP", superplanner: "SuperPlanner", shared: "Both (last change wins)" };
+const SOR_TEXT: Record<SorValue, string> = { erp: "ERP", superplanner: "SuperPlanner", shared: tr("mfg.integrationPages.str.bothLastChangeWins") };
 
 const TABS: { key: string; label: string }[] = [
-  { key: "", label: "Overview" },
-  { key: "settings", label: "Settings" },
-  { key: "endpoints", label: "Webhooks" },
-  { key: "deliveries", label: "Deliveries" },
-  { key: "batches", label: "Data in" },
-  { key: "events", label: "Events out" },
-  { key: "filedrop", label: "File drop" },
-  { key: "value-maps", label: "Code mappings" },
-  { key: "reconciliation", label: "Reconciliation" },
-  { key: "tokens", label: "Plant tokens" },
+  { key: "", label: tr("mfg.integrationPages.str.overview") },
+  { key: "settings", label: tr("mfg.integrationPages.str.settings") },
+  { key: "endpoints", label: tr("mfg.integrationPages.str.webhooks") },
+  { key: "deliveries", label: tr("mfg.integrationPages.str.deliveries") },
+  { key: "batches", label: tr("mfg.integrationPages.str.dataIn") },
+  { key: "events", label: tr("mfg.integrationPages.str.eventsOut") },
+  { key: "filedrop", label: tr("mfg.integrationPages.str.fileDrop") },
+  { key: "value-maps", label: tr("mfg.integrationPages.str.codeMappings") },
+  { key: "reconciliation", label: tr("mfg.integrationPages.str.reconciliation") },
+  { key: "tokens", label: tr("mfg.integrationPages.str.plantTokens") },
 ];
 
 export function IntegrationLayout() {
   const can = useCan("integration_admin");
   useEffect(() => {
-    document.title = "Integration - SuperPlanner";
+    document.title = tr("mfg.integrationPages.str.integrationSuperplanner");
   }, []);
   return (
     <div className="col gap-lg" data-testid="integration">
@@ -97,32 +97,32 @@ export function IntegrationOverview() {
   return (
     <div className="col gap-lg" data-testid="int-overview" data-enabled={s.enabled}>
       {!s.enabled ? (
-        <Banner tone="info" title={t("mfg.integrationPages.title.theIntegrationIsOffFor")} actions={<Link className="btn sm primary" to={mfgPaths.integration("settings")}>Set it up</Link>}>
-          Nothing is sent to an ERP and ERP data is not accepted. Turn it on under Settings.
+        <Banner tone="info" title={t("mfg.integrationPages.title.theIntegrationIsOffFor")} actions={<Link className="btn sm primary" to={mfgPaths.integration("settings")}>{tr("mfg.integrationPages.text.setItUp")}</Link>}>
+          {tr("mfg.integrationPages.text.nothingIsSentToAn")}
         </Banner>
       ) : null}
       <div className="kpis">
         <Link to={`${mfgPaths.integration("deliveries")}?status=dead`} className="card kpi" style={{ textDecoration: "none", color: "inherit" }} data-testid="int-kpi-dead">
-          <div className="kpi-label">Failed deliveries</div>
+          <div className="kpi-label">{tr("mfg.integrationPages.text.failedDeliveries")}</div>
           <div className="kpi-value" style={{ color: dead.data?.total ? "var(--danger)" : undefined }}>
             {dead.data?.total ?? "–"} {dead.data?.total ? <Icon name="alert" size={16} /> : null}
           </div>
-          <div className="kpi-sub">stopped after 24 h of retries</div>
+          <div className="kpi-sub">{tr("mfg.integrationPages.text.stoppedAfter24HOf")}</div>
         </Link>
         <Link to={`${mfgPaths.integration("deliveries")}?status=pending`} className="card kpi" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="kpi-label">Waiting to send</div>
+          <div className="kpi-label">{tr("mfg.integrationPages.text.waitingToSend")}</div>
           <div className="kpi-value">{waiting.data?.total ?? "–"}</div>
-          <div className="kpi-sub">incl. retries; later events of a failing webhook wait</div>
+          <div className="kpi-sub">{tr("mfg.integrationPages.text.inclRetriesLaterEventsOf")}</div>
         </Link>
         <Link to={mfgPaths.integration("batches")} className="card kpi" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="kpi-label">Last data in</div>
+          <div className="kpi-label">{tr("mfg.integrationPages.text.lastDataIn")}</div>
           <div className="kpi-value" style={{ fontSize: 18 }}>
-            {last ? formatDateTime(last.received_at) : "none yet"}
+            {last ? formatDateTime(last.received_at) : tr("mfg.integrationPages.str.noneYet")}
           </div>
-          <div className="kpi-sub">{rejected ? `${rejected} rejected records in the last 5 batches` : "no rejected records recently"}</div>
+          <div className="kpi-sub">{rejected ? tr("mfg.integrationPages.tpl.rejectedRecordsInTheLast", { rejected: rejected }) : tr("mfg.integrationPages.str.noRejectedRecordsRecently")}</div>
         </Link>
         <Link to={mfgPaths.integration("filedrop")} className="card kpi" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="kpi-label">File drop</div>
+          <div className="kpi-label">{tr("mfg.integrationPages.text.fileDrop")}</div>
           <div className="kpi-value" style={{ fontSize: 18 }}>
             {!fd.data?.enabled ? "off" : fd.data.inbox.length ? `${fd.data.inbox.length} waiting` : "ok"}
           </div>
@@ -219,8 +219,8 @@ export function IntegrationSettingsTab() {
       data-testid="int-settings"
     >
       {conflict ? (
-        <Banner tone="warn" title={t("mfg.integrationPages.title.someoneElseChangedTheSettings")} actions={<button type="button" className="btn sm" onClick={() => { setConflict(false); st.reload(); }}>Reload</button>}>
-          Your changes were not saved.
+        <Banner tone="warn" title={t("mfg.integrationPages.title.someoneElseChangedTheSettings")} actions={<button type="button" className="btn sm" onClick={() => { setConflict(false); st.reload(); }}>{tr("mfg.integrationPages.text.reload")}</button>}>
+          {tr("mfg.integrationPages.text.yourChangesWereNotSaved")}
         </Banner>
       ) : null}
       <section className="card">
@@ -228,24 +228,24 @@ export function IntegrationSettingsTab() {
           <label className="checkbox">
             <input type="checkbox" checked={f.enabled} disabled={!can} onChange={(e) => setF({ ...f, enabled: e.target.checked })} data-testid="int-enabled" />
             <span>
-              <strong>Connect this plant to an ERP</strong> <span className="muted small">Records changes for the ERP and accepts ERP data. Off = this plant works on its own.</span>
+              <strong>{tr("mfg.integrationPages.text.connectThisPlantToAn")}</strong> <span className="muted small">{tr("mfg.integrationPages.text.recordsChangesForTheErp")}</span>
             </span>
           </label>
           <div className="field" style={{ maxWidth: 320 }}>
             <label htmlFor="int-code">{t("mfg.integrationPages.label.plantCodeForFilesAnd")}</label>
             <input id="int-code" className="input mono" value={f.plant_code} disabled={!can} onChange={(e) => setF({ ...f, plant_code: e.target.value.replace(/[^A-Za-z0-9_.-]/g, "") })} maxLength={32} required data-testid="int-plant-code" />
-            <span className="hint">Letters, digits, - _ . : names this plant's folder on the integration volume and appears in every event.</span>
+            <span className="hint">{tr("mfg.integrationPages.text.lettersDigitsNamesThisPlant")}</span>
           </div>
           <div className="field" style={{ maxWidth: 320 }}>
             <label htmlFor="int-adapter">{t("mfg.integrationPages.label.format")}</label>
             <select id="int-adapter" className="select" value={f.adapter} disabled={!can} onChange={(e) => setF({ ...f, adapter: e.target.value })}>
               {(f.adapters?.length ? f.adapters : ["generic_v1"]).map((a) => (
                 <option key={a} value={a}>
-                  {a === "generic_v1" ? "Generic (superplanner.v1): REST, files, webhooks" : a}
+                  {a === "generic_v1" ? tr("mfg.integrationPages.str.genericSuperplannerV1RestFiles") : a}
                 </option>
               ))}
             </select>
-            <span className="hint">ERP-specific formats are added once your ERP is known; your ERP's integration layer can map to this format today.</span>
+            <span className="hint">{tr("mfg.integrationPages.text.erpSpecificFormatsAreAdded")}</span>
           </div>
         </div>
       </section>
@@ -253,7 +253,7 @@ export function IntegrationSettingsTab() {
       <section className="card card-table">
         <div className="card-header">
           <h2>{t("mfg.integrationPages.head.whoOwnsWhat")}</h2>
-          <span className="muted small">Data owned by the ERP is read-only here; data owned here is rejected when the ERP sends it.</span>
+          <span className="muted small">{tr("mfg.integrationPages.text.dataOwnedByTheErp")}</span>
         </div>
         <DataTable
           rows={SOR_ENTITIES.filter((e) => e !== "po_receipts")}
@@ -268,7 +268,7 @@ export function IntegrationSettingsTab() {
                 const m = SOR_LABEL[e];
                 const v = f.sor[e] ?? "superplanner";
                 return m.allowed.length > 1 ? (
-                  <select className="select sm" aria-label={`${m.label} owned by`} value={v} disabled={!can} onChange={(ev) => setSor(e, ev.target.value as SorValue)} data-testid={`sor-${e}`}>
+                  <select className="select sm" aria-label={tr("mfg.integrationPages.tpl.ownedBy", { label: m.label })} value={v} disabled={!can} onChange={(ev) => setSor(e, ev.target.value as SorValue)} data-testid={`sor-${e}`}>
                     {m.allowed.map((a) => (
                       <option key={a} value={a}>
                         {SOR_TEXT[a]}
@@ -299,13 +299,13 @@ export function IntegrationSettingsTab() {
           <label className="checkbox">
             <input type="radio" name="gr" checked={f.goods_receipts_owner === "superplanner"} disabled={!can} onChange={() => setF({ ...f, goods_receipts_owner: "superplanner", sor: { ...f.sor, po_receipts: "superplanner" } })} data-testid="gr-superplanner" />
             <span>
-              <strong>Booked here</strong> <span className="muted small">Stores receive in SuperPlanner; each receipt is sent to the ERP.</span>
+              <strong>{tr("mfg.integrationPages.text.bookedHere")}</strong> <span className="muted small">{tr("mfg.integrationPages.text.storesReceiveInSuperplannerEach")}</span>
             </span>
           </label>
           <label className="checkbox">
             <input type="radio" name="gr" checked={f.goods_receipts_owner === "erp"} disabled={!can} onChange={() => setF({ ...f, goods_receipts_owner: "erp", sor: { ...f.sor, po_receipts: "erp" } })} data-testid="gr-erp" />
             <span>
-              <strong>Booked in the ERP</strong> <span className="muted small">Receiving here is switched off; the ERP sends each receipt in.</span>
+              <strong>{tr("mfg.integrationPages.text.bookedInTheErp")}</strong> <span className="muted small">{tr("mfg.integrationPages.text.receivingHereIsSwitchedOff")}</span>
             </span>
           </label>
         </div>
@@ -320,13 +320,13 @@ export function IntegrationSettingsTab() {
             <label className="checkbox">
               <input type="checkbox" checked={f.filedrop_enabled} disabled={!can} onChange={(e) => setF({ ...f, filedrop_enabled: e.target.checked })} />
               <span>
-                <strong>Read files from the inbox folder</strong> <span className="muted small">CSV, Excel or JSON dropped by the ERP (or an SFTP server) are imported with the saved mapping.</span>
+                <strong>{tr("mfg.integrationPages.text.readFilesFromTheInbox")}</strong> <span className="muted small">{tr("mfg.integrationPages.text.csvExcelOrJsonDropped")}</span>
               </span>
             </label>
             <label className="checkbox">
               <input type="checkbox" checked={f.export_enabled} disabled={!can} onChange={(e) => setF({ ...f, export_enabled: e.target.checked })} />
               <span>
-                <strong>Also write events as files</strong> <span className="muted small">CSV per event type and JSON lines in the outbox folder.</span>
+                <strong>{tr("mfg.integrationPages.text.alsoWriteEventsAsFiles")}</strong> <span className="muted small">{tr("mfg.integrationPages.text.csvPerEventTypeAnd")}</span>
               </span>
             </label>
             {f.export_enabled ? (

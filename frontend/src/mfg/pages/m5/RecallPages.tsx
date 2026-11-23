@@ -25,13 +25,13 @@ import { useLoad } from "../../lib/useMfg";
 import { PrecisionTag } from "./TracePages";
 import { formatDate, formatDateTime, formatDay } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
-import { t, plural } from "../../../lib/i18n";
+import { plural, t } from "../../../lib/i18n";
 
 const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "play" | "flag" | "circle" }> = {
-  in_stock: { label: "In stock", tone: "warn", icon: "layers" },
-  wip: { label: "In production", tone: "accent", icon: "play" },
-  shipped: { label: "Shipped", tone: "danger", icon: "flag" },
-  consumed: { label: "Fitted into a parent", tone: "info", icon: "circle" },
+  in_stock: { label: t("mfg.recallPages.str.inStock"), tone: "warn", icon: "layers" },
+  wip: { label: t("mfg.recallPages.str.inProduction"), tone: "accent", icon: "play" },
+  shipped: { label: t("mfg.recallPages.str.shipped"), tone: "danger", icon: "flag" },
+  consumed: { label: t("mfg.recallPages.str.fittedIntoAParent"), tone: "info", icon: "circle" },
 };
 
 type UnitRow = NonNullable<Recall["report"]>["units"][number];
@@ -41,7 +41,7 @@ type CustomerRow = NonNullable<Recall["report"]>["by_customer"][number];
 const RECALL_LIST_COLS: Column<Recall>[] = [
   {
     key: "recall",
-    header: "Recall",
+    header: t("mfg.recallPages.str.recall"),
     width: "minmax(260px, 2fr)",
     exportValue: (r) => `${r.number} ${r.name}`,
     render: (r) => (
@@ -49,27 +49,27 @@ const RECALL_LIST_COLS: Column<Recall>[] = [
         <Link to={mfgPaths.recall(r.id)}>
           <span className="mono">{r.number}</span> {r.name}
         </Link>
-        {r.quarantined_at ? <span className="small faint"> · quarantined {formatDate(r.quarantined_at)}</span> : null}
+        {r.quarantined_at ? <span className="small faint">{" "}{t("mfg.recallPages.text.quarantined", { quarantinedat: formatDate(r.quarantined_at) })}</span> : null}
       </span>
     ),
   },
-  { key: "created", header: "Created", width: "160px", render: (r) => formatDateTime(r.created_at) },
-  { key: "units", header: "Units", width: "100px", align: "right", render: (r) => fmtNum(r.report?.units.length ?? 0) },
-  { key: "shipped", header: "Shipped", width: "100px", align: "right", render: (r) => fmtNum((r.report?.units ?? []).filter((u) => u.status === "shipped").length) },
-  { key: "customers", header: "Customers", width: "110px", align: "right", render: (r) => fmtNum(r.report?.by_customer.length ?? 0) },
+  { key: "created", header: t("mfg.recallPages.str.created"), width: "160px", render: (r) => formatDateTime(r.created_at) },
+  { key: "units", header: t("mfg.recallPages.str.units"), width: "100px", align: "right", render: (r) => fmtNum(r.report?.units.length ?? 0) },
+  { key: "shipped", header: t("mfg.recallPages.str.shipped"), width: "100px", align: "right", render: (r) => fmtNum((r.report?.units ?? []).filter((u) => u.status === "shipped").length) },
+  { key: "customers", header: t("mfg.recallPages.str.customers"), width: "110px", align: "right", render: (r) => fmtNum(r.report?.by_customer.length ?? 0) },
 ];
 
 const QUARANTINE_COLS: Column<LotRow>[] = [
-  { key: "item", header: "Item", width: "minmax(140px, 1fr)", sortValue: (l) => l.item, render: (l) => <span className="mono">{l.item}</span> },
-  { key: "lot", header: "Lot", width: "minmax(120px, 1fr)", sortValue: (l) => l.lot_code, render: (l) => <span className="mono">{l.lot_code}</span> },
-  { key: "on_hand", header: "On hand", width: "100px", align: "right", sortValue: (l) => l.on_hand, render: (l) => fmtNum(l.on_hand) },
-  { key: "location", header: "Location", width: "minmax(120px, 1fr)", sortValue: (l) => l.location ?? "", render: (l) => l.location ?? "" },
+  { key: "item", header: t("mfg.recallPages.str.item"), width: "minmax(140px, 1fr)", sortValue: (l) => l.item, render: (l) => <span className="mono">{l.item}</span> },
+  { key: "lot", header: t("mfg.recallPages.str.lot"), width: "minmax(120px, 1fr)", sortValue: (l) => l.lot_code, render: (l) => <span className="mono">{l.lot_code}</span> },
+  { key: "on_hand", header: t("mfg.recallPages.str.onHand"), width: "100px", align: "right", sortValue: (l) => l.on_hand, render: (l) => fmtNum(l.on_hand) },
+  { key: "location", header: t("mfg.recallPages.str.location"), width: "minmax(120px, 1fr)", sortValue: (l) => l.location ?? "", render: (l) => l.location ?? "" },
   {
     key: "hold",
-    header: "Hold",
+    header: t("mfg.recallPages.str.hold"),
     width: "110px",
     sortValue: (l) => (l.on_hold ? 1 : 0),
-    exportValue: (l) => (l.on_hold ? "on hold" : ""),
+    exportValue: (l) => (l.on_hold ? t("mfg.recallPages.str.onHold") : ""),
     render: (l) =>
       l.on_hold ? (
         <span className="badge warn">
@@ -80,11 +80,11 @@ const QUARANTINE_COLS: Column<LotRow>[] = [
 ];
 
 const UNIT_COLS: Column<UnitRow>[] = [
-  { key: "unit", header: "Unit", width: "minmax(130px, 1fr)", sortValue: (u) => u.serial, render: (u) => <span className="mono">{u.serial}</span> },
-  { key: "item", header: "Item", width: "minmax(120px, 1fr)", sortValue: (u) => u.item, render: (u) => <span className="mono">{u.item}</span> },
+  { key: "unit", header: t("mfg.recallPages.str.unit"), width: "minmax(130px, 1fr)", sortValue: (u) => u.serial, render: (u) => <span className="mono">{u.serial}</span> },
+  { key: "item", header: t("mfg.recallPages.str.item"), width: "minmax(120px, 1fr)", sortValue: (u) => u.item, render: (u) => <span className="mono">{u.item}</span> },
   {
     key: "status",
-    header: "Status",
+    header: t("mfg.recallPages.str.status"),
     width: "140px",
     sortValue: (u) => u.status,
     exportValue: (u) => STATUS[u.status]?.label ?? u.status,
@@ -99,7 +99,7 @@ const UNIT_COLS: Column<UnitRow>[] = [
   },
   {
     key: "where",
-    header: "Where",
+    header: t("mfg.recallPages.str.where"),
     width: "minmax(180px, 1.4fr)",
     wrap: true,
     render: (u) =>
@@ -111,13 +111,13 @@ const UNIT_COLS: Column<UnitRow>[] = [
       ) : u.status === "wip" ? (
         <span className="mono">{u.wo ?? ""}</span>
       ) : u.status === "consumed" ? (
-        <span>in {u.parent ?? "a parent unit"}</span>
+        <span>{t("mfg.recallPages.text.in", { v: u.parent ?? t("mfg.recallPages.str.aParentUnit") })}</span>
       ) : (
         u.location ?? ""
       ),
   },
-  { key: "link", header: "Link", width: "110px", sortValue: (u) => u.precision, exportValue: (u) => u.precision, render: (u) => <PrecisionTag p={u.precision} /> },
-  { key: "path", header: "Path", width: "minmax(200px, 2fr)", wrap: true, render: (u) => <span className="small faint">{u.path.join(" › ")}</span> },
+  { key: "link", header: t("mfg.recallPages.str.link"), width: "110px", sortValue: (u) => u.precision, exportValue: (u) => u.precision, render: (u) => <PrecisionTag p={u.precision} /> },
+  { key: "path", header: t("mfg.recallPages.str.path"), width: "minmax(200px, 2fr)", wrap: true, render: (u) => <span className="small faint">{u.path.join(" › ")}</span> },
 ];
 
 export function RecallsPage() {
@@ -126,12 +126,12 @@ export function RecallsPage() {
   const canView = useCan("trace_view");
   const data = usePaged<Recall>((offset, limit, signal) => listRecalls({ limit, offset }, signal), []);
   const fromTrace = params.get("new") === "1" || Boolean(params.get("supplier_lot"));
-  const [name, setName] = useState(() => (params.get("label") ? `Recall ${params.get("label")}` : ""));
+  const [name, setName] = useState(() => (params.get("label") ? t("mfg.recallPages.tpl.recall", { params: params.get("label") }) : ""));
   const [possible, setPossible] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
-    document.title = "Recalls - SuperPlanner";
+    document.title = t("mfg.recallPages.str.recallsSuperplanner");
   }, []);
   const source: RecallSource | null = params.get("kind") && params.get("id") ? { kind: params.get("kind") as RecallSource["kind"], id: params.get("id")! } : params.get("item") && params.get("supplier_lot") ? { item_id: params.get("item")!, supplier_lot: params.get("supplier_lot")! } : null;
   return (
@@ -154,7 +154,7 @@ export function RecallsPage() {
           </div>
           <div className="card-body col">
             <p style={{ margin: 0 }}>
-              Starting from <strong className="mono">{params.get("label") ?? source.id ?? source.supplier_lot}</strong>.
+              {t("mfg.recallPages.text.startingFrom")}{" "}<strong className="mono">{params.get("label") ?? source.id ?? source.supplier_lot}</strong>.
             </p>
             <div className="field" style={{ maxWidth: 480 }}>
               <label htmlFor="rc-name">{t("mfg.recallPages.label.name")}</label>
@@ -163,7 +163,7 @@ export function RecallsPage() {
             <label className="checkbox">
               <input type="checkbox" checked={possible} onChange={(e) => setPossible(e.target.checked)} />
               <span>
-                <strong>Include possible links</strong> <span className="muted small">Units made from work orders that used the lot, even where the exact unit was not recorded (safer; more units).</span>
+                <strong>{t("mfg.recallPages.text.includePossibleLinks")}</strong> <span className="muted small">{t("mfg.recallPages.text.unitsMadeFromWorkOrders")}</span>
               </span>
             </label>
             <MfgError error={error} />
@@ -238,7 +238,7 @@ export function RecallPage() {
   return (
     <div className="col gap-lg print-page" data-testid="recall-page">
       <nav className="breadcrumb no-print" aria-label={t("mfg.recallPages.aria.breadcrumb")}>
-        <Link to={mfgPaths.recalls()}>Recalls</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{r.number}</span>
+        <Link to={mfgPaths.recalls()}>{t("mfg.recallPages.text.recalls")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{r.number}</span>
       </nav>
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>
@@ -254,35 +254,35 @@ export function RecallPage() {
         </span>
       </div>
       <p className="muted small" style={{ margin: 0 }}>
-        {r.include_possible ? "Includes possible links (lot level)." : "Exact links only."} Created {formatDateTime(r.created_at)}.
+        {t("mfg.recallPages.text.created", { v: r.include_possible ? t("mfg.recallPages.str.includesPossibleLinksLotLevel") : t("mfg.recallPages.str.exactLinksOnly"), createdat: formatDateTime(r.created_at) })}
       </p>
       <div className="kpis" data-testid="recall-summary" data-units={all.length}>
         <div className="card kpi">
-          <div className="kpi-label">Affected units</div>
+          <div className="kpi-label">{t("mfg.recallPages.text.affectedUnits")}</div>
           <div className="kpi-value">{fmtNum(all.length)}</div>
           <div className="kpi-sub">
             {fmtNum(exact)} exact · {fmtNum(all.length - exact)} possible
           </div>
         </div>
         <div className="card kpi">
-          <div className="kpi-label">Shipped</div>
+          <div className="kpi-label">{t("mfg.recallPages.text.shipped")}</div>
           <div className="kpi-value" style={{ color: by("shipped") ? "var(--danger)" : undefined }}>
             {fmtNum(by("shipped"))}
           </div>
-          <div className="kpi-sub">to {fmtNum(rep?.by_customer.length ?? 0)} customers</div>
+          <div className="kpi-sub">{t("mfg.recallPages.text.toCustomers", { fmtNum: fmtNum(rep?.by_customer.length ?? 0) })}</div>
         </div>
         <div className="card kpi">
-          <div className="kpi-label">In stock</div>
+          <div className="kpi-label">{t("mfg.recallPages.text.inStock")}</div>
           <div className="kpi-value">{fmtNum(by("in_stock"))}</div>
           <div className="kpi-sub">{fmtNum(rep?.lots.length ?? 0)} lots</div>
         </div>
         <div className="card kpi">
-          <div className="kpi-label">In production</div>
+          <div className="kpi-label">{t("mfg.recallPages.text.inProduction")}</div>
           <div className="kpi-value">{fmtNum(by("wip"))}</div>
-          <div className="kpi-sub">{fmtNum(rep?.wos.length ?? 0)} work orders</div>
+          <div className="kpi-sub">{t("mfg.recallPages.text.workOrders", { fmtNum: fmtNum(rep?.wos.length ?? 0) })}</div>
         </div>
         <div className="card kpi">
-          <div className="kpi-label">Fitted into parents</div>
+          <div className="kpi-label">{t("mfg.recallPages.text.fittedIntoParents")}</div>
           <div className="kpi-value">{fmtNum(by("consumed"))}</div>
         </div>
       </div>
@@ -294,13 +294,13 @@ export function RecallPage() {
         <div className="card-body col">
           {r.quarantined_at ? (
             <Banner tone="ok" title={t("mfg.recallPages.title.quarantined")}>
-              Affected stock was moved and put on hold on {formatDateTime(r.quarantined_at)}.
+              {t("mfg.recallPages.text.affectedStockWasMovedAnd", { quarantinedat: formatDateTime(r.quarantined_at) })}
             </Banner>
           ) : null}
           {qResult ? (
             <Banner tone="ok" title={t("mfg.recallPages.title.quarantineDone")} testId="quarantine-done">
-              {qResult.moved !== undefined ? `${qResult.moved} balances moved` : "Stock moved"}
-              {qResult.lots_on_hold !== undefined ? `, ${qResult.lots_on_hold} lots on hold` : ""}.
+              {qResult.moved !== undefined ? t("mfg.recallPages.tpl.balancesMoved", { moved: qResult.moved }) : t("mfg.recallPages.str.stockMoved")}
+              {qResult.lots_on_hold !== undefined ? t("mfg.recallPages.tpl.lotsOnHold", { lotsonhold: qResult.lots_on_hold }) : ""}.
             </Banner>
           ) : null}
           <DataTable
@@ -315,7 +315,7 @@ export function RecallPage() {
           />
           {rep?.open_pos.length ? (
             <p className="small" style={{ margin: 0 }}>
-              Open purchase orders of the suspect item: {rep.open_pos.map((p) => `${p.number}${p.qty ? ` (${fmtNum(p.qty)})` : ""}`).join(", ")}. Check with the supplier before receiving more.
+              {t("mfg.recallPages.text.openPurchaseOrdersOfThe", { join: rep.open_pos.map((p) => `${p.number}${p.qty ? ` (${fmtNum(p.qty)})` : ""}`).join(", ") })}
             </p>
           ) : null}
           {lotsToMove.length && !r.quarantined_at ? (
@@ -323,7 +323,7 @@ export function RecallPage() {
               <div className="field">
                 <label htmlFor="rc-loc">{t("mfg.recallPages.label.moveTo")}</label>
                 <select id="rc-loc" className="select" value={loc} onChange={(e) => setLoc(e.target.value)} data-testid="quarantine-location">
-                  {quarantineLocs.length === 0 ? <option value="">No quarantine location: add one under Inventory, Locations</option> : null}
+                  {quarantineLocs.length === 0 ? <option value="">{t("mfg.recallPages.text.noQuarantineLocationAddOne")}</option> : null}
                   {quarantineLocs.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.code} · {l.name}
@@ -332,7 +332,7 @@ export function RecallPage() {
                 </select>
               </div>
               <button type="button" className="btn danger" disabled={!canQuarantine || !loc} title={canQuarantine ? undefined : needsText("inventory")} onClick={() => setConfirm(true)} data-testid="quarantine-run">
-                <Icon name="lock" /> Quarantine {plural(lotsToMove.length, "lot")}
+                <Icon name="lock" />{" "}{t("mfg.recallPages.text.quarantine", { length: plural(lotsToMove.length, "lot") })}
               </button>
             </div>
           ) : null}
@@ -384,10 +384,10 @@ export function RecallPage() {
 
       <section className="card card-table">
         <div className="card-header row wrap" style={{ justifyContent: "space-between" }}>
-          <h2>Affected units ({units.length})</h2>
+          <h2>{t("mfg.recallPages.text.affectedUnits2", { length: units.length })}</h2>
           <span className="row no-print">
             <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.recallPages.aria.status")} value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">Any status</option>
+              <option value="">{t("mfg.recallPages.text.anyStatus")}</option>
               {Object.entries(STATUS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v.label}
@@ -395,9 +395,9 @@ export function RecallPage() {
               ))}
             </select>
             <select className="select sm" style={{ width: "auto" }} aria-label={t("mfg.recallPages.aria.precision")} value={prec} onChange={(e) => setPrec(e.target.value as "" | Precision)}>
-              <option value="">Exact and possible</option>
-              <option value="exact">Exact only</option>
-              <option value="possible">Possible only</option>
+              <option value="">{t("mfg.recallPages.text.exactAndPossible")}</option>
+              <option value="exact">{t("mfg.recallPages.text.exactOnly")}</option>
+              <option value="possible">{t("mfg.recallPages.text.possibleOnly")}</option>
             </select>
           </span>
         </div>
@@ -415,7 +415,7 @@ export function RecallPage() {
       </section>
       {confirm ? (
         <ConfirmDialog
-          title={`Quarantine ${plural(lotsToMove.length, "lot")}?`}
+          title={t("mfg.recallPages.tpl.quarantine", { length: plural(lotsToMove.length, "lot") })}
           confirmLabel={t("mfg.recallPages.btn.moveAndHold")}
           danger
           onCancel={() => setConfirm(false)}

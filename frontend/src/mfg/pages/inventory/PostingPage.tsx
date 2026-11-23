@@ -12,7 +12,7 @@ import { fmtNum, POSTING_LABEL } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { isNotFound, useLoad } from "../../lib/useMfg";
 import { docRefLink } from "./TransactionsTab";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 export function PostingPage() {
   const { postingId = "" } = useParams();
@@ -27,7 +27,7 @@ export function PostingPage() {
   const p = posting.data;
 
   if (posting.error && isNotFound(posting.error))
-    return <NotFoundPanel what="Posting" back={<Link className="btn" to={mfgPaths.transactions()}>Back to the ledger</Link>} />;
+    return <NotFoundPanel what={tr("mfg.postingPage.attr.posting")} back={<Link className="btn" to={mfgPaths.transactions()}>{tr("mfg.postingPage.text.backToTheLedger")}</Link>} />;
   if (posting.error && !p) return <MfgError error={posting.error} onRetry={posting.reload} />;
   if (!p) return <Spinner label={t("mfg.postingPage.label.loadingPosting")} />;
 
@@ -48,12 +48,12 @@ export function PostingPage() {
   return (
     <div className="col gap-lg" data-testid="posting-page" data-posting-number={p.number}>
       {flash?.posted ? (
-        <Banner tone="ok" role="status" title={flash.replay ? "Already posted" : "Posted"} testId="posting-done">
-          {flash.replay ? "This posting was already saved earlier (the same submit was sent twice); nothing was posted again." : "Stock is updated."}
+        <Banner tone="ok" role="status" title={flash.replay ? tr("mfg.postingPage.str.alreadyPosted") : tr("mfg.postingPage.str.posted")} testId="posting-done">
+          {flash.replay ? tr("mfg.postingPage.str.thisPostingWasAlreadySaved") : tr("mfg.postingPage.str.stockIsUpdated")}
         </Banner>
       ) : null}
       {p.warnings.map((w) => (
-        <Banner key={w.code} tone="warn" title={w.code === "INV_RESERVATION_REDUCED" ? "Reservations reduced" : w.code}>
+        <Banner key={w.code} tone="warn" title={w.code === "INV_RESERVATION_REDUCED" ? tr("mfg.postingPage.str.reservationsReduced") : w.code}>
           {w.message}
         </Banner>
       ))}
@@ -65,7 +65,7 @@ export function PostingPage() {
           <div className="mfg-actions">
             {p.reversed_by ? (
               <span className="badge info" data-testid="posting-reversed">
-                <Icon name="refresh" /> Reversed by{" "}
+                <Icon name="refresh" />{" "}{tr("mfg.postingPage.text.reversedBy", { v: " " })}
                 <Link to={mfgPaths.posting(p.reversed_by.id)} className="mono">
                   {p.reversed_by.number}
                 </Link>
@@ -162,7 +162,7 @@ export function PostingPage() {
 
       {reversing ? (
         <Dialog
-          title={`Reverse ${p.number}?`}
+          title={tr("mfg.postingPage.tpl.reverse", { number: p.number })}
           onClose={() => setReversing(false)}
           footer={
             <>
@@ -170,20 +170,20 @@ export function PostingPage() {
                 {t("mfg.postingPage.btn.cancel")}
               </button>
               <button type="button" className="btn primary" onClick={() => void reverse()} disabled={busy} data-testid="posting-reverse-confirm">
-                {busy ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />} Post the reversal
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />}{" "}{tr("mfg.postingPage.text.postTheReversal")}
               </button>
             </>
           }
         >
           <div className="col">
             <p style={{ margin: 0 }}>
-              Posts the exact opposite movement today. Received, issued, shipped or completed quantities on the linked documents go back as well. A posting can be reversed only once; stock may not go below zero.
+              {tr("mfg.postingPage.text.postsTheExactOppositeMovement")}
             </p>
             <div className="field">
               <label htmlFor="rev-note">{t("mfg.postingPage.label.note")}</label>
               <input id="rev-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("mfg.postingPage.ph.whyIsThisReversed")} />
             </div>
-            <MfgError error={error} title="Could not reverse" />
+            <MfgError error={error} title={tr("mfg.postingPage.attr.couldNotReverse")} />
           </div>
         </Dialog>
       ) : null}

@@ -19,11 +19,11 @@ import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { t } from "../../../lib/i18n";
 
 const STATUS: Record<SerialStatus, { label: string; tone: string; icon: "check" | "clock" | "layers" | "arrow-right" | "trash" }> = {
-  wip: { label: "In production", tone: "accent", icon: "clock" },
-  in_stock: { label: "In stock", tone: "ok", icon: "check" },
-  consumed: { label: "Fitted into a parent", tone: "info", icon: "layers" },
-  shipped: { label: "Shipped", tone: "info", icon: "arrow-right" },
-  scrapped: { label: "Scrapped", tone: "danger", icon: "trash" },
+  wip: { label: t("mfg.serialsPage.str.inProduction"), tone: "accent", icon: "clock" },
+  in_stock: { label: t("mfg.serialsPage.str.inStock"), tone: "ok", icon: "check" },
+  consumed: { label: t("mfg.serialsPage.str.fittedIntoAParent"), tone: "info", icon: "layers" },
+  shipped: { label: t("mfg.serialsPage.str.shipped"), tone: "info", icon: "arrow-right" },
+  scrapped: { label: t("mfg.serialsPage.str.scrapped"), tone: "danger", icon: "trash" },
 };
 
 export function SerialStatusChip({ s }: { s: SerialStatus }) {
@@ -44,16 +44,16 @@ export function SerialsPage() {
   const wo = params.get("wo") ?? "";
   const data = usePaged<UnitSerial>((offset, limit, signal) => listSerials({ q: dq || undefined, status: status || undefined, wo_id: wo || undefined, limit, offset }, signal), [dq, status, wo]);
   const chips: FilterChip[] = [];
-  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
-  if (status) chips.push({ key: "st", label: "Status", value: status.replace(/_/g, " "), onClear: () => setSearchParam(setParams, "status", "") });
-  if (wo) chips.push({ key: "wo", label: "Work order", value: "One work order", onClear: () => setSearchParam(setParams, "wo", "") });
+  if (q.trim()) chips.push({ key: "q", label: t("mfg.serialsPage.str.search"), value: q.trim(), onClear: () => setQ("") });
+  if (status) chips.push({ key: "st", label: t("mfg.serialsPage.str.status"), value: status.replace(/_/g, " "), onClear: () => setSearchParam(setParams, "status", "") });
+  if (wo) chips.push({ key: "wo", label: t("mfg.serialsPage.str.workOrder"), value: "One work order", onClear: () => setSearchParam(setParams, "wo", "") });
 
   const columns: Column<UnitSerial>[] = [
-    { key: "serial", header: "Serial", width: "minmax(160px, 1fr)", exportValue: (s) => s.serial, render: (s) => <Link to={mfgPaths.serial(s.id)} className="mono">{s.serial}</Link> },
-    { key: "item", header: "Item", width: "minmax(140px, 1fr)", render: (s) => <span className="mono">{s.item?.part_number ?? ""}</span> },
-    { key: "wo", header: "Work order", width: "140px", exportValue: (s) => s.wo?.number ?? "", render: (s) => (s.wo ? <Link to={mfgPaths.workOrder(s.wo.id)} className="mono">{s.wo.number}</Link> : "") },
-    { key: "status", header: "Status", width: "130px", exportValue: (s) => STATUS[s.status]?.label ?? s.status, render: (s) => <SerialStatusChip s={s.status} /> },
-    { key: "captured", header: "Captured", width: "minmax(180px, 1fr)", render: (s) => `${clock.dateTime(s.captured_at)}${s.captured_op_seq ? ` at op ${s.captured_op_seq}` : ""}` },
+    { key: "serial", header: t("mfg.serialsPage.str.serial"), width: "minmax(160px, 1fr)", exportValue: (s) => s.serial, render: (s) => <Link to={mfgPaths.serial(s.id)} className="mono">{s.serial}</Link> },
+    { key: "item", header: t("mfg.serialsPage.str.item"), width: "minmax(140px, 1fr)", render: (s) => <span className="mono">{s.item?.part_number ?? ""}</span> },
+    { key: "wo", header: t("mfg.serialsPage.str.workOrder"), width: "140px", exportValue: (s) => s.wo?.number ?? "", render: (s) => (s.wo ? <Link to={mfgPaths.workOrder(s.wo.id)} className="mono">{s.wo.number}</Link> : "") },
+    { key: "status", header: t("mfg.serialsPage.str.status"), width: "130px", exportValue: (s) => STATUS[s.status]?.label ?? s.status, render: (s) => <SerialStatusChip s={s.status} /> },
+    { key: "captured", header: t("mfg.serialsPage.str.captured"), width: "minmax(180px, 1fr)", render: (s) => `${clock.dateTime(s.captured_at)}${s.captured_op_seq ? t("mfg.serialsPage.tpl.atOp", { capturedopseq: s.captured_op_seq }) : ""}` },
   ];
   return (
     <div className="col gap-lg" data-testid="serials-page">
@@ -62,7 +62,7 @@ export function SerialsPage() {
         <div className="field">
           <label htmlFor="sr-status">{t("mfg.serialsPage.label.status")}</label>
           <select id="sr-status" className="select" value={status} onChange={(e) => setSearchParam(setParams, "status", e.target.value)}>
-            <option value="">Any</option>
+            <option value="">{t("mfg.serialsPage.text.any")}</option>
             {(Object.keys(STATUS) as SerialStatus[]).map((s) => (
               <option key={s} value={s}>
                 {STATUS[s].label}
@@ -83,8 +83,8 @@ export function SerialsPage() {
         onEndReached={data.onEndReached}
         exportName="serials"
         rowExtras={() => ({ testId: "serial-row" })}
-        empty={chips.length ? "No serials match these filters." : "No serials yet. Serials are captured on the shop floor for serialised items."}
-        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} serials</span>}
+        empty={chips.length ? t("mfg.serialsPage.str.noSerialsMatchTheseFilters") : t("mfg.serialsPage.str.noSerialsYetSerialsAre")}
+        footer={<span className="muted small">{t("mfg.serialsPage.text.showingSerials", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
         card={{ title: "serial", status: "status", fields: ["item", "wo", "captured"] }}
       />
     </div>
@@ -113,7 +113,7 @@ export function SerialPage() {
   return (
     <div className="col gap-lg" data-testid="serial-page">
       <nav className="breadcrumb" aria-label={t("mfg.serialsPage.aria.breadcrumb")}>
-        <Link to={mfgPaths.serials()}>Serials</Link> <Icon name="chevron-right" size={12} /> <span>{u.serial}</span>
+        <Link to={mfgPaths.serials()}>{t("mfg.serialsPage.text.serials")}</Link> <Icon name="chevron-right" size={12} /> <span>{u.serial}</span>
       </nav>
       <div className="row wrap" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>
@@ -139,7 +139,7 @@ export function SerialPage() {
           <dt>{t("mfg.serialsPage.head.captured")}</dt>
           <dd>
             {clock.dateTime(u.captured_at)}
-            {u.captured_op_seq ? ` at operation ${u.captured_op_seq}` : ""}
+            {u.captured_op_seq ? t("mfg.serialsPage.tpl.atOperation", { capturedopseq: u.captured_op_seq }) : ""}
           </dd>
           {u.consumed_at ? (
             <>
@@ -154,33 +154,33 @@ export function SerialPage() {
           <div className="card-header">
             <h2>{t("mfg.serialsPage.head.fittedInto")}</h2>
           </div>
-          <div className="card-body">{u.parent ? <UnitLine u={u.parent} /> : <span className="muted">Not fitted into another unit.</span>}</div>
+          <div className="card-body">{u.parent ? <UnitLine u={u.parent} /> : <span className="muted">{t("mfg.serialsPage.text.notFittedIntoAnotherUnit")}</span>}</div>
         </section>
         <section className="card" data-testid="serial-children">
           <div className="card-header">
-            <h2>Units fitted into it ({u.children.length})</h2>
+            <h2>{t("mfg.serialsPage.text.unitsFittedIntoIt", { length: u.children.length })}</h2>
           </div>
           <div className="card-body col" style={{ gap: 6 }}>
-            {u.children.length ? u.children.map((c) => <UnitLine key={c.id} u={c} />) : <span className="muted">None recorded.</span>}
+            {u.children.length ? u.children.map((c) => <UnitLine key={c.id} u={c} />) : <span className="muted">{t("mfg.serialsPage.text.noneRecorded")}</span>}
           </div>
         </section>
       </div>
       {u.consumed_by_wo ? (
         <p style={{ margin: 0 }}>
-          Fitted in work order{" "}
+          {t("mfg.serialsPage.text.fittedInWorkOrder", { v: " " })}
           <Link to={mfgPaths.workOrder(u.consumed_by_wo.id)} className="mono">
             {u.consumed_by_wo.number}
           </Link>{" "}
-          (the parent item has no serial numbers).
+          {t("mfg.serialsPage.text.theParentItemHasNo")}
         </p>
       ) : null}
       {u.wo ? (
         <Link className="btn ghost sm" style={{ alignSelf: "flex-start" }} to={mfgPaths.floorEvents({ wo: u.wo.id })}>
-          <Icon name="list" /> Floor events of {u.wo.number}
+          <Icon name="list" />{" "}{t("mfg.serialsPage.text.floorEventsOf", { number: u.wo.number })}
         </Link>
       ) : null}
       <p className="faint small" style={{ margin: 0 }}>
-        One level shown. Full genealogy and recall reports come with traceability (M5).
+        {t("mfg.serialsPage.text.oneLevelShownFullGenealogy")}
       </p>
     </div>
   );

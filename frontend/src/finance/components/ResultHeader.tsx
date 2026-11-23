@@ -4,7 +4,7 @@ import { contributionsCsvUrl } from "../api/client";
 import type { FinanceResultRecord } from "../api/types";
 import { fmtLocal } from "../../lib/time";
 import { StatusPill } from "./StatusPill";
-import { t, plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 export interface ResultHeaderProps {
   planId: string;
@@ -23,23 +23,23 @@ export function ResultHeader({ planId, record, planVersion, onRerun, rerunning, 
   const verdict =
     r.feasibility === "feasible"
       ? short > 0
-        ? `Plan is valid; ${short} goal${short === 1 ? " is" : "s are"} short of the chance you asked for.`
-        : "Plan is valid; every goal is on track."
+        ? t("finance.resultHeader.tpl.planIsValidGoalShort", { short: short, v: short === 1 ? " is" : "s are" })
+        : t("finance.resultHeader.str.planIsValidEveryGoal")
       : r.feasibility === "infeasible"
-        ? "Your cash flow cannot cover your fixed costs in some months, even after using existing savings. The plan below shows the closest it can get."
-        : "The plan could not be fully checked. Review the details below before relying on it.";
+        ? t("finance.resultHeader.str.yourCashFlowCannotCover")
+        : t("finance.resultHeader.str.thePlanCouldNotBe");
   return (
     <div className="col">
       <div className="fin-header">
         <div className="col" style={{ gap: 4 }}>
           <div className="row wrap">
-            <h1>{record.kind === "what_if" ? `What-if: ${record.label ?? "scenario"}` : "Your financial plan"}</h1>
+            <h1>{record.kind === "what_if" ? t("finance.resultHeader.tpl.whatIf", { v: record.label ?? "scenario" }) : t("finance.resultHeader.str.yourFinancialPlan")}</h1>
             <StatusPill kind={r.feasibility} testId="fin-feasibility" />
             {record.label && record.kind === "baseline" ? <span className="chip">{record.label}</span> : null}
           </div>
           <span className="muted">{verdict}</span>
           <span className="small faint">
-            Made {fmtLocal(record.created_at)} for version {record.base_plan_version} · {plural(r.goals.length, "goal")} · {r.horizon_months} months
+            {t("finance.resultHeader.text.madeForVersionMonths", { createdat: fmtLocal(record.created_at), baseplanversion: record.base_plan_version, length: plural(r.goals.length, "goal"), horizonmonths: r.horizon_months })}
           </span>
         </div>
         <div className="fin-actions">
@@ -57,7 +57,7 @@ export function ResultHeader({ planId, record, planVersion, onRerun, rerunning, 
             onClick={onSend}
             data-testid="send-to-planner"
             disabled={r.feasibility !== "feasible"}
-            title={r.feasibility !== "feasible" ? "Only valid plans can be sent to the planner" : "Create a money calendar in the scheduler"}
+            title={r.feasibility !== "feasible" ? t("finance.resultHeader.str.onlyValidPlansCanBe") : t("finance.resultHeader.str.createAMoneyCalendarIn")}
           >
             <Icon name="calendar" /> {t("finance.resultHeader.btn.sendToPlanner")}
           </button>
@@ -70,8 +70,7 @@ export function ResultHeader({ planId, record, planVersion, onRerun, rerunning, 
         <div className="banner warn" role="status" data-testid="fin-stale-result">
           <Icon name="alert" />
           <div className="banner-body">
-            This result was made for version {record.base_plan_version} of your plan; you have edited it since (now version {planVersion}).
-            Re-run to update it.
+            {t("finance.resultHeader.text.thisResultWasMadeFor", { baseplanversion: record.base_plan_version, planVersion: planVersion })}
           </div>
         </div>
       ) : null}

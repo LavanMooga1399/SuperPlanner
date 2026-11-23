@@ -3,6 +3,7 @@ import type { AnyDraft, IntakeNote, Question } from "../api/types";
 import { segmentText, type SpanRef } from "../lib/codepoints";
 import { pathLabel } from "../lib/paths";
 import { useIntake } from "../state/IntakeContext";
+import { t } from "../../lib/i18n";
 
 /**
  * The original text with the phrases the draft was read from highlighted (PHASE2.md 3.3). Each highlight is
@@ -34,9 +35,9 @@ export function SourceText({ text, draft, notes, questions }: { text: string; dr
     <section className="card" aria-labelledby="intake-source-title">
       <div className="card-header">
         <h3 id="intake-source-title" style={{ margin: 0 }}>
-          Your text
+          {t("studio.sourceText.text.yourText")}
         </h3>
-        <span className="small muted">Highlighted parts were used in the draft</span>
+        <span className="small muted">{t("studio.sourceText.text.highlightedPartsWereUsedIn")}</span>
       </div>
       <div className="card-body source-text" data-testid="intake-source">
         {segments.map((s, i) =>
@@ -46,7 +47,7 @@ export function SourceText({ text, draft, notes, questions }: { text: string; dr
               tabIndex={0}
               className={activePath === s.span.id ? "active" : ""}
               data-path={s.span.id}
-              aria-label={`"${s.text}", used for ${s.span.label}`}
+              aria-label={t("studio.sourceText.tpl.usedFor", { text: s.text, label: s.span.label })}
               title={s.span.label}
               onMouseEnter={() => setActivePath(s.span!.id)}
               onMouseLeave={() => setActivePath(null)}

@@ -16,11 +16,11 @@ import { t } from "../../lib/i18n";
 const DEFAULT_CAUTION: CautionSettings = { floor_share: 0.5, floor_start_years: 3, floor_full_years: 10, floor_step_pct_per_z: 2 };
 
 const LEVELS = [
-  { v: 1, title: "Very cautious", desc: "Steady value matters most. Little in growth assets." },
-  { v: 2, title: "Cautious", desc: "Some ups and downs are fine for long goals." },
-  { v: 3, title: "Balanced", desc: "A mix of growth and stability." },
-  { v: 4, title: "Growth", desc: "Accept bigger swings for higher expected growth." },
-  { v: 5, title: "High growth", desc: "Comfortable with large temporary falls." },
+  { v: 1, title: t("finance.assumptionsStep.str.veryCautious"), desc: t("finance.assumptionsStep.str.steadyValueMattersMostLittle") },
+  { v: 2, title: t("finance.assumptionsStep.str.cautious"), desc: t("finance.assumptionsStep.str.someUpsAndDownsAre") },
+  { v: 3, title: t("finance.assumptionsStep.str.balanced"), desc: t("finance.assumptionsStep.str.aMixOfGrowthAnd") },
+  { v: 4, title: t("finance.assumptionsStep.str.growth"), desc: t("finance.assumptionsStep.str.acceptBiggerSwingsForHigher") },
+  { v: 5, title: t("finance.assumptionsStep.str.highGrowth"), desc: t("finance.assumptionsStep.str.comfortableWithLargeTemporaryFalls") },
 ];
 
 export function AssumptionsStep({ plan, update, expert }: StepProps) {
@@ -73,8 +73,7 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
   return (
     <div className="col gap-lg">
       <HelpText>
-        These are illustrative assumptions, not forecasts. The plan uses <Term k="cautious_return">cautious</Term> versions of these returns, then tests thousands of possible
-        market outcomes to estimate the chance of each goal. Change them to match your own view.
+        {t("finance.assumptionsStep.text.theseAreIllustrativeAssumptionsNot")}{" "}<Term k="cautious_return">cautious</Term>{" "}{t("finance.assumptionsStep.text.versionsOfTheseReturnsThen")}
       </HelpText>
       <section className="col" aria-labelledby="fin-risk-h">
         <h2 id="fin-risk-h">{t("finance.assumptionsStep.head.howMuchUpsAndDowns")}</h2>
@@ -94,7 +93,7 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
                 {l.v}. {l.title}
               </span>
               <span className="preset-desc">{l.desc}</span>
-              <span className="small faint">Up to {caps[l.v - 1] ?? "-"}% in growth assets for long goals</span>
+              <span className="small faint">{t("finance.assumptionsStep.text.upToInGrowthAssets", { v: caps[l.v - 1] ?? "-" })}</span>
             </button>
           ))}
         </div>
@@ -116,8 +115,7 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
             onCancel={() => setConfirmReset(false)}
           >
             <p>
-              This replaces your asset classes and their returns, the inflation figures and the caution settings with the planner's current
-              defaults. Your income, spending, savings and goals stay as they are.
+              {t("finance.assumptionsStep.text.thisReplacesYourAssetClasses")}
             </p>
             {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
           </ConfirmDialog>
@@ -173,7 +171,7 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
             </div>
             <div className="fin-form">
               {caps.map((cap, i) => (
-                <Field key={i} label={`Growth cap at risk level ${i + 1} (%)`}>
+                <Field key={i} label={t("finance.assumptionsStep.tpl.growthCapAtRiskLevel", { v: i + 1 })}>
                   {(id) => (
                     <FinNumber
                       id={id}
@@ -190,11 +188,10 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
           <section className="col" aria-labelledby="fin-caution-h" data-testid="fin-caution-settings">
             <h2 id="fin-caution-h">{t("finance.assumptionsStep.head.advancedHowCautiousThePlan")}</h2>
             <p className="small muted" style={{ margin: 0 }}>
-              The plan assumes lower returns than expected so it does not rely on good luck. For long goals it still counts on part of the
-              typical growth, so growth assets stay useful.
+              {t("finance.assumptionsStep.text.thePlanAssumesLowerReturns")}
             </p>
             <div className="fin-form">
-              <Field label={`Keep at least this share of growth for goals ${Math.round(caution.floor_full_years)}+ years away (%)`} hint={t("finance.assumptionsStep.hint.0NoMinimum")}>
+              <Field label={t("finance.assumptionsStep.tpl.keepAtLeastThisShare", { floorfullyears: Math.round(caution.floor_full_years) })} hint={t("finance.assumptionsStep.hint.0NoMinimum")}>
                 {(id) => <FinNumber id={id} value={Math.round(caution.floor_share * 100)} min={0} max={100} step={5} onChange={(v) => setCaution({ floor_share: v / 100 })} />}
               </Field>
               <Field label={t("finance.assumptionsStep.label.noMinimumForGoalsUp")}>
@@ -211,16 +208,16 @@ export function AssumptionsStep({ plan, update, expert }: StepProps) {
           <section className="col" aria-labelledby="fin-glide-h">
             <h2 id="fin-glide-h">{t("finance.assumptionsStep.head.gettingSaferNearAGoal")}</h2>
             <p className="small muted" style={{ margin: 0 }}>
-              From the given number of months before a goal, the growth cap is multiplied by this factor. The 0-month step is required.
+              {t("finance.assumptionsStep.text.fromTheGivenNumberOf")}
             </p>
             <div className="table-wrap">
               <table className="table">
-                <caption className="sr-only">Glide path steps</caption>
+                <caption className="sr-only">{t("finance.assumptionsStep.text.glidePathSteps")}</caption>
                 <thead>
                   <tr>
                     <th scope="col">{t("finance.assumptionsStep.head.monthsBeforeTheGoalAt")}</th>
                     <th scope="col">{t("finance.assumptionsStep.head.shareOfTheGrowthCap")}</th>
-                    <th scope="col"><span className="sr-only">Actions</span></th>
+                    <th scope="col"><span className="sr-only">{t("finance.assumptionsStep.text.actions")}</span></th>
                   </tr>
                 </thead>
                 <tbody>

@@ -1,6 +1,6 @@
 /** Month arithmetic on "YYYY-MM" strings (FINANCE.md 3). */
 import type { Month } from "../api/types";
-import { plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -41,7 +41,7 @@ export function compareMonths(a: Month, b: Month): number {
   return monthToIndex(a) - monthToIndex(b);
 }
 
-const NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const NAMES = [t("finance.months.str.jan"), t("finance.months.str.feb"), t("finance.months.str.mar"), t("finance.months.str.apr"), t("finance.months.str.may"), t("finance.months.str.jun"), t("finance.months.str.jul"), t("finance.months.str.aug"), t("finance.months.str.sep"), t("finance.months.str.oct"), t("finance.months.str.nov"), t("finance.months.str.dec")];
 
 /** "2030-10" -> "Oct 2030". */
 export function fmtMonth(m: Month | null | undefined): string {

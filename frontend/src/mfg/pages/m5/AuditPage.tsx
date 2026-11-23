@@ -34,23 +34,23 @@ export function AuditPage() {
   const [verify, setVerify] = useState<AuditVerify | "unavailable" | null>(null);
   const openEvent = data.rows.find((e) => e.id === open) ?? null;
   const columns: Column<AuditEvent>[] = [
-    { key: "when", header: "When", width: "160px", render: (e) => formatDateTime(e.created_at) },
+    { key: "when", header: t("mfg.auditPage.str.when"), width: "160px", render: (e) => formatDateTime(e.created_at) },
     {
       key: "who",
-      header: "Who",
+      header: t("mfg.auditPage.str.who"),
       width: "minmax(170px, 1fr)",
       exportValue: (e) => e.actor_id ?? "system",
       render: (e) => (
         <span className="mono small">
           {e.actor_id ?? "system"}
-          {e.actor_id?.startsWith("tok_") ? <span className="faint"> · API token</span> : null}
+          {e.actor_id?.startsWith("tok_") ? <span className="faint">{" "}{t("mfg.auditPage.text.apiToken")}</span> : null}
         </span>
       ),
     },
-    { key: "did", header: "Did", width: "minmax(150px, 1fr)", render: (e) => e.action.replace(/_/g, " ") },
+    { key: "did", header: t("mfg.auditPage.str.did"), width: "minmax(150px, 1fr)", render: (e) => e.action.replace(/_/g, " ") },
     {
       key: "what",
-      header: "To what",
+      header: t("mfg.auditPage.str.toWhat"),
       width: "minmax(200px, 1.4fr)",
       exportValue: (e) => `${e.entity_type} ${e.entity_id ?? ""}`.trim(),
       render: (e) => (
@@ -61,12 +61,12 @@ export function AuditPage() {
     },
     {
       key: "chain",
-      header: "Chain",
+      header: t("mfg.auditPage.str.chain"),
       width: "200px",
       exportValue: (e) => e.chain_hash ?? "",
       render: (e) => (
         <>
-          <span className="mono small faint" title={e.chain_hash ?? "not chained (before M5)"}>
+          <span className="mono small faint" title={e.chain_hash ?? t("mfg.auditPage.str.notChainedBeforeM5")}>
             {e.chain_hash ? `${e.chain_hash.slice(0, 10)}…` : "—"}
           </span>
           {e.details && Object.keys(e.details).length ? (
@@ -87,7 +87,7 @@ export function AuditPage() {
     },
   ];
   useEffect(() => {
-    document.title = "Audit trail - SuperPlanner";
+    document.title = t("mfg.auditPage.str.auditTrailSuperplanner");
   }, []);
   const download = async (format: "jsonl" | "csv") => {
     setBusy(format);
@@ -137,15 +137,15 @@ export function AuditPage() {
         }
       />
       {verify === "unavailable" ? (
-        <Banner tone="info" title={t("mfg.auditPage.title.theChainCheckRunsOn")}>An administrator runs manage.py audit-verify; the exports include each entry's chain hash so an auditor can check them independently.</Banner>
+        <Banner tone="info" title={t("mfg.auditPage.title.theChainCheckRunsOn")}>{t("mfg.auditPage.text.anAdministratorRunsManagePy")}</Banner>
       ) : verify ? (
         verify.ok ? (
           <Banner tone="ok" title={t("mfg.auditPage.title.theAuditChainIsIntact")} testId="audit-verify-ok">
-            {verify.checked} entries checked; none was changed or removed.
+            {t("mfg.auditPage.text.entriesCheckedNoneWasChanged", { checked: verify.checked })}
           </Banner>
         ) : (
           <Banner tone="danger" title={t("mfg.auditPage.title.theAuditChainIsBroken")} testId="audit-verify-broken">
-            The first entry that does not match its chain is {verify.first_broken ? `${verify.first_broken.id} (${formatDateTime(verify.first_broken.at)})` : "unknown"}. Entries from there on cannot be trusted; contact your administrator.
+            {t("mfg.auditPage.text.theFirstEntryThatDoes", { v: verify.first_broken ? `${verify.first_broken.id} (${formatDateTime(verify.first_broken.at)})` : "unknown" })}
           </Banner>
         )
       ) : null}
@@ -181,7 +181,7 @@ export function AuditPage() {
         onActivate={(e) => (e.details && Object.keys(e.details).length ? setOpen(open === e.id ? null : e.id) : undefined)}
         rowExtras={(e) => ({ testId: "audit-row", className: open === e.id ? "mfg-selected" : undefined })}
         empty={t("mfg.auditPage.empty.noEntriesChangesInThis")}
-        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} entries, newest first</span>}
+        footer={<span className="muted small">{t("mfg.auditPage.text.showingEntriesNewestFirst", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
         card={{ title: "when", fields: ["who", "did", "what"] }}
       />
       {openEvent ? (

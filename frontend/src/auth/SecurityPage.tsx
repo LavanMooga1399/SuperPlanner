@@ -43,7 +43,7 @@ export function SecurityPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    document.title = "Security - SuperPlanner";
+    document.title = t("account.securityPage.str.securitySuperplanner");
   }, []);
   useEffect(() => {
     if (pendingToken) return; // not signed in yet: nothing to read
@@ -76,7 +76,7 @@ export function SecurityPage() {
   const confirm = async (e: FormEvent) => {
     e.preventDefault();
     const c = code.replace(/\s+/g, "");
-    if (!/^\d{6}$/.test(c)) return setError("Enter the 6-digit code your app shows for SuperPlanner.");
+    if (!/^\d{6}$/.test(c)) return setError(t("account.securityPage.str.enterThe6DigitCode"));
     setBusy(true);
     setError(null);
     try {
@@ -96,7 +96,7 @@ export function SecurityPage() {
   const withCode = async (e: FormEvent) => {
     e.preventDefault();
     const c = code.replace(/\s+/g, "");
-    if (!/^\d{6}$/.test(c)) return setError("Enter the current 6-digit code from your app.");
+    if (!/^\d{6}$/.test(c)) return setError(t("account.securityPage.str.enterTheCurrent6Digit"));
     setBusy(true);
     setError(null);
     try {
@@ -119,7 +119,7 @@ export function SecurityPage() {
   };
 
   const download = () => {
-    const blob = new Blob([`SuperPlanner recovery codes (${auth.user?.email ?? ""})\nEach code works once.\n\n${(codes ?? []).join("\n")}\n`], { type: "text/plain" });
+    const blob = new Blob([t("account.securityPage.tpl.superplannerRecoveryCodesEachCode", { v: auth.user?.email ?? "", join: (codes ?? []).join("\n") })], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -134,19 +134,19 @@ export function SecurityPage() {
         <div className="card-body col" style={{ gap: 14 }}>
           <div className="row wrap" style={{ justifyContent: "space-between" }}>
             <h1 id="sec-title" style={{ margin: 0 }}>
-              Two-step verification
+              {t("account.securityPage.text.twoStepVerification")}
             </h1>
             {!pendingToken ? (
               <span className="row">
-                <Link to="/account">Account</Link>
+                <Link to="/account">{t("account.securityPage.text.account")}</Link>
                 <span className="faint">·</span>
-                <Link to="/account/tokens">API tokens</Link>
+                <Link to="/account/tokens">{t("account.securityPage.text.apiTokens")}</Link>
               </span>
             ) : null}
           </div>
           {required || status?.required_by_org ? (
             <Banner tone="warn" title={t("account.securityPage.title.requiredByYourOrganisation")} testId="security-required">
-              Turn on two-step verification to continue. You will need your phone (or another authenticator app) each time you sign in with your password.
+              {t("account.securityPage.text.turnOnTwoStepVerification")}
             </Banner>
           ) : null}
           {sso ? (
@@ -178,7 +178,7 @@ export function SecurityPage() {
               }}
             >
               <Banner tone="ok" title={t("account.securityPage.title.twostepVerificationIsOn")}>
-                Finish signing in with the next code your app shows (wait for it to change if you just used one).
+                {t("account.securityPage.text.finishSigningInWithThe")}
               </Banner>
               <div className="field" style={{ maxWidth: 240 }}>
                 <label htmlFor="totp-finish">{t("account.securityPage.label.code")}</label>
@@ -192,8 +192,8 @@ export function SecurityPage() {
             </form>
           ) : codes ? (
             <div className="col" style={{ gap: 10 }} data-testid="recovery-codes">
-              <Banner tone="ok" title={status?.enabled ? "Two-step verification is on" : "New recovery codes"}>
-                Save these recovery codes somewhere safe, away from your phone. Each one signs you in once if you lose the phone. They are shown only now.
+              <Banner tone="ok" title={status?.enabled ? t("account.securityPage.str.twoStepVerificationIsOn") : t("account.securityPage.str.newRecoveryCodes")}>
+                {t("account.securityPage.text.saveTheseRecoveryCodesSomewhere")}
               </Banner>
               <ol className="recovery-list mono">
                 {codes.map((c) => (
@@ -209,7 +209,7 @@ export function SecurityPage() {
                 </button>
               </div>
               <label className="checkbox">
-                <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} data-testid="recovery-saved" /> I have saved my recovery codes
+                <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} data-testid="recovery-saved" />{" "}{t("account.securityPage.text.iHaveSavedMyRecovery")}
               </label>
               <div>
                 <button
@@ -223,20 +223,20 @@ export function SecurityPage() {
                   }}
                   data-testid="recovery-done"
                 >
-                  {required || pendingToken ? "Continue" : "Done"}
+                  {required || pendingToken ? t("account.securityPage.str.continue") : t("account.securityPage.str.done")}
                 </button>
               </div>
             </div>
           ) : setup ? (
             <form className="col" style={{ gap: 12 }} onSubmit={confirm} data-testid="totp-setup">
               <ol className="setup-steps">
-                <li>Open an authenticator app on your phone (for example Google Authenticator, Microsoft Authenticator or a password manager).</li>
-                <li>Add an account and scan this code.</li>
+                <li>{t("account.securityPage.text.openAnAuthenticatorAppOn")}</li>
+                <li>{t("account.securityPage.text.addAnAccountAndScan")}</li>
               </ol>
               <div className="row wrap" style={{ gap: 20, alignItems: "flex-start" }}>
                 <QrCode text={setup.otpauth_uri} size={196} label={t("account.securityPage.label.qrCodeToAddSuperplanner")} testId="totp-qr" />
                 <div className="col" style={{ gap: 6, maxWidth: 320 }}>
-                  <span className="muted small">Cannot scan? Enter this key by hand (time-based, 6 digits):</span>
+                  <span className="muted small">{t("account.securityPage.text.cannotScanEnterThisKey")}</span>
                   <code className="totp-secret" data-testid="totp-secret" data-secret={setup.secret}>
                     {groups(setup.secret)}
                   </code>
@@ -248,7 +248,7 @@ export function SecurityPage() {
               </div>
               <div className="row">
                 <button type="submit" className="btn primary" disabled={busy} data-testid="totp-enable">
-                  {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Turn on
+                  {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{t("account.securityPage.text.turnOn")}
                 </button>
                 <button type="button" className="btn" onClick={() => setSetup(null)}>
                   {t("account.securityPage.btn.cancel")}
@@ -262,7 +262,7 @@ export function SecurityPage() {
                   <Icon name="check" /> {t("account.securityPage.btn.on")}
                 </span>{" "}
                 {status.enabled_at ? `since ${formatDate(status.enabled_at)}` : ""}
-                {status.recovery_codes_left !== null ? ` · ${status.recovery_codes_left} recovery codes left` : ""}
+                {status.recovery_codes_left !== null ? t("account.securityPage.tpl.recoveryCodesLeft", { recoverycodesleft: status.recovery_codes_left }) : ""}
               </p>
               {mode ? (
                 <form className="row wrap" style={{ alignItems: "flex-end" }} onSubmit={withCode}>
@@ -271,7 +271,7 @@ export function SecurityPage() {
                     <input id="totp-current" className="input auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} autoFocus data-testid="totp-current" />
                   </div>
                   <button type="submit" className={`btn ${mode === "disable" ? "danger" : "primary"}`} disabled={busy} data-testid="totp-confirm-action">
-                    {mode === "disable" ? "Turn off" : "Make new codes"}
+                    {mode === "disable" ? t("account.securityPage.str.turnOff") : t("account.securityPage.str.makeNewCodes")}
                   </button>
                   <button type="button" className="btn" onClick={() => setMode(null)}>
                     {t("account.securityPage.btn.cancel")}
@@ -287,7 +287,7 @@ export function SecurityPage() {
                       {t("account.securityPage.btn.turnOff")}
                     </button>
                   ) : (
-                    <span className="faint small">Your organisation requires two-step verification.</span>
+                    <span className="faint small">{t("account.securityPage.text.yourOrganisationRequiresTwoStep")}</span>
                   )}
                 </div>
               )}
@@ -298,7 +298,7 @@ export function SecurityPage() {
                 <span className="badge info">
                   <Icon name="lock" /> {t("account.securityPage.btn.off")}
                 </span>{" "}
-                Add a second step to signing in: after your password, a 6-digit code from an app on your phone.
+                {t("account.securityPage.text.addASecondStepTo")}
               </p>
               <div>
                 <button type="button" className="btn primary" onClick={() => void begin()} disabled={busy} data-testid="totp-begin">

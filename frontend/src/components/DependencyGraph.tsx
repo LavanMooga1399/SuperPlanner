@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Dependency, Task } from "../api/types";
 import { cycleEdges, edgeKey, layeredLayout } from "../lib/graphLayout";
 import { fmtDuration } from "../lib/time";
+import { t as tr } from "../lib/i18n";
 
 const NODE_W = 168;
 const NODE_H = 46;
@@ -60,7 +61,7 @@ export function DependencyGraph({
       width={Math.max(width, 320)}
       height={Math.max(height, 120)}
       role="img"
-      aria-label={`Dependency graph with ${tasks.length} nodes and ${dependencies.length} dependencies`}
+      aria-label={tr("studio.dependencyGraph.tpl.dependencyGraphWithNodesAnd", { length: tasks.length, length2: dependencies.length })}
       onClick={() => onSelect(null)}
     >
       <defs>
@@ -126,7 +127,7 @@ export function DependencyGraph({
                 <title>
                   {(taskById.get(d.predecessor)?.name ?? d.predecessor) + " → " + (taskById.get(d.successor)?.name ?? d.successor)}
                   {` (${d.type}${d.lag_minutes ? `, lag ${fmtDuration(d.lag_minutes)}` : ""})`}
-                  {isCycle ? " - part of a loop" : ""}
+                  {isCycle ? tr("studio.dependencyGraph.str.partOfALoop") : ""}
                 </title>
               </path>
               {showLabel || isCycle ? (
@@ -157,7 +158,7 @@ export function DependencyGraph({
               tabIndex={0}
               role="button"
               aria-pressed={isSel}
-              aria-label={`${t.name}${milestone ? `, ${milestoneLabel}` : `, ${fmtDuration(t.duration_minutes)}`}${isCrit ? ", on critical path" : ""}${inCycle ? ", part of a loop" : ""}`}
+              aria-label={`${t.name}${milestone ? `, ${milestoneLabel}` : `, ${fmtDuration(t.duration_minutes)}`}${isCrit ? tr("studio.dependencyGraph.str.onCriticalPath") : ""}${inCycle ? tr("studio.dependencyGraph.str.partOfALoop2") : ""}`}
               opacity={dim ? 0.35 : 1}
               onClick={(e) => {
                 e.stopPropagation();
@@ -187,7 +188,7 @@ export function DependencyGraph({
                 {milestone ? milestoneLabel : fmtDuration(t.duration_minutes)}
                 {t.group ? ` · ${t.group}` : ""}
                 {isCrit ? " · critical" : ""}
-                {inCycle ? " · loop!" : ""}
+                {inCycle ? tr("studio.dependencyGraph.str.loop") : ""}
               </text>
             </g>
           );

@@ -9,7 +9,7 @@ import { POSTING_LABEL } from "../../lib/formatM2";
 import { mfgPaths } from "../../lib/paths";
 import { SectionTabs } from "../MfgLayout";
 import { PageHeader } from "../../../components/PageHeader";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 export const FORM_TYPES: PostingType[] = ["receipt_misc", "issue_misc", "transfer", "adjust", "count"];
 
@@ -37,7 +37,7 @@ export function PostMenu() {
     <PermissionGate perm="inventory">
       <div className="mfg-menu" ref={ref}>
         <button type="button" className="btn primary" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="post-menu">
-          <Icon name="plus" /> Post stock movement <Icon name="chevron-down" />
+          <Icon name="plus" />{" "}{tr("mfg.inventoryLayout.text.postStockMovement")}{" "}<Icon name="chevron-down" />
         </button>
         {open ? (
           <div className="mfg-menu-list" role="menu">
@@ -47,7 +47,7 @@ export function PostMenu() {
               </Link>
             ))}
             <p className="faint small" style={{ margin: "4px 8px" }}>
-              Goods receipts against purchase orders: open the order and use Receive.
+              {tr("mfg.inventoryLayout.text.goodsReceiptsAgainstPurchaseOrders")}
             </p>
           </div>
         ) : null}

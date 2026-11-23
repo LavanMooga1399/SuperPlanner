@@ -34,24 +34,24 @@ interface TileDef {
 }
 
 const TILES: TileDef[] = [
-  { key: "otd", testId: "otd", label: "On-time delivery", help: "Demand lines shipped in full on or before the due date, of those due.", fmt: "pct" },
-  { key: "utilisation", testId: "util", label: "Utilisation", help: "Setup and run time recorded on the floor, of the regular shift time (planned stops excluded).", fmt: "pct" },
-  { key: "oee", testId: "oee", label: "OEE (simplified)", help: "Availability x speed against standard x first-pass yield.", fmt: "pct" },
-  { key: "wip", testId: "wip", label: "Work in progress", help: "Released or running work orders: count, value and average age.", fmt: "count" },
-  { key: "setup", testId: "setup", label: "Setup time", help: "Actual changeover time and count, against the published plan.", fmt: "minutes" },
-  { key: "adherence", testId: "adherence", label: "Schedule adherence", help: "Operations started near their planned start and finished by the planned end, of those planned.", fmt: "pct" },
-  { key: "fpy", testId: "fpy", label: "First-pass yield", help: "Units passing the inspection steps without rework, of those entering.", fmt: "pct" },
+  { key: "otd", testId: "otd", label: tr("mfg.kpiPage.str.onTimeDelivery"), help: tr("mfg.kpiPage.str.demandLinesShippedInFull"), fmt: "pct" },
+  { key: "utilisation", testId: "util", label: tr("mfg.kpiPage.str.utilisation"), help: tr("mfg.kpiPage.str.setupAndRunTimeRecorded"), fmt: "pct" },
+  { key: "oee", testId: "oee", label: tr("mfg.kpiPage.str.oeeSimplified"), help: tr("mfg.kpiPage.str.availabilityXSpeedAgainstStandard"), fmt: "pct" },
+  { key: "wip", testId: "wip", label: tr("mfg.kpiPage.str.workInProgress"), help: tr("mfg.kpiPage.str.releasedOrRunningWorkOrders"), fmt: "count" },
+  { key: "setup", testId: "setup", label: tr("mfg.kpiPage.str.setupTime"), help: tr("mfg.kpiPage.str.actualChangeoverTimeAndCount"), fmt: "minutes" },
+  { key: "adherence", testId: "adherence", label: tr("mfg.kpiPage.str.scheduleAdherence"), help: tr("mfg.kpiPage.str.operationsStartedNearTheirPlanned"), fmt: "pct" },
+  { key: "fpy", testId: "fpy", label: tr("mfg.kpiPage.str.firstPassYield"), help: tr("mfg.kpiPage.str.unitsPassingTheInspectionSteps"), fmt: "pct" },
 ];
 
 const PERIODS = [
-  { key: "7", label: "Last 7 days", days: 7 },
-  { key: "30", label: "Last 30 days", days: 30 },
-  { key: "90", label: "Last 90 days", days: 90 },
+  { key: "7", label: tr("mfg.kpiPage.str.last7Days"), days: 7 },
+  { key: "30", label: tr("mfg.kpiPage.str.last30Days"), days: 30 },
+  { key: "90", label: tr("mfg.kpiPage.str.last90Days"), days: 90 },
 ];
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${(v * 100).toFixed(v >= 0.995 || v === 0 ? 0 : 1)}%`);
 /** "SOLDER_BRIDGE" -> "Solder bridge" */
-const scrapLabel = (code: string) => (code ? code.charAt(0).toUpperCase() + code.slice(1).toLowerCase().replace(/_/g, " ") : "Unspecified");
+const scrapLabel = (code: string) => (code ? code.charAt(0).toUpperCase() + code.slice(1).toLowerCase().replace(/_/g, " ") : tr("mfg.kpiPage.str.unspecified"));
 const hours = (m: number) => `${(m / 60).toFixed(m < 600 ? 1 : 0)} h`;
 
 type ScrapRow = KpiResponse["top_scrap"][number];
@@ -59,7 +59,7 @@ type DowntimeRow = KpiResponse["top_downtime"][number];
 const SCRAP_COLS: Column<ScrapRow>[] = [
   {
     key: "reason",
-    header: "Reason",
+    header: tr("mfg.kpiPage.str.reason"),
     width: "minmax(160px, 1fr)",
     wrap: true,
     render: (s) => (
@@ -69,12 +69,12 @@ const SCRAP_COLS: Column<ScrapRow>[] = [
       </span>
     ),
   },
-  { key: "qty", header: "Scrapped", width: "112px", align: "right", render: (s) => `${fmtNum(s.qty)} ${s.qty === 1 ? "unit" : "units"}` },
+  { key: "qty", header: tr("mfg.kpiPage.str.scrapped"), width: "112px", align: "right", render: (s) => `${fmtNum(s.qty)} ${s.qty === 1 ? "unit" : "units"}` },
 ];
 const DOWNTIME_COLS: Column<DowntimeRow>[] = [
   {
     key: "reason",
-    header: "Reason",
+    header: tr("mfg.kpiPage.str.reason"),
     width: "minmax(160px, 1fr)",
     wrap: true,
     render: (x) => (
@@ -85,12 +85,12 @@ const DOWNTIME_COLS: Column<DowntimeRow>[] = [
       </span>
     ),
   },
-  { key: "minutes", header: "Lost time", width: "112px", align: "right", render: (x) => fmtDuration(x.minutes) },
+  { key: "minutes", header: tr("mfg.kpiPage.str.lostTime"), width: "112px", align: "right", render: (x) => fmtDuration(x.minutes) },
 ];
 
 function Sparkline({ values, label }: { values: (number | null)[]; label: string }) {
   const pts = values.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v !== null && Number.isFinite(p.v));
-  if (pts.length < 2) return <span className="faint small">no trend yet</span>;
+  if (pts.length < 2) return <span className="faint small">{tr("mfg.kpiPage.text.noTrendYet")}</span>;
   const W = 120;
   const H = 30;
   const min = Math.min(...pts.map((p) => p.v));
@@ -101,7 +101,7 @@ function Sparkline({ values, label }: { values: (number | null)[]; label: string
   const d = pts.map((p, k) => `${k ? "L" : "M"}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
   const last = pts[pts.length - 1];
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${label} trend over the last ${values.length} weeks`} className="kpi-spark">
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr("mfg.kpiPage.tpl.trendOverTheLastWeeks", { label: label, length: values.length })} className="kpi-spark">
       <path d={d} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
       <circle cx={x(last.i)} cy={y(last.v)} r={2.5} fill="var(--accent)" />
     </svg>
@@ -137,7 +137,7 @@ export function KpiPage() {
       <FilterBar>
         <div className="field">
           <span className="field-label" id="kpi-period-label">
-            Period
+            {tr("mfg.kpiPage.text.period")}
           </span>
           <div className="btn-group" role="group" aria-labelledby="kpi-period-label">
             {PERIODS.map((p) => (
@@ -169,15 +169,15 @@ export function KpiPage() {
             }}
             data-testid="kpi-scope"
           >
-            <option value="">Whole plant</option>
-            <optgroup label="Stages">
+            <option value="">{tr("mfg.kpiPage.text.wholePlant")}</option>
+            <optgroup label={tr("mfg.kpiPage.attr.stages")}>
               {(groups.data?.items ?? []).map((g) => (
                 <option key={g.id} value={`group:${g.id}`}>
                   {g.code} · {g.name}
                 </option>
               ))}
             </optgroup>
-            <optgroup label="Lines">
+            <optgroup label={tr("mfg.kpiPage.attr.lines")}>
               {(lines.data?.items ?? []).map((l) => (
                 <option key={l.id} value={`line:${l.id}`}>
                   {l.code}
@@ -188,7 +188,7 @@ export function KpiPage() {
         </div>
       </FilterBar>
       <p className="muted small" style={{ margin: 0 }}>
-        {formatDateRange(d?.period.from ?? from, d?.period.to ?? today)} ({d?.period.time_zone ?? clock.zoneLabel}); today is live, earlier days are cached.
+        {tr("mfg.kpiPage.text.todayIsLiveEarlierDays", { formatDateRange: formatDateRange(d?.period.from ?? from, d?.period.to ?? today), v: d?.period.time_zone ?? clock.zoneLabel })}
       </p>
       <MfgError error={k.error} onRetry={k.reload} />
       {k.loading && !d ? <Spinner label={t("mfg.kpiPage.label.calculating")} /> : null}
@@ -299,7 +299,7 @@ function Tile({ t, d, trend }: { t: TileDef; d: KpiResponse; trend: KpiResponse 
     const w = m.wip;
     v = w ? w.count : null;
     main = w ? fmtNum(w.count) : "–";
-    sub = w ? [`value ${fmtNum(Math.round(w.value))}`, w.avg_age_days !== null ? `avg ${w.avg_age_days.toFixed(1)} days old` : ""].filter(Boolean).join(" · ") : "";
+    sub = w ? [`value ${fmtNum(Math.round(w.value))}`, w.avg_age_days !== null ? tr("mfg.kpiPage.tpl.avgDaysOld", { avgagedays: w.avg_age_days.toFixed(1) }) : ""].filter(Boolean).join(" · ") : "";
   } else if (t.key === "setup") {
     const x = m.setup;
     v = x ? x.actual_minutes : null;
@@ -335,7 +335,7 @@ function DrillDown({ d, names, onPick }: { d: KpiResponse; names: Map<string, st
   const columns: Column<Row>[] = [
     {
       key: "ref",
-      header: isGroup ? "Stage" : "Line",
+      header: isGroup ? tr("mfg.kpiPage.str.stage") : tr("mfg.kpiPage.str.line"),
       width: "minmax(140px, 1fr)",
       sortValue: name,
       render: (r) => (
@@ -347,7 +347,7 @@ function DrillDown({ d, names, onPick }: { d: KpiResponse; names: Map<string, st
     ...keys.map(
       (k): Column<Row> => ({
         key: k,
-        header: k === "otd" ? "OTD" : k === "oee" ? "OEE" : k === "fpy" ? "FPY" : k === "scrap_rate" ? "Scrap" : k[0].toUpperCase() + k.slice(1),
+        header: k === "otd" ? "OTD" : k === "oee" ? "OEE" : k === "fpy" ? "FPY" : k === "scrap_rate" ? tr("mfg.kpiPage.str.scrap") : k[0].toUpperCase() + k.slice(1),
         width: "112px",
         align: "right",
         sortValue: (r) => r[k] ?? null,
@@ -358,9 +358,9 @@ function DrillDown({ d, names, onPick }: { d: KpiResponse; names: Map<string, st
   return (
     <section className="card card-table">
       <div className="card-header">
-        <h2>{isGroup ? "By stage" : "By line"}</h2>
+        <h2>{isGroup ? tr("mfg.kpiPage.str.byStage") : tr("mfg.kpiPage.str.byLine")}</h2>
       </div>
-      <DataTable rows={d.by_dim} columns={columns} rowKey={(r) => r.ref.id} label={isGroup ? "KPIs by stage" : "KPIs by line"} testId="kpi-drill" exportName="kpis-by-line" card={{ title: "ref", fields: keys.slice(0, 4) }} />
+      <DataTable rows={d.by_dim} columns={columns} rowKey={(r) => r.ref.id} label={isGroup ? tr("mfg.kpiPage.str.kpisByStage") : tr("mfg.kpiPage.str.kpisByLine")} testId="kpi-drill" exportName="kpis-by-line" card={{ title: "ref", fields: keys.slice(0, 4) }} />
     </section>
   );
 }
@@ -372,7 +372,7 @@ function AdherenceList({ lineId, from, to }: { lineId: string; from: string; to:
   const columns: Column<AdherenceRow>[] = [
     {
       key: "wo",
-      header: "Work order / step",
+      header: tr("mfg.kpiPage.str.workOrderStep"),
       width: "minmax(180px, 1.2fr)",
       sortValue: (r) => `${r.wo.number}/${String(r.seq).padStart(4, "0")}`,
       render: (r) => (
@@ -385,19 +385,19 @@ function AdherenceList({ lineId, from, to }: { lineId: string; from: string; to:
         </span>
       ),
     },
-    { key: "planned", header: "Planned", width: "minmax(170px, 1fr)", sortValue: (r) => r.planned_start, render: (r) => `${clock.dateTime(r.planned_start)} – ${clock.time(r.planned_end)}` },
+    { key: "planned", header: tr("mfg.kpiPage.str.planned"), width: "minmax(170px, 1fr)", sortValue: (r) => r.planned_start, render: (r) => `${clock.dateTime(r.planned_start)} – ${clock.time(r.planned_end)}` },
     {
       key: "actual",
-      header: "Actual",
+      header: tr("mfg.kpiPage.str.actual"),
       width: "minmax(170px, 1fr)",
       sortValue: (r) => r.actual_start,
-      render: (r) => (r.actual_start ? `${clock.dateTime(r.actual_start)} – ${r.actual_end ? clock.time(r.actual_end) : "running"}` : "not started"),
+      render: (r) => (r.actual_start ? `${clock.dateTime(r.actual_start)} – ${r.actual_end ? clock.time(r.actual_end) : "running"}` : tr("mfg.kpiPage.str.notStarted")),
     },
-    { key: "start", header: "Start", width: "96px", align: "right", sortValue: (r) => r.start_delta_minutes, render: (r) => delta(r.start_delta_minutes) },
+    { key: "start", header: tr("mfg.kpiPage.str.start"), width: "96px", align: "right", sortValue: (r) => r.start_delta_minutes, render: (r) => delta(r.start_delta_minutes) },
     { key: "end", header: "End", width: "96px", align: "right", sortValue: (r) => r.end_delta_minutes, render: (r) => delta(r.end_delta_minutes) },
     {
       key: "ok",
-      header: "On plan?",
+      header: tr("mfg.kpiPage.str.onPlan"),
       width: "96px",
       sortValue: (r) => (r.adherent ? 1 : 0),
       exportValue: (r) => (r.adherent ? "yes" : "no"),

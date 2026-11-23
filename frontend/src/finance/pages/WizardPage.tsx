@@ -20,7 +20,7 @@ import { SavingsStep } from "../wizard/SavingsStep";
 import { Stepper } from "../wizard/Stepper";
 import { isStep, STEPS, stepOfIssue, type StepKey } from "../wizard/steps";
 import { FinSaveIndicator } from "./FinancePlanShell";
-import { t, plural } from "../../lib/i18n";
+import { plural, t } from "../../lib/i18n";
 
 function markCompleted(p: FinancePlan, step: StepKey): FinancePlan {
   const done = p.metadata?.wizard?.completed_steps ?? [];
@@ -115,7 +115,7 @@ function Wizard({ step }: { step: StepKey }) {
       update((p) => markCompleted(p, "review"));
       const ok = await save();
       if (!ok) {
-        setBuildError("Your latest changes could not be saved, so the plan was not built.");
+        setBuildError(t("finance.wizardPage.str.yourLatestChangesCouldNot"));
         return;
       }
       const created = await createFinanceRun(planId);
@@ -127,7 +127,7 @@ function Wizard({ step }: { step: StepKey }) {
       }
       if (err instanceof ApiError && err.code === "PREFLIGHT_FAILED" && Array.isArray(err.details.issues)) {
         setRunIssues(err.details.issues as FinanceIssue[]);
-        setBuildError("Please fix the errors below first.");
+        setBuildError(t("finance.wizardPage.str.pleaseFixTheErrorsBelow"));
       } else {
         setBuildError(errorMessage(err));
       }
@@ -146,7 +146,7 @@ function Wizard({ step }: { step: StepKey }) {
         <div className="row wrap between">
           <div className="col" style={{ gap: 2 }}>
             <span className="small muted">
-              Step {t("common.nOfM", { n: idx + 1, m: STEPS.length })}
+              {t("finance.wizardPage.text.step", { t: t("common.nOfM", { n: idx + 1, m: STEPS.length }) })}
             </span>
             <h1 id="fin-step-title" ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
               {label}
@@ -156,7 +156,7 @@ function Wizard({ step }: { step: StepKey }) {
             <FinSaveIndicator state={saveState} dirty={dirty} error={saveError} />
             <label className="switch">
               <input type="checkbox" checked={expert} onChange={(e) => setExpert(e.target.checked)} data-testid="fin-expert-toggle" />
-              <span>Show expert settings</span>
+              <span>{t("finance.wizardPage.text.showExpertSettings")}</span>
             </label>
           </div>
         </div>
@@ -195,7 +195,7 @@ function Wizard({ step }: { step: StepKey }) {
                   {t("finance.wizardPage.btn.skipUseDefaults")}
                 </button>
                 <button type="button" className="btn primary" onClick={() => void goNext()} disabled={navBusy} data-testid="wizard-next">
-                  {navBusy ? <span className="spinner" aria-hidden /> : null} Next: {next.label} <Icon name="chevron-right" />
+                  {navBusy ? <span className="spinner" aria-hidden /> : null}{" "}{t("finance.wizardPage.text.next", { label: next.label })}{" "}<Icon name="chevron-right" />
                 </button>
               </>
             ) : (
@@ -207,14 +207,14 @@ function Wizard({ step }: { step: StepKey }) {
                 data-testid="build-plan"
                 aria-describedby={reviewErrors ? "fin-build-hint" : undefined}
               >
-                {building ? <span className="spinner" aria-hidden /> : <Icon name="play" />} Build my plan
+                {building ? <span className="spinner" aria-hidden /> : <Icon name="play" />}{" "}{t("finance.wizardPage.text.buildMyPlan")}
               </button>
             )}
           </div>
         </div>
         {step === "review" && reviewErrors ? (
           <span id="fin-build-hint" className="small" style={{ color: "var(--danger)", textAlign: "right" }}>
-            <Icon name="alert" /> Fix the {plural(reviewErrors, "error")} above to build your plan.
+            <Icon name="alert" />{" "}{t("finance.wizardPage.text.fixTheAboveToBuild", { reviewErrors: plural(reviewErrors, "error") })}
           </span>
         ) : null}
       </section>

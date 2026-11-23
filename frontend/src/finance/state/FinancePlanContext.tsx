@@ -17,6 +17,7 @@ import {
 import { ApiError, errorMessage } from "../../api/client";
 import { getFinancePlan, updateFinancePlan } from "../api/client";
 import type { FinancePlan, FinancePlanRecord } from "../api/types";
+import { t } from "../../lib/i18n";
 
 export type FinSaveState = "saved" | "saving" | "error" | "conflict";
 
@@ -142,7 +143,7 @@ export function FinancePlanProvider({ planId, children }: { planId: string; chil
         conflictRef.current = true;
         setConflictDismissed(false);
         setSaveState("conflict");
-        setSaveError("This plan was changed elsewhere.");
+        setSaveError(t("finance.financePlanContext.str.thisPlanWasChangedElsewhere"));
       } else {
         setSaveState("error");
         setSaveError(errorMessage(err));
@@ -247,13 +248,13 @@ export function FinancePlanProvider({ planId, children }: { planId: string; chil
 
 export function useFinancePlan(): FinancePlanContextValue {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useFinancePlan must be used inside <FinancePlanProvider>");
+  if (!ctx) throw new Error(t("finance.financePlanContext.str.usefinanceplanMustBeUsedInside"));
   return ctx;
 }
 
 /** Same as useFinancePlan but asserts the draft is loaded. */
 export function useLoadedFinancePlan(): FinancePlanContextValue & { draft: FinancePlan; record: FinancePlanRecord } {
   const ctx = useFinancePlan();
-  if (!ctx.draft || !ctx.record) throw new Error("Finance plan not loaded");
+  if (!ctx.draft || !ctx.record) throw new Error(t("finance.financePlanContext.str.financePlanNotLoaded"));
   return ctx as FinancePlanContextValue & { draft: FinancePlan; record: FinancePlanRecord };
 }

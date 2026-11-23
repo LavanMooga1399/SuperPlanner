@@ -74,11 +74,11 @@ export function FloorOperation() {
     try {
       const out = await submitFloorEvent(body, `${EVENT_LABEL[type]} ${d.wo.number}/${d.operation.seq}`);
       if (out.status === "queued") {
-        floor.flash("Saved on this tablet; it will sync when the network is back", "warn");
+        floor.flash(tr("floor.floorOperation.str.savedOnThisTabletIt"), "warn");
       } else {
         setLastResult(out.result);
-        const posted = out.result.postings.length ? ` · ${out.result.postings.length} stock posting${out.result.postings.length === 1 ? "" : "s"}` : "";
-        floor.flash(`${EVENT_LABEL[type]}${posted}${out.result.replayed ? " (already recorded)" : ""}`);
+        const posted = out.result.postings.length ? tr("floor.floorOperation.tpl.stockPosting", { length: out.result.postings.length, v: out.result.postings.length === 1 ? "" : "s" }) : "";
+        floor.flash(`${EVENT_LABEL[type]}${posted}${out.result.replayed ? tr("floor.floorOperation.str.alreadyRecorded") : ""}`);
       }
       setPanel(null);
       setEventAt("");
@@ -128,7 +128,7 @@ export function FloorOperation() {
           </dd>
           <dt>{t("floor.floorOperation.head.doneSoFar")}</dt>
           <dd data-testid="floor-op-good" data-good={op.qty_good} data-scrap={op.qty_scrap}>
-            {fmtQty(op.qty_good)} good · {fmtQty(op.qty_scrap)} scrap{op.qty_rework_out ? ` · ${fmtQty(op.qty_rework_out)} sent to rework` : ""} · {fmtQty(remaining)} to go
+            {tr("floor.floorOperation.text.goodScrapToGo", { qtygood: fmtQty(op.qty_good), qtyscrap: fmtQty(op.qty_scrap), v: op.qty_rework_out ? tr("floor.floorOperation.tpl.sentToRework", { qtyreworkout: fmtQty(op.qty_rework_out) }) : "", remaining: fmtQty(remaining) })}
           </dd>
           {op.actual_start ? (
             <>
@@ -185,7 +185,7 @@ export function FloorOperation() {
             </div>
           ) : null}
           {!floor.crew.length && !floor.me ? (
-            <div className="faint">No operator signed in on this tablet: the action is recorded under your login only.</div>
+            <div className="faint">{tr("floor.floorOperation.text.noOperatorSignedInOn")}</div>
           ) : null}
           <div className="floor-actions">
             {allowed.map((a) => (
@@ -205,7 +205,7 @@ export function FloorOperation() {
                 <Icon name={ACTION[a].icon} size={22} /> {ACTION[a].label}
               </button>
             ))}
-            {allowed.length === 0 ? <span className="muted">No action is possible in this state.</span> : null}
+            {allowed.length === 0 ? <span className="muted">{tr("floor.floorOperation.text.noActionIsPossibleIn")}</span> : null}
           </div>
           <details>
             <summary className="muted">{t("floor.floorOperation.head.itHappenedEarlierUpTo")}</summary>
@@ -216,7 +216,7 @@ export function FloorOperation() {
           </details>
         </section>
       ) : (
-        <div className="floor-card muted">Your role can see the floor but not record work.</div>
+        <div className="floor-card muted">{tr("floor.floorOperation.text.yourRoleCanSeeThe")}</div>
       )}
 
       {panel === "pause" ? <PausePanel d={d} busy={busy} onCancel={() => setPanel(null)} onSubmit={(reason, note) => void post("pause", { reason_code: reason, ...(note ? { note } : {}) })} /> : null}
@@ -274,7 +274,7 @@ function ErrorCard({ error }: { error: ApiError }) {
   return (
     <div className="floor-card floor-down" role="alert" data-testid="floor-error">
       <strong>{floorErrorText(error)}</strong>
-      <span className="muted">Check the counts. A supervisor can record it anyway with a reason.</span>
+      <span className="muted">{tr("floor.floorOperation.text.checkTheCountsASupervisor")}</span>
     </div>
   );
 }
@@ -315,17 +315,17 @@ function Stepper({ id, label, value, onChange, testId, max }: { id: string; labe
     <div className="floor-qty-field">
       <label htmlFor={id}>{label}</label>
       <div className="floor-stepper">
-        <button type="button" className="btn" aria-label={`${label} minus one`} onClick={() => onChange(String(Math.max(0, n - 1)))}>
+        <button type="button" className="btn" aria-label={tr("floor.floorOperation.tpl.minusOne", { label: label })} onClick={() => onChange(String(Math.max(0, n - 1)))}>
           −
         </button>
         <input id={id} className="input" inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))} data-testid={testId} aria-describedby={max !== undefined ? `${id}-max` : undefined} />
-        <button type="button" className="btn" aria-label={`${label} plus one`} onClick={() => onChange(String(n + 1))}>
+        <button type="button" className="btn" aria-label={tr("floor.floorOperation.tpl.plusOne", { label: label })} onClick={() => onChange(String(n + 1))}>
           +
         </button>
       </div>
       {max !== undefined ? (
         <span id={`${id}-max`} className="faint small">
-          {fmtQty(max)} still to go
+          {tr("floor.floorOperation.text.stillToGo", { max: fmtQty(max) })}
         </span>
       ) : null}
     </div>
@@ -384,17 +384,17 @@ function QtyPanel({
         const comp = serialComps.find((c) => c.part_number.toUpperCase() === m[1].toUpperCase());
         if (comp) {
           if (!consumed.some((x) => x.item_id === comp.item_id && x.serial === m[2])) setConsumed([...consumed, { item_id: comp.item_id, serial: m[2] }]);
-          floor.flash(`Consumed ${comp.part_number} serial ${m[2]}`);
+          floor.flash(tr("floor.floorOperation.tpl.consumedSerial", { partnumber: comp.part_number, v: m[2] }));
           return true;
         }
-        floor.flash(`Serial of ${m[1]} does not belong to this operation`, "danger");
+        floor.flash(tr("floor.floorOperation.tpl.serialOfDoesNotBelong", { v: m[1] }), "danger");
         return true;
       }
       s = m[2];
     }
     if (!s) return false;
     if (serials.includes(s)) {
-      floor.flash(`Serial ${s} is already in the list`, "warn");
+      floor.flash(tr("floor.floorOperation.tpl.serialIsAlreadyInThe", { s: s }), "warn");
       return true;
     }
     setSerials((x) => [...x, s]);
@@ -424,8 +424,8 @@ function QtyPanel({
   };
 
   return (
-    <section className="floor-card" aria-label={mode === "complete" ? "Complete" : "Report quantity"} data-testid="floor-qty-panel">
-      <h2>{mode === "complete" ? "Complete the operation" : "Report a quantity"}</h2>
+    <section className="floor-card" aria-label={mode === "complete" ? tr("floor.floorOperation.str.complete") : tr("floor.floorOperation.str.reportQuantity")} data-testid="floor-qty-panel">
+      <h2>{mode === "complete" ? tr("floor.floorOperation.str.completeTheOperation") : tr("floor.floorOperation.str.reportAQuantity")}</h2>
       <div className="floor-qty">
         <Stepper id="fq-good" label={t("floor.floorOperation.label.good")} value={good} onChange={setGood} testId="floor-qty-good" max={remaining} />
         <Stepper id="fq-scrap" label={t("floor.floorOperation.label.scrap")} value={scrap} onChange={setScrap} testId="floor-qty-scrap" />
@@ -433,9 +433,9 @@ function QtyPanel({
       </div>
       {needReason ? (
         <div className="field">
-          <label htmlFor="fq-reason">{sc > 0 ? "Scrap reason" : "Rework reason"}</label>
+          <label htmlFor="fq-reason">{sc > 0 ? tr("floor.floorOperation.str.scrapReason") : tr("floor.floorOperation.str.reworkReason")}</label>
           <select id="fq-reason" className="select" value={reason} onChange={(e) => setReason(e.target.value)} data-testid="floor-reason" required>
-            <option value="">Choose…</option>
+            <option value="">{tr("floor.floorOperation.text.choose")}</option>
             {reasons.map((r) => (
               <option key={r.code} value={r.code}>
                 {r.label}
@@ -459,7 +459,7 @@ function QtyPanel({
       {capture ? (
         <div className="col" style={{ gap: 6 }} data-testid="floor-serials">
           <label htmlFor="fq-serial">
-            <strong>Serial numbers</strong>{" "}
+            <strong>{tr("floor.floorOperation.text.serialNumbers")}</strong>{" "}
             <span className={serialsOk ? "badge ok" : "badge warn"} data-testid="floor-serial-count" data-count={serials.length}>
               <Icon name={serialsOk ? "check" : "alert"} /> {tr("common.nOfM", { n: serials.length, m: g })} scanned
             </span>
@@ -480,7 +480,7 @@ function QtyPanel({
             {serials.map((s) => (
               <span key={s} className="floor-serial" data-testid="floor-serial">
                 {s}
-                <button type="button" className="btn ghost icon" aria-label={`Remove serial ${s}`} onClick={() => setSerials(serials.filter((x) => x !== s))}>
+                <button type="button" className="btn ghost icon" aria-label={tr("floor.floorOperation.tpl.removeSerial", { s: s })} onClick={() => setSerials(serials.filter((x) => x !== s))}>
                   <Icon name="x" />
                 </button>
               </span>
@@ -491,12 +491,12 @@ function QtyPanel({
       {serialComps.length ? (
         <div className="col" style={{ gap: 4 }}>
           <strong>{t("floor.floorOperation.head.serialsOfComponentsFittedHere")}</strong>
-          <span className="faint small">Scan the child unit labels (S:part:serial). Optional.</span>
+          <span className="faint small">{tr("floor.floorOperation.text.scanTheChildUnitLabels")}</span>
           <div className="floor-serials">
             {consumed.map((c) => (
               <span key={`${c.item_id}${c.serial}`} className="floor-serial">
                 {serialComps.find((x) => x.item_id === c.item_id)?.part_number ?? ""}: {c.serial}
-                <button type="button" className="btn ghost icon" aria-label={`Remove ${c.serial}`} onClick={() => setConsumed(consumed.filter((x) => x !== c))}>
+                <button type="button" className="btn ghost icon" aria-label={tr("floor.floorOperation.tpl.remove", { serial: c.serial })} onClick={() => setConsumed(consumed.filter((x) => x !== c))}>
                   <Icon name="x" />
                 </button>
               </span>
@@ -522,14 +522,14 @@ function QtyPanel({
           onClick={() => void submit()}
           data-testid="floor-qty-submit"
         >
-          <Icon name="check" /> {mode === "complete" ? "Complete" : "Report"}
+          <Icon name="check" /> {mode === "complete" ? tr("floor.floorOperation.str.complete") : tr("floor.floorOperation.str.report")}
           {g ? ` ${fmtQty(g)} good` : ""}
         </button>
         <button type="button" className="btn floor-btn" onClick={onCancel}>
           {t("floor.floorOperation.btn.cancel")}
         </button>
       </div>
-      {!serialsOk ? <span className="small">Scan one serial per good unit first.</span> : null}
+      {!serialsOk ? <span className="small">{tr("floor.floorOperation.text.scanOneSerialPerGood")}</span> : null}
     </section>
   );
 }
@@ -559,12 +559,12 @@ function Components({ d }: { d: FloorOperationDetail }) {
               <td>{fmtQty(c.required_qty)}</td>
               <td>{fmtQty(c.issued_qty)}</td>
               <td>
-                {c.backflush ? "Automatic (backflush)" : "From stores"}
-                {c.backflush && c.location ? <div className="faint small">from {c.location.code}</div> : null}
+                {c.backflush ? tr("floor.floorOperation.str.automaticBackflush") : tr("floor.floorOperation.str.fromStores")}
+                {c.backflush && c.location ? <div className="faint small">{tr("floor.floorOperation.text.from", { code: c.location.code })}</div> : null}
               </td>
               <td>
                 <KitChip kit={c.kit} />
-                {c.backflush_pending ? <div className="small">{fmtQty(c.backflush_pending)} waiting for stock</div> : null}
+                {c.backflush_pending ? <div className="small">{tr("floor.floorOperation.text.waitingForStock", { backflushpending: fmtQty(c.backflush_pending) })}</div> : null}
               </td>
             </tr>
           ))}

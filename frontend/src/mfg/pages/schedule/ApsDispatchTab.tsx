@@ -24,18 +24,18 @@ import { plural, t, t as tr } from "../../../lib/i18n";
 import { DateInput } from "../../../components/DateInput";
 
 const MATERIAL: Record<string, { label: string; tone: string; icon: "check" | "alert" | "help" }> = {
-  kitted: { label: "kit complete", tone: "ok", icon: "check" },
-  available: { label: "material available", tone: "ok", icon: "check" },
-  short: { label: "material short", tone: "danger", icon: "alert" },
-  expected: { label: "material expected in time", tone: "info", icon: "help" },
-  unknown: { label: "material not checked", tone: "warn", icon: "help" },
+  kitted: { label: tr("mfg.apsDispatchTab.str.kitComplete"), tone: "ok", icon: "check" },
+  available: { label: tr("mfg.apsDispatchTab.str.materialAvailable"), tone: "ok", icon: "check" },
+  short: { label: tr("mfg.apsDispatchTab.str.materialShort"), tone: "danger", icon: "alert" },
+  expected: { label: tr("mfg.apsDispatchTab.str.materialExpectedInTime"), tone: "info", icon: "help" },
+  unknown: { label: tr("mfg.apsDispatchTab.str.materialNotChecked"), tone: "warn", icon: "help" },
 };
 
 const PRED: Record<string, { label: string; tone: string }> = {
-  done: { label: "previous step done", tone: "ok" },
-  scheduled_before: { label: "previous step planned earlier", tone: "info" },
-  not_started: { label: "previous step not started", tone: "warn" },
-  none: { label: "first step", tone: "info" },
+  done: { label: tr("mfg.apsDispatchTab.str.previousStepDone"), tone: "ok" },
+  scheduled_before: { label: tr("mfg.apsDispatchTab.str.previousStepPlannedEarlier"), tone: "info" },
+  not_started: { label: tr("mfg.apsDispatchTab.str.previousStepNotStarted"), tone: "warn" },
+  none: { label: tr("mfg.apsDispatchTab.str.firstStep"), tone: "info" },
 };
 
 export function ApsDispatchTab() {
@@ -110,7 +110,7 @@ export function ApsDispatchTab() {
         <div className="field">
           <label htmlFor="dp-shift">{t("mfg.apsDispatchTab.label.shift")}</label>
           <select id="dp-shift" className="select" value={shift} onChange={(e) => set("shift", e.target.value)} data-testid="dispatch-shift">
-            <option value="">Whole day</option>
+            <option value="">{tr("mfg.apsDispatchTab.text.wholeDay")}</option>
             {dayShifts.map((s) => (
               <option key={s.label} value={s.label}>
                 {s.label} {clock.time(s.start)}–{clock.time(s.end)}
@@ -126,7 +126,7 @@ export function ApsDispatchTab() {
       </div>
       {!run.is_published ? (
         <Banner tone="info" title={t("mfg.apsDispatchTab.title.thisRunIsNotThe")} >
-          The shop floor works from the published schedule; this list shows what this run would ask for.
+          {tr("mfg.apsDispatchTab.text.theShopFloorWorksFrom")}
         </Banner>
       ) : null}
       <MfgError error={disp.error ?? error} onRetry={disp.reload} />
@@ -139,7 +139,7 @@ export function ApsDispatchTab() {
               {d.shift ? ` · ${d.shift}` : ""}
             </h2>
             <span className="muted small">
-              {plural(d.items.length, "operation")} · times in {clock.zoneLabel}
+              {tr("mfg.apsDispatchTab.text.timesIn", { length: plural(d.items.length, "operation"), zoneLabel: clock.zoneLabel })}
             </span>
           </div>
           <div className="table-wrap">
@@ -162,7 +162,7 @@ export function ApsDispatchTab() {
                 {d.items.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="muted">
-                      Nothing planned on this line in this period.
+                      {tr("mfg.apsDispatchTab.text.nothingPlannedOnThisLine")}
                     </td>
                   </tr>
                 ) : null}
@@ -193,7 +193,7 @@ export function ApsDispatchTab() {
                       </td>
                       <td className="small">
                         {r.crew.length ? `${plural(r.crew.length, "operator")}` : "unattended"}
-                        {r.tools.length ? <div className="faint">{r.tools.length} tool pool{r.tools.length === 1 ? "" : "s"} ({r.tools.map((t) => `x${t.qty}`).join(", ")})</div> : null}
+                        {r.tools.length ? <div className="faint">{tr("mfg.apsDispatchTab.text.toolPool", { length: r.tools.length, v: r.tools.length === 1 ? "" : "s", join: r.tools.map((t) => `x${t.qty}`).join(", ") })}</div> : null}
                       </td>
                       <td className="small">
                         <span className={`badge ${PRED[r.predecessor_status]?.tone ?? "info"}`}>{PRED[r.predecessor_status]?.label ?? r.predecessor_status}</span>
@@ -210,10 +210,10 @@ export function ApsDispatchTab() {
                           </span>
                         ) : canDone && r.order.type === "wo" && r.wo_row_version != null ? (
                           <button type="button" className="btn sm" onClick={() => void markDone(r)} disabled={busyOp === r.op_no} data-testid="op-done">
-                            {busyOp === r.op_no ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Done
+                            {busyOp === r.op_no ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{tr("mfg.apsDispatchTab.text.done")}
                           </button>
                         ) : (
-                          <span className="faint small">{r.order.type === "planned" ? "planned order" : ""}</span>
+                          <span className="faint small">{r.order.type === "planned" ? tr("mfg.apsDispatchTab.str.plannedOrder") : ""}</span>
                         )}
                       </td>
                     </tr>
@@ -223,8 +223,7 @@ export function ApsDispatchTab() {
             </table>
           </div>
           <p className="print-only small">
-            Printed {formatDateTime(new Date())} · {tr("common.scheduleNoInline", { n: run.run_no })}
-            {run.is_published ? " (published)" : ""} · <span>{mfgPaths.apsDispatch(run.id)}</span>
+            {tr("mfg.apsDispatchTab.text.printed", { formatDateTime: formatDateTime(new Date()), tr: tr("common.scheduleNoInline", { n: run.run_no }), v: run.is_published ? " (published)" : "" })}{" "}<span>{mfgPaths.apsDispatch(run.id)}</span>
           </p>
         </section>
       ) : null}

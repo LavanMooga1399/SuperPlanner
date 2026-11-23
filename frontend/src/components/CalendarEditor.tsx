@@ -7,13 +7,13 @@ import { PlanDateTimeInput } from "./Inputs";
 import { t } from "../lib/i18n";
 
 const DAY_LABEL: Record<Weekday, string> = {
-  mon: "Mon",
-  tue: "Tue",
-  wed: "Wed",
-  thu: "Thu",
-  fri: "Fri",
-  sat: "Sat",
-  sun: "Sun",
+  mon: t("studio.calendarEditor.str.mon"),
+  tue: t("studio.calendarEditor.str.tue"),
+  wed: t("studio.calendarEditor.str.wed"),
+  thu: t("studio.calendarEditor.str.thu"),
+  fri: t("studio.calendarEditor.str.fri"),
+  sat: t("studio.calendarEditor.str.sat"),
+  sun: t("studio.calendarEditor.str.sun"),
 };
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$|^24:00$/;
@@ -88,16 +88,16 @@ export function CalendarEditor({
           checked={always}
           onChange={(e) => onChange(e.target.checked ? null : DEFAULT_WORK_WEEK)}
         />
-        <span>Always available (24/7, no closed times)</span>
+        <span>{t("studio.calendarEditor.text.alwaysAvailable247No")}</span>
       </label>
       {!always ? (
         <>
           <label className="checkbox">
             <input type="checkbox" checked={weekly === null} onChange={(e) => setWeekly(e.target.checked ? null : DEFAULT_WORK_WEEK.weekly)} />
-            Open around the clock, only the blocked periods below are closed
+            {t("studio.calendarEditor.text.openAroundTheClockOnly")}
           </label>
           {weekly !== null ? (
-            <div className="cal-grid" role="group" aria-label={`Weekly opening hours of ${resourceName}`}>
+            <div className="cal-grid" role="group" aria-label={t("studio.calendarEditor.tpl.weeklyOpeningHoursOf", { resourceName: resourceName })}>
               {WEEKDAYS.map((day) => {
                 const wins = weekly[day] ?? [];
                 return (
@@ -106,16 +106,16 @@ export function CalendarEditor({
                     <div className="col" style={{ gap: 4 }}>
                       <DayStrip windows={wins} />
                       <div className="cal-windows">
-                        {wins.length === 0 ? <span className="small faint">Closed</span> : null}
+                        {wins.length === 0 ? <span className="small faint">{t("studio.calendarEditor.text.closed")}</span> : null}
                         {wins.map(([a, b], i) => {
                           const bad = !(hhmmToMin(b) > hhmmToMin(a)) || a === "24:00";
                           return (
                             <span key={i} className="row" style={{ gap: 4 }}>
-                              <TimeText value={a} label={`${DAY_LABEL[day]} window ${i + 1} opens`} onChange={(v) => setDay(day, wins.map((w, k) => (k === i ? [v, w[1]] : w)))} />
+                              <TimeText value={a} label={t("studio.calendarEditor.tpl.windowOpens", { v: DAY_LABEL[day], v2: i + 1 })} onChange={(v) => setDay(day, wins.map((w, k) => (k === i ? [v, w[1]] : w)))} />
                               <span className="faint">–</span>
-                              <TimeText value={b} label={`${DAY_LABEL[day]} window ${i + 1} closes`} onChange={(v) => setDay(day, wins.map((w, k) => (k === i ? [w[0], v] : w)))} />
-                              {bad ? <Icon name="alert" title="Opening must be before closing" style={{ color: "var(--danger)" }} /> : null}
-                              <button type="button" className="btn ghost sm icon" aria-label={`Remove ${DAY_LABEL[day]} window ${i + 1}`} onClick={() => setDay(day, wins.filter((_, k) => k !== i))}>
+                              <TimeText value={b} label={t("studio.calendarEditor.tpl.windowCloses", { v: DAY_LABEL[day], v2: i + 1 })} onChange={(v) => setDay(day, wins.map((w, k) => (k === i ? [w[0], v] : w)))} />
+                              {bad ? <Icon name="alert" title={t("studio.calendarEditor.attr.openingMustBeBeforeClosing")} style={{ color: "var(--danger)" }} /> : null}
+                              <button type="button" className="btn ghost sm icon" aria-label={t("studio.calendarEditor.tpl.removeWindow", { v: DAY_LABEL[day], v2: i + 1 })} onClick={() => setDay(day, wins.filter((_, k) => k !== i))}>
                                 <Icon name="x" />
                               </button>
                             </span>
@@ -124,7 +124,7 @@ export function CalendarEditor({
                         <button
                           type="button"
                           className="btn ghost sm"
-                          aria-label={`Add opening window on ${DAY_LABEL[day]}`}
+                          aria-label={t("studio.calendarEditor.tpl.addOpeningWindowOn", { v: DAY_LABEL[day] })}
                           onClick={() => {
                             const last = wins[wins.length - 1];
                             const startMin = last ? Math.min(hhmmToMin(last[1]), 1380) : 540;
@@ -150,28 +150,28 @@ export function CalendarEditor({
               })}
             </div>
           ) : null}
-          <div className="small faint">Times are wall-clock times in the plan’s UTC offset. Split night shifts at midnight (22:00–24:00 and 00:00–06:00).</div>
+          <div className="small faint">{t("studio.calendarEditor.text.timesAreWallClockTimes")}</div>
 
           <h3 className="mt">{t("studio.calendarEditor.head.blockedPeriods")}</h3>
-          {blocked.length === 0 ? <div className="small muted">No maintenance, holidays or other closures.</div> : null}
+          {blocked.length === 0 ? <div className="small muted">{t("studio.calendarEditor.text.noMaintenanceHolidaysOrOther")}</div> : null}
           {blocked.map((b, i) => {
             const bad = new Date(b.end).getTime() <= new Date(b.start).getTime();
             return (
               <div className="row wrap" key={i}>
-                <PlanDateTimeInput value={b.start} offsetMin={offsetMin} allowEmpty={false} label={`Blocked period ${i + 1} start`} onChange={(v) => v && onChange({ weekly, blocked: blocked.map((x, k) => (k === i ? { ...x, start: v } : x)) })} />
+                <PlanDateTimeInput value={b.start} offsetMin={offsetMin} allowEmpty={false} label={t("studio.calendarEditor.tpl.blockedPeriodStart", { v: i + 1 })} onChange={(v) => v && onChange({ weekly, blocked: blocked.map((x, k) => (k === i ? { ...x, start: v } : x)) })} />
                 <span className="faint">to</span>
-                <PlanDateTimeInput value={b.end} offsetMin={offsetMin} allowEmpty={false} label={`Blocked period ${i + 1} end`} onChange={(v) => v && onChange({ weekly, blocked: blocked.map((x, k) => (k === i ? { ...x, end: v } : x)) })} />
+                <PlanDateTimeInput value={b.end} offsetMin={offsetMin} allowEmpty={false} label={t("studio.calendarEditor.tpl.blockedPeriodEnd", { v: i + 1 })} onChange={(v) => v && onChange({ weekly, blocked: blocked.map((x, k) => (k === i ? { ...x, end: v } : x)) })} />
                 <input
                   className="input sm"
                   style={{ width: 160 }}
                   placeholder={t("studio.calendarEditor.ph.reason")}
-                  aria-label={`Blocked period ${i + 1} reason`}
+                  aria-label={t("studio.calendarEditor.tpl.blockedPeriodReason", { v: i + 1 })}
                   defaultValue={b.reason}
                   key={b.reason}
                   onBlur={(e) => e.target.value !== b.reason && onChange({ weekly, blocked: blocked.map((x, k) => (k === i ? { ...x, reason: e.target.value } : x)) })}
                 />
-                {bad ? <span className="badge danger"><Icon name="alert" /> End must be after start</span> : null}
-                <button type="button" className="btn ghost sm icon" aria-label={`Remove blocked period ${i + 1}`} onClick={() => onChange({ weekly, blocked: blocked.filter((_, k) => k !== i) })}>
+                {bad ? <span className="badge danger"><Icon name="alert" />{" "}{t("studio.calendarEditor.text.endMustBeAfterStart")}</span> : null}
+                <button type="button" className="btn ghost sm icon" aria-label={t("studio.calendarEditor.tpl.removeBlockedPeriod", { v: i + 1 })} onClick={() => onChange({ weekly, blocked: blocked.filter((_, k) => k !== i) })}>
                   <Icon name="x" />
                 </button>
               </div>

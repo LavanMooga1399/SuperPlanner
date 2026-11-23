@@ -66,12 +66,12 @@ export function ItemStockTab() {
   if (!s) return <Spinner label={tr("mfg.itemStockTab.label.loadingStock")} />;
   const t = s.totals;
   const tiles: [string, string, string][] = [
-    ["Available", fmtNum(t.available), "Plannable on hand minus reserved"],
-    ["Plannable on hand", fmtNum(t.nettable), "Stores and line side"],
-    ["Reserved", fmtNum(t.reserved), "Held for work orders"],
-    ["In inspection", fmtNum(t.inspection), "Goods-in, not yet in stores"],
-    ["Quarantine", fmtNum(t.quarantine), "Never planned"],
-    ["Value", fmtMoney(t.value, plant.data?.currency), "On hand x standard cost"],
+    [tr("mfg.itemStockTab.str.available"), fmtNum(t.available), tr("mfg.itemStockTab.str.plannableOnHandMinusReserved")],
+    [tr("mfg.itemStockTab.str.plannableOnHand"), fmtNum(t.nettable), tr("mfg.itemStockTab.str.storesAndLineSide")],
+    [tr("mfg.itemStockTab.str.reserved"), fmtNum(t.reserved), tr("mfg.itemStockTab.str.heldForWorkOrders")],
+    [tr("mfg.itemStockTab.str.inInspection"), fmtNum(t.inspection), tr("mfg.itemStockTab.str.goodsInNotYetIn")],
+    [tr("mfg.itemStockTab.str.quarantine"), fmtNum(t.quarantine), tr("mfg.itemStockTab.str.neverPlanned")],
+    [tr("mfg.itemStockTab.str.value"), fmtMoney(t.value, plant.data?.currency), tr("mfg.itemStockTab.str.onHandXStandardCost")],
   ];
   return (
     <div className="col gap-lg" data-testid="item-stock">
@@ -93,21 +93,20 @@ export function ItemStockTab() {
             <Icon name="alert" />
             <div className="banner-body">
               <strong>
-                Short {fmtNum(s.latest_run.short_qty)} {item.uom}
-                {s.latest_run.first_short_date ? ` from ${fmtDate(s.latest_run.first_short_date)}` : ""}
+                {tr("mfg.itemStockTab.text.short", { shortqty: fmtNum(s.latest_run.short_qty), uom: item.uom, v: s.latest_run.first_short_date ? ` from ${fmtDate(s.latest_run.first_short_date)}` : "" })}
               </strong>
-              <div>In {tr("common.mrpRunNo", { n: s.latest_run.run_no })}, before planned orders.</div>
+              <div>{tr("mfg.itemStockTab.text.inBeforePlannedOrders", { tr: tr("common.mrpRunNo", { n: s.latest_run.run_no }) })}</div>
             </div>
             <div className="banner-actions">
               <Link className="btn sm" to={mfgPaths.runItem(s.latest_run.run_id, item.id)}>
-                Open the item plan <Icon name="arrow-right" />
+                {tr("mfg.itemStockTab.text.openTheItemPlan")}{" "}<Icon name="arrow-right" />
               </Link>
             </div>
           </div>
         ) : (
           <p className="muted small" style={{ margin: 0 }}>
-            <Icon name="check" size={12} /> Not short in {tr("common.mrpRunNo", { n: s.latest_run.run_no })}.{" "}
-            <Link to={mfgPaths.runItem(s.latest_run.run_id, item.id)}>Item plan</Link>
+            <Icon name="check" size={12} />{" "}{tr("mfg.itemStockTab.text.notShortIn", { tr: tr("common.mrpRunNo", { n: s.latest_run.run_no }), v: " " })}
+            <Link to={mfgPaths.runItem(s.latest_run.run_id, item.id)}>{tr("mfg.itemStockTab.text.itemPlan")}</Link>
           </p>
         )
       ) : null}
@@ -157,8 +156,8 @@ export function ItemStockTab() {
         />
       </section>
       <div className="grid-2">
-        <FlowTable title="Open supply" rows={s.open_supply} testId="item-open-supply" uom={item.uom} />
-        <FlowTable title="Open demand" rows={s.open_demand} testId="item-open-demand" uom={item.uom} />
+        <FlowTable title={tr("mfg.itemStockTab.attr.openSupply")} rows={s.open_supply} testId="item-open-supply" uom={item.uom} />
+        <FlowTable title={tr("mfg.itemStockTab.attr.openDemand")} rows={s.open_demand} testId="item-open-demand" uom={item.uom} />
       </div>
     </div>
   );

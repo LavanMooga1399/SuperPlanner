@@ -20,7 +20,7 @@ export function scheduleColumns(): Column<ScheduleRow>[] {
   return [
     {
       key: "doc",
-      header: "Document",
+      header: t("mfg.deliveryBoard.str.document"),
       width: "170px",
       render: (s) => (
         <Link to={s.link} className="mono" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
@@ -28,12 +28,12 @@ export function scheduleColumns(): Column<ScheduleRow>[] {
         </Link>
       ),
     },
-    { key: "pn", header: "Part number", width: "minmax(140px, 1fr)", render: (s) => <span className="mono mfg-ellipsis">{s.item.part_number}</span> },
-    { key: "sup", header: "Supplier", width: "minmax(120px, 1fr)", render: (s) => <span className="mfg-ellipsis">{s.supplier?.code ?? ""}</span> },
-    { key: "dock", header: "Dock date", width: "106px", render: (s) => <strong>{fmtDate(s.dock_date)}</strong> },
+    { key: "pn", header: t("mfg.deliveryBoard.str.partNumber"), width: "minmax(140px, 1fr)", render: (s) => <span className="mono mfg-ellipsis">{s.item.part_number}</span> },
+    { key: "sup", header: t("mfg.deliveryBoard.str.supplier"), width: "minmax(120px, 1fr)", render: (s) => <span className="mfg-ellipsis">{s.supplier?.code ?? ""}</span> },
+    { key: "dock", header: t("mfg.deliveryBoard.str.dockDate"), width: "106px", render: (s) => <strong>{fmtDate(s.dock_date)}</strong> },
     {
       key: "conf",
-      header: "Requested / confirmed",
+      header: t("mfg.deliveryBoard.str.requestedConfirmed"),
       width: "170px",
       render: (s) => (
         <span className="small">
@@ -42,10 +42,10 @@ export function scheduleColumns(): Column<ScheduleRow>[] {
         </span>
       ),
     },
-    { key: "av", header: "Available", width: "100px", render: (s) => fmtDate(s.available_date) },
-    { key: "open", header: "Open", width: "84px", align: "right", render: (s) => `${fmtNum(s.open_qty)}` },
-    { key: "qty", header: "Ordered", width: "80px", align: "right", render: (s) => fmtNum(s.qty) },
-    { key: "od", header: "Status", width: "130px", render: (s) => (s.overdue ? <OverdueBadge days={s.overdue_days} /> : <PurchaseStatusChip status={s.doc.status} />) },
+    { key: "av", header: t("mfg.deliveryBoard.str.available"), width: "100px", render: (s) => fmtDate(s.available_date) },
+    { key: "open", header: t("mfg.deliveryBoard.str.open"), width: "84px", align: "right", render: (s) => `${fmtNum(s.open_qty)}` },
+    { key: "qty", header: t("mfg.deliveryBoard.str.ordered"), width: "80px", align: "right", render: (s) => fmtNum(s.qty) },
+    { key: "od", header: t("mfg.deliveryBoard.str.status"), width: "130px", render: (s) => (s.overdue ? <OverdueBadge days={s.overdue_days} /> : <PurchaseStatusChip status={s.doc.status} />) },
   ];
 }
 
@@ -67,17 +67,17 @@ export function DeliveryBoard() {
   );
   const columns = useMemo(scheduleColumns, []);
   const chips: FilterChip[] = [];
-  if (overdue) chips.push({ key: "od", label: "Deliveries", value: "Overdue only", onClear: () => set("overdue", "") });
-  if (supplier) chips.push({ key: "sup", label: "Supplier", value: supplierLabel || "One supplier", onClear: () => (set("supplier", ""), set("supplier_label", "")) });
-  if (docType) chips.push({ key: "dt", label: "Document", value: docType === "po" ? "Purchase orders" : "Purchase requests", onClear: () => set("doc_type", "") });
-  if (from) chips.push({ key: "from", label: "From", value: fmtDate(from), onClear: () => set("from", "") });
-  if (to) chips.push({ key: "to", label: "To", value: fmtDate(to), onClear: () => set("to", "") });
+  if (overdue) chips.push({ key: "od", label: t("mfg.deliveryBoard.str.deliveries"), value: "Overdue only", onClear: () => set("overdue", "") });
+  if (supplier) chips.push({ key: "sup", label: t("mfg.deliveryBoard.str.supplier"), value: supplierLabel || "One supplier", onClear: () => (set("supplier", ""), set("supplier_label", "")) });
+  if (docType) chips.push({ key: "dt", label: t("mfg.deliveryBoard.str.document"), value: docType === "po" ? "Purchase orders" : "Purchase requests", onClear: () => set("doc_type", "") });
+  if (from) chips.push({ key: "from", label: t("mfg.deliveryBoard.str.from"), value: fmtDate(from), onClear: () => set("from", "") });
+  if (to) chips.push({ key: "to", label: t("mfg.deliveryBoard.str.to"), value: fmtDate(to), onClear: () => set("to", "") });
 
   return (
     <div className="col gap-lg">
       <FilterBar chips={chips} onClearAll={() => setParams({}, { replace: true })} pageKey="DeliveryBoard">
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
-          <input type="checkbox" checked={overdue} onChange={(e) => set("overdue", e.target.checked ? "1" : "")} data-testid="board-overdue" /> Only overdue
+          <input type="checkbox" checked={overdue} onChange={(e) => set("overdue", e.target.checked ? "1" : "")} data-testid="board-overdue" />{" "}{t("mfg.deliveryBoard.text.onlyOverdue")}
         </label>
         <div style={{ width: 260 }}>
           <SupplierPicker
@@ -105,9 +105,9 @@ export function DeliveryBoard() {
         <div className="field">
           <label htmlFor="board-type">{t("mfg.deliveryBoard.label.documents")}</label>
           <select id="board-type" className="select" value={docType} onChange={(e) => set("doc_type", e.target.value)}>
-            <option value="">Orders and requests</option>
-            <option value="po">Purchase orders</option>
-            <option value="pr">Purchase requests</option>
+            <option value="">{t("mfg.deliveryBoard.text.ordersAndRequests")}</option>
+            <option value="po">{t("mfg.deliveryBoard.text.purchaseOrders")}</option>
+            <option value="pr">{t("mfg.deliveryBoard.text.purchaseRequests")}</option>
           </select>
         </div>
         <div className="field">
@@ -135,8 +135,8 @@ export function DeliveryBoard() {
         rowExtras={(s) => ({ testId: "board-row", data: { overdue: s.overdue, doc: s.doc.number } })}
         onActivate={(s) => navigate(s.link)}
         onEndReached={data.onEndReached}
-        empty={data.loading ? "Loading deliveries…" : "No open deliveries match these filters."}
-        footer={<span className="muted small">Showing {t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") })} open deliveries</span>}
+        empty={data.loading ? t("mfg.deliveryBoard.str.loadingDeliveries") : t("mfg.deliveryBoard.str.noOpenDeliveriesMatchThese")}
+        footer={<span className="muted small">{t("mfg.deliveryBoard.text.showingOpenDeliveries", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
       />
     </div>
   );

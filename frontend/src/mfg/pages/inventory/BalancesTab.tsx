@@ -60,7 +60,7 @@ export function BalancesTab() {
     () => [
       {
         key: "pn",
-        header: "Part number",
+        header: t("mfg.balancesTab.str.partNumber"),
         width: "minmax(150px, 1.2fr)",
         render: (b) => (
           <Link to={mfgPaths.itemStock(b.item.id)} className="mono mfg-ellipsis" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
@@ -68,10 +68,10 @@ export function BalancesTab() {
           </Link>
         ),
       },
-      { key: "desc", header: "Description", width: "minmax(160px, 1.6fr)", render: (b) => <span className="mfg-ellipsis">{b.item.description}</span> },
+      { key: "desc", header: t("mfg.balancesTab.str.description"), width: "minmax(160px, 1.6fr)", render: (b) => <span className="mfg-ellipsis">{b.item.description}</span> },
       {
         key: "loc",
-        header: "Location",
+        header: t("mfg.balancesTab.str.location"),
         width: "minmax(130px, 1fr)",
         render: (b) => (
           <span className="mfg-ellipsis" title={`${b.location.name} (${LOCATION_KIND_LABEL[b.location.kind]})`}>
@@ -79,10 +79,10 @@ export function BalancesTab() {
           </span>
         ),
       },
-      { key: "kind", header: "Kind", width: "118px", render: (b) => <LocationKindBadge kind={b.location.kind} /> },
+      { key: "kind", header: t("mfg.balancesTab.str.kind"), width: "118px", render: (b) => <LocationKindBadge kind={b.location.kind} /> },
       {
         key: "lot",
-        header: "Lot",
+        header: t("mfg.balancesTab.str.lot"),
         width: "minmax(110px, 0.9fr)",
         render: (b) =>
           b.lot ? (
@@ -96,28 +96,28 @@ export function BalancesTab() {
             <span className="faint">-</span>
           ),
       },
-      { key: "exp", header: "Expires", width: "100px", render: (b) => (b.lot?.expires_on ? fmtDate(b.lot.expires_on) : "") },
-      { key: "oh", header: "On hand", width: "92px", align: "right", render: (b) => fmtNum(b.qty_on_hand) },
-      { key: "res", header: "Reserved", width: "86px", align: "right", render: (b) => (b.qty_reserved ? fmtNum(b.qty_reserved) : <span className="faint">0</span>) },
-      { key: "av", header: "Available", width: "92px", align: "right", render: (b) => <strong>{fmtNum(b.qty_available)}</strong> },
-      { key: "uom", header: "Unit", width: "50px", render: (b) => b.item.uom },
+      { key: "exp", header: t("mfg.balancesTab.str.expires"), width: "100px", render: (b) => (b.lot?.expires_on ? fmtDate(b.lot.expires_on) : "") },
+      { key: "oh", header: t("mfg.balancesTab.str.onHand"), width: "92px", align: "right", render: (b) => fmtNum(b.qty_on_hand) },
+      { key: "res", header: t("mfg.balancesTab.str.reserved"), width: "86px", align: "right", render: (b) => (b.qty_reserved ? fmtNum(b.qty_reserved) : <span className="faint">0</span>) },
+      { key: "av", header: t("mfg.balancesTab.str.available"), width: "92px", align: "right", render: (b) => <strong>{fmtNum(b.qty_available)}</strong> },
+      { key: "uom", header: t("mfg.balancesTab.str.unit"), width: "50px", render: (b) => b.item.uom },
       {
         key: "net",
-        header: "Plannable",
+        header: t("mfg.balancesTab.str.plannable"),
         width: "92px",
         render: (b) =>
           b.nettable ? (
-            <span className="mfg-yes" title="Counted by MRP and kitting">
+            <span className="mfg-yes" title={t("mfg.balancesTab.attr.countedByMrpAndKitting")}>
               <Icon name="check" size={14} /> {t("mfg.balancesTab.btn.yes")}
             </span>
           ) : (
-            <span className="faint" title="Not counted by MRP (quarantine, held or expired)">
+            <span className="faint" title={t("mfg.balancesTab.attr.notCountedByMrpQuarantine")}>
               <Icon name="ban" size={12} /> {t("mfg.balancesTab.btn.no")}
             </span>
           ),
       },
-      { key: "val", header: "Value", width: "100px", align: "right", render: (b) => fmtMoney(b.value) },
-      { key: "rcv", header: "Last receipt", width: "104px", render: (b) => fmtDate(b.last_receipt_on) },
+      { key: "val", header: t("mfg.balancesTab.str.value"), width: "100px", align: "right", render: (b) => fmtMoney(b.value) },
+      { key: "rcv", header: t("mfg.balancesTab.str.lastReceipt"), width: "104px", render: (b) => fmtDate(b.last_receipt_on) },
     ],
     [],
   );
@@ -126,12 +126,12 @@ export function BalancesTab() {
   const filtered = Boolean(dq || itemId || locationId || kind || nettable);
 
   const chips: FilterChip[] = [];
-  if (q.trim()) chips.push({ key: "q", label: "Search", value: q.trim(), onClear: () => setQ("") });
-  if (itemId) chips.push({ key: "item", label: "Item", value: "One item", onClear: () => set("item", "") });
-  if (locationId) chips.push({ key: "loc", label: "Location", value: "One location", onClear: () => set("location", "") });
-  if (kind) chips.push({ key: "kind", label: "Kind", value: LOCATION_KIND_LABEL[kind], onClear: () => set("kind", "") });
-  if (nettable) chips.push({ key: "net", label: "Plannable", value: nettable === "true" ? "Yes" : "No", onClear: () => set("nettable", "") });
-  if (showZero) chips.push({ key: "zero", label: "Balances", value: "Including empty", onClear: () => set("zero", "") });
+  if (q.trim()) chips.push({ key: "q", label: t("mfg.balancesTab.str.search"), value: q.trim(), onClear: () => setQ("") });
+  if (itemId) chips.push({ key: "item", label: t("mfg.balancesTab.str.item"), value: "One item", onClear: () => set("item", "") });
+  if (locationId) chips.push({ key: "loc", label: t("mfg.balancesTab.str.location"), value: "One location", onClear: () => set("location", "") });
+  if (kind) chips.push({ key: "kind", label: t("mfg.balancesTab.str.kind"), value: LOCATION_KIND_LABEL[kind], onClear: () => set("kind", "") });
+  if (nettable) chips.push({ key: "net", label: t("mfg.balancesTab.str.plannable"), value: nettable === "true" ? "Yes" : "No", onClear: () => set("nettable", "") });
+  if (showZero) chips.push({ key: "zero", label: t("mfg.balancesTab.str.balances"), value: "Including empty", onClear: () => set("zero", "") });
 
   return (
     <div className="col gap-lg">
@@ -142,7 +142,7 @@ export function BalancesTab() {
         <div className="field">
           <label htmlFor="bal-kind">{t("mfg.balancesTab.label.kind")}</label>
           <select id="bal-kind" className="select" value={kind} onChange={(e) => set("kind", e.target.value)} data-testid="balances-kind">
-            <option value="">All kinds</option>
+            <option value="">{t("mfg.balancesTab.text.allKinds")}</option>
             {(Object.keys(LOCATION_KIND_LABEL) as LocationKind[]).map((k) => (
               <option key={k} value={k}>
                 {LOCATION_KIND_LABEL[k]}
@@ -153,28 +153,28 @@ export function BalancesTab() {
         <div className="field">
           <label htmlFor="bal-net">{t("mfg.balancesTab.label.plannable")}</label>
           <select id="bal-net" className="select" value={nettable} onChange={(e) => set("nettable", e.target.value)}>
-            <option value="">Any</option>
-            <option value="true">Counted by MRP</option>
-            <option value="false">Not counted</option>
+            <option value="">{t("mfg.balancesTab.text.any")}</option>
+            <option value="true">{t("mfg.balancesTab.text.countedByMrp")}</option>
+            <option value="false">{t("mfg.balancesTab.text.notCounted")}</option>
           </select>
         </div>
         <div className="field">
           <label htmlFor="bal-sort">{t("mfg.balancesTab.label.sortBy")}</label>
           <select id="bal-sort" className="select" value={sort} onChange={(e) => set("sort", e.target.value === "part_number" ? "" : e.target.value)}>
-            <option value="part_number">Part number</option>
-            <option value="location">Location</option>
-            <option value="-qty">Largest quantity</option>
+            <option value="part_number">{t("mfg.balancesTab.text.partNumber")}</option>
+            <option value="location">{t("mfg.balancesTab.text.location")}</option>
+            <option value="-qty">{t("mfg.balancesTab.text.largestQuantity")}</option>
           </select>
         </div>
         <label className="checkbox" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
-          <input type="checkbox" checked={showZero} onChange={(e) => set("zero", e.target.checked ? "1" : "")} /> Show empty balances
+          <input type="checkbox" checked={showZero} onChange={(e) => set("zero", e.target.checked ? "1" : "")} />{" "}{t("mfg.balancesTab.text.showEmptyBalances")}
         </label>
       </FilterBar>
 
       {itemId ? (
         <div className="card card-body row wrap between" data-testid="balances-item-filter">
           <div className="row wrap">
-            <span className="muted small">Item</span>
+            <span className="muted small">{t("mfg.balancesTab.text.item")}</span>
             <Link to={mfgPaths.itemStock(itemId)} className="mono">
               {item?.part_number ?? itemId}
             </Link>
@@ -186,15 +186,15 @@ export function BalancesTab() {
           {totals ? (
             <div className="mfg-totals" data-testid="balances-totals">
               <div>
-                <span className="mfg-total-label">On hand</span>
+                <span className="mfg-total-label">{t("mfg.balancesTab.text.onHand")}</span>
                 <span className="mfg-total-value">{fmtNum(totals.qty_on_hand)}</span>
               </div>
               <div>
-                <span className="mfg-total-label">Reserved</span>
+                <span className="mfg-total-label">{t("mfg.balancesTab.text.reserved")}</span>
                 <span className="mfg-total-value">{fmtNum(totals.qty_reserved)}</span>
               </div>
               <div>
-                <span className="mfg-total-label">Value</span>
+                <span className="mfg-total-label">{t("mfg.balancesTab.text.value")}</span>
                 <span className="mfg-total-value">{fmtMoney(totals.value, currency)}</span>
               </div>
             </div>
@@ -222,21 +222,20 @@ export function BalancesTab() {
         empty={
           data.loading ? (
             <span className="row" role="status">
-              <span className="spinner" aria-hidden /> Loading stock…
+              <span className="spinner" aria-hidden />{" "}{t("mfg.balancesTab.text.loadingStock")}
             </span>
           ) : filtered ? (
-            "No stock matches these filters."
+            t("mfg.balancesTab.str.noStockMatchesTheseFilters")
           ) : (
             <span>
-              No stock yet. Post a receipt, <Link to={mfgPaths.importStart()}>import a stock list</Link> or{" "}
-              <Link to={mfgPaths.home()}>load a sample</Link>.
+              {t("mfg.balancesTab.text.noStockYetPostA")}{" "}<Link to={mfgPaths.importStart()}>{t("mfg.balancesTab.text.importAStockList")}</Link>{" "}{t("mfg.balancesTab.text.or", { v: " " })}
+              <Link to={mfgPaths.home()}>{t("mfg.balancesTab.text.loadASample")}</Link>.
             </span>
           )
         }
         footer={
           <span className="muted small" role="status" data-testid="balances-count">
-            {data.loading && data.rows.length ? <span className="spinner" aria-hidden /> : null} Showing {data.rows.length.toLocaleString("en-IN")} of{" "}
-            {data.total.toLocaleString("en-IN")} balances · Enter on a row opens its ledger
+            {data.loading && data.rows.length ? <span className="spinner" aria-hidden /> : null}{" "}{t("mfg.balancesTab.text.showingOfBalancesEnterOn", { length: data.rows.length.toLocaleString("en-IN"), v: " ", total: data.total.toLocaleString("en-IN") })}
           </span>
         }
       />

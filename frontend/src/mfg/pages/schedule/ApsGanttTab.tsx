@@ -26,12 +26,12 @@ import { useApsRun } from "./ApsRunShell";
 import { DateInput } from "../../../components/DateInput";
 import { InfoTip } from "../../../components/InfoTip";
 import { FilterBar } from "../../../components/FilterBar";
-import { t, t as tr, plural } from "../../../lib/i18n";
+import { plural, t, t as tr } from "../../../lib/i18n";
 
 const VIEWS: { key: GanttView; label: string }[] = [
-  { key: "line", label: "By line" },
-  { key: "order", label: "By order" },
-  { key: "demand", label: "By demand order" },
+  { key: "line", label: tr("mfg.apsGanttTab.str.byLine") },
+  { key: "order", label: tr("mfg.apsGanttTab.str.byOrder") },
+  { key: "demand", label: tr("mfg.apsGanttTab.str.byDemandOrder") },
 ];
 
 export function ApsGanttTab() {
@@ -137,13 +137,13 @@ export function ApsGanttTab() {
   const from = Date.parse(fromIso);
   const to = Date.parse(toIso);
   const frozenEditCode = error instanceof ApiError && error.code === "APS_EDIT_FROZEN";
-  const zoomLabel = ZOOMS[zoom] >= 48 ? "Hours" : ZOOMS[zoom] >= 12 ? "Shifts" : ZOOMS[zoom] >= 3 ? "Days" : "Weeks";
+  const zoomLabel = ZOOMS[zoom] >= 48 ? tr("mfg.apsGanttTab.str.hours") : ZOOMS[zoom] >= 12 ? tr("mfg.apsGanttTab.str.shifts") : ZOOMS[zoom] >= 3 ? tr("mfg.apsGanttTab.str.days") : tr("mfg.apsGanttTab.str.weeks");
 
   return (
     <div className="col gap-lg" data-testid="aps-gantt">
       <FilterBar>
         <div className="field">
-          <span className="field-label">Rows</span>
+          <span className="field-label">{tr("mfg.apsGanttTab.text.rows")}</span>
           <div className="btn-group" role="group" aria-label={t("mfg.apsGanttTab.aria.rows")}>
           {VIEWS.map((v) => (
             <button key={v.key} type="button" className="btn sm" aria-pressed={v.key === view} onClick={() => set("view", v.key === "line" ? "" : v.key)} data-testid={`gantt-view-${v.key}`}>
@@ -155,7 +155,7 @@ export function ApsGanttTab() {
         <div className="field">
           <label htmlFor="gg-group">{t("mfg.apsGanttTab.label.stage")}</label>
           <select id="gg-group" className="select sm" value={group} onChange={(e) => set("group", e.target.value)} data-testid="gantt-group">
-            <option value="">All stages</option>
+            <option value="">{tr("mfg.apsGanttTab.text.allStages")}</option>
             {(groups.data?.items ?? []).map((x) => (
               <option key={x.id} value={x.id}>
                 {x.code} · {x.name}
@@ -173,16 +173,16 @@ export function ApsGanttTab() {
         </div>
         <div className="field">
           <span className="field-label" id="gg-zoom-label">
-            Zoom
+            {tr("mfg.apsGanttTab.text.zoom")}
           </span>
           <div className="btn-group" role="group" aria-labelledby="gg-zoom-label">
-            <button type="button" className="btn sm icon" aria-label={t("mfg.apsGanttTab.aria.zoomOut")} title="Zoom out (-)" onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0} data-testid="gantt-zoom-out">
+            <button type="button" className="btn sm icon" aria-label={t("mfg.apsGanttTab.aria.zoomOut")} title={tr("mfg.apsGanttTab.attr.zoomOut")} onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0} data-testid="gantt-zoom-out">
               <Icon name="zoom-out" size={14} />
             </button>
-            <span className="btn sm seg-label" role="status" aria-live="polite" aria-label={`Zoom level: ${zoomLabel}`}>
+            <span className="btn sm seg-label" role="status" aria-live="polite" aria-label={tr("mfg.apsGanttTab.tpl.zoomLevel", { zoomLabel: zoomLabel })}>
               {zoomLabel}
             </span>
-            <button type="button" className="btn sm icon" aria-label={t("mfg.apsGanttTab.aria.zoomIn")} title="Zoom in (+)" onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1} data-testid="gantt-zoom-in">
+            <button type="button" className="btn sm icon" aria-label={t("mfg.apsGanttTab.aria.zoomIn")} title={tr("mfg.apsGanttTab.attr.zoomIn")} onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1} data-testid="gantt-zoom-in">
               <Icon name="zoom-in" size={14} />
             </button>
           </div>
@@ -214,76 +214,75 @@ export function ApsGanttTab() {
             <Icon name="chevron-right" size={12} /> {t("mfg.apsGanttTab.btn.legend")}
             <span className="legend-key" aria-hidden>
               <span>
-                <span className="pg-swatch" style={{ background: "var(--bar)" }} /> Scheduled
+                <span className="pg-swatch" style={{ background: "var(--bar)" }} />{" "}{tr("mfg.apsGanttTab.text.scheduled")}
               </span>
               <span>
-                <span className="pg-swatch" style={{ background: "var(--danger)" }} /> Late
+                <span className="pg-swatch" style={{ background: "var(--danger)" }} />{" "}{tr("mfg.apsGanttTab.text.late")}
               </span>
               <span>
-                <span className="pg-swatch" style={{ background: "var(--bar-alt)", border: "1px dashed var(--text)" }} /> Frozen
+                <span className="pg-swatch" style={{ background: "var(--bar-alt)", border: "1px dashed var(--text)" }} />{" "}{tr("mfg.apsGanttTab.text.frozen")}
               </span>
               <span>
-                <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} /> Overtime suggested
+                <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} />{" "}{tr("mfg.apsGanttTab.text.overtimeSuggested")}
               </span>
               <span>
-                <span className="pg-swatch" style={{ border: "1px solid var(--danger)" }} /> Line down
+                <span className="pg-swatch" style={{ border: "1px solid var(--danger)" }} />{" "}{tr("mfg.apsGanttTab.text.lineDown")}
               </span>
               <span>
-                <span className="pg-swatch pg-swatch-actual" /> Actual
+                <span className="pg-swatch pg-swatch-actual" />{" "}{tr("mfg.apsGanttTab.text.actual")}
               </span>
             </span>
           </summary>
           <div className="legend-more" aria-label={t("mfg.apsGanttTab.aria.legend")}>
             <span>
-              <span className="pg-swatch" style={{ background: "var(--bar)" }} /> Scheduled operation
+              <span className="pg-swatch" style={{ background: "var(--bar)" }} />{" "}{tr("mfg.apsGanttTab.text.scheduledOperation")}
             </span>
             <span>
-              <span className="pg-swatch" style={{ background: "var(--danger)", outline: "2px solid var(--danger)" }} /> Late: thick outline and <code>!</code>
+              <span className="pg-swatch" style={{ background: "var(--danger)", outline: "2px solid var(--danger)" }} />{" "}{tr("mfg.apsGanttTab.text.lateThickOutlineAnd")}{" "}<code>!</code>
             </span>
             <span>
-              <span className="pg-swatch" style={{ background: "var(--bar-alt)", border: "1px dashed var(--text)" }} /> Frozen: <code>F</code>
+              <span className="pg-swatch" style={{ background: "var(--bar-alt)", border: "1px dashed var(--text)" }} />{" "}{tr("mfg.apsGanttTab.text.frozen2")}{" "}<code>F</code>
             </span>
             <span>
-              <code>L</code> locked · <code>1/2</code> split part
+              <code>L</code> locked · <code>1/2</code>{" "}{tr("mfg.apsGanttTab.text.splitPart")}
             </span>
-            <span>Striped start: setup time</span>
+            <span>{tr("mfg.apsGanttTab.text.stripedStartSetupTime")}</span>
             <span>
-              <span className="pg-swatch" style={{ background: "var(--shade)" }} /> Shift open
+              <span className="pg-swatch" style={{ background: "var(--shade)" }} />{" "}{tr("mfg.apsGanttTab.text.shiftOpen")}
             </span>
-            <span>Hatched: closed or absence</span>
+            <span>{tr("mfg.apsGanttTab.text.hatchedClosedOrAbsence")}</span>
             <span>
-              <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} /> Overtime suggested
-            </span>
-            <span>
-              <span className="pg-swatch" style={{ border: "1px solid var(--warn)", background: "var(--shade)" }} /> Overtime opened
+              <span className="pg-swatch" style={{ border: "1px dashed var(--warn)" }} />{" "}{tr("mfg.apsGanttTab.text.overtimeSuggested")}
             </span>
             <span>
-              <span className="pg-swatch" style={{ border: "1px solid var(--danger)" }} /> <code>DOWN</code> line down
+              <span className="pg-swatch" style={{ border: "1px solid var(--warn)", background: "var(--shade)" }} />{" "}{tr("mfg.apsGanttTab.text.overtimeOpened")}
             </span>
             <span>
-              <span className="pg-swatch pg-swatch-actual" /> Actual: thin bar under the plan; arrow = still running
+              <span className="pg-swatch" style={{ border: "1px solid var(--danger)" }} /> <code>DOWN</code>{" "}{tr("mfg.apsGanttTab.text.lineDown2")}
             </span>
             <span>
-              <code>B3 (2)</code> batch load with 2 orders
+              <span className="pg-swatch pg-swatch-actual" />{" "}{tr("mfg.apsGanttTab.text.actualThinBarUnderThe")}
+            </span>
+            <span>
+              <code>B3 (2)</code>{" "}{tr("mfg.apsGanttTab.text.batchLoadWith2Orders")}
             </span>
           </div>
         </details>
         {canEdit ? (
           <InfoTip label={t("mfg.apsGanttTab.label.howToChangeThePlan")}>
-            Drag a bar to another line or time to change the plan; drop it on its own line to change the order. Nothing changes until you apply; applying creates an edited copy of this run.
+            {tr("mfg.apsGanttTab.text.dragABarToAnother")}
           </InfoTip>
         ) : !canRun ? (
           <span className="faint small">{needsText("schedule_run")}</span>
         ) : null}
       </div>
       <MfgError error={gantt.error} onRetry={gantt.reload} />
-      {g?.truncated ? <Banner tone="warn" title={t("mfg.apsGanttTab.title.onlyTheFirst5000Operations")}>Narrow the dates or pick a stage.</Banner> : null}
+      {g?.truncated ? <Banner tone="warn" title={t("mfg.apsGanttTab.title.onlyTheFirst5000Operations")}>{tr("mfg.apsGanttTab.text.narrowTheDatesOrPick")}</Banner> : null}
       {gantt.loading && !g ? <Spinner label={t("mfg.apsGanttTab.label.loadingTheGantt")} /> : null}
       {g && g.bars.length === 0 ? (
         <div className="card card-body row wrap" role="status" data-testid="gantt-empty">
           <span>
-            Nothing is scheduled between {fmtDate(fromDay)} and {fmtDate(toDay)}
-            {firstOp ? `; the first operation starts ${clock.dateTime(firstStart)}.` : next.loading ? "." : next.data ? " (nothing is scheduled in this run for this selection)." : "."}
+            {tr("mfg.apsGanttTab.text.nothingIsScheduledBetweenAnd", { fromDay: fmtDate(fromDay), toDay: fmtDate(toDay), v: firstOp ? tr("mfg.apsGanttTab.tpl.theFirstOperationStarts", { firstStart: clock.dateTime(firstStart) }) : next.loading ? "." : next.data ? tr("mfg.apsGanttTab.str.nothingIsScheduledInThis") : "." })}
           </span>
           {firstOp ? (
             <button
@@ -300,7 +299,7 @@ export function ApsGanttTab() {
               }}
               data-testid="gantt-jump-first"
             >
-              Go to {fmtDate(clock.day(firstStart))}
+              {tr("mfg.apsGanttTab.text.goTo", { fmtDate: fmtDate(clock.day(firstStart)) })}
             </button>
           ) : null}
         </div>
@@ -333,27 +332,27 @@ export function ApsGanttTab() {
             <p style={{ margin: 0 }}>
               <strong>{preview.bar.label}</strong> ({preview.bar.item_part_number} x {fmtNum(preview.bar.qty)}){" "}
               {preview.sameRow && asOrder ? (
-                <>is put in a new order on {preview.row.label}: the operations start at their earliest feasible times in that order.</>
+                <>{tr("mfg.apsGanttTab.text.isPutInANew", { label: preview.row.label })}</>
               ) : (
                 <>
-                  moves to <strong>{preview.row.label}</strong> starting <strong>{clock.dateTime(preview.start)}</strong> and is locked there.
+                  {tr("mfg.apsGanttTab.text.movesTo")}{" "}<strong>{preview.row.label}</strong> starting <strong>{clock.dateTime(preview.start)}</strong>{" "}{tr("mfg.apsGanttTab.text.andIsLockedThere")}
                 </>
               )}{" "}
-              The other operations are re-placed around it and the result is fully checked.
+              {tr("mfg.apsGanttTab.text.theOtherOperationsAreRe")}
             </p>
             {preview.sameRow && lineIdOfRow(preview.row.key) ? (
               <div className="row wrap" role="radiogroup" aria-label={t("mfg.apsGanttTab.aria.meaningOfTheDrop")}>
                 <label className="checkbox">
-                  <input type="radio" name="drop-kind" checked={asOrder} onChange={() => setAsOrder(true)} data-testid="gantt-drop-resequence" /> Change the order on this line
+                  <input type="radio" name="drop-kind" checked={asOrder} onChange={() => setAsOrder(true)} data-testid="gantt-drop-resequence" />{" "}{tr("mfg.apsGanttTab.text.changeTheOrderOnThis")}
                 </label>
                 <label className="checkbox">
-                  <input type="radio" name="drop-kind" checked={!asOrder} onChange={() => setAsOrder(false)} data-testid="gantt-drop-move" /> Move to exactly this time
+                  <input type="radio" name="drop-kind" checked={!asOrder} onChange={() => setAsOrder(false)} data-testid="gantt-drop-move" />{" "}{tr("mfg.apsGanttTab.text.moveToExactlyThisTime")}
                 </label>
               </div>
             ) : null}
             {preview.bar.frozen || frozenEditCode ? (
               <label className="checkbox">
-                <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} data-testid="gantt-override-freeze" /> This operation is frozen (published, starting soon): move it anyway
+                <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} data-testid="gantt-override-freeze" />{" "}{tr("mfg.apsGanttTab.text.thisOperationIsFrozenPublished")}
               </label>
             ) : null}
             {violations ? (
@@ -371,10 +370,10 @@ export function ApsGanttTab() {
                 </div>
               </div>
             ) : null}
-            <MfgError error={error} title="The change was not applied" />
+            <MfgError error={error} title={tr("mfg.apsGanttTab.attr.theChangeWasNotApplied")} />
             <div className="row">
               <button type="button" className="btn primary" onClick={() => void apply(previewEdits)} disabled={busy || (preview.bar.frozen && !override)} data-testid="gantt-drop-apply">
-                {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />} Apply (creates an edited copy)
+                {busy ? <span className="spinner" aria-hidden /> : <Icon name="check" />}{" "}{tr("mfg.apsGanttTab.text.applyCreatesAnEditedCopy")}
               </button>
               <button
                 type="button"
@@ -397,13 +396,12 @@ export function ApsGanttTab() {
         <section className="card" data-testid="gantt-op-panel" data-op={selected}>
           <div className="card-header">
             <h3>
-              Operation {selected}
-              {d ? ` · ${d.order.number} / ${d.seq} ${d.name}` : ""}
+              {tr("mfg.apsGanttTab.text.operation", { selected: selected, v: d ? ` · ${d.order.number} / ${d.seq} ${d.name}` : "" })}
             </h3>
             <div className="mfg-actions">
               {d && canEdit ? (
                 <button type="button" className="btn sm" onClick={() => void apply([{ kind: d.locked ? "unlock" : "lock", op_no: d.op_no }], false)} disabled={busy} data-testid="gantt-lock-toggle">
-                  <Icon name={d.locked ? "unlock" : "lock"} /> {d.locked ? "Unlock" : "Lock here"}
+                  <Icon name={d.locked ? "unlock" : "lock"} /> {d.locked ? tr("mfg.apsGanttTab.str.unlock") : tr("mfg.apsGanttTab.str.lockHere")}
                 </button>
               ) : null}
               <button type="button" className="btn sm ghost" onClick={() => setSelected(null)} aria-label={t("mfg.apsGanttTab.aria.closeDetails")}>
@@ -421,8 +419,7 @@ export function ApsGanttTab() {
                 </dd>
                 <dt>{t("mfg.apsGanttTab.head.whereAndWhen")}</dt>
                 <dd>
-                  {d.line?.code ?? "not scheduled"} · {clock.dateTime(d.start)} – {clock.dateTime(d.end)} · setup {fmtDuration(d.setup_minutes) || "0"}, run {fmtDuration(d.run_minutes)}
-                  {d.pieces.length > 1 ? ` · in ${d.pieces.length} pieces (pauses outside shifts)` : ""}
+                  {tr("mfg.apsGanttTab.text.setupRun", { v: d.line?.code ?? tr("mfg.apsGanttTab.str.notScheduled"), start: clock.dateTime(d.start), end: clock.dateTime(d.end), v2: fmtDuration(d.setup_minutes) || "0", runminutes: fmtDuration(d.run_minutes), v3: d.pieces.length > 1 ? tr("mfg.apsGanttTab.tpl.inPiecesPausesOutsideShifts", { length: d.pieces.length }) : "" })}
                 </dd>
                 <dt>{t("mfg.apsGanttTab.head.whyItStartsThen")}</dt>
                 <dd data-testid="gantt-op-reason" data-reason={reason?.code}>
@@ -442,15 +439,15 @@ export function ApsGanttTab() {
                 ) : null}
                 <dt>{t("mfg.apsGanttTab.head.crewAndTools")}</dt>
                 <dd>
-                  {d.crew.length ? `${plural(d.crew.length, "operator")}` : "none (unattended)"}
+                  {d.crew.length ? `${plural(d.crew.length, "operator")}` : tr("mfg.apsGanttTab.str.noneUnattended")}
                   {d.tools.length ? ` · ${d.tools.length} tool pool${d.tools.length === 1 ? "" : "s"} (${d.tools.map((t) => `x${t.qty}`).join(", ")})` : ""}
-                  {d.family ? ` · family ${d.family}${d.setup_from_family ? ` (changeover from ${d.setup_from_family})` : ""}` : ""}
+                  {d.family ? ` · family ${d.family}${d.setup_from_family ? tr("mfg.apsGanttTab.tpl.changeoverFrom", { setupfromfamily: d.setup_from_family }) : ""}` : ""}
                 </dd>
                 <dt>{t("mfg.apsGanttTab.head.due")}</dt>
                 <dd>
                   {clock.dateTime(d.due)} {d.late_minutes > 0 ? <span className="badge danger">{fmtDuration(d.late_minutes)} late</span> : null}
-                  {d.frozen ? <span className="badge info">Frozen</span> : null}
-                  {d.locked ? <span className="badge info">Locked</span> : null}
+                  {d.frozen ? <span className="badge info">{tr("mfg.apsGanttTab.text.frozen")}</span> : null}
+                  {d.locked ? <span className="badge info">{tr("mfg.apsGanttTab.text.locked")}</span> : null}
                 </dd>
                 {nb ? (
                   <>
@@ -462,18 +459,18 @@ export function ApsGanttTab() {
                 ) : null}
               </dl>
             ) : detail.loading ? (
-              <span className="muted">Loading…</span>
+              <span className="muted">{tr("mfg.apsGanttTab.text.loading")}</span>
             ) : null}
             {d ? (
               <div className="row" style={{ marginTop: 8 }}>
                 {d.order.type === "wo" ? (
                   <Link className="btn sm" to={mfgPaths.workOrder(d.order.id)}>
-                    Work order {d.order.number}
+                    {tr("mfg.apsGanttTab.text.workOrder", { number: d.order.number })}
                   </Link>
                 ) : null}
                 {d.line && d.start ? (
                   <Link className="btn sm" to={mfgPaths.apsDispatch(run.id, { line: d.line.id, date: clock.day(d.start) })}>
-                    Dispatch list {d.line.code} {fmtDate(clock.day(d.start))}
+                    {tr("mfg.apsGanttTab.text.dispatchList", { code: d.line.code, fmtDate: fmtDate(clock.day(d.start)) })}
                   </Link>
                 ) : null}
               </div>

@@ -2,11 +2,12 @@
 import { Icon } from "../../components/Icon";
 import type { SorEntity } from "../api/typesM5";
 import { useErpOwnership } from "../lib/erpOwnership";
+import { t } from "../../lib/i18n";
 
 export function ErpOwnedBadge({ what, testId = "erp-owned" }: { what?: string; testId?: string }) {
   return (
-    <span className="badge info erp-owned" title="Maintained in the ERP; change it there. It comes in with the next sync." data-testid={testId}>
-      <Icon name="lock" size={12} /> {what ? `${what} from ERP` : "From ERP"}
+    <span className="badge info erp-owned" title={t("mfg.erpOwned.attr.maintainedInTheErpChange")} data-testid={testId}>
+      <Icon name="lock" size={12} /> {what ? t("mfg.erpOwned.tpl.fromErp", { what: what }) : t("mfg.erpOwned.str.fromErp")}
     </span>
   );
 }
@@ -16,7 +17,7 @@ export function ErpOwnedBanner({ entity }: { entity: string }) {
     <div className="banner" role="note" data-testid="erp-owned-banner">
       <Icon name="lock" />
       <div>
-        <strong>{entity} are maintained in the ERP for this plant.</strong> The fields from the ERP are read-only here; planning settings stay editable. Changes come in with the next sync.
+        <strong>{t("mfg.erpOwned.text.areMaintainedInTheErp", { entity: entity })}</strong>{" "}{t("mfg.erpOwned.text.theFieldsFromTheErp")}
       </div>
     </div>
   );

@@ -46,13 +46,13 @@ function ExportMenu({ runId }: { runId: string }) {
     <div className="col" style={{ gap: 4 }}>
       <div className="row" style={{ gap: 8 }}>
         <button type="button" className="btn" onClick={() => void run("xlsx")} disabled={busy} data-testid="run-export">
-          {busy ? <span className="spinner" aria-hidden /> : <Icon name="download" />} Export to Excel
+          {busy ? <span className="spinner" aria-hidden /> : <Icon name="download" />}{" "}{tr("mfg.runShell.text.exportToExcel")}
         </button>
         <button type="button" className="btn" onClick={() => void run("zip")} disabled={busy}>
           <Icon name="download" /> {t("mfg.runShell.btn.csvZip")}
         </button>
       </div>
-      <MfgError error={error} title="Download failed" />
+      <MfgError error={error} title={tr("mfg.runShell.attr.downloadFailed")} />
     </div>
   );
 }
@@ -62,18 +62,18 @@ export function RunShell() {
   const run = useLoad((signal) => getMrpRun(runId, signal), [runId]);
   const latest = useLoad((signal) => getLatestRun("live", signal).catch(() => null), [runId]);
   const r = run.data && run.data.id === runId ? run.data : null;
-  if (run.error && isNotFound(run.error)) return <NotFoundPanel what="MRP run" back={<Link className="btn" to={mfgPaths.mrp()}>Back to MRP</Link>} />;
+  if (run.error && isNotFound(run.error)) return <NotFoundPanel what={tr("mfg.runShell.attr.mrpRun")} back={<Link className="btn" to={mfgPaths.mrp()}>{tr("mfg.runShell.text.backToMrp")}</Link>} />;
   if (run.error && !r) return <MfgError error={run.error} onRetry={run.reload} />;
   if (!r) return <Spinner label={t("mfg.runShell.label.loadingPlan")} />;
   const isLatestLive = r.kind === "live" && r.status === "completed" && latest.data?.id === r.id;
   const stale = r.stale;
   const tabs = [
-    { to: mfgPaths.run(r.id), label: "Summary", key: "summary", end: true },
-    { to: mfgPaths.runItems(r.id), label: "Material plan", key: "items" },
-    { to: mfgPaths.runPlanned(r.id), label: "Planned orders", key: "planned" },
-    { to: mfgPaths.runExceptions(r.id), label: "Exceptions", key: "exceptions" },
-    { to: mfgPaths.runDemand(r.id), label: "Demand", key: "demand" },
-    { to: mfgPaths.runCompare(r.id), label: "Compare", key: "compare" },
+    { to: mfgPaths.run(r.id), label: tr("mfg.runShell.str.summary"), key: "summary", end: true },
+    { to: mfgPaths.runItems(r.id), label: tr("mfg.runShell.str.materialPlan"), key: "items" },
+    { to: mfgPaths.runPlanned(r.id), label: tr("mfg.runShell.str.plannedOrders"), key: "planned" },
+    { to: mfgPaths.runExceptions(r.id), label: tr("mfg.runShell.str.exceptions"), key: "exceptions" },
+    { to: mfgPaths.runDemand(r.id), label: tr("mfg.runShell.str.demand"), key: "demand" },
+    { to: mfgPaths.runCompare(r.id), label: tr("mfg.runShell.str.compare"), key: "compare" },
   ];
   const ctx: RunContext = { run: r, isLatestLive, reload: run.reload };
   return (
@@ -87,12 +87,12 @@ export function RunShell() {
           <RunKindBadge kind={r.kind} />
           <RunStatusChip status={r.status} />
           {isLatestLive ? (
-            <span className="badge accent" title="Planned orders of this run can be firmed or released">
+            <span className="badge accent" title={tr("mfg.runShell.attr.plannedOrdersOfThisRun")}>
               <Icon name="star" /> {t("mfg.runShell.btn.latestLivePlan")}
             </span>
           ) : null}
           <span className="muted small">
-            As of {fmtDate(r.as_of)} · {plural(r.horizon_days, "day")} · {fmtTimestamp(r.finished_at ?? r.started_at)} by {r.actor.name}
+            {tr("mfg.runShell.text.asOfBy", { asof: fmtDate(r.as_of), horizondays: plural(r.horizon_days, "day"), fmtTimestamp: fmtTimestamp(r.finished_at ?? r.started_at), name: r.actor.name })}
           </span>
         </div>
         <ExportMenu runId={r.id} />
@@ -109,15 +109,15 @@ export function RunShell() {
             </Link>
           }
         >
-          {[stale.master_changed ? "master data (items, BOMs, routings, suppliers or plant)" : "", stale.transactions_changed ? "stock, orders or work orders" : ""].filter(Boolean).join(" and ")} changed. The plan below is still readable but may be out of date.
+          {tr("mfg.runShell.text.changedThePlanBelowIs", { join: [stale.master_changed ? tr("mfg.runShell.str.masterDataItemsBomsRoutings") : "", stale.transactions_changed ? tr("mfg.runShell.str.stockOrdersOrWorkOrders") : ""].filter(Boolean).join(" and ") })}
         </Banner>
       ) : null}
       {r.kind === "what_if" ? (
         <Banner tone="info" icon="help" title={t("mfg.runShell.title.whatifScenario")}>
-          This run is for comparison only; its planned orders cannot be firmed or released. Live data was not changed.
+          {tr("mfg.runShell.text.thisRunIsForComparison")}
         </Banner>
       ) : null}
-      {r.status === "failed" ? <Banner tone="danger" title={t("mfg.runShell.title.thisRunFailed")}>{r.error?.message ?? "Unexpected error."}</Banner> : null}
+      {r.status === "failed" ? <Banner tone="danger" title={t("mfg.runShell.title.thisRunFailed")}>{r.error?.message ?? tr("mfg.runShell.str.unexpectedError")}</Banner> : null}
       <nav className="tabs" aria-label={t("mfg.runShell.aria.planSections")}>
         {tabs.map((t) => (
           <NavLink key={t.key} to={t.to} end={t.end} className={({ isActive }) => `tab${isActive ? " active" : ""}`} data-testid={`run-tab-${t.key}`}>

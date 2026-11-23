@@ -19,7 +19,7 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
   const ef = plan.emergency_fund;
   const newHolding = (): Holding => ({
     id: nextId(plan, "h"),
-    name: plan.holdings.length ? `Savings ${plan.holdings.length + 1}` : "Savings account",
+    name: plan.holdings.length ? t("finance.savingsStep.tpl.savings", { v: plan.holdings.length + 1 }) : t("finance.savingsStep.str.savingsAccount"),
     asset_class_id: classes.some((c) => c.id === plan.assumptions.cash_class_id) ? plan.assumptions.cash_class_id : classes[0]?.id ?? "cash",
     amount: 0,
     locked_until_month: null,
@@ -27,8 +27,7 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
   return (
     <div className="col gap-lg">
       <HelpText>
-        Add money you already have: savings accounts, deposits, investments. Pick the closest asset class; product names are not needed.
-        Existing savings first fill your <Term k="emergency_fund">emergency fund</Term>; the rest can go towards goals.
+        {t("finance.savingsStep.text.addMoneyYouAlreadyHave")}{" "}<Term k="emergency_fund">{t("finance.savingsStep.text.emergencyFund")}</Term>{t("finance.savingsStep.text.theRestCanGoTowards")}
       </HelpText>
       <section className="col" aria-labelledby="fin-holdings-h">
         <h2 id="fin-holdings-h">{t("finance.savingsStep.head.savingsAndInvestmentsYouHave")}</h2>
@@ -36,7 +35,7 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
           items={plan.holdings}
           rowTestId="holding"
           addLabel="Add savings"
-          emptyText="No savings yet. Add money you already have in the bank, deposits or investments."
+          emptyText={t("finance.savingsStep.attr.noSavingsYetAddMoney")}
           max={50}
           onAdd={() => update((p) => addItem(p, "holdings", newHolding()))}
           onRemove={(i) => update((p) => removeItem(p, "holdings", i))}
@@ -60,11 +59,9 @@ export function SavingsStep({ plan, update, preview, expert }: StepProps) {
         <p className="muted" style={{ margin: 0 }} role="status" aria-live="polite" data-testid="fin-ef-target">
           {cf
             ? cf.ef_target > 0
-              ? `Your emergency fund target is ${formatMoney(roundDisplay(cf.ef_target), cur, loc)} (${ef.months_of_essentials} months of essentials + loan payments). ${
-                  cf.ef_complete_month ? `It is complete by ${fmtMonth(cf.ef_complete_month)}.` : "It is not completed within the plan."
-                }`
-              : "No emergency fund is planned."
-            : "The emergency fund target appears after a moment."}
+              ? t("finance.savingsStep.tpl.yourEmergencyFundTargetIs", { formatMoney: formatMoney(roundDisplay(cf.ef_target), cur, loc), monthsofessentials: ef.months_of_essentials, v: cf.ef_complete_month ? t("finance.savingsStep.tpl.itIsCompleteBy", { efcompletemonth: fmtMonth(cf.ef_complete_month) }) : t("finance.savingsStep.str.itIsNotCompletedWithin") })
+              : t("finance.savingsStep.str.noEmergencyFundIsPlanned")
+            : t("finance.savingsStep.str.theEmergencyFundTargetAppears")}
         </p>
         <div className="fin-form">
           <Field label={t("finance.savingsStep.label.monthsOfEssentials")} hint={t("finance.savingsStep.hint.6IsACommonChoice")}>

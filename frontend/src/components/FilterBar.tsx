@@ -49,7 +49,7 @@ export function FilterBar({
       <div className={`filter-bar toolbar mfg-filters${open ? " filters-open" : ""}`} role="search" style={{ marginBottom: 0 }}>
         {search ? (
           <div className="field filter-search">
-            <label htmlFor={search.id}>{search.label ?? "Search"}</label>
+            <label htmlFor={search.id}>{search.label ?? t("studio.filterBar.str.search")}</label>
             <div className="filter-search-wrap">
               <Icon name="search" size={14} />
               <input
@@ -152,13 +152,13 @@ function SavedViews({ pageKey }: { pageKey: string }) {
   };
   return (
     <div className="popover-anchor" ref={ref}>
-      <button ref={btn} type="button" className="btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="saved-views" title="Saved views: named sets of filters">
+      <button ref={btn} type="button" className="btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="saved-views" title={t("studio.filterBar.attr.savedViewsNamedSetsOf")}>
         <Icon name="bookmark" size={14} />
         <span className="nowrap">{current ? current.name : t("views.button")}</span>
         <Icon name="chevron-down" size={12} />
       </button>
       {open ? (
-        <div className="popover" role="dialog" aria-label="Saved views">
+        <div className="popover" role="dialog" aria-label={t("studio.filterBar.attr.savedViews")}>
           <div className="popover-group">
             <span className="popover-legend">{t("views.title")}</span>
             {views.length === 0 ? <span className="small muted" style={{ padding: "2px 6px" }}>{t("views.none")}</span> : null}
@@ -182,7 +182,7 @@ function SavedViews({ pageKey }: { pageKey: string }) {
               save();
             }}
           >
-            <input className="input sm" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("views.namePlaceholder")} aria-label="Name for the current view" maxLength={60} />
+            <input className="input sm" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("views.namePlaceholder")} aria-label={t("studio.filterBar.attr.nameForTheCurrentView")} maxLength={60} />
             <button type="submit" className="btn sm primary" disabled={!name.trim()}>
               {t("views.save")}
             </button>

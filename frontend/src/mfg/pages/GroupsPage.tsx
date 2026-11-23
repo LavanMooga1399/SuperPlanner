@@ -79,13 +79,12 @@ export function GroupsPage() {
           </button>
         </div>
         <p className="muted small" style={{ margin: "8px 16px 0" }}>
-          A stage (work-center group) is a kind of work, e.g. SMT or final test. Its lines are the machines or benches
-          that can do it; the planner picks the line.
+          {t("mfg.groupsPage.text.aStageWorkCenterGroup")}
         </p>
         <MfgError error={groups.error ?? lines.error} onRetry={refresh} />
         {groups.loading && !groups.data ? <Spinner /> : null}
         <div className="mfg-tree-list" ref={listRef} data-testid="groups-list">
-          {(groups.data?.items ?? []).length === 0 && groups.data ? <p className="muted" style={{ padding: 16, margin: 0 }}>No stages yet.</p> : null}
+          {(groups.data?.items ?? []).length === 0 && groups.data ? <p className="muted" style={{ padding: 16, margin: 0 }}>{t("mfg.groupsPage.text.noStagesYet")}</p> : null}
           {(groups.data?.items ?? []).map((g) => {
             const gl = byGroup.get(g.id) ?? [];
             const gSel = groupParam === g.id && !lineParam;
@@ -124,10 +123,10 @@ export function GroupsPage() {
                         >
                           <span className="mono">{l.code}</span>
                           <span className="grow mfg-ellipsis">{l.name}</span>
-                          <span className="muted small" title="Speed factor">
+                          <span className="muted small" title={t("mfg.groupsPage.attr.speedFactor")}>
                             ×{l.speed_factor}
                           </span>
-                          {l.parallel_capacity > 1 ? <span className="chip" title="Runs this many jobs at once">{l.parallel_capacity} at once</span> : null}
+                          {l.parallel_capacity > 1 ? <span className="chip" title={t("mfg.groupsPage.attr.runsThisManyJobsAt")}>{t("mfg.groupsPage.text.atOnce", { parallelcapacity: l.parallel_capacity })}</span> : null}
                           <ActiveBadge active={l.active} />
                         </button>
                       </li>
@@ -142,7 +141,7 @@ export function GroupsPage() {
 
       <aside className="col" aria-label={t("mfg.groupsPage.aria.details")}>
         {panel === null ? (
-          <div className="card card-body muted">Select a stage or a line to see and edit it.</div>
+          <div className="card card-body muted">{t("mfg.groupsPage.text.selectAStageOrA")}</div>
         ) : panel.kind === "new-group" ? (
           <GroupEditor
             key="new-group"
@@ -193,13 +192,13 @@ function GroupPanel({ id, onChanged, onDeleted, onAddLine }: { id: string; onCha
       />
       <section className="card">
         <div className="card-header">
-          <h3>Lines of {d.code}</h3>
+          <h3>{t("mfg.groupsPage.text.linesOf", { code: d.code })}</h3>
           <button type="button" className="btn sm" onClick={onAddLine} data-testid="line-new">
             <Icon name="plus" /> {t("mfg.groupsPage.btn.addLine")}
           </button>
         </div>
         <div className="card-body">
-          {d.lines.length === 0 ? <p className="muted small" style={{ margin: 0 }}>No lines yet. Operations on this stage cannot be planned until it has an active line.</p> : null}
+          {d.lines.length === 0 ? <p className="muted small" style={{ margin: 0 }}>{t("mfg.groupsPage.text.noLinesYetOperationsOn")}</p> : null}
           <ul className="mfg-plain-list">
             {d.lines.map((l) => (
               <li key={l.id} className="row">
@@ -217,11 +216,11 @@ function GroupPanel({ id, onChanged, onDeleted, onAddLine }: { id: string; onCha
         <div className="card-header">
           <h3>{t("mfg.groupsPage.head.shifts")}</h3>
           <Link to={mfgPaths.shifts()} className="btn sm ghost">
-            Manage shifts <Icon name="arrow-right" />
+            {t("mfg.groupsPage.text.manageShifts")}{" "}<Icon name="arrow-right" />
           </Link>
         </div>
         <div className="card-body">
-          {d.assignments.length === 0 ? <p className="muted small" style={{ margin: 0 }}>No shift assigned to this stage or its lines.</p> : null}
+          {d.assignments.length === 0 ? <p className="muted small" style={{ margin: 0 }}>{t("mfg.groupsPage.text.noShiftAssignedToThis")}</p> : null}
           <ul className="mfg-plain-list">
             {d.assignments.map((a) => (
               <li key={a.id} className="row wrap">
@@ -230,7 +229,7 @@ function GroupPanel({ id, onChanged, onDeleted, onAddLine }: { id: string; onCha
                   {a.template.code}
                 </Link>
                 <span className="muted small">
-                  on {a.target.type === "group" ? "stage" : "line"} {a.target.code} · {effectivityText(a.effective_from, a.effective_to)}
+                  {t("mfg.groupsPage.text.on", { v: a.target.type === "group" ? "stage" : "line", code: a.target.code, effectivefrom: effectivityText(a.effective_from, a.effective_to) })}
                 </span>
               </li>
             ))}
@@ -288,11 +287,11 @@ function GroupEditor({ group, onSaved, onCancel, onDeleted }: { group: GroupReco
       data-testid="group-form"
     >
       <div className="card-header">
-        <h3>{group ? `Stage ${group.code}` : "New stage"}</h3>
+        <h3>{group ? t("mfg.groupsPage.tpl.stage", { code: group.code }) : t("mfg.groupsPage.str.newStage")}</h3>
       </div>
       <div className="card-body col">
-        {conflict ? <ConflictBanner onReload={() => void reload()} what="this stage" /> : null}
-        <MfgError error={error} title="Could not save" />
+        {conflict ? <ConflictBanner onReload={() => void reload()} what={t("mfg.groupsPage.attr.thisStage")} /> : null}
+        <MfgError error={error} title={t("mfg.groupsPage.attr.couldNotSave")} />
         <div className="form-grid">
           <TextField label={t("mfg.groupsPage.label.code")} value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} testId="group-code" />
           <TextField label={t("mfg.groupsPage.label.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="group-name" />
@@ -302,7 +301,7 @@ function GroupEditor({ group, onSaved, onCancel, onDeleted }: { group: GroupReco
         <CheckField label={t("mfg.groupsPage.label.active")} checked={f.active} onChange={(v) => setF({ ...f, active: v })} />
         <div className="row">
           <button type="submit" className="btn primary sm" disabled={busy || !f.code.trim() || !f.name.trim()} data-testid="group-save">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {group ? "Save stage" : "Create stage"}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {group ? t("mfg.groupsPage.str.saveStage") : t("mfg.groupsPage.str.createStage")}
           </button>
           {onCancel ? (
             <button type="button" className="btn sm" onClick={onCancel}>
@@ -320,7 +319,7 @@ function GroupEditor({ group, onSaved, onCancel, onDeleted }: { group: GroupReco
       </div>
       {confirm && group && onDeleted ? (
         <ConfirmDialog
-          title={`Delete stage ${group.code}?`}
+          title={t("mfg.groupsPage.tpl.deleteStage", { code: group.code })}
           confirmLabel={t("mfg.groupsPage.btn.deleteStage")}
           danger
           onCancel={() => setConfirm(false)}
@@ -355,10 +354,10 @@ function LinePanel({ id, groups, onChanged, onDeleted }: { id: string; groups: G
       />
       <div className="row wrap">
         <Link className="btn sm" to={mfgPaths.calendar({ line: l.data.id })} data-testid="line-calendar-link">
-          <Icon name="calendar" /> Working time of {l.data.code}
+          <Icon name="calendar" />{" "}{t("mfg.groupsPage.text.workingTimeOf", { code: l.data.code })}
         </Link>
         <Link className="btn sm ghost" to={mfgPaths.groups({ group: l.data.group_id })}>
-          Stage {l.data.group.code}
+          {t("mfg.groupsPage.text.stage", { code: l.data.group.code })}
         </Link>
       </div>
     </div>
@@ -459,11 +458,11 @@ function LineEditor({
       data-testid="line-form"
     >
       <div className="card-header">
-        <h3>{line ? `Line ${line.code}` : "New line"}</h3>
+        <h3>{line ? t("mfg.groupsPage.tpl.line", { code: line.code }) : t("mfg.groupsPage.str.newLine")}</h3>
       </div>
       <div className="card-body col">
-        {conflict ? <ConflictBanner onReload={() => void reload()} what="this line" /> : null}
-        <MfgError error={error} title="Could not save" />
+        {conflict ? <ConflictBanner onReload={() => void reload()} what={t("mfg.groupsPage.attr.thisLine")} /> : null}
+        <MfgError error={error} title={t("mfg.groupsPage.attr.couldNotSave")} />
         <div className="form-grid">
           <TextField label={t("mfg.groupsPage.label.code")} value={f.code} onChange={(v) => setF({ ...f, code: v })} required maxLength={32} testId="line-code" />
           <TextField label={t("mfg.groupsPage.label.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} required testId="line-name" />
@@ -475,16 +474,16 @@ function LineEditor({
         <fieldset className="mfg-fieldset">
           <legend>{t("mfg.groupsPage.head.whatThisLineCanMake")}</legend>
           <p className="hint" style={{ margin: 0 }}>
-            Leave both empty if the line can make everything of its stage.
+            {t("mfg.groupsPage.text.leaveBothEmptyIfThe")}
           </p>
           <TextField label={t("mfg.groupsPage.label.itemFamilies")} value={f.families} onChange={(v) => setF({ ...f, families: v })} hint={t("mfg.groupsPage.hint.commaSeparatedEgPcbastdHarness")} testId="line-families" />
           <div className="col" style={{ gap: 4 }}>
-            <span className="field-label">Specific items</span>
+            <span className="field-label">{t("mfg.groupsPage.text.specificItems")}</span>
             <ul className="mfg-plain-list row wrap">
               {f.items.map((it) => (
                 <li key={it.id} className="chip">
                   <span className="mono">{it.part_number}</span>
-                  <button type="button" className="btn sm ghost icon" aria-label={`Remove ${it.part_number}`} onClick={() => setF({ ...f, items: f.items.filter((x) => x.id !== it.id) })}>
+                  <button type="button" className="btn sm ghost icon" aria-label={t("mfg.groupsPage.tpl.remove", { partnumber: it.part_number })} onClick={() => setF({ ...f, items: f.items.filter((x) => x.id !== it.id) })}>
                     <Icon name="x" size={12} />
                   </button>
                 </li>
@@ -523,7 +522,7 @@ function LineEditor({
         ) : null}
         <div className="row">
           <button type="submit" className="btn primary sm" disabled={busy || !f.code.trim() || !f.name.trim() || !f.group_id} data-testid="line-save">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {line ? "Save line" : "Create line"}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="save" />} {line ? t("mfg.groupsPage.str.saveLine") : t("mfg.groupsPage.str.createLine")}
           </button>
           {onCancel ? (
             <button type="button" className="btn sm" onClick={onCancel}>
@@ -541,7 +540,7 @@ function LineEditor({
       </div>
       {confirm && line && onDeleted ? (
         <ConfirmDialog
-          title={`Delete line ${line.code}?`}
+          title={t("mfg.groupsPage.tpl.deleteLine", { code: line.code })}
           confirmLabel={t("mfg.groupsPage.btn.deleteLine")}
           danger
           onCancel={() => setConfirm(false)}

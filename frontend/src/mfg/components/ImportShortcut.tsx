@@ -10,6 +10,7 @@ import { downloadImportTemplate, saveBlob } from "../api/client";
 import { mfgPaths } from "../lib/paths";
 import { useCan } from "../lib/permissions";
 import { MfgError } from "./Feedback";
+import { t } from "../../lib/i18n";
 
 export function ImportShortcut({ what, testId }: { what: string; testId?: string }) {
   const canImport = useCan("import");
@@ -30,14 +31,14 @@ export function ImportShortcut({ what, testId }: { what: string; testId?: string
   return (
     <div className="col" style={{ gap: 4 }}>
       <div className="row" style={{ gap: 4 }}>
-        <Link className="btn" to={mfgPaths.importStart()} data-testid={testId} title={`Import ${what} from an Excel or CSV file; nothing is saved before the preview`}>
-          <Icon name="upload" /> Import {what}
+        <Link className="btn" to={mfgPaths.importStart()} data-testid={testId} title={t("mfg.importShortcut.tpl.importFromAnExcelOr", { what: what })}>
+          <Icon name="upload" />{" "}{t("mfg.importShortcut.text.import", { what: what })}
         </Link>
-        <button type="button" className="btn ghost" onClick={() => void template()} disabled={busy} aria-label={`Download a blank Excel template for ${what}`} title={`Download a blank Excel template for ${what}`}>
-          {busy ? <span className="spinner" aria-hidden /> : <Icon name="file" />} Template
+        <button type="button" className="btn ghost" onClick={() => void template()} disabled={busy} aria-label={t("mfg.importShortcut.tpl.downloadABlankExcelTemplate", { what: what })} title={t("mfg.importShortcut.tpl.downloadABlankExcelTemplate", { what: what })}>
+          {busy ? <span className="spinner" aria-hidden /> : <Icon name="file" />}{" "}{t("mfg.importShortcut.text.template")}
         </button>
       </div>
-      <MfgError error={error} title="Download failed" />
+      <MfgError error={error} title={t("mfg.importShortcut.attr.downloadFailed")} />
     </div>
   );
 }

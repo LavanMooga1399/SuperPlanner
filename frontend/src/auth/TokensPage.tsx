@@ -19,24 +19,24 @@ import "./auth.css";
 import { formatDateTime } from "../lib/locale";
 import { PageHeader } from "../components/PageHeader";
 import { DataTable } from "../mfg/components/DataTable";
-import { t } from "../lib/i18n";
+import { t, t as tr } from "../lib/i18n";
 
 const PRESETS: { key: string; label: string; help: string; scopes: TokenScope[] }[] = [
-  { key: "read", label: "Read only", help: "Reports and dashboards: read everything, change nothing.", scopes: ["view", "floor_view", "trace_view"] },
-  { key: "erp", label: "ERP / middleware", help: "Send master data and orders in, read events out (integration).", scopes: ["view", "integration.read", "integration.write"] },
-  { key: "events", label: "Read events only", help: "A consumer that pulls the event feed.", scopes: ["integration.read"] },
+  { key: "read", label: tr("account.tokensPage.str.readOnly"), help: tr("account.tokensPage.str.reportsAndDashboardsReadEverything"), scopes: ["view", "floor_view", "trace_view"] },
+  { key: "erp", label: "ERP / middleware", help: tr("account.tokensPage.str.sendMasterDataAndOrders"), scopes: ["view", "integration.read", "integration.write"] },
+  { key: "events", label: tr("account.tokensPage.str.readEventsOnly"), help: tr("account.tokensPage.str.aConsumerThatPullsThe"), scopes: ["integration.read"] },
 ];
 
 const SCOPE_LABEL: Partial<Record<TokenScope, string>> = {
-  view: "Read",
-  "integration.read": "Read integration events",
-  "integration.write": "Send integration batches",
-  master_edit: "Edit master data",
-  inventory: "Stock postings",
-  wo_edit: "Work orders",
-  mrp_run: "Run MRP",
-  schedule_run: "Run schedules",
-  floor_report: "Report floor work",
+  view: tr("account.tokensPage.str.read"),
+  "integration.read": tr("account.tokensPage.str.readIntegrationEvents"),
+  "integration.write": tr("account.tokensPage.str.sendIntegrationBatches"),
+  master_edit: tr("account.tokensPage.str.editMasterData"),
+  inventory: tr("account.tokensPage.str.stockPostings"),
+  wo_edit: tr("account.tokensPage.str.workOrders"),
+  mrp_run: tr("account.tokensPage.str.runMrp"),
+  schedule_run: tr("account.tokensPage.str.runSchedules"),
+  floor_report: tr("account.tokensPage.str.reportFloorWork"),
 };
 
 const fmt = (iso: string | null | undefined) => (iso ? formatDateTime(iso) : "never");
@@ -81,9 +81,9 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
   return (
     <div className="col gap-lg" data-testid={`tokens-${kind}`}>
       {created ? (
-        <Banner tone="ok" title={`Token "${created.name}" created`} testId="token-created">
+        <Banner tone="ok" title={tr("account.tokensPage.tpl.tokenCreated", { name: created.name })} testId="token-created">
           <div className="col" style={{ gap: 8 }}>
-            <span>Copy it now. It is not shown again; if it is lost, revoke it and make a new one.</span>
+            <span>{tr("account.tokensPage.text.copyItNowItIs")}</span>
             <code className="totp-secret" data-testid="token-value">
               {created.token}
             </code>
@@ -96,27 +96,27 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
                   setCopied(true);
                 }}
               >
-                <Icon name="copy" /> {copied ? "Copied" : "Copy"}
+                <Icon name="copy" /> {copied ? tr("account.tokensPage.str.copied") : tr("account.tokensPage.str.copy")}
               </button>
               <button type="button" className="btn sm ghost" onClick={() => setCreated(null)}>
                 {t("account.tokensPage.btn.iHaveStoredIt")}
               </button>
             </div>
             <span className="faint small">
-              Use it as <span className="mono">Authorization: Bearer {created.prefix}…</span>
+              {tr("account.tokensPage.text.useItAs")}{" "}<span className="mono">{tr("account.tokensPage.text.authorizationBearer", { prefix: created.prefix })}</span>
             </span>
           </div>
         </Banner>
       ) : null}
       <section className="card">
         <div className="card-header">
-          <h2>New {kind === "plant" ? "plant" : "personal"} token</h2>
+          <h2>{tr("account.tokensPage.text.newToken", { v: kind === "plant" ? "plant" : "personal" })}</h2>
         </div>
         <div className="card-body col">
           <div className="form-grid">
             <div className="field">
               <label htmlFor="tk-name">{t("account.tokensPage.label.name")}</label>
-              <input id="tk-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder={kind === "plant" ? "e.g. ERP middleware" : "e.g. Power BI report"} data-testid="token-name" />
+              <input id="tk-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder={kind === "plant" ? tr("account.tokensPage.str.eGErpMiddleware") : tr("account.tokensPage.str.eGPowerBiReport")} data-testid="token-name" />
             </div>
             {kind === "personal" && workspaces.length > 1 ? (
               <div className="field">
@@ -124,7 +124,7 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
                 <select id="tk-ws" className="select" value={workspace} onChange={(e) => setWorkspace(e.target.value)}>
                   {workspaces.map((w) => (
                     <option key={w.owner_id} value={w.is_owner ? "" : w.owner_id}>
-                      {w.plant_name || "Plant"}
+                      {w.plant_name || tr("account.tokensPage.str.plant")}
                       {w.is_owner ? " (mine)" : ""}
                     </option>
                   ))}
@@ -135,9 +135,9 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
               <label htmlFor="tk-days">{t("account.tokensPage.label.validFor")}</label>
               <select id="tk-days" className="select" value={days} onChange={(e) => setDays(Number(e.target.value))} data-testid="token-days">
                 <option value={30}>30 days</option>
-                <option value={90}>90 days (recommended)</option>
+                <option value={90}>{tr("account.tokensPage.text.90DaysRecommended")}</option>
                 <option value={180}>180 days</option>
-                <option value={365}>1 year (maximum)</option>
+                <option value={365}>{tr("account.tokensPage.text.1YearMaximum")}</option>
               </select>
             </div>
           </div>
@@ -176,10 +176,10 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
               </div>
             )}
             <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} aria-expanded={custom} onClick={() => setCustom((v) => !v)} data-testid="token-custom">
-              <Icon name="settings" /> {custom ? "Use a preset" : "Choose permissions"}
+              <Icon name="settings" /> {custom ? tr("account.tokensPage.str.useAPreset") : tr("account.tokensPage.str.choosePermissions")}
             </button>
             <span className="faint small">
-              {kind === "personal" ? "The token can never do more than you can in that plant." : "A plant token acts for the plant, not for a person: keep it in the ERP's secret store."}
+              {kind === "personal" ? tr("account.tokensPage.str.theTokenCanNeverDo") : tr("account.tokensPage.str.aPlantTokenActsFor")}
             </span>
           </fieldset>
           <MfgError error={error} />
@@ -246,7 +246,7 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
             },
             {
               key: "actions",
-              header: <span className="sr-only">Actions</span>,
+              header: <span className="sr-only">{tr("account.tokensPage.text.actions")}</span>,
               label: "Actions",
               width: "96px",
               align: "right",
@@ -270,7 +270,7 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
       </section>
       {revoking ? (
         <ConfirmDialog
-          title={`Revoke "${revoking.name}"?`}
+          title={tr("account.tokensPage.tpl.revoke", { name: revoking.name })}
           confirmLabel={t("account.tokensPage.btn.revoke")}
           danger
           onCancel={() => setRevoking(null)}
@@ -293,7 +293,7 @@ export function TokenManager({ kind }: { kind: "personal" | "plant" }) {
 
 export function TokensPage() {
   useEffect(() => {
-    document.title = "API tokens - SuperPlanner";
+    document.title = tr("account.tokensPage.str.apiTokensSuperplanner");
   }, []);
   return (
     <div className="col gap-lg" style={{ maxWidth: 960, margin: "0 auto", width: "100%" }}>
@@ -301,14 +301,14 @@ export function TokensPage() {
         title={t("account.tokensPage.title.personalApiTokens")}
         actions={
           <>
-            <Link to="/account">Account</Link>
+            <Link to="/account">{tr("account.tokensPage.text.account")}</Link>
             <span className="faint">·</span>
-            <Link to="/account/security">Two-step verification</Link>
+            <Link to="/account/security">{tr("account.tokensPage.text.twoStepVerification")}</Link>
           </>
         }
       />
       <p className="muted" style={{ margin: 0 }}>
-        For scripts and reports that call SuperPlanner as you. For an ERP connection, a plant admin creates a plant token under Manufacturing, Integration.
+        {tr("account.tokensPage.text.forScriptsAndReportsThat")}
       </p>
       <TokenManager kind="personal" />
     </div>

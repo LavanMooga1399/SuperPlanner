@@ -17,7 +17,7 @@ import { DEMAND_TYPE_LABEL, fmtNum } from "../../lib/formatM2";
 import { isAbortError, todayInOffset, usePlant } from "../../lib/useMfg";
 import { toast } from "../../../components/Toast";
 import { DateInput } from "../../../components/DateInput";
-import { t } from "../../../lib/i18n";
+import { t, t as tr } from "../../../lib/i18n";
 
 interface Extra {
   key: number;
@@ -59,7 +59,7 @@ function SupplyTargets({ item, value, onChange }: { item: ItemRef | null; value:
   }, [item]);
   return (
     <select className="select sm" aria-label={t("mfg.mrpRunForm.aria.deliveryOrWorkOrder")} value={value} onChange={(e) => onChange(e.target.value)} disabled={!item} data-testid="whatif-supply-target">
-      <option value="">{item ? (opts.length ? "Choose…" : "No open supply") : "Choose a part first"}</option>
+      <option value="">{item ? (opts.length ? tr("mfg.mrpRunForm.str.choose") : tr("mfg.mrpRunForm.str.noOpenSupply")) : tr("mfg.mrpRunForm.str.chooseAPartFirst")}</option>
       {opts.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
@@ -163,8 +163,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
       </div>
       <div className="card-body col">
         <p className="muted small" style={{ margin: 0 }}>
-          Uses every open demand order, the stock, open purchase orders and requests (with their staggered deliveries) and work orders, and works out what to make and buy, how many and by when.
-          Usually takes a few seconds.
+          {tr("mfg.mrpRunForm.text.usesEveryOpenDemandOrder")}
         </p>
         <div className="field" style={{ maxWidth: 420 }}>
           <label htmlFor="mrp-label">{t("mfg.mrpRunForm.label.nameOptional")}</label>
@@ -185,30 +184,30 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
               <div className="field">
                 <label htmlFor="mrp-alloc">{t("mfg.mrpRunForm.label.whenStockIsNotEnough")}</label>
                 <select id="mrp-alloc" className="select" value={allocation} onChange={(e) => setAllocation(e.target.value as "priority" | "due_date")}>
-                  <option value="priority">Higher priority orders get it first</option>
-                  <option value="due_date">Earliest due date gets it first</option>
+                  <option value="priority">{tr("mfg.mrpRunForm.text.higherPriorityOrdersGetIt")}</option>
+                  <option value="due_date">{tr("mfg.mrpRunForm.text.earliestDueDateGetsIt")}</option>
                 </select>
               </div>
               <div className="field">
                 <label htmlFor="mrp-alt">{t("mfg.mrpRunForm.label.alternateParts")}</label>
                 <select id="mrp-alt" className="select" value={alternates} onChange={(e) => setAlternates(e.target.value as "when_short" | "never")}>
-                  <option value="when_short">Use stock of alternates when the main part is late</option>
-                  <option value="never">Never use alternates</option>
+                  <option value="when_short">{tr("mfg.mrpRunForm.text.useStockOfAlternatesWhen")}</option>
+                  <option value="never">{tr("mfg.mrpRunForm.text.neverUseAlternates")}</option>
                 </select>
               </div>
               <div className="field">
                 <label htmlFor="mrp-h">{t("mfg.mrpRunForm.label.horizonDays")}</label>
                 <input id="mrp-h" className="input" type="number" min={7} max={730} value={horizon} onChange={(e) => setHorizon(e.target.value)} placeholder={String(plant.data?.planning_horizon_days ?? 90)} aria-invalid={hBad} />
-                <span className="hint">{hBad ? "7 to 730 days." : "Demand due later is not planned."}</span>
+                <span className="hint">{hBad ? tr("mfg.mrpRunForm.str.7To730Days") : tr("mfg.mrpRunForm.str.demandDueLaterIsNot")}</span>
               </div>
               <div className="field">
                 <label htmlFor="mrp-protect">{t("mfg.mrpRunForm.label.protectProgrammes")}</label>
                 <input id="mrp-protect" className="input" value={protect} onChange={(e) => setProtect(e.target.value)} placeholder={t("mfg.mrpRunForm.ph.egKvp26Kvpproto")} />
-                <span className="hint">Their demand is served before everything else.</span>
+                <span className="hint">{tr("mfg.mrpRunForm.text.theirDemandIsServedBefore")}</span>
               </div>
             </div>
             <label className="checkbox">
-              <input type="checkbox" checked={safety} onChange={(e) => setSafety(e.target.checked)} /> Plan to keep safety stock
+              <input type="checkbox" checked={safety} onChange={(e) => setSafety(e.target.checked)} />{" "}{tr("mfg.mrpRunForm.text.planToKeepSafetyStock")}
             </label>
           </fieldset>
         ) : null}
@@ -216,20 +215,20 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
           <fieldset className="mfg-fieldset" data-testid="mrp-whatif">
             <legend>{t("mfg.mrpRunForm.head.whatifScenario")}</legend>
             <p className="hint" style={{ margin: 0 }}>
-              Changes here are only for this run; no data is changed. Compare the result with the live plan afterwards.
+              {tr("mfg.mrpRunForm.text.changesHereAreOnlyFor")}
             </p>
             <div className="form-grid">
               <div className="field">
                 <label htmlFor="mrp-asof">{t("mfg.mrpRunForm.label.planAsOf")}</label>
                 <DateInput id="mrp-asof" value={asOf} testId="whatif-as-of" onChange={(v) => setAsOf(v)} />
-                <span className="hint">Empty = today ({fmtDate(today)})</span>
+                <span className="hint">{tr("mfg.mrpRunForm.text.emptyToday", { today: fmtDate(today) })}</span>
               </div>
               <label className="checkbox" style={{ alignSelf: "flex-end" }}>
-                <input type="checkbox" checked={!withPr} onChange={(e) => setWithPr(!e.target.checked)} data-testid="whatif-no-pr" /> As if open purchase requests did not exist
+                <input type="checkbox" checked={!withPr} onChange={(e) => setWithPr(!e.target.checked)} data-testid="whatif-no-pr" />{" "}{tr("mfg.mrpRunForm.text.asIfOpenPurchaseRequests")}
               </label>
             </div>
             <div className="field">
-              <span className="field-label">Only plan these demand types</span>
+              <span className="field-label">{tr("mfg.mrpRunForm.text.onlyPlanTheseDemandTypes")}</span>
               <div className="row wrap">
                 {DEMAND_TYPES.map((t) => (
                   <label key={t} className="checkbox">
@@ -252,7 +251,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
             </div>
             {orders.length ? (
               <div className="field">
-                <span className="field-label">Only plan these orders (none ticked = all open orders)</span>
+                <span className="field-label">{tr("mfg.mrpRunForm.text.onlyPlanTheseOrdersNone")}</span>
                 <div className="row wrap" style={{ maxHeight: 120, overflow: "auto" }}>
                   {orders.map((o) => (
                     <label key={o.id} className="checkbox">
@@ -275,7 +274,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
               </div>
             ) : null}
             <WhatIfRows
-              title="Delayed or earlier deliveries"
+              title={tr("mfg.mrpRunForm.attr.delayedOrEarlierDeliveries")}
               add="Add a delivery date change"
               testId="whatif-supply"
               rows={supplyOv}
@@ -294,7 +293,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
               )}
             />
             <WhatIfRows
-              title="Extra demand"
+              title={tr("mfg.mrpRunForm.attr.extraDemand")}
               add="Add extra demand"
               testId="whatif-extra"
               rows={extra}
@@ -312,7 +311,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
               )}
             />
             <WhatIfRows
-              title="Other lead times"
+              title={tr("mfg.mrpRunForm.attr.otherLeadTimes")}
               add="Add a lead-time change"
               testId="whatif-lead"
               rows={leadOv}
@@ -324,7 +323,7 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
                     <ItemPicker label={t("mfg.mrpRunForm.label.item")} hideLabel value={r.item} onChange={(it) => set({ item: it })} />
                   </div>
                   <input className="input sm num" type="number" min={0} aria-label={t("mfg.mrpRunForm.aria.leadTimeDays")} placeholder={t("mfg.mrpRunForm.ph.days")} value={r.days} onChange={(e) => set({ days: e.target.value })} style={{ width: 90 }} />
-                  <span className="faint small">{r.item?.make_buy === "make" ? "working days" : "calendar days"}</span>
+                  <span className="faint small">{r.item?.make_buy === "make" ? tr("mfg.mrpRunForm.str.workingDays") : tr("mfg.mrpRunForm.str.calendarDays")}</span>
                 </>
               )}
             />
@@ -332,13 +331,13 @@ export function MrpRunForm({ onClose, onDone }: { onClose(): void; onDone(r: Mrp
         ) : null}
         {isWhatIf ? (
           <p className="small" role="status" style={{ margin: 0 }}>
-            <Icon name="help" size={12} /> This will be a <strong>what-if</strong> run: for comparison only, its planned orders cannot be converted.
+            <Icon name="help" size={12} />{" "}{tr("mfg.mrpRunForm.text.thisWillBeA")}{" "}<strong>what-if</strong>{" "}{tr("mfg.mrpRunForm.text.runForComparisonOnlyIts")}
           </p>
         ) : null}
-        <MfgError error={error} title="The plan could not be run" />
+        <MfgError error={error} title={tr("mfg.mrpRunForm.attr.thePlanCouldNotBe")} />
         <div className="row">
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={busy || hBad} data-testid="mrp-run-submit">
-            {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} {busy ? "Planning…" : isWhatIf ? "Run what-if" : "Run MRP"}
+            {busy ? <span className="spinner" aria-hidden /> : <Icon name="play" />} {busy ? tr("mfg.mrpRunForm.str.planning") : isWhatIf ? tr("mfg.mrpRunForm.str.runWhatIf") : tr("mfg.mrpRunForm.str.runMrp")}
           </button>
           <button type="button" className="btn" onClick={onClose}>
             {t("mfg.mrpRunForm.btn.cancel")}

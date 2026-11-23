@@ -30,7 +30,7 @@ export function ApsExceptionsTab() {
       <div className="row wrap" role="group" aria-label={t("mfg.apsExceptionsTab.aria.filterBySeverity")}>
         {MRP_SEVERITIES.map((s) => (
           <button key={s} type="button" className="btn sm" aria-pressed={sevs.includes(s)} onClick={() => toggle("severity", sevs, s)}>
-            <MrpSeverityBadge severity={s} label={`${s === "critical" ? "Critical" : s === "warning" ? "Warnings" : "Info"}: ${counts?.by_severity?.[s] ?? 0}`} />
+            <MrpSeverityBadge severity={s} label={`${s === "critical" ? t("mfg.apsExceptionsTab.str.critical") : s === "warning" ? t("mfg.apsExceptionsTab.str.warnings") : t("mfg.apsExceptionsTab.str.info")}: ${counts?.by_severity?.[s] ?? 0}`} />
           </button>
         ))}
       </div>
@@ -44,7 +44,7 @@ export function ApsExceptionsTab() {
         </div>
       ) : null}
       <MfgError error={data.error} onRetry={data.reload} />
-      {data.rows.length === 0 && !data.loading ? <p className="muted">No messages.</p> : null}
+      {data.rows.length === 0 && !data.loading ? <p className="muted">{t("mfg.apsExceptionsTab.text.noMessages")}</p> : null}
       <section className="card">
         <ul className="mfg-ex-list" data-testid="aps-exception-list">
           {data.rows.map((x) => (
@@ -86,7 +86,7 @@ export function ApsExceptionsTab() {
         {data.rows.length < data.total ? (
           <div className="card-footer">
             <button type="button" className="btn sm" onClick={data.onEndReached} disabled={data.loading}>
-              Show more ({t("common.nOfM", { n: data.rows.length, m: data.total })})
+              {t("mfg.apsExceptionsTab.text.showMore", { t: t("common.nOfM", { n: data.rows.length, m: data.total }) })}
             </button>
           </div>
         ) : null}

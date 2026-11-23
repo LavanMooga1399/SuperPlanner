@@ -65,7 +65,7 @@ export function ReplanDialog({
     try {
       const v = await beforeSubmit();
       if (v === null) {
-        setError("Your latest edits could not be saved. Resolve that first.");
+        setError(tr("studio.replanDialog.str.yourLatestEditsCouldNot"));
         return;
       }
       const task_updates: TaskUpdate[] = durations
@@ -83,8 +83,8 @@ export function ReplanDialog({
       navigate(`../optimize?run=${encodeURIComponent(res.run_id)}`);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 412) setError("The plan was changed elsewhere. Reload the plan and try again.");
-        else if (err.code === "RUN_ALREADY_ACTIVE") setError("An optimization is already running for this plan. Wait for it or cancel it first.");
+        if (err.status === 412) setError(tr("studio.replanDialog.str.thePlanWasChangedElsewhere"));
+        else if (err.code === "RUN_ALREADY_ACTIVE") setError(tr("studio.replanDialog.str.anOptimizationIsAlreadyRunning"));
         else {
           setError(err.message);
           if (Array.isArray(err.details.issues)) setIssues(err.details.issues as Issue[]);
@@ -102,37 +102,36 @@ export function ReplanDialog({
       onClose={onClose}
       footer={
         <>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>{tr("studio.replanDialog.text.cancel")}</button>
           <button className="btn primary" onClick={submit} disabled={busy || !cutoffValid} data-testid="replan-submit">
             {busy ? <span className="spinner" aria-hidden /> : <Icon name="refresh" />}
-            Replan
+            {tr("studio.replanDialog.text.replan")}
           </button>
         </>
       }
     >
       <p className="muted" style={{ margin: 0 }}>
-        Everything that starts before the cut-off stays exactly as in this {terms.scheduleL}. The rest is optimized again, taking
-        your changes into account. The current approved {terms.scheduleL} stays approved until you approve a new one.
+        {tr("studio.replanDialog.text.everythingThatStartsBeforeThe", { scheduleL: terms.scheduleL, scheduleL2: terms.scheduleL })}
       </p>
       <div className="field">
-        <label htmlFor="replan-cutoff">Cut-off ({offsetLabel(off)})</label>
+        <label htmlFor="replan-cutoff">{tr("studio.replanDialog.text.cutOff", { off: offsetLabel(off) })}</label>
         <div className="row wrap">
           <PlanDateTimeInput id="replan-cutoff" value={cutoff} offsetMin={off} allowEmpty={false} label={t("studio.replanDialog.label.cutoff")} className="input" onChange={(v) => v && setCutoff(v)} />
-          <span className="small muted">{tr("common.nOfM", { n: frozen, m: schedule.placements.length })} {terms.tasksL} will be kept as they are.</span>
+          <span className="small muted">{tr("studio.replanDialog.text.willBeKeptAsThey", { tr: tr("common.nOfM", { n: frozen, m: schedule.placements.length }), tasksL: terms.tasksL })}</span>
         </div>
-        {!cutoffValid ? <span className="small" style={{ color: "var(--danger)" }}>The cut-off must lie inside the planning horizon.</span> : null}
+        {!cutoffValid ? <span className="small" style={{ color: "var(--danger)" }}>{tr("studio.replanDialog.text.theCutOffMustLie")}</span> : null}
       </div>
 
       <section className="col">
         <h3>{t("studio.replanDialog.head.whatChanged")}</h3>
-        <div className="field-label">{terms.tasks} that take longer or shorter</div>
+        <div className="field-label">{tr("studio.replanDialog.text.thatTakeLongerOrShorter", { tasks: terms.tasks })}</div>
         {durations.map((d, i) => (
           <div className="row wrap" key={i}>
             <select
               className="select sm"
               style={{ width: 260 }}
               value={d.taskId}
-              aria-label={`${terms.task} for change ${i + 1}`}
+              aria-label={tr("studio.replanDialog.tpl.forChange", { task: terms.task, v: i + 1 })}
               onChange={(e) => {
                 const t = draft.tasks.find((x) => x.id === e.target.value);
                 setDurations(durations.map((x, k) => (k === i ? { taskId: e.target.value, minutes: t?.duration_minutes ?? x.minutes } : x)));
@@ -142,10 +141,10 @@ export function ReplanDialog({
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
-            <span className="small muted">now takes</span>
-            <DurationInput value={d.minutes} label={`New duration for ${taskName(d.taskId)}`} onChange={(m) => setDurations(durations.map((x, k) => (k === i ? { ...x, minutes: m } : x)))} />
-            <span className="small faint">was {fmtDuration(draft.tasks.find((t) => t.id === d.taskId)?.duration_minutes ?? 0)}</span>
-            <button className="btn ghost sm icon" aria-label={`Remove change ${i + 1}`} onClick={() => setDurations(durations.filter((_, k) => k !== i))}>
+            <span className="small muted">{tr("studio.replanDialog.text.nowTakes")}</span>
+            <DurationInput value={d.minutes} label={tr("studio.replanDialog.tpl.newDurationFor", { taskId: taskName(d.taskId) })} onChange={(m) => setDurations(durations.map((x, k) => (k === i ? { ...x, minutes: m } : x)))} />
+            <span className="small faint">{tr("studio.replanDialog.text.was", { fmtDuration: fmtDuration(draft.tasks.find((t) => t.id === d.taskId)?.duration_minutes ?? 0) })}</span>
+            <button className="btn ghost sm icon" aria-label={tr("studio.replanDialog.tpl.removeChange", { v: i + 1 })} onClick={() => setDurations(durations.filter((_, k) => k !== i))}>
               <Icon name="x" />
             </button>
           </div>
@@ -163,20 +162,20 @@ export function ReplanDialog({
           </button>
         </div>
 
-        <div className="field-label mt">{terms.resources} that are unavailable</div>
+        <div className="field-label mt">{tr("studio.replanDialog.text.thatAreUnavailable", { resources: terms.resources })}</div>
         {outages.map((o, i) => (
           <div className="row wrap" key={i}>
-            <select className="select sm" style={{ width: 200 }} value={o.resource_id} aria-label={`${terms.resource} for outage ${i + 1}`} onChange={(e) => setOutages(outages.map((x, k) => (k === i ? { ...x, resource_id: e.target.value } : x)))}>
+            <select className="select sm" style={{ width: 200 }} value={o.resource_id} aria-label={tr("studio.replanDialog.tpl.forOutage", { resource: terms.resource, v: i + 1 })} onChange={(e) => setOutages(outages.map((x, k) => (k === i ? { ...x, resource_id: e.target.value } : x)))}>
               {draft.resources.map((r) => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
             </select>
             <span className="small muted">from</span>
-            <PlanDateTimeInput value={o.start} offsetMin={off} allowEmpty={false} label={`Outage ${i + 1} start`} onChange={(v) => v && setOutages(outages.map((x, k) => (k === i ? { ...x, start: v } : x)))} />
+            <PlanDateTimeInput value={o.start} offsetMin={off} allowEmpty={false} label={tr("studio.replanDialog.tpl.outageStart", { v: i + 1 })} onChange={(v) => v && setOutages(outages.map((x, k) => (k === i ? { ...x, start: v } : x)))} />
             <span className="small muted">to</span>
-            <PlanDateTimeInput value={o.end} offsetMin={off} allowEmpty={false} label={`Outage ${i + 1} end`} onChange={(v) => v && setOutages(outages.map((x, k) => (k === i ? { ...x, end: v } : x)))} />
-            <input className="input sm" style={{ width: 140 }} placeholder={t("studio.replanDialog.ph.reason")} aria-label={`Outage ${i + 1} reason`} value={o.reason} onChange={(e) => setOutages(outages.map((x, k) => (k === i ? { ...x, reason: e.target.value } : x)))} />
-            <button className="btn ghost sm icon" aria-label={`Remove outage ${i + 1}`} onClick={() => setOutages(outages.filter((_, k) => k !== i))}>
+            <PlanDateTimeInput value={o.end} offsetMin={off} allowEmpty={false} label={tr("studio.replanDialog.tpl.outageEnd", { v: i + 1 })} onChange={(v) => v && setOutages(outages.map((x, k) => (k === i ? { ...x, end: v } : x)))} />
+            <input className="input sm" style={{ width: 140 }} placeholder={t("studio.replanDialog.ph.reason")} aria-label={tr("studio.replanDialog.tpl.outageReason", { v: i + 1 })} value={o.reason} onChange={(e) => setOutages(outages.map((x, k) => (k === i ? { ...x, reason: e.target.value } : x)))} />
+            <button className="btn ghost sm icon" aria-label={tr("studio.replanDialog.tpl.removeOutage", { v: i + 1 })} onClick={() => setOutages(outages.filter((_, k) => k !== i))}>
               <Icon name="x" />
             </button>
           </div>
@@ -192,10 +191,10 @@ export function ReplanDialog({
               ])
             }
           >
-            <Icon name="plus" /> Unavailable {terms.resourceL}
+            <Icon name="plus" />{" "}{tr("studio.replanDialog.text.unavailable", { resourceL: terms.resourceL })}
           </button>
         </div>
-        <span className="small faint">If you enter changes, they are written into the plan (version {version} becomes {version + 1}) because they are real-world facts.</span>
+        <span className="small faint">{tr("studio.replanDialog.text.ifYouEnterChangesThey", { version: version, v: version + 1 })}</span>
       </section>
 
       <div className="field" style={{ maxWidth: 220 }}>

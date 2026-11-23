@@ -23,7 +23,7 @@ export function OperationTimePreview({ routingId, version }: { routingId: string
         <h3 id="tp-title">{t("mfg.operationTimePreview.head.timePerLot")}</h3>
         <div className="row">
           <label htmlFor="tp-qty" className="small muted">
-            Lot size
+            {t("mfg.operationTimePreview.text.lotSize")}
           </label>
           <input id="tp-qty" className="input sm" type="number" min={0} step="any" style={{ width: 100 }} value={qty} onChange={(e) => setQty(e.target.value)} data-testid="time-preview-qty" aria-invalid={!valid} />
           {d ? <span className="small muted">{d.uom}</span> : null}
@@ -32,30 +32,30 @@ export function OperationTimePreview({ routingId, version }: { routingId: string
       </div>
       <div className="card-body col">
         <p className="muted small" style={{ margin: 0 }}>
-          Based on the saved routing. Setup + run time on each line of the stage (run time is divided by the line's speed); waiting and moving are shown separately.
+          {t("mfg.operationTimePreview.text.basedOnTheSavedRouting")}
         </p>
         <MfgError error={tp.error} onRetry={tp.reload} />
         {d ? (
           <>
             <div className="kpis" data-testid="time-preview-total" data-fastest={d.totals.fastest_minutes} data-slowest={d.totals.slowest_minutes}>
               <div className="card kpi">
-                <div className="kpi-label">Fastest lines</div>
+                <div className="kpi-label">{t("mfg.operationTimePreview.text.fastestLines")}</div>
                 <div className="kpi-value" data-testid="time-preview-fastest">{fmtMinutes(d.totals.fastest_minutes)} min</div>
                 <div className="kpi-sub">{fmtHours(d.totals.fastest_minutes)}</div>
               </div>
               <div className="card kpi">
-                <div className="kpi-label">Slowest lines</div>
+                <div className="kpi-label">{t("mfg.operationTimePreview.text.slowestLines")}</div>
                 <div className="kpi-value" data-testid="time-preview-slowest">{fmtMinutes(d.totals.slowest_minutes)} min</div>
                 <div className="kpi-sub">{fmtHours(d.totals.slowest_minutes)}</div>
               </div>
               <div className="card kpi">
-                <div className="kpi-label">Waiting and moving</div>
+                <div className="kpi-label">{t("mfg.operationTimePreview.text.waitingAndMoving")}</div>
                 <div className="kpi-value" data-testid="time-preview-passive">{fmtMinutes(d.totals.passive_minutes)} min</div>
               </div>
               <div className="card kpi">
-                <div className="kpi-label">Good output</div>
+                <div className="kpi-label">{t("mfg.operationTimePreview.text.goodOutput")}</div>
                 <div className="kpi-value" data-testid="time-preview-yield">{fmtPct(d.totals.cumulative_yield)}</div>
-                <div className="kpi-sub">overall yield</div>
+                <div className="kpi-sub">{t("mfg.operationTimePreview.text.overallYield")}</div>
               </div>
             </div>
             <div className="table-wrap">
@@ -86,16 +86,16 @@ export function OperationTimePreview({ routingId, version }: { routingId: string
                         <td className="num">{fmtMinutes(op.loads)}</td>
                         <td colSpan={3} className="small muted">
                           {op.queue_minutes || op.move_minutes || op.wait_minutes
-                            ? `wait ${fmtMinutes(op.queue_minutes)} · move ${fmtMinutes(op.move_minutes)} · after ${fmtMinutes(op.wait_minutes)} min`
+                            ? t("mfg.operationTimePreview.tpl.waitMoveAfterMin", { queueminutes: fmtMinutes(op.queue_minutes), moveminutes: fmtMinutes(op.move_minutes), waitminutes: fmtMinutes(op.wait_minutes) })
                             : ""}
                         </td>
-                        <td className="small">{op.labor === "unattended" ? "Unattended" : ""}</td>
+                        <td className="small">{op.labor === "unattended" ? t("mfg.operationTimePreview.str.unattended") : ""}</td>
                       </tr>
                       {op.lines.map((l) => (
                         <tr key={l.line_id} data-testid="time-preview-line" data-line={l.code} className={l.eligible ? undefined : "mfg-inactive"}>
                           <td />
                           <td style={{ paddingLeft: 24 }}>
-                            {l.code} <span className="faint small">speed {fmtMinutes(l.speed_factor)}</span>
+                            {l.code} <span className="faint small">{t("mfg.operationTimePreview.text.speed", { speedfactor: fmtMinutes(l.speed_factor) })}</span>
                           </td>
                           <td />
                           <td />
@@ -111,7 +111,7 @@ export function OperationTimePreview({ routingId, version }: { routingId: string
                               </span>
                             ) : (
                               <span className="muted">
-                                <Icon name="ban" size={12} /> No{l.reason ? `: ${l.reason}` : ""}
+                                <Icon name="ban" size={12} />{" "}{t("mfg.operationTimePreview.text.no", { v: l.reason ? `: ${l.reason}` : "" })}
                               </span>
                             )}
                           </td>
