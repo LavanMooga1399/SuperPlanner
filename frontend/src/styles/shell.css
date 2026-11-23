@@ -353,3 +353,13 @@ h2.mono { font-size: var(--fs-md); }
 /* tabs rendered as buttons (in-page tab sets) look like the link tabs */
 button.tab { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; cursor: pointer; font: inherit; font-weight: var(--fw-medium); }
 button.tab.active { border-bottom-color: var(--accent); }
+.vt-card-actionsrow { display: flex; justify-content: flex-start; }
+.vt-card-actionsrow > .vt-card-value { overflow: visible; }
+/* phones: segmented controls fit the width (equal columns up to four options, wrap beyond) */
+@media (max-width: 560px) {
+  .btn-group { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
+  .btn-group:has(> :nth-child(5)) { display: flex; flex-wrap: wrap; gap: 4px; }
+  .btn-group:has(> :nth-child(5)) .btn { margin-left: 0; border-radius: var(--radius-sm); }
+  .btn-group .btn { white-space: normal; height: auto; min-height: var(--control-h); padding-top: 4px; padding-bottom: 4px; flex-wrap: wrap; justify-content: center; text-align: center; line-height: 1.25; }
+}
+.table-wrap { position: relative; } /* keeps .sr-only cells inside the scroll box (no page overflow on phones) */

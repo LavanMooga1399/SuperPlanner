@@ -89,7 +89,7 @@ export function ScheduleComparison({ cmp, draft, terms }: { cmp: Comparison; dra
 
   return (
     <div className="col gap-lg">
-      <div className="card">
+      <div className="card" style={{ overflowX: "auto", position: "relative" }}>
         <table className="table">
           <thead>
             <tr>

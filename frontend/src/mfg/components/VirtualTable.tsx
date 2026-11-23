@@ -653,9 +653,11 @@ export function VirtualTable<T>({
               {selection ? cell(columns[0], row, i, "vt-card-check") : null}
               {cell(byKey.get(card.title), row, i, "vt-card-title")}
               {card.status ? cell(byKey.get(card.status), row, i, "vt-card-status") : null}
-              {card.actions ? cell(byKey.get(card.actions), row, i, "vt-card-status vt-card-actions") : null}
+              {card.actions && virtual ? cell(byKey.get(card.actions), row, i, "vt-card-status vt-card-actions") : null}
             </div>
             <div className="vt-card-fields">{card.fields.map((k) => cell(byKey.get(k), row, i, "vt-card-field", true))}</div>
+            {/* short lists: row buttons get their own line so the title keeps its width */}
+            {card.actions && !virtual ? cell(byKey.get(card.actions), row, i, "vt-card-actionsrow") : null}
           </>
         ) : columns.map((c) => {
           const content = c.render(row, i);
