@@ -225,4 +225,189 @@ def delete_not_allowed() -> ApiError:
                     "cancel it instead.", {})
 
 
+# ---------------------------------------------------------------- exports (E8-E10, job `part11_export`)
+
+EXPORT_MODELS = {"inspection_plan": "QaInspectionPlanRow", "sampling_scheme": "QaSamplingSchemeRow",
+                 "inspection_lot": "QaInspectionLotRow", "hold": "MfgLotHoldRow", "ncr": "QaNcrRow",
+                 "capa": "QaCapaRow", "complaint": "QaComplaintRow", "field_action": "QaFieldActionRow",
+                 "equipment": "QaEquipmentRow", "calibration": "QaCalibrationRow"}
+
+
+def _export_record(r: Any) -> dict[str, Any]:
+    from datetime import UTC
+
+    return {"id": r.id, "params": r.params, "status": r.status, "manifest": r.manifest, "sha256": r.sha256,
+            "error": r.error, "requested_by": r.requested_by, "created_at": r.created_at,
+            "finished_at": r.finished_at.astimezone(UTC) if r.finished_at else None,
+            "download_url": f"/api/v1/mfg/part11/exports/{r.id}/download" if r.status == "completed" else None}
+
+
+def create_export(ctx: AppContext, a: Any, body: Any) -> dict[str, Any]:
+    from ...db.models import new_id, utcnow
+    from ..db_models_m7 import Part11ExportRow
+    from ....integration.jobs import new_run
+
+    if not ctx.settings.archive_dir:
+        raise ApiError(422, "PART11_NO_ARCHIVE_DIR", "Exports need ARCHIVE_DIR on the server.", {})
+    params = {"from": body.from_.isoformat(), "to": body.to.isoformat(),
+              "record_types": list(body.record_types) or sorted(EXPORT_MODELS)}
+    with write_tx(ctx, lock=False) as (s, _):
+        now = utcnow()
+        r = Part11ExportRow(id=new_id("p1x_"), params=params, status="queued", file_path=None, manifest=None,
+                            sha256=None, error=None, requested_by=a.user_id, finished_at=None, row_version=1,
+                            created_at=now, updated_at=now)
+        s.add(r)
+        s.flush()
+        _rid, job = new_run(s, ctx, "part11_export", r.owner_id, {"export_id": r.id})
+        rec = _export_record(r)
+    ctx.jobs.dispatch(job)
+    return rec
+
+
+def list_exports(ctx: AppContext, limit: int, offset: int) -> dict[str, Any]:
+    from ..db_models_m7 import Part11ExportRow
+
+    with read_tx(ctx) as s:
+        total = int(s.execute(select(func.count()).select_from(Part11ExportRow)).scalar() or 0)
+        rows = s.execute(select(Part11ExportRow).order_by(Part11ExportRow.created_at.desc(), Part11ExportRow.id)
+                         .limit(limit).offset(offset)).scalars()
+        return {"items": [_export_record(r) for r in rows], "total": total, "limit": limit, "offset": offset}
+
+
+def download_export(ctx: AppContext, export_id: str) -> tuple[bytes, str]:
+    from pathlib import Path
+
+    from .. import repo
+    from ..db_models_m7 import Part11ExportRow
+
+    with read_tx(ctx) as s:
+        r = repo.get_row(s, Part11ExportRow, export_id, what="Export")
+        if r.status != "completed" or not r.file_path:
+            raise ApiError(409, "MFG_INVALID_STATE", "The export is not ready.", {"status": r.status})
+        path = r.file_path
+    return Path(path).read_bytes(), f"part11-{export_id}.zip"
+
+
+def write_export(s: Session, owner: str, export_id: str, params: dict[str, Any], archive_dir: str,
+                 generated_by: str) -> dict[str, Any]:
+    """Stream the archive (constant memory: rows by `yield_per`, members written incrementally): `records.jsonl`,
+    `signatures.jsonl`, `audit.jsonl`, `attachments/<id>-<name>`, `manifest.json` (counts and sha256 per file)."""
+    import hashlib
+    import json
+    import zipfile
+    from datetime import UTC, date, datetime, time, timedelta
+    from pathlib import Path
+
+    from .. import db_models_m7 as m7
+    from . import esig
+    from .common import jsonable
+
+    d0 = datetime.combine(date.fromisoformat(params["from"]), time(0), UTC)
+    d1 = datetime.combine(date.fromisoformat(params["to"]) + timedelta(days=1), time(0), UTC)
+    out_dir = Path(archive_dir) / owner / "part11"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{export_id}.zip"
+    counts: dict[str, int] = {}
+    shas: dict[str, str] = {}
+    ids: dict[str, set[str]] = {}
+
+    def member(zf: Any, name: str, rows: Any) -> None:
+        h = hashlib.sha256()
+        n = 0
+        with zf.open(name, "w") as f:
+            for row in rows:
+                line = (json.dumps(jsonable(row), ensure_ascii=False, sort_keys=True) + "\n").encode()
+                h.update(line)
+                f.write(line)
+                n += 1
+        counts[name], shas[name] = n, h.hexdigest()
+
+    def records() -> Any:
+        for rt in params["record_types"]:
+            model = getattr(m7, EXPORT_MODELS[rt])
+            q = select(model.id).where(model.updated_at >= d0, model.updated_at < d1).order_by(model.id)
+            for (rid,) in s.execute(q).yield_per(500):
+                ids.setdefault(rt, set()).add(rid)
+                if rt == "calibration":
+                    from .qa_equipment import calibration_content
+
+                    content = calibration_content(s, rid)[0]
+                else:
+                    content = esig.load(s, rt, rid).content
+                yield {"record_type": rt, "record_id": rid, "record": C.plain(content)}
+                s.expunge_all()
+
+    def signatures() -> Any:
+        q = select(EsigSignatureRow).where(EsigSignatureRow.signed_at >= d0, EsigSignatureRow.signed_at < d1) \
+            .order_by(EsigSignatureRow.signed_at, EsigSignatureRow.id)
+        for r in s.execute(q).scalars().yield_per(500):
+            yield {**esig.manifest(s, r, None), "record_type": r.record_type, "record_id": r.record_id,
+                   "content_hash": r.content_hash, "mac": r.mac, "content": r.content}
+
+    def audit() -> Any:
+        q = select(AuditEventRow).where(AuditEventRow.owner_id == owner, AuditEventRow.created_at >= d0,
+                                        AuditEventRow.created_at < d1).order_by(AuditEventRow.id)
+        for e in s.execute(q).scalars().yield_per(1000):
+            yield {"id": int(e.id), "at": e.created_at, "actor_id": e.actor_id, "entity_type": e.entity_type,
+                   "entity_id": e.entity_id, "action": e.action, "reason": e.reason, "changes": e.changes,
+                   "signature_id": e.signature_id, "record_version": e.record_version, "details": e.details,
+                   "chain_hash": e.chain_hash}
+
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        member(zf, "records.jsonl", records())
+        member(zf, "signatures.jsonl", signatures())
+        member(zf, "audit.jsonl", audit())
+        n_att = 0
+        all_ids = sorted({i for v in ids.values() for i in v})
+        for k in range(0, len(all_ids), 500):
+            chunk = all_ids[k:k + 500]
+            for a in s.execute(select(m7.QaAttachmentRow).where(m7.QaAttachmentRow.entity_id.in_(chunk))
+                               .order_by(m7.QaAttachmentRow.id)).scalars():
+                name = f"attachments/{a.id}-{a.filename}"
+                zf.writestr(name, bytes(a.data))
+                counts[name], shas[name] = 1, a.sha256
+                n_att += 1
+                s.expunge(a)
+        manifest = {"export_id": export_id, "owner_id": owner, "params": params,
+                    "generated_at": datetime.now(UTC).isoformat(), "generated_by": generated_by,
+                    "counts": {"records": counts.get("records.jsonl", 0),
+                               "signatures": counts.get("signatures.jsonl", 0),
+                               "audit_events": counts.get("audit.jsonl", 0), "attachments": n_att},
+                    "files": [{"name": k, "rows": counts[k], "sha256": v} for k, v in sorted(shas.items())]}
+        zf.writestr("manifest.json", json.dumps(manifest, indent=1, sort_keys=True))
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return {"file_path": str(path), "manifest": manifest, "sha256": h.hexdigest()}
+
+
+def run_export_job(ctx: AppContext, run_id: str, lease: Any) -> None:
+    from ....integration.jobs import run_duty
+    from ...db.models import utcnow
+    from ..db_models_m7 import Part11ExportRow
+
+    def fn(info: dict[str, Any]) -> dict[str, Any]:
+        eid = info["params"]["export_id"]
+        with ctx.db.write() as s:
+            r = s.get(Part11ExportRow, eid)
+            r.status = "running"
+            params, who = dict(r.params), r.requested_by
+        try:
+            with ctx.db.read() as s:
+                res = write_export(s, info["owner"], eid, params, ctx.settings.archive_dir, who)
+        except Exception as exc:
+            with ctx.db.write() as s:
+                r = s.get(Part11ExportRow, eid)
+                r.status, r.error, r.finished_at = "failed", f"{exc.__class__.__name__}: {exc}"[:500], utcnow()
+            raise
+        with ctx.db.write() as s:
+            r = s.get(Part11ExportRow, eid)
+            r.status, r.file_path, r.manifest, r.sha256 = "completed", res["file_path"], res["manifest"], res["sha256"]
+            r.finished_at = utcnow()
+        return {"export_id": eid, "counts": res["manifest"]["counts"]}
+
+    run_duty(ctx, run_id, lease, fn)
+
+
 __getattr__ = m7_examples.module_getattr(__name__)

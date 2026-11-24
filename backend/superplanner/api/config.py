@@ -38,7 +38,8 @@ LOG_FORMATS = ("text", "json")
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import", "integration_filedrop",
              "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill",
-             "push_delivery", "digest_send", "inventory_snapshot")   # M6-DESIGN 6
+             "push_delivery", "digest_send", "inventory_snapshot",   # M6-DESIGN 6
+             "part11_export", "qa_due_scan")                           # M7-DESIGN 3
 
 
 class ConfigError(ValueError):

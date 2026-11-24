@@ -1258,6 +1258,25 @@ def _wo_by_number(s: Session, number: str) -> MfgWorkOrderRow | None:
 
 def _lookup(s: Session, lk: SCAN.Lookup) -> dict[str, Any] | None:
     t = lk.type
+    if t in ("inspection_lot", "equipment"):                # M7-DESIGN 8: IL:<number>, E:<code>
+        from ..db_models_m7 import QaEquipmentRow, QaInspectionLotRow
+
+        if t == "inspection_lot":
+            r = s.execute(select(QaInspectionLotRow).where(func.upper(QaInspectionLotRow.number) == lk.key[0].upper())
+                          ).scalars().first()
+            return None if r is None else {"type": "inspection_lot", "id": r.id, "label": f"{r.number} ({r.status})",
+                                           "link": f"/mfg/floor/inspect/{r.id}"}
+        e = s.execute(select(QaEquipmentRow).where(func.upper(QaEquipmentRow.code) == lk.key[0].upper())
+                      ).scalars().first()
+        if e is None:
+            return None
+        from ....qa.equipment import valid
+        from .m2util import today
+
+        ok = valid(e, today(s))
+        return {"type": "equipment", "id": e.id, "label": f"{e.code} {e.name}" + ("" if ok else " (not valid)"),
+                "link": f"/mfg/qa/equipment/{e.id}", "valid": ok, "equipment_class": e.equipment_class,
+                "due_on": e.due_on.isoformat() if e.due_on else None}
     if t == "work_order":
         w = _wo_by_number(s, lk.key[0])
         if w is None:

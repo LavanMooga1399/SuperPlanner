@@ -1,0 +1,16 @@
+{
+ "qa.cal_due.title": "{count} équipement(s) à étalonner bientôt",
+ "qa.cal_due.body": "Échéance dans {days} jours ou dépassée : {codes}.",
+ "qa.cal_overdue.title": "{count} équipement(s) en retard d'étalonnage",
+ "qa.cal_overdue.body": "Non valides pour l'utilisation : {codes}. Les résultats, les démarrages et la planification sont bloqués là où ils sont liés.",
+ "qa.lots_overdue.title": "{count} lot(s) d'inspection en retard",
+ "qa.lots_overdue.body": "Échéance dépassée : {numbers}.",
+ "qa.capa_overdue.title": "{count} mesure(s) corrective(s) et préventive(s) en retard",
+ "qa.capa_overdue.body": "Date d'échéance dépassée : {numbers}.",
+ "qa.report_due.title": "{count} déclaration(s) de plainte à produire",
+ "qa.report_due.body": "Déclaration réglementaire en retard : {numbers}.",
+ "qa.cal_failed.title": "{code} : étalonnage non conforme",
+ "qa.cal_failed.body": "{code} ({name}) a échoué à l'étalonnage le {date} et est hors service. Consultez la liste des impacts.",
+ "esig.lockout.title": "Signature verrouillée pour {name}",
+ "esig.lockout.body": "Trois tentatives de signature échouées en 15 minutes; la signature est verrouillée pendant 30 minutes."
+}

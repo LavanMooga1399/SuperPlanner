@@ -16,6 +16,7 @@
     trace-backfill [--owner ID]                           M5: rebuild genealogy edges from the ledger and serials
                                                           (idempotent; every plant by default)
     audit-verify [--owner ID]                             M5: check the audit hash chains; exit 1 on a broken link
+    part11-export --owner ID --from D --to D [--types T]  M7: Part 11 export zip into ARCHIVE_DIR
     archive --before YYYY-MM-DD [--classes a,b] [--owner ID] [--purge]
                                                           M5: export to ARCHIVE_DIR (JSONL.gz + manifest); --purge
                                                           deletes only the purgeable classes afterwards
@@ -38,7 +39,7 @@ from datetime import UTC, datetime
 from typing import Any, TextIO
 
 import sqlalchemy as sa
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 
 from . import migrate
 from .api.auth import passwords
@@ -139,7 +140,11 @@ def cmd_reassign_owner(db: Database, args: argparse.Namespace, out: TextIO) -> N
             raise CommandError("source and target are the same user")
         src_id, dst_id, dst_email = src.id, dst.id, dst.email
         # M1-DESIGN 14.1: per-owner unique keys of the mfg tables would clash mid-command; refuse up front.
-        mfg_rows = {t.name: n for t in owned_tables() if t.name.startswith("mfg_")
+        signed = int(s.scalar(text("SELECT count(*) FROM esig_signatures WHERE owner_id = :o"), {"o": src.id}) or 0)
+        if signed:                             # M7-DESIGN 0.1: the signature MAC covers the plant (owner_id)
+            raise CommandError(f"the source plant holds {signed} electronic signature(s); signed records cannot be "
+                               "moved to another owner")
+        mfg_rows = {t.name: n for t in owned_tables() if t.name.startswith(("mfg_", "qa_", "esig_", "part11_"))
                     for n in [int(s.scalar(select(func.count()).select_from(t).where(t.c.owner_id == dst.id)) or 0)]
                     if n}
         if mfg_rows:
@@ -283,6 +288,24 @@ def cmd_audit_verify(db: Database, args: argparse.Namespace, out: TextIO) -> Non
         raise CommandError(f"audit chain broken for {', '.join(bad)}")
 
 
+def cmd_part11_export(db: Database, settings: Settings, args: argparse.Namespace, out: TextIO) -> None:
+    """M7-DESIGN 4.5: write a Part 11 export zip to ARCHIVE_DIR/<owner>/part11/ (no export row; offline use)."""
+    from .api.db.models import new_id
+    from .api.db.ownership import owner_scope
+    from .api.mfg.services.part11 import EXPORT_MODELS, write_export
+
+    if not settings.archive_dir:
+        raise CommandError("ARCHIVE_DIR is not set")
+    types = [x.strip() for x in (args.types or "").split(",") if x.strip()] or sorted(EXPORT_MODELS)
+    bad = [x for x in types if x not in EXPORT_MODELS]
+    if bad:
+        raise CommandError(f"unknown record type(s): {', '.join(bad)}")
+    with owner_scope(args.owner), db.read() as s:
+        res = write_export(s, args.owner, new_id("p1x_"), {"from": args.from_, "to": args.to, "record_types": types},
+                           settings.archive_dir, "manage.py")
+    print(f"part11 export: {res['file_path']} sha256 {res['sha256']} {res['manifest']['counts']}", file=out)
+
+
 def cmd_archive(db: Database, settings: Settings, args: argparse.Namespace, out: TextIO) -> None:
     from .api.mfg.services import maintenance as M
 
@@ -363,6 +386,11 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--replace", action="store_true", help="delete this user's manufacturing data first")
     c = sub.add_parser("trace-backfill")
     c.add_argument("--owner", help="plant owner id (default: every plant)")
+    c = sub.add_parser("part11-export")
+    c.add_argument("--owner", required=True, help="plant owner id")
+    c.add_argument("--from", dest="from_", required=True, help="YYYY-MM-DD")
+    c.add_argument("--to", required=True, help="YYYY-MM-DD")
+    c.add_argument("--types", help="comma list of record types (default: all)")
     c = sub.add_parser("audit-verify")
     c.add_argument("--owner", help="workspace owner id (default: every chain)")
     c = sub.add_parser("archive")
@@ -413,6 +441,8 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
                 cmd_trace_backfill(db, args, out)
             elif cmd == "audit-verify":
                 cmd_audit_verify(db, args, out)
+            elif cmd == "part11-export":
+                cmd_part11_export(db, settings, args, out)
             elif cmd == "archive":
                 cmd_archive(db, settings, args, out)
             elif cmd == "create-org":

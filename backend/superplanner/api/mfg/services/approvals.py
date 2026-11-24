@@ -94,5 +94,59 @@ def approvals(ctx: AppContext, p: Any) -> dict[str, Any]:
                                            "body": {"copy_of": pub.id, "open_shifts": [
                                                {"line_id": o.line_id, "start": start.isoformat(),
                                                 "end": end.isoformat()}]}}]})
-    counts = {k: sum(1 for x in items if x["kind"] == k) for k in ("pr", "eco", "replan_proposal", "overtime")}
+        items += _qa_items(s, p)                               # M7-DESIGN 7: QA kinds
+    kinds = ("pr", "eco", "replan_proposal", "overtime") + QA_KINDS
+    counts = {k: sum(1 for x in items if x["kind"] == k) for k in kinds}
     return {"items": items, "counts": counts}
+
+
+QA_KINDS = ("qa_lot", "qa_ncr", "qa_capa", "qa_field_action")
+
+
+def _qa_items(s: Any, p: Any) -> list[dict[str, Any]]:
+    """Inspection lots ready for a decision (qa_decide) and NCR / CAPA / field action steps whose next signature
+    the user's roles may give (policy roles, 4.3)."""
+    from ..db_models_m7 import QaCapaRow, QaFieldActionRow, QaInspectionLotRow, QaNcrRow
+    from .esig import effective_policy
+
+    out: list[dict[str, Any]] = []
+    roles = set(p.roles or ())
+
+    from ...audit_diff import part11_on
+
+    signing = part11_on(s)
+
+    def may(rt: str, action: str) -> bool:
+        if not signing:                                    # without Part 11 mode the permission decides
+            return True
+        pol = effective_policy(s, rt, action)
+        return pol is None or not pol.steps or any(roles & set(st["roles"]) for st in pol.steps)
+
+    if p.has("qa_decide"):
+        for r in s.execute(select(QaInspectionLotRow).where(QaInspectionLotRow.status == "ready")
+                           .order_by(QaInspectionLotRow.due_at).limit(MAX_ITEMS)).scalars():
+            out.append({"kind": "qa_lot", "id": r.id, "number": r.number, "title": f"{r.number} ready for decision",
+                        "summary": f"verdict {(r.verdict or {}).get('verdict', 'pending')}",
+                        "waiting_since": as_utc(r.updated_at), "permission": "qa_decide",
+                        "row_version": r.row_version, "link": f"/mfg/qa/inspection-lots/{r.id}", "signed": True,
+                        "actions": [{"label": "Decide", "method": "POST",
+                                     "path": f"{V1}/qa/inspection-lots/{r.id}/decision", "body": {}}]})
+    for model, rt, status, action, perm, path in (
+            (QaNcrRow, "ncr", "proposed", "approve", "ncr_approve", "ncrs"),
+            (QaNcrRow, "ncr", "implemented", "close", "ncr_approve", "ncrs"),
+            (QaCapaRow, "capa", "plan_approval", "approve_plan", "capa_approve", "capas"),
+            (QaCapaRow, "capa", "effectiveness_check", "verify", "capa_approve", "capas"),
+            (QaFieldActionRow, "field_action", "draft", "approve", "capa_approve", "field-actions"),
+            (QaFieldActionRow, "field_action", "completed", "close", "capa_approve", "field-actions")):
+        if not p.has(perm) or not may(rt, action):
+            continue
+        for r in s.execute(select(model).where(model.status == status).order_by(model.updated_at)
+                           .limit(MAX_ITEMS)).scalars():
+            seg = action.replace("_", "-")
+            out.append({"kind": f"qa_{rt}", "id": r.id, "number": r.number, "title": f"{r.number} {r.title}"[:200],
+                        "summary": f"{action.replace('_', ' ')} ({status.replace('_', ' ')})",
+                        "waiting_since": as_utc(r.updated_at), "permission": perm, "row_version": r.row_version,
+                        "link": f"/mfg/qa/{path}/{r.id}", "signed": True,
+                        "actions": [{"label": action.replace("_", " ").capitalize(), "method": "POST",
+                                     "path": f"{V1}/qa/{path}/{r.id}/{seg}", "body": {}}]})
+    return out

@@ -1,0 +1,16 @@
+{
+ "qa.cal_due.title": "{count} equipment item(s) due for calibration",
+ "qa.cal_due.body": "Due within {days} days or overdue: {codes}.",
+ "qa.cal_overdue.title": "{count} equipment item(s) overdue for calibration",
+ "qa.cal_overdue.body": "Not valid for use: {codes}. Results, floor starts and scheduling are blocked where linked.",
+ "qa.lots_overdue.title": "{count} inspection lot(s) overdue",
+ "qa.lots_overdue.body": "Past their due time: {numbers}.",
+ "qa.capa_overdue.title": "{count} CAPA(s) overdue",
+ "qa.capa_overdue.body": "Past their due date: {numbers}.",
+ "qa.report_due.title": "{count} complaint report(s) due",
+ "qa.report_due.body": "Regulatory reporting overdue: {numbers}.",
+ "qa.cal_failed.title": "{code} failed calibration",
+ "qa.cal_failed.body": "{code} ({name}) failed calibration on {date} and is out of service. Review the impact list.",
+ "esig.lockout.title": "Signing locked for {name}",
+ "esig.lockout.body": "Three failed signature attempts in 15 minutes; signing is locked for 30 minutes."
+}

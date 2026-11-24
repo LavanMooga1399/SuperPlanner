@@ -50,6 +50,11 @@ def due_kinds(s: Any, ctx: Any, now: Any) -> list[tuple[str, str]]:
 
             if delivery.is_due(s, ctx, p.owner_id, now):
                 out.append(("push_delivery", p.owner_id))
+    from .api.mfg.services.qa_due import due_plants               # M7-DESIGN 3: daily QA due scan
+
+    for owner in due_plants(s, now):
+        if not active_run(s, "qa_due_scan", owner):
+            out.append(("qa_due_scan", owner))
     if ctx.settings.smtp_enabled:
         from .notify import digests
 

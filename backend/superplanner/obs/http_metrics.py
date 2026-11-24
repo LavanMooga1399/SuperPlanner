@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import", "integration_filedrop",
              "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill",
-             "push_delivery", "digest_send", "inventory_snapshot")
+             "push_delivery", "digest_send", "inventory_snapshot", "part11_export", "qa_due_scan")
 QUEUE_STATUSES = ("queued", "running")
 AUTH_EVENTS = ("sign_in_ok", "sign_in_failed", "sign_up", "rate_limited", "csrf_failed")
 COLLECTOR_TTL_SECONDS = 5.0

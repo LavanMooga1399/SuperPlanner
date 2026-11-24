@@ -30,7 +30,8 @@ def meta(ctx: AppContext) -> dict[str, Any]:
     return {"uoms": [{"code": u.code, "dimension": u.dimension, "factor": u.factor, "aliases": list(u.aliases)}
                      for u in UOMS],
             "enums": {k: list(v) for k, v in ENUMS.items()}, "limits": limits, "import_spec": meta_spec(),
-            "samples": sample_list(), "health_codes": [{"code": c.code, "severity": c.severity} for c in CODES],
+            "samples": sample_list(), "health_codes": [{"code": c.code, "severity": c.severity} for c in CODES]
+            + [{"code": c, "severity": sv} for c, sv in QA_HEALTH_CODES],
             "time_zones": list(zone_names())}   # M3-DESIGN 12: IANA picker
 
 
@@ -67,7 +68,36 @@ def summary(ctx: AppContext) -> dict[str, Any]:
 
         return {"counts": counts, "end_items": [item_ref(repo.to_record(r)) for r in ends],
                 "data_version": plant.data_version, "latest_run": summary_latest(s),
-                "published_schedule": _published(s), "floor": _floor(s)}
+                "published_schedule": _published(s), "floor": _floor(s), "qa": _qa_summary(s)}
+
+
+def _qa_summary(s: Any) -> dict[str, int]:
+    """M7-DESIGN 9: `/summary.qa`."""
+    from ...db.models import utcnow
+    from ..db_models_m7 import QaCapaRow, QaEquipmentRow, QaInspectionLotRow, QaNcrRow
+    from .common import plant_today
+
+    def n(q: Any) -> int:
+        return int(s.execute(q).scalar() or 0)
+
+    d = plant_today(repo.plant_or_default(s))
+    from datetime import timedelta
+
+    from .qa_common import settings_of
+
+    warn = settings_of(s).cal_due_warning_days
+    open_lots = QaInspectionLotRow.status.in_(("open", "in_progress", "ready"))
+    return {"open_lots": n(select(func.count()).select_from(QaInspectionLotRow).where(open_lots)),
+            "overdue_lots": n(select(func.count()).select_from(QaInspectionLotRow).where(
+                open_lots, QaInspectionLotRow.due_at < utcnow())),
+            "open_ncrs": n(select(func.count()).select_from(QaNcrRow).where(
+                QaNcrRow.status.in_(("draft", "open", "proposed", "approved", "implemented")))),
+            "overdue_capas": n(select(func.count()).select_from(QaCapaRow).where(
+                QaCapaRow.status.in_(("draft", "investigation", "plan_approval", "implementation",
+                                      "effectiveness_check")), QaCapaRow.due_on < d)),
+            "equipment_due": n(select(func.count()).select_from(QaEquipmentRow).where(
+                QaEquipmentRow.status == "active", QaEquipmentRow.calibration_required.is_(True),
+                QaEquipmentRow.due_on <= d + timedelta(days=warn)))}
 
 
 def _floor(s: Any) -> dict[str, Any]:
@@ -114,7 +144,58 @@ def health(ctx: AppContext, as_of: date | None, horizon_days: int | None) -> Any
     if horizon_days is not None and not 7 <= horizon_days <= 730:
         raise ApiError(422, "VALIDATION_ERROR", "horizon_days must be between 7 and 730.",
                        {"errors": [{"loc": ["query", "horizon_days"], "msg": "must be 7..730", "type": "range"}]})
-    report = run_health_check(ds, as_of or plant_today(ds.plant),
-                              horizon_days or ds.plant.planning_horizon_days)
+    d0 = as_of or plant_today(ds.plant)
+    hd = horizon_days or ds.plant.planning_horizon_days
+    report = run_health_check(ds, d0, hd)
     report.data_version = ds.plant.data_version
+    with read_tx(ctx) as s:
+        _qa_issues(s, report, ds, d0, hd)
     return report
+
+
+QA_HEALTH_CODES = (("QA_LINE_BLOCKED", "error"), ("QA_TOOL_POOL_REDUCED", "warning"),
+                   ("QA_EQUIPMENT_DUE_IN_HORIZON", "info"))
+
+
+def _qa_issues(s: Any, report: Any, ds: Any, as_of: date, horizon_days: int) -> None:
+    """M7-DESIGN 8 (3): lines blocked by invalid equipment, reduced tool pools, equipment due in the horizon."""
+    from datetime import timedelta
+
+    from ....mfg.model import EntityRef, HealthIssue
+    from ..db_models_m7 import QaEquipmentRow
+    from .qa_equipment import line_blocks, tool_pool_valid_units
+
+    end = as_of + timedelta(days=horizon_days)
+    new: list[Any] = []
+    for line_id, b in sorted(line_blocks(s, as_of, end).items()):
+        ln = ds.lines.get(line_id)
+        lab = ln.code if ln else line_id
+        if b["from"] <= as_of:
+            new.append(HealthIssue(code="QA_LINE_BLOCKED", severity="error",
+                                   message=f"Line {lab} is unavailable: {b['reason']}.",
+                                   fix="Calibrate the equipment or take it off the line.",
+                                   entity=EntityRef(type="line", id=line_id, label=lab),
+                                   related=[EntityRef(type="equipment", id=b["equipment_id"], label=b["equipment"])],
+                                   link=f"/mfg/qa/equipment/{b['equipment_id']}"))
+        else:
+            new.append(HealthIssue(code="QA_EQUIPMENT_DUE_IN_HORIZON", severity="info",
+                                   message=f"{b['equipment']} on line {lab} becomes invalid on "
+                                           f"{b['from'].isoformat()}; the line is blocked from then.",
+                                   fix="Schedule the calibration before that day.",
+                                   entity=EntityRef(type="equipment", id=b["equipment_id"], label=b["equipment"]),
+                                   link=f"/mfg/qa/equipment/{b['equipment_id']}"))
+    for pid, n in sorted(tool_pool_valid_units(s, as_of).items()):
+        tp = ds.tool_pools.get(pid)
+        if tp is not None and n < tp.quantity:
+            new.append(HealthIssue(code="QA_TOOL_POOL_REDUCED", severity="warning",
+                                   message=f"Tool pool {tp.code}: {n} of {tp.quantity} units are in calibration.",
+                                   fix="Calibrate the linked units.",
+                                   entity=EntityRef(type="tool_pool", id=pid, label=tp.code)))
+    del QaEquipmentRow
+    if not new:
+        return
+    report.issues = list(report.issues) + new
+    for x in new:
+        report.by_code[x.code] = report.by_code.get(x.code, 0) + 1
+        setattr(report.counts, x.severity, getattr(report.counts, x.severity) + 1)
+    report.ok = report.counts.error == 0

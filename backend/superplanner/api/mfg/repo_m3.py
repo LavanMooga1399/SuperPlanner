@@ -128,8 +128,46 @@ def load_aps_snapshot(s: Session, as_of: Any, mrp_run: Any, *, published: bool =
     view = mrp_peg_view(s, mrp_run, ds) if mrp_run is not None else None
     pub = published_view(s) if published else None
     kw.setdefault("actuals", actuals_map(s))
-    kw.setdefault("downtime", downtime_list(s, as_of))
+    kw.setdefault("downtime", downtime_list(s, as_of) + qa_line_blocks(s, as_of, ds))
+    qa_tool_pools(s, as_of, ds)
     return snapshot_from_dataset(ds, as_of, view, pub, done_map(s), **kw)
+
+
+def _plant_date(ds: Any, at: Any) -> Any:
+    from ...mfg.tz import plant_tz
+
+    return at.astimezone(plant_tz(ds.plant)).date()
+
+
+def qa_line_blocks(s: Session, as_of: Any, ds: Any) -> tuple[Any, ...]:
+    """M7-DESIGN 8 (3): a line with linked equipment that is (or becomes, inside the horizon) invalid is closed
+    from that day on (an open-ended downtime-like block, id `qa:<equipment>`)."""
+    from datetime import datetime, time, timedelta
+
+    from ...mfg.aps.actuals import Downtime
+    from ...mfg.tz import plant_tz
+    from .services.qa_equipment import line_blocks
+
+    tz = plant_tz(ds.plant)
+    out = []
+    for line_id, b in sorted(line_blocks(s, _plant_date(ds, as_of)).items()):
+        start = max(as_of, datetime.combine(b["from"], time(0), tz))
+        out.append(Downtime(f"qa:{b['equipment_id']}", line_id, start, start + timedelta(days=3650), None, True))
+    return tuple(out)
+
+
+def qa_tool_pools(s: Session, as_of: Any, ds: Any) -> None:
+    """Tool pools with linked equipment count only valid units: min(quantity, valid units) (8 (3))."""
+    from .services.qa_equipment import tool_pool_valid_units
+
+    valid = tool_pool_valid_units(s, _plant_date(ds, as_of))
+    for pid, n in valid.items():
+        tp = ds.tool_pools.get(pid) if hasattr(ds, "tool_pools") else None
+        if tp is not None and n < tp.quantity:
+            try:
+                tp.quantity = n
+            except Exception:                  # frozen record: replace it
+                ds.tool_pools[pid] = tp.model_copy(update={"quantity": n})
 
 
 def actuals_map(s: Session) -> dict[tuple[str, int], Any]:
@@ -177,6 +215,10 @@ def aps_inputs_token(s: Session) -> dict[str, Any]:
     n, last = s.execute(select(func.count(), func.max(MfgDowntimeRow.updated_at))).one()   # M4 6.1
     tok["downtime_n"] = int(n or 0)
     tok["downtime_updated"] = as_utc(last).isoformat() if last is not None else None
+    from .db_models_m7 import QaEquipmentRow                                                 # M7 8 (3)
+    n, last = s.execute(select(func.count(), func.max(QaEquipmentRow.updated_at))).one()
+    tok["equipment_n"] = int(n or 0)
+    tok["equipment_updated"] = as_utc(last).isoformat() if last is not None else None
     return tok
 
 

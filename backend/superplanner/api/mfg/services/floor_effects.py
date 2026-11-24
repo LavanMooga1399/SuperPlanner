@@ -393,6 +393,9 @@ def _consume(c: Any, wo: MfgWorkOrderRow, rows: list[MfgWoOperationRow], op: Mfg
                            + (f" ({u.status})." if u is not None else "."),
                            {"loc": ["body", "serials", "consumed", i], "serial": x.serial,
                             "status": u.status if u is not None else None})
+        if getattr(u, "hold", False):                        # M7-DESIGN 5.3: held serials are not consumed
+            raise ApiError(422, "INV_SERIAL_ON_HOLD", f"Serial {x.serial} is on hold.",
+                           {"loc": ["body", "serials", "consumed", i], "serial": x.serial})
         u.status, u.consumed_at, u.consumed_wo_id = "consumed", at, wo.id
         u.parent_serial_id = parent.id if parent is not None else None
         u.row_version += 1

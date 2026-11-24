@@ -49,7 +49,8 @@ def test_defaults_are_off():
     assert s.assistant_ai_enabled is False and s.push_enabled is False and s.smtp_enabled is False
     assert s.database_read_url is None and s.assistant_daily_tokens_per_user == 400_000
     assert roles_allowed("assistant_use") == ["owner", "plant_admin", "planner", "purchaser", "store_keeper",
-                                              "approver", "viewer", "supervisor"]
+                                              "approver", "viewer", "supervisor", "qa_inspector", "qa_engineer",
+                                              "qa_approver", "metrology"]   # (+ M7 QA roles)
     assert "assistant_use" not in ROLE_PERMISSIONS["operator"]
 
 
@@ -71,7 +72,8 @@ def test_routes_answer(db_url):
         assert api.put("/plant/assistant", {"assistant_enabled": False, "assistant_allow_whatif": False}, 0)[
             "assistant_enabled"] is False
         assert api.get("/approvals") == {"items": [], "counts": {"pr": 0, "eco": 0, "replan_proposal": 0,
-                                                                  "overtime": 0}}
+                                                                  "overtime": 0, "qa_lot": 0, "qa_ncr": 0,
+                                                                  "qa_capa": 0, "qa_field_action": 0}}   # (+ M7)
         assert set(api.get("/dashboard")["tiles"]) == set(M.TILE_NAMES)
         r = c.get(f"{V1}/push/vapid-public-key")
         assert r.status_code == 200 and r.json()["enabled"] is False
