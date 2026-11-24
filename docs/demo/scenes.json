@@ -1,0 +1,50 @@
+[
+  {
+    "scene": "title",
+    "at_s": 0
+  },
+  {
+    "scene": "1-overview",
+    "at_s": 19.313
+  },
+  {
+    "scene": "2-master-data",
+    "at_s": 45.625
+  },
+  {
+    "scene": "3-mrp",
+    "at_s": 69.718
+  },
+  {
+    "scene": "4-schedule",
+    "at_s": 110.333
+  },
+  {
+    "scene": "5-floor",
+    "at_s": 181.064
+  },
+  {
+    "scene": "6-trace",
+    "at_s": 212.533
+  },
+  {
+    "scene": "7-eco-audit",
+    "at_s": 251.078
+  },
+  {
+    "scene": "8-assistant",
+    "at_s": 273.872
+  },
+  {
+    "scene": "9-phone",
+    "at_s": 298.71
+  },
+  {
+    "scene": "end",
+    "at_s": 315.578
+  },
+  {
+    "scene": "end-of-video",
+    "at_s": 323.988
+  }
+]

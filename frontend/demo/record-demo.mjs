@@ -64,13 +64,14 @@ async function go(page, url) {
 // ---------------------------------------------------------------- scenes (one function each; add new ones to SCENES)
 
 async function sceneTitle(page) {
-  // a same-origin blank page (served by the test route) so the card shows from the first frame
-  await page.route(`${BASE}/__demo-card`, (r) => r.fulfill({ contentType: "text/html", body: "<!doctype html><html><head><title>SuperPlanner</title></head><body style='margin:0;background:#f3f4f6'></body></html>" }));
-  await page.goto(`${BASE}/__demo-card`);
-  await card(page, "SuperPlanner", ["Production planning for regulated manufacturing.", "Demo with fictional data."],
-    "Products modelled on a typical medical-device portfolio. All names, customers and suppliers are fictional.", 7000 * PACE);
+  // the app loads under the card; the video is trimmed to start once the card is up (no blank frames)
   await page.goto(`${BASE}/mfg`);
-  await settle(page);
+  await card(page, "SuperPlanner", ["Production planning for regulated manufacturing.", "Demo with fictional data."],
+    "Products modelled on a typical medical-device portfolio. All names, customers and suppliers are fictional.", 0);
+  ctx.trimStart = (Date.now() - ctx.videoStart) / 1000;
+  await settle(page, 0);
+  await hold(page, 7000);
+  await uncard(page);
 }
 
 async function sceneOverview(page) {
@@ -79,6 +80,8 @@ async function sceneOverview(page) {
   await glide(page, tid(page, "mfg-count-items"), { optional: true });
   await hold(page, 2500);
   await go(page, "/mfg/dashboard");
+  await tid(page, "tile-otd").waitFor({ timeout: 30_000 });
+  await settle(page, 800);
   await caption(page, "The plant dashboard: on-time delivery, load against capacity, material risk and execution in one view.");
   await glide(page, tid(page, "tile-otd").getByTestId("tile-status"), { scroll: false });
   await hold(page, 3500);
@@ -274,7 +277,7 @@ async function sceneEco(page) {
   await glide(page, tid(page, "eco-tab-impact"), { click: true });
   await tid(page, "eco-impact").waitFor({ timeout: 60_000 });
   await settle(page);
-  await caption(page, "Impact analysis: open work orders, purchase orders and stock affected, with a use-up date.");
+  await caption(page, "Impact analysis: the orders that use the old structure, purchases no longer needed and parts being phased out.");
   await hold(page, 5500);
   await go(page, "/mfg/audit");
   await caption(page, "Every change is recorded in the audit trail, with who, when and what, and can be exported.");
@@ -303,7 +306,7 @@ async function sceneAssistant(page) {
     return t && /completed|failed/.test(t.getAttribute("data-status") ?? "");
   }, null, { timeout: 90_000 });
   await settle(page, 800);
-  await caption(page, "The answer cites the records it used, and proposes a draft action that the planner reviews and applies.");
+  await caption(page, "The answer is built from live plan records, with a draft action the planner reviews and applies; nothing changes on its own.");
   await glide(page, turn.getByTestId("asst-answer"));
   await hold(page, 5000);
   const draft = turn.getByTestId("asst-draft").first();
@@ -381,6 +384,7 @@ async function main() {
     await lookup();
 
     const browser = await chromium.launch();
+    ctx.videoStart = Date.now();
     const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: 1, recordVideo: { dir: rawDir, size: VIDEO } });
     await context.addInitScript(CAPTION_INIT);
     const page = await context.newPage();
@@ -406,13 +410,13 @@ async function main() {
     fs.writeFileSync(path.join(OUT, "scenes.json"), JSON.stringify(marks, null, 2));
     fs.rmSync(rawDir, { recursive: true, force: true });
     console.log(`video: ${webm}`);
-    toMp4(webm);
+    toMp4(webm, Math.max(0, (ctx.trimStart ?? 0) - 0.2));
   } finally {
     if (!args.includes("--keep-servers")) servers.stop();
   }
 }
 
-function toMp4(webm) {
+function toMp4(webm, trim = 0) {
   try {
     const enc = execFileSync("ffmpeg", ["-hide_banner", "-encoders"], { encoding: "utf8" });
     if (!/libx264/.test(enc)) throw new Error("no libx264");
@@ -421,7 +425,7 @@ function toMp4(webm) {
     return;
   }
   const mp4 = webm.replace(/\.webm$/, ".mp4");
-  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", webm, "-vf", `scale=${OUT_SIZE.replace("x", ":")}:flags=lanczos`, "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", mp4]);
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-ss", trim.toFixed(2), "-i", webm, "-vf", `scale=${OUT_SIZE.replace("x", ":")}:flags=lanczos`, "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", mp4]);
   console.log(`video: ${mp4}`);
 }
 

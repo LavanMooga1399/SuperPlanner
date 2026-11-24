@@ -1,0 +1,3 @@
+# demo recorder: raw recording folder and the intermediate .webm (the .mp4 is the deliverable)
+.raw/
+*.webm

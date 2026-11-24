@@ -161,6 +161,16 @@ export const CAPTION_INIT = `(() => {
     }
   };
   window.__spCaption = (t) => { sessionStorage.setItem(KEY, t || ""); ensure(); };
+  // a title card kept across page loads (sp-demo-card-html), so a full reload never shows a blank frame
+  const ensureCard = () => {
+    const html = sessionStorage.getItem("sp-demo-card-html");
+    if (!html || !document.body || document.getElementById("sp-demo-card")) return;
+    const d = document.createElement("div");
+    d.id = "sp-demo-card";
+    d.innerHTML = html;
+    document.body.appendChild(d);
+  };
+  window.__spEnsureCard = ensureCard;
   document.addEventListener("mousemove", (e) => {
     const c = document.getElementById("sp-demo-cursor");
     window.__spX = e.clientX; window.__spY = e.clientY;
@@ -169,7 +179,7 @@ export const CAPTION_INIT = `(() => {
   document.addEventListener("mousedown", () => document.getElementById("sp-demo-cursor")?.classList.add("down"), true);
   document.addEventListener("mouseup", () => document.getElementById("sp-demo-cursor")?.classList.remove("down"), true);
   if (window.top === window) {
-    new MutationObserver(() => ensure()).observe(document.documentElement, { childList: true, subtree: false });
+    new MutationObserver(() => { ensure(); ensureCard(); }).observe(document.documentElement, { childList: true, subtree: true });
     document.addEventListener("DOMContentLoaded", ensure);
     setInterval(ensure, 500);
   }
@@ -207,6 +217,7 @@ export async function card(page, title, lines, small, holdMs) {
       }
       d.appendChild(box);
       document.body.appendChild(d);
+      sessionStorage.setItem("sp-demo-card-html", d.innerHTML);
     },
     [title, lines, small],
   );
@@ -215,6 +226,7 @@ export async function card(page, title, lines, small, holdMs) {
 
 export async function uncard(page) {
   await page.evaluate(() => {
+    sessionStorage.removeItem("sp-demo-card-html");
     const d = document.getElementById("sp-demo-card");
     if (d) {
       d.style.opacity = "0";
@@ -267,7 +279,7 @@ export async function settle(page, ms = 1200) {
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
   // no visible spinners
   await page
-    .waitForFunction(() => ![...document.querySelectorAll(".spinner, [aria-busy='true']")].some((e) => e.getClientRects().length), null, { timeout: 20_000 })
+    .waitForFunction(() => ![...document.querySelectorAll(".spinner, [aria-busy='true'], .skel, .skel-row, .skel-rows, .skel-page, .vt-skel-row")].some((e) => e.getClientRects().length), null, { timeout: 20_000 })
     .catch(() => undefined);
   await page.waitForTimeout(ms);
 }
