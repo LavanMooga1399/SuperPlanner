@@ -61,7 +61,8 @@ export function QaWorklist<T>({
   actions?: ReactNode;
   pageKey: string;
   testId: string;
-  searchPlaceholder: string;
+  /** omit for lists without server search */
+  searchPlaceholder?: string;
   views?: QuickView[];
   statusOptions?: Option[];
   /** value sent when the status select shows its first option */
@@ -120,7 +121,7 @@ export function QaWorklist<T>({
       <PageHeader title={title} description={description} actions={actions} />
       {above}
       <FilterBar
-        search={{ id: `${pageKey}-q`, value: q, onChange: setQ, placeholder: searchPlaceholder, testId: `${pageKey}-search` }}
+        search={searchPlaceholder ? { id: `${pageKey}-q`, value: q, onChange: setQ, placeholder: searchPlaceholder, testId: `${pageKey}-search` } : undefined}
         chips={chips}
         onClearAll={() => {
           setQ("");

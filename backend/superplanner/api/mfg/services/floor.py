@@ -746,6 +746,13 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
                                    {"downtime_id": dt.id, "line_id": ln.id})
                 c.warnings.append({"code": "FLR_LINE_DOWN", "message": f"{ln.code} is down ({dt.kind}).",
                                    "details": {"downtime_id": dt.id}})
+    from . import qa_inspection as _qa                         # M7-DESIGN 5.2 / 8: gate and equipment blocks
+
+    _qa.floor_before(s, wo, op, inp.event_type)
+    if inp.event_type in ("setup_start", "start") and line_id is not None:
+        from .qa_equipment import check_line
+
+        check_line(s, line_id, at)
     # quantities
     qg = float(inp.qty_good or 0.0) if member_qty is None else member_qty
     qs = float(inp.qty_scrap or 0.0) if member_qty is None else 0.0
@@ -831,6 +838,9 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
     from . import floor_effects
 
     floor_effects.apply_effects(c, wo, rows, before, after, op, row, inp, item, at)
+    il = _qa.floor_after(s, wo, op, row, _chain_after(rows, after)[op.seq].qty_input)
+    if il is not None:
+        row.details = {**(row.details or {}), "inspection_lot_id": il}
     if wo.status == "released":
         wo.status = "in_progress"
         touch(wo, c.now)

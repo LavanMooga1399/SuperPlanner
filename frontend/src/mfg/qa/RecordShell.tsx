@@ -23,7 +23,7 @@ import { usePaged } from "../lib/usePaged";
 import { formatDateTime } from "../../lib/locale";
 import { savePref, syncPref } from "../../lib/serverPrefs";
 import { plural, t, type StringKey } from "../../lib/i18n";
-import { authText, fmtSignedAt, manifestText, meaningText, recordTypeText } from "./labels";
+import { authText, manifestText, meaningText, recordTypeText } from "./labels";
 import { usePart11 } from "./part11";
 import "./qa.css";
 
@@ -228,8 +228,8 @@ export function HistoryTab({ entityType, entityId }: { entityType: string; entit
         {data.rows.map((e) => (
           <li key={e.id} data-testid="qa-history-event">
             <div className="qa-history-when">
-              <strong>{e.at_local ? fmtSignedAt({ signed_at_local: e.at_local, signed_at: e.at }) : formatDateTime(e.at)}</strong>
-              {e.actor ? `${e.actor.name}${e.actor.username ? ` (${e.actor.username})` : ""}` : t("qa.history.str.system")}
+              <strong>{formatDateTime(e.at)}</strong>
+              {e.actor_name ?? e.actor_id ?? t("qa.history.str.system")}
             </div>
             <div style={{ minWidth: 0 }}>
               <div className="row wrap" style={{ gap: 6 }}>
@@ -395,25 +395,26 @@ export function linkPath(type: string, id: string): string | null {
 export function LinksTab({ links, fromType, fromId, canEdit, onChanged }: { links: QaLink[]; fromType: string; fromId: string; canEdit: boolean; onChanged(): void }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const other = (l: QaLink) => (l.from_type === fromType && l.from_id === fromId ? { type: l.to_type, id: l.to_id, out: true } : { type: l.from_type, id: l.from_id, out: false });
   const cols: Column<QaLink>[] = [
     {
       key: "rec",
       header: t("qa.links.head.record"),
-      width: "minmax(200px, 1.4fr)",
-      exportValue: (l) => `${recordTypeText(l.to_type)} ${l.to_number ?? l.to_id}`,
+      width: "minmax(220px, 2fr)",
+      exportValue: (l) => `${recordTypeText(other(l).type)} ${l.label ?? other(l).id}`,
       render: (l) => {
-        const p = linkPath(l.to_type, l.to_id);
+        const o = other(l);
+        const p = linkPath(o.type, o.id);
         const label = (
           <>
-            {recordTypeText(l.to_type)} <span className="mono">{l.to_number ?? l.to_id}</span>
+            {recordTypeText(o.type)} <span className="mono">{l.label ?? o.id}</span>
           </>
         );
         return p ? <Link to={p}>{label}</Link> : label;
       },
     },
-    { key: "title", header: t("qa.links.head.title"), width: "minmax(200px, 2fr)", render: (l) => <span className="mfg-ellipsis">{l.to_title ?? ""}</span> },
-    { key: "status", header: t("qa.links.head.status"), width: "140px", render: (l) => l.to_status ?? "" },
-    { key: "dir", header: t("qa.links.head.direction"), width: "120px", render: (l) => (l.direction === "from" ? t("qa.links.str.linkedFromHere") : t("qa.links.str.linkedToHere")) },
+    { key: "dir", header: t("qa.links.head.direction"), width: "150px", render: (l) => (other(l).out ? t("qa.links.str.linkedFromHere") : t("qa.links.str.linkedToHere")) },
+    { key: "when", header: t("qa.links.head.created"), width: "170px", sortValue: (l) => l.created_at, render: (l) => formatDateTime(l.created_at) },
     {
       key: "x",
       header: "",
@@ -421,11 +422,11 @@ export function LinksTab({ links, fromType, fromId, canEdit, onChanged }: { link
       width: "56px",
       hideable: false,
       render: (l) =>
-        canEdit && l.direction === "from" ? (
+        canEdit && other(l).out ? (
           <button
             type="button"
             className="btn ghost sm icon"
-            aria-label={t("qa.links.aria.remove", { what: l.to_number ?? l.to_id })}
+            aria-label={t("qa.links.aria.remove", { what: l.label ?? other(l).id })}
             onClick={async () => {
               setError(null);
               try {

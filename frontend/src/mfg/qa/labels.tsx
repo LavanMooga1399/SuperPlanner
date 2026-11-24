@@ -5,6 +5,7 @@
 import { Icon, type IconName } from "../../components/Icon";
 import { t, type StringKey } from "../../lib/i18n";
 import { fmtDate } from "../lib/format";
+import { formatDateTime } from "../../lib/locale";
 import type { AuthMethod, Meaning, SignatureManifest } from "../api/typesM7";
 
 export type Tone = "ok" | "warn" | "danger" | "info" | "accent";
@@ -89,6 +90,8 @@ export const CAL_STATE: Record<string, ChipDef> = {
   in_grace: { label: "qa.status.cal.inGrace", tone: "warn", icon: "alert" },
   overdue: { label: "qa.status.cal.overdue", tone: "danger", icon: "x" },
   not_required: { label: "qa.status.cal.notRequired", tone: "info", icon: "info" },
+  out_of_service: { label: "qa.status.eq.outOfService", tone: "danger", icon: "ban" },
+  retired: { label: "qa.status.eq.retired", tone: "info", icon: "x" },
 };
 export const HOLD_SOURCE: Record<string, ChipDef> = {
   inspection: { label: "qa.hold.source.inspection", tone: "warn", icon: "search" },
@@ -163,15 +166,13 @@ export const AUTH_LABEL: Record<AuthMethod, StringKey> = {
 export const authText = (a: string) => (a in AUTH_LABEL ? t(AUTH_LABEL[a as AuthMethod]) : a);
 
 /**
- * Plant-local signing time with seconds, zone and UTC offset (4.2 manifestation):
- * "23 Nov 2026 14:05:12 EST (UTC-05:00)".
+ * Plant-local signing time with seconds, zone and UTC offset (4.2 manifestation). The server sends
+ * "2026-11-23 14:05:12 EST (UTC-05:00)"; the date part is shown in the UI format: "23 Nov 2026 14:05:12 EST (UTC-05:00)".
  */
-export function fmtSignedAt(m: Pick<SignatureManifest, "signed_at_local" | "signed_at" | "zone_abbr">): string {
-  const iso = m.signed_at_local || m.signed_at;
-  const x = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})?$/);
-  if (!x) return iso;
-  const off = !x[3] || x[3] === "Z" ? "+00:00" : x[3];
-  return t("qa.esig.tpl.signedAt", { date: fmtDate(x[1]), time: x[2], zone: m.zone_abbr ? `${m.zone_abbr} ` : "", offset: off });
+export function fmtSignedAt(m: Pick<SignatureManifest, "signed_at_local" | "signed_at">): string {
+  const x = (m.signed_at_local || "").match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})\s*(.*)$/);
+  if (x) return t("qa.esig.tpl.signedAt", { date: fmtDate(x[1]), time: x[2], zone: x[3] });
+  return formatDateTime(m.signed_at);
 }
 
 /** "Approved by Marie Tremblay (mtremblay) on 23 Nov 2026 14:05:12 EST (UTC-05:00)". */

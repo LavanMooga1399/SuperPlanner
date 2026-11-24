@@ -813,6 +813,8 @@ class BalanceSnap:
     qty_reserved: float
     last_receipt_on: date | None
     location_active: bool = True
+    #: M7-DESIGN 0.6: every open hold of the lot is an inspection hold -> inspection supply (not plain stock)
+    inspection_hold: bool = False
 
 
 @dataclass(frozen=True, slots=True)

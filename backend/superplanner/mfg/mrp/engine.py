@@ -291,9 +291,14 @@ class Pass:
         for b in sorted(snap.balances, key=lambda b: (b.item_id, b.location_id, b.lot_id or "", b.id)):
             item = items.get(b.item_id)
             # C9: held lots and stock in inactive locations are not nettable (as kitting)
-            if item is None or b.qty_on_hand <= EPS or b.hold or not getattr(b, "location_active", True):
+            insp_hold = b.hold and getattr(b, "inspection_hold", False)
+            if item is None or b.qty_on_hand <= EPS or (b.hold and not insp_hold) or \
+                    not getattr(b, "location_active", True):
                 continue
-            if b.kind in ("stores", "line_side"):
+            if insp_hold and b.kind in ("stores", "line_side", "inspection"):   # M7 0.6: under inspection
+                base = (b.last_receipt_on + timedelta(days=item.receiving_days)) if b.last_receipt_on else as_of
+                avail, kind = max(as_of, base), "inspection"
+            elif b.kind in ("stores", "line_side"):
                 avail, kind = as_of, "stock"
             elif b.kind == "inspection":
                 base = (b.last_receipt_on + timedelta(days=item.receiving_days)) if b.last_receipt_on else as_of

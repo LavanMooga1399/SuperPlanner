@@ -496,6 +496,12 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     if trf is not None:
         trf.after_post(s, row, plan)
     _trace.write_posting_edges(s, row)
+    if row.type in ("po_receipt", "wo_receipt"):                # M7-DESIGN 5.2: inspection lots + holds
+        from .qa_inspection import on_posting
+
+        made = on_posting(s, row)
+        if made:
+            s.info.setdefault("sp_inspection_lots", []).extend(made)
     from ....integration import outbox                          # M5-DESIGN 4.6 (I2: same transaction)
 
     if outbox.enabled(s):
@@ -540,6 +546,9 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
         try:
             with s.begin_nested():
                 row, warnings = post_in_session(s, inp, idem=idem, body_hash=h if idem else None)
+            made = s.info.pop("sp_inspection_lots", None)
+            if made:
+                return {**posting_record(s, row, warnings), "inspection_lots": _lot_refs(s, made)}, False
         except IntegrityError as exc:
             if idem and is_unique_violation(exc, "uq_mfg_inv_postings_idem"):
                 found = _find_idem(s, idem)
@@ -550,6 +559,17 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
         return posting_record(s, row, warnings), False
 
     return run_tx(ctx, fn)
+
+
+def _lot_refs(s: Session, ids: list[str]) -> list[dict[str, Any]]:
+    from ..db_models_m7 import QaInspectionLotRow
+
+    out = []
+    for i in dict.fromkeys(ids):
+        r = s.get(QaInspectionLotRow, i)
+        if r is not None:
+            out.append({"id": r.id, "number": r.number, "scope": r.scope, "status": r.status})
+    return out
 
 
 def reverse_posting(ctx: AppContext, posting_id: str, note: str) -> dict[str, Any]:
@@ -880,10 +900,17 @@ def update_lot(ctx: AppContext, lot_id: str, inp: LotUpdate, if_match: str | Non
     with write_tx(ctx, lock=False) as (s, _):
         row = repo.get_row(s, MfgLotRow, lot_id, what="Lot", lock=True)
         check_version(row, if_match)
-        row.expires_on, row.supplier_lot, row.hold, row.note = inp.expires_on, inp.supplier_lot, inp.hold, inp.note
+        before = lot_record(s, row)
+        row.expires_on, row.supplier_lot, row.note = inp.expires_on, inp.supplier_lot, inp.note
         touch(row)
         s.flush()
-        audit(s, "lot", row.id, "update", {"version": row.row_version, "hold": row.hold})
+        if bool(inp.hold) != bool(row.hold):            # M7-DESIGN 5.3: manual holds are hold rows
+            from .qa_holds import lot_put_hold
+
+            lot_put_hold(s, row, bool(inp.hold), actor_id())
+            s.refresh(row)
+        audit(s, "lot", row.id, "update", {"version": row.row_version, "hold": row.hold}, before=before,
+              after=lot_record(s, row))
         return lot_record(s, row)
 
 

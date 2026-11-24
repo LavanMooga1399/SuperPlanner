@@ -112,7 +112,7 @@ def item_ref(s: Session, item_id: str | None) -> dict[str, Any] | None:
     it = s.get(MfgItemRow, item_id)
     if it is None:
         return {"id": item_id, "part_number": None, "revision": None, "name": None}
-    return {"id": it.id, "part_number": it.part_number, "revision": it.revision, "name": it.name}
+    return {"id": it.id, "part_number": it.part_number, "revision": it.revision, "name": it.description}
 
 
 def decorate(s: Session, record: dict[str, Any], entity_type: str, record_type: str | None = None,

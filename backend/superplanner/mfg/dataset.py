@@ -399,6 +399,7 @@ class TxnLot:
     supplier_lot: str = ""
     hold: bool = False
     note: str = ""
+    inspection_hold: bool = False          # M7-DESIGN 0.6: open holds are all `inspection`
 
 
 @dataclass
@@ -574,7 +575,8 @@ def mrp_inputs(ds: MfgDataset, as_of: date) -> dict[str, Any]:
         lot = t.lots.get(b.lot_id or "")
         balances.append(BalanceSnap(b.id, b.item_id, b.location_id, loc.kind if loc else "stores", b.lot_id,
                                     lot.expires_on if lot else None, lot.hold if lot else False, b.qty_on_hand,
-                                    b.qty_reserved, b.last_receipt_on, loc.active if loc else True))
+                                    b.qty_reserved, b.last_receipt_on, loc.active if loc else True,
+                                    bool(lot.inspection_hold) if lot else False))
     reservations = [ReservationSnap(r.wo_component_id, r.balance_id, r.qty)
                     for r in sorted(t.reservations.values(), key=lambda r: (r.wo_component_id, r.balance_id))
                     if r.qty > EPS]

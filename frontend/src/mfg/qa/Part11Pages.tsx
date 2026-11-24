@@ -67,13 +67,12 @@ export function PoliciesPage() {
       header: t("qa.pol.head.action"),
       width: "minmax(220px, 1.2fr)",
       sortValue: (p) => `${p.record_type}.${p.action}`,
-      exportValue: (p) => `${p.record_type}.${p.action}${p.scope ? ` (${p.scope})` : ""}`,
+      exportValue: (p) => `${p.record_type}.${p.action}`,
       render: (p) => (
         <span className="col" style={{ gap: 0 }}>
           <span>
             {recordTypeText(p.record_type)} · {actionText(p.action)}
           </span>
-          {p.scope ? <span className="vt-sub">{p.scope.split(",").map((x) => t(x === "final" ? "qa.scope.final" : x === "incoming" ? "qa.scope.incoming" : "qa.scope.inProcess")).join(", ")}</span> : null}
         </span>
       ),
     },
@@ -335,15 +334,26 @@ export function Part11Page() {
               </>
             ) : (
               <ul className="mfg-plain-list col" style={{ gap: 6 }} data-testid="part11-checks">
-                {(m?.checks ?? []).map((c) => (
-                  <li key={c.code} className="row" style={{ alignItems: "flex-start", gap: 8 }}>
-                    <span className={`badge ${c.ok ? "ok" : "warn"}`}>
-                      <Icon name={c.ok ? "check" : "alert"} /> {c.ok ? t("qa.p11.str.ready") : t("qa.p11.str.todo")}
-                    </span>
-                    <span>{c.message}</span>
-                  </li>
-                ))}
-                {!m?.checks.length ? <li className="muted">{t("qa.p11.text.noChecks")}</li> : null}
+                {m
+                  ? ([
+                      [m.esig_enabled, t("qa.p11.check.esig")],
+                      [m.secrets_configured, t("qa.p11.check.secrets")],
+                      [m.clock_skew_ms !== null && Math.abs(m.clock_skew_ms) <= m.max_clock_skew_ms, t("qa.p11.check.clock")],
+                    ] as [boolean, string][]).map(([ok, text]) => (
+                      <li key={text} className="row" style={{ alignItems: "flex-start", gap: 8 }}>
+                        <span className={`badge ${ok ? "ok" : "warn"}`}>
+                          <Icon name={ok ? "check" : "alert"} /> {ok ? t("qa.p11.str.ready") : t("qa.p11.str.todo")}
+                        </span>
+                        <span>{text}</span>
+                      </li>
+                    ))
+                  : <li className="muted">{t("qa.p11.text.noChecks")}</li>}
+                <li className="row" style={{ alignItems: "flex-start", gap: 8 }}>
+                  <span className="badge info">
+                    <Icon name="info" /> {t("qa.p11.str.yours")}
+                  </span>
+                  <span>{t("qa.p11.check.enrol")}</span>
+                </li>
               </ul>
             )}
             {time.data ? (
@@ -411,7 +421,7 @@ export function Part11Page() {
           submitLabel={t("qa.p11.btn.signEnable")}
           plainLabel={t("qa.p11.btn.enable")}
           effect={t("qa.p11.text.effect")}
-          perform={(sig, comment) => enablePart11(sig ? { ...sig, comment: comment || sig.comment } : null, m.row_version)}
+          perform={(sig, comment) => enablePart11(sig ? { ...sig, comment: comment || sig.comment } : null)}
           onDone={(res) => {
             if (res.status === 200) setPart11Mode(res.record);
             else p11.refresh();
@@ -446,19 +456,19 @@ export function Part11ExportsPage() {
   const cols = useMemo<Column<Part11Export>[]>(
     () => [
       { key: "when", header: t("qa.exp.head.requested"), width: "170px", sortValue: (x) => x.created_at, render: (x) => formatDateTime(x.created_at) },
-      { key: "range", header: t("qa.exp.head.range"), width: "minmax(160px, 1fr)", render: (x) => formatDateRange(x.params.from, x.params.to) },
-      { key: "types", header: t("qa.exp.head.types"), width: "minmax(200px, 2fr)", wrap: true, render: (x) => x.params.record_types.map(recordTypeText).join(", ") },
+      { key: "range", header: t("qa.exp.head.range"), width: "minmax(160px, 1fr)", render: (x) => formatDateRange(x.params.from ?? null, x.params.to ?? null) },
+      { key: "types", header: t("qa.exp.head.types"), width: "minmax(200px, 2fr)", wrap: true, render: (x) => (x.params.record_types?.length ? x.params.record_types.map(recordTypeText).join(", ") : t("qa.exp.str.allTypes")) },
       {
         key: "status",
         header: t("qa.exp.head.status"),
         width: "130px",
         render: (x) =>
-          x.status === "succeeded" ? (
+          x.status === "completed" ? (
             <span className="badge ok">
               <Icon name="check" /> {t("qa.exp.str.ready")}
             </span>
           ) : x.status === "failed" ? (
-            <span className="badge danger" title={x.error?.message}>
+            <span className="badge danger" title={x.error ?? undefined}>
               <Icon name="x" /> {t("qa.exp.str.failed")}
             </span>
           ) : (
@@ -475,7 +485,7 @@ export function Part11ExportsPage() {
         width: "120px",
         hideable: false,
         render: (x) =>
-          x.status === "succeeded" ? (
+          x.status === "completed" ? (
             <button type="button" className="btn sm" onClick={async () => saveBlob(await downloadPart11Export(x.id))}>
               <Icon name="download" /> {t("qa.exp.btn.download")}
             </button>

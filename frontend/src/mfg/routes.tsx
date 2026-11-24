@@ -77,6 +77,9 @@ import { TracePage, WhereUsedPage } from "./pages/m5/TracePages";
 import { TransferPage, TransfersPage } from "./pages/m5/TransferPages";
 import { DashboardPage } from "./pages/m6/DashboardPage";
 import { Part11ExportsPage, Part11Page, PoliciesPage } from "./qa/Part11Pages";
+import { HoldsPage, InspectionLotPage, InspectionLotsPage } from "./qa/InspectionPages";
+import { PlanPage, PlansPage, QaSettingsPage, SchemePage, SchemesPage } from "./qa/PlanPages";
+import { FloorInspect } from "./qa/FloorInspect";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
 import { FloorHome } from "./floor/FloorHome";
@@ -112,6 +115,8 @@ export const mfgRoutes: RouteObject[] = [
       // the server's scan links (#200 `link`) use this form
       { path: "operations/:woOpId", element: <Keyed param="woOpId">{(k) => <FloorOperation key={k} />}</Keyed> },
       { path: "wo/:woId", element: <FloorWo /> },
+      // M7 10: results entry on the tablet
+      { path: "inspect/:lotId", element: <Keyed param="lotId">{(k) => <FloorInspect key={k} />}</Keyed> },
     ],
   },
   {
@@ -277,6 +282,14 @@ export const mfgRoutes: RouteObject[] = [
       { path: "esig/policies", element: <PoliciesPage /> },
       { path: "part11", element: <Part11Page /> },
       { path: "part11/exports", element: <Part11ExportsPage /> },
+      { path: "qa/inspection-lots", element: <InspectionLotsPage /> },
+      { path: "qa/inspection-lots/:lotId", element: <Keyed param="lotId">{(k) => <InspectionLotPage key={k} />}</Keyed> },
+      { path: "qa/holds", element: <HoldsPage /> },
+      { path: "qa/plans", element: <PlansPage /> },
+      { path: "qa/plans/:planId", element: <Keyed param="planId">{(k) => <PlanPage key={k} />}</Keyed> },
+      { path: "qa/schemes", element: <SchemesPage /> },
+      { path: "qa/schemes/:schemeId", element: <Keyed param="schemeId">{(k) => <SchemePage key={k} />}</Keyed> },
+      { path: "qa/settings", element: <QaSettingsPage /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

@@ -28,7 +28,7 @@ export function SignatureEnrolPage() {
   const [ack, setAck] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
-  const stepup = useStepup("enroll");
+  const stepup = useStepup();
   useEffect(() => {
     document.title = t("qa.enrol.str.docTitle");
   }, []);
@@ -37,9 +37,9 @@ export function SignatureEnrolPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
   if (loading) return <Spinner />;
-  const sso = Boolean(status?.sso) && !status?.local_credentials;
-  const ackText = status ? (status.ack_text[getLocale()] ?? status.ack_text.en ?? Object.values(status.ack_text)[0] ?? "") : "";
-  const needsRenewal = Boolean(status?.enrolled && status.ack_version !== status.current_ack_version);
+  const sso = Boolean(status?.sso_user) && !status?.local_credentials;
+  const ackText = status ? (status.acknowledgement[getLocale()] ?? status.acknowledgement.en ?? "") : "";
+  const needsRenewal = Boolean(status?.enrolled && status.acknowledgement.version && status.ack_version !== status.acknowledgement.version);
   const showForm = status && (!status.enrolled || needsRenewal) && !status.revoked_at;
   const locked = status?.locked_until && new Date(status.locked_until).getTime() > Date.now() ? status.locked_until : null;
   return (

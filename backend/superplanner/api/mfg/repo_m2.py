@@ -95,6 +95,17 @@ def load_txn(s: Session, *, open_only: bool = False) -> TxnData:
     for r in s.execute(select(MfgLotRow)).scalars():
         t.lots[r.id] = TxnLot(r.id, r.item_id, r.lot_code, r.expires_on, r.received_on, r.supplier_lot, r.hold,
                               r.note)
+    held = [i for i, x in t.lots.items() if x.hold]
+    if held:                                   # M7-DESIGN 0.6: lots held only by incoming/final inspection
+        from .db_models_m7 import MfgLotHoldRow
+
+        srcs: dict[str, set[str]] = {}
+        for lid, src in s.execute(select(MfgLotHoldRow.lot_id, MfgLotHoldRow.source).where(
+                MfgLotHoldRow.lot_id.is_not(None), MfgLotHoldRow.released_at.is_(None))).all():
+            srcs.setdefault(lid, set()).add(src)
+        for lid in held:
+            if srcs.get(lid) == {"inspection"}:
+                t.lots[lid].inspection_hold = True
     q = select(MfgInvBalanceRow)
     if open_only:
         q = q.where(MfgInvBalanceRow.qty_on_hand > 1e-6)

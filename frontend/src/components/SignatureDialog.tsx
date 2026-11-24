@@ -30,6 +30,8 @@ export interface SignatureDialogProps<T> {
   action: string;
   /** inspection_lot.decide: accept | reject (preview content depends on it) */
   decision?: string;
+  /** the record's number for the "Record" line, e.g. "IL-000123" */
+  recordLabel?: string;
   /** preset meaning (otherwise the step's only meaning, or a choice) */
   meaning?: Meaning;
   /** primary button when a signature is required, e.g. "Sign and release" */
@@ -64,7 +66,7 @@ function decode(e: unknown): Problem {
 }
 
 /** SSO step-up (4.2): a popup re-authenticates at the identity provider and posts a single-use token back. */
-export function useStepup(purpose: "esig" | "enroll" = "esig") {
+export function useStepup() {
   const [token, setToken] = useState<{ value: string; at: number } | null>(null);
   const [state, setState] = useState<"idle" | "waiting" | "blocked">("idle");
   useEffect(() => {
@@ -80,7 +82,7 @@ export function useStepup(purpose: "esig" | "enroll" = "esig") {
     return () => window.removeEventListener("message", onMsg);
   }, []);
   const start = () => {
-    const w = window.open(stepupUrl(purpose), "sp-esig-stepup", "width=520,height=680");
+    const w = window.open(stepupUrl(), "sp-esig-stepup", "width=520,height=680");
     setState(w ? "waiting" : "blocked");
   };
   return { token, state, start, clear: () => setToken(null) };
@@ -125,11 +127,12 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
   const signer = preview?.signer ?? null;
   const step = preview?.next_step ?? null;
   const totpNeeded = step?.auth === "password_totp";
-  const sso = Boolean(signer?.sso) && !signer?.local_credentials;
+  // SSO users without local signing credentials re-authenticate at the identity provider (step-up)
+  const sso = Boolean(signer) && !signer!.methods.some((m) => m === "password" || m === "password_totp") && signer!.methods.some((m) => m === "sso" || m === "sso_mfa");
   const lockedUntil = problem?.kind === "locked" ? problem.until : signer?.locked_until && new Date(signer.locked_until).getTime() > Date.now() ? signer.locked_until : null;
   const locked = problem?.kind === "locked" || Boolean(lockedUntil);
-  const notEnrolled = required && signer !== null && !signer.enrolled;
-  const blockers = preview?.blockers ?? [];
+  const notEnrolled = required && signer !== null && (!signer.enrolled || step?.blocked_reason === "ESIG_NOT_ENROLLED");
+  const blockers = step && !step.can_sign && step.blocked_reason && step.blocked_reason !== "ESIG_NOT_ENROLLED" ? [step.blocked_reason] : [];
   const credsOk = sso ? Boolean(stepup.token) && Boolean(username.trim()) : Boolean(username.trim()) && Boolean(password) && (!totpNeeded || /^\d{6}$/.test(totp.trim()));
   const ready =
     preview !== null &&
@@ -220,7 +223,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
               <dl className="mfg-dl">
                 <dt>{t("qa.esig.label.record")}</dt>
                 <dd>
-                  {recordTypeText(preview.record_type)} <span className="mono">{preview.record_number ?? preview.record_id}</span>{" "}
+                  {recordTypeText(preview.record_type)} <span className="mono">{props.recordLabel ?? preview.record_id}</span>{" "}
                   <span className="muted small">{t("qa.esig.tpl.version", { v: preview.record_version })}</span>
                 </dd>
                 {preview.summary.map((l, i) => (
@@ -289,7 +292,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
               <Banner tone="warn" role="alert" icon="lock" title={t("qa.esig.title.cannotSign")} testId="esig-blocked">
                 <ul className="mfg-plain-list">
                   {blockers.map((b) => (
-                    <li key={b.code}>{errorMessage(b.code, b.message)}</li>
+                    <li key={b}>{blockerText(b)}</li>
                   ))}
                 </ul>
               </Banner>
@@ -357,7 +360,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
                     </div>
                   ) : (
                     <div className="field">
-                      <label htmlFor={`${uid}-p`}>{signer.sso ? t("qa.esig.label.signingPassword") : t("qa.esig.label.password")}</label>
+                      <label htmlFor={`${uid}-p`}>{t("qa.esig.label.password")}</label>
                       <input
                         ref={pwRef}
                         id={`${uid}-p`}
@@ -454,6 +457,13 @@ function SignError({ error }: { error: unknown }) {
     </Banner>
   );
 }
+
+const BLOCKERS: Record<string, "qa.esig.title.role" | "qa.esig.title.sameSigner" | "qa.esig.title.author"> = {
+  ESIG_ROLE: "qa.esig.title.role",
+  ESIG_SAME_SIGNER: "qa.esig.title.sameSigner",
+  ESIG_AUTHOR: "qa.esig.title.author",
+};
+const blockerText = (code: string) => (BLOCKERS[code] ? t(BLOCKERS[code]) : errorMessage(code, code));
 
 /** Toast text after a signed action: done, or the next step waiting for someone else. */
 export function signedToast(res: SignedResult<unknown>, done: string): string {
