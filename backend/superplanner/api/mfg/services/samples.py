@@ -196,6 +196,10 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
                 if s.execute(_sel(MfgPurchaseDocRow.id).where(
                         MfgPurchaseDocRow.number == samples_meddev.MARKER)).first() is None:
                     samples_meddev.apply(s, anchor)
+                from . import qa_sample                      # M7-DESIGN 12: quality data (once)
+                from .m2util import actor_id
+
+                qa_sample.apply(s, anchor, actor_id())
         result = {"counts": plan.result_counts(), "duration_ms": int((time.monotonic() - t0) * 1000),
                   "data_version": plant.data_version}
         audit(s, "plant", plant.id, "sample_load", {"sample_id": sample_id, "replace": replace,
