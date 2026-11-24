@@ -18,6 +18,7 @@ import { LimitingPath } from "./mrp/DemandProjectionTab";
 import { ItemsShortTable } from "./workorders/KittingCheckPage";
 import { plural, t } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
+import { LOCALE } from "../../lib/locale";
 
 export function ShortagesPage() {
   const [horizon, setHorizon] = useState(30);
@@ -78,7 +79,7 @@ export function ShortagesPage() {
               <a key={k} href={`#panel-${panel}`} className="card kpi mfg-kpi" data-testid={`shortage-count-${panel}`}>
                 <div className="kpi-label">{label}</div>
                 <div className="kpi-value" style={s.counts[k] ? { color: "var(--danger)" } : undefined}>
-                  {s.counts[k].toLocaleString("en-IN")}
+                  {s.counts[k].toLocaleString(LOCALE)}
                 </div>
               </a>
             ))}

@@ -13,6 +13,7 @@ import { useLoad } from "../../lib/useMfg";
 import { LimitingPath } from "./DemandProjectionTab";
 import { useRun } from "./RunShell";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 const CODE_SEVERITY: Record<string, MrpSeverity> = {
   MRP_DEMAND_LATE: "critical",
@@ -107,7 +108,7 @@ export function RunSummaryTab() {
                 <Link to={mfgPaths.runExceptions(run.id, { code })} className="grow" data-testid="run-exception-code" data-code={code}>
                   {exceptionLabel(code)}
                 </Link>
-                <span className="mfg-num">{n.toLocaleString("en-IN")}</span>
+                <span className="mfg-num">{n.toLocaleString(LOCALE)}</span>
               </li>
             ))}
           </ul>

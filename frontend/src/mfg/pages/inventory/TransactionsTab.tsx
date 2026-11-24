@@ -17,6 +17,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
 import { t, t as tr } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 /** Link of a document reference on a ledger line. */
 export function docRefLink(ref: TransactionRow["ref"]): string | null {
@@ -194,7 +195,7 @@ export function TransactionsTab() {
         empty={data.loading ? <span className="row" role="status"><span className="spinner" aria-hidden />{" "}{tr("mfg.transactionsTab.text.loadingTheLedger")}</span> : tr("mfg.transactionsTab.str.noStockMovementsMatchThese")}
         footer={
           <span className="muted small" role="status">
-            {tr("mfg.transactionsTab.text.showingMovementsNewestFirstEnter", { tr: tr("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}
+            {tr("mfg.transactionsTab.text.showingMovementsNewestFirstEnter", { tr: tr("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }) })}
           </span>
         }
       />

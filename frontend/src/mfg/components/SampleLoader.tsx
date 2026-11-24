@@ -7,6 +7,7 @@ import type { SampleInfo, SampleLoadResponse } from "../api/types";
 import { useLoad } from "../lib/useMfg";
 import { MfgError } from "./Feedback";
 import { t } from "../../lib/i18n";
+import { LOCALE } from "../../lib/locale";
 
 const COUNT_LABELS: Record<string, string> = {
   items: "items",
@@ -23,7 +24,7 @@ function countsLine(counts: Record<string, number>): string {
   return Object.entries(counts)
     .filter(([k]) => COUNT_LABELS[k])
     .slice(0, 4)
-    .map(([k, v]) => `${v.toLocaleString("en-IN")} ${COUNT_LABELS[k]}`)
+    .map(([k, v]) => `${v.toLocaleString(LOCALE)} ${COUNT_LABELS[k]}`)
     .join(" · ");
 }
 

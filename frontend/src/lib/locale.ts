@@ -1,9 +1,12 @@
 
-import { t } from "./i18n";/**
- * One place for number/date formatting (UX-STANDARD 4): Indian English, 24-hour clock, digit grouping.
- * Plant-local values keep their own offset (see mfg/lib/plantTime.ts); browser-local timestamps use these.
+import { intlLocale, t } from "./i18n";
+
+/**
+ * One place for number/date formatting (UX-STANDARD 4): Indian English (or French (Canada), M7 10: narrow no-break
+ * space thousands, comma decimal), 24-hour clock, digit grouping. Plant-local values keep their own offset (see
+ * mfg/lib/plantTime.ts); browser-local timestamps use these.
  */
-export const LOCALE = "en-IN";
+export const LOCALE = intlLocale();
 
 const nf = new Map<string, Intl.NumberFormat>();
 function numberFormat(min: number, max: number): Intl.NumberFormat {

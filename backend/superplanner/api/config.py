@@ -333,6 +333,13 @@ class Settings:
     integration_allow_private_targets: bool = field(default_factory=_bool("INTEGRATION_ALLOW_PRIVATE_TARGETS",
                                                                           False))
     archive_dir: str | None = field(default_factory=_str("ARCHIVE_DIR"))
+    #: M7-DESIGN 4.2 / 4.6: electronic signatures (needs SECRETS_KEY(S) once a plant is in Part 11 mode), the
+    #: local-credentials fallback for SSO users whose IdP has no step-up, the app/DB clock skew limit for signing,
+    #: and the step-up MFA claim values accepted for `password_totp` steps
+    esig_enabled: bool = field(default_factory=_bool("ESIG_ENABLED", True))
+    esig_local_credentials: bool = field(default_factory=_bool("ESIG_LOCAL_CREDENTIALS", False))
+    esig_max_clock_skew_ms: float = field(default_factory=_float("ESIG_MAX_CLOCK_SKEW_MS", 2000.0))
+    esig_mfa_amr: list[str] = field(default_factory=lambda: _csv("ESIG_MFA_AMR") or ["mfa", "otp", "hwk", "swk"])
     retention_enabled: bool = field(default_factory=_bool("RETENTION_ENABLED", True))
     #: tests only: an `identity.oidc.HttpFetch` replacement (the fake IdP)
     oidc_http: Callable[..., Any] | None = None

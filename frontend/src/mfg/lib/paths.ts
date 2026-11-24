@@ -120,6 +120,31 @@ export const mfgPaths = {
   // ---------------------------------------------------------------- M6
   dashboard: (period?: string) => `${MFG}/dashboard${queryString({ period })}`,
   printLabels: (q: { type: "lot" | "serial" | "badge"; ids?: string; item?: string; codes?: string }) => `${MFG}/print/labels${queryString(q)}`,
+  // ---------------------------------------------------------------- M7 quality and Part 11
+  qaLots: (q?: Record<string, string>) => `${MFG}/qa/inspection-lots${queryString(q)}`,
+  qaLot: (id: string) => `${MFG}/qa/inspection-lots/${enc(id)}`,
+  qaHolds: (q?: Record<string, string>) => `${MFG}/qa/holds${queryString(q)}`,
+  qaNcrs: (q?: Record<string, string>) => `${MFG}/qa/ncrs${queryString(q)}`,
+  qaNcr: (id: string) => `${MFG}/qa/ncrs/${enc(id)}`,
+  qaCapas: (q?: Record<string, string>) => `${MFG}/qa/capas${queryString(q)}`,
+  qaCapa: (id: string) => `${MFG}/qa/capas/${enc(id)}`,
+  qaComplaints: (q?: Record<string, string>) => `${MFG}/qa/complaints${queryString(q)}`,
+  qaComplaint: (id: string) => `${MFG}/qa/complaints/${enc(id)}`,
+  qaFieldActions: (q?: Record<string, string>) => `${MFG}/qa/field-actions${queryString(q)}`,
+  qaFieldAction: (id: string) => `${MFG}/qa/field-actions/${enc(id)}`,
+  qaEquipmentList: (q?: Record<string, string>) => `${MFG}/qa/equipment${queryString(q)}`,
+  qaEquipment: (id: string) => `${MFG}/qa/equipment/${enc(id)}`,
+  qaPlans: (q?: Record<string, string>) => `${MFG}/qa/plans${queryString(q)}`,
+  qaPlan: (id: string) => `${MFG}/qa/plans/${enc(id)}`,
+  qaSchemes: () => `${MFG}/qa/schemes`,
+  qaScheme: (id: string) => `${MFG}/qa/schemes/${enc(id)}`,
+  qaSettings: () => `${MFG}/qa/settings`,
+  esigPolicies: () => `${MFG}/esig/policies`,
+  part11: () => `${MFG}/part11`,
+  part11Exports: () => `${MFG}/part11/exports`,
+  printQa: (type: string, id: string) => `${MFG}/print/qa/${enc(type)}/${enc(id)}`,
+  floorInspect: (lotId: string) => `${MFG}/floor/inspect/${enc(lotId)}`,
+  esigEnroll: (next?: string) => `/account/signature${queryString({ next })}`,
 };
 
 /** M 11.1 `isMfgPath`. */

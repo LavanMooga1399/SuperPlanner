@@ -13,7 +13,7 @@ import { MfgError } from "../../components/Feedback";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { usePaged } from "../../lib/usePaged";
 import { useDebounced } from "../../lib/useMfg";
-import { formatDateTime } from "../../../lib/locale";
+import { formatDateTime, LOCALE } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
@@ -181,7 +181,7 @@ export function AuditPage() {
         onActivate={(e) => (e.details && Object.keys(e.details).length ? setOpen(open === e.id ? null : e.id) : undefined)}
         rowExtras={(e) => ({ testId: "audit-row", className: open === e.id ? "mfg-selected" : undefined })}
         empty={t("mfg.auditPage.empty.noEntriesChangesInThis")}
-        footer={<span className="muted small">{t("mfg.auditPage.text.showingEntriesNewestFirst", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
+        footer={<span className="muted small">{t("mfg.auditPage.text.showingEntriesNewestFirst", { t: t("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }) })}</span>}
         card={{ title: "when", fields: ["who", "did", "what"] }}
       />
       {openEvent ? (

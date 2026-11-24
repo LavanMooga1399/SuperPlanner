@@ -126,3 +126,15 @@ export function savePref(key: string, localKey: string, value: unknown): void {
     }, 600),
   );
 }
+
+/** Save locally and on the server now (no debounce), e.g. before a page reload (language switch). */
+export async function savePrefNow(key: string, localKey: string, value: unknown): Promise<void> {
+  writeLocal(localKey, value);
+  const t = timers.get(key);
+  if (t) {
+    window.clearTimeout(t);
+    timers.delete(key);
+  }
+  if (disabled) return;
+  await put(key, value);
+}

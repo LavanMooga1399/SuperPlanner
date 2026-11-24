@@ -8,6 +8,7 @@ import { Icon, type IconName } from "../../../components/Icon";
 import type { DashboardPeriod, DashboardTile, TileStatus } from "../../api/typesM6";
 import { safeInternalLink } from "../../assistant/AnswerText";
 import { t, t as tr } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 export const PERIODS: { value: DashboardPeriod; label: string }[] = [
   { value: "4w", label: tr("mfg.dashboardBits.str.last4Weeks") },
@@ -66,7 +67,7 @@ export function TileStatusBadge({ status }: { status: TileStatus }) {
 }
 
 const pct = (v: number) => `${(v * 100).toFixed(1).replace(/\.0$/, "")} %`;
-const num = (v: number, digits = 1) => v.toLocaleString("en-IN", { maximumFractionDigits: digits });
+const num = (v: number, digits = 1) => v.toLocaleString(LOCALE, { maximumFractionDigits: digits });
 
 /** Tile value in its unit: "%" is a fraction (0.91 = 91 %), "count", "h", "turns", else a currency code. */
 export function fmtValue(v: number | null | undefined, unit: string): string {

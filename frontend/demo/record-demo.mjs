@@ -64,8 +64,9 @@ async function go(page, url) {
 // ---------------------------------------------------------------- scenes (one function each; add new ones to SCENES)
 
 async function sceneTitle(page) {
-  await page.goto("about:blank");
-  await page.setContent("<!doctype html><html><head></head><body style='margin:0;background:#f3f4f6'></body></html>");
+  // a same-origin blank page (served by the test route) so the card shows from the first frame
+  await page.route(`${BASE}/__demo-card`, (r) => r.fulfill({ contentType: "text/html", body: "<!doctype html><html><head><title>SuperPlanner</title></head><body style='margin:0;background:#f3f4f6'></body></html>" }));
+  await page.goto(`${BASE}/__demo-card`);
   await card(page, "SuperPlanner", ["Production planning for regulated manufacturing.", "Demo with fictional data."],
     "Products modelled on a typical medical-device portfolio. All names, customers and suppliers are fictional.", 7000 * PACE);
   await page.goto(`${BASE}/mfg`);

@@ -80,6 +80,25 @@ export const MFG_NAV: NavGroupDef[] = [
     ],
   },
   {
+    key: "quality",
+    get label() {
+      return t("nav.mfg.group.quality");
+    },
+    testId: "nav-group-quality",
+    sections: [
+      { key: "qa-lots", get label() { return t("nav.mfg.section.qa-lots"); }, to: mfgPaths.qaLots(), icon: "eye", keywords: t("nav.mfg.kw.qa-lots") },
+      { key: "qa-holds", get label() { return t("nav.mfg.section.qa-holds"); }, to: mfgPaths.qaHolds(), icon: "lock", keywords: t("nav.mfg.kw.qa-holds") },
+      { key: "qa-ncrs", get label() { return t("nav.mfg.section.qa-ncrs"); }, to: mfgPaths.qaNcrs(), icon: "alert", keywords: t("nav.mfg.kw.qa-ncrs") },
+      { key: "qa-capas", get label() { return t("nav.mfg.section.qa-capas"); }, to: mfgPaths.qaCapas(), icon: "refresh", keywords: t("nav.mfg.kw.qa-capas") },
+      { key: "qa-complaints", get label() { return t("nav.mfg.section.qa-complaints"); }, to: mfgPaths.qaComplaints(), icon: "chat", keywords: t("nav.mfg.kw.qa-complaints") },
+      { key: "qa-field-actions", get label() { return t("nav.mfg.section.qa-field-actions"); }, to: mfgPaths.qaFieldActions(), icon: "truck", keywords: t("nav.mfg.kw.qa-field-actions") },
+      { key: "qa-equipment", get label() { return t("nav.mfg.section.qa-equipment"); }, to: mfgPaths.qaEquipmentList(), icon: "wrench", keywords: t("nav.mfg.kw.qa-equipment") },
+      { key: "qa-plans", get label() { return t("nav.mfg.section.qa-plans"); }, to: mfgPaths.qaPlans(), icon: "file", keywords: t("nav.mfg.kw.qa-plans") },
+      { key: "qa-schemes", get label() { return t("nav.mfg.section.qa-schemes"); }, to: mfgPaths.qaSchemes(), icon: "columns", keywords: t("nav.mfg.kw.qa-schemes") },
+      { key: "qa-settings", get label() { return t("nav.mfg.section.qa-settings"); }, to: mfgPaths.qaSettings(), icon: "settings", keywords: t("nav.mfg.kw.qa-settings") },
+    ],
+  },
+  {
     key: "master",
     get label() {
       return t("nav.mfg.group.master");
@@ -104,6 +123,9 @@ export const MFG_NAV: NavGroupDef[] = [
       { key: "eco", get label() { return t("nav.mfg.section.eco"); }, to: mfgPaths.ecos(), icon: "file", keywords: t("mfg.nav.str.ecoChangeRequests") },
       { key: "integration", get label() { return t("nav.mfg.section.integration"); }, to: mfgPaths.integration(), icon: "database", keywords: t("mfg.nav.str.erpSyncEndpoints") },
       { key: "audit", get label() { return t("nav.mfg.section.audit"); }, to: mfgPaths.audit(), icon: "shield", keywords: t("mfg.nav.str.historyLog") },
+      { key: "esig-policies", get label() { return t("nav.mfg.section.esig-policies"); }, to: mfgPaths.esigPolicies(), icon: "lock", keywords: t("nav.mfg.kw.esig-policies") },
+      { key: "part11", get label() { return t("nav.mfg.section.part11"); }, to: mfgPaths.part11(), icon: "check", end: true, keywords: t("nav.mfg.kw.part11") },
+      { key: "part11-export", get label() { return t("nav.mfg.section.part11-export"); }, to: mfgPaths.part11Exports(), icon: "download", keywords: t("nav.mfg.kw.part11-export") },
     ],
   },
 ];

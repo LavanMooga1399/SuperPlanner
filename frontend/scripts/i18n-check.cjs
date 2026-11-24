@@ -14,7 +14,7 @@ const program = ts.createProgram(cfg.fileNames, cfg.options);
 const checker = program.getTypeChecker();
 
 const EXCLUDE_DIRS = ["/lib/strings/", "/api/", "/pwa/", "/e2e/"];
-const EXCLUDE_FILES = new Set(["lib/i18n.ts", "mfg/lib/paths.ts", "main.tsx", "vite-env.d.ts"]);
+const EXCLUDE_FILES = new Set(["lib/i18n.ts", "mfg/lib/paths.ts", "main.tsx", "boot.tsx", "vite-env.d.ts"]);
 function areaOf(rel) {
   if (rel.startsWith("mfg/floor/")) return "floor";
   if (rel.startsWith("mfg/mobile/")) return "mobile";

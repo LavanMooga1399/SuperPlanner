@@ -17,6 +17,7 @@ import { VirtualTable, type Column } from "../components/VirtualTable";
 import { mfgPaths } from "../lib/paths";
 import { isAbortError, useDebounced } from "../lib/useMfg";
 import { t } from "../../lib/i18n";
+import { LOCALE } from "../../lib/locale";
 
 const PAGE = 200;
 
@@ -266,7 +267,7 @@ export function ItemsPage() {
         }
         footer={
           <span role="status" data-testid="items-count">
-            {loading && items.length ? <span className="spinner" aria-hidden /> : null}{" "}{t("mfg.itemsPage.text.showingOfItems", { length: items.length.toLocaleString("en-IN"), v: " ", total: total.toLocaleString("en-IN") })}
+            {loading && items.length ? <span className="spinner" aria-hidden /> : null}{" "}{t("mfg.itemsPage.text.showingOfItems", { length: items.length.toLocaleString(LOCALE), v: " ", total: total.toLocaleString(LOCALE) })}
           </span>
         }
       />

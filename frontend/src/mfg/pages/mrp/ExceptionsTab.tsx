@@ -20,6 +20,7 @@ import { useDebounced } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
 import { severityOfCode } from "./RunSummaryTab";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 const csv = (v: string | null) => new Set((v ?? "").split(",").filter(Boolean));
 
@@ -89,7 +90,7 @@ export function ExceptionsTab() {
             .filter(([, n]) => n > 0)
             .map(([code, n]) => (
               <button key={code} type="button" className="btn sm mfg-code-chip" aria-pressed={codes.has(code)} onClick={() => toggle("code", codes, code)} data-testid="exception-code-chip" data-code={code} title={code}>
-                <Icon name={severityOfCode(code) === "critical" ? "x" : severityOfCode(code) === "warning" ? "alert" : "info"} size={12} /> {exceptionLabel(code)} {n.toLocaleString("en-IN")}
+                <Icon name={severityOfCode(code) === "critical" ? "x" : severityOfCode(code) === "warning" ? "alert" : "info"} size={12} /> {exceptionLabel(code)} {n.toLocaleString(LOCALE)}
               </button>
             ))}
           {codes.size || sevs.size ? (
@@ -128,7 +129,7 @@ export function ExceptionsTab() {
         rowExtras={(e) => ({ testId: "exception-row", data: { code: e.code, severity: e.severity, subject: e.subject.label } })}
         onEndReached={data.onEndReached}
         empty={data.loading ? t("mfg.exceptionsTab.str.loadingMessages") : t("mfg.exceptionsTab.str.noMessagesMatchTheseFilters")}
-        footer={<span className="muted small">{t("mfg.exceptionsTab.text.showingMessagesTheFocusedMessage", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
+        footer={<span className="muted small">{t("mfg.exceptionsTab.text.showingMessagesTheFocusedMessage", { t: t("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }) })}</span>}
       />
       {cur ? (
         <section className="card card-body" aria-live="polite" data-testid="exception-focus">

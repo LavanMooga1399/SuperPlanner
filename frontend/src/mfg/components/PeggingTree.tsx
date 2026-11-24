@@ -12,6 +12,7 @@ import { fmtNum } from "../lib/formatM2";
 import { LateBadge } from "./StatusM2";
 import { VirtualTable, type Column } from "./VirtualTable";
 import { t } from "../../lib/i18n";
+import { LOCALE } from "../../lib/locale";
 
 export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: PeggingRow): void }) {
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
@@ -112,7 +113,7 @@ export function PeggingTree({ rows, onPeg }: { rows: PeggingRow[]; onPeg?(r: Peg
         return true;
       }}
       empty={t("mfg.peggingTree.empty.nothingIsPeggedToThis")}
-      footer={<span className="muted small">{t("mfg.peggingTree.text.rowsLeftRightCollapseAnd", { t: t("common.nOfM", { n: visible.length.toLocaleString("en-IN"), m: rows.length.toLocaleString("en-IN") }) })}</span>}
+      footer={<span className="muted small">{t("mfg.peggingTree.text.rowsLeftRightCollapseAnd", { t: t("common.nOfM", { n: visible.length.toLocaleString(LOCALE), m: rows.length.toLocaleString(LOCALE) }) })}</span>}
     />
   );
 }

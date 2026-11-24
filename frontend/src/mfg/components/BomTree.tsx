@@ -15,6 +15,7 @@ import { collapseAll, collapseToLevel, revealAll, revealRow, searchRows, visible
 import { MakeBuyBadge } from "./StatusChip";
 import { VirtualTable, type Column } from "./VirtualTable";
 import { t } from "../../lib/i18n";
+import { LOCALE } from "../../lib/locale";
 
 export interface BomTreeProps {
   rows: ExplosionRow[];
@@ -301,7 +302,7 @@ export function BomTree({ rows, selectLineId, height }: BomTreeProps) {
         })}
         footer={
           <span className="small muted" role="status">
-            {t("mfg.bomTree.text.rowsShown", { t: t("common.nOfM", { n: vis.length.toLocaleString("en-IN"), m: rows.length.toLocaleString("en-IN") }) })}
+            {t("mfg.bomTree.text.rowsShown", { t: t("common.nOfM", { n: vis.length.toLocaleString(LOCALE), m: rows.length.toLocaleString(LOCALE) }) })}
           </span>
         }
       />

@@ -17,6 +17,7 @@ import { useDebounced } from "../../lib/useMfg";
 import { useRun } from "./RunShell";
 import { FilterBar } from "../../../components/FilterBar";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 export function mrpItemColumns(runId: string): Column<MrpItemRow>[] {
   return [
@@ -122,7 +123,7 @@ export function RunItemsTab() {
         onActivate={(r) => navigate(mfgPaths.runItem(run.id, r.item.id))}
         onEndReached={data.onEndReached}
         empty={data.loading ? t("mfg.runItemsTab.str.loadingThePlan") : t("mfg.runItemsTab.str.noItemsMatchTheseFilters")}
-        footer={<span className="muted small">{t("mfg.runItemsTab.text.showingItemsShortIsBefore", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
+        footer={<span className="muted small">{t("mfg.runItemsTab.text.showingItemsShortIsBefore", { t: t("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }) })}</span>}
       />
     </div>
   );

@@ -2,6 +2,7 @@
 import type { DemandType, PostingType, Role } from "../api/typesM2";
 import { fmtQty } from "./format";
 import { t as tr } from "../../lib/i18n";
+import { LOCALE } from "../../lib/locale";
 
 export const POSTING_LABEL: Record<PostingType, string> = {
   receipt_misc: tr("mfg.formatM2.str.receiptNoOrder"),
@@ -29,6 +30,10 @@ export const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "store_keeper", label: tr("mfg.formatM2.str.storeKeeper") },
   { value: "approver", label: tr("mfg.formatM2.str.approver") },
   { value: "viewer", label: tr("mfg.formatM2.str.viewer") },
+  { value: "qa_inspector", label: tr("qa.roles.str.qaInspector") },
+  { value: "qa_engineer", label: tr("qa.roles.str.qaEngineer") },
+  { value: "qa_approver", label: tr("qa.roles.str.qaApprover") },
+  { value: "metrology", label: tr("qa.roles.str.metrology") },
 ];
 
 /** Quantity with the unit, e.g. "30 EA". */
@@ -40,12 +45,12 @@ export function qtyUom(q: number | null | undefined, uom?: string): string {
 /** Thousands separators for counts and large quantities. */
 export function fmtNum(x: number | null | undefined): string {
   if (x === null || x === undefined || Number.isNaN(x)) return "";
-  return (Math.round(x * 1e6) / 1e6).toLocaleString("en-IN", { maximumFractionDigits: 6 });
+  return (Math.round(x * 1e6) / 1e6).toLocaleString(LOCALE, { maximumFractionDigits: 6 });
 }
 
 export function fmtMoney(x: number | null | undefined, currency?: string): string {
   if (x === null || x === undefined || Number.isNaN(x)) return "";
-  const t = x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const t = x.toLocaleString(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return currency ? `${t} ${currency}` : t;
 }
 

@@ -7,8 +7,9 @@
 import type { EntityId, IsoDate, IsoDateTime, ItemRecord, ItemRef, LotRule, MakeBuy, Page, PlantRecord, Ref, Weekday } from "./types";
 
 // ---------------------------------------------------------------- 3 common types
-export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin";
-export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin"];
+/** M7 9.1 adds the quality roles (qa_inspector, qa_engineer, qa_approver, metrology). */
+export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin" | "qa_inspector" | "qa_engineer" | "qa_approver" | "metrology";
+export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin", "qa_inspector", "qa_engineer", "qa_approver", "metrology"];
 export type LocationKind = "stores" | "line_side" | "inspection" | "quarantine";
 export const LOCATION_KINDS: readonly LocationKind[] = ["stores", "line_side", "inspection", "quarantine"];
 export type LotRuleM2 = LotRule;
@@ -40,6 +41,19 @@ export type Permission =
   | "integration_admin"
   /** M6 5: the planning assistant (all plant roles except operator) */
   | "assistant_use"
+  /** M7 9.1 quality and Part 11 */
+  | "qa_inspect"
+  | "qa_decide"
+  | "qa_plan_edit"
+  | "ncr_edit"
+  | "ncr_approve"
+  | "capa_edit"
+  | "complaint_edit"
+  | "field_action_edit"
+  | "capa_approve"
+  | "equipment_edit"
+  | "audit_view"
+  | "esig_policy_edit"
   | "owner";
 
 export interface Actor {

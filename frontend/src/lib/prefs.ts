@@ -4,7 +4,8 @@
  * any component (tables, header) re-renders when they change.
  */
 import { useSyncExternalStore } from "react";
-import { savePref, syncPref } from "./serverPrefs";
+import { savePref, savePrefNow, syncPref } from "./serverPrefs";
+import { getLocale, setLocale, type Locale } from "./i18n";
 
 export type ThemePref = "light" | "dark" | "system";
 export type Density = "compact" | "comfortable";
@@ -86,7 +87,16 @@ const DISPLAY_PREF = "display";
 const DISPLAY_LOCAL = "sp.display";
 
 function pushDisplay(): void {
-  savePref(DISPLAY_PREF, DISPLAY_LOCAL, { theme: state.theme, density: state.density });
+  savePref(DISPLAY_PREF, DISPLAY_LOCAL, { theme: state.theme, density: state.density, locale: getLocale() });
+}
+
+/** M7 10: the UI language follows the person (server display preference `locale`); switching reloads the page. */
+export async function setLanguage(locale: Locale): Promise<void> {
+  if (locale === getLocale()) return;
+  const save = savePrefNow(DISPLAY_PREF, DISPLAY_LOCAL, { theme: state.theme, density: state.density, locale });
+  // never wait long for the server: the local copy already holds the choice
+  await Promise.race([save.catch(() => undefined), new Promise((r) => window.setTimeout(r, 1500))]);
+  setLocale(locale);
 }
 
 function applyLocal(theme: ThemePref, density: Density): void {
@@ -110,10 +120,12 @@ export function syncDisplayPrefs(): void {
   // seed the local cache from the two legacy keys so the one-time migration has something to upload
   if (window.localStorage.getItem(DISPLAY_LOCAL) === null && (window.localStorage.getItem(THEME_KEY) !== null || window.localStorage.getItem(DENSITY_KEY) !== null))
     write(DISPLAY_LOCAL, { theme: state.theme, density: state.density });
-  syncPref<{ theme?: ThemePref; density?: Density }>(DISPLAY_PREF, DISPLAY_LOCAL, (v) => {
+  syncPref<{ theme?: ThemePref; density?: Density; locale?: Locale }>(DISPLAY_PREF, DISPLAY_LOCAL, (v) => {
     const theme = v?.theme === "light" || v?.theme === "dark" || v?.theme === "system" ? v.theme : state.theme;
     const density = v?.density === "comfortable" || v?.density === "compact" ? v.density : state.density;
     applyLocal(theme, density);
+    // another browser chose a different language: follow it (one reload)
+    if ((v?.locale === "en" || v?.locale === "fr-CA") && v.locale !== getLocale()) setLocale(v.locale);
   });
 }
 

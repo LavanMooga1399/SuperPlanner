@@ -43,7 +43,7 @@ import { t, t as tr } from "../lib/i18n";
 import { DataTable } from "../mfg/components/DataTable";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
-const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer"];
+const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer", "qa_inspector", "qa_engineer", "qa_approver", "metrology"];
 
 function openPlant(ownerId: string) {
   switchWorkspace(ownerId, null);

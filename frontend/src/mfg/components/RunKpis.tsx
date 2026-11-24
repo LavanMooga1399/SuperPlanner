@@ -4,6 +4,7 @@ import { Icon, type IconName } from "../../components/Icon";
 import type { MrpRunRecord } from "../api/typesM2";
 import { mfgPaths } from "../lib/paths";
 import { t as tr } from "../../lib/i18n";
+import { LOCALE } from "../../lib/locale";
 
 export function RunKpis({ run }: { run: MrpRunRecord }) {
   const s = run.summary;
@@ -18,7 +19,7 @@ export function RunKpis({ run }: { run: MrpRunRecord }) {
       bad: s.demand_late + s.demand_past_due > 0,
       to: mfgPaths.runDemand(run.id),
     },
-    { key: "short", label: tr("mfg.runKpis.str.partsShort"), value: s.items_short, sub: tr("mfg.runKpis.tpl.ofPartsPlanned", { items: s.items.toLocaleString("en-IN") }), icon: s.items_short ? "alert" : "check", bad: s.items_short > 0, to: `${mfgPaths.runItems(run.id)}?short=1` },
+    { key: "short", label: tr("mfg.runKpis.str.partsShort"), value: s.items_short, sub: tr("mfg.runKpis.tpl.ofPartsPlanned", { items: s.items.toLocaleString(LOCALE) }), icon: s.items_short ? "alert" : "check", bad: s.items_short > 0, to: `${mfgPaths.runItems(run.id)}?short=1` },
     { key: "planned_make", label: tr("mfg.runKpis.str.plannedWorkOrders"), value: s.planned_make, sub: tr("mfg.runKpis.str.toMake"), icon: "factory", to: `${mfgPaths.runPlanned(run.id)}?kind=make` },
     { key: "planned_buy", label: tr("mfg.runKpis.str.plannedPurchases"), value: s.planned_buy, sub: tr("mfg.runKpis.str.toBuy"), icon: "briefcase", to: `${mfgPaths.runPlanned(run.id)}?kind=buy` },
     {
@@ -39,7 +40,7 @@ export function RunKpis({ run }: { run: MrpRunRecord }) {
             <Icon name={t.icon} size={13} /> {t.label}
           </div>
           <div className="kpi-value" style={t.bad ? { color: "var(--danger)" } : undefined}>
-            {t.value.toLocaleString("en-IN")}
+            {t.value.toLocaleString(LOCALE)}
           </div>
           <div className="kpi-sub">{t.sub}</div>
         </Link>

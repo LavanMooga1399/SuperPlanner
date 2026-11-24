@@ -37,6 +37,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
 import { t, t as tr } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 const EVENT_TYPES = [
   "work_order.created",
@@ -54,7 +55,7 @@ const EVENT_TYPES = [
   "transfer_order.received",
 ];
 
-const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "medium", hourCycle: "h23" }) : "");
+const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString(LOCALE, { dateStyle: "short", timeStyle: "medium", hourCycle: "h23" }) : "");
 
 // ---------------------------------------------------------------- webhooks
 /** 32 random bytes, url-safe base64: the signing secret (shown once; the server stores it encrypted) */

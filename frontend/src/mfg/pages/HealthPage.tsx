@@ -15,6 +15,7 @@ import { useDebounced, useLoad, usePlant } from "../lib/useMfg";
 import { plural, t, t as tr } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
 import { DateInput } from "../../components/DateInput";
+import { LOCALE } from "../../lib/locale";
 
 const SEVERITIES: { key: Severity; label: string }[] = [
   { key: "error", label: tr("mfg.healthPage.str.errors") },
@@ -136,7 +137,7 @@ export function HealthPage() {
           ) : null}
           {r.truncated ? (
             <Banner tone="warn" title={t("mfg.healthPage.title.onlyTheFirstIssuesAre")}>
-              {tr("mfg.healthPage.text.theCountsAboveAreComplete", { length: r.issues.length.toLocaleString("en-IN") })}
+              {tr("mfg.healthPage.text.theCountsAboveAreComplete", { length: r.issues.length.toLocaleString(LOCALE) })}
             </Banner>
           ) : null}
           {r.issues.length === 0 ? (

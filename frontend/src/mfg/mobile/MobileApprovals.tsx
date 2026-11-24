@@ -21,7 +21,7 @@ import { usePolling } from "../lib/usePolling";
 import { errorText, isConflict, useLoad } from "../lib/useMfg";
 import { mobileLink } from "./MobileAlerts";
 import { useOnline } from "./MobileLayout";
-import { formatDate } from "../../lib/locale";
+import { formatDate, LOCALE } from "../../lib/locale";
 import { t as tr } from "../../lib/i18n";
 
 const KIND: Record<ApprovalKind, { label: string; icon: IconName }> = {
@@ -75,7 +75,7 @@ function ProposalCompare({ runId }: { runId: string }) {
           <dt>{tr("mobile.mobileApprovals.head.lateness")}</dt>
           <dd>{t.late_minutes_saved > 0 ? `${mins(t.late_minutes_saved)} less` : t.late_minutes_saved < 0 ? `${mins(-t.late_minutes_saved)} more` : "same"}</dd>
           <dt>{tr("mobile.mobileApprovals.head.overtime")}</dt>
-          <dd>{t.overtime_hours_added ? tr("mobile.mobileApprovals.tpl.hMoreCost", { overtimehoursadded: t.overtime_hours_added.toFixed(1), toLocaleString: Math.round(t.overtime_cost_added).toLocaleString("en-IN") }) : tr("mobile.mobileApprovals.str.noChange")}</dd>
+          <dd>{t.overtime_hours_added ? tr("mobile.mobileApprovals.tpl.hMoreCost", { overtimehoursadded: t.overtime_hours_added.toFixed(1), toLocaleString: Math.round(t.overtime_cost_added).toLocaleString(LOCALE) }) : tr("mobile.mobileApprovals.str.noChange")}</dd>
         </dl>
       ) : null}
       {kpis.length ? (

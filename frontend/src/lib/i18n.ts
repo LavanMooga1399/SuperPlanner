@@ -15,6 +15,7 @@ import { mobileStrings } from "./strings/mobile";
 import { navStrings } from "./strings/nav";
 import { shellStrings } from "./strings/shell";
 import { studioStrings } from "./strings/studio";
+import { qualityStrings } from "./strings/quality";
 
 const en = {
   ...navStrings,
@@ -26,6 +27,7 @@ const en = {
   ...financeStrings,
   ...accountStrings,
   ...shellStrings,
+  ...qualityStrings,
   "common.cancel": "Cancel",
   "common.close": "Close",
   "common.dismiss": "Dismiss notification",
@@ -74,15 +76,72 @@ const en = {
   "palette.hint": "Type 2+ characters to search records",
   "error.reference": "Reference",
   "error.copyReference": "Copy reference",
+  "shell.lang.label": "Language",
+  "shell.lang.en": "English",
+  "shell.lang.frCA": "Français (Canada)",
 } as const;
 
 export type StringKey = keyof typeof en;
 
+/**
+ * Languages (M7 10): English (default) and French (Canada). The choice is read synchronously at start-up from the
+ * local cache (`sp.locale`, mirrored in the server display preference), so module-level labels are created in the
+ * right language; `loadLocale()` fetches the French dictionary before the app modules load (main.tsx), and
+ * `setLocale()` stores the choice and reloads the page.
+ */
+export type Locale = "en" | "fr-CA";
+export const LOCALES: readonly Locale[] = ["en", "fr-CA"];
+const LOCALE_KEY = "sp.locale";
+
+function storedLocale(): Locale {
+  try {
+    const v = window.localStorage.getItem(LOCALE_KEY);
+    return v === "fr-CA" ? "fr-CA" : "en";
+  } catch {
+    return "en";
+  }
+}
+
+let locale: Locale = typeof window === "undefined" ? "en" : storedLocale();
+
+/** Active language. */
+export function getLocale(): Locale {
+  return locale;
+}
+
+/** Intl locale for numbers and dates (UX-STANDARD 4: en-IN for English, fr-CA for French). */
+export function intlLocale(): string {
+  return locale === "fr-CA" ? "fr-CA" : "en-IN";
+}
+
 let dict: Record<StringKey, string> = en;
 
-/** Replace the active dictionary (e.g. a future translation); missing keys fall back to English. */
+/** Replace the active dictionary (a translation); missing keys fall back to English. */
 export function setStrings(next: Partial<Record<StringKey, string>>): void {
   dict = { ...en, ...next };
+}
+
+/** Load the dictionary of the stored language (before the app modules are evaluated). */
+export async function loadLocale(): Promise<void> {
+  if (locale === "en") return;
+  try {
+    const fr = await import("./strings/fr-CA");
+    setStrings(fr.frCaStrings);
+    document.documentElement.lang = "fr-CA";
+  } catch {
+    // the French bundle could not be loaded (offline first visit): English stays, nothing breaks
+    locale = "en";
+  }
+}
+
+/** Store the language (local cache now, server preference via `prefs.ts`) and reload so every label follows. */
+export function setLocale(next: Locale, reload = true): void {
+  try {
+    window.localStorage.setItem(LOCALE_KEY, next);
+  } catch {
+    /* storage unavailable */
+  }
+  if (reload && next !== locale) window.location.reload();
 }
 
 export function t(key: StringKey, vars?: Record<string, unknown>): string {
@@ -91,10 +150,23 @@ export function t(key: StringKey, vars?: Record<string, unknown>): string {
   return s;
 }
 
-const pluralRules = new Intl.PluralRules("en-IN");
+/** True when the dictionary has `key` (for dynamic keys such as `errors.<CODE>`). */
+export function hasKey(key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(en, key);
+}
+
+/** Localised text of an API error code (`errors.<CODE>`), else the server message (English sessions keep the server's own words). */
+export function errorMessage(code: string | undefined, serverMessage: string, vars?: Record<string, unknown>): string {
+  if (!code || locale === "en") return serverMessage;
+  const key = `errors.${code}`;
+  return hasKey(key) ? t(key as StringKey, vars) : serverMessage;
+}
+
+let pluralRules = new Intl.PluralRules(intlLocale());
 
 /** "1 warning", "2 warnings", "1,200 items": count with digit grouping and the right noun form. */
 export function plural(n: number | null | undefined, one: string, other: string = `${one}s`): string {
   const v = n ?? 0;
-  return `${v.toLocaleString("en-IN")} ${pluralRules.select(v) === "one" ? one : other}`;
+  if (pluralRules.resolvedOptions().locale.slice(0, 2) !== intlLocale().slice(0, 2)) pluralRules = new Intl.PluralRules(intlLocale());
+  return `${v.toLocaleString(intlLocale())} ${pluralRules.select(v) === "one" ? one : other}`;
 }

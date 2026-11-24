@@ -17,6 +17,7 @@ import { useDebounced, useLoad } from "../../lib/useMfg";
 import { PageHeader } from "../../../components/PageHeader";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 const STATUS: Record<SerialStatus, { label: string; tone: string; icon: "check" | "clock" | "layers" | "arrow-right" | "trash" }> = {
   wip: { label: t("mfg.serialsPage.str.inProduction"), tone: "accent", icon: "clock" },
@@ -84,7 +85,7 @@ export function SerialsPage() {
         exportName="serials"
         rowExtras={() => ({ testId: "serial-row" })}
         empty={chips.length ? t("mfg.serialsPage.str.noSerialsMatchTheseFilters") : t("mfg.serialsPage.str.noSerialsYetSerialsAre")}
-        footer={<span className="muted small">{t("mfg.serialsPage.text.showingSerials", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
+        footer={<span className="muted small">{t("mfg.serialsPage.text.showingSerials", { t: t("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }) })}</span>}
         card={{ title: "serial", status: "status", fields: ["item", "wo", "captured"] }}
       />
     </div>

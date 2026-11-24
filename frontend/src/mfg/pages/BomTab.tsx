@@ -33,6 +33,7 @@ import { useItem } from "./ItemShell";
 import { toast } from "../../components/Toast";
 import { plural, t } from "../../lib/i18n";
 import { DateInput } from "../../components/DateInput";
+import { LOCALE } from "../../lib/locale";
 
 type Pending = { kind: "release" | "obsolete" | "delete"; bom: BomSummary } | null;
 
@@ -264,7 +265,7 @@ export function BomTab() {
           {explosion.data && explosion.data.mode === "summarized" && mode === "summarized" ? <SummaryTable rows={explosion.data.rows} /> : null}
           {explosion.data ? (
             <p className="small muted" style={{ margin: 0 }} data-testid="bom-totals">
-              {t("mfg.bomTab.text.distinctItemsMakeBuyPhantom", { distinctitems: explosion.data.totals.distinct_items.toLocaleString("en-IN"), makeitems: explosion.data.totals.make_items, v: " ", buyitems: explosion.data.totals.buy_items, phantomitems: explosion.data.totals.phantom_items, v2: explosion.data.totals.max_level + 1 })}
+              {t("mfg.bomTab.text.distinctItemsMakeBuyPhantom", { distinctitems: explosion.data.totals.distinct_items.toLocaleString(LOCALE), makeitems: explosion.data.totals.make_items, v: " ", buyitems: explosion.data.totals.buy_items, phantomitems: explosion.data.totals.phantom_items, v2: explosion.data.totals.max_level + 1 })}
             </p>
           ) : null}
         </div>

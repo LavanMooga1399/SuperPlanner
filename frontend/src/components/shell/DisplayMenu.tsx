@@ -1,8 +1,8 @@
-/** Header "Display" menu: theme (system / light / dark) and density (compact / comfortable). */
+/** Header "Display" menu: theme (system / light / dark), density (compact / comfortable) and language (M7 10). */
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../Icon";
-import { setDensity, setTheme, usePrefs, type Density, type ThemePref } from "../../lib/prefs";
-import { t, t as tr } from "../../lib/i18n";
+import { setDensity, setLanguage, setTheme, usePrefs, type Density, type ThemePref } from "../../lib/prefs";
+import { getLocale, LOCALES, t, t as tr, type Locale } from "../../lib/i18n";
 
 const THEMES: { v: ThemePref; label: string }[] = [
   { v: "system", label: tr("shell.displayMenu.str.matchSystem") },
@@ -72,6 +72,18 @@ export function DisplayMenu() {
               </label>
             ))}
           </fieldset>
+          <div className="popover-group">
+            <label className="popover-legend" htmlFor="sp-lang">
+              {t("shell.lang.label")}
+            </label>
+            <select id="sp-lang" className="select" value={getLocale()} onChange={(e) => void setLanguage(e.target.value as Locale)} data-testid="lang-select">
+              {LOCALES.map((l) => (
+                <option key={l} value={l} lang={l}>
+                  {l === "fr-CA" ? t("shell.lang.frCA") : t("shell.lang.en")}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       ) : null}
     </div>

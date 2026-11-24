@@ -19,6 +19,7 @@ import { useDebounced } from "../../lib/useMfg";
 import { BulkActions, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
 import { useCan } from "../../lib/permissions";
 import { t, t as tr } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 export function DemandList() {
   const [params, setParams] = useSearchParams();
@@ -172,7 +173,7 @@ export function DemandList() {
         onSortChange={(x) => set("sort", !x || x.key === "number" ? "" : x.key)}
         exportName="demand-orders"
         empty={data.loading ? tr("mfg.demandList.str.loading") : tr("mfg.demandList.str.noDemandOrdersMatchThese")}
-        footer={<span>{tr("mfg.demandList.text.showingOrders", { tr: tr("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
+        footer={<span>{tr("mfg.demandList.text.showingOrders", { tr: tr("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }) })}</span>}
       />
     </div>
   );

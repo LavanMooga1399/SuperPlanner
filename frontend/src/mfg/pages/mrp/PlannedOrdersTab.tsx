@@ -25,6 +25,7 @@ import { useRun } from "./RunShell";
 import { FilterBar } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 const MAX_SELECT = 500;
 
@@ -373,7 +374,7 @@ export function PlannedOrdersTab() {
         }}
         onEndReached={data.onEndReached}
         empty={data.loading ? t("mfg.plannedOrdersTab.str.loadingPlannedOrders") : t("mfg.plannedOrdersTab.str.noPlannedOrdersMatchThese")}
-        footer={<span className="muted small">{t("mfg.plannedOrdersTab.text.showingPlannedOrders", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }), v: canConvert ? t("mfg.plannedOrdersTab.str.spaceSelectsTheFocusedRow") : "" })}</span>}
+        footer={<span className="muted small">{t("mfg.plannedOrdersTab.text.showingPlannedOrders", { t: t("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }), v: canConvert ? t("mfg.plannedOrdersTab.str.spaceSelectsTheFocusedRow") : "" })}</span>}
       />
       {converting ? (
         <ConvertDialog

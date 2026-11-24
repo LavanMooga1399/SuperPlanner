@@ -17,7 +17,7 @@ import { usePolling } from "../lib/usePolling";
 import { useLoad } from "../lib/useMfg";
 import { loadLines, lineState, type LineState } from "./glance";
 import { useOnline } from "./MobileLayout";
-import { formatDateTime, formatTime } from "../../lib/locale";
+import { formatDateTime, formatTime, LOCALE } from "../../lib/locale";
 import { t } from "../../lib/i18n";
 
 export const LINE_STATE: Record<LineState, { label: string; icon: IconName; tone: string }> = {
@@ -195,7 +195,7 @@ export function MobileLine() {
                     <div className="m-sub">
                       {i === 0 ? t("mobile.mobileLines.str.now") : ""}
                       {r.wo.item.part_number} · {r.qty_good}/{r.qty_planned}
-                      {r.planned_start ? ` · planned ${new Date(r.planned_start).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : ""}
+                      {r.planned_start ? ` · planned ${new Date(r.planned_start).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : ""}
                     </div>
                   </div>
                   <OpStatusChip status={r.status} />

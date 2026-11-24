@@ -21,6 +21,7 @@ import { isConflict, todayInOffset, useDebounced, usePlant } from "../../lib/use
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 function LotDialog({ lot, onClose, onSaved }: { lot: LotRecord; onClose(): void; onSaved(l: LotRecord): void }) {
   const [f, setF] = useState({ expires_on: lot.expires_on ?? "", supplier_lot: lot.supplier_lot, hold: lot.hold, note: lot.note });
@@ -184,7 +185,7 @@ export function LotsTab() {
         rowExtras={(l) => ({ testId: "lot-row", data: { lot: l.lot_code, hold: l.hold }, className: l.id === lotParam ? "mfg-selected" : undefined })}
         onEndReached={data.onEndReached}
         empty={data.loading ? t("mfg.lotsTab.str.loadingLots") : t("mfg.lotsTab.str.noLotsLotsAreCreated")}
-        footer={<span className="muted small">{t("mfg.lotsTab.text.showingLotsEarliestExpiryFirst", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
+        footer={<span className="muted small">{t("mfg.lotsTab.text.showingLotsEarliestExpiryFirst", { t: t("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }) })}</span>}
       />
       {editing ? (
         <LotDialog

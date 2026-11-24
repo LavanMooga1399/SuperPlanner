@@ -8,11 +8,12 @@ import { PageHeader } from "../components/PageHeader";
 import { FormError, MAX_PASSWORD, MIN_PASSWORD, PasswordInput, authFailureText } from "./AuthFields";
 import "./auth.css";
 import { t } from "../lib/i18n";
+import { LOCALE } from "../lib/locale";
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "-";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(LOCALE, { year: "numeric", month: "long", day: "numeric" });
 }
 
 export function AccountPage() {

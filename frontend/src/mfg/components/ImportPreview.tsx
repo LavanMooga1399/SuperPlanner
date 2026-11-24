@@ -9,6 +9,7 @@ import { saveBlob } from "../api/client";
 import { sheetLabel } from "./ImportUpload";
 import { VirtualTable, type Column } from "./VirtualTable";
 import { t } from "../../lib/i18n";
+import { LOCALE } from "../../lib/locale";
 
 const ACTION_LABEL: Record<string, string> = { create: t("mfg.importPreview.str.new"), update: t("mfg.importPreview.str.changed"), delete: t("mfg.importPreview.str.removed"), unchanged: t("mfg.importPreview.str.same") };
 
@@ -69,7 +70,7 @@ export function ImportPreview({ preview, filename }: { preview: Preview; filenam
           <div className="card-header">
             <h3 id="imp-err-title" className="row">
               <span className="badge danger">
-                <Icon name="x" /> {preview.error_count.toLocaleString("en-IN")} {preview.error_count === 1 ? t("mfg.importPreview.str.rowError") : t("mfg.importPreview.str.rowErrors")}
+                <Icon name="x" /> {preview.error_count.toLocaleString(LOCALE)} {preview.error_count === 1 ? t("mfg.importPreview.str.rowError") : t("mfg.importPreview.str.rowErrors")}
               </span>
               {preview.row_errors.length < preview.error_count ? <span className="muted small">{t("mfg.importPreview.text.firstShown", { length: preview.row_errors.length })}</span> : null}
             </h3>

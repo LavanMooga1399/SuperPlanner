@@ -28,10 +28,11 @@ import { TokensPage } from "./auth/TokensPage";
 import { OrgListPage, OrgPage } from "./orgs/OrgPages";
 import { SignUpPage } from "./auth/SignUpPage";
 import { AccountPage } from "./auth/AccountPage";
+import { SignatureEnrolPage } from "./auth/SignatureEnrolPage";
 import { registerServiceWorker } from "./pwa/pwa";
 import { mobileRoutes } from "./mfg/mobile/routes";
 
-// PHASE2B 4.10: the auth provider wraps everything (it needs the router); sign-in/sign-up sit outside the
+// The app (loaded by main.tsx after the language). PHASE2B 4.10: the auth provider wraps everything (it needs the router); sign-in/sign-up sit outside the
 // guard; every existing page is inside it. In single_user mode the guard renders the pages as before.
 const router = createBrowserRouter([
   {
@@ -73,6 +74,7 @@ const router = createBrowserRouter([
               ...intakeRoutes,
               { path: "account", element: <AccountPage /> },
               { path: "account/tokens", element: <TokensPage /> },
+              { path: "account/signature", element: <SignatureEnrolPage /> },
               { path: "orgs", element: <OrgListPage /> },
               { path: "orgs/:org", element: <OrgPage tab="overview" /> },
               { path: "orgs/:org/dashboard", element: <OrgPage tab="dashboard" /> },

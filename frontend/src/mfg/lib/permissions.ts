@@ -10,7 +10,7 @@ import { ApiError } from "../../api/client";
 import { getMe, listWorkspaces } from "../api/clientM2";
 import type { MeResponse, Permission, Role, WorkspaceInfo } from "../api/typesM2";
 import { clearWorkspace, currentWorkspace } from "./workspace";
-import { t } from "../../lib/i18n";
+import { intlLocale, t } from "../../lib/i18n";
 
 export const ALL_PERMISSIONS: readonly Permission[] = [
   "view",
@@ -37,6 +37,18 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "transfer_edit",
   "integration_admin",
   "assistant_use",
+  "qa_inspect",
+  "qa_decide",
+  "qa_plan_edit",
+  "ncr_edit",
+  "ncr_approve",
+  "capa_edit",
+  "complaint_edit",
+  "field_action_edit",
+  "capa_approve",
+  "equipment_edit",
+  "audit_view",
+  "esig_policy_edit",
   "owner",
 ];
 
@@ -50,6 +62,10 @@ export const ROLE_LABEL: Record<Role | "owner", string> = {
   operator: t("mfg.permissions.str.operator"),
   supervisor: t("mfg.permissions.str.supervisor"),
   plant_admin: t("mfg.permissions.str.plantAdmin"),
+  qa_inspector: t("qa.roles.str.qaInspector"),
+  qa_engineer: t("qa.roles.str.qaEngineer"),
+  qa_approver: t("qa.roles.str.qaApprover"),
+  metrology: t("qa.roles.str.metrology"),
 };
 
 export const ROLE_HELP: Record<Role, string> = {
@@ -61,11 +77,15 @@ export const ROLE_HELP: Record<Role, string> = {
   operator: t("mfg.permissions.str.shopFloorStartsReportsAnd"),
   supervisor: t("mfg.permissions.str.shopFloorLeadEverythingAn"),
   plant_admin: t("mfg.permissions.str.everythingInThisPlantLike"),
+  qa_inspector: t("qa.roles.str.qaInspectorHelp"),
+  qa_engineer: t("qa.roles.str.qaEngineerHelp"),
+  qa_approver: t("qa.roles.str.qaApproverHelp"),
+  metrology: t("qa.roles.str.metrologyHelp"),
 };
 
 /** 10.2 matrix: which member roles hold a permission (the owner holds all). */
 export const PERMISSION_ROLES: Record<Permission, Role[]> = {
-  view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor"],
+  view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology"],
   master_edit: ["planner"],
   supplier_edit: ["planner", "purchaser"],
   inventory: ["store_keeper"],
@@ -88,12 +108,24 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   eco_approve: ["approver", "plant_admin"],
   transfer_edit: ["planner", "store_keeper", "plant_admin"],
   integration_admin: ["plant_admin"],
-  assistant_use: ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "viewer"],
+  assistant_use: ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "viewer", "qa_inspector", "qa_engineer", "qa_approver", "metrology"],
+  qa_inspect: ["qa_inspector", "qa_engineer", "qa_approver", "operator", "supervisor"],
+  qa_decide: ["qa_inspector", "qa_engineer", "qa_approver"],
+  qa_plan_edit: ["qa_engineer", "qa_approver"],
+  ncr_edit: ["qa_inspector", "qa_engineer", "qa_approver", "supervisor"],
+  ncr_approve: ["qa_engineer", "qa_approver"],
+  capa_edit: ["qa_engineer", "qa_approver"],
+  complaint_edit: ["qa_engineer", "qa_approver"],
+  field_action_edit: ["qa_engineer", "qa_approver"],
+  capa_approve: ["qa_approver"],
+  equipment_edit: ["metrology", "qa_engineer"],
+  audit_view: ["qa_engineer", "qa_approver"],
+  esig_policy_edit: ["qa_approver"],
   owner: [],
 };
 
 export function rolesText(roles: Role[]): string {
-  return roles.length ? roles.map((r) => ROLE_LABEL[r]).join(" or ") : t("mfg.permissions.str.owner");
+  return roles.length ? new Intl.ListFormat(intlLocale(), { type: "disjunction" }).format(roles.map((r) => ROLE_LABEL[r])) : t("mfg.permissions.str.owner");
 }
 
 /** Tooltip for a hidden/disabled action. */

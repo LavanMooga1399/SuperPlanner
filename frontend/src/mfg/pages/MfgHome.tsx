@@ -19,6 +19,7 @@ import { mfgPaths } from "../lib/paths";
 import { useLoad } from "../lib/useMfg";
 import { plural, t, t as tr } from "../../lib/i18n";
 import { PageHeader } from "../../components/PageHeader";
+import { LOCALE } from "../../lib/locale";
 
 const KPIS: { key: keyof SummaryCounts; label: string; sub?: (c: SummaryCounts) => string; to: string }[] = [
   { key: "items", label: tr("mfg.mfgHome.str.items"), sub: (c) => `${c.make} make · ${c.buy} buy · ${c.phantom} phantom`, to: mfgPaths.items() },
@@ -154,7 +155,7 @@ function FloorCard({ summary }: { summary: Summary }) {
         {tiles.map((t) => (
           <Link key={t.testId} to={t.to} className="card kpi" data-testid={t.testId} style={{ textDecoration: "none", color: "inherit" }}>
             <div className="kpi-label">{t.label}</div>
-            <div className="kpi-value">{t.value.toLocaleString("en-IN")}</div>
+            <div className="kpi-value">{t.value.toLocaleString(LOCALE)}</div>
             {t.bad ? (
               <span className="badge danger kpi-status">
                 <Icon name="alert" /> {tr("mfg.mfgHome.btn.needsAction")}
@@ -212,7 +213,7 @@ function PlanningCard({ summary }: { summary: Summary }) {
         {tiles.map((t) => (
           <Link key={t.label} to={t.to} className="card kpi mfg-kpi" data-testid={t.testId}>
             <div className="kpi-label">{t.label}</div>
-            <div className="kpi-value">{t.value.toLocaleString("en-IN")}</div>
+            <div className="kpi-value">{t.value.toLocaleString(LOCALE)}</div>
             {t.bad ? (
               <span className="badge danger kpi-status">
                 <Icon name="alert" /> {tr("mfg.mfgHome.btn.needsAction")}
@@ -283,7 +284,7 @@ export function MfgHome() {
           {KPIS.map((k) => (
             <Link key={k.key} to={k.to} className="card kpi mfg-kpi" data-testid={`mfg-count-${k.key}`}>
               <div className="kpi-label">{k.label}</div>
-              <div className="kpi-value">{c[k.key].toLocaleString("en-IN")}</div>
+              <div className="kpi-value">{c[k.key].toLocaleString(LOCALE)}</div>
               {k.sub ? <div className="kpi-sub">{k.sub(c)}</div> : null}
             </Link>
           ))}

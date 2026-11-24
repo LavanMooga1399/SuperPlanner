@@ -5,7 +5,7 @@
  */
 
 const DAY_NAMES = [t("shell.time.str.sun"), t("shell.time.str.mon"), t("shell.time.str.tue"), t("shell.time.str.wed"), t("shell.time.str.thu"), t("shell.time.str.fri"), t("shell.time.str.sat")];
-import { formatDateTime } from "./locale";
+import { formatDateTime, LOCALE } from "./locale";
 import { t } from "./i18n";
 const MONTH_NAMES = [t("shell.time.str.jan"), t("shell.time.str.feb"), t("shell.time.str.mar"), t("shell.time.str.apr"), t("shell.time.str.may"), t("shell.time.str.jun"), t("shell.time.str.jul"), t("shell.time.str.aug"), t("shell.time.str.sep"), t("shell.time.str.oct"), t("shell.time.str.nov"), t("shell.time.str.dec")];
 
@@ -184,7 +184,7 @@ export function fmtSeconds(s: number | null | undefined): string {
 export function fmtMoney(v: number | null | undefined, currency: string): string {
   if (v === null || v === undefined) return "-";
   try {
-    return new Intl.NumberFormat("en-IN", {
+    return new Intl.NumberFormat(LOCALE, {
       style: "currency",
       currency: currency || "USD",
       maximumFractionDigits: v >= 1000 ? 0 : 2,

@@ -15,6 +15,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { DateInput } from "../../../components/DateInput";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 export function scheduleColumns(): Column<ScheduleRow>[] {
   return [
@@ -136,7 +137,7 @@ export function DeliveryBoard() {
         onActivate={(s) => navigate(s.link)}
         onEndReached={data.onEndReached}
         empty={data.loading ? t("mfg.deliveryBoard.str.loadingDeliveries") : t("mfg.deliveryBoard.str.noOpenDeliveriesMatchThese")}
-        footer={<span className="muted small">{t("mfg.deliveryBoard.text.showingOpenDeliveries", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }) })}</span>}
+        footer={<span className="muted small">{t("mfg.deliveryBoard.text.showingOpenDeliveries", { t: t("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }) })}</span>}
       />
     </div>
   );

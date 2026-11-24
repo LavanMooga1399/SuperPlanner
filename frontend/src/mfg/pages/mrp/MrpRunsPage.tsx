@@ -17,6 +17,7 @@ import { useLoad } from "../../lib/useMfg";
 import { MrpRunForm } from "./MrpRunForm";
 import { PageHeader } from "../../../components/PageHeader";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 export function runTitle(r: MrpRunRecord): string {
   return `${t("common.runNo", { n: r.run_no })}${r.label ? ` · ${r.label}` : ""}`;
@@ -85,14 +86,14 @@ export function MrpRunsPage() {
         return s ? <span className={s.demand_late + s.demand_past_due ? "mfg-neg" : undefined}>{t("common.nOfM", { n: s.demand_late + s.demand_past_due, m: s.demand_lines })}</span> : "";
       },
     },
-    { key: "short", header: t("mfg.mrpRunsPage.str.partsShort"), width: "88px", align: "right", sortValue: (r) => r.summary?.items_short, render: (r) => (r.summary ? r.summary.items_short.toLocaleString("en-IN") : "") },
+    { key: "short", header: t("mfg.mrpRunsPage.str.partsShort"), width: "88px", align: "right", sortValue: (r) => r.summary?.items_short, render: (r) => (r.summary ? r.summary.items_short.toLocaleString(LOCALE) : "") },
     {
       key: "planned",
       header: t("mfg.mrpRunsPage.str.plannedMakeBuy"),
       width: "132px",
       align: "right",
       sortValue: (r) => (r.summary ? r.summary.planned_make + r.summary.planned_buy : null),
-      render: (r) => (r.summary ? `${r.summary.planned_make.toLocaleString("en-IN")} / ${r.summary.planned_buy.toLocaleString("en-IN")}` : ""),
+      render: (r) => (r.summary ? `${r.summary.planned_make.toLocaleString(LOCALE)} / ${r.summary.planned_buy.toLocaleString(LOCALE)}` : ""),
     },
     { key: "finished", header: t("mfg.mrpRunsPage.str.finished"), width: "136px", sortValue: (r) => r.finished_at, render: (r) => fmtTimestamp(r.finished_at) },
     { key: "by", header: t("mfg.mrpRunsPage.str.by"), width: "minmax(80px, 1fr)", sortValue: (r) => r.actor.name, render: (r) => r.actor.name },

@@ -19,6 +19,7 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useDebounced, usePlant } from "../../lib/useMfg";
 import { FilterBar, type FilterChip } from "../../../components/FilterBar";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 export function BalancesTab() {
   const [params, setParams] = useSearchParams();
@@ -235,7 +236,7 @@ export function BalancesTab() {
         }
         footer={
           <span className="muted small" role="status" data-testid="balances-count">
-            {data.loading && data.rows.length ? <span className="spinner" aria-hidden /> : null}{" "}{t("mfg.balancesTab.text.showingOfBalancesEnterOn", { length: data.rows.length.toLocaleString("en-IN"), v: " ", total: data.total.toLocaleString("en-IN") })}
+            {data.loading && data.rows.length ? <span className="spinner" aria-hidden /> : null}{" "}{t("mfg.balancesTab.text.showingOfBalancesEnterOn", { length: data.rows.length.toLocaleString(LOCALE), v: " ", total: data.total.toLocaleString(LOCALE) })}
           </span>
         }
       />

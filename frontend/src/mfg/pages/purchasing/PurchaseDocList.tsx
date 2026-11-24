@@ -18,6 +18,7 @@ import { useDebounced } from "../../lib/useMfg";
 import { BulkActions, ReasonField, bulkRows, useSelection, type BulkActionDef } from "../../components/BulkActions";
 import { useCan } from "../../lib/permissions";
 import { t } from "../../../lib/i18n";
+import { LOCALE } from "../../../lib/locale";
 
 export const PR_STATUSES: PurchaseStatus[] = ["draft", "submitted", "approved", "rejected", "ordered", "cancelled"];
 export const PO_STATUSES: PurchaseStatus[] = ["draft", "open", "partially_received", "received", "closed", "cancelled"];
@@ -209,7 +210,7 @@ export function PurchaseDocList({ docType }: { docType: DocType }) {
         onSortChange={(x) => set("sort", !x || x.key === "-created_at" ? "" : x.key)}
         exportName={docType === "po" ? "purchase-orders" : "purchase-requests"}
         empty={data.loading ? t("mfg.purchaseDocList.str.loading") : t("mfg.purchaseDocList.tpl.noMatchTheseFilters", { word: word })}
-        footer={<span>{t("mfg.purchaseDocList.text.showing", { t: t("common.nOfM", { n: data.rows.length.toLocaleString("en-IN"), m: data.total.toLocaleString("en-IN") }), word: word })}</span>}
+        footer={<span>{t("mfg.purchaseDocList.text.showing", { t: t("common.nOfM", { n: data.rows.length.toLocaleString(LOCALE), m: data.total.toLocaleString(LOCALE) }), word: word })}</span>}
       />
     </div>
   );

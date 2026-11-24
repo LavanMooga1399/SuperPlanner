@@ -131,6 +131,11 @@ export function AccountMenu() {
             </Link>
           </li>
           <li role="none">
+            <Link role="menuitem" className="account-menu-item" to="/account/signature" onClick={() => setOpen(false)} data-testid="account-signature">
+              <Icon name="shield" /> {t("qa.enrol.title")}
+            </Link>
+          </li>
+          <li role="none">
             <Link role="menuitem" className="account-menu-item" to="/account/tokens" onClick={() => setOpen(false)} data-testid="account-tokens">
               <Icon name="copy" /> {t("account.accountMenu.btn.apiTokens")}
             </Link>

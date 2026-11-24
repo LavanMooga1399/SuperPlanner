@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type DependencyList } from "r
 import { ApiError } from "../../api/client";
 import { getMeta, getPlant } from "../api/client";
 import type { Meta, PlantRecord } from "../api/types";
-import { t as tr } from "../../lib/i18n";
+import { errorMessage, t as tr } from "../../lib/i18n";
 
 export interface Loaded<T> {
   data: T | null;
@@ -211,7 +211,8 @@ export function errorText(err: unknown): string {
     }
     const fe = fieldErrors(err);
     if (fe.length) return fe.map((f) => (f.field ? `${f.field}: ${f.message}` : f.message)).join(" ");
-    return err.message;
+    // M7 10: `errors.<CODE>` in the UI language, the server message as fallback
+    return errorMessage(err.code, err.message, err.details);
   }
   if (err instanceof Error) return err.message;
   return String(err);
