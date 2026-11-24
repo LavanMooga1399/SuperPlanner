@@ -11,6 +11,7 @@ import { mfgPaths } from "../../mfg/lib/paths";
 import { listItems } from "../../mfg/api/client";
 import { listDemandOrders, listPurchaseDocs, listWorkOrders } from "../../mfg/api/clientM2";
 import { listSerials } from "../../mfg/api/clientM4";
+import { listCapas, listComplaints, listEquipment, listFieldActions, listInspectionLots, listNcrs } from "../../mfg/api/clientM7";
 import { setDensity, setTheme, usePrefs } from "../../lib/prefs";
 import { closePalette, openShortcuts, useCommandState } from "./commands";
 import { t, t as tr } from "../../lib/i18n";
@@ -59,7 +60,14 @@ function useRecordSearch(q: string, go: (to: string) => void): { entries: Entry[
         safe(listPurchaseDocs("po", { q: term, limit: MAX_PER_KIND }, s)),
         safe(listDemandOrders({ q: term, limit: MAX_PER_KIND }, s)),
         safe(listSerials({ q: term, limit: MAX_PER_KIND }, s)),
-      ]).then(([items, wos, pos, dos, serials]) => {
+        // M7 10: quality records by number (IL, NCR, CAPA, CMP, FA) and equipment by asset tag
+        safe(listInspectionLots({ q: term, limit: MAX_PER_KIND }, s)),
+        safe(listNcrs({ q: term, limit: MAX_PER_KIND }, s)),
+        safe(listCapas({ q: term, limit: MAX_PER_KIND }, s)),
+        safe(listComplaints({ q: term, limit: MAX_PER_KIND }, s)),
+        safe(listFieldActions({ q: term, limit: MAX_PER_KIND }, s)),
+        safe(listEquipment({ q: term, limit: MAX_PER_KIND }, s)),
+      ]).then(([items, wos, pos, dos, serials, ils, ncrs, capas, cmps, fas, eqs]) => {
         if (s.aborted) return;
         const out: Entry[] = [];
         for (const i of items?.items ?? [])
@@ -72,6 +80,12 @@ function useRecordSearch(q: string, go: (to: string) => void): { entries: Entry[
           out.push({ id: `do-${d.id}`, group: "Demand orders", label: d.number, hint: [d.customer, d.program].filter(Boolean).join(" · "), icon: "flag", mono: true, run: () => go(mfgPaths.demandOrder(d.id)) });
         for (const x of serials?.items ?? [])
           out.push({ id: `sn-${x.id}`, group: "Serials", label: x.serial, hint: `${x.item.part_number}${x.wo ? ` · ${x.wo.number}` : ""}`, icon: "barcode", mono: true, run: () => go(mfgPaths.serial(x.id)) });
+        for (const x of ils?.items ?? []) out.push({ id: `il-${x.id}`, group: tr("nav.mfg.section.qa-lots"), label: x.number, hint: x.item ? `${x.item.part_number}${x.lot_code ? ` · ${x.lot_code}` : ""}` : "", icon: "eye", mono: true, run: () => go(mfgPaths.qaLot(x.id)) });
+        for (const x of ncrs?.items ?? []) out.push({ id: `ncr-${x.id}`, group: tr("nav.mfg.section.qa-ncrs"), label: x.number, hint: x.title, icon: "alert", mono: true, run: () => go(mfgPaths.qaNcr(x.id)) });
+        for (const x of capas?.items ?? []) out.push({ id: `capa-${x.id}`, group: tr("nav.mfg.section.qa-capas"), label: x.number, hint: x.title, icon: "refresh", mono: true, run: () => go(mfgPaths.qaCapa(x.id)) });
+        for (const x of cmps?.items ?? []) out.push({ id: `cmp-${x.id}`, group: tr("nav.mfg.section.qa-complaints"), label: x.number, hint: x.customer, icon: "chat", mono: true, run: () => go(mfgPaths.qaComplaint(x.id)) });
+        for (const x of fas?.items ?? []) out.push({ id: `fa-${x.id}`, group: tr("nav.mfg.section.qa-field-actions"), label: x.number, hint: x.title, icon: "truck", mono: true, run: () => go(mfgPaths.qaFieldAction(x.id)) });
+        for (const x of eqs?.items ?? []) out.push({ id: `eq-${x.id}`, group: tr("nav.mfg.section.qa-equipment"), label: x.code, hint: x.name, icon: "wrench", mono: true, run: () => go(mfgPaths.qaEquipment(x.id)) });
         setEntries(out);
         setBusy(false);
       });

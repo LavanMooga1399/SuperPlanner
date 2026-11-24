@@ -210,7 +210,7 @@ export function InspectionLotPage() {
           {t("qa.lots.text.ncr")}
         </Banner>
       ) : null}
-      {lot.decision_note ? (
+      {lot.decision && lot.decision_note ? (
         <p className="small" style={{ margin: 0 }}>
           <b>{t("qa.lots.label.decisionNote")}</b> {lot.decision_note}
         </p>

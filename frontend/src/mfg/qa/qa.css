@@ -125,3 +125,9 @@
 .fi-gauge .input { height: 48px; font-size: 18px; }
 .fi-gauge .btn { height: 48px; }
 .fi-gauges .btn { min-height: 44px; }
+.flip-x { transform: scaleX(-1); }
+.qa-print h2 { font-size: var(--fs-md); margin: 0 0 6px; text-transform: capitalize; }
+.qa-print-table th { text-transform: capitalize; }
+.qa-print-table td { vertical-align: top; overflow-wrap: anywhere; }
+.qa-print-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+@media print { .qa-print .table th { position: static; } .qa-print section { break-inside: avoid-page; } }

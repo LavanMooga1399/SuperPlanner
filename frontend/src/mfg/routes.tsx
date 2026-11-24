@@ -80,6 +80,11 @@ import { Part11ExportsPage, Part11Page, PoliciesPage } from "./qa/Part11Pages";
 import { HoldsPage, InspectionLotPage, InspectionLotsPage } from "./qa/InspectionPages";
 import { PlanPage, PlansPage, QaSettingsPage, SchemePage, SchemesPage } from "./qa/PlanPages";
 import { FloorInspect } from "./qa/FloorInspect";
+import { NcrPage, NcrsPage } from "./qa/NcrPages";
+import { CapaPage, CapasPage, ComplaintPage, ComplaintsPage } from "./qa/CapaPages";
+import { FieldActionPage, FieldActionsPage } from "./qa/FieldActionPages";
+import { EquipmentListPage, EquipmentPage } from "./qa/EquipmentPages";
+import { PrintRecordPage } from "./qa/PrintRecord";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
 import { FloorHome } from "./floor/FloorHome";
@@ -290,6 +295,17 @@ export const mfgRoutes: RouteObject[] = [
       { path: "qa/schemes", element: <SchemesPage /> },
       { path: "qa/schemes/:schemeId", element: <Keyed param="schemeId">{(k) => <SchemePage key={k} />}</Keyed> },
       { path: "qa/settings", element: <QaSettingsPage /> },
+      { path: "qa/ncrs", element: <NcrsPage /> },
+      { path: "qa/ncrs/:ncrId", element: <Keyed param="ncrId">{(k) => <NcrPage key={k} />}</Keyed> },
+      { path: "qa/capas", element: <CapasPage /> },
+      { path: "qa/capas/:capaId", element: <Keyed param="capaId">{(k) => <CapaPage key={k} />}</Keyed> },
+      { path: "qa/complaints", element: <ComplaintsPage /> },
+      { path: "qa/complaints/:complaintId", element: <Keyed param="complaintId">{(k) => <ComplaintPage key={k} />}</Keyed> },
+      { path: "qa/field-actions", element: <FieldActionsPage /> },
+      { path: "qa/field-actions/:faId", element: <Keyed param="faId">{(k) => <FieldActionPage key={k} />}</Keyed> },
+      { path: "qa/equipment", element: <EquipmentListPage /> },
+      { path: "qa/equipment/:equipmentId", element: <Keyed param="equipmentId">{(k) => <EquipmentPage key={k} />}</Keyed> },
+      { path: "print/qa/:type/:id", element: <PrintRecordPage /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

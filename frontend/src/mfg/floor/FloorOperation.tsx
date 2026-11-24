@@ -12,6 +12,7 @@ import { Link, useParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { Icon } from "../../components/Icon";
 import { getFloorOperation, listWoOperationsM4 } from "../api/clientM4";
+import { getQaSettings } from "../api/clientM7";
 import type { FloorEventInput, FloorEventResult, FloorEventType, FloorOperationDetail, WoOperation } from "../api/typesM4";
 import { MfgError, Spinner } from "../components/Feedback";
 import { fmtDuration, usePlantClock } from "../lib/plantTime";
@@ -42,6 +43,8 @@ export function FloorOperation() {
   const [lineId, setLineId] = useState<string>("");
   const [eventAt, setEventAt] = useState<string>(""); // local datetime, "" = now
   const op = d?.operation;
+  /** M7 5.2: the inspection lot of an inspection-gate operation, when the server sends it */
+  const gate = (d as (FloorOperationDetail & { inspection_lot?: { id: string; number: string; status: string } | null }) | null)?.inspection_lot ?? null;
 
   useEffect(() => {
     if (!d) return;
@@ -244,6 +247,25 @@ export function FloorOperation() {
         </section>
       ) : null}
 
+      {lastResult?.ncr ? (
+        <section className="floor-card" data-testid="floor-ncr">
+          <span className="badge warn">
+            <Icon name="alert" /> {tr("qa.floor.tpl.ncr", { n: lastResult.ncr.number })}
+          </span>
+        </section>
+      ) : null}
+      {gate ? (
+        <section className="floor-card" data-testid="floor-gate" data-status={gate.status}>
+          <h2>{tr("qa.floor.head.gate")}</h2>
+          <p style={{ margin: 0 }}>{gate.status === "accepted" ? tr("qa.floor.text.gateOk", { n: gate.number }) : tr("qa.floor.text.gateOpen", { n: gate.number })}</p>
+          {gate.status !== "accepted" && gate.status !== "rejected" && gate.status !== "cancelled" ? (
+            <Link className="btn primary floor-action" to={mfgPaths.floorInspect(gate.id)}>
+              <Icon name="eye" /> {tr("qa.floor.btn.inspect")}
+            </Link>
+          ) : null}
+        </section>
+      ) : null}
+
       <Components d={d} />
       {d.instructions ? (
         <section className="floor-card">
@@ -356,6 +378,9 @@ function QtyPanel({
   const [good, setGood] = useState(mode === "complete" ? String(remaining) : "");
   const [scrap, setScrap] = useState("");
   const [rework, setRework] = useState("");
+  const [nc, setNc] = useState("");
+  const [defect, setDefect] = useState("");
+  const qaSettings = useLoad((signal) => getQaSettings(signal).catch(() => null), []);
   const [reworkTo, setReworkTo] = useState<number>(op.seq);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
@@ -368,12 +393,14 @@ function QtyPanel({
   const g = Number(good) || 0;
   const sc = Number(scrap) || 0;
   const rw = Number(rework) || 0;
+  const ncq = Number(nc) || 0;
+  const defectCodes = qaSettings.data?.defect_codes ?? [];
   const needReason = sc > 0 || rw > 0;
   const reasons = (sc > 0 ? d.reason_codes?.scrap : d.reason_codes?.rework) ?? (sc > 0 ? DEFAULT_REASONS.scrap : DEFAULT_REASONS.rework);
   const ops = useLoad((signal) => (rw > 0 ? listWoOperationsM4(d.wo.id, signal) : null), [d.wo.id, rw > 0]);
   const earlier: WoOperation[] = (ops.data?.items ?? []).filter((o) => o.seq <= op.seq);
   const serialsOk = !capture || g === 0 || serials.length === g;
-  const qtyOk = g + sc + rw > 0 || mode === "complete";
+  const qtyOk = (g + sc + rw + ncq > 0 || mode === "complete") && (ncq === 0 || Boolean(defect) || !defectCodes.length);
 
   const addSerial = (raw: string) => {
     let s = raw.trim();
@@ -415,6 +442,7 @@ function QtyPanel({
       ...(g ? { qty_good: g } : mode === "complete" ? { qty_good: 0 } : {}),
       ...(sc ? { qty_scrap: sc } : {}),
       ...(rw ? { qty_rework: rw, rework_to_seq: reworkTo } : {}),
+      ...(ncq ? { qty_nc: ncq, ...(defect ? { defect_code: defect } : {}) } : {}),
       ...(needReason ? { reason_code: reason } : {}),
       ...(note ? { note } : {}),
       ...(capture && serials.length ? { serials: { produced: serials, ...(consumed.length ? { consumed } : {}) } } : consumed.length ? { serials: { consumed } } : {}),
@@ -430,7 +458,22 @@ function QtyPanel({
         <Stepper id="fq-good" label={t("floor.floorOperation.label.good")} value={good} onChange={setGood} testId="floor-qty-good" max={remaining} />
         <Stepper id="fq-scrap" label={t("floor.floorOperation.label.scrap")} value={scrap} onChange={setScrap} testId="floor-qty-scrap" />
         <Stepper id="fq-rework" label={t("floor.floorOperation.label.rework")} value={rework} onChange={setRework} testId="floor-qty-rework" />
+        <Stepper id="fq-nc" label={tr("qa.floor.label.nc")} value={nc} onChange={setNc} testId="floor-qty-nc" />
       </div>
+      {ncq > 0 ? (
+        <div className="field">
+          <label htmlFor="fq-defect">{tr("qa.floor.label.defect")}</label>
+          <select id="fq-defect" className="select" value={defect} onChange={(e) => setDefect(e.target.value)} data-testid="floor-defect-code" required={defectCodes.length > 0}>
+            <option value="">{tr("floor.floorOperation.text.choose")}</option>
+            {defectCodes.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.code} {c.name}
+              </option>
+            ))}
+          </select>
+          <span className="hint">{tr("qa.floor.hint.nc")}</span>
+        </div>
+      ) : null}
       {needReason ? (
         <div className="field">
           <label htmlFor="fq-reason">{sc > 0 ? tr("floor.floorOperation.str.scrapReason") : tr("floor.floorOperation.str.reworkReason")}</label>

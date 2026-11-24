@@ -224,6 +224,9 @@ export interface FloorEventInput {
   serials?: FloorSerials;
   corrects_event_id?: EntityId;
   force?: { reason: string };
+  /** M7 6: nonconforming quantity (report / complete) and its defect code; opens or extends the operation's NCR */
+  qty_nc?: number;
+  defect_code?: string;
 }
 
 export interface FloorWarning {
@@ -248,6 +251,8 @@ export interface FloorEventResult {
   postings: FloorPosting[];
   warnings: FloorWarning[];
   triggers: ReplanTrigger[];
+  /** M7 6: the NCR opened or extended by `qty_nc` */
+  ncr?: { id: EntityId; number: string } | null;
 }
 
 export interface FloorEventQuery {

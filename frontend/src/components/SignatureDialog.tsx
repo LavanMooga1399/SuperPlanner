@@ -175,7 +175,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
     }
   };
 
-  const title = preview && !required ? props.title : t("qa.esig.tpl.dialogTitle", { what: props.title });
+  const title = preview && !required ? props.title.charAt(0).toUpperCase() + props.title.slice(1) : t("qa.esig.tpl.dialogTitle", { what: props.title });
   return (
     <Dialog
       title={title}
