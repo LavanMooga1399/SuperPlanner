@@ -965,6 +965,8 @@ def on_posting(s: Session, posting: Any) -> list[str]:
             out.append(r.id)
         else:
             wo = s.get(MfgWorkOrderRow, wo_id) if wo_id else None
+            if wo is not None and wo.kind == "rework":           # rework returns under its NCR, not a new lot
+                continue
             customer = _wo_customer(s, wo)
             plan = find_plan(s, item_id, "final", d, customer=customer)
             if plan is None or lot_id is None:

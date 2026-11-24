@@ -145,6 +145,9 @@ class FloorEventInput(MfgModel):
     serials: EventSerials | None = None
     corrects_event_id: EntityId | None = None
     force: ForceInput | None = None
+    #: M7-DESIGN 6: nonconforming quantity (report / complete) and its defect code
+    qty_nc: EventQty | None = None
+    defect_code: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32)] | None = None
 
     @model_validator(mode="after")
     def _target(self) -> "FloorEventInput":

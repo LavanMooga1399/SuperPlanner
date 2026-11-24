@@ -404,8 +404,11 @@ def release_to_floor(s: Session, wo: MfgWorkOrderRow, override_reason: str | Non
 
 def _ev(r: MfgFloorEventRow) -> E.Ev:
     d = r.details or {}
+    scrap = r.qty_scrap
+    if r.qty_nc:                           # M7-DESIGN 6: nonconforming quantity counts against input like scrap
+        scrap = (scrap or 0.0) + r.qty_nc
     return E.Ev(r.id, int(r.seq), r.event_type, as_utc(r.event_at), r.line_id, len(r.operator_ids or []),
-                r.qty_good, r.qty_scrap, r.qty_rework, r.rework_to_seq, r.corrects_event_id,
+                r.qty_good, scrap, r.qty_rework, r.rework_to_seq, r.corrects_event_id,
                 bool(d.get("migrated")), tuple(d.get("fields") or ()))
 
 
@@ -426,7 +429,8 @@ def replay_wo(rows: list[MfgWoOperationRow], events: list[MfgFloorEventRow]) -> 
     incoming: dict[str, list[E.Ev]] = {r.id: [] for r in rows}
     for oid, evs in resolved.items():
         for e in evs:
-            if e.event_type in E.QTY_EVENTS and (e.qty_rework or 0) > EPS and e.rework_to_seq is not None:
+            if (e.event_type in E.QTY_EVENTS or e.event_type == "nc_disposition") and (e.qty_rework or 0) > EPS and \
+                    e.rework_to_seq is not None:
                 tgt = op_of_seq.get(e.rework_to_seq)
                 if tgt is not None and tgt in incoming and (seq_of.get(oid) or 0) >= e.rework_to_seq:
                     incoming[tgt].append(E.Ev(f"rw:{e.id}", e.seq, "rework_in", e.event_at,
@@ -500,6 +504,7 @@ def _event_records(s: Session, evs: list[MfgFloorEventRow], *, corrected_ids: se
             "rework_to_seq": e.rework_to_seq, "reason_code": e.reason_code, "note": e.note,
             "client_event_id": e.client_event_id, "batch_load_id": e.batch_load_id, "serials": e.serials,
             "corrects_event_id": e.corrects_event_id, "corrected": e.id in corrected_ids, "forced": e.forced,
+            "qty_nc": e.qty_nc, "ncr_id": e.ncr_id, "defect_code": e.defect_code,          # M7-DESIGN 6
             "actor": {"id": e.actor_id, "code": "", "name": names.get(e.actor_id, "")},
             "details": {k: v for k, v in (e.details or {}).items() if k != "fields"}})
     return out
@@ -756,10 +761,11 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
     # quantities
     qg = float(inp.qty_good or 0.0) if member_qty is None else member_qty
     qs = float(inp.qty_scrap or 0.0) if member_qty is None else 0.0
+    qnc = float(getattr(inp, "qty_nc", None) or 0.0) if member_qty is None else 0.0     # M7-DESIGN 6
     qr = float(inp.qty_rework or 0.0) if member_qty is None else 0.0
     if inp.event_type in E.QTY_EVENTS or is_correct:
         if item is not None and is_count(item.uom):
-            for f, v in (("qty_good", qg), ("qty_scrap", qs), ("qty_rework", qr)):
+            for f, v in (("qty_good", qg), ("qty_scrap", qs), ("qty_rework", qr), ("qty_nc", qnc)):
                 if abs(v - round(v)) > EPS:
                     raise ApiError(422, "INV_FRACTIONAL_QTY", f"{item.part_number} is counted in {item.uom}; use a "
                                    "whole number.", {"loc": ["body", f]})
@@ -797,7 +803,9 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
         batch_load_id=load.id if load is not None else inp.batch_load_id,
         serials=inp.serials.model_dump() if inp.serials is not None else None,
         corrects_event_id=inp.corrects_event_id if is_correct else None,
-        forced=inp.force.reason if inp.force is not None else None, details=details, actor_id=actor_id())
+        forced=inp.force.reason if inp.force is not None else None, details=details, actor_id=actor_id(),
+        qty_nc=qnc if (qnc > EPS and inp.event_type in E.QTY_EVENTS) else None,
+        defect_code=getattr(inp, "defect_code", None) if qnc > EPS else None)
     s.add(row)
     s.flush()
     events.append(row)
@@ -813,6 +821,7 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
             avail = round(max(0.0, ch_before_avail(rows, before, op)), 6)
             raise ApiError(422, "FLR_QTY_EXCEEDS_INPUT",
                            f"Good {qg:g} + scrap {qs:g}" + (f" + rework {qr:g}" if qr else "")
+                           + (f" + nonconforming {qnc:g}" if qnc else "")
                            + f" exceeds the available input {avail:g}; a supervisor can force it with a reason.",
                            {"available": avail, "good": qg, "scrap": qs, "rework": qr})
     # warnings: predecessor open (F2), started short
@@ -841,6 +850,12 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
     il = _qa.floor_after(s, wo, op, row, _chain_after(rows, after)[op.seq].qty_input)
     if il is not None:
         row.details = {**(row.details or {}), "inspection_lot_id": il}
+    if row.qty_nc:                                               # M7-DESIGN 6: WIP nonconformance -> NCR
+        from .qa_ncr import wip_nc
+
+        ncr = wip_nc(s, wo, op, row, item)
+        row.ncr_id = ncr.id
+        row.details = {**(row.details or {}), "ncr": {"id": ncr.id, "number": ncr.number}}
     if wo.status == "released":
         wo.status = "in_progress"
         touch(wo, c.now)

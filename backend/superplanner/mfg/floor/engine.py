@@ -128,6 +128,12 @@ def apply(st: OpState, e: Ev) -> OpState:
     """One event on a state (a copy is returned). Raises `FloorRuleError` for an invalid transition."""
     st = replace(st)
     t = e.event_type
+    if t == "nc_disposition":              # M7-DESIGN 6: NCR disposition of nonconforming WIP (no transition)
+        st.qty_good += e.qty_good or 0.0
+        st.qty_scrap += e.qty_scrap or 0.0
+        st.qty_rework_out += e.qty_rework or 0.0
+        st.last_seq = max(st.last_seq or 0, e.seq)
+        return st
     if t == "rework_in":
         st.qty_rework_in += e.qty_rework or 0.0
         if st.status == "completed":

@@ -403,6 +403,10 @@ def _apply_documents(s: Session, L: _Loaded, plan: INV.PostingPlan, now: Any, *,
         if w.status == "completed" and before != "completed":
             w.completed_at = now
             _release_wo(s, L, w.id, now)
+            if getattr(w, "ncr_id", None):                      # M7-DESIGN 6: rework done -> NCR hold check
+                from .qa_ncr import on_rework_done
+
+                on_rework_done(s, w.ncr_id)
         elif w.status != "completed" and before == "completed":
             w.completed_at = None
         touch(w, now)
@@ -461,7 +465,8 @@ def _replay(s: Session, row: MfgInvPostingRow, h: str) -> dict[str, Any]:
 
 
 def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: date | None = None,
-                    idem: str | None = None, body_hash: str | None = None, note_audit: bool = True
+                    idem: str | None = None, body_hash: str | None = None, note_audit: bool = True,
+                    hold_exempt: set[tuple[str, str]] | None = None, ncr_id: str | None = None
                     ) -> tuple[MfgInvPostingRow, list[dict[str, Any]]]:
     """Plan and apply one posting in the caller's transaction (also used by imports and sample loads, `system`:
     no date/reason limits). Raises `ApiError` on rule errors."""
@@ -478,6 +483,9 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     # posting numbers come from their own short transaction (4.5, 22.WP-B): no series lock is held here
     number = repo_m2.allocate_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))
     ctx = _context(s, L, set(item_ids), pairs, today(s), system=system)
+    exempt = set(hold_exempt or ()) | _rework_exempt(s, L)          # M7-DESIGN 6
+    if exempt:
+        ctx.hold_exempt = frozenset(exempt)
     try:
         plan = INV.plan_posting(inp, ctx)
     except RuleError as e:
@@ -491,6 +499,11 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     s.add(row)
     s.flush()
     _apply(s, L, plan, row, actor)
+    if ncr_id is not None:                                      # M7-DESIGN 6: postings of an NCR disposition
+        from sqlalchemy import update as _upd
+
+        s.execute(_upd(MfgInvTransactionRow).where(MfgInvTransactionRow.posting_id == row.id)
+                  .values(ncr_id=ncr_id).execution_options(synchronize_session=False))
     from . import trace as _trace                               # M5-DESIGN 6.1 (same transaction)
 
     if trf is not None:
@@ -559,6 +572,20 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
         return posting_record(s, row, warnings), False
 
     return run_tx(ctx, fn)
+
+
+def _rework_exempt(s: Session, L: _Loaded) -> set[tuple[str, str]]:
+    """A rework WO of an NCR may consume the lots that NCR holds (and only those, 6)."""
+    ncrs = {w.ncr_id for w in L.wos.values() if getattr(w, "kind", "standard") == "rework" and w.ncr_id}
+    if not ncrs:
+        return set()
+    from ..db_models_m7 import MfgLotHoldRow
+
+    rows = s.execute(select(MfgLotRow.item_id, MfgLotRow.lot_code).join(
+        MfgLotHoldRow, MfgLotHoldRow.lot_id == MfgLotRow.id).where(
+        MfgLotHoldRow.source == "ncr", MfgLotHoldRow.source_id.in_(sorted(ncrs)),
+        MfgLotHoldRow.released_at.is_(None))).all()
+    return {(r[0], r[1]) for r in rows}
 
 
 def _lot_refs(s: Session, ids: list[str]) -> list[dict[str, Any]]:

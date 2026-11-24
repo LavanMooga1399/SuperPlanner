@@ -157,6 +157,8 @@ class PostingContext:
     over_receipt_pct: float = 0.0
     #: imports and sample loads: no backdate/future limit, no reason requirement
     system: bool = False
+    #: M7-DESIGN 6: held lots an NCR disposition may move ((item_id, lot_code); scrap, RTV, its rework WO)
+    hold_exempt: frozenset[tuple[str, str]] = frozenset()
 
 
 # ---------------------------------------------------------------- plan
@@ -284,7 +286,7 @@ class _Planner:
         lot = self.lot(it.id, code)
         if lot is None or to_quarantine:
             return
-        if lot.hold:
+        if lot.hold and (it.id, code) not in self.ctx.hold_exempt:
             raise _err("INV_LOT_ON_HOLD", f"Lot {code} of {it.part_number} is on hold.", loc)
         if lot.expires_on is not None and lot.expires_on <= self.d:
             raise _err("INV_LOT_EXPIRED", f"Lot {code} of {it.part_number} expired on {lot.expires_on.isoformat()}.",
