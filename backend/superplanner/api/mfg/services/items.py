@@ -121,10 +121,11 @@ def update_item(ctx: AppContext, item_id: str, inp: ItemInput, if_match: str | N
             refs = {k: refs[k] for k in ("balances", "transactions") if refs.get(k)}
             if refs:
                 raise in_use(f"Lot control of {row.part_number}", refs)
+        before = record(s, row)
         _apply(row, inp)
         touch(row)
         s.flush()
-        audit(s, "item", row.id, "update", {"version": row.row_version})
+        audit(s, "item", row.id, "update", {"version": row.row_version}, before=before, after=record(s, row))
         return record(s, row)
 
 

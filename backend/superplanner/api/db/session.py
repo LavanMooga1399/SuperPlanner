@@ -184,6 +184,9 @@ class Database:
         from ..audit_chain import configure                    # keyed audit chain (M5-DESIGN 7, 15.WP-S)
 
         configure(db.engine, list(getattr(settings, "secrets_keys", None) or []))
+        from ..mfg.services.esig import bind_settings
+
+        bind_settings(settings, db.engine)       # M7: signing needs the keys and the skew limit in services
         return db
 
     @classmethod

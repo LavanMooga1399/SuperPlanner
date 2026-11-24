@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 from typing import Any, Iterator, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy import func, select
 
@@ -157,12 +157,18 @@ def eco_impact(cr_id: str, ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
 
 def _eco_action(name: str, perm: str) -> None:
     @router.post(f"/eco/{{cr_id}}/{name}", dependencies=P(perm), name=f"eco_{name}")
-    def act(cr_id: str, body: EcoActionInput | None = None, if_match: str | None = _if_match(),
+    def act(cr_id: str, request: Request, body: EcoActionInput | None = None, if_match: str | None = _if_match(),
             p: MfgPrincipal = Depends(mfg_principal), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
         from .services import eco as svc
+        from .services.qa_common import Act
 
+        principal = getattr(request.state, "principal", None)
+        a = Act(p, getattr(principal, "session_id", None), request.client.host if request.client else None)
         rec = svc.act(ctx, cr_id, name, (body.note if body else ""), if_match,
-                      privileged=p.is_owner or "plant_admin" in p.roles)
+                      privileged=p.is_owner or "plant_admin" in p.roles, a=a,
+                      signature=body.signature if body else None)
+        if rec.get("status") == "pending_signatures":         # M7 4.2 (8)
+            return _ok(rec, 202)
         return _ok(rec, etag=rec["row_version"])
 
 

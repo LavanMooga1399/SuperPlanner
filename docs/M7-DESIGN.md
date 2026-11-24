@@ -608,3 +608,30 @@ S0 interpretations and deviations:
   request (`audit_events.reason`); regulated services add `changes`. The audit hash chain includes `changes`,
   `reason`, `signature_id`, `record_version` when set (rows without them hash exactly as before).
 - A plant reset is refused in Part 11 mode (409 `PART11_DELETE_NOT_ALLOWED`); otherwise it deletes the M7 rows.
+
+S1 (esig core) notes:
+- Credentials are verified before the action's write transaction (no plant lock held during argon2); failures are
+  counted in their own transaction under the user's row lock, so concurrent wrong attempts lock exactly once
+  (`test_m7_esig.py::test_t_s1_concurrent_wrong_attempts_lock_exactly_once`). A consumed TOTP step or step-up token
+  stays consumed if the action then fails (stricter single use). Consequently a reused step-up token answers 422
+  `ESIG_AUTH_FAILED` before any state check.
+- `inspection_lot.decide` is stored as two policies: `decide` (incoming, in-process) and `decide_final`.
+- `esig_policy.update` and `calibration.record` sign a pre-image: the preview hash is the current policy /
+  equipment; the stored snapshot is `{before, after}` (policy) or the new calibration record, with its own hash.
+  `calibration.record` policies are limited to one step (the record is created by the signature).
+- `plant.part11_on` is always signed (also while the mode is off) and needs SECRETS_KEY(S) (409
+  `PART11_SECRETS_REQUIRED`); `PUT /plant/part11` when already on: 409 `PART11_MODE_LOCKED`.
+- Signature MAC: HMAC-SHA256 (`k1:`) with a key derived from the first SECRETS_KEY over every column except
+  `status` and bookkeeping stamps; all configured keys verify (rotation). `chain_ok` re-checks the signature's audit
+  event link against its predecessor.
+- Change reasons: every regulated entity action except creates (`EXEMPT_ACTIONS`) needs a reason in Part 11 mode,
+  enforced centrally in `services/common.audit`; field-level changes are recorded where services pass
+  before/after (items, M7 records, QA settings, policies; other M1-M6 entities record the reason without a diff -
+  extend per entity as needed).
+- `qa_approver` also holds `eco_approve` (it is a default signer of `eco.approve`).
+- There is no user-delete operation in the product; `esig_signatures.signer_id` is `ON DELETE RESTRICT`, so a
+  signer cannot be deleted at the database level either.
+- Step-up: `GET /auth/oidc/stepup` stores `stepup:<user>:<session_ref>` as the OIDC state's next URL and adds
+  `prompt=login&max_age=0`; the shared callback checks the identity (`iss`, `sub`) maps to the session user, the
+  browser session is the same and `auth_time` is fresh, then redirects to `/esig/stepup-done#token=...` (fragment).
+

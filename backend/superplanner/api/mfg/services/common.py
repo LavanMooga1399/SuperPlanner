@@ -108,9 +108,21 @@ def touch(row: Any, now: datetime | None = None) -> None:
     row.updated_at = now or datetime.now(UTC)
 
 
-def audit(s: Session, entity: str, entity_id: str | None, action: str, details: dict[str, Any] | None = None
-          ) -> None:
-    _audit(s, f"mfg_{entity}", entity_id or "-", action, details or {})
+def audit(s: Session, entity: str, entity_id: str | None, action: str, details: dict[str, Any] | None = None, *,
+          before: Any = None, after: Any = None) -> None:
+    """M7-DESIGN 4.4: regulated entities in Part 11 mode need a change reason for every action except creates;
+    `before` / `after` (record dumps) add field-level changes."""
+    from ...audit_diff import EXEMPT_ACTIONS, PART11_ENTITIES, diff, require_reason
+    from ...services.problem_service import audit_row
+
+    reason = None
+    if entity in PART11_ENTITIES and action not in EXEMPT_ACTIONS:
+        reason = require_reason(s, None)
+    changes = diff(jsonable(before), jsonable(after)) if (before is not None or after is not None) else None
+    d = details or {}
+    ver = d.get("version") if isinstance(d.get("version"), int) else None
+    audit_row(s, f"mfg_{entity}", entity_id or "-", action, d, changes=changes, reason=reason, record_version=ver,
+              flush=False)
 
 
 def duplicate(what: str, key: dict[str, Any], existing_id: str) -> ApiError:

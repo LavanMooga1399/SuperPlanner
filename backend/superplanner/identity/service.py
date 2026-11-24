@@ -107,7 +107,7 @@ def safe_next(nxt: str | None) -> str:
     return nxt[:500]
 
 
-def oidc_login(ctx: AppContext, nxt: str | None) -> tuple[str, str]:
+def oidc_login(ctx: AppContext, nxt: str | None, stepup: bool = False) -> tuple[str, str]:
     """-> (authorize URL, browser binding = sha256 of the state for the `sp_oidc` cookie, 15.WP-S minor 1)."""
     if not sso_enabled(ctx):
         raise ApiError(404, "NOT_FOUND", "Single sign-on is not configured.", {})
@@ -122,10 +122,13 @@ def oidc_login(ctx: AppContext, nxt: str | None) -> tuple[str, str]:
     now = _now()
     with system_scope(), ctx.db.write() as s:
         s.query(OidcStateRow).filter(OidcStateRow.expires_at < now).delete(synchronize_session=False)
-        s.add(OidcStateRow(state_hash=_h(state), nonce=nonce, verifier_enc=stored, next_url=safe_next(nxt),
+        s.add(OidcStateRow(state_hash=_h(state), nonce=nonce, verifier_enc=stored,
+                           next_url=(nxt or "")[:500] if stepup else safe_next(nxt),
                            expires_at=now + timedelta(minutes=STATE_MINUTES)))
-    return (oidc.authorize_url(doc, st.oidc_client_id, _redirect_uri(ctx), st.oidc_scopes, state, nonce, challenge),
-            _h(state))
+    # M7-DESIGN 4.2 (3): a signing step-up forces a fresh interactive sign-in at the IdP
+    extra = {"prompt": "login", "max_age": "0"} if stepup else None
+    return (oidc.authorize_url(doc, st.oidc_client_id, _redirect_uri(ctx), st.oidc_scopes, state, nonce, challenge,
+                               extra), _h(state))
 
 
 def _take_state(ctx: AppContext, state: str) -> OidcStateRow:
@@ -172,6 +175,8 @@ def oidc_callback(ctx: AppContext, request: Any, code: str | None, state: str | 
     except oidc.OidcError as e:
         log.info("auth.sso_failed code=%s", e.code)
         raise ApiError(401 if e.code == "AUTH_SSO_FAILED" else 502, e.code, e.message, {}) from None
+    if row.next_url.startswith("stepup:"):
+        return None, None, _stepup_done(ctx, request, row, claims)  # type: ignore[return-value]
     user = _link_or_create(ctx, claims)
     now = _now()
     with system_scope(), ctx.db.write() as s:
@@ -187,6 +192,33 @@ def oidc_callback(ctx: AppContext, request: Any, code: str | None, state: str | 
         s.flush()
         v = sess.view(srow, u)
     return v, token, row.next_url
+
+
+STEPUP_DONE = "/esig/stepup-done"
+
+
+def _stepup_done(ctx: AppContext, request: Any, row: OidcStateRow, claims: dict[str, Any]) -> str:
+    """M7-DESIGN 4.2 (3): the step-up must come from the same person (same `sub` as the session's identity) in the
+    same browser session; the token goes to the opener in the URL fragment (never sent to a server)."""
+    from ..api.mfg.services import esig
+
+    _, user_id, session_ref = row.next_url.split(":", 2)
+    now = _now()
+    with system_scope(), ctx.db.read() as s:
+        ident = s.execute(select(UserIdentityRow).where(UserIdentityRow.issuer == str(claims["iss"]),
+                                                        UserIdentityRow.sub == str(claims["sub"])[:255])
+                          ).scalars().first()
+        cur = sess.lookup(s, sess.read_cookie(request, ctx.settings), ctx.settings, now)
+        ident_user = ident.user_id if ident is not None else None
+        cur_user, cur_id = (cur[0].user_id, cur[0].id) if cur is not None else (None, "")
+    if ident_user != user_id or cur_user != user_id or hashlib.sha256(cur_id.encode()).hexdigest() != session_ref:
+        return STEPUP_DONE + "#error=ESIG_AUTH_FAILED"
+    started = _aware(row.expires_at) - timedelta(minutes=STATE_MINUTES)
+    try:
+        token = esig.issue_stepup(ctx, user_id, session_ref, claims, started)
+    except ApiError as e:
+        return STEPUP_DONE + f"#error={e.code}"
+    return STEPUP_DONE + f"#token={token}"
 
 
 def _link_or_create(ctx: AppContext, claims: dict[str, Any]) -> str:

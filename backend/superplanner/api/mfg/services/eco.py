@@ -256,7 +256,11 @@ def delete_item(ctx: AppContext, cr_id: str, item_id: str, if_match: str | None)
 # ---------------------------------------------------------------- workflow
 
 def act(ctx: AppContext, cr_id: str, name: str, note: str, if_match: str | None, privileged: bool,
-        ) -> dict[str, Any]:
+        a: Any = None, signature: Any = None) -> dict[str, Any]:
+    from . import esig
+
+    auth = esig.authenticate(ctx, a, "eco", "approve", signature) if name == "approve" and a is not None else None
+
     def fn(s: Session) -> dict[str, Any]:
         r = _get(s, cr_id, lock=True)
         if if_match is not None:
@@ -275,6 +279,10 @@ def act(ctx: AppContext, cr_id: str, name: str, note: str, if_match: str | None,
             if IMP.self_approval(r.submitted_by, me, privileged):
                 raise ApiError(409, "ECO_SELF_APPROVAL", "A change request cannot be approved by the person who "
                                "submitted it.", {"submitted_by": r.submitted_by})
+            if a is not None:                          # M7-DESIGN 4.3: signed in Part 11 plants
+                out = esig.sign(s, a, auth, "eco", r.id, "approve", signature)
+                if out.pending is not None:
+                    return out.pending
             r.approved_by, r.approved_at = me, now
         elif name in ("reject", "cancel"):
             _unlock_all(s, r)

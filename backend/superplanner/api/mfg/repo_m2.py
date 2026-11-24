@@ -30,7 +30,8 @@ from .db_models_m2 import (MfgDemandLineRow, MfgDemandOrderRow, MfgInvBalanceRow
                            MfgWoComponentRow, MfgWorkOrderRow)
 
 SERIES_PREFIX = {"PO": "PO-", "PR": "PR-", "DO": "DO-", "WO": "WO-", "TXN": "TXN-",
-                 "RCL": "RCL-", "ECO": "ECO-", "TO": "TO-"}   # M5-DESIGN 5, 6.3, 3.5
+                 "RCL": "RCL-", "ECO": "ECO-", "TO": "TO-",   # M5-DESIGN 5, 6.3, 3.5
+                 "IP": "IP-", "IL": "IL-", "NCR": "NCR-", "CAPA": "CAPA-", "CMP": "CMP-", "FA": "FA-"}   # M7 3
 SERIES_WIDTH = 6
 
 

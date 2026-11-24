@@ -124,9 +124,10 @@ def _jwks(uri: str, fetch: Fetch, refresh: bool = False) -> dict[str, Any]:
 
 
 def authorize_url(doc: dict[str, Any], client_id: str, redirect_uri: str, scopes: str, state: str, nonce: str,
-                  challenge: str) -> str:
+                  challenge: str, extra: dict[str, str] | None = None) -> str:
     q = {"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri, "scope": scopes,
-         "state": state, "nonce": nonce, "code_challenge": challenge, "code_challenge_method": "S256"}
+         "state": state, "nonce": nonce, "code_challenge": challenge, "code_challenge_method": "S256",
+         **(extra or {})}
     return doc["authorization_endpoint"] + ("&" if "?" in doc["authorization_endpoint"] else "?") + \
         urllib.parse.urlencode(q)
 

@@ -20,6 +20,7 @@ import hashlib
 import hmac
 import secrets
 import time
+import weakref
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
@@ -36,7 +37,7 @@ from ...db.ownership import current_owner, system_scope
 from ...errors import ApiError
 from ..db_models_m7 import EsigPolicyRow, EsigSignatureRow, EsigStepupRow
 from . import m7_examples
-from .common import check_version, read_tx, write_tx
+from .common import check_version, jsonable, read_tx, write_tx
 
 FAIL_WINDOW = timedelta(minutes=15)
 LOCK_FOR = timedelta(minutes=30)
@@ -455,20 +456,20 @@ def authenticate(ctx: AppContext, a: Any, record_type: str, action: str, sig: Si
                            {"revoked": u.esig_revoked_at is not None})
         locked = _aware(u.esig_locked_until)
         if locked is not None and locked > datetime.now(UTC):
-            raise ApiError(423, "ESIG_LOCKED", "Signing is locked after repeated failures.", {"until": locked})
+            raise ApiError(423, "ESIG_LOCKED", "Signing is locked after repeated failures.", {"until": jsonable(locked)})
         sso = _is_sso(s, u.id) and not u.password_hash
         pw_hash = u.password_hash or (u.esig_password_hash if sso and ctx.settings.esig_local_credentials else None)
-        legal, username = u.legal_name or "", u.email or u.id
+        legal, username, uid = u.legal_name or "", u.email or u.id, u.id
         from ....identity.service import totp_row
 
-        tr = totp_row(s, u.id)
+        tr = totp_row(s, uid)
         has_totp = tr is not None and tr.enabled_at is not None
     need_mfa = pol.auth == "password_totp"
     name_ok = hmac.compare_digest(sig.username.strip().lower(), (username or "").lower())
     profile = ctx.settings.password_hash_profile
     method = None
     if sig.stepup_token is not None and sso:
-        amr = _consume_stepup(ctx, u.id, a.session_ref, sig.stepup_token, need_mfa=need_mfa) if name_ok else None
+        amr = _consume_stepup(ctx, uid, a.session_ref, sig.stepup_token, need_mfa=need_mfa) if name_ok else None
         if amr is not None:
             method = "sso_mfa" if set(amr) & set(ctx.settings.esig_mfa_amr) else "sso"
     elif sig.password is not None and pw_hash:
@@ -477,7 +478,7 @@ def authenticate(ctx: AppContext, a: Any, record_type: str, action: str, sig: Si
                            "sign-in in your account first.", {})
         ok = verify_password(pw_hash, sig.password, profile) and name_ok
         if ok and need_mfa:
-            ok = sig.totp_code is not None and _check_totp(ctx, u.id, sig.totp_code)
+            ok = sig.totp_code is not None and _check_totp(ctx, uid, sig.totp_code)
         if ok:
             method = "password_totp" if need_mfa else "password"
     else:
@@ -486,9 +487,9 @@ def authenticate(ctx: AppContext, a: Any, record_type: str, action: str, sig: Si
         if need_mfa and sso and sig.stepup_token is None and not ctx.settings.esig_local_credentials:
             raise ApiError(422, "ESIG_MFA_UNAVAILABLE", "Re-authenticate with your company account.", {})
     if method is None:
-        _record_failure(ctx, u.id)
-    _clear_failures(ctx, u.id)
-    return Auth(u.id, method, legal, username)
+        _record_failure(ctx, uid)
+    _clear_failures(ctx, uid)
+    return Auth(uid, method, legal, username)
 
 
 def _check_totp(ctx: AppContext, user_id: str, code: str) -> bool:
@@ -508,6 +509,10 @@ def _record_failure(ctx: AppContext, user_id: str) -> None:
     with system_scope(), ctx.db.write() as s:
         u = _user(s, user_id, lock=True)
         now = db_now(s)
+        already = _aware(u.esig_locked_until)
+        if already is not None and already > now:      # a concurrent attempt locked it meanwhile: no new count
+            raise ApiError(423, "ESIG_LOCKED", "Signing is locked after repeated failures.",
+                           {"until": jsonable(already)})
         recent = [t for t in (u.esig_failed or []) if datetime.fromisoformat(t) > now - FAIL_WINDOW]
         recent.append(now.isoformat())
         if len(recent) >= MAX_FAILURES:
@@ -520,7 +525,7 @@ def _record_failure(ctx: AppContext, user_id: str) -> None:
             locked_until = None
     if locked_until is not None:
         raise ApiError(423, "ESIG_LOCKED", "Signing is locked for 30 minutes after three failed attempts.",
-                       {"until": locked_until})
+                       {"until": jsonable(locked_until)})
     raise ApiError(422, "ESIG_AUTH_FAILED", "The user name or the credentials are not correct.",
                    {"remaining": MAX_FAILURES - len(recent)})
 
@@ -586,7 +591,7 @@ def load(s: Session, record_type: str, record_id: str, lock: bool = False) -> C.
 def _required_error(s: Session, a: Any, record_type: str, record_id: str, action: str, decision: str | None,
                     loaded: C.Loaded, pol: POL.Policy) -> ApiError:
     prev = _preview_in(s, a, record_type, record_id, action, decision, loaded, pol, True)
-    return ApiError(422, "ESIG_REQUIRED", "This action needs an electronic signature.", {"preview": prev})
+    return ApiError(422, "ESIG_REQUIRED", "This action needs an electronic signature.", {"preview": jsonable(prev)})
 
 
 def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str, action: str,
@@ -636,7 +641,7 @@ def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str
     if not C.size_ok(snapshot):
         raise ApiError(422, "ESIG_CONTENT_TOO_LARGE", "The record is too large to be signed.",
                        {"max_bytes": C.MAX_CONTENT_BYTES})
-    settings = ctx_settings or _settings()
+    settings = ctx_settings or _settings(s)
     skew = _skew_for(s, settings)
     _check_clock(settings, skew)
     sid = new_id("esg_")
@@ -669,17 +674,22 @@ def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str
     return Outcome(True, None, [e.id for e in earlier] + [sid])
 
 
-_SETTINGS: list[Any] = []
+_SETTINGS: "weakref.WeakKeyDictionary[Any, Any]" = weakref.WeakKeyDictionary()
 
 
-def bind_settings(settings: Any) -> None:
-    """The app's settings for signing inside services (set by `create_app`; tests may rebind)."""
-    _SETTINGS[:] = [settings]
+def bind_settings(settings: Any, engine: Any) -> None:
+    """The settings of one engine's app (keys, skew limit) for signing inside services (`Database.from_settings`)."""
+    _SETTINGS[engine] = settings
 
 
-def _settings() -> Any:
-    if _SETTINGS:
-        return _SETTINGS[0]
+def _settings(s: Session | None = None) -> Any:
+    if s is not None:
+        try:
+            found = _SETTINGS.get(s.get_bind())
+        except TypeError:          # pragma: no cover
+            found = None
+        if found is not None:
+            return found
     from ...config import Settings
 
     return Settings()

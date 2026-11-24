@@ -74,7 +74,8 @@ def oidc_callback(request: Request, code: str | None = Query(default=None, max_l
     _accounts(ctx)
     v, token, nxt = ids.oidc_callback(ctx, request, code, state, error)
     resp = RedirectResponse(nxt, status_code=302)
-    sess.set_session_cookie(resp, ctx.settings, token, v.expires_at)
+    if v is not None:                               # (M7 step-up: no new session)
+        sess.set_session_cookie(resp, ctx.settings, token, v.expires_at)
     resp.delete_cookie(ids.OIDC_COOKIE, path="/api/v1/auth/oidc")
     return resp
 

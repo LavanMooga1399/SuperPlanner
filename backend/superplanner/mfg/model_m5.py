@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, StringConstraints, model_validator
 
+from ..esig.model import SignatureInput
 from .model import EntityId, MfgModel, Qty
 
 TraceKind = Literal["lot", "serial", "wo", "item_stock", "transfer", "demand_line"]
@@ -142,6 +143,7 @@ class ChangeRequestRecord(MfgModel):
 
 class EcoActionInput(MfgModel):
     note: Note = ""
+    signature: SignatureInput | None = None          # M7-DESIGN 4.3 `eco.approve`
 
 
 class ImpactResult(MfgModel):
