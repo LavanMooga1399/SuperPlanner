@@ -28,6 +28,8 @@ class OrgIn(_In):
 class OrgUpdate(_In):
     name: Name
     require_2fa: bool = False
+    #: M7-DESIGN 4.6: idle timeout of the organisation's people (None = platform default; Part 11: 15)
+    session_idle_minutes: Annotated[int, Field(ge=5, le=1440)] | None = None
 
 
 class OrgRecord(BaseModel):
@@ -35,6 +37,7 @@ class OrgRecord(BaseModel):
     name: str
     slug: str
     require_2fa: bool
+    session_idle_minutes: int | None = None
     my_role: Literal["org_admin", "org_member"] | None = None
     plants: int = 0
     members: int = 0

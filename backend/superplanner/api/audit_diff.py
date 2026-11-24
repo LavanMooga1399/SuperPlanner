@@ -38,7 +38,7 @@ PART11_ENTITIES: frozenset[str] = frozenset({
     "attachment", "link"})
 #: actions that never need a reason (creates, postings and their replays, sample loads, imports with their own reason)
 EXEMPT_ACTIONS: frozenset[str] = frozenset({"create", "post", "replay", "sample_load", "import", "add", "copy",
-                                             "member_add"})
+                                             "member_add", "results"})
 _reason: contextvars.ContextVar[str | None] = contextvars.ContextVar("sp_change_reason", default=None)
 
 

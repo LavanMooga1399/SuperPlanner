@@ -37,7 +37,8 @@ def _org(s: Any, org_id: str, user_id: str, *, admin: bool) -> tuple[OrgRow, str
 
 
 def org_record(s: Any, o: OrgRow, role: str | None) -> dict[str, Any]:
-    return {"id": o.id, "name": o.name, "slug": o.slug, "require_2fa": o.require_2fa, "my_role": role,
+    return {"id": o.id, "name": o.name, "slug": o.slug, "require_2fa": o.require_2fa,
+            "session_idle_minutes": o.session_idle_minutes, "my_role": role,
             "plants": int(s.execute(select(func.count()).select_from(OrgPlantRow).where(OrgPlantRow.org_id == o.id))
                           .scalar() or 0),
             "members": int(s.execute(select(func.count()).select_from(OrgMemberRow).where(
@@ -83,6 +84,7 @@ def update_org(ctx: AppContext, user_id: str, org_id: str, inp: Any) -> dict[str
     with system_scope(), ctx.db.write() as s:
         o, role = _org(s, org_id, user_id, admin=True)
         o.name, o.require_2fa, o.updated_at, o.row_version = inp.name, inp.require_2fa, utcnow(), o.row_version + 1
+        o.session_idle_minutes = inp.session_idle_minutes
         s.flush()
         return org_record(s, o, role)
 

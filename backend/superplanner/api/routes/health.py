@@ -99,6 +99,12 @@ def readiness(ctx: AppContext, state: Any) -> dict[str, Any]:
         if in_recovery:
             body.update(status="not_ready", database="read_only")
             return body
+        try:                                           # M7-DESIGN 4.6: app/DB clock skew (reported)
+            from ..mfg.services.esig import measure_skew
+
+            body["clock_skew_ms"] = round(measure_skew(ctx)[0], 1)
+        except Exception:                              # pragma: no cover - diagnostics only
+            body["clock_skew_ms"] = None
         if ctx.db.replica is not None:                 # reported, not a readiness condition
             lag = ctx.db.replica.lag()
             body["replica"] = {"status": "error" if lag is None else

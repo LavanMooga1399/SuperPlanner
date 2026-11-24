@@ -252,3 +252,20 @@ def test_part11_off_ignores_signature(w):
     out = appr.api.req("POST", f"/eco/{cr['id']}/approve", 200, json={}).json()
     assert out["status"] == "approved"
     assert w.owner.api.get("/esig/signatures")["total"] == 0
+
+
+def test_org_session_idle_minutes_end_idle_sessions(w):
+    from superplanner.api.auth import sessions as S
+
+    o = w.owner
+    assert o.client.get("/api/v1/auth/session").json()["authenticated"] is True
+    with _db(w).write() as s:
+        s.execute(sa.text("INSERT INTO orgs (id, name, slug, require_2fa, created_at, updated_at, row_version, "
+                          "session_idle_minutes) VALUES ('org_1', 'O', 'o-1', false, now(), now(), 1, 15)"))
+        s.execute(sa.text("INSERT INTO org_members (id, org_id, user_id, org_role, accepted_at, created_at, "
+                          "row_version) VALUES ('orm_1', 'org_1', :u, 'org_member', now(), now(), 1)"),
+                  {"u": o.user_id})
+        s.execute(sa.text("UPDATE user_sessions SET last_seen_at = now() - interval '20 minutes' WHERE user_id = :u"),
+                  {"u": o.user_id})
+    S._IDLE_CACHE.clear()
+    assert o.client.get("/api/v1/auth/session").json()["authenticated"] is False

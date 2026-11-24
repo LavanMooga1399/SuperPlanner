@@ -123,7 +123,32 @@ def lookup(s: Session, token: str | None, settings: Any,
     if found is None:
         return None
     row, user = found
-    return (row, user) if _valid(row, user, settings, now) else None
+    if not _valid(row, user, settings, now):
+        return None
+    idle = org_idle_minutes(s, user.id)                 # M7-DESIGN 4.6: organisation idle timeout
+    if idle is not None and aware(row.last_seen_at) < now - timedelta(minutes=idle):   # type: ignore[operator]
+        return None
+    return row, user
+
+
+_IDLE_CACHE: dict[str, tuple[float, int | None]] = {}
+
+
+def org_idle_minutes(s: Session, user_id: str) -> int | None:
+    """The smallest `session_idle_minutes` of the person's organisations (cached 60 s per process)."""
+    import time as _time
+
+    hit = _IDLE_CACHE.get(user_id)
+    if hit is not None and _time.monotonic() - hit[0] < 60:
+        return hit[1]
+    from sqlalchemy import func
+
+    from ..mfg.db_models_m5 import OrgMemberRow, OrgRow
+
+    v = s.execute(select(func.min(OrgRow.session_idle_minutes)).join(OrgMemberRow, OrgMemberRow.org_id == OrgRow.id)
+                  .where(OrgMemberRow.user_id == user_id, OrgRow.session_idle_minutes.is_not(None))).scalar()
+    _IDLE_CACHE[user_id] = (_time.monotonic(), int(v) if v is not None else None)
+    return _IDLE_CACHE[user_id][1]
 
 
 def view(row: UserSessionRow, user: UserRow) -> SessionView:
