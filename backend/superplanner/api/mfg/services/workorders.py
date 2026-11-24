@@ -79,7 +79,8 @@ def wo_records(s: Session, wos: list[MfgWorkOrderRow], *, full: bool = True) -> 
                 "due_date": w.due_date, "start_date": w.start_date, "priority": w.priority,
                 "serial_from": w.serial_from, "serial_to": w.serial_to, "source": w.source,
                 "source_run_no": w.source_run_no, "source_planned_no": w.source_planned_no,
-                "row_version": w.row_version, "created_at": as_utc(w.created_at), "updated_at": as_utc(w.updated_at)}
+                "row_version": w.row_version, "created_at": as_utc(w.created_at), "updated_at": as_utc(w.updated_at),
+                "kind": w.kind or "standard", "ncr_id": w.ncr_id}                     # M7-DESIGN 6
         if not full:
             base["component_count"] = len(comps[w.id])
             out.append(base)

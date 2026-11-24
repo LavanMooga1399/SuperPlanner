@@ -57,7 +57,8 @@ def settings_of(s: Session) -> QaSettings:
 
 def _settings_record(row: Any) -> dict[str, Any]:
     st = QaSettings.model_validate(row.qa_settings) if row is not None and row.qa_settings else QaSettings()
-    return {**st.model_dump(mode="json"), "row_version": row.row_version if row is not None else 0}
+    # a plant row is created with version 1 by the first write (PUT with If-Match "1" then matches)
+    return {**st.model_dump(mode="json"), "row_version": row.row_version if row is not None else 1}
 
 
 def get_settings(ctx: AppContext) -> dict[str, Any]:

@@ -669,11 +669,13 @@ def quarantine(ctx: AppContext, recall_id: str, inp: Any) -> dict[str, Any]:
             postings.append({"id": row.id, "number": row.number})
             moved += 1
         held = 0
-        for lot in lots.values():
+        from .m2util import actor_id
+        from .qa_holds import place
+
+        for lot in lots.values():                # M7-DESIGN 5.3: recall holds are hold rows
             if not lot.hold:
-                lot.hold = True
-                touch(lot)
                 held += 1
+            place(s, source="recall", source_id=r.id, reason=f"Recall {r.number}", actor=actor_id(), lot_id=lot.id)
         r.quarantined_at = utcnow()
         touch(r)
         s.flush()

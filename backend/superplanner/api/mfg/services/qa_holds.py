@@ -85,9 +85,9 @@ C.register("hold", _loader)
 def _recompute_lot(s: Session, lot_id: str) -> None:
     n = int(s.execute(select(func.count()).select_from(MfgLotHoldRow).where(
         MfgLotHoldRow.lot_id == lot_id, MfgLotHoldRow.released_at.is_(None))).scalar() or 0)
-    s.execute(update(MfgLotRow).where(MfgLotRow.id == lot_id).values(hold=n > 0, updated_at=utcnow(),
-                                                                     row_version=MfgLotRow.row_version + 1)
-              .execution_options(synchronize_session="fetch"))
+    # the flag is derived (holds are the record): no row_version bump, PUT /lots never writes it directly
+    s.execute(update(MfgLotRow).where(MfgLotRow.id == lot_id, MfgLotRow.hold.is_not(n > 0))
+              .values(hold=n > 0, updated_at=utcnow()).execution_options(synchronize_session="fetch"))
 
 
 def _recompute_serial(s: Session, serial_id: str) -> None:

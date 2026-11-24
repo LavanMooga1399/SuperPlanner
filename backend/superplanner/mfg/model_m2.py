@@ -756,6 +756,8 @@ class WorkOrderRecord(MfgModel):
     created_at: datetime
     updated_at: datetime
     components: list[WoComponentRecord] = Field(default_factory=list)
+    kind: Literal["standard", "rework"] = "standard"          # M7-DESIGN 6
+    ncr_id: str | None = None
 
 
 # ---------------------------------------------------------------- workspace members (3.8)

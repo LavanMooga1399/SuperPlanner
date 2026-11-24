@@ -251,7 +251,8 @@ def _transition(s: Session, r: QaNcrRow, to: str, action: str, reason: str | Non
 def open_ncr(ctx: AppContext, a: Act, ncr_id: str, if_match: str | None) -> dict[str, Any]:
     with write_tx(ctx) as (s, _plant):
         r = repo.get_row(s, QaNcrRow, ncr_id, what="NCR", lock=True)
-        check_version(r, if_match)
+        if if_match is not None:
+            check_version(r, if_match)
         if r.status != "draft":
             raise _bad_state(r, "opened")
         if r.qty_nc <= EPS:
@@ -269,7 +270,8 @@ def propose(ctx: AppContext, a: Act, ncr_id: str, body: ProposeInput, if_match: 
 
     with write_tx(ctx) as (s, _plant):
         r = repo.get_row(s, QaNcrRow, ncr_id, what="NCR", lock=True)
-        check_version(r, if_match)
+        if if_match is not None:
+            check_version(r, if_match)
         if r.status not in ("open", "proposed"):
             raise _bad_state(r, "proposed")
         total = round(sum(d.qty for d in body.dispositions), 6)
