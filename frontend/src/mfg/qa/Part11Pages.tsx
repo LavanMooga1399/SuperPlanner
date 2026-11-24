@@ -83,12 +83,12 @@ export function PoliciesPage() {
       header: t("qa.pol.head.rules"),
       width: "minmax(170px, 1fr)",
       wrap: true,
-      exportValue: (p) => [p.distinct_signers ? t("qa.pol.str.distinct") : "", p.exclude_author ? t("qa.pol.str.noAuthor") : ""].filter(Boolean).join("; "),
+      exportValue: (p) => [p.distinct_signers && p.steps.length > 1 ? t("qa.pol.str.distinct") : "", p.exclude_author ? t("qa.pol.str.noAuthor") : ""].filter(Boolean).join("; "),
       render: (p) => (
         <span className="col small" style={{ gap: 0 }}>
-          {p.distinct_signers ? <span>{t("qa.pol.str.distinct")}</span> : null}
+          {p.distinct_signers && p.steps.length > 1 ? <span>{t("qa.pol.str.distinct")}</span> : null}
           {p.exclude_author ? <span>{t("qa.pol.str.noAuthor")}</span> : null}
-          {!p.distinct_signers && !p.exclude_author ? <span className="faint">—</span> : null}
+          {!(p.distinct_signers && p.steps.length > 1) && !p.exclude_author ? <span className="faint">—</span> : null}
         </span>
       ),
     },

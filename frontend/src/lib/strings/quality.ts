@@ -691,4 +691,8 @@ export const qualityStrings = {
   "qa.fi.aria.value": "Measured value",
   "qa.fi.aria.back": "Delete last digit",
   "qa.fi.btn.save": "Save sample",
+  "qa.receipt.title": "Incoming inspection required",
+  "qa.receipt.text": "The received material is on inspection hold until the usage decision. Inspection lots:",
+  "qa.action.decideFinal": "Usage decision, final inspection",
+  "qa.action.cancel": "Cancel",
 } as const;

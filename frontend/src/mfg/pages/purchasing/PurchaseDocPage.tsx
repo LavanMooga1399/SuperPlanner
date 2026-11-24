@@ -22,13 +22,14 @@ import {
   type PrAction,
 } from "../../api/clientM2";
 import type { Ref } from "../../api/types";
-import type { DocType, Permission, PurchaseDocInput, PurchaseDocRecord, PurchaseStatus } from "../../api/typesM2";
+import type { DocType, Permission, PostingRecord, PurchaseDocInput, PurchaseDocRecord, PurchaseStatus } from "../../api/typesM2";
 import { DocLinesEditor, linesFromRecord, linesProblems, linesToInput, newDocLine, type LineDraft } from "../../components/DocLinesEditor";
 import { ErpOwnedNotice } from "../../components/ErpOwned";
 import { ConflictBanner, MfgError, NotFoundPanel, Spinner } from "../../components/Feedback";
 import { strOrNull, TextField } from "../../components/Field";
 import { SupplierPicker } from "../../components/PickersM2";
 import { ReceiveDialog } from "../../components/ReceiveDialog";
+import { ReceiptInspectionLots } from "../../qa/ReceiptLink";
 import { OverdueBadge, PurchaseStatusChip, SourceBadge } from "../../components/StatusM2";
 import { fmtDate, fmtTimestamp } from "../../lib/format";
 import { fmtMoney, POSTING_LABEL } from "../../lib/formatM2";
@@ -189,6 +190,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
   const [error, setError] = useState<unknown>(null);
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<PostingRecord | null>(null);
   const [confirm, setConfirm] = useState<ActionDef | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
@@ -324,6 +326,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
       {conflict ? <ConflictBanner onReload={() => void getPurchaseDoc(docType, docId).then(reset, setError)} what={`this ${word}`} /> : null}
       {docType === "po" ? <ErpOwnedNotice entity="purchase_orders" label={t("mfg.purchaseDocPage.label.purchaseOrders")} /> : null}
       {notice ? <Banner tone="ok" role="status" title={notice} /> : null}
+      {receipt ? <ReceiptInspectionLots posting={receipt} /> : null}
       <MfgError error={error} title={t("mfg.purchaseDocPage.attr.thatDidNotWork")} />
       {doc?.status === "rejected" && doc.rejected_reason ? (
         <Banner tone="danger" icon="x" title={t("mfg.purchaseDocPage.title.rejected")}>
@@ -463,6 +466,7 @@ export function PurchaseDocPage({ docType }: { docType: DocType }) {
           onDone={(p) => {
             setReceiving(false);
             setNotice(`Received: posting ${p.number}.`);
+            setReceipt(p);
             void getPurchaseDoc(docType, doc.id).then(reset, setError);
           }}
         />

@@ -128,8 +128,8 @@ export function FloorInspect() {
   };
 
   return (
-    <div className="fi floor" data-testid="qa-floor-inspect">
-      <div className="floor-head">
+    <div className="fi" data-testid="qa-floor-inspect">
+      <div className="fi-head">
         <div>
           <Link to={mfgPaths.floor()} className="small">
             {t("qa.fi.btn.back")}
@@ -143,7 +143,7 @@ export function FloorInspect() {
             <span className="muted">{t("qa.fi.tpl.size", { n: formatNumber(lot.lot_size) })}</span>
           </div>
         </div>
-        <div className="floor-head-side">
+        <div>
           <VerdictChip s={lot.verdict?.verdict ?? "pending"} testId="qa-verdict" />
         </div>
       </div>
@@ -237,7 +237,7 @@ export function FloorInspect() {
               {c.equipment_class ? (
                 <div className="col" style={{ gap: 6 }}>
                   <form
-                    className="floor-scan-form row"
+                    className="fi-gauge"
                     onSubmit={(e) => {
                       e.preventDefault();
                       void resolveGauge(scan);
@@ -247,11 +247,11 @@ export function FloorInspect() {
                       <label htmlFor="fi-gauge">{t("qa.fi.label.gauge", { cls: c.equipment_class })}</label>
                       <input id="fi-gauge" className="input" value={scan} onChange={(e) => setScan(e.target.value)} placeholder={t("qa.fi.ph.gauge")} autoComplete="off" data-testid="qa-gauge-scan" />
                     </div>
-                    <button type="submit" className="btn" style={{ alignSelf: "flex-end" }}>
+                    <button type="submit" className="btn">
                       {t("qa.fi.btn.use")}
                     </button>
                   </form>
-                  <div className="row wrap" style={{ gap: 6 }}>
+                  <div className="row wrap fi-gauges" style={{ gap: 6 }}>
                     {(gauges.data ?? []).map((g) => (
                       <button key={g.id} type="button" className="btn sm" aria-pressed={gauge?.id === g.id} disabled={!g.valid} onClick={() => setGauge(g)} title={g.valid ? undefined : t("qa.lots.str.notCalibrated")}>
                         <span className="mono">{g.code}</span>

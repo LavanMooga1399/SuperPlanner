@@ -112,3 +112,16 @@
 .fi-passfail button { min-height: 72px; font-size: 20px; }
 .fi-samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
 .fi-samples .qa-sample { min-height: 56px; }
+
+/* item picker inside quality forms: same label and control height as the other fields */
+.qa-form-grid .mfg-picker { display: flex; flex-direction: column; gap: 4px; }
+.qa-form-grid .mfg-picker .input.sm { height: var(--control-h); font-size: var(--fs-base); }
+.fi-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-3); flex-wrap: wrap; }
+.fi-head h1 { font-size: 24px; margin: 4px 0; }
+.fi .qa-sample-no { font-size: var(--fs-sm); }
+.fi .qa-sample-val { font-size: 18px; }
+.fi .fi-char strong { font-size: 16px; }
+.fi-gauge { display: flex; gap: 8px; align-items: flex-end; }
+.fi-gauge .input { height: 48px; font-size: 18px; }
+.fi-gauge .btn { height: 48px; }
+.fi-gauges .btn { min-height: 44px; }

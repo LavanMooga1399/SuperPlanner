@@ -56,7 +56,7 @@ export function InspectionLotsPage() {
       {
         key: "lot",
         header: t("qa.lots.head.stockLot"),
-        width: "minmax(120px, 1fr)",
+        width: "minmax(170px, 1fr)",
         exportValue: (l) => l.lot_code ?? "",
         render: (l) => (
           <span className="row" style={{ gap: 4 }}>
@@ -448,7 +448,7 @@ function CharCard({ lot, s, editable, onSaved }: { lot: InspectionLot; s: CharSt
           >
             <div className="row wrap" style={{ gap: 12, alignItems: "flex-end" }}>
               <div className="field">
-                <span className="label">{correct ? t("qa.lots.label.correcting") : t("qa.lots.label.sample")}</span>
+                <span className="field-label">{correct ? t("qa.lots.label.correcting") : t("qa.lots.label.sample")}</span>
                 <strong className="mono" style={{ lineHeight: "28px" }}>
                   {t("qa.lots.tpl.sampleOf", { n: target ?? "", m: s.n })}
                 </strong>

@@ -131,7 +131,7 @@ export function QaWorklist<T>({
       >
         {views?.length ? (
           <div className="field">
-            <span className="label" id={`${pageKey}-view-l`}>
+            <span className="field-label" id={`${pageKey}-view-l`}>
               {t("qa.list.label.show")}
             </span>
             <div className="btn-group" role="group" aria-labelledby={`${pageKey}-view-l`}>

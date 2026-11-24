@@ -119,7 +119,7 @@ export function SignatureEnrolPage() {
               </Field>
               {sso ? (
                 <div className="field">
-                  <span className="label">{t("qa.esig.label.companyAccount")}</span>
+                  <span className="field-label">{t("qa.esig.label.companyAccount")}</span>
                   {stepup.token ? (
                     <span className="badge ok">
                       <Icon name="check" /> {t("qa.esig.tpl.reauthenticatedAt", { time: formatTime(stepup.token.at) })}

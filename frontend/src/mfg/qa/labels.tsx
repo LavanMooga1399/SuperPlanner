@@ -225,6 +225,8 @@ export const recordTypeText = (r: string) => (RECORD_TYPE_LABEL[r] ? t(RECORD_TY
 export const ACTION_LABEL: Record<string, StringKey> = {
   approve: "qa.action.approve",
   decide: "qa.action.decide",
+  decide_final: "qa.action.decideFinal",
+  cancel: "qa.action.cancel",
   release: "qa.action.release",
   close: "qa.action.close",
   approve_plan: "qa.action.approvePlan",
