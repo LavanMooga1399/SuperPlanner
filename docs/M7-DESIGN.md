@@ -635,3 +635,53 @@ S1 (esig core) notes:
   `prompt=login&max_age=0`; the shared callback checks the identity (`iss`, `sub`) maps to the session user, the
   browser session is the same and `auth_time` is fresh, then redirects to `/esig/stepup-done#token=...` (fragment).
 
+S2-S4 notes (as built):
+- Holds: `mfg_lots.hold` / `mfg_unit_serials.hold` are derived from open hold rows under the lot row lock; the
+  derived flag does not bump the lot's `row_version`. `PUT /lots {hold}` places / releases `manual` holds (409
+  `QA_HOLD_ACTIVE` with other holds; in Part 11 mode manual holds are released only through the signed
+  `POST /qa/holds/{id}/release`, 409 `QA_HOLD_OWNED`). Recall quarantine places `recall` holds.
+- MRP: a lot whose open holds are all `inspection` is netted as `inspection` supply (avail = max(as_of,
+  last receipt + receiving days)) wherever it is stored.
+- Inspection lots are row-locked (`write_tx(lock=False)`), results of different lots run in parallel. A second
+  results batch for an already entered sample is 409 `QA_RESULT_EXISTS` (corrections use `corrects_result_id` +
+  reason). Result entry is exempt from the change-reason rule (append-only creation). `client_batch_id` replays
+  the stored response; a different body with the same id is 409 `QA_BATCH_CONFLICT`.
+- Plan approval obsoletes the previous approved version with the same key at approval time (not at
+  `effective_from`); `find_plan` honours `effective_from` of the new version.
+- Final lots are not created for rework WOs (the material is under its NCR).
+- NCR WIP: `qty_nc` counts as scrap in the operation state until dispositioned (so WO `qty_scrapped` includes
+  undispositioned NC). `nc_disposition` events convert: scrap -> unchanged, rework -> scrap -1 / rework_out +1 to
+  `rework_to_seq`, use-as-is -> scrap -1 / good +1 (last operation: the floor receipt follows the state).
+- NCR stock scrap / RTV postings are exempt from the lot hold for that posting only; a rework WO may consume the
+  lots its NCR holds (`hold_exempt` in the posting context). Rework WOs are `kind rework` with the item itself as
+  the 1:1 component; the receipt lot code is the operator's choice (same code recommended, not enforced).
+- Workflow actions accept If-Match optionally (as M5 ECO actions); edits require it.
+- CAPA `verify` with `effective` keeps the CAPA in `effectiveness_check` until `close`; external SoR
+  (`capa_sor` / `complaint_sor = external`) refuses workflow actions with 409 `QA_EXTERNAL_SOR`; status is free text.
+- Complaint close needs the reportability assessed (409 `QA_COMPLAINT_NOT_ASSESSED`); `reporting_due` per regime
+  from the QA settings rules (event-type rule wins over `all`).
+- Field action units: shipped serials, shipments (customer, demand line) and in-stock lots of the recall report;
+  `approve` holds the in-stock lots; effectiveness counts shipped units only.
+- Equipment: `calibration.record` creates the calibration and signs it in one transaction (single-step policies
+  only). `fail` -> out of service + notification; return to service needs a passing calibration after the
+  failure and a valid due date. APS: lines with invalid linked equipment get open-ended `qa:<equipment>` closures in
+  the snapshot (planned=true); the APS explanation of the empty line is the closure, the health issue
+  `QA_LINE_BLOCKED` carries the text ("EQ-0042 calibration overdue since ..."). Tool pools with linked equipment
+  are reduced to the valid units in the APS dataset. The APS inputs token includes equipment changes.
+- Held serials are refused on floor consumption (422 `INV_SERIAL_ON_HOLD`); M2 shipments and transfers are not
+  serial-addressed, so they are unaffected.
+- `/approvals` gains kinds `qa_lot`, `qa_ncr`, `qa_capa`, `qa_field_action` (in Part 11 mode only steps the user's
+  roles may sign); `/summary.qa`; scan codes `IL:` and `E:`; health issue codes are listed in `/meta`.
+- Notifications use a small backend catalog (`superplanner/i18n`, en / fr-CA) by the plant's `attributes.locale`.
+- Not built in M7 (left for the gate review): assistant read tools `qa_lots`, `ncrs`, `equipment_status`; inbound
+  `superplanner.v1` record `complaint`; field action CSV import is supported only inline (`units/bulk {csv}`).
+- Sample: `mfg/samples/meddev_m7.py` + `services/qa_sample.py`, applied after the meddev history (no ledger postings;
+  equipment due dates relative to the real day; QC release holds become final inspection lots with holds for items
+  with a final plan, else manual holds).
+
+**Measured performance** (`tests/api_mfg_m7/test_m7_perf.py`, local PostgreSQL, in-process TestClient, argon2
+"fast" test profile): QP1 signed action p95 81 ms (median 52 ms; the production argon2 profile adds its verify time);
+QP2 diff 0.03 ms per regulated update; QP4 2,000 results with evaluation 259 ms; QP6 filtered page of 100,000
+inspection lots 84 ms; QP7 line equipment check 0.8 ms; QP8 record audit trail of 2,000 events 65 ms. QP3, QP5 and
+QP9 were not measured separately (covered functionally by the receipt, NCR and export tests).
+
