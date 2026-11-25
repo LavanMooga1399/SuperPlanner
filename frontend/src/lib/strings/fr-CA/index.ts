@@ -7,21 +7,25 @@ import type { StringKey } from "../../i18n";
 import { accountFrCa } from "./account";
 import { assistantFrCa } from "./assistant";
 import { commonFrCa } from "./common";
+import { financeFrCa } from "./finance";
 import { floorFrCa } from "./floor";
 import { mfgFrCa } from "./mfg";
 import { mobileFrCa } from "./mobile";
 import { navFrCa } from "./nav";
 import { qualityFrCa } from "./quality";
 import { shellFrCa } from "./shell";
+import { studioFrCa } from "./studio";
 
 export const frCaStrings: Partial<Record<StringKey, string>> = {
   ...accountFrCa,
   ...assistantFrCa,
   ...commonFrCa,
+  ...financeFrCa,
   ...floorFrCa,
   ...mfgFrCa,
   ...mobileFrCa,
   ...navFrCa,
   ...qualityFrCa,
   ...shellFrCa,
+  ...studioFrCa,
 } as Partial<Record<StringKey, string>>;

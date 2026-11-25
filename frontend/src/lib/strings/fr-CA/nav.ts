@@ -7,7 +7,7 @@ import type { navStrings } from "../nav";
 export const navFrCa: Record<keyof typeof navStrings, string> = {
   "nav.mfg.group.overview": "Vue d'ensemble",
   "nav.mfg.group.planning": "Planification",
-  "nav.mfg.group.supply": "Approvisionnement et magasins",
+  "nav.mfg.group.supply": "Approvisionnement",
   "nav.mfg.group.production": "Production",
   "nav.mfg.group.master": "Données de base",
   "nav.mfg.group.control": "Contrôle",

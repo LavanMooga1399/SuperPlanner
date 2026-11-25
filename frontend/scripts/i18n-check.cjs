@@ -363,3 +363,32 @@ if (APPLY) {
 }
 if (LIST) console.log(listOut.join("\n"));
 console.log("hard-coded user-facing strings:", total, JSON.stringify(perArea));
+
+// ---------------------------------------------------------------- M7 10: translation parity (fr-CA)
+// Every English key (lib/strings/<area>.ts and the inline keys of lib/i18n.ts) must exist in
+// lib/strings/fr-CA/<area>.ts (common.ts for the inline keys) with the same {placeholders}; no extra keys.
+{
+  const readDict = (f) => {
+    const d = {};
+    if (fs.existsSync(f)) for (const m of fs.readFileSync(f, "utf8").matchAll(/^  ("[^"\n]+"): (".*"),$/gm)) d[JSON.parse(m[1])] = JSON.parse(m[2]);
+    return d;
+  };
+  const ph = (s) => [...new Set(s.match(/\{[A-Za-z0-9_]+\}/g) || [])].sort().join(",");
+  const FR = path.join(STR_DIR, "fr-CA");
+  const pairs = [[path.join(SRC, "lib/i18n.ts"), path.join(FR, "common.ts"), "common"]];
+  for (const f of fs.readdirSync(STR_DIR)) if (f.endsWith(".ts")) pairs.push([path.join(STR_DIR, f), path.join(FR, f), f.replace(/\.ts$/, "")]);
+  let problems = 0;
+  const report = [];
+  for (const [enFile, frFile, area] of pairs) {
+    const en = readDict(enFile);
+    const fr = readDict(frFile);
+    for (const k of Object.keys(en)) {
+      if (!(k in fr)) (problems++, report.push(`fr-CA missing ${area}: ${k}`));
+      else if (ph(en[k]) !== ph(fr[k])) (problems++, report.push(`fr-CA placeholders differ ${area}: ${k} [${ph(en[k])}] vs [${ph(fr[k])}]`));
+    }
+    for (const k of Object.keys(fr)) if (!(k in en)) (problems++, report.push(`fr-CA extra key ${area}: ${k}`));
+  }
+  if (LIST || problems) console.log(report.slice(0, 50).join("\n"));
+  console.log("fr-CA parity problems:", problems);
+  if (problems || total) process.exitCode = 1;
+}
