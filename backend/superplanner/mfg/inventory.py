@@ -157,8 +157,8 @@ class PostingContext:
     over_receipt_pct: float = 0.0
     #: imports and sample loads: no backdate/future limit, no reason requirement
     system: bool = False
-    #: M7-DESIGN 6: held lots an NCR disposition may move ((item_id, lot_code); scrap, RTV, its rework WO)
-    hold_exempt: frozenset[tuple[str, str]] = frozenset()
+    #: M7-DESIGN 6: held lots an NCR disposition may move: (item_id, lot_code, wo_component_id | "*")
+    hold_exempt: frozenset[tuple[str, str, str]] = frozenset()
 
 
 # ---------------------------------------------------------------- plan
@@ -282,11 +282,14 @@ class _Planner:
         if code is None and it.lot_controlled and required:
             raise _err("INV_LOT_REQUIRED", f"{it.part_number} is lot-controlled; enter the lot code.", loc)
 
-    def lot_usable(self, it: ItemInfo, code: str, loc: list[Any], *, to_quarantine: bool = False) -> None:
+    def lot_usable(self, it: ItemInfo, code: str, loc: list[Any], *, to_quarantine: bool = False,
+                   component_id: str | None = None) -> None:
         lot = self.lot(it.id, code)
         if lot is None or to_quarantine:
             return
-        if lot.hold and (it.id, code) not in self.ctx.hold_exempt:
+        ex = self.ctx.hold_exempt
+        if lot.hold and (it.id, code, "*") not in ex and (component_id is None or (it.id, code, component_id)
+                                                          not in ex):
             raise _err("INV_LOT_ON_HOLD", f"Lot {code} of {it.part_number} is on hold.", loc)
         if lot.expires_on is not None and lot.expires_on <= self.d:
             raise _err("INV_LOT_EXPIRED", f"Lot {code} of {it.part_number} expired on {lot.expires_on.isoformat()}.",
@@ -336,7 +339,8 @@ class _Planner:
             picks = self.pick(it, lc, qty, component_id, to_quarantine, idx)
         else:
             if code is not None:
-                self.lot_usable(it, code, ["body", "lines", idx, "lot_code"], to_quarantine=to_quarantine)
+                self.lot_usable(it, code, ["body", "lines", idx, "lot_code"], to_quarantine=to_quarantine,
+                                component_id=component_id)
             b = self.bal.get((it.id, lc.id, code or ""))
             own = self.own_reserved(component_id, (it.id, lc.id, code or ""))
             if b is None or b.available + own < qty - EPS:

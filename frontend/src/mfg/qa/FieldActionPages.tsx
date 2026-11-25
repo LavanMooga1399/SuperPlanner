@@ -357,6 +357,7 @@ export function FieldActionPage() {
           recordId={x.id}
           recordLabel={x.number}
           action={sign}
+          signable={sign !== "cancel"}
           meaning={sign === "approve" ? "approved" : "closed"}
           danger={sign === "cancel"}
           commentRequired={sign === "cancel"}

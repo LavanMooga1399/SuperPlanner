@@ -348,7 +348,7 @@ def cancel(ctx: AppContext, a: Act, fa_id: str, body: CancelInput, if_match: str
         r = repo.get_row(s, QaFieldActionRow, fa_id, what="Field action", lock=True)
         if if_match is not None:
             check_version(r, if_match)
-        if r.status in ("closed", "cancelled"):
+        if r.status != "draft":                      # review M8: after approval only the signed close releases
             raise ApiError(409, "MFG_INVALID_STATE", f"A {r.status} field action cannot be cancelled.",
                            {"status": r.status})
         release_source(s, "field_action", r.id, a.user_id, f"Field action {r.number} cancelled")

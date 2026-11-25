@@ -30,6 +30,8 @@ export interface SignatureDialogProps<T> {
   action: string;
   /** inspection_lot.decide: accept | reject (preview content depends on it) */
   decision?: string;
+  /** false for actions that are never signed (cancel, out of service): a plain confirmation without preview */
+  signable?: boolean;
   /** the record's number for the "Record" line, e.g. "IL-000123" */
   recordLabel?: string;
   /** preset meaning (otherwise the step's only meaning, or a choice) */
@@ -105,9 +107,15 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
   const pwRef = useRef<HTMLInputElement>(null);
   const uid = useId().replace(/:/g, "");
 
+  const signable = props.signable !== false;
   const load = useCallback(() => {
     const ctl = new AbortController();
     setLoadError(null);
+    if (!signable) {
+      // never-signed actions: a local, unsigned "preview" so the dialog is a plain confirmation
+      setPreview({ record_type: recordType, record_id: recordId, action, record_version: 0, content_hash: "", content: {}, summary: [], required: false, part11_mode: false, policy: null, next_step: null, signatures: [], signer: { enrolled: false, legal_name: null, locked_until: null, methods: [], username: "" }, legal_statement: "" });
+      return () => ctl.abort();
+    }
     getPreview({ record_type: recordType, record_id: recordId, action, ...(decision ? { decision } : {}) }, ctl.signal).then(
       (p) => {
         setPreview(p);
@@ -120,7 +128,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
     );
     return () => ctl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordType, recordId, action, decision]);
+  }, [recordType, recordId, action, decision, signable]);
   useEffect(() => load(), [load]);
 
   const required = Boolean(preview?.required);
@@ -224,7 +232,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
                 <dt>{t("qa.esig.label.record")}</dt>
                 <dd>
                   {recordTypeText(preview.record_type)} <span className="mono">{props.recordLabel ?? preview.record_id}</span>{" "}
-                  <span className="muted small">{t("qa.esig.tpl.version", { v: preview.record_version })}</span>
+                  {signable ? <span className="muted small">{t("qa.esig.tpl.version", { v: preview.record_version })}</span> : null}
                 </dd>
                 {preview.summary.map((l, i) => (
                   <PreviewRow key={i} label={l.label} value={l.value} />

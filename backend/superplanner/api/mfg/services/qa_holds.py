@@ -183,6 +183,20 @@ def open_holds(s: Session, lot_id: str | None = None, serial_id: str | None = No
     return list(s.execute(q.order_by(MfgLotHoldRow.placed_at)).scalars())
 
 
+def ncr_only_lots(s: Session, ncr_id: str) -> set[tuple[str, str]]:
+    """(item_id, lot_code) of lots held by this NCR whose every open hold is an `ncr` hold of this NCR."""
+    out: set[tuple[str, str]] = set()
+    for lot in s.execute(select(MfgLotRow).join(MfgLotHoldRow, MfgLotHoldRow.lot_id == MfgLotRow.id).where(
+            MfgLotHoldRow.source == "ncr", MfgLotHoldRow.source_id == ncr_id,
+            MfgLotHoldRow.released_at.is_(None))).scalars():
+        others = s.execute(select(MfgLotHoldRow.id).where(
+            MfgLotHoldRow.lot_id == lot.id, MfgLotHoldRow.released_at.is_(None),
+            (MfgLotHoldRow.source != "ncr") | (MfgLotHoldRow.source_id != ncr_id)).limit(1)).first()
+        if others is None:
+            out.add((lot.item_id, lot.lot_code))
+    return out
+
+
 def lot_put_hold(s: Session, lot: MfgLotRow, hold: bool, actor: str) -> None:
     """M2 `PUT /lots/{id} {hold}`: place a manual hold / release the manual holds (others stay: 409)."""
     cur = open_holds(s, lot_id=lot.id)

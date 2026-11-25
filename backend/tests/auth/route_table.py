@@ -754,6 +754,7 @@ PROTECTED_M7 = frozenset({
     ("POST", "/auth/esig/enroll"),
     ("GET", "/auth/oidc/stepup"),
     ("POST", "/orgs/{org_id}/members/{member_id}/esig-revoke"),
+    ("POST", "/orgs/{org_id}/members/{member_id}/esig-reinstate"),
     ("GET", "/meta/time"),
 })
 PROTECTED = PROTECTED | PROTECTED_M7

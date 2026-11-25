@@ -312,6 +312,9 @@ def enroll(ctx: AppContext, p: Any, body: Any, request: Any) -> dict[str, Any]:
             raise _not_allowed("Only people can enrol for electronic signatures.")
         sso = _is_sso(s, u.id) and not u.password_hash
         pw_hash = u.password_hash
+        if u.esig_revoked_at is not None:            # review M2: only an admin reinstates a revoked signer
+            raise ApiError(403, "ESIG_REVOKED", "Your signing rights were revoked; ask an organisation admin to "
+                           "reinstate them.", {})
     ok = False
     if body.password is not None and pw_hash:
         ok = verify_password(pw_hash, body.password, ctx.settings.password_hash_profile)
@@ -340,7 +343,7 @@ def enroll(ctx: AppContext, p: Any, body: Any, request: Any) -> dict[str, Any]:
         return _status_of(ctx, s, u)
 
 
-def revoke(ctx: AppContext, p: Any, org_id: str, member_id: str) -> dict[str, Any]:
+def revoke(ctx: AppContext, p: Any, org_id: str, member_id: str, reinstate: bool = False) -> dict[str, Any]:
     """P4: an organisation admin revokes a member's signing enrolment."""
     from ..db_models_m5 import OrgMemberRow
 
@@ -356,10 +359,14 @@ def revoke(ctx: AppContext, p: Any, org_id: str, member_id: str) -> dict[str, An
         if m is None or m.user_id is None:
             raise ApiError(404, "NOT_FOUND", "Member not found.", {"id": member_id})
         u = _user(s, m.user_id, lock=True)
-        u.esig_revoked_at = utcnow()
+        if reinstate:
+            u.esig_revoked_at = None
+        else:
+            u.esig_revoked_at = utcnow()
         from ...services.problem_service import audit_row
 
-        audit_row(s, "user", u.id, "esig.revoked", {"org_id": org_id, "by": p.user_id})
+        audit_row(s, "user", u.id, "esig.reinstated" if reinstate else "esig.revoked", {"org_id": org_id,
+                                                                                         "by": p.user_id})
         s.flush()
         return _status_of(ctx, s, u)
 

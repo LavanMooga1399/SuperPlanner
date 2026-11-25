@@ -364,7 +364,9 @@ def _issue(s: Session, r: QaNcrRow, d: QaNcrDispositionRow, reason: str) -> str:
         type="issue_misc", txn_date=None, note=f"{r.number} {d.kind.replace('_', ' ')}", reason_code=reason,
         lines=[IssueMiscLine.model_construct(item_id=r.item_id, location_id=d.location_id,
                                              lot_code=lot.lot_code if lot else None, qty=d.qty)])
-    exempt = {(r.item_id, lot.lot_code)} if lot else set()
+    from .qa_holds import ncr_only_lots
+
+    exempt = {(i, c, "*") for i, c in ncr_only_lots(s, r.id)} if lot else set()
     row, _w = post_in_session(s, inp, hold_exempt=exempt, ncr_id=r.id)
     return row.id
 
@@ -468,8 +470,20 @@ def implement(ctx: AppContext, a: Act, ncr_id: str, if_match: str | None) -> dic
 def _maybe_release(s: Session, r: QaNcrRow, actor: str) -> None:
     if r.place != "stock" or r.status not in ("implemented", "closed"):
         return
-    if any(w.status not in ("completed", "closed", "cancelled") for w in _rework_wos(s, r.id)):
+    wos = _rework_wos(s, r.id)
+    if any(w.status not in ("completed", "closed", "cancelled") for w in wos):
         return
+    rework_qty = sum(d.qty for d in _disps(s, r.id) if d.kind == "rework")
+    if rework_qty > EPS and r.lot_id:              # review M5: the reworked quantity left the held lot to the WO
+        from ..db_models_m2 import MfgInvTransactionRow, MfgWoComponentRow
+
+        comp_ids = list(s.execute(select(MfgWoComponentRow.id).where(
+            MfgWoComponentRow.wo_id.in_([w.id for w in wos]))).scalars()) if wos else []
+        issued = -float(s.execute(select(func.coalesce(func.sum(MfgInvTransactionRow.qty), 0.0)).where(
+            MfgInvTransactionRow.lot_id == r.lot_id, MfgInvTransactionRow.wo_component_id.in_(comp_ids),
+            MfgInvTransactionRow.txn_type.in_(("wo_issue", "wo_return")))).scalar() or 0.0)
+        if issued + EPS < rework_qty:
+            return
     from .qa_holds import release_source
 
     release_source(s, "ncr", r.id, actor, f"{r.number} dispositions implemented")

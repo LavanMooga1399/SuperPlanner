@@ -481,6 +481,7 @@ export function NcrPage() {
           recordId={x.id}
           recordLabel={x.number}
           action={sign}
+          signable={sign !== "cancel"}
           meaning={sign === "close" ? "closed" : sign === "cancel" ? "closed" : undefined}
           danger={sign === "cancel"}
           commentRequired={sign === "cancel"}

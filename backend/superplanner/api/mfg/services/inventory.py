@@ -466,7 +466,7 @@ def _replay(s: Session, row: MfgInvPostingRow, h: str) -> dict[str, Any]:
 
 def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: date | None = None,
                     idem: str | None = None, body_hash: str | None = None, note_audit: bool = True,
-                    hold_exempt: set[tuple[str, str]] | None = None, ncr_id: str | None = None
+                    hold_exempt: set[tuple[str, str, str]] | None = None, ncr_id: str | None = None
                     ) -> tuple[MfgInvPostingRow, list[dict[str, Any]]]:
     """Plan and apply one posting in the caller's transaction (also used by imports and sample loads, `system`:
     no date/reason limits). Raises `ApiError` on rule errors."""
@@ -483,6 +483,8 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     # posting numbers come from their own short transaction (4.5, 22.WP-B): no series lock is held here
     number = repo_m2.allocate_number(s, "TXN", repo_m2.number_taken(s, MfgInvPostingRow))
     ctx = _context(s, L, set(item_ids), pairs, today(s), system=system)
+    if inp.type == "wo_receipt":                                 # M7 review M5: rework returns what was issued
+        _check_rework_receipt(inp, L)
     exempt = set(hold_exempt or ()) | _rework_exempt(s, L)          # M7-DESIGN 6
     if exempt:
         ctx.hold_exempt = frozenset(exempt)
@@ -574,18 +576,34 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
     return run_tx(ctx, fn)
 
 
-def _rework_exempt(s: Session, L: _Loaded) -> set[tuple[str, str]]:
-    """A rework WO of an NCR may consume the lots that NCR holds (and only those, 6)."""
-    ncrs = {w.ncr_id for w in L.wos.values() if getattr(w, "kind", "standard") == "rework" and w.ncr_id}
-    if not ncrs:
-        return set()
-    from ..db_models_m7 import MfgLotHoldRow
+def _check_rework_receipt(inp: Any, L: _Loaded) -> None:
+    add: dict[str, float] = {}
+    for ln in inp.lines:
+        w = L.wos.get(getattr(ln, "wo_id", None) or "")
+        if w is not None and getattr(w, "kind", "standard") == "rework":
+            add[w.id] = add.get(w.id, 0.0) + float(ln.qty)
+    for wid, q in add.items():
+        w = L.wos[wid]
+        issued = sum(c.issued_qty for c in L.comps.values() if c.wo_id == wid)
+        if w.qty_completed + q > issued + 1e-6:
+            raise ApiError(422, "QA_REWORK_NOT_ISSUED", f"{w.number} can return at most what was issued to it "
+                           f"({issued:g}).", {"wo_id": wid, "issued": issued, "received": w.qty_completed})
 
-    rows = s.execute(select(MfgLotRow.item_id, MfgLotRow.lot_code).join(
-        MfgLotHoldRow, MfgLotHoldRow.lot_id == MfgLotRow.id).where(
-        MfgLotHoldRow.source == "ncr", MfgLotHoldRow.source_id.in_(sorted(ncrs)),
-        MfgLotHoldRow.released_at.is_(None))).all()
-    return {(r[0], r[1]) for r in rows}
+
+def _rework_exempt(s: Session, L: _Loaded) -> set[tuple[str, str, str]]:
+    """A rework WO's components may consume the lots its NCR holds - only lots whose every open hold is an `ncr`
+    hold of that NCR (any other hold still blocks), and only on that WO's component lines (6)."""
+    rework = {w.id: w.ncr_id for w in L.wos.values() if getattr(w, "kind", "standard") == "rework" and w.ncr_id}
+    if not rework:
+        return set()
+    from .qa_holds import ncr_only_lots
+
+    out: set[tuple[str, str, str]] = set()
+    for c in L.comps.values():
+        ncr = rework.get(c.wo_id)
+        if ncr:
+            out |= {(item, code, c.id) for item, code in ncr_only_lots(s, ncr) if item == c.item_id}
+    return out
 
 
 def _lot_refs(s: Session, ids: list[str]) -> list[dict[str, Any]]:

@@ -249,6 +249,7 @@ export function InspectionLotPage() {
           recordId={lot.id}
           recordLabel={lot.number}
           action="cancel"
+          signable={false}
           meaning="closed"
           danger
           submitLabel={t("qa.lots.btn.signCancel")}

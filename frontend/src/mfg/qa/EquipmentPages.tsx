@@ -427,6 +427,7 @@ export function EquipmentPage() {
           recordId={x.id}
           recordLabel={x.code}
           action={statusTo === "active" ? "return_to_service" : "status"}
+          signable={statusTo === "active"}
           meaning="approved"
           danger={statusTo !== "active"}
           commentRequired

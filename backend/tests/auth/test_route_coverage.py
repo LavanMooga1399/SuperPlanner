@@ -39,7 +39,7 @@ def test_enumerated_operations_equal_the_access_table(db_url):
     assert protected == PROTECTED | MFG_PROTECTED, {
         "new (add to route_table.py)": sorted(protected - PROTECTED - MFG_PROTECTED),
         "missing": sorted((PROTECTED | MFG_PROTECTED) - protected)}
-    assert len(PROTECTED) == 55 + 48 + 8 + 4 + 5   # B 4.8 rows 9-63 (+ M5: tokens, integration, orgs, audit; 15.WP-S +8;
+    assert len(PROTECTED) == 55 + 48 + 8 + 4 + 6   # B 4.8 rows 9-63 (+ M5: tokens, integration, orgs, audit; 15.WP-S +8;
     # M6 +8; UX +4 preferences; M7 +5 e-signature status/enrol/step-up, esig-revoke, meta/time)
 
 

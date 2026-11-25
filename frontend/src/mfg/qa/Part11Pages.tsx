@@ -415,7 +415,7 @@ export function Part11Page() {
         <SignatureDialog
           title={t("qa.p11.str.signTitle")}
           recordType="plant"
-          recordId="part11"
+          recordId="plant"
           action="part11_on"
           meaning="approved"
           submitLabel={t("qa.p11.btn.signEnable")}

@@ -359,6 +359,8 @@ class QaCapaRow(OwnedMixin, _Editable, Base):
     root_cause: Mapped[dict[str, Any] | None] = _j(True)
     effectiveness: Mapped[dict[str, Any] | None] = _j(True)
     status: Mapped[str] = _s(24)
+    #: system of record at creation (review M7): superplanner | external
+    sor: Mapped[str] = _s(16)
     author_id: Mapped[str] = _s(64)
     closed_at: Mapped[datetime | None] = _dt()
     external_ref: Mapped[str | None] = _s(64, True)
@@ -403,6 +405,7 @@ class QaComplaintRow(OwnedMixin, _Editable, Base):
     reportability: Mapped[dict[str, Any]] = _j()
     investigation: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = _s(16)                       # open | investigation | closed
+    sor: Mapped[str] = _s(16)                          # system of record at creation (review M7)
     author_id: Mapped[str] = _s(64)
     closed_at: Mapped[datetime | None] = _dt()
     external_ref: Mapped[str | None] = _s(64, True)

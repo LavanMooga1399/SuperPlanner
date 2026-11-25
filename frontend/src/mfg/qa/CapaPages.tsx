@@ -453,6 +453,7 @@ export function CapaPage() {
           recordId={x.id}
           recordLabel={x.number}
           action={sign === "approve-plan" ? "approve_plan" : sign}
+          signable={sign !== "cancel"}
           meaning={sign === "approve-plan" ? "approved" : sign === "verify" ? "verified" : "closed"}
           danger={sign === "cancel"}
           commentRequired={sign === "cancel"}

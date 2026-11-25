@@ -224,10 +224,12 @@ def delete_action(ctx: AppContext, a: Act, capa_id: str, action_id: str, if_matc
 
     with write_tx(ctx) as (s, _plant):
         r = _open_capa(s, capa_id)
-        if r.status not in ("draft", "investigation"):
-            raise ApiError(409, "MFG_INVALID_STATE", "Actions of an approved plan are cancelled, not deleted.",
+        if r.status != "draft":
+            raise ApiError(409, "MFG_INVALID_STATE", "Actions are cancelled, not deleted, once the CAPA left draft.",
                            {"status": r.status})
         x = repo.get_row(s, QaCapaActionRow, action_id, what="CAPA action", lock=True)
+        if x.capa_id != r.id:                        # review M3: an action of another CAPA
+            raise ApiError(404, "NOT_FOUND", "CAPA action not found.", {"id": action_id})
         if if_match is not None:
             check_version(x, if_match)
         before = content(s, r)

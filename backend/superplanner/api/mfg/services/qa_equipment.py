@@ -188,9 +188,19 @@ def update_equipment(ctx: AppContext, a: Any, equipment_id: str, body: Equipment
         check_version(r, if_match)
         ensure_unique(s, QaEquipmentRow, "Equipment", {"code": body.code}, exclude_id=r.id)
         _check_refs(s, body)
+        # review M6: the due date moves only through calibrations; an invalid item cannot be unblocked by editing
+        if body.due_on != r.due_on:
+            raise ApiError(409, "QA_DUE_VIA_CALIBRATION", "The due date changes through a recorded calibration.",
+                           {"due_on": r.due_on.isoformat() if r.due_on else None})
+        guarded = ("calibration_required", "grace_days", "line_id", "tool_pool_id", "interval_days")
+        changed = [k for k in guarded if getattr(body, k) != getattr(r, k)]
+        if changed and r.status != "retired" and not valid(r, _today(s)):
+            raise ApiError(409, "QA_EQUIPMENT_BLOCKING", f"{r.code} is not valid; record a calibration (or take it "
+                           "out of service) before changing these fields.", {"fields": changed})
         before = eq_content(r)
         for k in FIELDS:
-            setattr(r, k, getattr(body, k))
+            if k != "due_on":
+                setattr(r, k, getattr(body, k))
         touch(r)
         s.flush()
         audit_regulated(s, "equipment", r.id, "update", before=before, after=eq_content(r),

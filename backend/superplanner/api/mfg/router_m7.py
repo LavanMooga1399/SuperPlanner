@@ -85,6 +85,15 @@ def esig_revoke(org_id: str, member_id: str, p: Principal = Depends(require_user
     return _ok(esig.revoke(ctx, p, org_id, member_id))
 
 
+@platform_router.post("/orgs/{org_id}/members/{member_id}/esig-reinstate")
+def esig_reinstate(org_id: str, member_id: str, p: Principal = Depends(require_user),
+                   ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    """Review M2: the only way to clear a revocation (organisation admin, audited)."""
+    from .services import esig
+
+    return _ok(esig.revoke(ctx, p, org_id, member_id, reinstate=True))
+
+
 @platform_router.get("/meta/time")
 def meta_time(p: Principal = Depends(require_user), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from .services import esig

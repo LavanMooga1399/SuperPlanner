@@ -909,13 +909,18 @@ def cancel_lot(ctx: AppContext, a: Act, lot_id: str, body: CancelInput, if_match
             check_version(r, if_match)
         if r.status not in OPEN_LOT:
             raise _invalid_state("inspection lot", r.status, "cancelled")
+        if _results(s, r.id) or (r.verdict or {}).get("verdict") not in (None, "pending"):
+            raise ApiError(409, "QA_LOT_HAS_RESULTS", f"{r.number} has results; decide it instead of cancelling.",
+                           {"status": r.status})
         before = lot_content(s, r)
         r.status = "cancelled"
         touch(r)
-        if r.hold:
-            from .qa_holds import release_source
+        if r.hold and r.lot_id:          # review M1: never an unsigned release - the hold becomes a manual hold
+            from .qa_holds import place, release_source
 
-            release_source(s, "inspection", r.id, a.user_id, f"Inspection lot {r.number} cancelled: {body.reason}")
+            place(s, source="manual", reason=f"From cancelled inspection {r.number}: {body.reason}"[:500],
+                  actor=a.user_id, lot_id=r.lot_id)
+            release_source(s, "inspection", r.id, a.user_id, f"Replaced by a manual hold ({r.number} cancelled)")
         s.flush()
         audit_regulated(s, "inspection_lot", r.id, "cancel", before=before, after=lot_content(s, r),
                         reason=body.reason, record_version=r.row_version)
