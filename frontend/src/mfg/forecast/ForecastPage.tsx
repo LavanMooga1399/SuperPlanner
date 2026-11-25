@@ -15,8 +15,8 @@ import { PageHeader } from "../../components/PageHeader";
 import { toast } from "../../components/Toast";
 import { plural, t } from "../../lib/i18n";
 import { formatDateTime, formatNumber } from "../../lib/locale";
-import { activateVersion, createForecastRun, createOverride, deleteVersion, getForecastItem, getVersionLines, listForecastRuns, listVersions, removeOverride, updateHistory } from "../api/clientM8";
-import type { Bucket, ForecastGrid, ForecastGridRow, ForecastItemDetail, ForecastOverride, ForecastVersion, OverrideMode } from "../api/typesM8";
+import { activateVersion, createForecastRun, createOverride, deleteVersion, getForecastItem, getVersionLines, listForecastRuns, listOverrides, listVersions, removeOverride, updateHistory } from "../api/clientM8";
+import type { Bucket, ForecastItemView, ForecastLine, ForecastOverride, ForecastVersion, HistoryRecord, M8Page, OverrideMode } from "../api/typesM8";
 import { DataTable } from "../components/DataTable";
 import { MfgError, Spinner } from "../components/Feedback";
 import { VirtualTable, type Column } from "../components/VirtualTable";
@@ -26,11 +26,11 @@ import { setSearchParam, usePaged } from "../lib/usePaged";
 import { usePolling } from "../lib/usePolling";
 import { useDebounced, useLoad } from "../lib/useMfg";
 import { useChangeReason } from "../qa/ChangeReason";
-import { ForecastChart } from "./ForecastChart";
-import { BiasBadge, ClassTag, codeText, Facts, FLAG_CODES, isRunning, ItemLink, itemLabel, methodText, METHODS, classText, num, pct, periodLabel, periodShort, VersionChip, WapeBadge, signedPct } from "./shared";
+import { usePersonName } from "../qa/common";
+import { ForecastChart, type ForecastChartData } from "./ForecastChart";
+import { BiasBadge, ClassTag, codeText, Facts, isRunning, ItemLink, itemLabel, methodText, classText, num, pct, periodLabel, periodShort, VersionChip, WapeBadge, signedPct } from "./shared";
 
 const ABC = ["A", "B", "C"];
-const XYZ = ["X", "Y", "Z"];
 
 export function ForecastPage() {
   const [params, setParams] = useSearchParams();
@@ -55,7 +55,7 @@ export function ForecastPage() {
     else if (wasRunning && lastRun) {
       setWasRunning(false);
       versions.reload();
-      if (lastRun.status === "done") {
+      if (lastRun.status === "completed") {
         toast(t("plan.fc.toast.runDone", { n: lastRun.number }));
         if (lastRun.version_id) set("v", lastRun.version_id);
       }
@@ -65,17 +65,18 @@ export function ForecastPage() {
   const list = versions.data?.items ?? [];
   const vParam = params.get("v") ?? "";
   const version: ForecastVersion | null = list.find((v) => v.id === vParam) ?? list.find((v) => v.status === "active") ?? list[0] ?? null;
-  const filters = { abc: params.get("abc") ?? "", xyz: params.get("xyz") ?? "", method: params.get("method") ?? "", flag: params.get("flag") ?? "", family: params.get("family") ?? "" };
+  const filters = { abc: params.get("abc") ?? "", family: params.get("family") ?? "" };
   const key = JSON.stringify([version?.id, dq, filters]);
-  const grid = usePaged<ForecastGridRow, ForecastGrid>(
+  const grid = usePaged<ForecastLine, M8Page<ForecastLine>>(
     version ? (offset, limit, signal) => getVersionLines(version.id, { q: dq || undefined, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)), limit, offset }, signal) : null,
     [key],
     100,
   );
   const itemId = params.get("item") ?? "";
-  const selected = grid.rows.find((r) => r.item.id === itemId) ?? null;
+  const selected = grid.rows.find((r) => r.item_id === itemId) ?? null;
+  const overrides = useLoad((s) => (version ? listOverrides(version.id, s) : null), [version?.id]);
   useEffect(() => {
-    if (!itemId && grid.rows.length) set("item", grid.rows[0].item.id);
+    if (!itemId && grid.rows.length) set("item", grid.rows[0].item_id);
   }, [grid.rows.length, itemId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [dialog, setDialog] = useState<null | "run" | "activate" | "delete">(null);
@@ -118,27 +119,29 @@ export function ForecastPage() {
     }
   };
 
-  const columns = useMemo<Column<ForecastGridRow>[]>(
+  const columns = useMemo<Column<ForecastLine>[]>(
     () => [
-      { key: "item", header: t("plan.fc.head.item"), width: "minmax(170px, 1fr)", exportValue: (r) => itemLabel(r.item), sortValue: (r) => r.item.part_number, render: (r) => <ItemLink item={r.item} /> },
+      { key: "item", header: t("plan.fc.head.item"), width: "minmax(130px, 1fr)", exportValue: (r) => r.part_number, sortValue: (r) => r.part_number, render: (r) => <span className="mono mfg-ellipsis" title={r.part_number ?? ""}>{r.part_number ?? r.item_id}</span> },
+      { key: "family", header: t("plan.fc.label.family"), width: "100px", drop: 2, sortValue: (r) => r.family, render: (r) => <span className="mfg-ellipsis">{r.family ?? ""}</span> },
       { key: "class", header: t("plan.fc.head.class"), width: "56px", exportValue: (r) => `${r.abc ?? ""}${r.xyz ?? ""}`, sortValue: (r) => `${r.abc ?? "Z"}${r.xyz ?? "Z"}`, render: (r) => <ClassTag abc={r.abc} xyz={r.xyz} /> },
       { key: "method", header: t("plan.fc.head.method"), width: "120px", drop: 1, sortValue: (r) => methodText(r.method), render: (r) => <span className="mfg-ellipsis">{methodText(r.method)}</span> },
-      { key: "wape", header: t("plan.fc.head.wape"), width: "84px", align: "right", sortValue: (r) => r.wape ?? -1, exportValue: (r) => r.wape, render: (r) => <WapeBadge v={r.wape} /> },
-      { key: "bias", header: t("plan.fc.head.bias"), width: "84px", align: "right", sortValue: (r) => r.bias ?? 0, exportValue: (r) => r.bias, render: (r) => <BiasBadge v={r.bias} /> },
       {
-        key: "flags",
-        header: t("plan.fc.head.flags"),
-        label: t("plan.fc.head.flags"),
-        width: "56px",
-        align: "center",
-        exportValue: (r) => r.flags.join(" "),
-        render: (r) =>
-          r.flags.length ? (
-            <span className="badge warn" title={r.flags.map(codeText).join(", ")} aria-label={r.flags.map(codeText).join(", ")}>
-              <Icon name="flag" />
-              {r.flags.length}
-            </span>
-          ) : null,
+        key: "next",
+        header: t("plan.fc.head.next3"),
+        width: "92px",
+        align: "right",
+        sortValue: (r) => sum(r.final, 3),
+        exportValue: (r) => sum(r.final, 3),
+        render: (r) => <span className="pl-num">{num(sum(r.final, 3))}</span>,
+      },
+      {
+        key: "adj",
+        header: t("plan.fc.head.adjusted"),
+        width: "92px",
+        align: "right",
+        sortValue: (r) => adjust(r) ?? 0,
+        exportValue: (r) => adjust(r),
+        render: (r) => <AdjustCell r={r} />,
       },
     ],
     [],
@@ -146,8 +149,8 @@ export function ForecastPage() {
 
   const chips: FilterChip[] = [];
   if (dq) chips.push({ key: "q", label: t("plan.label.search"), value: dq, onClear: () => setQ("") });
-  const fLabels: Record<string, string> = { abc: t("plan.fc.label.abc"), xyz: t("plan.fc.label.xyz"), method: t("plan.fc.head.method"), flag: t("plan.fc.head.flags"), family: t("plan.fc.label.family") };
-  for (const [k, v] of Object.entries(filters)) if (v) chips.push({ key: k, label: fLabels[k], value: k === "method" ? methodText(v) : k === "flag" ? codeText(v) : v, onClear: () => set(k, "") });
+  const fLabels: Record<string, string> = { abc: t("plan.fc.label.abc"), family: t("plan.fc.label.family") };
+  for (const [k, v] of Object.entries(filters)) if (v) chips.push({ key: k, label: fLabels[k], value: v, onClear: () => set(k, "") });
 
   const facts: [string, ReactNode][] = version
     ? [
@@ -230,9 +233,6 @@ export function ForecastPage() {
               </select>
             </div>
             <FilterSelect id="fc-abc" label={fLabels.abc} value={filters.abc} onChange={(v) => set("abc", v)} options={ABC.map((x) => ({ value: x, label: x }))} />
-            <FilterSelect id="fc-xyz" label={fLabels.xyz} value={filters.xyz} onChange={(v) => set("xyz", v)} options={XYZ.map((x) => ({ value: x, label: x }))} />
-            <FilterSelect id="fc-method" label={fLabels.method} value={filters.method} onChange={(v) => set("method", v)} options={METHODS.map((m) => ({ value: m, label: methodText(m) }))} />
-            <FilterSelect id="fc-flag" label={fLabels.flag} value={filters.flag} onChange={(v) => set("flag", v)} options={FLAG_CODES.map((c) => ({ value: c, label: codeText(c) }))} />
             <FamilyFilter value={filters.family} onChange={(v) => set("family", v)} label={fLabels.family} />
           </FilterBar>
           <div className="pl-split">
@@ -241,27 +241,28 @@ export function ForecastPage() {
               <VirtualTable
                 rows={grid.rows}
                 columns={columns}
-                rowKey={(r) => r.item.id}
+                rowKey={(r) => r.item_id}
                 label={t("plan.fc.aria.items")}
                 testId="fc-items"
                 height="min(64vh, 620px)"
                 loading={grid.loading && !grid.rows.length}
                 totalCount={grid.total}
                 onEndReached={grid.onEndReached}
-                onRowClick={(r) => set("item", r.item.id)}
-                onActivate={(r) => set("item", r.item.id)}
-                rowExtras={(r) => ({ testId: "fc-item-row", ariaSelected: r.item.id === itemId, className: r.item.id === itemId ? "mfg-selected" : undefined, data: { item: r.item.part_number } })}
+                onRowClick={(r) => set("item", r.item_id)}
+                onActivate={(r) => set("item", r.item_id)}
+                rowExtras={(r) => ({ testId: "fc-item-row", ariaSelected: r.item_id === itemId, className: r.item_id === itemId ? "mfg-selected" : undefined, data: { item: r.part_number } })}
                 exportName="forecast-items"
                 empty={t("plan.fc.empty.items")}
-                card={{ title: "item", status: "wape", fields: ["class", "method", "bias"] }}
+                card={{ title: "item", fields: ["class", "next", "adj"] }}
                 footer={<span>{t("plan.tpl.showing", { n: t("common.nOfM", { n: formatNumber(grid.rows.length), m: formatNumber(grid.total) }), noun: t("plan.noun.items") })}</span>}
               />
             </section>
             <section className="pl-split-panel" aria-label={t("plan.fc.aria.panel")}>
               {itemId ? (
-                <ItemPanel key={`${version.id}:${itemId}`} itemId={itemId} version={version} row={selected} periods={grid.last?.periods ?? []} canEdit={canEdit && draft} onChanged={() => {
+                <ItemPanel key={`${version.id}:${itemId}`} itemId={itemId} version={version} row={selected} overrides={overrides.data?.items ?? []} canEdit={canEdit && draft} onChanged={() => {
                   grid.reload();
                   versions.reload();
+                  overrides.reload();
                 }} />
               ) : (
                 <div className="card card-body muted">{t("plan.fc.text.pickItem")}</div>
@@ -293,6 +294,25 @@ export function ForecastPage() {
       ) : null}
       {reason.dialog}
     </div>
+  );
+}
+
+const sum = (v: number[], n: number) => v.slice(0, n).reduce((a, x) => a + x, 0);
+/** Final vs statistical over the horizon (planner adjustments), as a fraction; null when nothing to compare. */
+function adjust(r: ForecastLine): number | null {
+  const s = sum(r.stat, r.stat.length);
+  const f = sum(r.final, r.final.length);
+  if (!r.overridden.some(Boolean)) return null;
+  return s > 0 ? f / s - 1 : null;
+}
+function AdjustCell({ r }: { r: ForecastLine }) {
+  const a = adjust(r);
+  if (!r.overridden.some(Boolean)) return <span className="muted">–</span>;
+  return (
+    <span className="pl-num" title={t("plan.fc.hint.adjusted")}>
+      <span className="pl-ov-mark" aria-hidden>• </span>
+      {a === null ? t("plan.fc.text.adjusted") : signedPct(a)}
+    </span>
   );
 }
 
@@ -336,21 +356,38 @@ interface OverrideDraft {
   value: string;
 }
 
-function ItemPanel({ itemId, version, row, periods, canEdit, onChanged }: { itemId: string; version: ForecastVersion; row: ForecastGridRow | null; periods: string[]; canEdit: boolean; onChanged(): void }) {
+function ItemPanel({ itemId, version, row, overrides, canEdit, onChanged }: { itemId: string; version: ForecastVersion; row: ForecastLine | null; overrides: ForecastOverride[]; canEdit: boolean; onChanged(): void }) {
   const detail = useLoad((s) => getForecastItem(itemId, { version_id: version.id }, s), [itemId, version.id]);
+  // the item's line of this version (statistical, final, overridden per period); the list row when it is loaded
+  const own = useLoad((s) => (row ? null : getVersionLines(version.id, { item_id: itemId, limit: 1 }, s)), [itemId, version.id, row === null]);
+  const line = row ?? own.data?.items[0] ?? null;
   const [ov, setOv] = useState<OverrideDraft | null>(null);
   const [removing, setRemoving] = useState<ForecastOverride | null>(null);
-  const [resetting, setResetting] = useState<ForecastItemDetail["history"][number] | null>(null);
+  const [resetting, setResetting] = useState<HistoryRecord | null>(null);
+  const person = usePersonName();
   const d = detail.data;
   if (detail.error && !d) return <MfgError error={detail.error} onRetry={detail.reload} />;
   if (!d) return <div className="card card-body"><Spinner /></div>;
-  const ps = periods.length ? periods : d.forecast.map((f) => f.period_start);
+  const ps = line?.periods ?? d.versions.find((v) => v.version_id === version.id)?.periods ?? [];
   const changed = () => {
     detail.reload();
+    own.reload();
     onChanged();
   };
-  const m = d.method;
+  const m = d.result;
+  const mine = overrides.filter((o) => !o.removed_at && (o.item_id === itemId || (o.item_family && line?.family && o.item_family === line.family)));
   const outliers = d.history.filter((h) => h.outlier || (h.cleaned_qty !== null && h.cleaned_qty !== h.qty));
+  const hist = [...d.history].sort((a, b) => a.period_start.localeCompare(b.period_start));
+  const tail = m?.fitted_tail ?? [];
+  const chart: ForecastChartData = {
+    partNumber: d.item.part_number,
+    bucket: version.bucket,
+    history: hist,
+    fitted: tail.map((qty, i) => ({ period_start: hist[hist.length - tail.length + i]?.period_start ?? "", qty })).filter((f) => f.period_start),
+    forecast: ps.map((p, i) => ({ period_start: p, stat_qty: line?.stat[i] ?? 0, final_qty: line?.final[i] ?? 0 })),
+    consumption: d.consumption,
+  };
+  const lag = (x: { wape: number | null; bias: number | null } | null | undefined) => (x ? `${pct(x.wape, 0)} · ${signedPct(x.bias)}` : "–");
   return (
     <div className="col pl-gap" data-testid="fc-panel" data-item={d.item.part_number}>
       <div className="card">
@@ -358,8 +395,8 @@ function ItemPanel({ itemId, version, row, periods, canEdit, onChanged }: { item
           <h2 className="pl-h2">
             <ItemLink item={d.item} />
           </h2>
-          {canEdit ? (
-            <button type="button" className="btn sm" onClick={() => setOv({ scope: "item", from: ps[0] ?? "", to: ps[ps.length - 1] ?? "", mode: "pct", value: "" })} data-testid="fc-override">
+          {canEdit && ps.length ? (
+            <button type="button" className="btn sm" onClick={() => setOv({ scope: "item", from: ps[0], to: ps[ps.length - 1], mode: "pct", value: "" })} data-testid="fc-override">
               <Icon name="plus" /> {t("plan.fc.btn.override")}
             </button>
           ) : null}
@@ -368,12 +405,12 @@ function ItemPanel({ itemId, version, row, periods, canEdit, onChanged }: { item
           <Facts
             testId="fc-facts"
             rows={[
-              [t("plan.fc.head.class"), <span key="c"><ClassTag abc={d.abc} xyz={d.xyz} /> {m ? <span className="muted">{classText(m.class)}</span> : null}</span>],
-              [t("plan.fc.head.method"), m ? <span key="m" title={Object.entries(m.params).map(([k, v]) => `${k} ${v}`).join(", ")}>{methodText(m.name)}</span> : "–"],
+              [t("plan.fc.head.class"), <span key="c"><ClassTag abc={d.planning.abc ?? line?.abc} xyz={d.planning.xyz ?? line?.xyz} /> {m ? <span className="muted">{classText(m.demand_class)}</span> : null}</span>],
+              [t("plan.fc.head.method"), m ? <span key="m" title={Object.entries(m.params).map(([k, v]) => `${k} ${v}`).join(", ")}>{methodText(m.method)}</span> : "–"],
               [t("plan.fc.fact.holdout"), <WapeBadge key="w" v={m?.holdout_wape} />],
               [t("plan.fc.head.bias"), <BiasBadge key="b" v={m?.bias} />],
-              [t("plan.fc.fact.lag1"), `${pct(d.accuracy.lag1_wape, 0)} · ${signedPct(d.accuracy.lag1_bias)}`],
-              [t("plan.fc.fact.lag3"), `${pct(d.accuracy.lag3_wape, 0)} · ${signedPct(d.accuracy.lag3_bias)}`],
+              [t("plan.fc.fact.lag1"), lag(d.accuracy.lag1)],
+              [t("plan.fc.fact.lag3"), lag(d.accuracy.lag3)],
             ]}
           />
           {m?.flags.length ? (
@@ -385,14 +422,14 @@ function ItemPanel({ itemId, version, row, periods, canEdit, onChanged }: { item
               ))}
             </div>
           ) : null}
-          <ForecastChart d={d} uom={d.item.uom} />
+          <ForecastChart d={chart} />
           {outliers.length ? (
             <div className="pl-note" data-testid="fc-outliers">
               <Icon name="alert" size={14} />
               <span>{t("plan.fc.text.outliers", { n: plural(outliers.length, t("plan.noun.period"), t("plan.noun.periods")) })}</span>
               {outliers.map((h) => (
                 <span key={h.id} className="pl-outlier">
-                  {periodLabel(h.period_start, d.bucket)}: <s>{num(h.qty)}</s> → {num(h.cleaned_qty)}
+                  {periodLabel(h.period_start, version.bucket)}: <s>{num(h.qty)}</s> → {num(h.cleaned_qty)}
                   {canEdit ? (
                     <button type="button" className="btn ghost sm" onClick={() => setResetting(h)} data-testid="fc-outlier-reset">
                       {t("plan.fc.btn.useActual")}
@@ -404,24 +441,24 @@ function ItemPanel({ itemId, version, row, periods, canEdit, onChanged }: { item
           ) : null}
         </div>
       </div>
-      <PeriodGrid d={d} periods={ps} row={row} canEdit={canEdit} onEdit={(p, v) => setOv({ scope: "item", from: p, to: p, mode: "abs", value: String(Math.round(v)) })} />
+      {line ? <PeriodGrid line={line} view={d} bucket={version.bucket} canEdit={canEdit} onEdit={(p, v) => setOv({ scope: "item", from: p, to: p, mode: "abs", value: String(Math.round(v)) })} /> : null}
       <section className="card card-table" aria-label={t("plan.fc.ov.title")}>
         <div className="card-header pl-card-header">
           <h3>{t("plan.fc.ov.title")}</h3>
         </div>
         <DataTable<ForecastOverride>
-          rows={d.overrides.filter((o) => !o.removed_at)}
+          rows={mine}
           rowKey={(o) => o.id}
           label={t("plan.fc.ov.title")}
           testId="fc-overrides"
           columnSettings={false}
           empty={canEdit ? t("plan.fc.ov.emptyDraft") : t("plan.fc.ov.empty")}
           columns={[
-            { key: "scope", header: t("plan.fc.ov.head.scope"), width: "minmax(140px, 1fr)", render: (o) => (o.item_family ? t("plan.fc.ov.family", { f: o.item_family }) : t("plan.fc.ov.thisItem")) },
-            { key: "periods", header: t("plan.fc.ov.head.periods"), width: "170px", render: (o) => (o.period_from === o.period_to ? periodLabel(o.period_from, d.bucket) : `${periodLabel(o.period_from, d.bucket)} – ${periodLabel(o.period_to, d.bucket)}`) },
+            { key: "scope", header: t("plan.fc.ov.head.scope"), width: "minmax(120px, 1fr)", render: (o) => (o.item_family ? t("plan.fc.ov.family", { f: o.item_family }) : t("plan.fc.ov.thisItem")) },
+            { key: "periods", header: t("plan.fc.ov.head.periods"), width: "170px", render: (o) => (o.period_from === o.period_to ? periodLabel(o.period_from, version.bucket) : `${periodLabel(o.period_from, version.bucket)} – ${periodLabel(o.period_to, version.bucket)}`) },
             { key: "change", header: t("plan.fc.ov.head.change"), width: "110px", align: "right", render: (o) => (o.mode === "pct" ? signedPct(o.value / 100) : t("plan.fc.ov.setTo", { v: num(o.value) })) },
             { key: "reason", header: t("plan.fc.ov.head.reason"), width: "minmax(160px, 2fr)", wrap: true, render: (o) => o.reason },
-            { key: "by", header: t("plan.fc.ov.head.by"), width: "150px", drop: 1, render: (o) => <span className="pl-by">{o.created_by ?? ""}<span className="muted small"> {formatDateTime(o.created_at)}</span></span> },
+            { key: "by", header: t("plan.fc.ov.head.by"), width: "140px", drop: 1, render: (o) => <span className="pl-by"><span>{person(o.created_by)}</span><span className="muted small">{formatDateTime(o.created_at)}</span></span> },
             ...(canEdit
               ? [
                   {
@@ -440,7 +477,7 @@ function ItemPanel({ itemId, version, row, periods, canEdit, onChanged }: { item
           ]}
         />
       </section>
-      {ov ? <OverrideDialog versionId={version.id} bucket={d.bucket} periods={ps} itemId={d.item.id} itemText={itemLabel(d.item)} family={d.item.family ?? ""} draft={ov} onClose={() => setOv(null)} onDone={() => {
+      {ov ? <OverrideDialog versionId={version.id} bucket={version.bucket} periods={ps} itemId={d.item.id} itemText={itemLabel(d.item)} family={line?.family ?? ""} draft={ov} onClose={() => setOv(null)} onDone={() => {
         setOv(null);
         changed();
       }} /> : null}
@@ -450,8 +487,8 @@ function ItemPanel({ itemId, version, row, periods, canEdit, onChanged }: { item
         setRemoving(null);
         changed();
       }} /> : null}
-      {resetting ? <ReasonConfirm title={t("plan.fc.dlg.resetTitle", { p: periodLabel(resetting.period_start, d.bucket) })} body={t("plan.fc.dlg.resetBody", { qty: num(resetting.qty), cleaned: num(resetting.cleaned_qty) })} confirm={t("plan.fc.btn.useActual")} onClose={() => setResetting(null)} run={async (r) => {
-        await updateHistory(resetting.id, { cleaned_qty: null, reason: r }, resetting.row_version);
+      {resetting ? <ReasonConfirm title={t("plan.fc.dlg.resetTitle", { p: periodLabel(resetting.period_start, version.bucket) })} body={t("plan.fc.dlg.resetBody", { qty: num(resetting.qty), cleaned: num(resetting.cleaned_qty) })} confirm={t("plan.fc.btn.useActual")} onClose={() => setResetting(null)} run={async (r) => {
+        await updateHistory(resetting.id, { cleaned_qty: null, reason: r });
         toast(t("plan.fc.toast.historyReset"));
         setResetting(null);
         changed();
@@ -460,23 +497,19 @@ function ItemPanel({ itemId, version, row, periods, canEdit, onChanged }: { item
   );
 }
 
-/** Period grid (pivot: periods are columns): statistical, final (editable on drafts), orders consumed, open forecast, last year. */
-function PeriodGrid({ d, periods, row, canEdit, onEdit }: { d: ForecastItemDetail; periods: string[]; row: ForecastGridRow | null; canEdit: boolean; onEdit(p: string, v: number): void }) {
-  const fc = new Map(d.forecast.map((f) => [f.period_start, f]));
-  const cons = new Map(d.consumption.map((c) => [c.period_start, c]));
-  const hist = new Map(d.history.map((h) => [h.period_start, h.cleaned_qty ?? h.qty]));
+/** Period grid (pivot: periods are columns): last year, statistical, final (editable on drafts), orders consumed, open forecast. */
+function PeriodGrid({ line, view, bucket, canEdit, onEdit }: { line: ForecastLine; view: ForecastItemView; bucket: Bucket; canEdit: boolean; onEdit(p: string, v: number): void }) {
+  const periods = line.periods;
+  const cons = new Map(view.consumption.map((c) => [c.period_start, c]));
+  const hist = new Map(view.history.map((h) => [h.period_start, h.cleaned_qty ?? h.qty]));
   const lastYear = (p: string) => {
-    if (d.bucket === "m") return hist.get(`${Number(p.slice(0, 4)) - 1}${p.slice(4)}`);
+    if (bucket === "m") return hist.get(`${Number(p.slice(0, 4)) - 1}${p.slice(4)}`);
     const dt = new Date(`${p}T00:00:00Z`);
     dt.setUTCDate(dt.getUTCDate() - 364);
     return hist.get(dt.toISOString().slice(0, 10));
   };
-  const overridden = (i: number, p: string) => (row ? Boolean(row.overridden[i]) : d.overrides.some((o) => !o.removed_at && o.period_from <= p && o.period_to >= p));
-  const totals = { stat: 0, final: 0 };
-  for (const p of periods) {
-    totals.stat += fc.get(p)?.stat_qty ?? 0;
-    totals.final += fc.get(p)?.final_qty ?? 0;
-  }
+  const totStat = sum(line.stat, line.stat.length);
+  const totFinal = sum(line.final, line.final.length);
   return (
     <section className="card" aria-label={t("plan.fc.grid.title")}>
       <div className="card-header pl-card-header">
@@ -487,10 +520,10 @@ function PeriodGrid({ d, periods, row, canEdit, onEdit }: { d: ForecastItemDetai
         <table className="pl-pivot" data-testid="fc-grid">
           <thead>
             <tr>
-              <th scope="col" className="pl-pivot-head">{t("plan.fc.head.row")}</th>
+              <th scope="col">{t("plan.fc.head.row")}</th>
               {periods.map((p) => (
-                <th key={p} scope="col" title={periodLabel(p, d.bucket)}>
-                  {periodShort(p, d.bucket)}
+                <th key={p} scope="col" title={periodLabel(p, bucket)}>
+                  {periodShort(p, bucket)}
                 </th>
               ))}
               <th scope="col">{t("plan.fc.head.total")}</th>
@@ -506,34 +539,38 @@ function PeriodGrid({ d, periods, row, canEdit, onEdit }: { d: ForecastItemDetai
             </tr>
             <tr>
               <th scope="row">{t("plan.fc.series.stat")}</th>
-              {periods.map((p) => (
-                <td key={p}>{num(fc.get(p)?.stat_qty ?? null)}</td>
+              {periods.map((p, i) => (
+                <td key={p}>{num(line.stat[i] ?? null)}</td>
               ))}
-              <td className="pl-strong">{num(totals.stat)}</td>
+              <td className="pl-strong">{num(totStat)}</td>
             </tr>
             <tr className="pl-final-row">
               <th scope="row">{t("plan.fc.series.final")}</th>
               {periods.map((p, i) => {
-                const v = fc.get(p)?.final_qty ?? 0;
-                const o = overridden(i, p);
-                const label = t("plan.fc.grid.cellAria", { p: periodLabel(p, d.bucket), v: num(v), o: o ? t("plan.fc.grid.overridden") : "" });
+                const v = line.final[i] ?? 0;
+                const o = Boolean(line.overridden[i]);
+                const label = t("plan.fc.grid.cellAria", { p: periodLabel(p, bucket), v: num(v), o: o ? t("plan.fc.grid.overridden") : "" });
+                const body = (
+                  <>
+                    {o ? <span className="pl-ov-mark" aria-hidden>• </span> : null}
+                    {num(v)}
+                  </>
+                );
                 return (
                   <td key={p} className={o ? "pl-overridden" : undefined} data-overridden={o ? "true" : "false"}>
                     {canEdit ? (
                       <button type="button" className="pl-cell-btn" aria-label={label} onClick={() => onEdit(p, v)} data-testid="fc-final-cell" data-period={p}>
-                        {num(v)}
-                        {o ? <span className="pl-ov-mark" aria-hidden>•</span> : null}
+                        {body}
                       </button>
                     ) : (
                       <span aria-label={label} data-testid="fc-final-cell" data-period={p}>
-                        {num(v)}
-                        {o ? <span className="pl-ov-mark" aria-hidden>•</span> : null}
+                        {body}
                       </span>
                     )}
                   </td>
                 );
               })}
-              <td className="pl-strong" data-testid="fc-final-total">{num(totals.final)}</td>
+              <td className="pl-strong" data-testid="fc-final-total">{num(totFinal)}</td>
             </tr>
             <tr>
               <th scope="row">{t("plan.fc.series.consumed")}</th>
@@ -716,7 +753,6 @@ function RunDialog({ bucket, onClose, onStarted }: { bucket: Bucket; onClose(): 
   const [expert, setExpert] = useState(false);
   const [b, setB] = useState<Bucket>(bucket);
   const [horizon, setHorizon] = useState("");
-  const [clean, setClean] = useState(true);
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
@@ -725,7 +761,7 @@ function RunDialog({ bucket, onClose, onStarted }: { bucket: Bucket; onClose(): 
     setBusy(true);
     setErr(null);
     try {
-      const run = await createForecastRun(expert ? { label, bucket: b, horizon_periods: horizon ? Number(horizon) : null, outlier_clean: clean } : { label });
+      const run = await createForecastRun(expert ? { label, bucket: b, horizon_periods: horizon ? Number(horizon) : null } : { label });
       toast(t("plan.fc.toast.runStarted", { n: run.number }));
       onStarted();
       navigate(mfgPaths.forecast(), { replace: true });
@@ -780,9 +816,6 @@ function RunDialog({ bucket, onClose, onStarted }: { bucket: Bucket; onClose(): 
                 <input id="fc-run-horizon" className="input pl-w-140" type="number" min={1} max={104} placeholder={b === "m" ? "18" : "78"} value={horizon} onChange={(e) => setHorizon(e.target.value)} />
               </div>
             </div>
-            <label className="row" style={{ gap: 6 }}>
-              <input type="checkbox" checked={clean} onChange={(e) => setClean(e.target.checked)} /> {t("plan.fc.label.clean")}
-            </label>
             <p className="muted small" style={{ margin: 0 }}>{t("plan.fc.dlg.expertHint")}</p>
           </div>
         ) : null}

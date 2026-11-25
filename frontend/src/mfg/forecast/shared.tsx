@@ -8,7 +8,7 @@ import { Icon, type IconName } from "../../components/Icon";
 import { t, type StringKey } from "../../lib/i18n";
 import { formatDay, formatNumber } from "../../lib/locale";
 import { mfgPaths } from "../lib/paths";
-import type { Bucket, DemandClass, ForecastMethod, JobStatus, M8ItemRef, Packs, RateRunStatus, SterStatus } from "../api/typesM8";
+import type { Bucket, DemandClass, ForecastMethod, RunStatus, M8ItemRef, Packs, RateRunStatus, SterStatus } from "../api/typesM8";
 import "./planning.css";
 
 type Tone = "ok" | "warn" | "danger" | "info" | "accent";
@@ -30,12 +30,12 @@ export function Chip({ def, value, testId }: { def: ChipDef | undefined; value: 
 const JOB: Record<string, ChipDef> = {
   queued: { label: "plan.status.queued", tone: "info", icon: "clock" },
   running: { label: "plan.status.running", tone: "accent", icon: "loader" },
-  done: { label: "plan.status.done", tone: "ok", icon: "check" },
+  completed: { label: "plan.status.done", tone: "ok", icon: "check" },
   failed: { label: "plan.status.failed", tone: "danger", icon: "x" },
   cancelled: { label: "plan.status.cancelled", tone: "info", icon: "ban" },
   failed_validation: { label: "plan.status.failedValidation", tone: "danger", icon: "shield" },
 };
-export const JobChip = ({ s, testId }: { s: JobStatus | RateRunStatus; testId?: string }) => <Chip def={JOB[s]} value={s} testId={testId} />;
+export const JobChip = ({ s, testId }: { s: RunStatus | RateRunStatus; testId?: string }) => <Chip def={JOB[s]} value={s} testId={testId} />;
 export const isRunning = (s: string | undefined | null) => s === "queued" || s === "running";
 
 const VERSION: Record<string, ChipDef> = {

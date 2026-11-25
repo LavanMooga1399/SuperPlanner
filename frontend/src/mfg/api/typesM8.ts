@@ -1,10 +1,9 @@
 /**
- * M8 contract (docs/M8-DESIGN.md 3, 7.1, 11; routes in `backend/superplanner/api/mfg/router_m8.py`): forecasting,
- * safety stock proposals, item planning and packaging, the rate/campaign engine, sterilisation load planning, kanban,
- * planning settings, SAP S/4HANA settings and the validation kit. Field names are the JSON names. Written from the
- * design before the S0 fixture (`api/mfg/fixtures/example_m8.json`); `contractExamplesM8.ts` types examples against
- * these declarations, so `tsc` fails on drift once the fixture is copied in. Shapes the design leaves open are listed
- * in docs/M8-DESIGN.md 15 (UI notes).
+ * M8 contract (docs/M8-DESIGN.md 3, 7.1, 11; S0 freeze): forecasting, safety stock proposals, item planning and
+ * packaging, the rate/campaign engine, sterilisation load planning, kanban, planning settings, SAP S/4HANA settings
+ * and the validation kit. Mirrors `backend/superplanner/mfg/{forecast,invopt,rate,ster}/model.py` and
+ * `mfg/model_m8.py`; field names are the JSON names. `contractExamplesM8.ts` types the S0 fixture
+ * (`api/mfg/fixtures/example_m8.json`) against these declarations, so `tsc` fails on drift.
  */
 import type { EntityId, IsoDate, IsoDateTime } from "./types";
 
@@ -17,31 +16,25 @@ export interface M8Page<T> {
   offset: number;
 }
 
-/** Compact item reference embedded in M8 rows. */
+/** Item reference embedded in M8 records (`{id, part_number, name, revision}`). */
 export interface M8ItemRef {
   id: EntityId;
   part_number: string;
   name: string;
-  uom: string;
-  family?: string | null;
+  revision?: string | null;
 }
 
-export interface M8Ref {
-  id: EntityId;
-  code: string;
-  name: string;
-}
-
-export type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+export type RunStatus = "queued" | "running" | "completed" | "failed";
 export type Bucket = "m" | "w";
 export type AbcClass = "A" | "B" | "C";
 export type XyzClass = "X" | "Y" | "Z";
 export type DemandClass = "smooth" | "erratic" | "intermittent" | "lumpy" | "short";
-export type ForecastMethod = "snaive" | "ma" | "ses" | "holt_damped" | "hw_add" | "hw_mul" | "croston" | "sba" | "zero";
+export type ForecastMethod = "zero" | "snaive" | "ma" | "ses" | "holt_damped" | "hw_add" | "hw_mul" | "croston" | "sba";
+export type ForecastFlag = "FC_OUTLIER" | "FC_HISTORY_SHORT" | "FC_HIGH_ERROR" | "FC_LIKE_ITEM" | "FC_OVERCONSUMED" | "FC_NO_COST";
 
 // ---------------------------------------------------------------- 4.1 history (F1-F3)
 export type HistorySource = "ledger" | "import" | "sap";
-export interface DemandHistoryRow {
+export interface HistoryRecord {
   id: EntityId;
   item_id: EntityId;
   period_start: IsoDate;
@@ -49,146 +42,134 @@ export interface DemandHistoryRow {
   qty: number;
   cleaned_qty: number | null;
   source: HistorySource;
-  /** `FC_OUTLIER` when the cleaner clipped the value */
-  flags: string[];
+  outlier: boolean;
   updated_at: IsoDateTime;
-  row_version: number;
 }
-/** PUT /forecast/history/{id}: `cleaned_qty` null resets to the raw value. Reason is required. */
+/** PUT /forecast/history/{id}: `cleaned_qty` null = use the raw value. */
 export interface HistoryUpdate {
   cleaned_qty: number | null;
   reason: string;
 }
+export interface HistoryRefreshResult {
+  rows_written: number;
+  items: number;
+  periods: number;
+  outliers: number;
+}
 
 // ---------------------------------------------------------------- 4.2 runs (F4-F6)
-export interface ForecastRunParams {
+export interface ForecastParams {
   label?: string;
+  as_of?: IsoDate | null;
   bucket?: Bucket | null;
   horizon_periods?: number | null;
   item_ids?: EntityId[] | null;
-  outlier_clean?: boolean | null;
+  methods?: ForecastMethod[] | null;
+  create_version?: boolean;
 }
 export interface ClassAccuracy {
   wape: number | null;
   bias: number | null;
   items: number;
 }
-export interface ForecastRunSummary {
-  wape: number | null;
-  bias: number | null;
-  by_abc: Partial<Record<AbcClass, ClassAccuracy>>;
-  method_mix: Partial<Record<ForecastMethod, number>>;
-  flags: Record<string, number>;
+export interface ForecastSummary {
+  wape?: number | null;
+  bias?: number | null;
+  by_abc?: Partial<Record<AbcClass, ClassAccuracy>>;
+  method_mix?: Partial<Record<ForecastMethod, number>>;
+  flags?: Record<string, number>;
 }
 export interface ForecastRun {
   id: EntityId;
   number: string;
-  label: string;
-  status: JobStatus;
-  params: ForecastRunParams;
+  params: Record<string, unknown>;
+  status: RunStatus;
   as_of: IsoDate;
+  bucket: Bucket;
+  first_period?: IsoDate | null;
   item_count: number;
-  summary: ForecastRunSummary | null;
-  version_id: EntityId | null;
+  summary: ForecastSummary;
+  version_id?: EntityId | null;
+  error?: string | null;
   started_at: IsoDateTime | null;
   finished_at: IsoDateTime | null;
-  actor: string | null;
-  error: string | null;
+  actor_id: string;
 }
-export interface ForecastItemResult {
+export interface ItemResult {
   item_id: EntityId;
-  item: M8ItemRef;
-  class: DemandClass;
+  part_number?: string | null;
+  demand_class: DemandClass;
+  adi: number | null;
+  cv2: number | null;
   method: ForecastMethod;
   params: Record<string, number>;
   holdout_wape: number | null;
   bias: number | null;
   rmse1: number | null;
-  flags: string[];
+  mean: number;
+  n_periods: number;
+  abc?: AbcClass | null;
+  flags: ForecastFlag[];
+  /** last 12 fitted values, aligned to the end of the history */
+  fitted_tail: number[];
+  /** statistical forecast from the run's first period */
+  forecast: number[];
+  candidates: Record<string, number | null>;
 }
 export interface ForecastRunDetail extends ForecastRun {
-  results: M8Page<ForecastItemResult>;
+  results: M8Page<ItemResult>;
 }
 
 // ---------------------------------------------------------------- 4.3 versions, lines, overrides (F7-F15)
 export type VersionStatus = "draft" | "active" | "archived";
+export interface VersionInput {
+  run_id: EntityId;
+  name: string;
+  copy_overrides?: boolean;
+  note?: string;
+}
 export interface ForecastVersion {
   id: EntityId;
   number: string;
   name: string;
   run_id: EntityId | null;
-  run_number: string | null;
   status: VersionStatus;
   bucket: Bucket;
   start: IsoDate;
   periods: number;
   item_count: number;
+  total_stat: number;
+  total_final: number;
   override_count: number;
   activated_by: string | null;
   activated_at: IsoDateTime | null;
   note: string;
-  created_at: IsoDateTime;
   row_version: number;
+  created_at: IsoDateTime;
+  updated_at: IsoDateTime;
 }
-export interface VersionInput {
-  run_id: EntityId;
-  name: string;
-  note?: string;
-  copy_overrides?: boolean;
-}
-/** One item row of the period grid (GET /forecast/versions/{id}/lines, a page of items). */
-export interface ForecastGridRow {
-  item: M8ItemRef;
-  abc: AbcClass | null;
-  xyz: XyzClass | null;
-  class: DemandClass | null;
-  method: ForecastMethod | null;
-  wape: number | null;
-  bias: number | null;
-  flags: string[];
-  /** one value per `periods` entry */
+/** One item of a version (GET /forecast/versions/{id}/lines, a page of items). */
+export interface ForecastLine {
+  item_id: EntityId;
+  part_number?: string | null;
+  family?: string | null;
+  abc?: string | null;
+  xyz?: string | null;
+  method?: string | null;
+  periods: IsoDate[];
   stat: number[];
   final: number[];
-  /** true where an override changed the period */
   overridden: boolean[];
-}
-export interface ForecastGrid {
-  version_id: EntityId;
-  bucket: Bucket;
-  periods: IsoDate[];
-  items: ForecastGridRow[];
-  total: number;
-  limit: number;
-  offset: number;
 }
 export interface ForecastLinesQuery {
   item_id?: string;
   family?: string;
   abc?: string;
-  xyz?: string;
-  method?: string;
-  flag?: string;
   q?: string;
   limit?: number;
   offset?: number;
 }
 export type OverrideMode = "abs" | "pct";
-export interface ForecastOverride {
-  id: EntityId;
-  version_id: EntityId;
-  item_id: EntityId | null;
-  item: M8ItemRef | null;
-  item_family: string | null;
-  period_from: IsoDate;
-  period_to: IsoDate;
-  mode: OverrideMode;
-  value: number;
-  reason: string;
-  seq: number;
-  created_by: string | null;
-  created_at: IsoDateTime;
-  removed_at: IsoDateTime | null;
-}
 export interface OverrideInput {
   item_id?: EntityId | null;
   item_family?: string | null;
@@ -198,83 +179,83 @@ export interface OverrideInput {
   value: number;
   reason: string;
 }
+export interface ForecastOverride extends OverrideInput {
+  id: EntityId;
+  version_id: EntityId;
+  seq: number;
+  created_by: string;
+  created_at: IsoDateTime;
+  removed_at?: IsoDateTime | null;
+  /** final values touched: [{item_id, period_start, old, new}] */
+  changes: { item_id: EntityId; period_start: IsoDate; old: number; new: number }[];
+}
 
-// ---------------------------------------------------------------- F16 item panel, F17 accuracy
-export interface ForecastPoint {
+// ---------------------------------------------------------------- F16 item view, F17 accuracy
+export interface ConsumptionRow {
+  item_id: EntityId;
   period_start: IsoDate;
-  qty: number;
+  forecast: number;
+  consumed: number;
+  open: number;
+  orders: number;
+  overconsumed?: number;
 }
-export interface ForecastItemDetail {
+export interface LagAccuracy {
+  wape: number | null;
+  bias: number | null;
+  periods: number;
+}
+export interface ForecastItemView {
   item: M8ItemRef;
-  bucket: Bucket;
-  abc: AbcClass | null;
-  xyz: XyzClass | null;
-  version_id: EntityId | null;
-  history: (DemandHistoryRow & { outlier: boolean })[];
-  fitted: ForecastPoint[];
-  forecast: { period_start: IsoDate; stat_qty: number; final_qty: number }[];
-  /** consumption per period of the active version (4.4): orders consumed forecast; open = unconsumed */
-  consumption: { period_start: IsoDate; forecast: number; consumed: number; open: number; orders: number }[];
-  method: { name: ForecastMethod; class: DemandClass; params: Record<string, number>; holdout_wape: number | null; bias: number | null; rmse1: number | null; flags: string[] } | null;
-  accuracy: { lag1_wape: number | null; lag1_bias: number | null; lag3_wape: number | null; lag3_bias: number | null };
-  overrides: ForecastOverride[];
+  planning: { abc?: AbcClass | null; xyz?: XyzClass | null; forecast?: boolean; replenishment?: string };
+  history: HistoryRecord[];
+  result: ItemResult | null;
+  versions: { version_id: EntityId; number: string; status: VersionStatus; periods: IsoDate[]; final: number[] }[];
+  consumption: ConsumptionRow[];
+  accuracy: { lag1?: LagAccuracy | null; lag3?: LagAccuracy | null };
 }
-export type AccuracyGroup = "item" | "family" | "abc";
+export type AccuracyGroup = "item" | "family" | "abc" | "all";
 export interface AccuracyRow {
   key: string;
   label: string;
-  item: M8ItemRef | null;
+  periods: number;
+  actual: number;
+  forecast: number;
   wape: number | null;
   bias: number | null;
-  volume: number;
-  items: number;
 }
 export interface AccuracyReport {
   lag: 1 | 3;
-  bucket: Bucket;
   group_by: AccuracyGroup;
-  periods: IsoDate[];
-  overall: { wape: number | null; bias: number | null; volume: number };
-  /** WAPE per closed period (trend), oldest first */
-  trend: { period_start: IsoDate; wape: number | null; bias: number | null }[];
   rows: AccuracyRow[];
-  backtest: { run_id: EntityId; run_number: string; summary: ForecastRunSummary } | null;
+  /** latest run summary (holdout backtest) */
+  backtest?: ForecastSummary | null;
 }
 
 // ---------------------------------------------------------------- 5 safety stock (I1-I4)
 export type SsDecision = "pending" | "approved" | "rejected";
-export interface SsMatrixCell {
-  count: number;
-  value: number;
-  service_level: number;
+export interface SsParams {
+  label?: string;
+  forecast_version_id?: EntityId | null;
+  item_ids?: EntityId[] | null;
 }
 export interface SsRun {
   id: EntityId;
   number: string;
-  status: JobStatus;
   params: Record<string, unknown>;
+  status: RunStatus;
   forecast_version_id: EntityId | null;
-  forecast_version_number: string | null;
-  summary: {
-    lines: number;
-    pending: number;
-    approved: number;
-    rejected: number;
-    delta_value: number;
-    currency: string | null;
-    /** keys "AX".."CZ" */
-    matrix: Record<string, SsMatrixCell>;
-  } | null;
+  /** {lines, pending, delta_value, matrix: {AX: {count, value}}, capped} */
+  summary: { lines?: number; pending?: number; delta_value?: number; capped?: number; matrix?: Record<string, { count: number; value: number }> };
+  error?: string | null;
   created_at: IsoDateTime;
   finished_at: IsoDateTime | null;
-  actor: string | null;
-  error: string | null;
 }
 export interface SsLine {
   id: EntityId;
   run_id: EntityId;
   item_id: EntityId;
-  item: M8ItemRef;
+  part_number?: string | null;
   abc: AbcClass;
   xyz: XyzClass;
   service_level: number;
@@ -287,7 +268,6 @@ export interface SsLine {
   proposed_ss: number;
   delta_value: number;
   cover_days: number | null;
-  /** `SS_CAPPED`, `SS_NO_COST`, ... */
   flags: string[];
   decision: SsDecision;
   decided_by: string | null;
@@ -299,20 +279,19 @@ export interface SsDecideInput {
   reason: string;
 }
 export interface SsDecideResult {
-  updated: number;
-  lines: SsLine[];
+  decided: number;
+  skipped: number;
+  items_updated: number;
 }
 
 // ---------------------------------------------------------------- 3 item planning and packaging (I5-I7)
 export type Replenishment = "mrp" | "rate" | "kanban";
 export type ReleaseMode = "none" | "bi" | "parametric";
 export type PackLevel = "each" | "inner" | "case" | "pallet";
-export interface ItemPlanning {
-  item_id: EntityId;
+export interface ItemPlanningInput {
   replenishment: Replenishment;
   forecast: boolean;
   like_item_id: EntityId | null;
-  like_item: M8ItemRef | null;
   like_factor: number;
   service_level: number | null;
   order_pack_level: PackLevel | null;
@@ -325,22 +304,30 @@ export interface ItemPlanning {
   release_mode: ReleaseMode;
   release_days: number;
   post_days: number | null;
-  abc: AbcClass | null;
-  xyz: XyzClass | null;
+}
+export interface ItemPlanning extends ItemPlanningInput {
+  /** null until first saved (defaults shown) */
+  id: EntityId | null;
+  item_id: EntityId;
+  abc?: AbcClass | null;
+  xyz?: XyzClass | null;
   row_version: number;
 }
-export type ItemPlanningInput = Omit<ItemPlanning, "item_id" | "like_item" | "abc" | "xyz" | "row_version">;
-export interface PackagingLevel {
+export interface PackagingLevelInput {
   level: PackLevel;
-  seq: number;
   code: string;
   qty_base: number;
   gtin: string | null;
   weight_kg: number | null;
 }
+export interface PackagingLevel extends PackagingLevelInput {
+  id: EntityId;
+  seq: number;
+}
 export interface ItemPackaging {
   item_id: EntityId;
   levels: PackagingLevel[];
+  /** the item planning row version (If-Match for PUT) */
   row_version: number;
 }
 /** `packs` on MRP quantities of items with packaging (6). */
@@ -349,8 +336,30 @@ export interface Packs {
   pallet?: number | null;
 }
 
+// ---------------------------------------------------------------- R1-R3 line rates, changeover matrix
+export interface LinePlanningInput {
+  planning: "discrete" | "flow" | "sterilisation";
+  oee: number;
+  clearance_minutes: number;
+  clean_every_hours: number | null;
+  clean_minutes: number | null;
+  chamber_pallets: number | null;
+  cycle_hours: number | null;
+}
+export interface LineRates {
+  line_id: EntityId;
+  line_code: string;
+  line: LinePlanningInput;
+  rates: { id: EntityId; item_id: EntityId | null; item_family: string | null; units_per_hour: number; oee: number | null }[];
+  row_version: number;
+}
+export interface ChangeoverMatrix {
+  rows: { id: EntityId; line_setup_family: string; from_key: string; to_key: string; minutes: number; cost: number; kind: "changeover" | "cleaning" | "clearance" }[];
+  version: number;
+}
+
 // ---------------------------------------------------------------- 7 rate engine (R4-R9)
-export type RateRunStatus = JobStatus | "failed_validation";
+export type RateRunStatus = RunStatus | "failed_validation";
 export type RateBlockKind = "production" | "changeover" | "cleaning" | "clearance" | "down";
 export type OvertimePolicy = "off" | "suggest" | "allow";
 export interface RateParams {
@@ -371,77 +380,56 @@ export interface RateObjective {
 }
 export interface RateShortage {
   item_id: EntityId;
-  item: M8ItemRef | null;
   due: IsoDate;
   qty: number;
   /** RATE_CAPACITY | RATE_NO_LINE | RATE_MIN_CAMPAIGN | RATE_CHANGEOVER_BOUND */
   cause: string;
-  line_id: EntityId | null;
-  load_pct: number | null;
-  detail: string;
+  detail?: Record<string, unknown>;
 }
 export interface RateExplanation {
   code: string;
   severity: "error" | "warning" | "info";
-  item_id: EntityId | null;
-  line_id: EntityId | null;
-  detail: string;
-  load_pct?: number | null;
+  item_id?: EntityId | null;
+  line_id?: EntityId | null;
+  message: string;
+  detail?: Record<string, unknown>;
 }
 export interface RateViolation {
   code: string;
   line_id: EntityId | null;
   block_ix: number | null;
-  detail: string;
-}
-export interface RateLineSummary {
-  line: M8Ref;
-  available_hours: number;
-  production_hours: number;
-  changeover_hours: number;
-  cleaning_hours: number;
-  overtime_hours: number;
-  campaigns: number;
-  utilisation: number;
+  detail: unknown;
 }
 export interface RateRun {
   id: EntityId;
   number: string;
   label: string;
+  params: Record<string, unknown>;
   status: RateRunStatus;
-  params: RateParams;
   mrp_run_id: EntityId | null;
-  mrp_run_number: number | null;
   as_of: IsoDate;
   horizon_days: number;
   published: boolean;
   published_at: IsoDateTime | null;
   published_by: string | null;
-  objective: RateObjective | null;
-  summary: {
-    lines: RateLineSummary[];
-    campaigns: number;
-    blocks: number;
-    produced_qty: number;
-    shortage_qty: number;
-    shortage_items: number;
-    firm_until: IsoDate | null;
-  } | null;
-  shortages: RateShortage[];
-  explanations: RateExplanation[];
+  objective: Partial<RateObjective> | null;
+  /** {lines, blocks, campaigns, production_qty, shortage_qty, utilisation: {line_id: fraction}} */
+  summary: { lines?: number; blocks?: number; campaigns?: number; production_qty?: number; shortage_qty?: number; utilisation?: Record<EntityId, number> } | null;
+  explanations: RateExplanation[] | null;
   validator: { ok: boolean; violations: RateViolation[] } | null;
+  shortages?: RateShortage[] | null;
   duration_ms: number | null;
+  error?: string | null;
   created_at: IsoDateTime;
-  actor: string | null;
-  error: string | null;
-  row_version: number;
+  finished_at?: IsoDateTime | null;
 }
 export interface RateBlock {
   id: EntityId;
   line_id: EntityId;
+  line_code?: string | null;
   kind: RateBlockKind;
   item_id: EntityId | null;
-  item: M8ItemRef | null;
+  part_number?: string | null;
   campaign_no: number;
   start: IsoDateTime;
   end: IsoDateTime;
@@ -449,38 +437,36 @@ export interface RateBlock {
   cases: number | null;
   prod_date: IsoDate;
   wo_id: EntityId | null;
-  wo_number: string | null;
-  firm: boolean;
 }
 export interface RateGridCell {
-  item_id: EntityId;
+  line_id: EntityId;
+  /** ISO date (day) or "YYYY-MM-DDTHH" shift start */
+  bucket: string;
+  item_id: EntityId | null;
+  part_number?: string | null;
   qty: number;
   cases: number | null;
+  hours: number;
 }
 export interface RateGrid {
   bucket: "shift" | "day";
-  buckets: { start: IsoDateTime; end: IsoDateTime; label: string; firm: boolean }[];
-  items: Record<EntityId, { part_number: string; name: string; campaign_key: string | null }>;
-  lines: {
-    line: M8Ref;
-    /** per bucket */
-    available_hours: number[];
-    used_hours: number[];
-    changeover_hours: number[];
-    cells: RateGridCell[][];
-  }[];
+  buckets: string[];
+  lines: { line_id: EntityId; code: string; utilisation: Record<string, number> }[];
+  cells: RateGridCell[];
 }
 export interface RateCompare {
-  a: { id: EntityId; number: string; label: string; objective: RateObjective | null };
-  b: { id: EntityId; number: string; label: string; objective: RateObjective | null };
-  lines: { line: M8Ref; a: RateLineSummary | null; b: RateLineSummary | null }[];
-  items: { item: M8ItemRef; a_qty: number; b_qty: number; a_short: number; b_short: number; a_campaigns: number; b_campaigns: number }[];
+  a: EntityId;
+  b: EntityId;
+  /** metric -> {a, b, delta} */
+  objective: Record<string, { a: number; b: number; delta: number }>;
+  lines: { line_id: EntityId; code: string; a_qty: number; b_qty: number; a_changeovers: number; b_changeovers: number }[];
+  items: { item_id: EntityId; part_number?: string | null; a_qty: number; b_qty: number; a_short: number; b_short: number }[];
 }
 export interface RatePublishResult {
-  run: RateRun;
-  wo_created: number;
-  wo_cancelled: number;
-  wo_kept: number;
+  run_id: EntityId;
+  created_wo_ids: EntityId[];
+  cancelled_wo_ids: EntityId[];
+  kept_wo_ids: EntityId[];
   rate_supplies: number;
 }
 
@@ -489,12 +475,12 @@ export type SterStatus = "planned" | "loaded" | "cycling" | "aerating" | "awaiti
 export interface SterMember {
   id: EntityId;
   wo_id: EntityId | null;
-  wo_number: string | null;
+  wo_number?: string | null;
   rate_block_id: EntityId | null;
   lot_id: EntityId | null;
-  lot_code: string | null;
+  lot_code?: string | null;
   item_id: EntityId;
-  item: M8ItemRef | null;
+  part_number?: string | null;
   qty: number;
   pallets: number;
 }
@@ -503,84 +489,91 @@ export interface SterLoad {
   number: string;
   run_id: EntityId | null;
   chamber_line_id: EntityId;
-  chamber: M8Ref | null;
-  chamber_pallets: number | null;
+  chamber_code?: string | null;
   cycle_code: string;
-  release_mode: ReleaseMode;
   status: SterStatus;
   pallets: number;
   planned_start: IsoDateTime;
   planned_end: IsoDateTime;
   aeration_end: IsoDateTime;
-  release_due: IsoDate | null;
-  actual_start: IsoDateTime | null;
-  actual_end: IsoDateTime | null;
-  actual_aeration_end: IsoDateTime | null;
+  release_due: IsoDate;
+  actual_start?: IsoDateTime | null;
+  actual_end?: IsoDateTime | null;
+  actual_aeration_end?: IsoDateTime | null;
   batch_load_id: EntityId | null;
   release_signature_id: EntityId | null;
   ncr_id: EntityId | null;
-  ncr_number: string | null;
   /** `STER_AERATION_BOUND`, ... */
   flags: string[];
   members: SterMember[];
+  signatures: Record<string, unknown>[];
   row_version: number;
+  created_at: IsoDateTime;
+  updated_at: IsoDateTime;
 }
-export interface SterLoadList extends M8Page<SterLoad> {
-  /** pallet positions of the aeration group(s) (8), for the utilisation chart */
-  aeration_capacity: number | null;
+export interface SterPlanInput {
+  from_date?: IsoDate | null;
+  days?: number;
+  chamber_line_ids?: EntityId[] | null;
 }
 export interface SterPlanResult {
   loads: number;
-  warnings: { code: string; item_id: EntityId | null; detail: string }[];
+  pallets: number;
+  skipped: { key?: string; item_id?: EntityId; code?: string }[];
+  warnings: { code: string; load_ix?: number; detail?: Record<string, unknown> }[];
+  load_ids: EntityId[];
 }
+export type SterAdvanceTo = "cycling" | "aerating" | "awaiting_release" | "cancelled";
 
 // ---------------------------------------------------------------- 6.2 kanban (K1-K6)
 export type KanbanSource = "buy" | "make";
 export type KanbanTrigger = "scan" | "consumption";
 export type CardState = "full" | "empty" | "in_process";
-export interface KanbanLoop {
-  id: EntityId;
-  number: string;
+export interface KanbanLoopInput {
   item_id: EntityId;
-  item: M8ItemRef | null;
   location_id: EntityId;
-  location: M8Ref | null;
   source: KanbanSource;
   supplier_id: EntityId | null;
-  supplier: M8Ref | null;
   line_id: EntityId | null;
-  line: M8Ref | null;
   cards: number;
   container_qty: number;
   lead_time_days: number;
   trigger: KanbanTrigger;
   status: "active" | "inactive";
-  card_states: Record<CardState, number>;
-  /** 6.2 sizing: cards = ceil(d x LT x 1.2 / container) + 1 */
-  suggestion: { cards: number; d_day: number } | null;
-  row_version: number;
 }
-export type KanbanLoopInput = Pick<KanbanLoop, "item_id" | "location_id" | "source" | "supplier_id" | "line_id" | "cards" | "container_qty" | "lead_time_days" | "trigger" | "status">;
+export interface KanbanLoop extends KanbanLoopInput {
+  id: EntityId;
+  number: string;
+  item?: M8ItemRef | null;
+  location_code?: string | null;
+  card_counts: Partial<Record<CardState, number>>;
+  consumed_since_signal: number;
+  /** 6.2 sizing: cards = ceil(d x LT x 1.2 / container) + 1 */
+  sizing: { daily_demand?: number | null; suggested_cards?: number | null; undersized?: boolean };
+  row_version: number;
+  created_at: IsoDateTime;
+  updated_at: IsoDateTime;
+}
 export interface KanbanCard {
   id: EntityId;
   loop_id: EntityId;
   card_no: number;
-  state: CardState;
   /** `KB:<card id>` */
   code: string;
-  doc_type: "pr" | "wo" | null;
-  doc_id: EntityId | null;
-  doc_number: string | null;
+  state: CardState;
+  doc_type?: "pr" | "wo" | string | null;
+  doc_id?: EntityId | null;
+  doc_number?: string | null;
   changed_at: IsoDateTime;
 }
 export interface KanbanScanResult {
   card: KanbanCard;
-  loop: KanbanLoop;
-  signal: { doc_type: "pr" | "wo"; doc_id: EntityId; number: string } | null;
+  loop_id: EntityId;
+  signal: { doc_type: string; doc_id: EntityId; number: string; qty: number } | null;
 }
 
 // ---------------------------------------------------------------- 4.6 planning settings (N1-N2)
-export interface PlanningSettings {
+export interface PlanningSettingsInput {
   forecast_bucket: Bucket;
   horizon_periods: number;
   history_basis: "shipments" | "orders";
@@ -590,8 +583,8 @@ export interface PlanningSettings {
   forecast_priority: number;
   daily_days: number;
   weekly_weeks: number;
-  abc_cutoffs: [number, number];
-  xyz_cutoffs: [number, number];
+  abc_cutoffs: number[];
+  xyz_cutoffs: number[];
   sl_matrix: Record<string, number>;
   ss_max_cover_days: number;
   rate_horizon_days: number;
@@ -600,51 +593,86 @@ export interface PlanningSettings {
   rate_time_budget_s: number;
   ster_max_wait_hours: number;
   nightly_at: string;
+  nightly_enabled: boolean;
   auto_publish: boolean;
+}
+export interface PlanningSettings extends PlanningSettingsInput {
   row_version: number;
+}
+export interface NightlyRunResult {
+  run_id: EntityId;
+  status: string;
+  steps: { step: string; status: string; ref_id: EntityId | null; error: string | null }[];
+  started_at?: IsoDateTime | null;
 }
 
 // ---------------------------------------------------------------- 10 validation kit (V1-V4)
+export interface TraceMatrixRow {
+  id: string;
+  title: string;
+  risk: "high" | "medium" | "low";
+  tests: string[];
+  last_result: string | null;
+}
 export interface TraceMatrix {
   generated_at: IsoDateTime | null;
-  git_sha: string | null;
-  totals: { requirements: number; covered: number; gaps: number; high_gaps: number; passed: number; failed: number; not_run: number };
-  rows: { id: string; title: string; source: string; risk: "high" | "medium" | "low"; assurance: string; tests: number; last_result: "passed" | "failed" | "skipped" | "not_run" }[];
+  requirements: number;
+  covered: number;
+  gaps: { id: string; title: string; risk: "high" | "medium" | "low" }[];
+  high_risk_gaps: number;
+  rows: TraceMatrixRow[];
+  csv_url?: string | null;
 }
 export interface Baseline {
   id: EntityId;
   label: string;
   sha256: string;
-  created_by: string | null;
+  created_by: string;
   created_at: IsoDateTime;
+  content?: Record<string, unknown> | null;
 }
 export interface BaselineDiff {
-  a: Baseline;
-  b: Baseline;
-  changes: { path: string; a: unknown; b: unknown; kind: "added" | "removed" | "changed" }[];
+  a: EntityId;
+  b: EntityId;
+  a_sha256: string;
+  b_sha256: string;
+  same: boolean;
+  changes: { path: string; kind: "added" | "removed" | "changed"; a: unknown; b: unknown }[];
 }
 
 // ---------------------------------------------------------------- 9 SAP S/4HANA (X1-X2)
-export type SapEntity = "product" | "bom" | "routing" | "supplier" | "info_record" | "stock" | "purchase_order" | "sales_order" | "demand_history" | "planned_order" | "purchase_requisition" | "pir" | "confirmation" | "goods_movement" | "inspection_lot";
-export interface SapSettings {
+export type SapEntity = "product" | "bom" | "routing" | "supplier" | "info_record" | "stock" | "purchase_order" | "sales_order" | "billing" | "planned_order_out" | "pr_out" | "pir_out" | "confirmation_out";
+export const SAP_IN_ENTITIES: readonly SapEntity[] = ["product", "bom", "routing", "supplier", "info_record", "stock", "purchase_order", "sales_order", "billing"];
+export interface SapSettingsInput {
   enabled: boolean;
   base_url: string;
+  odata_version: "v2" | "v4";
   plant: string;
   auth: "basic" | "oauth2";
-  username: string | null;
-  client_id: string | null;
-  token_url: string | null;
-  /** secrets are write-only; true when one is stored */
-  has_secret: boolean;
-  storage_locations: Record<string, EntityId>;
+  username: string;
+  /** write-only; null keeps the stored value */
+  password?: string | null;
+  token_url: string;
+  client_id: string;
+  client_secret?: string | null;
+  location_map: Record<string, string>;
   unit_map: Record<string, string>;
-  strip_zeros: boolean;
   mrp_controllers: string[];
-  schedule: Partial<Record<SapEntity, string>>;
-  cursors: { entity: SapEntity; cursor: string | null; last_run_at: IsoDateTime | null; last_status: "ok" | "failed" | "running" | null; records: number | null; message: string | null }[];
+  strip_zeros: boolean;
+  order_types: Record<string, string>;
+  page_size: number;
+  /** minutes between pulls per entity (0 = manual) */
+  schedule: Partial<Record<SapEntity, number>>;
+}
+export interface SapSettings extends SapSettingsInput {
+  password_set: boolean;
+  client_secret_set: boolean;
+  cursors: Record<string, string>;
+  last_sync: Record<string, { at: IsoDateTime | null; status: string; records: number | null; error: string | null }>;
   row_version: number;
 }
-export interface SapSettingsInput extends Omit<SapSettings, "has_secret" | "cursors" | "row_version"> {
-  /** null keeps the stored secret */
-  secret?: string | null;
+export interface SapSyncResult {
+  run_id: EntityId;
+  status: string;
+  entities: string[];
 }

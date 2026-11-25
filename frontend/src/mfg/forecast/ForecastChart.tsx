@@ -10,7 +10,7 @@ import { useMemo, useState, type KeyboardEvent } from "react";
 import { Legend } from "../../finance/charts/Legend";
 import { niceTicks, useWidth } from "../../finance/charts/scales";
 import { t } from "../../lib/i18n";
-import type { ForecastItemDetail } from "../api/typesM8";
+import type { Bucket } from "../api/typesM8";
 import { num, periodLabel, periodShort } from "./shared";
 
 const H = 260;
@@ -27,7 +27,17 @@ interface Row {
   consumed: number | null;
 }
 
-export function ForecastChart({ d, uom }: { d: ForecastItemDetail; uom: string }) {
+/** Chart input: one item's series by period start. */
+export interface ForecastChartData {
+  partNumber: string;
+  bucket: Bucket;
+  history: { period_start: string; qty: number; cleaned_qty: number | null; outlier: boolean }[];
+  fitted: { period_start: string; qty: number }[];
+  forecast: { period_start: string; stat_qty: number; final_qty: number }[];
+  consumption: { period_start: string; consumed: number }[];
+}
+
+export function ForecastChart({ d }: { d: ForecastChartData }) {
   const [ref, width] = useWidth<HTMLDivElement>(900);
   const [cur, setCur] = useState<number | null>(null);
   const rows = useMemo<Row[]>(() => {
@@ -85,7 +95,7 @@ export function ForecastChart({ d, uom }: { d: ForecastItemDetail; uom: string }
   const labelEvery = Math.max(1, Math.ceil(n / Math.max(3, Math.floor(innerW / 64))));
   const barW = Math.max(2, Math.min(18, step * 0.5));
   const tot = rows.reduce((a, r) => a + (r.final ?? 0), 0);
-  const summary = t("plan.fc.chart.aria", { item: d.item.part_number, n: rows.filter((r) => r.hist !== null).length, m: rows.filter((r) => r.final !== null).length, total: num(tot), uom });
+  const summary = t("plan.fc.chart.aria", { item: d.partNumber, n: rows.filter((r) => r.hist !== null).length, m: rows.filter((r) => r.final !== null).length, total: num(tot) });
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!n) return;
