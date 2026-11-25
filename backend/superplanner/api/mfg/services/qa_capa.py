@@ -62,7 +62,7 @@ def record(s: Session, r: QaCapaRow, full: bool = False) -> dict[str, Any]:
            "number": r.number, "title": r.title, "kind": r.kind, "problem": r.problem, "risk": r.risk,
            "owner_user_id": r.owner_user_id, "due_on": r.due_on, "root_cause": r.root_cause,
            "effectiveness": r.effectiveness, "status": r.status, "author_id": r.author_id, "closed_at": r.closed_at,
-           "external_ref": r.external_ref, "sor": settings_of(s).capa_sor,
+           "external_ref": r.external_ref, "sor": r.sor,
            "overdue": bool(r.due_on and r.status in OPEN and r.due_on < today(s)), "actions": [],
            "signatures": [], "links": [], "attachments": []}
     if full:
@@ -130,6 +130,7 @@ def create_capa(ctx: AppContext, a: Act, body: CapaInput) -> dict[str, Any]:
                       root_cause=body.root_cause.model_dump() if body.root_cause else None,
                       effectiveness=body.effectiveness.model_dump(mode="json") if body.effectiveness else None,
                       status=(body.external_status or "external") if ext else "draft", author_id=a.user_id,
+                      sor="external" if ext else "superplanner",
                       closed_at=None, external_ref=body.external_ref, row_version=1, created_at=now, updated_at=now)
         s.add(r)
         s.flush()
@@ -153,7 +154,7 @@ def update_capa(ctx: AppContext, a: Act, capa_id: str, body: CapaInput, if_match
         r.owner_user_id, r.due_on, r.external_ref = body.owner_user_id, body.due_on, body.external_ref
         r.root_cause = body.root_cause.model_dump() if body.root_cause else None
         r.effectiveness = body.effectiveness.model_dump(mode="json") if body.effectiveness else None
-        if _external(s) and body.external_status:
+        if r.sor == "external" and body.external_status:     # review M7: free status only on external rows
             r.status = body.external_status
         touch(r)
         s.flush()
@@ -165,7 +166,7 @@ def _open_capa(s: Session, capa_id: str) -> QaCapaRow:
     from . import esig
 
     r = repo.get_row(s, QaCapaRow, capa_id, what="CAPA", lock=True)
-    if _external(s):
+    if r.sor == "external":
         raise _ext_error()
     if r.status not in OPEN:
         raise esig.locked_error(r.number)
@@ -270,7 +271,7 @@ def advance(ctx: AppContext, a: Act, capa_id: str, body: CapaAdvanceInput, if_ma
 
 
 def _signed_step(ctx: AppContext, a: Act, capa_id: str, action: str, body: Any, if_match: str | None,
-                 from_status: str, check: Any, after: Any) -> dict[str, Any]:
+                 from_status: str, check: Any, after: Any, params: dict[str, Any] | None = None) -> dict[str, Any]:
     from . import esig
 
     auth = esig.authenticate(ctx, a, "capa", action, body.signature)
@@ -282,7 +283,7 @@ def _signed_step(ctx: AppContext, a: Act, capa_id: str, action: str, body: Any, 
             raise ApiError(409, "MFG_INVALID_STATE", f"A {r.status} CAPA cannot be {action.replace('_', ' ')}d.",
                            {"status": r.status, "action": action})
         check(s, r)
-        out = esig.sign(s, a, auth, "capa", r.id, action, body.signature)
+        out = esig.sign(s, a, auth, "capa", r.id, action, body.signature, params=params)
         if out.pending is not None:
             return out.pending
         after(s, r, out.signature_ids[-1] if out.signature_ids else None)
@@ -314,7 +315,8 @@ def verify(ctx: AppContext, a: Act, capa_id: str, body: CapaVerifyInput, if_matc
         _move(s, r, "investigation" if body.result == "not_effective" else "effectiveness_check", "verify",
               _why(body, f"Effectiveness: {body.result}"), sid)
 
-    return _signed_step(ctx, a, capa_id, "verify", body, if_match, "effectiveness_check", lambda s, r: None, after)
+    return _signed_step(ctx, a, capa_id, "verify", body, if_match, "effectiveness_check", lambda s, r: None, after,
+                        params={"result": body.result, "evidence": body.evidence})
 
 
 def close(ctx: AppContext, a: Act, capa_id: str, body: ApproveInput, if_match: str | None) -> dict[str, Any]:

@@ -50,9 +50,11 @@ def test_floor_issue_component_lot(api):
     lot2 = next(l for l in api.get("/lots", item_id=x["lc"]["id"])["items"] if l["lot_code"] == "A2")
     api.post("/qa/holds", {"lot_id": lot2["id"], "reason": "inspection pending"})
     api.err("POST", "/floor/issue-lot", 422, "INV_LOT_ON_HOLD", json={"wo_operation_id": x["op"]["id"],
-                                                                      "scan": "A2", "qty": 1})
+                                                                      "scan": "A2", "qty": 1,
+                                                                      "over_issue": True, "reason": "t"})
     api.err("POST", "/floor/issue-lot", 409, "FLR_LOT_QUARANTINED", json={"wo_operation_id": x["op"]["id"],
-                                                                          "scan": "A3", "qty": 1})
+                                                                          "scan": "A3", "qty": 1,
+                                                                          "over_issue": True, "reason": "t"})
     other = api.item("OTHER", lot_controlled=True)
     api.receive(other["id"], api.get("/locations")["items"][0]["id"], 5, lot_code="Z9")
     api.err("POST", "/floor/issue-lot", 422, "FLR_LOT_NOT_A_COMPONENT", json={

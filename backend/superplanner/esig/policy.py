@@ -35,6 +35,7 @@ DEFAULTS: dict[tuple[str, str], tuple[list[dict[str, Any]], str, bool, bool]] = 
                                          "password", True, False),
     ("eco", "approve"): ([{"meaning": "approved", "roles": ["approver", "qa_approver"]}], "password", True, False),
     ("esig_policy", "update"): ([{"meaning": "approved", "roles": ["qa_approver"]}], "password_totp", True, False),
+    ("qa_settings", "sor_change"): ([{"meaning": "approved", "roles": ["qa_approver"]}], "password", True, False),
     ("plant", "part11_on"): ([{"meaning": "approved", "roles": ["owner", "plant_admin"]}], "password_totp", True,
                              False),
 }

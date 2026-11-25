@@ -861,7 +861,8 @@ def decide(ctx: AppContext, a: Act, lot_id: str, body: DecisionInput, if_match: 
             if v["verdict"] == "reject" and not _usable_ncr(s, r, body.ncr_id):
                 raise ApiError(409, "QA_DECISION_CONTRADICTS", "The verdict is reject: accept only with an approved "
                                "NCR that dispositions this lot use-as-is.", {"verdict": "reject"})
-        out = esig.sign(s, a, auth, "inspection_lot", r.id, action, body.signature, decision=body.decision)
+        out = esig.sign(s, a, auth, "inspection_lot", r.id, action, body.signature, decision=body.decision,
+                        params={"decision": body.decision, "ncr_id": body.ncr_id})
         if out.pending is not None:
             return out.pending
         sig_id = out.signature_ids[-1] if out.signature_ids else None

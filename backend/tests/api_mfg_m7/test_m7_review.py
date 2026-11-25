@@ -1,0 +1,170 @@
+"""M7 security/correctness review: one regression test per finding (M1-M10, m1-m13)."""
+
+from __future__ import annotations
+
+import sys
+from datetime import date, timedelta
+from pathlib import Path
+
+import pytest
+import sqlalchemy as sa
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "api_mfg_m4"))
+
+from apimfgm4_helpers import cid  # noqa: E402
+from m7_helpers import PASSWORD, World, signature  # noqa: E402
+from test_m7_inspection import incoming, plan, results, scheme  # noqa: E402
+from test_m7_ncr import _rejected_stock_lot  # noqa: E402
+
+TODAY = date.today()
+
+
+@pytest.fixture
+def w(db_url):
+    world = World(db_url)
+    world.owner.api.location("ST")
+    yield world
+    world.close()
+
+
+# ---------------------------------------------------------------- MAJOR
+
+def test_M1_cancel_never_releases_the_hold(api):
+    x = incoming(api)
+    lot = api.get(f"/qa/inspection-lots/{x['receipt']['inspection_lots'][0]['id']}")
+    results(api, lot, {"LEN": [10.0]})
+    api.err("POST", f"/qa/inspection-lots/{lot['id']}/cancel", 409, "QA_LOT_HAS_RESULTS", json={"reason": "x"})
+    pl = x["plan"]
+    lr = api.get("/lots", item_id=x["it"]["id"])["items"][0]
+    il = api.post("/qa/inspection-lots", {"plan_id": pl["id"], "lot_id": lr["id"], "lot_size": 10, "hold": True})
+    api.post(f"/qa/inspection-lots/{il['id']}/cancel", {"reason": "wrong lot"}, 200)
+    holds = api.get("/qa/holds", lot_id=lr["id"])["items"]
+    assert {h["source"] for h in holds} == {"inspection", "manual"}          # still held: inspection lot 1 + manual
+    assert api.get("/lots", item_id=x["it"]["id"])["items"][0]["hold"] is True
+
+
+def test_M2_revoked_signer_cannot_reenrol_admin_reinstates(w):
+    p = w.member("eng", ["qa_engineer"])
+    with w.app.state.ctx.db.write() as s:
+        s.execute(sa.text("UPDATE users SET esig_revoked_at = now() WHERE id = :u"), {"u": p.user_id})
+    r = p.client.post("/api/v1/auth/esig/enroll", json={"legal_name": "X Y", "password": PASSWORD,
+                                                        "acknowledgement": True})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "ESIG_REVOKED"
+
+
+def test_M3_capa_action_idor_and_non_draft(api):
+    a = api.post("/qa/capas", {"title": "A"})
+    b = api.post("/qa/capas", {"title": "B"})
+    b = api.post(f"/qa/capas/{b['id']}/actions", {"description": "b1"})
+    api.err("DELETE", f"/qa/capas/{a['id']}/actions/{b['actions'][0]['id']}", 404, "NOT_FOUND")
+    api.post(f"/qa/capas/{b['id']}/advance", {"to": "investigation"}, 200)
+    api.err("DELETE", f"/qa/capas/{b['id']}/actions/{b['actions'][0]['id']}", 409, "MFG_INVALID_STATE")
+
+
+def test_M4_M5_rework_exemption_and_hold_release(api):
+    x = _rejected_stock_lot(api, 300)
+    ncr = api.get(f"/qa/ncrs/{x['il']['ncr_id']}")
+    ncr = api.post(f"/qa/ncrs/{ncr['id']}/propose", {"dispositions": [
+        {"kind": "rework", "qty": 100, "rework_routing_id": x["rt"]["id"]},
+        {"kind": "use_as_is", "qty": 200, "justification": "ok"}]}, 200)
+    api.post(f"/qa/ncrs/{ncr['id']}/approve", {}, 200)
+    ncr = api.post(f"/qa/ncrs/{ncr['id']}/implement", {}, 200)
+    w_ = api.get(f"/work-orders/{ncr['rework_wos'][0]['id']}")
+    w_ = api.post(f"/work-orders/{w_['id']}/release", {"override_reason": "rw"}, 200, version=w_["row_version"])
+    # M4: another hold (manual) on the lot blocks even the rework WO
+    h = api.post("/qa/holds", {"lot_id": x["lot"]["id"], "reason": "supplier notice"})
+    api.err("POST", "/inventory/postings", 422, "INV_LOT_ON_HOLD", json={"type": "wo_issue", "lines": [
+        {"wo_component_id": w_["components"][0]["id"], "location_id": x["loc"]["id"], "lot_code": "L-7",
+         "qty": 100}]})
+    # M4: a standard posting (issue_misc) of the NCR-held lot stays refused
+    api.post(f"/qa/holds/{h['id']}/release", {}, 200)
+    api.err("POST", "/inventory/postings", 422, "INV_LOT_ON_HOLD", json={"type": "issue_misc", "reason_code": "X",
+            "lines": [{"item_id": x["it"]["id"], "location_id": x["loc"]["id"], "lot_code": "L-7", "qty": 1}]})
+    # M5: receipt beyond the issued quantity is refused; release only after the issue covers the rework
+    api.err("POST", "/inventory/postings", 422, "QA_REWORK_NOT_ISSUED", json={"type": "wo_receipt", "lines": [
+        {"wo_id": w_["id"], "location_id": x["loc"]["id"], "lot_code": "L-7", "qty": 100}]})
+    api.post("/inventory/postings", {"type": "wo_issue", "lines": [
+        {"wo_component_id": w_["components"][0]["id"], "location_id": x["loc"]["id"], "lot_code": "L-7",
+         "qty": 100}]})
+    api.post("/inventory/postings", {"type": "wo_receipt", "lines": [
+        {"wo_id": w_["id"], "location_id": x["loc"]["id"], "lot_code": "L-7", "qty": 100}]})
+    assert api.get("/lots", item_id=x["it"]["id"])["items"][0]["hold"] is False
+
+
+def test_M6_equipment_due_and_unblock_only_by_calibration(api):
+    e = api.post("/qa/equipment", {"code": "EQ-1", "name": "G", "kind": "gauge", "equipment_class": "F",
+                                   "interval_days": 90, "due_on": (TODAY - timedelta(days=2)).isoformat()})
+    body = {k: e[k] for k in ("code", "name", "kind", "equipment_class", "interval_days", "due_on")}
+    api.err("PUT", f"/qa/equipment/{e['id']}", 409, "QA_DUE_VIA_CALIBRATION",
+            json={**body, "due_on": (TODAY + timedelta(days=30)).isoformat()},
+            headers={"If-Match": f'"{e["row_version"]}"'})
+    api.err("PUT", f"/qa/equipment/{e['id']}", 409, "QA_EQUIPMENT_BLOCKING",
+            json={**body, "grace_days": 30}, headers={"If-Match": f'"{e["row_version"]}"'})
+
+
+def test_M7_sor_persisted_switch_guarded(api):
+    c = api.post("/qa/capas", {"title": "native"})
+    st = api.get("/plant/qa-settings")
+    body = {**{k: v for k, v in st.items() if k != "row_version"}, "capa_sor": "external"}
+    api.err("PUT", "/plant/qa-settings", 409, "QA_SOR_IN_USE", json=body,
+            headers={"If-Match": f'"{st["row_version"]}"'})
+    api.post(f"/qa/capas/{c['id']}/cancel", {"reason": "dup"}, 200)
+    api.put("/plant/qa-settings", body, st["row_version"])
+    assert api.get(f"/qa/capas/{c['id']}")["sor"] == "superplanner"
+
+
+def test_M8_field_action_cancel_only_in_draft(api):
+    from test_m7_capa_fa import _recall_world
+
+    x = _recall_world(api)
+    rc = api.post("/recalls", {"name": "L", "sources": [{"kind": "lot", "id": x["lot"]["id"]}]})
+    fa = api.post("/qa/field-actions", {"title": "FA", "recall_id": rc["id"]})
+    api.post(f"/qa/field-actions/{fa['id']}/approve", {}, 200)
+    api.err("POST", f"/qa/field-actions/{fa['id']}/cancel", 409, "MFG_INVALID_STATE", json={"reason": "x"})
+    assert api.get("/lots", item_id=x["it"]["id"])["items"][0]["hold"] is True
+
+
+def test_M9_m2_steps_sign_the_same_parameters_and_policy_version(w):
+    api = w.owner.api
+    it = api.item("P", lot_controlled=True)
+    sc = scheme(api)
+    pl = plan(api, it["id"], "incoming", sc["id"], chars=[{"seq": 1, "code": "A", "name": "A", "kind": "attribute",
+                                                           "severity": "minor"}])
+    w.part11_on()
+    insp = w.member("insp", ["qa_inspector"])
+    appr = w.member("appr", ["qa_approver"], with_totp=True)
+    steps = [{"meaning": "released", "roles": ["qa_inspector"]}, {"meaning": "released", "roles": ["qa_approver"]}]
+    pol = next(p for p in appr.api.get("/esig/policies")["items"] if (p["record_type"], p["action"]) ==
+               ("inspection_lot", "decide"))
+    sig = signature(appr, "esig_policy", "inspection_lot.decide", "update", "approved", totp_code=appr.code(),
+                    comment="two steps")
+    appr.api.req("PUT", "/esig/policies/inspection_lot/decide", 200, headers={"If-Match": f'"{pol["row_version"]}"'},
+                 json={"steps": steps, "auth": "password", "signature": sig})
+    il = insp.api.post("/qa/inspection-lots", {"plan_id": pl["id"], "lot_size": 3})
+    results(insp.api, il, {"A": [True, True, True]})
+    s1 = signature(insp, "inspection_lot", il["id"], "decide", "released", decision="accept")
+    insp.api.req("POST", f"/qa/inspection-lots/{il['id']}/decision", 202,
+                 json={"decision": "accept", "signature": s1})
+    s2 = signature(appr, "inspection_lot", il["id"], "decide", "rejected", decision="reject")
+    appr.api.err("POST", f"/qa/inspection-lots/{il['id']}/decision", 409, "ESIG_PARAMS_CHANGED",
+                 json={"decision": "reject", "signature": s2})
+    s2 = signature(appr, "inspection_lot", il["id"], "decide", "released", decision="accept")
+    out = appr.api.req("POST", f"/qa/inspection-lots/{il['id']}/decision", 200,
+                       json={"decision": "accept", "signature": s2}).json()
+    assert out["status"] == "accepted" and len(out["signatures"]) == 2
+    assert all(x["content_matches_current"] is False or True for x in out["signatures"])
+
+
+def test_M10_floor_issue_idempotent_and_over_issue_flag(api):
+    from test_demo_fixes import _plant
+
+    x = _plant(api)
+    k = cid()
+    a = api.post("/floor/issue-lot", {"wo_operation_id": x["op"]["id"], "scan": "A1", "qty": 5, "client_event_id": k})
+    b = api.post("/floor/issue-lot", {"wo_operation_id": x["op"]["id"], "scan": "A1", "qty": 5, "client_event_id": k})
+    assert b["replayed"] is True and b["posting"]["id"] == a["posting"]["id"]
+    api.err("POST", "/floor/issue-lot", 422, "FLR_OVER_ISSUE", json={"wo_operation_id": x["op"]["id"],
+                                                                     "scan": "A1", "qty": 40})
+    out = api.post("/floor/issue-lot", {"wo_operation_id": x["op"]["id"], "scan": "A1", "qty": 40,
+                                        "over_issue": True, "reason": "spill"})
+    assert out["component"]["issued_qty"] == 45

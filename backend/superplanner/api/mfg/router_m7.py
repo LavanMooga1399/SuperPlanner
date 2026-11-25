@@ -20,7 +20,7 @@ from ...qa.model import (ApproveInput, CalibrationInput, CancelInput, CapaAction
                          CapaVerifyInput, ComplaintAdvanceInput, ComplaintInput, DecisionInput, EquipmentInput,
                          EquipmentStatusInput, FaCompleteInput, FieldActionInput, FieldActionUpdate, HoldInput,
                          HoldReleaseInput, InspectionLotInput, LinkInput, NcrInput, PlanInput, ProposeInput,
-                         QaSettings, ResultsBatch, SchemeInput, UnitsBulkInput)
+                         QaSettingsInput, ResultsBatch, SchemeInput, UnitsBulkInput)
 from ..auth.deps import Principal, require_user
 from ..context import AppContext, get_ctx
 from .router_m2 import P, Id, Limit, Offset, QText, _file, _if_match, _no_content, _ok
@@ -208,7 +208,7 @@ def get_qa_settings(ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
 
 
 @router.put("/plant/qa-settings", dependencies=P("qa_plan_edit"))
-def put_qa_settings(body: QaSettings, if_match: str | None = _if_match(), a: Act = Depends(act),
+def put_qa_settings(body: QaSettingsInput, if_match: str | None = _if_match(), a: Act = Depends(act),
                     ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from .services import qa_common
 

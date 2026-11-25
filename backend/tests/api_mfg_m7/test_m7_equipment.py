@@ -74,9 +74,10 @@ def test_t_q9_line_equipment_blocks_floor_aps_and_health(api, client):
         snap = repo_m3.load_aps_snapshot(s, datetime.now(UTC), None)
         blocks = [d for d in snap.downtime if d.id.startswith("qa:")]
         assert [b.line_id for b in blocks] == [x["l1"]["id"]]
-    api.put(f"/qa/equipment/{eq['id']}", {**{k: eq[k] for k in ("code", "name", "kind", "equipment_class",
-                                                                  "interval_days")},
-                                          "line_id": None, "due_on": eq["due_on"]}, eq["row_version"])
+    api.err("PUT", f"/qa/equipment/{eq['id']}", 409, "QA_EQUIPMENT_BLOCKING", json={   # review M6: no unlink
+        **{k: eq[k] for k in ("code", "name", "kind", "equipment_class", "interval_days", "due_on")}, "line_id": None},
+        headers={"If-Match": f'"{eq["row_version"]}"'})
+    api.post(f"/qa/equipment/{eq['id']}/calibrations", {"performed_on": TODAY.isoformat(), "result": "pass"})
     ev(api, x["ops"][0]["id"], "start", line_id=x["l1"]["id"])
     soon_l = api.get("/qa/equipment", due_within_days=14)["items"]
     assert {e["code"] for e in soon_l} >= {"EQ-SOON"} and soon["due_state"] == "due_soon"

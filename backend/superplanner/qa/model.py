@@ -75,6 +75,11 @@ class QaSettings(MfgModel):
     final_release_role: Literal["qa_approver", "qa_engineer", "qa_inspector"] = "qa_approver"
 
 
+class QaSettingsInput(QaSettings):
+    """PUT body: changing `capa_sor` / `complaint_sor` is signed (`qa_settings.sor_change`, review M7)."""
+    signature: SignatureInput | None = None
+
+
 class QaSettingsRecord(QaSettings):
     row_version: int                          # the plant row's version (If-Match)
 

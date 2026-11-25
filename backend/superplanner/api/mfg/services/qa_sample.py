@@ -151,7 +151,7 @@ def apply(s: Session, anchor: date, actor: str) -> dict[str, Any]:
                     risk={"severity": 3, "occurrence": 3, "level": "medium"}, owner_user_id=actor,
                     due_on=d0 + timedelta(days=30), root_cause={"method": "5_why", "text": "Cavity 7 worn."},
                     effectiveness={"criteria": "No OD rejects in 10 lots", "check_due_on": None, "result": None,
-                                   "evidence": ""}, status="implementation", author_id=actor, closed_at=None,
+                                   "evidence": ""}, status="implementation", sor="superplanner", author_id=actor, closed_at=None,
                     external_ref=None, row_version=1, created_at=now, updated_at=now)
     s.add(cap)
     s.flush()
@@ -175,7 +175,7 @@ def apply(s: Session, anchor: date, actor: str) -> dict[str, Any]:
                              event_type=ev, reportability={"assessed": status == "closed", "reportable": False if
                                                            status == "closed" else None, "regimes": ["hc_mdpr"],
                                                            "report_ref": None},
-                             investigation="", status=status, author_id=actor,
+                             investigation="", status=status, sor="superplanner", author_id=actor,
                              closed_at=now if status == "closed" else None, external_ref=None, row_version=1,
                              created_at=now, updated_at=now))
     s.flush()

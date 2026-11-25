@@ -68,24 +68,73 @@ def get_settings(ctx: AppContext) -> dict[str, Any]:
         return _settings_record(s.execute(select(MfgPlantRow)).scalars().first())
 
 
-def put_settings(ctx: AppContext, a: Act, body: QaSettings, if_match: str | None) -> dict[str, Any]:
-    from ...audit_diff import audit_regulated
+def _settings_loader(s: Session, record_id: str, lock: bool) -> Any:
+    from ....esig import content as C
+    from ..db_models import MfgPlantRow
 
+    p = s.execute(select(MfgPlantRow)).scalars().first()
+    if p is None:
+        raise ApiError(404, "NOT_FOUND", "Plant not found.", {"id": record_id})
+    st = _settings_record(p)
+    st.pop("row_version", None)
+    return C.Loaded(p, st, p.row_version, None, [("CAPA system of record", st["capa_sor"]),
+                                                ("Complaint system of record", st["complaint_sor"])])
+
+
+def _register() -> None:
+    from ....esig import content as C
+
+    C.register("qa_settings", _settings_loader)
+
+
+_register()
+
+
+def put_settings(ctx: AppContext, a: Act, body: Any, if_match: str | None) -> dict[str, Any]:
+    from ...audit_diff import audit_regulated
+    from . import esig
+
+    with read_tx(ctx) as s:
+        cur = settings_of(s)
+        sor_change = (cur.capa_sor, cur.complaint_sor) != (body.capa_sor, body.complaint_sor)
+    sig = getattr(body, "signature", None)
+    auth = esig.authenticate(ctx, a, "qa_settings", "sor_change", sig) if sor_change else None
     with write_tx(ctx) as (s, plant):
         check_version(plant, if_match)
+        cur = settings_of(s)
+        sig_id = None
+        if (cur.capa_sor, cur.complaint_sor) != (body.capa_sor, body.complaint_sor):
+            # review M7: the system of record changes only when no native record is in work, and signed
+            from ..db_models_m7 import QaCapaRow, QaComplaintRow
+
+            open_capas = int(s.execute(select(func.count()).select_from(QaCapaRow).where(
+                QaCapaRow.sor == "superplanner", QaCapaRow.status.not_in(("closed", "cancelled")))).scalar() or 0)
+            open_cmp = int(s.execute(select(func.count()).select_from(QaComplaintRow).where(
+                QaComplaintRow.sor == "superplanner", QaComplaintRow.status != "closed")).scalar() or 0)
+            blocking = {"capas": open_capas if cur.capa_sor != body.capa_sor else 0,
+                        "complaints": open_cmp if cur.complaint_sor != body.complaint_sor else 0}
+            if any(blocking.values()):
+                raise ApiError(409, "QA_SOR_IN_USE", "Close or cancel the open records before switching the system of "
+                               "record.", {"open": blocking})
+            out = esig.sign(s, a, auth, "qa_settings", plant.id, "sor_change", sig,
+                            params={"capa_sor": body.capa_sor, "complaint_sor": body.complaint_sor})
+            if out.pending is not None:
+                return out.pending
+            sig_id = out.signature_ids[-1] if out.signature_ids else None
         if body.mrb_location_id is not None:
             from ..db_models_m2 import MfgLocationRow
 
             if s.get(MfgLocationRow, body.mrb_location_id) is None:
                 raise unknown_ref(["body", "mrb_location_id"], body.mrb_location_id, "Location")
         before = _settings_record(plant)
-        plant.qa_settings = body.model_dump(mode="json")
+        plant.qa_settings = QaSettings.model_validate(body.model_dump(exclude={"signature"})).model_dump(mode="json")
         touch(plant)
         s.info.pop("sp_qa_settings", None)
         s.flush()
         after = _settings_record(plant)
         audit_regulated(s, "qa_settings", plant.id, "update", before=before, after=after,
-                        record_version=plant.row_version)
+                        record_version=plant.row_version, signature_id=sig_id,
+                        reason=(sig.comment.strip() or None) if sig is not None else None)
         return after
 
 

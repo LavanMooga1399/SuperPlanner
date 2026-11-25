@@ -89,7 +89,7 @@ def record(s: Session, r: QaComplaintRow, full: bool = False) -> dict[str, Any]:
         [f"Serial {x['code']} is not a known serial." for x in r.serials or [] if not x.get("serial_id")]
     rec = {"id": r.id, "row_version": r.row_version, "created_at": r.created_at, "updated_at": r.updated_at,
            **content(s, r), "warnings": warn, "reporting_due": reporting_due(s, r), "author_id": r.author_id,
-           "closed_at": r.closed_at, "external_ref": r.external_ref, "sor": settings_of(s).complaint_sor,
+           "closed_at": r.closed_at, "external_ref": r.external_ref, "sor": r.sor,
            "signatures": [], "links": [], "attachments": []}
     if full:
         decorate(s, rec, "complaint", "complaint")
@@ -134,6 +134,7 @@ def create_complaint(ctx: AppContext, a: Act, body: ComplaintInput) -> dict[str,
                            serials=sers, qty_affected=body.qty_affected, description=body.description,
                            event_type=body.event_type, reportability=body.reportability.model_dump(),
                            investigation=body.investigation, status="external" if ext else "open",
+                           sor="external" if ext else "superplanner",
                            author_id=a.user_id, closed_at=None, external_ref=body.external_ref, row_version=1,
                            created_at=now, updated_at=now)
         s.add(r)
@@ -174,6 +175,8 @@ def advance(ctx: AppContext, a: Act, complaint_id: str, body: ComplaintAdvanceIn
         r = repo.get_row(s, QaComplaintRow, complaint_id, what="Complaint", lock=True)
         if if_match is not None:
             check_version(r, if_match)
+        if r.sor == "external":
+            raise ApiError(409, "QA_EXTERNAL_SOR", "This complaint is managed in the external system.", {})
         if r.status != "open":
             raise ApiError(409, "MFG_INVALID_STATE", f"A {r.status} complaint cannot move to investigation.",
                            {"status": r.status})
@@ -195,6 +198,8 @@ def close(ctx: AppContext, a: Act, complaint_id: str, body: ApproveInput, if_mat
         r = repo.get_row(s, QaComplaintRow, complaint_id, what="Complaint", lock=True)
         if if_match is not None:
             check_version(r, if_match)
+        if r.sor == "external":
+            raise ApiError(409, "QA_EXTERNAL_SOR", "This complaint is managed in the external system.", {})
         if r.status not in ("open", "investigation"):
             raise ApiError(409, "MFG_INVALID_STATE", f"A {r.status} complaint cannot be closed.", {"status": r.status})
         if not (r.reportability or {}).get("assessed"):

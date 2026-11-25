@@ -219,8 +219,7 @@ def update_policy(ctx: AppContext, a: Any, record_type: str, action: str, body: 
         after_doc = {"steps": steps, "auth": body.auth, "distinct_signers": body.distinct_signers,
                      "exclude_author": body.exclude_author}
         loaded = _policy_loader(s, rid, True)
-        out = sign(s, a, auth, "esig_policy", rid, "update", body.signature, loaded=loaded,
-                   stored_content={"before": loaded.content, "after": after_doc})
+        out = sign(s, a, auth, "esig_policy", rid, "update", body.signature, loaded=loaded, params=after_doc)
         if out.pending is not None:
             return out.pending
         r.steps, r.auth = steps, body.auth
@@ -604,8 +603,11 @@ def _required_error(s: Session, a: Any, record_type: str, record_id: str, action
 def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str, action: str,
          sig: SignatureInput | None, *, decision: str | None = None, loaded: C.Loaded | None = None,
          stored_content: dict[str, Any] | None = None, store_record_id: str | None = None,
-         store_version: int | None = None, ctx_settings: Any = None) -> Outcome:
-    """Phase 2 inside the action's transaction (see module doc)."""
+         store_version: int | None = None, ctx_settings: Any = None, params: dict[str, Any] | None = None
+         ) -> Outcome:
+    """Phase 2 inside the action's transaction (see module doc). `params`: the action's parameters (decision,
+    new policy, verification result ...) - stored in the signed snapshot (`_params`) and identical for every step
+    of a multi-step flow (review M9)."""
     from ...audit_diff import part11_on
 
     always = (record_type, action) in POL.ALWAYS
@@ -622,6 +624,16 @@ def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str
     if auth.user_id != a.user_id:                                      # pragma: no cover - programming error
         raise ApiError(403, "ESIG_ROLE", "The signer is not the session user.", {})
     earlier = _valid_sigs(s, record_type, record_id, action, loaded.version)
+    stale = [e for e in earlier if (e.policy_id, e.policy_version) != (pol.id, pol.version)]
+    for e in stale:                    # review m2: steps signed under another policy version start over
+        e.status = "superseded"
+        e.updated_at = utcnow()
+    earlier = [e for e in earlier if e not in stale]
+    p_plain = C.plain(params) if params is not None else None
+    for e in earlier:                  # review M9: every step signs the same parameters
+        if (e.content or {}).get("_params") != p_plain:
+            raise ApiError(409, "ESIG_PARAMS_CHANGED", "Earlier steps were signed for different parameters of this "
+                           "action; sign the same decision or start over.", {"step": e.step})
     idx = len(earlier)
     if idx >= len(pol.steps):
         return Outcome(True)
@@ -644,6 +656,8 @@ def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str
     if not hmac.compare_digest(sig.content_hash, current):
         raise ApiError(409, "ESIG_CONTENT_CHANGED", "The record changed since you opened the signature dialog. "
                        "Review it again.", {"current_hash": current})
+    if stored_content is None and params is not None:
+        stored_content = {**loaded.content, "_params": params}
     snapshot = C.plain(stored_content if stored_content is not None else loaded.content)
     if not C.size_ok(snapshot):
         raise ApiError(422, "ESIG_CONTENT_TOO_LARGE", "The record is too large to be signed.",
@@ -741,21 +755,28 @@ def _local(s: Session, at: datetime) -> str:
     return f"{loc.strftime('%Y-%m-%d %H:%M:%S')} {loc.tzname() or ''} (UTC{off})".replace("  ", " ")
 
 
-def manifest(s: Session, r: EsigSignatureRow, current_hash: str | None, lang: str = "en") -> dict[str, Any]:
+def _matches(r: EsigSignatureRow, current_hash: str | None, current_content: dict[str, Any] | None) -> bool:
+    """Does the signed snapshot still describe the record? Snapshots with action parameters (`_params`, M9) are
+    compared with the current content plus those parameters; policy updates with the policy now in force."""
+    if current_hash is None:
+        return True
+    c = r.content if isinstance(r.content, dict) else {}
+    if "_params" in c and current_content is not None:
+        if r.record_type == "esig_policy":                 # review m9: the update applied = the content now
+            after = c["_params"] or {}
+            return all(C.plain(current_content).get(k) == v for k, v in after.items())
+        return C.content_hash({**current_content, "_params": c["_params"]}) == r.content_hash
+    return r.content_hash == current_hash
+
+
+def manifest(s: Session, r: EsigSignatureRow, current_hash: str | None, lang: str = "en",
+             current_content: dict[str, Any] | None = None) -> dict[str, Any]:
     return {"id": r.id, "meaning": r.meaning, "meaning_label": MEANING_LABELS.get(lang, MEANING_LABELS["en"])
             .get(r.meaning, r.meaning), "signer_legal_name": r.signer_legal_name,
             "signer_username": r.signer_username, "signed_at": _aware(r.signed_at),
             "signed_at_local": _local(s, r.signed_at), "auth_method": r.auth_method, "action": r.action,
             "step": r.step, "status": r.status, "record_version": r.record_version, "comment": r.comment,
-            "content_matches_current": current_hash is None or r.content_hash == current_hash
-            or _snapshot_matches(r, current_hash)}
-
-
-def _snapshot_matches(r: EsigSignatureRow, current_hash: str | None) -> bool:
-    """For signatures stored with a wider snapshot (before/after), compare the pre-image hash."""
-    if current_hash is None or not isinstance(r.content, dict) or "before" not in r.content:
-        return False
-    return False
+            "content_matches_current": _matches(r, current_hash, current_content)}
 
 
 def manifests(s: Session, record_type: str, record_id: str, *, current_hash: str | None = None,
@@ -765,12 +786,15 @@ def manifests(s: Session, record_type: str, record_id: str, *, current_hash: str
     if not include_superseded:
         q = q.where(EsigSignatureRow.status == "valid")
     rows = list(s.execute(q.order_by(EsigSignatureRow.signed_at, EsigSignatureRow.id)).scalars())
-    if rows and current_hash is None and record_type in C.REGISTRY:
+    content = None
+    needs = current_hash is None or any(isinstance(r.content, dict) and "_params" in r.content for r in rows)
+    if rows and needs and record_type in C.REGISTRY and record_type != "calibration":
         try:
-            current_hash = C.content_hash(load(s, record_type, record_id).content)
+            content = load(s, record_type, record_id).content
+            current_hash = current_hash or C.content_hash(content)
         except ApiError:
-            current_hash = None
-    return [manifest(s, r, current_hash) for r in rows]
+            pass
+    return [manifest(s, r, current_hash, current_content=content) for r in rows]
 
 
 def record_manifests(s: Session, record_type: str, record_id: str, content: dict[str, Any]) -> list[dict[str, Any]]:
@@ -900,16 +924,10 @@ def verify(ctx: AppContext, signature_id: str) -> dict[str, Any]:
                 cur = calibration_content(s, r.record_id)
                 current_hash, current_version = C.content_hash(C.plain(cur[0])), cur[1]
                 matches = current_hash == r.content_hash
-            elif r.record_type == "esig_policy":
-                ld = load(s, r.record_type, r.record_id)
-                current_version = ld.version
-                current_hash = C.content_hash(ld.content)
-                after = r.content.get("after") if isinstance(r.content, dict) else None
-                matches = after is not None and all(ld.content.get(k) == C.plain(v) for k, v in after.items())
             else:
                 ld = load(s, r.record_type, r.record_id)
                 current_hash, current_version = C.content_hash(ld.content), ld.version
-                matches = current_hash == r.content_hash
+                matches = _matches(r, current_hash, ld.content)
         except ApiError:
             pass
         with system_scope():

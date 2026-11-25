@@ -31,11 +31,16 @@ class IssueLotInput(MfgModel):
     qty: Annotated[float, Field(gt=0, le=1_000_000)] | None = None
     location_id: EntityId | None = None
     client_event_id: Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_.:\-]{1,64}$")] | None = None
+    #: review M10: issuing more than the remaining requirement needs the flag and a reason
+    over_issue: bool = False
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)] | None = None
 
     @model_validator(mode="after")
     def _one(self) -> "IssueLotInput":
         if (self.lot_id is None) == (self.scan is None):
             raise ValueError("give lot_id or scan")
+        if self.over_issue and not self.reason:
+            raise ValueError("an over-issue needs a reason")
         return self
 
 
@@ -64,7 +69,24 @@ def issue_lot(ctx: AppContext, p: Any, inp: IssueLotInput) -> dict[str, Any]:
     from .floor import _op_components, lock_wo, wo_rows
     from .inventory import post_in_session, posting_record
 
+    import hashlib
+    import json
+
+    from sqlalchemy import text
+
+    from ..db_models_m2 import MfgInvPostingRow
+
+    key = f"floor-issue:{inp.client_event_id}" if inp.client_event_id else None
+    h = hashlib.sha256(json.dumps(inp.model_dump(mode="json"), sort_keys=True).encode()).hexdigest()
     with write_tx(ctx, lock=False) as (s, _):
+        if key is not None:                       # review M10: an offline tablet's retry replays, never re-issues
+            s.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": key})
+            prev = s.execute(select(MfgInvPostingRow).where(MfgInvPostingRow.idempotency_key == key)).scalars().first()
+            if prev is not None:
+                if prev.request_hash != h:
+                    raise ApiError(409, "INV_IDEMPOTENCY_CONFLICT", "This client_event_id was used for another "
+                                   "issue.", {"posting_id": prev.id})
+                return {"posting": posting_record(s, prev), "replayed": True}
         op = repo.get_row(s, MfgWoOperationRow, inp.wo_operation_id, what="Operation")
         wo = lock_wo(s, op.wo_id)
         if wo.status not in ("released", "in_progress"):
@@ -106,14 +128,18 @@ def issue_lot(ctx: AppContext, p: Any, inp: IssueLotInput) -> dict[str, Any]:
         qty = inp.qty if inp.qty is not None else min(remaining or b.qty_on_hand, b.qty_on_hand - b.qty_reserved
                                                        if b.qty_on_hand - b.qty_reserved > EPS else b.qty_on_hand)
         qty = round(qty, 6)
+        if qty > remaining + EPS and not inp.over_issue:
+            raise ApiError(422, "FLR_OVER_ISSUE", f"Only {remaining:g} remain to issue; confirm an over-issue with a "
+                           "reason.", {"remaining": round(remaining, 6)})
         if qty <= EPS:
             raise ApiError(422, "VALIDATION_ERROR", "Nothing to issue.", {"errors": [
                 {"loc": ["body", "qty"], "msg": "zero", "type": "value_error"}]})
         posting = WoIssuePosting.model_construct(
-            type="wo_issue", txn_date=None, note=f"Floor issue {wo.number}/{op.seq}", reason_code=None,
+            type="wo_issue", txn_date=None, note=(f"Floor issue {wo.number}/{op.seq}" + (
+                f" (over-issue: {inp.reason})" if inp.over_issue else ""))[:500], reason_code=None,
             lines=[WoIssueLine.model_construct(wo_component_id=cpt.id, location_id=b.location_id,
                                                lot_code=lot.lot_code, qty=qty, over_issue=qty > remaining + EPS)])
-        row, warnings = post_in_session(s, posting)
+        row, warnings = post_in_session(s, posting, idem=key, body_hash=h if key else None)
         s.refresh(cpt)
         return {"posting": posting_record(s, row, warnings), "component": {
             "id": cpt.id, "item_id": cpt.item_id, "required_qty": cpt.required_qty, "issued_qty": cpt.issued_qty,
