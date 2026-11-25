@@ -125,12 +125,31 @@ def load_aps_snapshot(s: Session, as_of: Any, mrp_run: Any, *, published: bool =
 
     ds = repo_m2.load_dataset(s)
     ds.txn = repo_m2.load_txn(s, open_only=True)
+    _drop_rate_planned(s, ds)                                  # M8-DESIGN 0.1
     view = mrp_peg_view(s, mrp_run, ds) if mrp_run is not None else None
     pub = published_view(s) if published else None
     kw.setdefault("actuals", actuals_map(s))
     kw.setdefault("downtime", downtime_list(s, as_of) + qa_line_blocks(s, as_of, ds))
     qa_tool_pools(s, as_of, ds)
     return snapshot_from_dataset(ds, as_of, view, pub, done_map(s), **kw)
+
+
+def _drop_rate_planned(s: Session, ds: Any) -> None:
+    """M8-DESIGN 0.1 / 13.1: flow and sterilisation lines and repetitive / kanban WOs are planned by the rate engine
+    and the sterilisation planner; APS does not see them."""
+    from .db_models import MfgLineRow
+    from .db_models_m2 import MfgWorkOrderRow
+
+    hidden = set(s.execute(select(MfgLineRow.id).where(MfgLineRow.planning != "discrete")).scalars())
+    if hidden:
+        for lid in hidden:
+            ds.lines.pop(lid, None)
+    rep = set(s.execute(select(MfgWorkOrderRow.id).where(MfgWorkOrderRow.kind == "repetitive",
+                                                         MfgWorkOrderRow.status.in_(("planned", "released",
+                                                                                     "in_progress")))).scalars())
+    if rep and ds.txn is not None:
+        for wid in rep:
+            ds.txn.work_orders.pop(wid, None)
 
 
 def _plant_date(ds: Any, at: Any) -> Any:

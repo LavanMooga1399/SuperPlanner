@@ -582,3 +582,35 @@ S2 notes (inventory optimisation, MRP, kanban; as built):
   by document. Consumption trigger counts issues at the loop location (`mfg_kanban_loops.consumed`). Hook:
   `inventory.post_in_session`. Floor scan resolves `KB:<card id>` (type `kanban_card`). Loop sizing uses the latest
   live MRP run's gross requirement / horizon days.
+
+S3 notes (rate engine, as built):
+- `mfg/rate/{construct,improve,validator,explain,engine,build,publish}.py`; `engine.py` (orchestration: assignment,
+  per-line construction + improvement in a spawn process pool of `RATE_WORKERS`, validator, objective,
+  explanations) is an extra module. The validator is independent code (own matrix lookup and arithmetic).
+- Blocks never cross a window end or plant-local midnight (one `prod_date` per block); a campaign may span several
+  blocks (same `campaign_no`). Setup blocks between two items: matrix `changeover` and `cleaning` rows (most
+  specific per kind; wildcards only between different keys) plus clearance = max(matrix clearance row, line
+  `clearance_minutes`). A matrix cleaning resets the periodic-cleaning counter only if it is at least
+  `clean_minutes` long. Campaigns cut by the horizon end keep whole cases and are exempt from the minimum.
+- Improvement: CP-SAT re-sequences the constructed campaigns (quantities fixed) per rolling 7-day window (<= 30
+  campaigns): `AddCircuit` with a depot node (previous / next item), setup minutes and costs from the matrix, same-item
+  order kept, lateness vs run-out as unit-minute penalty (weights shortage 1000 : cost 10); the candidate is laid out
+  through the real windows and accepted only if the exact lexicographic objective improves and the validator is
+  clean; up to 3 rounds within the budget. Quantities are not re-optimised by CP-SAT (the construction sizes them).
+- Objective at daily resolution: production counts on the plant date its block ends; shortage unit-days = summed
+  daily backlog (weighted by demand priority for comparison, reported unweighted); excess cover = stock beyond the
+  next `target_cover_days` of demand; overtime cost = hours in `optional` windows x half the line cost per hour.
+- Build: pass-1 demand = planned orders of rate items in the latest live MRP run with `rate_supply false` (else
+  the latest live run); they are net of stock and existing WOs, so initial stock is 0 and firm blocks (already
+  WOs) add no supply (`RateProblem.firm_netted`, additive contract field). `RATE_MATERIAL_SHORT`: components short
+  in the pass-1 run get availability = as_of + their lead time (earliest new supply); earlier blocks are warned.
+- Publish: one run published at a time (the previous one is unpublished); WOs `kind repetitive`, status released,
+  `source rate`, operations derived and the operation of the line's group pinned to the block line; previous
+  repetitive WOs due in the firm zone: matching (item, due, qty) unstarted WOs are kept and re-linked, others
+  cancelled, started ones kept. 409 `RATE_NOT_PUBLISHABLE` for non-completed / validator-failed runs.
+- APS: flow / sterilisation lines and open repetitive WOs are removed from the APS snapshot (`repo_m3`).
+- Nightly chain (`services/nightly.py`) runs all steps in one `nightly_plan` duty run (step results in its
+  `results.steps`); the scheduler enqueues it per plant when `planning_settings.nightly_enabled` (new setting,
+  default false) and the local time passed `nightly_at`; 409 `PLANNING_CHAIN_RUNNING` for a second start.
+- Measured P4 (synthetic 40 lines x 15 items x 30 days, 4 workers, 60 s budget): construction 0.2 s, full run
+  61 s, validator clean.

@@ -114,6 +114,8 @@ class RateProblem:
     component_avail: dict[str, list[tuple[str, date]]] = field(default_factory=dict)  # item -> [(comp, avail)]
     time_budget_s: float = 60.0
     workers: int = 4
+    #: firm blocks are already netted in the demands (their WOs are MRP supply): they add no supply
+    firm_netted: bool = False
 
 
 @dataclass

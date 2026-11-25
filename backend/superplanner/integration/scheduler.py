@@ -88,6 +88,13 @@ def tick(ctx: Any, now: datetime | None = None, duties: set[str] | None = None) 
                 _rid, job = new_run(s, ctx, kind, owner, {})
                 jobs.append(job)
                 out.append((kind, owner))
+        if duties is None or "nightly_plan" in duties:          # M8-DESIGN 6.1: nightly planning chain
+            from ..api.mfg.services.nightly import due_plants
+
+            for owner in due_plants(s, now):
+                _rid, job = new_run(s, ctx, "nightly_plan", owner, {"actor": owner, "manual": False})
+                jobs.append(job)
+                out.append(("nightly_plan", owner))
     for j in jobs:
         ctx.jobs.dispatch(j)
     if out:

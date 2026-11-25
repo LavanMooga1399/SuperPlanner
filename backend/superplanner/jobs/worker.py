@@ -174,7 +174,7 @@ class WorkerLoop:
         """M5-DESIGN 4.5 / 4.6 / 7: a worker that runs a scheduled duty kind also enqueues due duties every
         `FILEDROP_POLL_SECONDS` (integration.scheduler; one scheduler at a time by advisory lock)."""
         duties = {"integration_filedrop", "integration_delivery", "maintenance_retention", "push_delivery",
-                  "digest_send", "inventory_snapshot", "qa_due_scan"}
+                  "digest_send", "inventory_snapshot", "qa_due_scan", "nightly_plan"}
         if self.once or not duties & set(self.kinds) or getattr(self.settings, "scheduler_disabled", False):
             return
 
