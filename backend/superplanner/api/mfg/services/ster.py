@@ -117,10 +117,23 @@ def list_loads(ctx: AppContext, status: str | None, from_: date | None, to: date
         rows = list(s.execute(q.order_by(MfgSterLoadRow.planned_start, MfgSterLoadRow.number).limit(limit)
                               .offset(offset)).scalars())
         ms = _members(s, [r.id for r in rows])
+        cap = capacity(s)
         return page([_record(s, r, ms[r.id], full=False) | {"members": [
             {"id": m.id, "wo_id": m.wo_id, "wo_number": None, "rate_block_id": m.rate_block_id, "lot_id": m.lot_id,
              "lot_code": None, "item_id": m.item_id, "part_number": None, "qty": m.qty, "pallets": m.pallets}
-            for m in ms[r.id]]} for r in rows], n, limit, offset)
+            for m in ms[r.id]]} for r in rows], n, limit, offset, **cap)
+
+
+def capacity(s: Session) -> dict[str, Any]:
+    """Chambers and aeration rooms (UI request: aeration utilisation against capacity)."""
+    chambers = [{"line_id": c.id, "code": c.code, "pallets": c.chamber_pallets, "cycle_hours": c.cycle_hours}
+                for c in s.execute(select(MfgLineRow).where(MfgLineRow.active.is_(True),
+                                                            MfgLineRow.planning == "sterilisation")
+                                   .order_by(MfgLineRow.code)).scalars()]
+    rooms = [{"line_id": r.id, "code": r.code, "positions": int(r.chamber_pallets or 0)}
+             for r in s.execute(select(MfgLineRow).join(MfgGroupRow, MfgGroupRow.id == MfgLineRow.group_id).where(
+                 MfgGroupRow.kind == "aeration", MfgLineRow.active.is_(True)).order_by(MfgLineRow.code)).scalars()]
+    return {"chambers": chambers, "aeration": {"positions": sum(r["positions"] for r in rooms), "rooms": rooms}}
 
 
 def get_load(ctx: AppContext, load_id: str) -> dict[str, Any]:

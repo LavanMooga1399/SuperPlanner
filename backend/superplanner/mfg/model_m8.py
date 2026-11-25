@@ -25,6 +25,10 @@ DEFAULT_SL_MATRIX: dict[str, float] = {"AX": 0.99, "AY": 0.98, "AZ": 0.95, "BX":
                                        "CX": 0.97, "CY": 0.95, "CZ": 0.90}
 
 
+#: M8-DESIGN 12: dashboard tiles added to the M6 plant dashboard (not part of the organisation totals)
+M8_TILE_NAMES: tuple[str, ...] = ("forecast_accuracy", "rate_shortages", "ster_release")
+
+
 # ---------------------------------------------------------------- planning settings (4.6)
 
 class PlanningSettings(MfgModel):

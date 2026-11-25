@@ -144,6 +144,11 @@ class LineRecord(MfgModel):
     stat: list[float]
     final: list[float]
     overridden: list[bool]
+    # additive (UI request): item name and the latest run's backtest figures
+    name: str | None = None
+    holdout_wape: float | None = None
+    bias: float | None = None
+    flags: list[str] = Field(default_factory=list)
 
 
 class OverrideInput(MfgModel):
@@ -224,3 +229,4 @@ class AccuracyReport(MfgModel):
     group_by: Literal["item", "family", "abc", "all"]
     rows: list[AccuracyRow]
     backtest: dict[str, Any] | None = None         # latest run summary
+    trend: list[dict[str, Any]] = Field(default_factory=list)   # [{period_start, actual, forecast, wape, bias}]

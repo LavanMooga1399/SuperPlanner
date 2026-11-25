@@ -75,7 +75,8 @@ def test_routes_answer(db_url):
         assert api.get("/approvals") == {"items": [], "counts": {"pr": 0, "eco": 0, "replan_proposal": 0,
                                                                   "overtime": 0, "qa_lot": 0, "qa_ncr": 0,
                                                                   "qa_capa": 0, "qa_field_action": 0}}   # (+ M7)
-        assert set(api.get("/dashboard")["tiles"]) == set(M.TILE_NAMES)
+        from superplanner.mfg.model_m8 import M8_TILE_NAMES
+        assert set(api.get("/dashboard")["tiles"]) == set(M.TILE_NAMES) | set(M8_TILE_NAMES)   # (+ M8 tiles)
         r = c.get(f"{V1}/push/vapid-public-key")
         assert r.status_code == 200 and r.json()["enabled"] is False
         r = c.post(f"{V1}/push/subscriptions", json=json.loads(FIX.read_text())["push_subscription_input"])

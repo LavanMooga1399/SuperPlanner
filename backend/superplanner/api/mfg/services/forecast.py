@@ -421,7 +421,7 @@ def version_lines(ctx: AppContext, version_id: str, item_id: str | None, family:
     with read_tx(ctx) as s:
         v = repo.get_row(s, MfgForecastVersionRow, version_id, what="Forecast version")
         iq = select(MfgItemRow.id, MfgItemRow.part_number, MfgItemRow.family, MfgItemPlanningRow.abc,
-                    MfgItemPlanningRow.xyz).join(MfgItemPlanningRow, MfgItemPlanningRow.item_id == MfgItemRow.id,
+                    MfgItemPlanningRow.xyz, MfgItemRow.description).join(MfgItemPlanningRow, MfgItemPlanningRow.item_id == MfgItemRow.id,
                                                  isouter=True).where(
             MfgItemRow.id.in_(select(MfgForecastLineRow.item_id).where(MfgForecastLineRow.version_id == v.id)))
         if item_id:
@@ -441,15 +441,18 @@ def version_lines(ctx: AppContext, version_id: str, item_id: str | None, family:
                                                                  MfgForecastLineRow.item_id.in_(ids))
                                 .order_by(MfgForecastLineRow.period_start)).scalars():
                 lines[ln.item_id].append(ln)
-        methods = {}
+        res: dict[str, Any] = {}
         if v.run_id:
             run = s.get(MfgForecastRunRow, v.run_id)
             res = ((run.results or {}).get("items") or {}) if run else {}
-            methods = {i: res[i]["method"] for i in ids if i in res}
+        methods = {i: res[i]["method"] for i in ids if i in res}
         items = [{"item_id": h[0], "part_number": h[1], "family": h[2], "abc": h[3], "xyz": h[4],
                   "method": methods.get(h[0]), "periods": [ln.period_start for ln in lines[h[0]]],
                   "stat": [ln.stat_qty for ln in lines[h[0]]], "final": [ln.final_qty for ln in lines[h[0]]],
-                  "overridden": [abs(ln.final_qty - ln.stat_qty) > 1e-9 for ln in lines[h[0]]]} for h in heads]
+                  "overridden": [abs(ln.final_qty - ln.stat_qty) > 1e-9 for ln in lines[h[0]]],
+                  "name": h[5], "holdout_wape": (res.get(h[0]) or {}).get("holdout_wape"),
+                  "bias": (res.get(h[0]) or {}).get("bias"), "flags": list((res.get(h[0]) or {}).get("flags") or [])}
+                 for h in heads]
         return page(items, n, limit, offset)
 
 
@@ -677,11 +680,11 @@ def _versions_spans(s: Session) -> list[ACC.VersionSpan]:
         .where(MfgForecastVersionRow.activated_at.is_not(None)))]
 
 
-def _accuracy_rows(s: Session, lag: int, group_by: str, periods: int, item_ids: list[str] | None = None
-                   ) -> list[dict[str, Any]]:
+def _accuracy_rows(s: Session, lag: int, group_by: str, periods: int, item_ids: list[str] | None = None,
+                   last: date | None = None) -> list[dict[str, Any]]:
     st = settings_of(s)
     bucket = st.forecast_bucket
-    last = H.last_closed_period(today(s), bucket)
+    last = last or H.last_closed_period(today(s), bucket)
     pers = [H.add_periods(last, -k, bucket) for k in range(periods)]
     spans = _versions_spans(s)
     vids = [sp.id for sp in spans]
@@ -719,12 +722,27 @@ def _accuracy_rows(s: Session, lag: int, group_by: str, periods: int, item_ids: 
     return ACC.report(actual, fc, grp, labels)
 
 
+def accuracy_trend(s: Session, lag: int, periods: int) -> list[dict[str, Any]]:
+    """All items, one row per closed period (oldest first): actual, lag forecast, WAPE, bias."""
+    st = settings_of(s)
+    last = H.last_closed_period(today(s), st.forecast_bucket)
+    out = []
+    for k in range(periods - 1, -1, -1):
+        p = H.add_periods(last, -k, st.forecast_bucket)
+        rows = _accuracy_rows(s, lag, "all", 1, None, last=p)
+        r = rows[0] if rows else None
+        out.append({"period_start": p, "actual": r["actual"] if r else None, "forecast": r["forecast"] if r else None,
+                    "wape": r["wape"] if r else None, "bias": r["bias"] if r else None})
+    return out
+
+
 def accuracy(ctx: AppContext, lag: int, group_by: str, periods: int) -> dict[str, Any]:
     with read_tx(ctx) as s:
         rows = _accuracy_rows(s, lag, group_by, periods)
         run = s.execute(select(MfgForecastRunRow).where(MfgForecastRunRow.status == "completed")
                         .order_by(MfgForecastRunRow.finished_at.desc())).scalars().first()
-        return {"lag": lag, "group_by": group_by, "rows": rows, "backtest": run.summary if run else None}
+        return {"lag": lag, "group_by": group_by, "rows": rows, "backtest": run.summary if run else None,
+                "trend": accuracy_trend(s, lag, periods)}
 
 
 def item_view(ctx: AppContext, item_id: str, version_id: str | None) -> dict[str, Any]:

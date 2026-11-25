@@ -136,6 +136,9 @@ def plant_dashboard(ctx: AppContext, period: str) -> dict[str, Any]:
         tiles["late_pos"] = timed("late_pos", _late_pos, s, today, th)
         quality = timed("quality", _quality, s, today - timedelta(days=days))
         tiles["integration"] = timed("integration", _integration, s)
+        from .m8tiles import tiles as m8_tiles                 # M8-DESIGN 12
+
+        tiles.update(timed("m8", m8_tiles, s, today))
     t1 = time.monotonic()
     try:
         k = kpi.kpis(ctx, today - timedelta(days=days - 1), today, "plant", None, "week")
@@ -163,7 +166,9 @@ def plant_dashboard(ctx: AppContext, period: str) -> dict[str, Any]:
                           "drill": [{"label": "KPIs", "path": "/mfg/kpis"}]}
     quality["details"]["top_scrap_reasons"] = (k.get("top_scrap") or [])[:5]
     tiles["quality"] = quality
-    out_tiles = {n: _tile(tiles[n]) for n in TILE_NAMES}
+    from ....mfg.model_m8 import M8_TILE_NAMES
+
+    out_tiles = {n: _tile(tiles[n]) for n in TILE_NAMES + M8_TILE_NAMES}
     src = _read_source.get()
     return {"as_of": utcnow(), "period": period, "plant": plant, "tiles": out_tiles,
             "source": "replica" if src and "replica" in src and "primary" not in src else "primary",
