@@ -94,6 +94,8 @@ export const enrollEsig = (body: EnrollInput) => v1Request<EsigStatus>("/auth/es
 /** P3: the step-up popup; the callback page posts `{type: "sp-esig-stepup", token}` to the opener. */
 export const stepupUrl = () => `${API_BASE}/auth/oidc/stepup?purpose=esig`;
 export const revokeEsig = (org: string, memberId: string) => v1Request<EsigStatus>(`/orgs/${enc(org)}/members/${enc(memberId)}/esig-revoke`, { method: "POST", body: {} });
+/** Review M2: the only way to clear a revocation (organisation admin, audited). */
+export const reinstateEsig = (org: string, memberId: string) => v1Request<EsigStatus>(`/orgs/${enc(org)}/members/${enc(memberId)}/esig-reinstate`, { method: "POST", body: {} });
 export const getMetaTime = (signal?: AbortSignal) => v1Request<MetaTime>("/meta/time", { signal });
 
 // ---------------------------------------------------------------- E1-E12

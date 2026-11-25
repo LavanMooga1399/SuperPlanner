@@ -41,6 +41,9 @@ import { formatDateTime } from "../lib/locale";
 import { PageHeader } from "../components/PageHeader";
 import { t, t as tr } from "../lib/i18n";
 import { DataTable } from "../mfg/components/DataTable";
+import { toast } from "../components/Toast";
+import { reinstateEsig, revokeEsig } from "../mfg/api/clientM7";
+import type { EsigStatus } from "../mfg/api/typesM7";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
 const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer", "qa_inspector", "qa_engineer", "qa_approver", "metrology"];
@@ -555,6 +558,7 @@ function MembersTab({ org }: { org: Org }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [removing, setRemoving] = useState<OrgMember | null>(null);
+  const [signing, setSigning] = useState<OrgMember | null>(null);
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
@@ -652,13 +656,20 @@ function MembersTab({ org }: { org: Org }) {
             key: "actions",
             header: <span className="sr-only">{t("account.orgPages.aria.actions")}</span>,
             label: t("account.orgPages.aria.actions"),
-            width: "96px",
+            width: "200px",
             align: "right",
             exportValue: () => "",
             render: (m) => (
-              <button type="button" className="btn sm ghost" disabled={busy} onClick={() => setRemoving(m)}>
-                {t("account.orgPages.btn.remove")}
-              </button>
+              <span className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+                {m.user.id ? (
+                  <button type="button" className="btn sm ghost" disabled={busy} onClick={() => setSigning(m)} data-testid="member-signing">
+                    {t("account.orgPages.btn.signing")}
+                  </button>
+                ) : null}
+                <button type="button" className="btn sm ghost" disabled={busy} onClick={() => setRemoving(m)}>
+                  {t("account.orgPages.btn.remove")}
+                </button>
+              </span>
             ),
           },
         ]}
@@ -671,6 +682,7 @@ function MembersTab({ org }: { org: Org }) {
         empty={t("account.orgPages.empty.noPeople")}
         card={{ title: "person", status: "role", actions: "actions", fields: ["plants"] }}
       />
+      {signing ? <SigningDialog org={org} member={signing} onClose={() => setSigning(null)} /> : null}
       {removing ? (
         <ConfirmDialog
           title={tr("account.orgPages.tpl.remove", { v: removing.user.email ?? "this person" })}
@@ -687,6 +699,62 @@ function MembersTab({ org }: { org: Org }) {
         </ConfirmDialog>
       ) : null}
     </section>
+  );
+}
+
+/** Electronic signing of one member (M7 4.1 P4, review M2): revoke, or reinstate after a revocation. */
+function SigningDialog({ org, member, onClose }: { org: Org; member: OrgMember; onClose(): void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [status, setStatus] = useState<EsigStatus | null>(null);
+  const who = member.user.display_name || member.user.email || "";
+  const run = async (fn: () => Promise<EsigStatus>, done: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      setStatus(await fn());
+      toast(done);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog
+      title={t("account.orgPages.tpl.signingTitle", { who })}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose} data-dialog-close>
+            {t("common.close")}
+          </button>
+          <button type="button" className="btn danger" disabled={busy || Boolean(status?.revoked_at)} onClick={() => void run(() => revokeEsig(org.id, member.id), t("account.orgPages.tpl.signingRevoked", { who }))} data-testid="esig-revoke">
+            <Icon name="ban" /> {t("account.orgPages.btn.revokeSigning")}
+          </button>
+          <button type="button" className="btn primary" disabled={busy || (status !== null && !status.revoked_at)} onClick={() => void run(() => reinstateEsig(org.id, member.id), t("account.orgPages.tpl.signingReinstated", { who }))} data-testid="esig-reinstate">
+            <Icon name="check" /> {t("account.orgPages.btn.reinstateSigning")}
+          </button>
+        </>
+      }
+    >
+      <div className="col">
+        <p style={{ margin: 0 }}>{t("account.orgPages.text.signingHelp")}</p>
+        {status ? (
+          <p style={{ margin: 0 }} role="status" data-testid="esig-member-status">
+            <span className={`badge ${status.revoked_at ? "warn" : status.enrolled ? "ok" : ""}`}>
+              <Icon name={status.revoked_at ? "ban" : status.enrolled ? "check" : "info"} />{" "}
+              {status.revoked_at
+                ? t("account.orgPages.tpl.signingStateRevoked", { when: formatDateTime(status.revoked_at) })
+                : status.enrolled
+                  ? t("account.orgPages.text.signingStateEnrolled")
+                  : t("account.orgPages.text.signingStateNotEnrolled")}
+            </span>
+          </p>
+        ) : null}
+        <MfgError error={error} />
+      </div>
+    </Dialog>
   );
 }
 
