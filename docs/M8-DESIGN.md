@@ -680,3 +680,25 @@ S5 notes (SAP, UI contract additions, sample; as built):
   1, a published 30-day rate run, the sterilisation plan (one load awaiting release), MRP pass 2.
 - Rate blocks carry whole units (cumulative rounding inside a campaign; campaign totals unchanged), so repetitive
   WOs of count items get integer quantities.
+
+S5 notes (validation kit, load test, health):
+- Register `docs/validation/requirements.yaml` is a list of YAML flow mappings, one per line, parsed without a YAML
+  package (`validation/register.py`); optional `match` maps back-filled M7 requirements (`M7-ESIG-01..07`,
+  `M7-QA-01..11`) to existing tests by test-name substring instead of editing M7 tests. Marker `req` is registered
+  in `pyproject.toml`.
+- `manage.py trace-matrix [--junit ...] [--out DIR] [--register FILE]` runs without a database; `GET
+  /validation/trace-matrix` serves `ARCHIVE_DIR/validation/trace-matrix.json` when written with `--out` there, else a
+  live scan (no results). `manage.py config-baseline --plant` accepts an organisation plant code, the integration
+  plant code or the owner id. Baselines redact keys containing password / secret / token / `_enc`.
+- Load test: `superplanner/loadseed.py` (+ `manage.py load-seed`, `scripts/load/seed.py`) builds the BD-like data
+  through the sample import path (bundle -> `plan_import` -> `writer.apply`, replacing the plant's data) plus bulk
+  M8 rows; k6 scripts L1-L3 and `scripts/load/README.md`. Timings: `pytest -m slow
+  tests/api_mfg_m8/test_m8_perf.py -s`.
+- Rate validator: the minimum campaign length is not enforced for a line's last campaign when the window time left
+  before the horizon end could not have reached it (sound rule; replaces the earlier "ends at the last window").
+- Health (`GET /health`): warnings `MFG_RATE_NO_RATE`, `MFG_PACK_INVALID`, `MFG_STER_NO_CHAMBER` from the M8 tables
+  (added by the health service like the M7 QA codes; the pure M1 check is unchanged, so they never block MRP).
+- Not done in M8 backend: import sheets `item_planning`, `item_packaging`, `line_rates`, `changeover_matrix`,
+  `demand_history` (the APIs, SAP sync and the sample cover the data entry); the authorisation sweep
+  (`acceptance_phase2b/test_acc_authz_sweep.py`) does not yet build M8 objects for its cross-plant IDOR checks (all
+  M8 lookups go through the owner-filtered `repo.get_row`).

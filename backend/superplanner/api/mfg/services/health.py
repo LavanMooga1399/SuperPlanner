@@ -150,7 +150,64 @@ def health(ctx: AppContext, as_of: date | None, horizon_days: int | None) -> Any
     report.data_version = ds.plant.data_version
     with read_tx(ctx) as s:
         _qa_issues(s, report, ds, d0, hd)
+        _m8_issues(s, report, ds)
     return report
+
+
+M8_HEALTH_CODES = (("MFG_RATE_NO_RATE", "warning"), ("MFG_PACK_INVALID", "warning"),
+                   ("MFG_STER_NO_CHAMBER", "warning"))
+
+
+def _m8_issues(s: Any, report: Any, ds: Any) -> None:
+    """M8-DESIGN 13.1: rate items without a line rate on an active flow line, an order pack level without its
+    packaging level, sterilised items without a chamber."""
+    from sqlalchemy import select
+
+    from ....mfg.model import EntityRef, HealthIssue
+    from ..db_models import MfgLineRow
+    from ..db_models_m8 import MfgItemPackagingRow, MfgItemPlanningRow, MfgLineRateRow
+
+    plan = list(s.execute(select(MfgItemPlanningRow)).scalars())
+    if not plan:
+        return
+    flow = {r.id for r in s.execute(select(MfgLineRow).where(MfgLineRow.active.is_(True),
+                                                             MfgLineRow.planning == "flow")).scalars()}
+    chambers = s.execute(select(MfgLineRow.id).where(MfgLineRow.active.is_(True),
+                                                     MfgLineRow.planning == "sterilisation").limit(1)).first()
+    rates = [(r.line_id, r.item_id, r.item_family) for r in s.execute(select(MfgLineRateRow)).scalars()
+             if r.line_id in flow]
+    levels: dict[str, set[str]] = {}
+    for i, lv in s.execute(select(MfgItemPackagingRow.item_id, MfgItemPackagingRow.level)):
+        levels.setdefault(i, set()).add(lv)
+    new: list[Any] = []
+    for p in sorted(plan, key=lambda x: x.item_id):
+        it = ds.items.get(p.item_id)
+        if it is None:
+            continue
+        ref = EntityRef(type="item", id=it.id, label=it.part_number)
+        if p.replenishment == "rate" and not any(i == it.id or (f is not None and f == it.family)
+                                                 for _l, i, f in rates):
+            new.append(HealthIssue(code="MFG_RATE_NO_RATE", severity="warning",
+                                   message=f"{it.part_number} is rate planned but no flow line has a rate for it.",
+                                   fix="Add a line rate for the item or its family.", entity=ref,
+                                   link=f"/mfg/items/{it.id}"))
+        if p.order_pack_level and p.order_pack_level not in levels.get(it.id, set()):
+            new.append(HealthIssue(code="MFG_PACK_INVALID", severity="warning",
+                                   message=f"{it.part_number} orders in {p.order_pack_level}s but has no such "
+                                           f"packaging level.", fix="Add the packaging level.", entity=ref,
+                                   link=f"/mfg/items/{it.id}"))
+        if p.ster_cycle_code and chambers is None:
+            new.append(HealthIssue(code="MFG_STER_NO_CHAMBER", severity="warning",
+                                   message=f"{it.part_number} needs sterilisation cycle {p.ster_cycle_code} but the "
+                                           f"plant has no sterilisation chamber.",
+                                   fix="Set a line's planning to sterilisation with pallets and cycle hours.",
+                                   entity=ref))
+    if not new:
+        return
+    report.issues = list(report.issues) + new
+    for x in new:
+        report.by_code[x.code] = report.by_code.get(x.code, 0) + 1
+        setattr(report.counts, x.severity, getattr(report.counts, x.severity) + 1)
 
 
 QA_HEALTH_CODES = (("QA_LINE_BLOCKED", "error"), ("QA_TOOL_POOL_REDUCED", "warning"),

@@ -74,3 +74,12 @@ def test_kanban_scan_creates_pr_and_receipt_refills(api, client):
                                                                       "container_qty", "lead_time_days")},
                                                 "cards": 2}, lp["row_version"])
     assert lp2["cards"] == 2 and lp2["card_counts"]["full"] == 2
+
+
+def test_m8_health_issues(api):
+    it = api.item("HL-1", "make", lead_time_days=1, family="FAMX")
+    api.put(f"/items/{it['id']}/planning", {"replenishment": "rate", "order_pack_level": "case",
+                                            "ster_cycle_code": "ETO"}, 0)
+    h = api.get("/health")
+    codes = {i["code"] for i in h["issues"] if i["entity"] and i["entity"]["id"] == it["id"]}
+    assert {"MFG_RATE_NO_RATE", "MFG_PACK_INVALID", "MFG_STER_NO_CHAMBER"} <= codes

@@ -5,8 +5,8 @@ Checks per line: every block inside one shift window and inside the horizon; no 
 blocks of different items the setup blocks in between cover the required changeover, cleaning and clearance minutes
 (matrix: most specific row per kind; clearance = max(matrix, line clearance)); periodic cleaning: production hours
 between cleaning blocks of at least `clean_minutes` never exceed `clean_every_hours`; qty = rate x hours (+-1 case);
-campaign quantity = whole cases; campaign hours within [min, max] (min not enforced for a campaign cut by the
-horizon end); eligibility (a rate on the line); firm blocks unchanged.
+campaign quantity = whole cases; campaign hours within [min, max] (min not enforced for the last campaign of a
+line when the window time left could not reach it); eligibility (a rate on the line); firm blocks unchanged.
 """
 
 from __future__ import annotations
@@ -145,8 +145,13 @@ def validate(problem: RateProblem, blocks: list[RateBlock]) -> dict[str, Any]:
         if it.case_qty and abs(qty / it.case_qty - round(qty / it.case_qty)) > 1e-4:
             bad("RATE_V_CASES", lid, idx[id(bl[0])], campaign_no=no, qty=qty, case=it.case_qty)
         ln = lines[lid]
-        ends = [min(w.end, problem.horizon_end) for w in ln.windows if w.start < problem.horizon_end]
-        cut = bool(ends) and max(b.end for b in bl) >= max(ends) - timedelta(minutes=1)
+        last_end = max(b.end for b in bl)
+        later = any(b.kind == "production" and not b.firm and b.start >= last_end for b in by_line[lid])
+        left_h = sum(_hours(max(w.start, last_end), min(w.end, problem.horizon_end)) for w in ln.windows
+                     if w.end > last_end and w.start < problem.horizon_end)
+        # cut by the horizon end: the last campaign of the line, and the time left could not reach the minimum
+        cut = not later and left_h + TOL_H < it.campaign_min_hours - hours + (ln.clean_minutes or 0) / 60.0 + \
+            (it.case_qty or 1.0) / max(ln.rates.get(it.id, 1.0), 1e-9)
         if it.campaign_min_hours and hours + TOL_H < it.campaign_min_hours and not cut:
             bad("RATE_V_CAMPAIGN_MIN", lid, idx[id(bl[0])], campaign_no=no, hours=round(hours, 3),
                 min_hours=it.campaign_min_hours)
