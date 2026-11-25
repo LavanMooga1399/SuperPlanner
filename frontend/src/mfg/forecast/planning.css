@@ -177,3 +177,13 @@
 .pl-r { text-align: right !important; }
 .pl-better { color: var(--ok); }
 .pl-worse { color: var(--danger); }
+
+/* sterilisation */
+.pl-tl-load { cursor: pointer; outline: none; }
+.pl-tl-load:focus-visible rect { stroke: var(--focus-color); stroke-width: 2.5; }
+.pl-tl-text { font-size: 11px; fill: var(--bar-text); font-variant-numeric: tabular-nums; pointer-events: none; }
+.pl-tl-label { font-size: 12px; fill: var(--text); }
+.pl-lg-bar.ok { background: var(--ok); }
+.pl-lg-bar.danger { background: var(--danger); }
+.pl-lg-aer { display: inline-block; width: 22px; height: 10px; border: 1px solid var(--info); background: repeating-linear-gradient(45deg, var(--info-soft) 0 3px, var(--info) 3px 4px); }
+.pl-lg-wait { display: inline-block; width: 22px; border-top: 2px dotted var(--warn); }

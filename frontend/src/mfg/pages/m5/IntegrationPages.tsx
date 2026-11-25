@@ -7,6 +7,7 @@
  * - Endpoints (webhooks), Deliveries (retry / park), Data in (batches with per-record results), Events (the outbox
  *   feed), File drop, Code mappings, Reconciliation, Plant tokens: in IntegrationPages2.tsx.
  */
+import { SapCard } from "../../validation/SapCard";
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { Banner } from "../../../components/Banner";
@@ -138,6 +139,7 @@ export function IntegrationOverview() {
         </div>
         <SorSummary s={s} />
       </section>
+      <SapCard />
     </div>
   );
 }

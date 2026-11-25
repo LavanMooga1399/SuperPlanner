@@ -26,6 +26,10 @@ export const TILE_NAMES: Record<string, { name: string; help: string }> = {
   late_pos: { name: tr("mfg.dashboardBits.str.latePurchaseOrders"), help: tr("mfg.dashboardBits.str.openOverdueDeliveries") },
   quality: { name: tr("mfg.dashboardBits.str.quality"), help: tr("mfg.dashboardBits.str.openRecalls") },
   integration: { name: tr("mfg.dashboardBits.str.erpIntegration"), help: tr("mfg.dashboardBits.str.problemsNeedingAttention") },
+  // M8 12
+  forecast_accuracy: { name: tr("plan.tile.forecast"), help: tr("plan.tile.forecastHelp") },
+  rate_shortages: { name: tr("plan.tile.rate"), help: tr("plan.tile.rateHelp") },
+  ster_release: { name: tr("plan.tile.ster"), help: tr("plan.tile.sterHelp") },
 };
 
 export function orderedTiles(tiles: Record<string, DashboardTile>): [string, DashboardTile][] {

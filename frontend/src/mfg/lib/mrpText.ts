@@ -34,6 +34,11 @@ export const EXCEPTION_LABEL: Record<string, string> = {
   APS_FROZEN_DROPPED: t("mfg.mrpText.str.frozenOperationDropped"),
   APS_SPLIT: t("mfg.mrpText.str.operationSplit"),
   APS_BUDGET_CUT: t("mfg.mrpText.str.improvementTimeCutShort"),
+  // M8 6
+  MRP_FORECAST_SHORT: t("plan.code.MRP_FORECAST_SHORT"),
+  MRP_RATE_SHORT: t("plan.code.MRP_RATE_SHORT"),
+  MRP_KANBAN_UNDERSIZED: t("plan.code.MRP_KANBAN_UNDERSIZED"),
+  MRP_PACK_ROUNDING: t("plan.code.MRP_PACK_ROUNDING"),
 };
 
 export const exceptionLabel = (code: string) => EXCEPTION_LABEL[code] ?? code.replace(/^MRP_/, "").replace(/_/g, " ").toLowerCase();
@@ -51,6 +56,7 @@ export const REQUIREMENT_KIND: Record<RequirementKind, string> = {
   safety_stock: t("mfg.mrpText.str.safetyStock"),
   planned_component: t("mfg.mrpText.str.forPlannedOrder"),
   wo_component: t("mfg.mrpText.str.forWorkOrder"),
+  forecast: t("plan.mrp.forecast"),
 };
 
 export const SUPPLY_KIND: Record<SupplyKind, string> = {
@@ -60,6 +66,8 @@ export const SUPPLY_KIND: Record<SupplyKind, string> = {
   pr: t("mfg.mrpText.str.purchaseRequest"),
   wo: t("mfg.mrpText.str.workOrder"),
   planned: t("mfg.mrpText.str.plannedOrder"),
+  kanban: t("plan.mrp.kanban"),
+  rate: t("plan.mrp.rate"),
 };
 
 const LT_SOURCE: Record<LeadTimeInfo["source"], string> = {

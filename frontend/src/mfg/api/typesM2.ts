@@ -1155,8 +1155,8 @@ export interface Bucket {
   short: boolean;
 }
 
-export type RequirementKind = "demand" | "extra_demand" | "safety_stock" | "planned_component" | "wo_component";
-export type SupplyKind = "stock" | "inspection" | "po" | "pr" | "wo" | "planned";
+export type RequirementKind = "demand" | "extra_demand" | "safety_stock" | "planned_component" | "wo_component" | "forecast";
+export type SupplyKind = "stock" | "inspection" | "po" | "pr" | "wo" | "planned" | "kanban" | "rate";
 
 export interface PlanRequirement {
   node: number;
@@ -1166,7 +1166,7 @@ export interface PlanRequirement {
   rank_label: string;
   segment: [number, number] | null;
   source: {
-    type: "demand_line" | "planned_order" | "work_order" | "extra" | "safety_stock";
+    type: "demand_line" | "planned_order" | "work_order" | "extra" | "safety_stock" | "forecast";
     id: EntityId | null;
     label: string;
     item_id: EntityId | null;
@@ -1175,6 +1175,8 @@ export interface PlanRequirement {
   };
   satisfied_date: IsoDate | null;
   late_days: number;
+  /** M8 6: quantity in cases / pallets for items with packaging */
+  packs?: { case?: number | null; pallet?: number | null } | null;
   pegs: { supply_node: number; supply_label: string; qty: number; late_days: number }[];
 }
 
@@ -1190,6 +1192,8 @@ export interface PlanSupply {
   ref: { type: string; id: EntityId | null; number: string | null; link: string | null };
   planned_no: number | null;
   exception_codes: string[];
+  /** M8 6: quantity in cases / pallets for items with packaging */
+  packs?: { case?: number | null; pallet?: number | null } | null;
 }
 
 export interface MrpItemPlan {

@@ -91,6 +91,8 @@ import { InvoptPage } from "./invopt/InvoptPage";
 import { ItemPackagingTab, ItemPlanningTab } from "./invopt/ItemPlanningTabs";
 import { KanbanCardsPrint, KanbanPage } from "./kanban/KanbanPage";
 import { RateRunPage, RateRunsPage } from "./rate/RatePages";
+import { SterilisationPage } from "./ster/SterilisationPage";
+import { ValidationPage } from "./validation/ValidationPage";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
 import { FloorHome } from "./floor/FloorHome";
@@ -320,6 +322,8 @@ export const mfgRoutes: RouteObject[] = [
       { path: "invopt", element: <InvoptPage /> },
       { path: "kanban", element: <KanbanPage /> },
       { path: "rate", element: <RateRunsPage /> },
+      { path: "sterilisation", element: <SterilisationPage /> },
+      { path: "validation", element: <ValidationPage /> },
       { path: "rate/runs/:runId/:tab?", element: <Keyed param="runId">{(k) => <RateRunPage key={k} />}</Keyed> },
       { path: "print/kanban/:loopId", element: <KanbanCardsPrint /> },
       { path: "*", element: <MfgNotFound /> },

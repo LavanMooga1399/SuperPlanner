@@ -2,6 +2,7 @@
  * Item plan (M2 14.2 `ItemPlanPage`, #155): projected stock chart, bucket table, requirements with their pegs and
  * supplies with what they serve; "Peg up / down" opens the pegging tree from any row.
  */
+import { packsText } from "../../forecast/shared";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { Icon } from "../../../components/Icon";
@@ -171,7 +172,7 @@ export function ItemPlanPage() {
                       {q.segment ? ` · ${segmentText(q.segment)}` : ""}
                     </div>
                   </td>
-                  <td className="right">{fmtNum(q.qty)}</td>
+                  <td className="right">{fmtNum(q.qty)}{q.packs ? <span className="vt-sub">{packsText(q.packs)}</span> : null}</td>
                   <td className="small">
                     {q.pegs.map((g, i) => (
                       <div key={i}>
@@ -227,7 +228,7 @@ export function ItemPlanPage() {
                   </td>
                   <td>{fmtDate(s.avail_date)}</td>
                   <td>{fmtDate(s.projected_date)}</td>
-                  <td className="right">{fmtNum(s.qty)}</td>
+                  <td className="right">{fmtNum(s.qty)}{s.packs ? <span className="vt-sub">{packsText(s.packs)}</span> : null}</td>
                   <td className="right">{s.pegged_qty < s.qty - 1e-6 ? <span title={t("mfg.itemPlanPage.attr.partOfThisSupplyIs")}>{fmtNum(s.pegged_qty)}</span> : fmtNum(s.pegged_qty)}</td>
                   <td className="small">
                     {s.exception_codes.map((c) => (
