@@ -316,13 +316,29 @@ def enroll(ctx: AppContext, p: Any, body: Any, request: Any) -> dict[str, Any]:
         if u.esig_revoked_at is not None:            # review M2: only an admin reinstates a revoked signer
             raise ApiError(403, "ESIG_REVOKED", "Your signing rights were revoked; ask an organisation admin to "
                            "reinstate them.", {})
+        locked = _aware(u.esig_locked_until)
+        if locked is not None and locked > datetime.now(UTC):
+            raise ApiError(423, "ESIG_LOCKED", "Signing is locked after repeated failures.", {"until": jsonable(locked)})
+        fresh = False
+        if sso and p.session_id:                     # review m13: a sign-in within the last 10 minutes
+            from ...auth.models import UserSessionRow
+
+            created = s.execute(select(UserSessionRow.created_at).where(UserSessionRow.id == p.session_id)).scalar()
+            fresh = created is not None and _aware(created) > datetime.now(UTC) - timedelta(minutes=10)
     ok = False
     if body.password is not None and pw_hash:
         ok = verify_password(pw_hash, body.password, ctx.settings.password_hash_profile)
     elif body.stepup_token is not None and sso:
         ok = _consume_stepup(ctx, p.user_id, session_ref, body.stepup_token, need_mfa=False) is not None
-    if not ok:
-        raise ApiError(422, "ESIG_AUTH_FAILED", "The credentials are not correct.", {})
+    elif sso and ctx.settings.esig_local_credentials and body.signing_password is not None:
+        # review m13: IdP without step-up - a fresh SSO sign-in plus the person's TOTP code enrol the signing
+        # password (local credentials)
+        if not fresh:
+            raise ApiError(422, "ESIG_REAUTH_REQUIRED", "Sign in again with your company account, then enrol within "
+                           "10 minutes.", {})
+        ok = bool(body.totp_code) and _check_totp(ctx, p.user_id, body.totp_code)
+    if not ok:                                       # review m12: enrolment failures count toward the lockout
+        _record_failure(ctx, p.user_id)
     if sso and ctx.settings.esig_local_credentials and body.signing_password is None and not ctx.settings.oidc_issuer:
         raise ApiError(422, "VALIDATION_ERROR", "Set a signing password.", {"errors": [
             {"loc": ["body", "signing_password"], "msg": "required", "type": "value_error"}]})

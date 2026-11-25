@@ -150,11 +150,13 @@ class EnrollInput(MfgModel):
     acknowledgement: Literal[True]
     #: ESIG_LOCAL_CREDENTIALS=true and an SSO user: the signing password set now (TOTP from /auth/totp)
     signing_password: Annotated[str, StringConstraints(min_length=12, max_length=1024)] | None = None
+    #: local-credentials enrolment of an SSO user: the TOTP code confirms the person (review m13)
+    totp_code: Annotated[str, StringConstraints(pattern=r"^[0-9]{6}$")] | None = None
 
     @model_validator(mode="after")
     def _credential(self) -> "EnrollInput":
-        if self.password is None and self.stepup_token is None:
-            raise ValueError("give the password (or an SSO step-up token)")
+        if self.password is None and self.stepup_token is None and self.signing_password is None:
+            raise ValueError("give the password (or an SSO step-up token, or a signing password with a TOTP code)")
         return self
 
 

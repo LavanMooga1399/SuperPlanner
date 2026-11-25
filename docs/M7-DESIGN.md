@@ -784,3 +784,45 @@ uses both); "MRP" kept (OQLF: PBM); "trousse/préparation" for kitting; "Enceint
 fixture; "Partie 11" in "mode Partie 11"; the gender of generated nouns in "Nouveau {task}" / "Nouvelle {resource}"
 (Studio). The finance and studio examples were localized to Canadian amounts; Indian "lakh" mentions remain where the
 parser expects them.
+
+**Security/correctness review (decisions, as fixed; tests `tests/api_mfg_m7/test_m7_review.py`):**
+- M1 Cancelling an inspection lot never releases its hold: refused (409 `QA_LOT_HAS_RESULTS`) once results exist;
+  otherwise the inspection hold is replaced by a `manual` hold carrying the cancel reason.
+- M2 Enrolment is refused while revoked (403 `ESIG_REVOKED`); only `POST /orgs/{org}/members/{m}/esig-reinstate`
+  (org admin, audited) clears the revocation.
+- M3 CAPA action delete checks the action belongs to the CAPA (404) and is allowed in `draft` only.
+- M4 NCR hold exemptions are per posting line: scrap/RTV of the NCR's lot and the rework WO's own component lines,
+  only for lots whose every open hold is an `ncr` hold of that NCR (any other hold still blocks).
+- M5 The NCR hold is released only when issues of the NCR lot to its rework WOs cover the rework quantity; rework
+  WO receipts beyond the issued quantity are refused (422 `QA_REWORK_NOT_ISSUED`).
+- M6 Equipment `due_on` is set at creation only and then moves through calibrations (409
+  `QA_DUE_VIA_CALIBRATION`); while the item is not valid, `calibration_required`, `grace_days`, `interval_days`,
+  `line_id` and `tool_pool_id` cannot change (409 `QA_EQUIPMENT_BLOCKING`). This replaces "take it out of the
+  link" in 0.10: the fix is a calibration (or retiring the item).
+- M7 `sor` is stored on each CAPA / complaint at creation and governs it; switching the plant setting is a signed
+  action (`qa_settings.sor_change`) refused while native records are open (409 `QA_SOR_IN_USE`).
+- M8 Field actions are cancelled only in `draft`; after approval only the signed close releases holds.
+- M9 Signable actions pass their parameters (`decision`/`ncr_id`, new policy, verification result, SoR values) to
+  `esig.sign`; they are stored in the snapshot (`_params`) and every step of a flow must carry the same parameters
+  (409 `ESIG_PARAMS_CHANGED`).
+- M10 `POST /floor/issue-lot`: `client_event_id` is the posting idempotency key (replay returns the posting);
+  issuing beyond the remaining requirement needs `over_issue: true` and a `reason` (422 `FLR_OVER_ISSUE`).
+- m1 With keys configured unkeyed (`sha256:`) MACs fail verification; signing without SECRETS_KEY answers 503
+  `ESIG_SECRETS_REQUIRED`. m2 Earlier steps signed under another policy id/version are superseded when the next
+  step signs. m3 `qty_nc` is its own event field, so corrections of `qty_scrap` keep it (no double counting).
+- m4 Reasons: the `X-SP-Change-Reason` header first, then the signature comment (propagated to every event of the
+  request) or the action's own note/reason; no hard-coded default texts (in Part 11 mode -> 422
+  `AUDIT_REASON_REQUIRED`). Switching Part 11 mode on is audited as a creation (the mode was off).
+- m5 Column-level old/new values for every regulated row (items, BOMs, routings, operations, locations, members,
+  plant, work orders, change requests, lots) are captured at flush (`audit_diff._capture`); BOM and routing updates
+  also diff their lines / operations.
+- m6 Migration 0010 turns lots quarantined by a recall into `recall` holds of that recall (others `manual`).
+- m7 Shipments and moves of a serialised item may take only as many units as it has in-stock serials not on hold
+  (422 `INV_SERIAL_ON_HOLD`), since M2 postings are not serial-addressed.
+- m8 Unlinking needs edit rights on both records and is refused when either is closed / decided (409
+  `QA_LINK_LOCKED`). m9 Policy-update signatures match the policy in force (verify). m10 A final inspection lot that
+  already has results does not grow: further WO receipts into its lot code are refused (409 `QA_LOT_HAS_RESULTS`).
+- m11 Return to service needs the latest calibration record (by recording order) to be a pass. m12 Failed
+  enrolment confirmations count toward the signing lockout. m13 With `ESIG_LOCAL_CREDENTIALS`, an SSO user enrols
+  a signing password within 10 minutes of a fresh SSO sign-in, confirmed with a TOTP code.
+

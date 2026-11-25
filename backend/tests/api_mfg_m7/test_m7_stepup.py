@@ -63,7 +63,8 @@ def test_t_s4_stepup_token_single_use_and_bound_to_the_session(db_url):
         p.api = api                                    # type: ignore[attr-defined]
         h = preview(p, "eco", cr["id"], "approve")["content_hash"]  # type: ignore[arg-type]
         tok = _stepup(ana, idp, ["pwd"])
-        sig = {"meaning": "approved", "content_hash": h, "username": "ana@corp.example", "stepup_token": tok}
+        sig = {"meaning": "approved", "content_hash": h, "username": "ana@corp.example", "stepup_token": tok,
+               "comment": "Approved after review"}
         # another browser session of the same person cannot use the token
         other = TestClient(w.app)
         _login(other, idp)

@@ -216,6 +216,16 @@ def _status_event(s: Session, r: QaEquipmentRow) -> None:
                                                "due_on": r.due_on.isoformat() if r.due_on else None}, r.code)
 
 
+def _passed_after_failure(s: Session, r: QaEquipmentRow) -> bool:
+    """Review m11: the latest calibration record (by recording order, not by date) must be a pass."""
+    last = s.execute(select(QaCalibrationRow).where(QaCalibrationRow.equipment_id == r.id)
+                     .order_by(QaCalibrationRow.created_at.desc(), QaCalibrationRow.id.desc()).limit(1)
+                     ).scalars().first()
+    if last is None:
+        return r.failed_on is None
+    return last.result != "fail"
+
+
 def set_status(ctx: AppContext, a: Any, equipment_id: str, body: EquipmentStatusInput, if_match: str | None
                ) -> dict[str, Any]:
     """`active` from `out_of_service` is `equipment.return_to_service` (signed; a passing calibration after the
@@ -237,9 +247,8 @@ def set_status(ctx: AppContext, a: Any, equipment_id: str, body: EquipmentStatus
             return record(s, r, True)
         sig_id = None
         if r.status == "out_of_service" and body.status == "active":
-            if r.calibration_required and (
-                    (r.failed_on is not None and (r.last_calibrated_on is None or r.last_calibrated_on < r.failed_on))
-                    or not EQ.valid_on("active", True, r.due_on, r.grace_days, _today(s))):
+            if r.calibration_required and (not _passed_after_failure(s, r)
+                                           or not EQ.valid_on("active", True, r.due_on, r.grace_days, _today(s))):
                 raise ApiError(409, "QA_CALIBRATION_REQUIRED", "Record a passing calibration after the failure "
                                "first.", {"failed_on": r.failed_on.isoformat() if r.failed_on else None})
             out = esig.sign(s, a, auth, "equipment", r.id, "return_to_service", body.signature)

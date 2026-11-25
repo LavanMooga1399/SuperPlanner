@@ -205,6 +205,9 @@ def _label(s: Session, kind: str, rid: str) -> str | None:
     return getattr(r, "number", None) or getattr(r, "code", None)
 
 
+LINK_LOCKED = frozenset({"closed", "implemented", "accepted", "rejected", "completed", "approved", "released"})
+
+
 def link_record(s: Session, r: QaLinkRow, side: str = "to") -> dict[str, Any]:
     other_t, other_id = (r.to_type, r.to_id) if side == "to" else (r.from_type, r.from_id)
     return {"id": r.id, "from_type": r.from_type, "from_id": r.from_id, "to_type": r.to_type, "to_id": r.to_id,
@@ -252,11 +255,17 @@ def delete_link(ctx: AppContext, a: Act, link_id: str) -> None:
     from .. import repo
 
     with write_tx(ctx) as (s, _plant):
-        r = repo.get_row(s, QaLinkRow, link_id, what="Link")
-        perm = EDIT_PERM[r.from_type]
-        if not a.p.has(perm):
-            raise ApiError(403, "MFG_FORBIDDEN", "Your role does not allow unlinking this record.",
-                           {"permission": perm})
+        r = repo.get_row(s, QaLinkRow, link_id, what="Link", lock=True)
+        for t in (r.from_type, r.to_type):          # review m8: edit rights on both records
+            perm = EDIT_PERM[t]
+            if not a.p.has(perm):
+                raise ApiError(403, "MFG_FORBIDDEN", "Your role does not allow unlinking this record.",
+                               {"permission": perm})
+        for t, i in ((r.from_type, r.from_id), (r.to_type, r.to_id)):   # a closed record keeps its evidence
+            row = s.get(_model(t), i)
+            if row is not None and getattr(row, "status", None) in LINK_LOCKED:
+                raise ApiError(409, "QA_LINK_LOCKED", f"{getattr(row, 'number', i)} is {row.status}; its links are "
+                               "part of its record.", {"record": f"{t}:{i}", "status": row.status})
         from ...audit_diff import audit_regulated
 
         audit_regulated(s, "link", r.id, "delete", before={"from": f"{r.from_type}:{r.from_id}",

@@ -309,3 +309,107 @@ def test_m7_held_serial_blocks_shipment(api, client):
         {"demand_line_id": o["lines"][0]["id"], "location_id": st["id"], "qty": 2}]})
     api.post("/inventory/postings", {"type": "ship", "lines": [
         {"demand_line_id": o["lines"][0]["id"], "location_id": st["id"], "qty": 1}]})
+
+
+def test_m8_link_delete_refused_on_closed_records(api):
+    c = api.post("/qa/capas", {"title": "c"})
+    n = api.post("/qa/ncrs", {"title": "n", "qty_nc": 1})
+    lk = api.post("/qa/links", {"from_type": "ncr", "from_id": n["id"], "to_type": "capa", "to_id": c["id"]})
+    with api.c.app.state.ctx.db.write() as s:
+        s.execute(sa.text("UPDATE qa_ncrs SET status = 'closed' WHERE id = :i"), {"i": n["id"]})
+    api.err("DELETE", f"/qa/links/{lk['id']}", 409, "QA_LINK_LOCKED")
+
+
+def test_m9_policy_signature_matches_the_policy_in_force(w):
+    _insp, appr, _il, _set = _two_step(w)
+    sid = w.owner.api.get("/esig/signatures", record_type="esig_policy")["items"][0]["id"]
+    v = w.owner.api.get(f"/esig/signatures/{sid}/verify")
+    assert v["mac_ok"] and v["content_hash_ok"] and v["content_matches_current"] is True
+
+
+def test_m10_final_lot_growth_refused_after_results(api):
+    from test_m7_inspection import gate_plant
+
+    x = gate_plant(api)
+    sc = scheme(api)
+    plan(api, x["fg"]["id"], "final", sc["id"], chars=[{"seq": 1, "code": "A", "name": "A", "kind": "attribute",
+                                                        "severity": "minor"}])
+    loc = x["fg_loc"]["id"]
+    api.post("/inventory/postings", {"type": "wo_receipt", "lines": [{"wo_id": x["wo"]["id"], "location_id": loc,
+                                                                     "lot_code": "F1", "qty": 4}]})
+    il = api.get("/qa/inspection-lots", scope="final")["items"][0]
+    api.post("/inventory/postings", {"type": "wo_receipt", "lines": [{"wo_id": x["wo"]["id"], "location_id": loc,
+                                                                     "lot_code": "F1", "qty": 2}]})
+    il = api.get(f"/qa/inspection-lots/{il['id']}")
+    assert il["lot_size"] == 6
+    results(api, il, {"A": [True]})
+    api.err("POST", "/inventory/postings", 409, "QA_LOT_HAS_RESULTS", json={"type": "wo_receipt", "lines": [
+        {"wo_id": x["wo"]["id"], "location_id": loc, "lot_code": "F1", "qty": 1}]})
+
+
+def test_m11_return_to_service_needs_the_latest_calibration_to_pass(api):
+    e = api.post("/qa/equipment", {"code": "EQ-9", "name": "G", "kind": "gauge", "equipment_class": "F",
+                                   "interval_days": 90, "due_on": (TODAY + timedelta(days=30)).isoformat()})
+    day = TODAY.isoformat()
+    api.post(f"/qa/equipment/{e['id']}/calibrations", {"performed_on": day, "result": "pass"})
+    api.post(f"/qa/equipment/{e['id']}/calibrations", {"performed_on": day, "result": "fail"})   # same date
+    api.err("POST", f"/qa/equipment/{e['id']}/status", 409, "QA_CALIBRATION_REQUIRED",
+            json={"status": "active", "reason": "x"})
+    api.post(f"/qa/equipment/{e['id']}/calibrations", {"performed_on": day, "result": "pass"})
+    assert api.post(f"/qa/equipment/{e['id']}/status", {"status": "active", "reason": "ok"}, 200)["status"] == "active"
+
+
+def test_m12_enrolment_failures_count_toward_lockout(w):
+    p = w.member("eng", ["qa_engineer"], enroll=False)
+    codes = []
+    for _ in range(3):
+        r = p.client.post("/api/v1/auth/esig/enroll", json={"legal_name": "X Y", "password": "nope",
+                                                            "acknowledgement": True})
+        codes.append(r.json()["error"]["code"])
+    assert codes == ["ESIG_AUTH_FAILED", "ESIG_AUTH_FAILED", "ESIG_LOCKED"]
+    r = p.client.post("/api/v1/auth/esig/enroll", json={"legal_name": "X Y", "password": PASSWORD,
+                                                        "acknowledgement": True})
+    assert r.status_code == 423
+
+
+def test_m13_local_credentials_enrolment_for_sso_users(db_url):
+    import time
+
+    from fastapi.testclient import TestClient
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "identity"))
+    from apimfgm2_helpers import Api
+    from fake_idp import CLIENT_ID, ISSUER, SECRET, FakeIdp
+    from m7_helpers import KEY
+    from superplanner.identity import oidc, totp
+    from test_m7_esig import _eco
+    from test_m7_stepup import _login
+
+    idp = FakeIdp()
+    oidc.CACHE.items.clear()
+    world = World(db_url, oidc_issuer=ISSUER, oidc_client_id=CLIENT_ID, oidc_client_secret=SECRET,
+                  oidc_allowed_domains=["corp.example"], oidc_http=idp, public_base_url="http://testserver",
+                  secrets_keys=[KEY], esig_local_credentials=True)
+    try:
+        world.owner.api.location("ST")
+        cr = _eco(world)
+        world.part11_on()
+        ana = TestClient(world.app)
+        _login(ana, idp)
+        world.owner.api.post("/members", {"email": "ana@corp.example", "roles": ["qa_approver"]})
+        sec = ana.post("/api/v1/auth/totp/setup", json={}).json()["secret"]
+        now = int(time.time() // 30)
+        assert ana.post("/api/v1/auth/totp/enable", json={"code": totp.code_at(sec, (now - 1) * 30 + 1)}).status_code \
+            == 200
+        r = ana.post("/api/v1/auth/esig/enroll", json={"legal_name": "Ana Lima", "acknowledgement": True,
+                                                       "signing_password": "a long signing secret",
+                                                       "totp_code": totp.code_at(sec, now * 30 + 1)})
+        assert r.status_code == 200 and r.json()["local_credentials"] is True, r.text
+        api = Api(ana, world.oid)
+        h = api.get("/esig/preview", record_type="eco", record_id=cr["id"], action="approve")["content_hash"]
+        out = api.req("POST", f"/eco/{cr['id']}/approve", 200, json={"signature": {
+            "meaning": "approved", "content_hash": h, "username": "ana@corp.example",
+            "password": "a long signing secret", "comment": "ok"}}).json()
+        assert out["status"] == "approved"
+    finally:
+        world.close()

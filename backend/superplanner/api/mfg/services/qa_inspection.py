@@ -982,8 +982,13 @@ def on_posting(s: Session, posting: Any) -> list[str]:
                 QaInspectionLotRow.scope == "final").order_by(QaInspectionLotRow.created_at.desc()).limit(1)
                 .with_for_update()).scalars().first()
             if ex is not None and ex.status in OPEN_LOT:
+                if _results(s, ex.id):                    # review m10: the sample was drawn for the smaller lot
+                    lot = s.get(MfgLotRow, lot_id)
+                    raise ApiError(409, "QA_LOT_HAS_RESULTS", f"{ex.number} is being inspected; receive further "
+                                   f"quantities of {wo.number if wo else ''} into a new lot code.",
+                                   {"inspection_lot_id": ex.id, "lot_code": lot.lot_code if lot else None})
                 ex.lot_size = round(ex.lot_size + qty, 6)
-                ex.sampling = freeze_sampling(s, plan, ex.lot_size, None) if not _results(s, ex.id) else ex.sampling
+                ex.sampling = freeze_sampling(s, plan, ex.lot_size, None)
                 touch(ex)
                 ex.verdict = _verdict(s, ex)
                 out.append(ex.id)
