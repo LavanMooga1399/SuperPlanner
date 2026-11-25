@@ -482,7 +482,7 @@ export const qualityStrings = {
   "qa.lots.toast.accepted": "Inspection lot accepted.",
   "qa.lots.toast.rejected": "Inspection lot rejected. An NCR was opened.",
   "qa.lots.title.contradicts": "The verdict is reject",
-  "qa.lots.text.contradicts": "Accepting against a reject verdict needs an approved NCR with a use-as-is disposition for this lot.",
+  "qa.lots.text.contradicts": "Possible only with an approved NCR that dispositions this lot use-as-is. Choose it below and give a justification.",
   "qa.lots.label.ncr": "NCR with use-as-is disposition",
   "qa.lots.str.chooseNcr": "Choose an approved NCR…",
   "qa.holds.str.docTitle": "Holds - SuperPlanner",

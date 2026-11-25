@@ -571,7 +571,7 @@ function DecisionDialog({ lot, decision, onClose, onDone }: { lot: InspectionLot
         <div className="field">
           <label htmlFor="dec-note">{against ? t("qa.lots.label.justification") : t("qa.lots.label.decisionNote")}</label>
           {against ? (
-            <textarea id="dec-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} required aria-required="true" aria-describedby="dec-note-help" data-testid="qa-decision-note" />
+            <textarea id="dec-note" className="textarea" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} required aria-required="true" aria-describedby="dec-note-help" data-testid="qa-decision-note" />
           ) : (
             <input id="dec-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} data-testid="qa-decision-note" />
           )}

@@ -482,7 +482,7 @@ export const qualityFrCa: Record<keyof typeof qualityStrings, string> = {
   "qa.lots.toast.accepted": "Lot d'inspection accepté.",
   "qa.lots.toast.rejected": "Lot d'inspection rejeté. Un RNC a été ouvert.",
   "qa.lots.title.contradicts": "Le verdict est « rejeter »",
-  "qa.lots.text.contradicts": "Accepter malgré un verdict de rejet exige un RNC approuvé avec une disposition « utiliser tel quel » pour ce lot.",
+  "qa.lots.text.contradicts": "Possible seulement avec un RNC approuvé dont la disposition pour ce lot est « utiliser tel quel ». Choisissez-le ci-dessous et donnez une justification.",
   "qa.lots.label.ncr": "RNC avec disposition « utiliser tel quel »",
   "qa.lots.str.chooseNcr": "Choisir un RNC approuvé…",
   "qa.holds.str.docTitle": "Blocages - SuperPlanner",

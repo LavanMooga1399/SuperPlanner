@@ -757,6 +757,20 @@ QP9 were not measured separately (covered functionally by the receipt, NCR and e
   "A: run" / "B: run" / "Change from A to B" with signed deltas and "better/worse in B" text; recall tiles switch
   to quantities for lot-controlled items (affected qty = shipped + in stock, shipments to customers, lots on hand;
   per-customer shipments/qty/lots) from `report.counts`, `by_customer.qty/lots`.
+- Usage decision: the primary button follows the verdict (Accept when accept, Reject when reject, neither while
+  pending; Accept is disabled while pending). Mirrors `decide`: accept against a reject verdict needs an approved NCR
+  with a use-as-is disposition (`QA_DECISION_CONTRADICTS`) and, in the UI, a justification (10+ characters, kept as
+  the decision note); reject is always possible and against an accept/pending verdict also needs a justification
+  (UI rule - the backend does not require it; ask: enforce `note` server-side for decisions against the verdict).
+- Part 11 reasons (review m4): the signature dialog requires its comment in Part 11 mode (label "Reason for change")
+  and repeats it as the reason; any regulated save answered with 422 `AUDIT_REASON_REQUIRED` opens the shared reason
+  dialog (`ChangeReasonHost` in the app root) and is repeated once with `X-SP-Change-Reason` (covers M1-M6 edits);
+  ECO actions ask up front in Part 11 mode and ECO approval goes through the signature dialog (`eco.approve`).
+- Org people: "Signing" opens revoke / reinstate (`esig-revoke` / `esig-reinstate`). Ask: the members list could
+  carry each person's signing state (enrolled / revoked_at) so the dialog can show it before acting.
+- Equipment: due date read-only after creation (moves by calibrations); while not valid, calibration settings and
+  line are locked with an explanation (`QA_EQUIPMENT_BLOCKING`). QA settings: a system-of-record switch is saved
+  through the signature dialog (`qa_settings.sor_change`, record id "plant") listing old -> new values.
 - Count nouns: `plural()` and `ShowMore` translate the plain English nouns they get through `noun.<word>` keys
   (fr-CA: "1 ligne", "3 opérations"); recall tile counts pick singular/plural keys with `Intl.PluralRules` (French
   0 and 1 are singular). Screens: `docs/ux-screens/m7-*.png` (inspection lot 1440 light/dark, NCR 1024 and 390).
