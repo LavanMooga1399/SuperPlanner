@@ -654,6 +654,68 @@ HA rehearsal without a Patroni rig: a `docker compose --profile ha` (primary + s
 or the failover simulation used by `tests/ha/test_ha.py` (database set to `default_transaction_read_only` = a
 demoted primary; `REPLICA` lag injected through the lag probe).
 
+## 17. Regulated plants: electronic signatures, Part 11 mode and the Canada pilot profile (M7-DESIGN 4)
+
+These controls are designed to *support* 21 CFR Part 11, ISO 13485 and 21 CFR 820. They do not by themselves make
+an installation compliant: the customer validates the system for its intended use and owns the procedures
+(signature certification to the FDA, training, SOPs, access reviews).
+
+**Configuration**
+
+| Setting | Default | Notes |
+|---|---|---|
+| `SECRETS_KEY` / `SECRETS_KEYS` | - | Required before any plant switches to Part 11 mode (signature MACs, keyed audit chain). Rotate by prepending a new key; keep old keys for verification. |
+| `ESIG_ENABLED` | `true` | `false` refuses all signing (503 `ESIG_DISABLED`). |
+| `ESIG_LOCAL_CREDENTIALS` | `false` | SSO users whose IdP cannot do a step-up sign with a signing password (set at enrolment) + TOTP. |
+| `ESIG_MAX_CLOCK_SKEW_MS` | `2000` | App/DB clock difference above which signing answers 503 `ESIG_CLOCK_SKEW`. |
+| `ESIG_MFA_AMR` | `mfa,otp,hwk,swk` | `amr` values of an OIDC step-up that count as multi-factor (`password_totp` steps). |
+| `ARCHIVE_DIR` | - | Needed for Part 11 exports (`POST /mfg/part11/exports`, `manage.py part11-export`). |
+
+Organisation setting `session_idle_minutes` (recommended 15 for Part 11 plants) ends idle sessions of the
+organisation's people (checked with the 5-minute session-touch granularity).
+
+**Time synchronisation.** Signature, decision and result times come from the database clock. Run chrony (or NTP)
+against an approved time source on every API, worker and database host and monitor it. `GET /api/v1/meta/time`
+and `GET /api/v1/health/ready` (`clock_skew_ms`) report the measured app/DB skew.
+
+**OIDC step-up.** The IdP must honour `prompt=login` and `max_age=0` and return `auth_time` (and `amr` for MFA).
+Register the existing callback URL; the browser popup lands on `/esig/stepup-done`. If the IdP cannot do this, set
+`ESIG_LOCAL_CREDENTIALS=true`.
+
+**Switching a plant on.** An owner (or plant admin) enrols (`Account - Electronic signature`), sets up TOTP and signs
+"Part 11 mode on" (Control - Part 11 settings). It cannot be switched off through the application. Seeded policies
+can then be adjusted (each change is signed).
+
+**Jobs.** `qa_due_scan` (daily per plant after 06:00 plant time, scheduler duty) and `part11_export` (on request)
+run on the normal worker (`maintenance_runs` targets).
+
+**Canada pilot profile (Quebec).** Host database, API, workers, backups and `ARCHIVE_DIR` in a Canadian region
+(e.g. `ca-central-1` / `northamerica-northeast1`); set the plant time zone `America/Toronto` (or
+`America/Montreal`), the language preference `fr-CA` for French users, `PUBLIC_BASE_URL` on the customer's
+domain, SMTP in-region, and keep log shipping in-region. Restore tests and `manage.py audit-verify` belong to the
+customer's periodic review.
+
+**Part 11 checklist (control or customer procedure)**
+
+| Clause | SuperPlanner control | Customer |
+|---|---|---|
+| 11.10(a) validation | Test suites, design and as-built notes, release notes | Validate for intended use (IQ/OQ/PQ) |
+| 11.10(b) accurate copies | Part 11 package per record (`/mfg/part11/records/...`), print view, export zip with manifest and sha256 | Define retrieval procedure |
+| 11.10(c) record protection | Retention indefinite for esig/qa/holds/exports, archive exports, backups (section 8) | Backup and archive SOP |
+| 11.10(d) access limits | Accounts, roles and one permission per route, SSO, TOTP, idle timeout | Access reviews |
+| 11.10(e) audit trail | Hash-chained audit with old/new values, reasons, signatures; DB-clock times | Periodic `audit-verify` review |
+| 11.10(f) sequencing | State machines (409 `MFG_INVALID_STATE`), gate blocks, holds | - |
+| 11.10(g) authority checks | Signature policies (roles per step, distinct signers, author excluded) | Assign roles |
+| 11.10(h) device checks | Scan codes, equipment validity on result entry and floor start | - |
+| 11.10(i) training | - | Training records |
+| 11.10(j) accountability | Enrolment acknowledgement text and version | Written policy |
+| 11.10(k) documentation control | Versioned DEPLOY/design documents | Document control |
+| 11.50 manifestation | Legal name, user name, time with zone, meaning on screen/print/package | - |
+| 11.70 linking | Content hash snapshot + HMAC per signature, `verify` endpoint | - |
+| 11.100 uniqueness | User names (e-mail) never reused (signers cannot be deleted), revocation | Identity verification at enrolment |
+| 11.200 components | User name + password (+ TOTP) every signing; SSO step-up; lockout after 3 failures | - |
+| 11.300 controls | Password policy, TOTP replay refusal, lockout notifications | Credential issuance and loss procedures |
+
 ## 16. Changelog
 
 - **PostgreSQL-only release.** SQLite support was removed: `DATABASE_URL` is required and must be PostgreSQL, the

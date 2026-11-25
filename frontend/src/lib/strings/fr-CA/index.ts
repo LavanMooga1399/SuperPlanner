@@ -1,7 +1,25 @@
 /**
  * French (Canada) dictionary (M7 10): one file per English area file, same keys and placeholders
- * (`npm run i18n:check` compares them). Loaded on demand by `loadLocale()` in `lib/i18n.ts`.
+ * (`npm run i18n:check` compares them). Loaded on demand by `loadLocale()` in `lib/i18n.ts`; a key missing here
+ * falls back to English. Terminology: docs/i18n/fr-CA-glossary.md.
  */
 import type { StringKey } from "../../i18n";
+import { accountFrCa } from "./account";
+import { assistantFrCa } from "./assistant";
+import { commonFrCa } from "./common";
+import { floorFrCa } from "./floor";
+import { mobileFrCa } from "./mobile";
+import { navFrCa } from "./nav";
+import { qualityFrCa } from "./quality";
+import { shellFrCa } from "./shell";
 
-export const frCaStrings: Partial<Record<StringKey, string>> = {};
+export const frCaStrings: Partial<Record<StringKey, string>> = {
+  ...accountFrCa,
+  ...assistantFrCa,
+  ...commonFrCa,
+  ...floorFrCa,
+  ...mobileFrCa,
+  ...navFrCa,
+  ...qualityFrCa,
+  ...shellFrCa,
+} as Partial<Record<StringKey, string>>;
