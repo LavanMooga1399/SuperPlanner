@@ -14,7 +14,7 @@ from ..model import EntityId, MfgModel, PlanDate
 LoadStatus = Literal["planned", "loaded", "cycling", "aerating", "awaiting_release", "released", "failed",
                      "cancelled"]
 LOAD_FLOW: dict[str, tuple[str, ...]] = {"planned": ("loaded", "cancelled"), "loaded": ("cycling", "cancelled"),
-                                         "cycling": ("aerating",), "aerating": ("awaiting_release",),
+                                         "cycling": ("aerating", "failed"), "aerating": ("awaiting_release", "failed"),
                                          "awaiting_release": ("released", "failed")}
 
 

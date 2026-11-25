@@ -387,7 +387,7 @@ class ResultsBatchResponse(MfgModel):
 
 # ---------------------------------------------------------------- holds (5.3)
 
-HoldSource = Literal["inspection", "ncr", "recall", "field_action", "manual"]
+HoldSource = Literal["inspection", "ncr", "recall", "field_action", "manual", "sterility"]   # M8 8
 
 
 class HoldInput(MfgModel):
@@ -425,6 +425,7 @@ class HoldRecord(Stamped):
     release_signature_id: str | None = None
     release_note: str = ""
     open: bool
+    planned_release: date | None = None       # M8-DESIGN 8: sterility holds
 
 
 # ---------------------------------------------------------------- NCR / MRB (6)

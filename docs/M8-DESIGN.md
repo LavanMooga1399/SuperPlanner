@@ -614,3 +614,22 @@ S3 notes (rate engine, as built):
   default false) and the local time passed `nightly_at`; 409 `PLANNING_CHAIN_RUNNING` for a second start.
 - Measured P4 (synthetic 40 lines x 15 items x 30 days, 4 workers, 60 s budget): construction 0.2 s, full run
   61 s, validator clean.
+
+S4 notes (sterilisation, as built):
+- `mfg/ster/loads.py` (greedy planner) and `mfg/ster/validator.py` (independent: capacity, cycle code, duration,
+  ready time, chamber overlap incl. loads in work, aeration positions over time). Aeration rooms are assigned per
+  load (one room); a candidate larger than every chamber is split into chamber-sized parts.
+- Candidates include completed WOs (sterilisation follows packaging, so the usual candidate is a finished WO with
+  received lots; ready = completion time) besides open WOs and unconverted published rate blocks; WOs already in a
+  load past `planned` (or released / failed loads) are not planned again. Re-planning replaces `planned` loads only.
+- Lots: a member's lots are its WO's `wo_receipt` lots (when the member has no lot). Holds `source sterility`
+  (`source_id` = load, `planned_release`) are placed at cycle complete (`advance to aerating`, or `fail` during the
+  cycle); they are owned by the load (`POST /qa/holds/{id}/release` answers 409 `QA_HOLD_OWNED`). The planned
+  release is recomputed from the actual cycle end. `HoldRecord.planned_release` added (optional).
+- Load flow adds `cycling|aerating -> failed`; `fail` opens one critical NCR (draft, first lot as `lot_id`, all lot
+  codes in the description) and keeps the holds.
+- Trace: edges lot -> `ster_load` -> lot (precision exact) at cycle complete, so forward traces / recalls show the
+  co-sterilised lots.
+- MRP: WOs in a planned or running load are available at the load's `release_due` (their due date in the snapshot
+  is moved), rate blocks in a load likewise (`m8mrp`).
+- Nightly chain: the sterilisation step is skipped (`ref_id "skipped"`) when the plant has no chamber.

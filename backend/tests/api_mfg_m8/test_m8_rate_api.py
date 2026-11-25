@@ -107,3 +107,32 @@ def test_rate_run_publish_twice(api, client):
     plan = api.get(f"/mrp/runs/{mrp2['id']}/items/{items['SYR-3']['id']}")
     kinds = {x["kind"] for x in plan["supplies"]}
     assert "wo" in kinds or "rate" in kinds
+
+
+def test_nightly_chain_run_now(api, client):
+    from superplanner.api.db.ownership import system_scope
+    from superplanner.api.mfg.db_models_m5 import MaintenanceRunRow
+
+    ln, items = setup_flow(api)
+    demand(api, items, 4000, 3, "DO-N1")
+    api.put("/plant/planning-settings", {**{k: v for k, v in api.get("/plant/planning-settings").items()
+                                            if k != "row_version"}, "rate_time_budget_s": 10, "auto_publish": True},
+            api.get("/plant/planning-settings")["row_version"])
+    out = api.post("/planning/nightly/run-now", None, 202)
+
+    def get():
+        with system_scope(), owner_db(client).read() as s:
+            r = s.get(MaintenanceRunRow, out["run_id"])
+            return {"status": r.status, "results": r.results}
+    r = wait_for(get, lambda x: x["status"] in ("completed", "failed"), timeout=120)
+    steps = {x["step"]: x for x in r["results"]["steps"]}
+    assert r["status"] == "completed", r
+    assert [k for k in steps] in (["history_refresh", "mrp_pass1", "rate_run", "ster_plan", "mrp_pass2"],
+                                  ["history_refresh", "forecast_run", "ss_run", "mrp_pass1", "rate_run", "ster_plan",
+                                   "mrp_pass2"])
+    assert all(x["status"] == "completed" for x in steps.values()), steps
+    assert steps["ster_plan"]["ref_id"] == "skipped"
+    runs = api.get("/rate/runs")["items"]
+    assert runs[0]["published"] is True                          # auto_publish
+    labels = [x["label"] for x in api.get("/mrp/runs")["items"]][:2]
+    assert labels == ["nightly-2", "nightly-1"]

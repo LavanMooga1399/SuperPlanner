@@ -27,7 +27,7 @@ from . import m7_examples
 from .common import read_tx, write_tx
 from .qa_common import Act, decorate, item_ref
 
-OWNED_SOURCES = ("inspection", "ncr")
+OWNED_SOURCES = ("inspection", "ncr", "sterility")      # M8-DESIGN 8: released by the ster load
 SIGNED_SOURCES = ("manual", "recall", "field_action")
 
 
@@ -37,8 +37,10 @@ def _source_number(s: Session, r: MfgLotHoldRow) -> str | None:
     from ..db_models_m5 import MfgRecallRow
     from ..db_models_m7 import QaFieldActionRow, QaInspectionLotRow, QaNcrRow
 
+    from ..db_models_m8 import MfgSterLoadRow
+
     model = {"inspection": QaInspectionLotRow, "ncr": QaNcrRow, "recall": MfgRecallRow,
-             "field_action": QaFieldActionRow}.get(r.source)
+             "field_action": QaFieldActionRow, "sterility": MfgSterLoadRow}.get(r.source)
     if model is None:
         return None
     row = s.get(model, r.source_id)
@@ -55,7 +57,7 @@ def hold_record(s: Session, r: MfgLotHoldRow, full: bool = False) -> dict[str, A
            "placed_by": r.placed_by, "placed_at": r.placed_at, "released_by": r.released_by,
            "released_at": r.released_at, "release_signature_id": r.release_signature_id,
            "release_note": r.release_note, "open": r.released_at is None, "signatures": [], "links": [],
-           "attachments": []}
+           "attachments": [], "planned_release": r.planned_release}
     if full:
         from . import esig
 

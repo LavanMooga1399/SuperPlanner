@@ -109,8 +109,15 @@ def run(ctx: AppContext, info: dict[str, Any]) -> dict[str, Any]:
         return {"steps": steps}
 
     def sp() -> Any:
-        with ctx.write_guard(), ctx.db.write() as s:
-            return ster.plan_in(s, actor, None).get("load_ids", [])[:1] or None
+        from ...errors import ApiError
+
+        try:
+            with ctx.write_guard(), ctx.db.write() as s:
+                return ster.plan_in(s, actor, None).get("load_ids", [])[:1] or None
+        except ApiError as e:
+            if e.code == "MFG_STER_NO_CHAMBER":          # plants without sterilisation skip the step
+                return "skipped"
+            raise
     if not step("ster_plan", sp):
         return {"steps": steps}
     step("mrp_pass2", lambda: mrp.create_run(ctx, MrpParams(label="nightly-2"))["id"])

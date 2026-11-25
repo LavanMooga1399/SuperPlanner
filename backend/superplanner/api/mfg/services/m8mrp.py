@@ -76,5 +76,10 @@ def add_inputs(s: Session, snap: MrpSnapshot, params: Any) -> MrpSnapshot:
     st = settings_of(s)
     snaps, _over, _vid = forecast_requirements(s, params.forecast_version_id, snap.as_of)
     rs = rate_supplies(s, params.rate_run_id) if params.rate_supply else []
-    return replace(snap, forecasts=snaps, planning=planning_snaps(s), rate_supplies=rs,
+    from .ster import release_dates
+
+    rel = release_dates(s)                     # M8 8: sterilised WOs are available at their planned release
+    wos = [replace(w, due_date=max(w.due_date, rel[w.id])) if w.id in rel else w for w in snap.work_orders] \
+        if rel else snap.work_orders
+    return replace(snap, work_orders=wos, forecasts=snaps, planning=planning_snaps(s), rate_supplies=rs,
                    forecast_priority=st.forecast_priority, zones=(st.daily_days, st.weekly_weeks))
