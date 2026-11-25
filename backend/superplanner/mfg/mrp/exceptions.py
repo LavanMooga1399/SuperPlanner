@@ -7,6 +7,7 @@ Every exception carries a plain-language `message`, an `action`, the numbers it 
 
 from __future__ import annotations
 
+import math
 from datetime import date, timedelta
 from typing import Any
 
@@ -22,8 +23,13 @@ CODES: tuple[tuple[str, str], ...] = (
     ("MRP_MERGE_INTO_PR", "info"), ("MRP_DEMAND_SERIAL_OVERLAP", "warning"), ("MRP_RESERVATION_EXCESS", "info"),
     ("MRP_WO_COMPONENT_CYCLE", "warning"), ("MRP_DEMAND_OUTSIDE_HORIZON", "info"),
 )
-SEVERITY = dict(CODES)
-CODE_ORDER = {c: i for i, (c, _s) in enumerate(CODES)}
+#: M8-DESIGN 6 (listed in summaries only when they occur, so M2-M7 results are unchanged)
+M8_CODES: tuple[tuple[str, str], ...] = (
+    ("MRP_RATE_SHORT", "critical"), ("MRP_FORECAST_SHORT", "warning"), ("MRP_KANBAN_UNDERSIZED", "warning"),
+    ("MRP_PACK_ROUNDING", "info"),
+)
+SEVERITY = dict(CODES + M8_CODES)
+CODE_ORDER = {c: i for i, (c, _s) in enumerate(CODES + M8_CODES)}
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 
 
@@ -338,6 +344,7 @@ def build_exceptions(c: Any, p: Any, alt_records: list[dict[str, Any]], demand_i
         b.add("MRP_WO_COMPONENT_CYCLE", item_id=w.item_id, subject=ExRef("work_order", w.id, w.number),
               message=f"{w.number}: a component makes the item part of its own structure; its components are "
                       f"planned at their own level.", action="Correct the work order components.")
+    _m8(b, c, p)
     # 21 outside horizon
     if p.outside:
         b.add("MRP_DEMAND_OUTSIDE_HORIZON", item_id=None, subject=ExRef("plant", None, "Plant"), qty=p.outside,
@@ -348,4 +355,55 @@ def build_exceptions(c: Any, p: Any, alt_records: list[dict[str, Any]], demand_i
     return b.out
 
 
-__all__ = ["CODES", "CODE_ORDER", "SEVERITY", "build_exceptions", "fdate", "fqty", "sort_key"]
+def _m8(b: _Builder, c: Any, p: Any) -> None:
+    """M8-DESIGN 6: forecast shortfalls, rate shortfalls after rate supplies (V1), undersized kanban loops, pack
+    rounding."""
+    items = c.ds.items
+    as_of = c.as_of
+    for r in p.fc_reqs:
+        n = max(r.need, as_of)
+        q = sum(pg.qty for pg in r.pegs if pg.sup.proj is not None and pg.sup.proj > n)
+        if q > EPS:
+            it = items[r.item_id]
+            b.add("MRP_FORECAST_SHORT", item_id=r.item_id, subject=ExRef("item", r.item_id, it.part_number), d=r.need,
+                  qty=q, days=r.late,
+                  message=f"{fqty(q)} {it.part_number} of the {r.source.label.lower()} requirement on "
+                          f"{fdate(r.need)} are covered only by {fdate(r.sat)}.",
+                  action="Expedite supply or accept the forecast shortfall.")
+    if c.params.rate_supply:
+        for po in p.planned:
+            if c.repl(po.item_id) != "rate":
+                continue
+            it = items[po.item_id]
+            b.add("MRP_RATE_SHORT", item_id=po.item_id, subject=ExRef("planned_order", str(po.no), f"P-{po.no}"),
+                  d=po.need, qty=po.qty,
+                  message=f"The rate plan does not cover {fqty(po.qty)} {it.part_number} needed by {fdate(po.need)}.",
+                  action="Re-run the rate plan with more capacity or overtime, or accept the shortfall.")
+    for st in p.states.values():
+        if c.repl(st.item.id) != "kanban":
+            continue
+        ps = c.planning.get(st.item.id)
+        if ps is None or not ps.kanban_cards or not ps.kanban_container:
+            continue
+        end = as_of + timedelta(days=28)
+        tot = sum(r.qty for r in st.reqs if r.kind != "safety_stock" and as_of <= r.need < end)
+        daily = tot / 28.0
+        need = daily * max(int(ps.kanban_lead_days or 0), 1) * 1.2
+        have = (ps.kanban_cards - 1) * ps.kanban_container
+        if need > have + EPS:
+            it = st.item
+            sugg = math.ceil(need / ps.kanban_container) + 1
+            b.add("MRP_KANBAN_UNDERSIZED", item_id=it.id, subject=ExRef("item", it.id, it.part_number), d=as_of,
+                  qty=need - have,
+                  message=f"The kanban loop of {it.part_number} ({ps.kanban_cards} cards of "
+                          f"{fqty(ps.kanban_container)}) is too small for {fqty(daily)} per day over the lead time.",
+                  action=f"Use {sugg} cards.", suggested={"cards": sugg})
+    for po, need_q in p.pack_rounded:
+        it = items[po.item_id]
+        b.add("MRP_PACK_ROUNDING", item_id=po.item_id, subject=ExRef("planned_order", str(po.no), f"P-{po.no}"),
+              d=po.need, qty=po.qty,
+              message=f"Planned P-{po.no} rounded from {fqty(need_q)} to {fqty(po.qty)} {it.part_number} "
+                      f"(order pack).", action="None needed.")
+
+
+__all__ = ["CODES", "CODE_ORDER", "M8_CODES", "SEVERITY", "build_exceptions", "fdate", "fqty", "sort_key"]

@@ -39,7 +39,8 @@ def parse(code: str) -> list[Lookup]:
         return []
     up = c.upper()
     for prefix, kind in (("LOC:", "location"), ("LIN:", "line"), ("OP:", "operator"), ("BL:", "batch_load"),
-                         ("IL:", "inspection_lot"), ("E:", "equipment")):          # M7-DESIGN 8
+                         ("IL:", "inspection_lot"), ("E:", "equipment"),           # M7-DESIGN 8
+                         ("KB:", "kanban_card")):                                 # M8-DESIGN 6.2
         if up.startswith(prefix):
             rest = c[len(prefix):].strip()
             return [Lookup(kind, (rest,))] if rest else []

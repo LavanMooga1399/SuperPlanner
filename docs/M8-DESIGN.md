@@ -559,3 +559,26 @@ S1 notes (forecasting, as built):
   activate). Removal reason comes from `X-SP-Change-Reason` (422 without). Audit rows carry `reason` and the
   old/new values in `details.changes` (the common `audit()` gained an optional `reason`).
 - Accuracy lag: any 1..12 is accepted (UI uses 1 and 3); computed on read (no per-period cache yet).
+
+S2 notes (inventory optimisation, MRP, kanban; as built):
+- `mfg/invopt/safety.py`: Acklam inverse normal; proposal = round up to the order pack, then capped at
+  `ss_max_cover_days` x d (largest pack multiple within the cap, `SS_CAPPED`). d = forecast of the next 90 calendar
+  days / working days in them (items without forecast: last 12 periods of history); sigma_d = rmse1 / sqrt(average
+  working days per period of the next 12 periods); sigma_LT from `po_receipt` transactions vs schedule confirmed
+  (else requested) date, calendar days. An SS run writes `abc`/`xyz` to item planning (created when missing).
+- MRP (`mfg/mrp`): `MrpSnapshot` gained `forecasts`, `planning` (`PlanningSnap`), `rate_supplies`
+  (`RateSupplySnap`), `forecast_priority`, `zones`; all default empty, so M2-M7 runs and goldens are unchanged. The
+  new params are left out of dumps at their defaults (canonical JSON unchanged) and the M8 exception codes appear in
+  `summary.exceptions.by_code` only when they occur. Forecast rank `(1, forecast_priority, date, "~FORECAST", 0)`
+  (after orders of the same priority and date, before safety stock). Rate supplies explode their components from
+  the block's production day (they are make supplies), kanban pseudo supplies explode from need date minus the loop
+  lead time; neither creates planned orders or action messages. `MRP_RATE_SHORT` is `critical` (the severity scale
+  has no "error"). Supply sort order: stock, inspection, po, pr, wo, rate, planned, kanban.
+- MRP service: `services/m8mrp.add_inputs` adds the M8 inputs after the snapshot load; a bad
+  `forecast_version_id` / `rate_run_id` drops the run with 422 `MFG_UNKNOWN_REFERENCE`.
+- Kanban: a scan empties a full card (409 `KANBAN_CARD_STATE` otherwise) and creates a submitted PR (source
+  `kanban`) or a planned WO `kind kanban`; receipts (PO / WO / misc / transfer) of the item at the loop location
+  refill the oldest non-full cards (one per container received, at least one) - matched by item and location, not
+  by document. Consumption trigger counts issues at the loop location (`mfg_kanban_loops.consumed`). Hook:
+  `inventory.post_in_session`. Floor scan resolves `KB:<card id>` (type `kanban_card`). Loop sizing uses the latest
+  live MRP run's gross requirement / horizon days.

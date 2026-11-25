@@ -1267,6 +1267,15 @@ def _wo_by_number(s: Session, number: str) -> MfgWorkOrderRow | None:
 
 def _lookup(s: Session, lk: SCAN.Lookup) -> dict[str, Any] | None:
     t = lk.type
+    if t == "kanban_card":                                  # M8-DESIGN 6.2: KB:<card id>
+        from ..db_models_m8 import MfgKanbanCardRow, MfgKanbanLoopRow
+
+        c = s.get(MfgKanbanCardRow, lk.key[0])
+        if c is None:
+            return None
+        lp = s.get(MfgKanbanLoopRow, c.loop_id)
+        return {"type": "kanban_card", "id": c.id, "label": f"{lp.number if lp else ''} card {c.card_no} ({c.state})",
+                "link": f"/mfg/kanban?loop={c.loop_id}"}
     if t in ("inspection_lot", "equipment"):                # M7-DESIGN 8: IL:<number>, E:<code>
         from ..db_models_m7 import QaEquipmentRow, QaInspectionLotRow
 

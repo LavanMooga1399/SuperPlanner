@@ -513,6 +513,9 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     if trf is not None:
         trf.after_post(s, row, plan)
     _trace.write_posting_edges(s, row)
+    from .kanban import on_posting as _kanban                   # M8-DESIGN 6.2: refill / consumption
+
+    _kanban(s, row)
     if row.type in ("po_receipt", "wo_receipt"):                # M7-DESIGN 5.2: inspection lots + holds
         from .qa_inspection import on_posting
 

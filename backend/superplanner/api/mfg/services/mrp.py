@@ -191,6 +191,12 @@ def create_run(ctx: AppContext, params: MrpParams, *, force_what_if: bool = Fals
         t1 = time.monotonic()
         with repo_m2.snapshot_tx(ctx.db) as s:
             snap = repo_m2.load_mrp_snapshot(s, as_of)
+            from .m8mrp import add_inputs                     # M8-DESIGN 6: forecasts, packs, kanban, rate
+
+            try:
+                snap = add_inputs(s, snap, params)
+            except ApiError as e:
+                raise drop(e.code, e.message, e.details) from None
             token = repo_m2.inputs_token(s)
         ds = snap.dataset
         load_ms = int((time.monotonic() - t1) * 1000)

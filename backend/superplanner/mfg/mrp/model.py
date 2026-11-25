@@ -97,9 +97,10 @@ class MrpParams(MfgModel):
     what_if: bool = Field(default=False, exclude=True)
     #: M8-DESIGN 6: forecast requirements from a version (None = the active one, "none" = no forecast: what-if),
     #: rate supplies from a rate run (None = the published one); `rate_supply false` = pass 1 (rate items planned)
-    forecast_version_id: EntityId | Literal["none"] | None = None
-    rate_supply: bool = True
-    rate_run_id: EntityId | None = None
+    #: (left out of dumps at their defaults so M1-M7 canonical results are unchanged)
+    forecast_version_id: EntityId | Literal["none"] | None = Field(default=None, exclude_if=lambda v: v is None)
+    rate_supply: bool = Field(default=True, exclude_if=lambda v: v is True)
+    rate_run_id: EntityId | None = Field(default=None, exclude_if=lambda v: v is None)
 
     def what_if_inputs(self) -> bool:
         """True when any what-if input other than `as_of` is set (8.14)."""
@@ -125,6 +126,36 @@ class MrpSnapshot:
     demand: list[DemandSnap] = field(default_factory=list)
     work_orders: list[WoSnap] = field(default_factory=list)
     holidays: frozenset[date] = frozenset()
+    #: M8-DESIGN 6: time-zoned forecast requirements after consumption, item planning (replenishment, packs,
+    #: kanban loops), rate supplies of the published rate run, forecast rank and the zone lengths
+    forecasts: list[Any] = field(default_factory=list)                 # forecast.model.ForecastSnap
+    planning: Mapping[str, "PlanningSnap"] = field(default_factory=dict)
+    rate_supplies: list["RateSupplySnap"] = field(default_factory=list)
+    forecast_priority: int = 7
+    zones: tuple[int, int] = (28, 26)                                  # daily days, weekly weeks
+
+
+@dataclass(frozen=True)
+class PlanningSnap:
+    """M8 item planning as MRP sees it."""
+    item_id: str
+    replenishment: str = "mrp"                       # mrp | rate | kanban
+    pack_multiple: float | None = None               # qty_base of the order pack level
+    case_qty: float | None = None
+    pallet_qty: float | None = None
+    kanban_cards: int | None = None
+    kanban_container: float | None = None
+    kanban_lead_days: int | None = None
+
+
+@dataclass(frozen=True)
+class RateSupplySnap:
+    item_id: str
+    avail_date: date
+    qty: float
+    ref_id: str                                      # rate block id
+    label: str
+    start_date: date | None = None                   # production day (components needed); None = avail date
 
 
 # ---------------------------------------------------------------- result parts

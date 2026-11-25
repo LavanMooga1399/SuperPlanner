@@ -134,6 +134,26 @@ class Ctx:
                     for c in w.components if c[1] in ds.items]
         self.llc, self.cycle_wos = low_level_codes(ds.items.keys(), edges, wo_edges)
         self.order = sorted(ds.items, key=lambda i: (self.llc.get(i, 0), ds.items[i].part_number, i))
+        # M8-DESIGN 6
+        self.planning = snap.planning or {}
+        self.zone_daily_end = self.as_of + timedelta(days=snap.zones[0])
+        self.zone_weekly_end = self.zone_daily_end + timedelta(weeks=snap.zones[1])
+
+    def repl(self, item_id: str) -> str:
+        ps = self.planning.get(item_id)
+        return ps.replenishment if ps is not None else "mrp"
+
+    def rate_pass1(self, item_id: str) -> bool:
+        """Pass 1 (`rate_supply false`): rate items are planned in zone buckets (= demand to the rate engine)."""
+        return not self.params.rate_supply and self.repl(item_id) == "rate"
+
+    def zone_end(self, d: date) -> date:
+        """End (exclusive) of the zone bucket starting at `d`: 1 day / 7 days / to the next month start."""
+        if d < self.zone_daily_end:
+            return d + ONE
+        if d < self.zone_weekly_end:
+            return d + timedelta(days=7)
+        return (d.replace(day=1) + timedelta(days=32)).replace(day=1)
 
     # -------------------------------------------------- per-item resolutions
 
@@ -147,7 +167,14 @@ class Ctx:
     def lot(self, item: ItemRecord) -> LotParams:
         lp = self._lot.get(item.id)
         if lp is None:
-            lp = self._lot[item.id] = lot_params(item, self.source(item) if item.make_buy == "buy" else None)
+            lp = lot_params(item, self.source(item) if item.make_buy == "buy" else None)
+            ps = self.planning.get(item.id)
+            if ps is not None and ps.pack_multiple:          # M8 6: order pack level replaces the multiple
+                pk = ps.pack_multiple
+                lp = LotParams(rule=lp.rule, period_days=lp.period_days, fixed_qty=lp.fixed_qty,
+                               moq=math.ceil(lp.moq / pk - 1e-9) * pk if lp.moq > 0 else 0.0, multiple=pk,
+                               pack=lp.pack, count=lp.count)
+            self._lot[item.id] = lp
         return lp
 
     def fast_structure(self, us: Any) -> tuple[tuple[str, float, bool, Any], ...]:
@@ -249,6 +276,10 @@ class Pass:
         self.ss_reqs: list[Req] = []
         self.wo_sups: dict[str, Sup] = {}
         self._keys: dict[tuple[str, str, date], int] = {}
+        # M8-DESIGN 6
+        self.fc_reqs: list[Req] = []
+        self.kanban: list[_Planned] = []
+        self.pack_rounded: list[tuple[_Planned, float]] = []
 
     # -------------------------------------------------- node factories
 
@@ -399,6 +430,28 @@ class Pass:
                              (1, x.priority, x.due_date, num, 0), f"P{x.priority} {label}",
                              SourceRef("extra", f"extra:{i}", label), seg)
             self.demand_reqs.append((r, x, i))
+        # M8-DESIGN 6: forecast requirements (after customer orders of the same date, before safety stock)
+        fp = snap.forecast_priority
+        for f in sorted(snap.forecasts, key=lambda f: (f.item_id, f.date, f.period_start)):
+            if f.item_id not in items or f.qty <= EPS or f.date > c.horizon_end:
+                continue
+            lab = f"Forecast {f.period_start.strftime('%b %Y')}"
+            r = self.new_req(f.item_id, "forecast", max(f.date, as_of), float(f.qty),
+                             (1, fp, f.date, "~FORECAST", 0), f"P{fp} {lab}",
+                             SourceRef("forecast", f"{f.version_id}:{f.period_start.isoformat()}", lab), None)
+            self.fc_reqs.append(r)
+        if p.rate_supply:
+            for rs in sorted(snap.rate_supplies, key=lambda x: (x.item_id, x.avail_date, x.ref_id)):
+                if rs.item_id in items and rs.qty > EPS:
+                    sup = self.new_sup(rs.item_id, "rate", rs.qty, max(rs.avail_date, as_of),
+                                       SourceRef("rate_block", rs.ref_id, rs.label))
+                    start = max(rs.start_date or rs.avail_date, as_of)
+                    sup.start, sup.due = start, sup.avail
+                    po = _Planned(0, "rate", rs.item_id, rs.qty, sup.avail, start, None, sup, None,
+                                  f"{rs.item_id}:rate:{rs.ref_id}", None, "rate", 0)
+                    sup.po = po
+                    if items[rs.item_id].make_buy != "buy":   # components are planned from the rate plan
+                        self.st(rs.item_id).planned.append(po)
         if p.safety_stock:
             for iid in c.order:
                 it = items[iid]
@@ -470,6 +523,12 @@ class Pass:
             else:
                 groups.setdefault(None, []).append((d, r.rank, r.node, r, q))
         keys = sorted(groups, key=lambda k: (0, 0, 0) if k is None else (1, k[0], k[1]))
+        if c.repl(item.id) == "kanban":                  # M8 6: residual -> kanban pseudo supply, no planned order
+            for key in keys:
+                for d, _rk, _nd, r, q in sorted(groups[key], key=lambda x: (x[0], x[1], x[2])):
+                    self.new_kanban(st, d, q, r)
+            return
+        rate1 = c.rate_pass1(item.id)
         for key in keys:
             lst = sorted(groups[key], key=lambda x: (x[0], x[1], x[2]))
             seg = SerialRange(key[0], key[1]) if key is not None else None
@@ -484,10 +543,13 @@ class Pass:
                     continue
                 group = [(r, q)]
                 j = i + 1
-                if lp.rule == "fixed":
+                if lp.rule == "fixed" and not rate1:
                     raw_target = fixed_lots(q, lp)
                 else:
-                    end = d + timedelta(days=lp.period_days if lp.rule == "period" else 1)
+                    if rate1:
+                        end = c.zone_end(d)
+                    else:
+                        end = d + timedelta(days=lp.period_days if lp.rule == "period" else 1)
                     while j < n and lst[j][0] < end:
                         rj, qj = lst[j][3], lst[j][4]
                         qj = self._use_surplus(orders, rj, qj, lst[j][0])
@@ -496,8 +558,12 @@ class Pass:
                         j += 1
                     raw_target = sum(x[1] for x in group)
                 qty = round_order_qty(raw_target, lp)
-                qty = max(qty, sum(x[1] for x in group))
+                need_q = sum(x[1] for x in group)
+                qty = max(qty, need_q)
                 po = self.new_planned(st, d, qty, seg, lp)
+                ps = c.planning.get(item.id)
+                if ps is not None and ps.pack_multiple and qty > max(raw_target, lp.moq) + EPS:
+                    self.pack_rounded.append((po, need_q))
                 orders.append(po)
                 for rr, qq in group:
                     peg(po.sup, rr, qq)
@@ -551,6 +617,24 @@ class Pass:
         st.planned.append(po)
         return po
 
+    def new_kanban(self, st: _State, d: date, qty: float, r: Req) -> None:
+        """M8 6: a kanban item's residual is covered by its loop (pseudo supply on the need date); make items still
+        explode their components from it (start = need - loop lead time)."""
+        c = self.c
+        item = st.item
+        ps = c.planning.get(item.id)
+        lead = int(ps.kanban_lead_days or 0) if ps is not None else 0
+        sup = self.new_sup(item.id, "kanban", qty, d, SourceRef("kanban", item.id, f"Kanban {item.part_number}"))
+        start = c.cal.workday_sub(d, lead) if item.make_buy != "buy" else d - timedelta(days=lead)
+        sup.start, sup.due, sup.mlt = start, d, 0
+        po = _Planned(0, "kanban", item.id, qty, d, start, None, sup, None, f"{item.id}:kanban:{d.isoformat()}",
+                      None, "kanban", 0)
+        sup.po = po
+        peg(sup, r, qty)
+        self.kanban.append(po)
+        if item.make_buy != "buy":
+            st.planned.append(po)
+
     def explode(self, st: _State, po: _Planned) -> None:
         c = self.c
         on = max(po.start, c.as_of)
@@ -585,8 +669,12 @@ class Pass:
                 if group is not None:
                     a[1].append((group, x))          # C19: unrounded primary need (cap of 8.9)
         rank, rank_label = self._best(po.sup, SS_RANK, "Safety stock")
-        src = SourceRef("planned_order", str(po.no), po.sup.ref.label, item_id=po.item_id, node=po.sup.node,
-                        number=f"P-{po.no}")
+        if po.kind in ("kanban", "rate"):
+            src = SourceRef(po.kind if po.kind == "kanban" else "rate_block", po.sup.ref.id, po.sup.ref.label,
+                            item_id=po.item_id, node=po.sup.node)
+        else:
+            src = SourceRef("planned_order", str(po.no), po.sup.ref.label, item_id=po.item_id, node=po.sup.node,
+                            number=f"P-{po.no}")
         serial_child = c.serial_make
         start, seg, sup, okey = po.start, po.segment, po.sup, po.order_key
         comps_out = sup.comps
@@ -608,7 +696,7 @@ class Pass:
             item = st.item
             for s in st.sups:
                 k = s.kind
-                if k in ("stock", "inspection", "po", "pr"):
+                if k in ("stock", "inspection", "po", "pr", "rate", "kanban"):
                     s.proj = s.avail
                 elif k == "planned" and s.po.kind == "buy":
                     if s.start >= as_of:

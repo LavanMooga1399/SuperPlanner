@@ -132,6 +132,8 @@ def build_result(c: Any, p: Any, iterations: int, alt_records: list[dict[str, An
     exceptions = build_exceptions(c, p, alt_records, info)
     by_sev = {s: 0 for s in SEVERITY_ORDER}
     by_code = {code: 0 for code, _s in CODES}
+    for e in exceptions:                         # M8 codes appear only when they occur
+        by_code.setdefault(e.code, 0)
     per_item: dict[str, int] = {}
     for e in exceptions:
         by_sev[e.severity] += 1

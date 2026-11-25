@@ -83,6 +83,12 @@ def test_forecast_run_versions_overrides_activate(api, client):
     api.post(f"/forecast/versions/{v2['id']}/activate", None, 200)
     assert api.get(f"/forecast/versions/{v1['id']}")["status"] == "archived"
     assert [x["id"] for x in api.get("/forecast/versions", status="active")["items"]] == [v2["id"]]
+    # MRP uses the new active version (forecast requirements carry its id)
+    mrp = api.post("/mrp/runs", {"label": "fc", "horizon_days": 120}, None)
+    assert mrp["status"] == "completed", mrp
+    plan = api.get(f"/mrp/runs/{mrp['id']}/items/{items['SYR-3']['id']}")
+    fc = [r for r in plan["requirements"] if r["kind"] == "forecast"]
+    assert fc and {r["source"]["id"].split(":")[0] for r in fc} == {v2["id"]}
     # item view and accuracy answer
     view = api.get(f"/forecast/items/{items['SYR-3']['id']}")
     assert view["result"]["method"] and view["consumption"] and len(view["history"]) == 30
