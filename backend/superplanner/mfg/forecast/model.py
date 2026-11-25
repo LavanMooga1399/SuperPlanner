@@ -220,7 +220,7 @@ class AccuracyRow(MfgModel):
 
 
 class AccuracyReport(MfgModel):
-    lag: Literal[1, 3]
+    lag: int                                       # 1 and 3 in the UI (any 1..12 accepted)
     group_by: Literal["item", "family", "abc", "all"]
     rows: list[AccuracyRow]
     backtest: dict[str, Any] | None = None         # latest run summary

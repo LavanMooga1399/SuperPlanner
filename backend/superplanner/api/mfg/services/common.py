@@ -109,15 +109,14 @@ def touch(row: Any, now: datetime | None = None) -> None:
 
 
 def audit(s: Session, entity: str, entity_id: str | None, action: str, details: dict[str, Any] | None = None, *,
-          before: Any = None, after: Any = None) -> None:
+          before: Any = None, after: Any = None, reason: str | None = None) -> None:
     """M7-DESIGN 4.4: regulated entities in Part 11 mode need a change reason for every action except creates;
     `before` / `after` (record dumps) add field-level changes."""
     from ...audit_diff import EXEMPT_ACTIONS, PART11_ENTITIES, diff, require_reason
     from ...services.problem_service import audit_row
 
-    reason = None
     if entity in PART11_ENTITIES and action not in EXEMPT_ACTIONS:
-        reason = require_reason(s, None)
+        reason = require_reason(s, reason)
     if before is not None or after is not None:
         changes = diff(jsonable(before), jsonable(after))
     elif entity in PART11_ENTITIES:              # review m5: column changes captured at flush (any regulated row)

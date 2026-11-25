@@ -179,7 +179,7 @@ def forecast_item(item_id: str, version_id: str | None = Id(), ctx: AppContext =
 
 
 @router.get("/forecast/accuracy", dependencies=P("view"))
-def forecast_accuracy(lag: Literal[1, 3] = 1, group_by: Literal["item", "family", "abc", "all"] = "abc",
+def forecast_accuracy(lag: int = Query(default=1, ge=1, le=12), group_by: Literal["item", "family", "abc", "all"] = "abc",
                       periods: int = Query(default=6, ge=1, le=36), ctx: AppContext = Depends(get_ctx)
                       ) -> JSONResponse:
     from .services import forecast

@@ -48,7 +48,7 @@ RUN = {"id": _id("fcr_", 1), "number": "FC-000001", "params": {"label": "Monthly
                                   "croston": 8, "zero": 4},
                    "flags": {"FC_HISTORY_SHORT": 4, "FC_OUTLIER": 7, "FC_HIGH_ERROR": 1}},
        "version_id": _id("fcv_", 1), "error": None, "started_at": TS, "finished_at": TS2, "actor_id": USER}
-VERSION = {"id": _id("fcv_", 1), "number": "FC-000001", "name": "Nov 2026 consensus", "run_id": RUN["id"],
+VERSION = {"id": _id("fcv_", 1), "number": "FCV-000001", "name": "Nov 2026 consensus", "run_id": RUN["id"],
            "status": "active", "bucket": "m", "start": "2026-12-01", "periods": 18, "item_count": 182,
            "total_stat": 9_120_000.0, "total_final": 9_480_000.0, "override_count": 3, "activated_by": USER,
            "activated_at": TS2, "note": "", "row_version": 2, "created_at": TS, "updated_at": TS2}
@@ -117,7 +117,7 @@ def examples() -> dict[str, tuple[Any, Any]]:
         "forecast_item": (F.ItemForecastView, {
             "item": ITEM, "planning": {"replenishment": "rate", "forecast": True, "abc": "A", "xyz": "X"},
             "history": [HISTORY], "result": RESULT,
-            "versions": [{"version_id": VERSION["id"], "number": "FC-000001", "status": "active",
+            "versions": [{"version_id": VERSION["id"], "number": "FCV-000001", "status": "active",
                           "periods": MONTHS, "final": [56160.0, 59616.0, 51624.0]}],
             "consumption": [{"item_id": ITEM["id"], "period_start": "2026-12-01", "forecast": 56160.0,
                              "consumed": 21000.0, "open": 35160.0, "orders": 21000.0, "overconsumed": 0.0}],

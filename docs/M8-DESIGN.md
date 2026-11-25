@@ -535,3 +535,27 @@ S0 interpretations and deviations:
   served by `services/planning.py`; SAP settings/sync by `services/sap.py`.
 - `ster_load.release` is an M7 default policy (qa_approver, `approved`, password) and is always signed (also
   outside Part 11 mode), record type `ster_load`.
+
+S1 notes (forecasting, as built):
+- `mfg/forecast/{history,methods,select,consume,overrides,accuracy}.py` (pure, numpy). Selection groups items by
+  series length so every model runs vectorised; measured P1 (selection, 3,000 items x 30 months, all candidates):
+  1.2 s, 65 MB RSS.
+- Holt-Winters is undamped (alpha x beta x gamma grid); Holt damped uses alpha x beta x phi. MA compares grid points
+  by mean (not total) squared one-step error, as the number of fitted points differs per window. When the holdout
+  has no demand, candidates rank by absolute error and WAPE/bias are reported as null.
+- Outlier cleaning: MAD = 0 (constant series with a spike) falls back to the scaled mean absolute deviation;
+  intermittent series (> 30 % zeros) use non-zero statistics and only clip large values. The cleaned value is
+  stored on every source row of the item-period by the refresh; a planner value (`manual_qty`) wins.
+  `PUT /forecast/history/{id}` with `cleaned_qty: null` restores the raw value (no clipping) - that is "reset".
+- History refresh recomputes the `ledger` rows of the bucket from all `ship` transactions (or customer demand
+  lines by due date) with one grouped query; ledger rows whose postings are gone are deleted unless the planner set a
+  value. Imports/SAP rows are never touched except for their cleaned value.
+- ABC in a forecast run: 12 periods of forecast (else history) x standard cost (missing -> volume, `FC_NO_COST`);
+  cumulative share including the item; the top item is always A. Run summary weights WAPE/bias by mean volume.
+- Version numbers use their own series `FCV-000001` (runs `FC-000001`). A run creates a draft version named
+  "<run> statistical" and copies the active version's overrides that still overlap the horizon.
+- Overrides are allowed on drafts only (409 `FC_VERSION_LOCKED`), each change re-applies all overrides of the
+  affected items (family overrides: the whole family) and bumps the version's `row_version` (If-Match of
+  activate). Removal reason comes from `X-SP-Change-Reason` (422 without). Audit rows carry `reason` and the
+  old/new values in `details.changes` (the common `audit()` gained an optional `reason`).
+- Accuracy lag: any 1..12 is accepted (UI uses 1 and 3); computed on read (no per-period cache yet).
