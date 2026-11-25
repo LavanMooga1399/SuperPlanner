@@ -8,6 +8,7 @@ import { Icon, type IconName } from "../../components/Icon";
 import { t, type StringKey } from "../../lib/i18n";
 import { formatDay, formatNumber } from "../../lib/locale";
 import { mfgPaths } from "../lib/paths";
+import { useItemInfo } from "../lib/itemCache";
 import type { Bucket, DemandClass, ForecastMethod, RunStatus, M8ItemRef, Packs, RateRunStatus, SterStatus } from "../api/typesM8";
 import "./planning.css";
 
@@ -217,3 +218,24 @@ const CARD: Record<string, ChipDef> = {
 };
 export const CardChip = ({ s }: { s: string }) => <Chip def={CARD[s]} value={s} testId="kb-card-state" />;
 export const cardStateText = (s: string) => (CARD[s] ? t(CARD[s].label) : s);
+
+/** Part number and name of an item known only by id (cached item record). */
+export function ItemById({ id, part }: { id: string | null | undefined; part?: string | null }) {
+  const info = useItemInfo(id);
+  if (!id) return <span className="muted">–</span>;
+  return (
+    <span className="pl-item mfg-ellipsis" title={info ? `${info.part_number} ${info.description}` : part ?? id}>
+      <Link to={mfgPaths.item(id)} className="mono" onClick={(e) => e.stopPropagation()} tabIndex={-1}>
+        {info?.part_number ?? part ?? "…"}
+      </Link>{" "}
+      {info ? <span className="muted">{info.description}</span> : null}
+    </span>
+  );
+}
+
+/** Stable chart colour per key (item): `--pl-c1..8`, always shown with the part number next to it. */
+export function colorOf(key: string): string {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return `var(--pl-c${(h % 8) + 1})`;
+}
