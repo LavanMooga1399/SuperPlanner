@@ -22,6 +22,7 @@ defusedxml==0.7.1
 # Test-only (pyproject `test` extra); not installed in the Docker images.
 httpx==0.28.1
 pytest==9.1.1
+PyYAML==6.0.2
 PyJWT==2.10.1
 cryptography==46.0.3
 cffi==2.1.1
