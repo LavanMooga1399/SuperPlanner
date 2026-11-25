@@ -485,6 +485,8 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     ctx = _context(s, L, set(item_ids), pairs, today(s), system=system)
     if inp.type == "wo_receipt":                                 # M7 review M5: rework returns what was issued
         _check_rework_receipt(inp, L)
+    if inp.type in ("ship", "transfer_ship", "transfer", "issue_misc"):   # M7 review m7: held serials stay
+        _check_held_serials(s, inp, L)
     exempt = set(hold_exempt or ()) | _rework_exempt(s, L)          # M7-DESIGN 6
     if exempt:
         ctx.hold_exempt = frozenset(exempt)
@@ -574,6 +576,32 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
         return posting_record(s, row, warnings), False
 
     return run_tx(ctx, fn)
+
+
+def _check_held_serials(s: Session, inp: Any, L: _Loaded) -> None:
+    """Shipments and moves are not serial-addressed: a serialised item may leave only as many units as it has
+    in-stock serials that are not on hold (else 422 `INV_SERIAL_ON_HOLD`)."""
+    from ..db_models_m4 import MfgUnitSerialRow
+
+    want: dict[str, float] = {}
+    for ln in inp.lines:
+        item = getattr(ln, "item_id", None)
+        if item is None and getattr(ln, "demand_line_id", None) in L.dlines:
+            item = L.dlines[ln.demand_line_id].item_id
+        if item:
+            want[item] = want.get(item, 0.0) + float(getattr(ln, "qty", 0) or 0)
+    if not want:
+        return
+    held = dict(s.execute(select(MfgUnitSerialRow.item_id, func.count()).where(
+        MfgUnitSerialRow.item_id.in_(sorted(want)), MfgUnitSerialRow.hold.is_(True),
+        MfgUnitSerialRow.status == "in_stock").group_by(MfgUnitSerialRow.item_id)).all())
+    for item, n_held in held.items():
+        free = int(s.execute(select(func.count()).select_from(MfgUnitSerialRow).where(
+            MfgUnitSerialRow.item_id == item, MfgUnitSerialRow.status == "in_stock",
+            MfgUnitSerialRow.hold.is_(False))).scalar() or 0)
+        if want[item] > free + 1e-6:
+            raise ApiError(422, "INV_SERIAL_ON_HOLD", f"{int(n_held)} unit(s) of this item are on hold; only {free} "
+                           "can leave stock.", {"item_id": item, "held": int(n_held), "available": free})
 
 
 def _check_rework_receipt(inp: Any, L: _Loaded) -> None:

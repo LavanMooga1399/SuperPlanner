@@ -37,6 +37,7 @@ const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "pl
 type UnitRow = NonNullable<Recall["report"]>["units"][number];
 type LotRow = NonNullable<Recall["report"]>["lots"][number];
 type CustomerRow = NonNullable<Recall["report"]>["by_customer"][number];
+type ProgramRow = NonNullable<Recall["report"]>["by_program"][number];
 
 const RECALL_LIST_COLS: Column<Recall>[] = [
   {
@@ -234,6 +235,11 @@ export function RecallPage() {
   const all = rep?.units ?? [];
   const by = (st: string) => all.filter((u) => u.status === st).length;
   const exact = all.filter((u) => u.precision === "exact").length;
+  // lot-controlled (non-serialised) material has no units: show quantities, shipments and lots instead
+  const cnt = rep?.counts;
+  const qtyMode = all.length === 0 && !!cnt && ((cnt.qty_affected ?? 0) > 0 || (cnt.shipments ?? 0) > 0 || (cnt.lots ?? 0) > 0);
+  const customers = cnt?.customers ?? (rep?.by_customer ?? []).filter((c) => c.customer !== "(none)").length;
+  const lotsOnHand = new Set((rep?.lots ?? []).filter((l) => l.on_hand > 0).map((l) => l.lot_code)).size;
   const lotsToMove = (rep?.lots ?? []).filter((l) => l.on_hand > 0 && !l.on_hold);
   return (
     <div className="col gap-lg print-page" data-testid="recall-page">
@@ -256,35 +262,58 @@ export function RecallPage() {
       <p className="muted small" style={{ margin: 0 }}>
         {t("mfg.recallPages.text.created", { v: r.include_possible ? t("mfg.recallPages.str.includesPossibleLinksLotLevel") : t("mfg.recallPages.str.exactLinksOnly"), createdat: formatDateTime(r.created_at) })}
       </p>
-      <div className="kpis" data-testid="recall-summary" data-units={all.length}>
-        <div className="card kpi">
-          <div className="kpi-label">{t("mfg.recallPages.text.affectedUnits")}</div>
-          <div className="kpi-value">{fmtNum(all.length)}</div>
-          <div className="kpi-sub">
-            {fmtNum(exact)} exact · {fmtNum(all.length - exact)} possible
+      <div className="kpis" data-testid="recall-summary" data-units={all.length} data-qty={qtyMode ? cnt?.qty_affected ?? 0 : undefined}>
+        {qtyMode ? (
+          <div className="card kpi">
+            <div className="kpi-label">{t("mfg.recallPages.text.affectedQty")}</div>
+            <div className="kpi-value">{fmtNum(cnt?.qty_affected ?? 0)}</div>
+            <div className="kpi-sub">
+              {t("mfg.recallPages.text.shippedAndStock", { shipped: fmtNum(cnt?.qty_shipped ?? 0), stock: fmtNum(cnt?.qty_in_stock ?? 0) })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="card kpi">
+            <div className="kpi-label">{t("mfg.recallPages.text.affectedUnits")}</div>
+            <div className="kpi-value">{fmtNum(all.length)}</div>
+            <div className="kpi-sub">{t("mfg.recallPages.text.exactPossible", { exact: fmtNum(exact), possible: fmtNum(all.length - exact) })}</div>
+          </div>
+        )}
         <div className="card kpi">
           <div className="kpi-label">{t("mfg.recallPages.text.shipped")}</div>
-          <div className="kpi-value" style={{ color: by("shipped") ? "var(--danger)" : undefined }}>
-            {fmtNum(by("shipped"))}
-          </div>
-          <div className="kpi-sub">{t("mfg.recallPages.text.toCustomers", { fmtNum: fmtNum(rep?.by_customer.length ?? 0) })}</div>
+          {qtyMode ? (
+            <>
+              <div className="kpi-value" style={{ color: (cnt?.qty_shipped ?? 0) > 0 ? "var(--danger)" : undefined }}>{fmtNum(cnt?.qty_shipped ?? 0)}</div>
+              <div className="kpi-sub">
+                {t("mfg.recallPages.text.shipmentsToCustomers", { shipments: fmtNum(cnt?.shipments ?? rep?.shipments?.length ?? 0), customers: fmtNum(customers) })}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="kpi-value" style={{ color: by("shipped") ? "var(--danger)" : undefined }}>{fmtNum(by("shipped"))}</div>
+              <div className="kpi-sub">{t("mfg.recallPages.text.toCustomers", { fmtNum: fmtNum(customers) })}</div>
+            </>
+          )}
         </div>
         <div className="card kpi">
           <div className="kpi-label">{t("mfg.recallPages.text.inStock")}</div>
-          <div className="kpi-value">{fmtNum(by("in_stock"))}</div>
-          <div className="kpi-sub">{fmtNum(rep?.lots.length ?? 0)} lots</div>
+          <div className="kpi-value">{fmtNum(qtyMode ? cnt?.qty_in_stock ?? 0 : by("in_stock"))}</div>
+          <div className="kpi-sub">
+            {qtyMode
+              ? t("mfg.recallPages.text.lotsOnHand", { n: fmtNum(lotsOnHand) })
+              : t("mfg.recallPages.text.lotsCount", { n: fmtNum(rep?.lots.length ?? 0) })}
+          </div>
         </div>
         <div className="card kpi">
           <div className="kpi-label">{t("mfg.recallPages.text.inProduction")}</div>
           <div className="kpi-value">{fmtNum(by("wip"))}</div>
           <div className="kpi-sub">{t("mfg.recallPages.text.workOrders", { fmtNum: fmtNum(rep?.wos.length ?? 0) })}</div>
         </div>
-        <div className="card kpi">
-          <div className="kpi-label">{t("mfg.recallPages.text.fittedIntoParents")}</div>
-          <div className="kpi-value">{fmtNum(by("consumed"))}</div>
-        </div>
+        {qtyMode ? null : (
+          <div className="card kpi">
+            <div className="kpi-label">{t("mfg.recallPages.text.fittedIntoParents")}</div>
+            <div className="kpi-value">{fmtNum(by("consumed"))}</div>
+          </div>
+        )}
       </div>
 
       <section className="card no-print" data-testid="recall-quarantine">
@@ -349,10 +378,16 @@ export function RecallPage() {
             <DataTable
               rows={rep?.by_customer ?? []}
               columns={[
-                { key: "customer", header: "Customer", width: "minmax(160px, 1fr)", sortValue: (c) => c.customer, render: (c) => c.customer },
-                { key: "units", header: "Units", width: "110px", align: "right", sortValue: (c) => c.units, render: (c) => fmtNum(c.units) },
-                ...(rep?.by_customer.some((c) => c.exact !== undefined)
-                  ? [{ key: "exact", header: "Exact", width: "100px", align: "right" as const, sortValue: (c: CustomerRow) => c.exact ?? null, render: (c: CustomerRow) => (c.exact === undefined ? "" : fmtNum(c.exact)) }]
+                { key: "customer", header: t("mfg.recallPages.col.customer"), width: "minmax(160px, 1fr)", sortValue: (c) => c.customer, render: (c) => c.customer },
+                ...(qtyMode
+                  ? [
+                      { key: "shipments", header: t("mfg.recallPages.col.shipments"), width: "110px", align: "right" as const, sortValue: (c: CustomerRow) => c.shipments ?? 0, render: (c: CustomerRow) => fmtNum(c.shipments ?? 0) },
+                      { key: "qty", header: t("mfg.recallPages.col.qtyShipped"), width: "130px", align: "right" as const, sortValue: (c: CustomerRow) => c.qty ?? 0, render: (c: CustomerRow) => fmtNum(c.qty ?? 0) },
+                      { key: "lots", header: t("mfg.recallPages.col.lots"), width: "minmax(140px, 1fr)", sortValue: (c: CustomerRow) => (c.lots ?? []).join(", "), render: (c: CustomerRow) => <span className="mono">{(c.lots ?? []).join(", ")}</span> },
+                    ]
+                  : [{ key: "units", header: t("mfg.recallPages.col.units"), width: "110px", align: "right" as const, sortValue: (c: CustomerRow) => c.units, render: (c: CustomerRow) => fmtNum(c.units) }]),
+                ...(!qtyMode && rep?.by_customer.some((c) => c.exact !== undefined)
+                  ? [{ key: "exact", header: t("mfg.recallPages.col.exact"), width: "100px", align: "right" as const, sortValue: (c: CustomerRow) => c.exact ?? null, render: (c: CustomerRow) => (c.exact === undefined ? "" : fmtNum(c.exact)) }]
                   : []),
               ]}
               rowKey={(_, i) => i}
@@ -369,8 +404,13 @@ export function RecallPage() {
               <DataTable
                 rows={rep.by_program}
                 columns={[
-                  { key: "program", header: "Programme", width: "minmax(160px, 1fr)", sortValue: (c) => c.program, render: (c) => c.program },
-                  { key: "units", header: "Units", width: "110px", align: "right", sortValue: (c) => c.units, render: (c) => fmtNum(c.units) },
+                  { key: "program", header: t("mfg.recallPages.col.programme"), width: "minmax(160px, 1fr)", sortValue: (c) => c.program, render: (c) => c.program },
+                  ...(qtyMode
+                    ? [
+                        { key: "shipments", header: t("mfg.recallPages.col.shipments"), width: "110px", align: "right" as const, sortValue: (c: ProgramRow) => c.shipments ?? 0, render: (c: ProgramRow) => fmtNum(c.shipments ?? 0) },
+                        { key: "qty", header: t("mfg.recallPages.col.qtyShipped"), width: "130px", align: "right" as const, sortValue: (c: ProgramRow) => c.qty ?? 0, render: (c: ProgramRow) => fmtNum(c.qty ?? 0) },
+                      ]
+                    : [{ key: "units", header: t("mfg.recallPages.col.units"), width: "110px", align: "right" as const, sortValue: (c: ProgramRow) => c.units ?? 0, render: (c: ProgramRow) => fmtNum(c.units ?? 0) }]),
                 ]}
                 rowKey={(_, i) => i}
                 label={t("mfg.recallPages.label.affectedUnitsPerProgramme")}

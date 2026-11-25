@@ -241,3 +241,71 @@ def test_m3_correction_keeps_nonconforming_qty(api):
     ev(api, op10["id"], "correct", corrects_event_id=r["event"]["id"], qty_scrap=2)
     ops = {o["seq"]: o for o in api.get(f"/work-orders/{x['wo']['id']}/operations")["items"]}
     assert ops[10]["qty_scrap"] == 6                       # 2 scrap + 4 nonconforming, counted once
+
+
+def test_m5_old_new_values_for_regulated_entities(w):
+    api = w.owner.api
+    loc = api.get("/locations")["items"][0]
+    w.part11_on()
+    hdr = {"X-SP-Change-Reason": "rename"}
+    api.req("PUT", f"/locations/{loc['id']}", 200, json={"code": loc["code"], "name": "Main stores", "kind": "stores"},
+            headers={**hdr, "If-Match": f'"{loc["row_version"]}"'})
+    ev = [e for e in api.get("/audit/record", entity_type="location", entity_id=loc["id"])["items"]
+          if e["action"] == "update"][-1]
+    assert {"path": "name", "old": loc["name"], "new": "Main stores"} in [
+        {k: c[k] for k in ("path", "old", "new")} for c in ev["changes"]] and ev["reason"] == "rename"
+    m = w.member("eng", ["qa_engineer"], enroll=False)
+    mem = next(x for x in api.get("/members")["items"] if x["user"]["id"] == m.user_id)
+    api.req("PUT", f"/members/{mem['id']}", 200, json={"roles": ["qa_approver"]},
+            headers={**hdr, "If-Match": f'"{mem["row_version"]}"'})
+    ev = [e for e in api.get("/audit/record", entity_type="member", entity_id=mem["id"])["items"]][-1]
+    assert any(c["path"].startswith("roles") for c in ev["changes"])
+
+
+def test_m6_migration_recall_quarantined_lots_become_recall_holds(empty_pg_db):
+    from datetime import UTC, datetime
+
+    from superplanner import migrate
+    from test_m7_s0_contract import _ins
+
+    url = empty_pg_db()
+    migrate.run_alembic_upgrade(url, "0009_ux")
+    eng = sa.create_engine(url)
+    try:
+        with eng.begin() as c:
+            migrate.ensure_local_user_conn(c)
+            _ins(c, "mfg_items", id="itm_1", part_number="P", revision="A", uom="EA", make_buy="buy",
+                 lot_rule="lot_for_lot", lot_controlled=True, active=True, attributes={})
+            _ins(c, "mfg_lots", id="lot_1", item_id="itm_1", lot_code="L1", hold=True)
+            _ins(c, "mfg_lots", id="lot_2", item_id="itm_1", lot_code="L2", hold=True)
+            _ins(c, "mfg_recalls", id="rcl_1", number="RCL-000001", name="R", sources=[], include_possible=True,
+                 report={"lots": [{"lot_id": "lot_1"}]}, quarantined_at=datetime.now(UTC), actor_id="usr_local",
+                 row_version=1)
+        migrate.run_alembic_upgrade(url)
+        with eng.begin() as c:
+            rows = dict(c.execute(sa.text("SELECT lot_id, source FROM mfg_lot_holds")).all())
+        assert rows == {"lot_1": "recall", "lot_2": "manual"}
+    finally:
+        eng.dispose()
+
+
+def test_m7_held_serial_blocks_shipment(api, client):
+    it = api.item("DEV")
+    st = api.get("/locations")["items"][0] if api.get("/locations")["items"] else api.location("ST")
+    api.receive(it["id"], st["id"], 2)
+    eng = sa.create_engine(str(client.app.state.ctx.db.engine.url.render_as_string(hide_password=False)))
+    with eng.begin() as c:
+        for k, held in ((1, True), (2, False)):
+            c.execute(sa.text("INSERT INTO mfg_unit_serials (id, owner_id, item_id, serial, status, captured_at, "
+                              "row_version, created_at, updated_at, hold) VALUES (:i, 'usr_local', :it, :s, "
+                              "'in_stock', now(), 1, now(), now(), :h)"),
+                      {"i": f"srl_{k:032x}", "it": it["id"], "s": f"SN{k}", "h": held})
+    eng.dispose()
+    o = api.post("/demand-orders", {"number": "DO-1", "demand_type": "customer", "customer": "C",
+                                    "lines": [{"line_no": 1, "item_id": it["id"], "qty": 2, "due_date": "2026-12-01"}]})
+    if o["status"] == "draft":
+        o = api.post(f"/demand-orders/{o['id']}/open", {}, status=200, version=o["row_version"])
+    api.err("POST", "/inventory/postings", 422, "INV_SERIAL_ON_HOLD", json={"type": "ship", "lines": [
+        {"demand_line_id": o["lines"][0]["id"], "location_id": st["id"], "qty": 2}]})
+    api.post("/inventory/postings", {"type": "ship", "lines": [
+        {"demand_line_id": o["lines"][0]["id"], "location_id": st["id"], "qty": 1}]})

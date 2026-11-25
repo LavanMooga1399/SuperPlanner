@@ -780,18 +780,32 @@ function drawBar(
     g.strokeRect(xa - 2, top - 2, Math.max(2, xb - xa) + 4, h + 4);
     g.lineWidth = 1;
   }
-  // label with markers
-  const w = xb - xa;
-  if (w > 14) {
+  // label with markers: inside one piece only (a split bar's pauses may hold other bars), shown only when it fits;
+  // too long -> ellipsis; too short for a readable stub -> no text (the tooltip and keyboard selection still name it)
+  const seg = segs.reduce((best, cur) => (cur[1] - cur[0] > best[1] - best[0] ? cur : best), segs[0]);
+  const la = Math.max(seg[0], 0);
+  const avail = seg[1] - la - 6;
+  if (avail >= 24) {
     const marks = `${late ? "! " : ""}${b.frozen ? "F " : ""}${b.locked ? "L " : ""}${b.split && b.split.count > 1 ? `${b.split.index + 1}/${b.split.count} ` : ""}`;
     g.save();
-    g.beginPath();
-    g.rect(xa, top, w, h);
-    g.clip();
-    g.fillStyle = C.barText;
     g.font = "11px system-ui, sans-serif";
-    g.textBaseline = "middle";
-    g.fillText(`${marks}${b.order_number} ${b.item_part_number}`, Math.max(xa, 0) + 3, top + h / 2 + 0.5);
+    let text = `${marks}${b.order_number} ${b.item_part_number}`;
+    if (g.measureText(text).width > avail) {
+      // drop the part number first, then shorten with an ellipsis
+      text = `${marks}${b.order_number}`;
+      if (g.measureText(text).width > avail) {
+        while (text.length > 1 && g.measureText(`${text}…`).width > avail) text = text.slice(0, -1);
+        text = text.length >= 3 ? `${text.trimEnd()}…` : "";
+      }
+    }
+    if (text) {
+      g.beginPath();
+      g.rect(seg[0], top, seg[1] - seg[0], h);
+      g.clip();
+      g.fillStyle = C.barText;
+      g.textBaseline = "middle";
+      g.fillText(text, la + 3, top + h / 2 + 0.5);
+    }
     g.restore();
   }
   g.globalAlpha = 1;

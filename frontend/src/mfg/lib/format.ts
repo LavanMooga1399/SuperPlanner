@@ -3,11 +3,11 @@ import type { MakeBuy, Weekday } from "../api/types";
 import { formatDateTime } from "../../lib/locale";
 import { t } from "../../lib/i18n";
 
-/** Up to 6 decimals (M 4.4: outputs rounded to 6 decimals for display), no thousands separators. */
+/** Up to 3 decimals, trailing zeros trimmed, no thousands separators (form values and compact cells). */
 export function fmtQty(x: number | null | undefined): string {
   if (x === null || x === undefined || Number.isNaN(x)) return "";
-  const r = Math.round(x * 1e6) / 1e6;
-  return String(r);
+  if (x !== 0 && Math.abs(x) < 1) return String(Number(x.toPrecision(3)));
+  return String(Math.round(x * 1e3) / 1e3);
 }
 
 /** Minutes with up to 6 decimals (time preview: the numbers equal the API response). */

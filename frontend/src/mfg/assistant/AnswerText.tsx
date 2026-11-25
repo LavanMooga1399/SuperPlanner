@@ -19,7 +19,14 @@ export function safeInternalLink(link: string | null | undefined): string | null
   return link;
 }
 
-const MARKER = /\[([RQ]\d{1,4})\]/g;
+/**
+ * Citation markers: `[R7]`, `[Q2]`, adjacent `[R7][R8]` and grouped `[R7, R8]` / `[R7; R8]` / `[R7,R8]` (models
+ * sometimes group them). Each known ref becomes its own link; a marker without any known ref is dropped.
+ */
+const MARKER = /\[\s*([RQ]\d{1,4}(?:\s*[,;]\s*[RQ]\d{1,4})*)\s*\]/gi;
+export function markerRefs(group: string): string[] {
+  return group.split(/\s*[,;]\s*/).map((r) => r.trim().toUpperCase()).filter(Boolean);
+}
 
 function CitationLink({ c, onNavigate }: { c: Citation; onNavigate?: () => void }) {
   const to = safeInternalLink(c.link);
@@ -35,6 +42,11 @@ function CitationLink({ c, onNavigate }: { c: Citation; onNavigate?: () => void 
       [{text}]
     </Link>
   );
+}
+
+/** Refs already shown as markers inside a text (so a ref list does not repeat them). */
+function inlineRefs(text: string): Set<string> {
+  return new Set([...text.matchAll(MARKER)].flatMap((m) => markerRefs(m[1])));
 }
 
 /** Inline: **bold**, `code`, [Rn] markers; everything else literal text. */
@@ -56,8 +68,10 @@ function inline(text: string, cites: Map<string, Citation>, key: string, onNavig
       for (const m of body.matchAll(MARKER)) {
         const at = m.index ?? 0;
         if (at > last) nodes.push(body.slice(last, at));
-        const c = cites.get(m[1]);
-        if (c) nodes.push(<CitationLink key={`${key}r${i}-${j}-${at}`} c={c} onNavigate={onNavigate} />);
+        markerRefs(m[1]).forEach((ref, n) => {
+          const c = cites.get(ref);
+          if (c) nodes.push(<CitationLink key={`${key}r${i}-${j}-${at}-${n}`} c={c} onNavigate={onNavigate} />);
+        });
         last = at + m[0].length;
       }
       if (last < body.length) nodes.push(body.slice(last));
@@ -126,7 +140,7 @@ export function parseBlocks(src: string): Block[] {
 }
 
 export function AnswerText({ text, citations, onNavigate, testId = "asst-answer" }: { text: string; citations: Citation[]; onNavigate?: () => void; testId?: string }) {
-  const cites = new Map(citations.map((c) => [c.ref, c]));
+  const cites = new Map(citations.map((c) => [c.ref.toUpperCase(), c]));
   const blocks = parseBlocks(text);
   return (
     <div className="asst-answer" data-testid={testId}>
@@ -170,7 +184,7 @@ export function CitationList({ citations, onNavigate }: { citations: Citation[];
 
 /** A quick explanation (1.7): sections of plain-text items, each with its citation refs as internal links. */
 export function QuickView({ q, onNavigate }: { q: QuickExplanation; onNavigate?: () => void }) {
-  const cites = new Map(q.citations.map((c) => [c.ref, c]));
+  const cites = new Map(q.citations.map((c) => [c.ref.toUpperCase(), c]));
   const sections = q.sections.filter((s) => s.items.length);
   if (!sections.length)
     return (
@@ -186,11 +200,13 @@ export function QuickView({ q, onNavigate }: { q: QuickExplanation; onNavigate?:
           <ul>
             {s.items.map((it, j) => (
               <li key={j}>
-                {it.text}{" "}
-                {it.refs.map((r) => {
-                  const c = cites.get(r);
-                  return c ? <CitationLink key={r} c={c} onNavigate={onNavigate} /> : null;
-                })}
+                {inline(it.text, cites, `q${i}-${j}`, onNavigate)}{" "}
+                {it.refs
+                  .filter((r) => !inlineRefs(it.text).has(r.toUpperCase()))
+                  .map((r) => {
+                    const c = cites.get(r.toUpperCase()) ?? cites.get(r);
+                    return c ? <CitationLink key={r} c={c} onNavigate={onNavigate} /> : null;
+                  })}
               </li>
             ))}
           </ul>

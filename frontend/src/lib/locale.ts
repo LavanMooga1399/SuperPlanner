@@ -69,3 +69,20 @@ export function formatDateRange(from: string | null | undefined, to: string | nu
   if (a[3] === b[3]) return formatDay(to);
   return `${Number(a[3])}–${formatDay(to)}`;
 }
+
+/** Units of measure counted in whole pieces (quantities shown without decimals). */
+const COUNT_UOMS = new Set(["EA", "EACH", "PC", "PCS", "PCE", "UN", "UNIT", "UNITS", "U", "NOS", "NO", "SET", "SETS", "PR", "PAIR", "BOX", "BX", "CS", "CASE", "PK", "PACK", "ROLL", "RL", "REEL", "BAG", "BTL", "KIT", "LOT", "PAL", "SHEET", "SH", "TRAY", "VIAL", "AMP", "DOZ"]);
+
+/**
+ * Quantity by unit of measure (demo review): count units (EA, PCS, ...) as whole numbers; other units (kg, m, L)
+ * with at most 3 decimals, trailing zeros trimmed; grouped by locale. Unknown unit = up to 3 decimals.
+ */
+export function formatQty(x: number | null | undefined, uom?: string | null): string {
+  if (x === null || x === undefined || Number.isNaN(x)) return "";
+  const count = uom ? COUNT_UOMS.has(uom.trim().toUpperCase()) : false;
+  const v = count && Math.abs(x - Math.round(x)) < 1e-6 ? Math.round(x) : x;
+  if (count && Number.isInteger(v)) return formatNumber(v, 0);
+  // small amounts keep 3 significant digits (0.00025 kg), larger ones at most 3 decimals
+  if (v !== 0 && Math.abs(v) < 1) return Number(v.toPrecision(3)).toLocaleString(LOCALE, { maximumFractionDigits: 10 });
+  return formatNumber(v, 3);
+}

@@ -262,7 +262,7 @@ function TreeNode({ n, level, isRoot, onRetrace, onRecall }: { n: TraceNode; lev
           <span className="mono">{n.label}</span>
         )}
         {n.item ? <span className="mono faint small">{n.item.part_number}</span> : null}
-        {n.qty !== null && n.qty !== undefined ? <span className="small">x {fmtNum(n.qty)}</span> : null}
+        {n.qty !== null && n.qty !== undefined ? <span className="small">× {fmtNum(n.qty, n.item?.uom)}{n.item?.uom ? ` ${n.item.uom}` : ""}</span> : null}
         {!isRoot ? <PrecisionTag p={n.precision} /> : null}
         {n.status ? <span className="small muted">{n.status.replace(/_/g, " ")}</span> : null}
         {n.location ? <span className="small muted">{tx("mfg.tracePages.text.at", { location: n.location })}</span> : null}

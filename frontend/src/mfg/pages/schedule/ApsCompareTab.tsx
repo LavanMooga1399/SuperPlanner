@@ -50,8 +50,9 @@ function Delta({ v, unit, lowerIsBetter = true }: { v: number | null; unit?: "mi
   const better = lowerIsBetter ? v < 0 : v > 0;
   return (
     <span className={better ? "mfg-pos" : "mfg-neg"} data-testid="aps-compare-delta" data-delta={v}>
-      <Icon name={better ? "check" : "alert"} size={12} /> {v > 0 ? "+" : "−"}
-      {unit === "min" ? fmtDuration(Math.abs(v)) : fmtNum(Math.abs(Math.round(v * 10) / 10))} {better ? "better" : "worse"}
+      <Icon name={better ? "check" : "alert"} size={12} />{" "}
+      {tr(v > 0 ? "mfg.apsCompareTab.tpl.deltaMore" : "mfg.apsCompareTab.tpl.deltaLess", { v: `${v > 0 ? "+" : "−"}${unit === "min" ? fmtDuration(Math.abs(v)) : fmtNum(Math.abs(Math.round(v * 10) / 10))}` })}{" "}
+      <span className="small">({better ? tr("mfg.apsCompareTab.str.betterInB") : tr("mfg.apsCompareTab.str.worseInB")})</span>
     </span>
   );
 }
@@ -197,9 +198,9 @@ export function ApsCompareTab() {
                 <thead>
                   <tr>
                     <th />
-                    <th className="right">A</th>
-                    <th className="right">B</th>
-                    <th>{t("mfg.apsCompareTab.head.change")}</th>
+                    <th className="right" title={apsRunTitle(c.a)}>{tr("mfg.apsCompareTab.tpl.colA", { run: apsRunTitle(c.a) })}</th>
+                    <th className="right" title={apsRunTitle(c.b)}>{tr("mfg.apsCompareTab.tpl.colB", { run: apsRunTitle(c.b) })}</th>
+                    <th>{tr("mfg.apsCompareTab.head.changeAB")}</th>
                   </tr>
                 </thead>
                 <tbody>

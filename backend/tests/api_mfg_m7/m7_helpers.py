@@ -93,7 +93,7 @@ def preview(p: Person, record_type: str, record_id: str, action: str, decision: 
 
 def signature(p: Person, record_type: str, record_id: str, action: str, meaning: str, *, password: str = PASSWORD,
               totp_code: str | None = None, decision: str | None = None, content_hash: str | None = None,
-              comment: str = "") -> dict[str, Any]:
+              comment: str = "Reviewed") -> dict[str, Any]:
     h = content_hash or preview(p, record_type, record_id, action, decision)["content_hash"]
     out: dict[str, Any] = {"meaning": meaning, "content_hash": h, "username": p.email, "password": password,
                            "comment": comment}

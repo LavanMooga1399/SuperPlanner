@@ -158,6 +158,7 @@ def update_routing(ctx: AppContext, routing_id: str, inp: RoutingInput, if_match
             raise ApiError(422, "VALIDATION_ERROR", "The item of a routing cannot be changed.",
                            {"errors": [{"loc": ["body", "item_id"], "msg": "must equal the stored item_id",
                                         "type": "immutable"}]})
+        before_rec = routing_record(s, row)                    # review m5: old/new values
         item = item_for_document(s, row.item_id, routing=True)
         check_serial(item, inp.serial_from)
         existing = set(s.execute(select(MfgOperationRow.id).where(MfgOperationRow.routing_id == row.id)).scalars())
@@ -175,8 +176,10 @@ def update_routing(ctx: AppContext, routing_id: str, inp: RoutingInput, if_match
         _write_ops(s, row.id, inp.operations)
         touch(row)
         s.flush()
-        audit(s, "routing", row.id, "update", {"version": row.row_version, "operations": len(inp.operations)})
-        return routing_record(s, row)
+        after_rec = routing_record(s, row)
+        audit(s, "routing", row.id, "update", {"version": row.row_version, "operations": len(inp.operations)},
+              before=before_rec, after=after_rec)
+        return after_rec
 
 
 def delete_routing(ctx: AppContext, routing_id: str, if_match: str | None) -> None:

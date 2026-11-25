@@ -33,7 +33,7 @@ IGNORED = frozenset({"row_version", "updated_at", "created_at", "signatures", "l
 #: M7-DESIGN 4.4 registry: audit entity types (without the `mfg_` prefix) of regulated records
 PART11_ENTITIES: frozenset[str] = frozenset({
     "item", "bom", "routing", "operation", "plant", "location", "lot", "hold", "work_order", "change_request",
-    "member", "plant_roles", "qa_settings", "sampling_scheme", "inspection_plan", "inspection_lot", "ncr", "capa",
+    "member", "plant_roles", "qa_settings", "eco", "sampling_scheme", "inspection_plan", "inspection_lot", "ncr", "capa",
     "capa_action", "complaint", "field_action", "field_action_unit", "equipment", "calibration", "esig_policy",
     "attachment", "link"})
 #: actions that never need a reason (creates, postings and their replays, sample loads, imports with their own reason)
@@ -126,6 +126,63 @@ def diff(before: Any, after: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     _walk("", _plain(before) if before is not None else {}, _plain(after) if after is not None else {}, out)
     return out[:MAX_CHANGES]
+
+
+# ---------------------------------------------------------------- column changes of regulated rows (review m5)
+
+SKIP_COLUMNS = frozenset({"row_version", "updated_at", "created_at", "data_version", "owner_id"})
+_REGULATED_TABLES = frozenset({"mfg_items", "mfg_boms", "mfg_routings", "mfg_operations", "mfg_locations",
+                               "mfg_plant_members", "mfg_plant", "mfg_work_orders", "mfg_change_requests",
+                               "mfg_lots"})
+
+
+def _capture(session: Session, _ctx: Any, _instances: Any) -> None:
+    """before_flush: remember the first old and the latest new value of every changed column of a regulated row
+    (`session.info["sp_field_changes"][row id]`); `services.common.audit` attaches them to the row's event."""
+    from sqlalchemy import inspect as sa_inspect
+
+    store = None
+    for obj in list(session.dirty):
+        table = getattr(getattr(obj, "__table__", None), "name", None)
+        if table not in _REGULATED_TABLES:
+            continue
+        st = sa_inspect(obj)
+        for attr in st.mapper.column_attrs:
+            if attr.key in SKIP_COLUMNS:
+                continue
+            h = st.attrs[attr.key].history
+            if not h.has_changes():
+                continue
+            if store is None:
+                store = session.info.setdefault("sp_field_changes", {})
+            rec = store.setdefault(getattr(obj, "id", None), {})
+            old = h.deleted[0] if h.deleted else None
+            new = h.added[0] if h.added else None
+            if attr.key in rec:
+                rec[attr.key] = (rec[attr.key][0], new)
+            else:
+                rec[attr.key] = (old, new)
+
+
+def install_capture() -> None:
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session as _S
+
+    if not event.contains(_S, "before_flush", _capture):
+        event.listen(_S, "before_flush", _capture)
+
+
+def pending_changes(s: Session, row_id: str | None) -> list[dict[str, Any]] | None:
+    if not row_id:
+        return None
+    s.flush()
+    rec = (s.info.get("sp_field_changes") or {}).pop(row_id, None)
+    if not rec:
+        return None
+    return diff({k: v[0] for k, v in rec.items()}, {k: v[1] for k, v in rec.items()})
+
+
+install_capture()
 
 
 def part11_on(s: Session) -> bool:

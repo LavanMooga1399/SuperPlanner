@@ -371,8 +371,13 @@ export interface RecallReport {
   units: { serial: string; item: string; status: string; precision: Precision; customer?: string | null; demand_order?: string | null; shipped_on?: IsoDate | null; location?: string | null; wo?: string | null; parent?: string | null; path: string[] }[];
   lots: { lot_code: string; item: string; on_hand: number; location: string | null; on_hold?: boolean; id?: EntityId }[];
   wos: { number: string; status: string; id?: EntityId }[];
-  by_customer: { customer: string; units: number; exact?: number; possible?: number }[];
-  by_program: { program: string; units: number }[];
+  by_customer: { customer: string; units: number; exact?: number; possible?: number; shipments?: number; qty?: number; lots?: string[] }[];
+  shipments?: { customer: string | null; qty: number; program?: string | null; lots?: string[]; [k: string]: unknown }[];
+  counts?: {
+    units?: number; units_exact?: number; lots?: number; wos?: number; shipments?: number;
+    qty_shipped?: number; qty_in_stock?: number; qty_affected?: number; customers?: number;
+  };
+  by_program: { program: string; units?: number; shipments?: number; qty?: number }[];
   open_pos: { number: string; item?: string; qty?: number }[];
 }
 

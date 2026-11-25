@@ -1,8 +1,7 @@
 /** Labels and number formatting for the M2 screens (plain words; codes only where planners use them). */
 import type { DemandType, PostingType, Role } from "../api/typesM2";
-import { fmtQty } from "./format";
 import { t as tr } from "../../lib/i18n";
-import { LOCALE } from "../../lib/locale";
+import { formatQty, LOCALE } from "../../lib/locale";
 
 export const POSTING_LABEL: Record<PostingType, string> = {
   receipt_misc: tr("mfg.formatM2.str.receiptNoOrder"),
@@ -38,14 +37,15 @@ export const ROLE_OPTIONS: { value: Role; label: string }[] = [
 
 /** Quantity with the unit, e.g. "30 EA". */
 export function qtyUom(q: number | null | undefined, uom?: string): string {
-  const t = fmtQty(q);
+  const t = formatQty(q, uom);
   return t && uom ? `${t} ${uom}` : t;
 }
 
-/** Thousands separators for counts and large quantities. */
-export function fmtNum(x: number | null | undefined): string {
+/** Thousands separators for counts and quantities: at most 3 decimals, trailing zeros trimmed (pass the UoM for
+ *  count units, which show whole numbers). */
+export function fmtNum(x: number | null | undefined, uom?: string | null): string {
   if (x === null || x === undefined || Number.isNaN(x)) return "";
-  return (Math.round(x * 1e6) / 1e6).toLocaleString(LOCALE, { maximumFractionDigits: 6 });
+  return formatQty(x, uom);
 }
 
 export function fmtMoney(x: number | null | undefined, currency?: string): string {

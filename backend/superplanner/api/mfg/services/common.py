@@ -118,7 +118,14 @@ def audit(s: Session, entity: str, entity_id: str | None, action: str, details: 
     reason = None
     if entity in PART11_ENTITIES and action not in EXEMPT_ACTIONS:
         reason = require_reason(s, None)
-    changes = diff(jsonable(before), jsonable(after)) if (before is not None or after is not None) else None
+    if before is not None or after is not None:
+        changes = diff(jsonable(before), jsonable(after))
+    elif entity in PART11_ENTITIES:              # review m5: column changes captured at flush (any regulated row)
+        from ...audit_diff import pending_changes
+
+        changes = pending_changes(s, entity_id)
+    else:
+        changes = None
     d = details or {}
     ver = d.get("version") if isinstance(d.get("version"), int) else None
     audit_row(s, f"mfg_{entity}", entity_id or "-", action, d, changes=changes, reason=reason, record_version=ver,

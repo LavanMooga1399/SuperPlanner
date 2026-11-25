@@ -748,6 +748,15 @@ QP9 were not measured separately (covered functionally by the receipt, NCR and e
   (3) `GET /floor/operations/{id}` could carry `inspection_lot {id, number, status}` for gate operations and the
   floor event result `ncr {id, number}` (both read when present). (4) The equipment status route needs a preview
   for `equipment.return_to_service` under `action=return_to_service` (the UI asks for it under that name).
+  (5) Assistant citations: `citations.resolve` matches only `[R7]`; models sometimes write grouped markers
+  (`[R7, R8]`, `[R7; R8]`). The UI renders each known ref of a grouped marker as its own link, but refs used only
+  in a grouped marker never reach `citations` - please accept the grouped form in `MARKER` (and lower-case `r7`).
+- Demo polish (as built): quantities via `formatQty(x, uom)` in `lib/locale.ts` (count UoMs such as EA/PCS as
+  integers, others at most 3 decimals, trailing zeros trimmed); Gantt bar labels only inside the widest visible
+  piece when they fit (part number dropped first, then ellipsis, else no label); schedule compare headers
+  "A: run" / "B: run" / "Change from A to B" with signed deltas and "better/worse in B" text; recall tiles switch
+  to quantities for lot-controlled items (affected qty = shipped + in stock, shipments to customers, lots on hand;
+  per-customer shipments/qty/lots) from `report.counts`, `by_customer.qty/lots`.
 - Tests: `frontend/e2e/m7-quality.spec.ts` (2 tests: results -> live verdict -> decision through the dialog ->
   history; NCR dispositions, equipment validity, French switch) passes against the real routes.
 

@@ -279,6 +279,7 @@ def update_bom(ctx: AppContext, bom_id: str, inp: BomInput, if_match: str | None
             raise ApiError(422, "VALIDATION_ERROR", "The item of a BOM cannot be changed.",
                            {"errors": [{"loc": ["body", "item_id"], "msg": "must equal the stored item_id",
                                         "type": "immutable"}]})
+        before_rec = bom_record(s, row)                        # review m5: old/new values
         item = item_for_document(s, row.item_id, routing=False)
         check_serial(item, inp.serial_from)
         existing = set(s.execute(select(MfgBomLineRow.id).where(MfgBomLineRow.bom_id == row.id)).scalars())
@@ -297,8 +298,10 @@ def update_bom(ctx: AppContext, bom_id: str, inp: BomInput, if_match: str | None
                        lambda i: f"~{i}")
         touch(row)
         s.flush()
-        audit(s, "bom", row.id, "update", {"version": row.row_version, "lines": len(inp.lines)})
-        return bom_record(s, row)
+        after_rec = bom_record(s, row)
+        audit(s, "bom", row.id, "update", {"version": row.row_version, "lines": len(inp.lines)}, before=before_rec,
+              after=after_rec)
+        return after_rec
 
 
 def delete_bom(ctx: AppContext, bom_id: str, if_match: str | None) -> None:

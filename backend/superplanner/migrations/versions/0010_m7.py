@@ -595,13 +595,24 @@ def _tables() -> None:
 def upgrade() -> None:
     _columns()
     _tables()
-    # 0.6: holds become rows; a lot held before M7 keeps its hold as a `manual` hold (released through PUT /lots)
+    # 0.6: holds become rows. Lots quarantined by a recall keep a `recall` hold of that recall (review m6); every
+    # other lot held before M7 keeps its hold as a `manual` hold (released through PUT /lots)
+    op.execute("INSERT INTO mfg_lot_holds (id, owner_id, lot_id, serial_id, item_id, source, source_id, reason, "
+               "placed_by, placed_at, released_by, released_at, release_signature_id, release_note, row_version, "
+               "created_at, updated_at) "
+               "SELECT DISTINCT ON (l.id) 'hld_' || md5('recall' || l.id), l.owner_id, l.id, NULL, l.item_id, "
+               "'recall', r.id, 'Recall ' || r.number || ' (migrated)', r.actor_id, r.quarantined_at, NULL, NULL, "
+               "NULL, '', 1, r.quarantined_at, r.quarantined_at "
+               "FROM mfg_lots l JOIN mfg_recalls r ON r.owner_id = l.owner_id AND r.quarantined_at IS NOT NULL "
+               "AND EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(r.report->'lots', '[]'::jsonb)) x "
+               "WHERE x->>'lot_id' = l.id) WHERE l.hold ORDER BY l.id, r.quarantined_at DESC")
     op.execute("INSERT INTO mfg_lot_holds (id, owner_id, lot_id, serial_id, item_id, source, source_id, reason, "
                "placed_by, placed_at, released_by, released_at, release_signature_id, release_note, row_version, "
                "created_at, updated_at) "
                "SELECT 'hld_' || md5(l.id), l.owner_id, l.id, NULL, l.item_id, 'manual', NULL, "
                "'Hold before M7 (migrated)', l.owner_id, l.updated_at, NULL, NULL, NULL, '', 1, l.updated_at, "
-               "l.updated_at FROM mfg_lots l WHERE l.hold")
+               "l.updated_at FROM mfg_lots l WHERE l.hold AND NOT EXISTS (SELECT 1 FROM mfg_lot_holds h WHERE "
+               "h.lot_id = l.id)")
 
 
 def downgrade() -> None:
