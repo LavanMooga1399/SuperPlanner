@@ -53,7 +53,14 @@ def _chain(client, api, budget: int) -> dict[str, float]:
         assert sp["loads"] > 0
     t0 = time.monotonic()
     g = api.get(f"/rate/runs/{rid}/grid")
-    t["P8_grid_s"] = time.monotonic() - t0
+    t["P8_grid_cold_s"] = time.monotonic() - t0
+    warm = []
+    for _k in range(3):
+        t0 = time.monotonic()
+        api.get(f"/rate/runs/{rid}/grid")
+        warm.append(time.monotonic() - t0)
+    t["P8_grid_s"] = sorted(warm)[1]                     # median of 3 warm calls
+    t["grid_cells"] = len(g["cells"])
     assert g["cells"]
     t["construct_ms"] = max(x.get("construct_ms", 0) for x in api.get(f"/rate/runs/{rid}")["summary"]["stats"]
                             ["lines"].values())

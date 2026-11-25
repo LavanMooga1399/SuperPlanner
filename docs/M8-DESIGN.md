@@ -702,3 +702,9 @@ S5 notes (validation kit, load test, health):
   `demand_history` (the APIs, SAP sync and the sample cover the data entry); the authorisation sweep
   (`acceptance_phase2b/test_acc_authz_sweep.py`) does not yet build M8 objects for its cross-plant IDOR checks (all
   M8 lookups go through the owner-filtered `repo.get_row`).
+- Measured (developer container, local PostgreSQL dev cluster, BD-like seed `bd`: 40 flow lines, 6 chambers,
+  3,000 SKUs, 24 months history, 6,000 order lines; `pytest -m slow tests/api_mfg_m8/test_m8_perf.py -s`): seed 20 s;
+  P1 forecast run (1,800 forecast items, all candidates + selection + version) 2.0 s; P3 SS run 2.2 s; P2 MRP pass with
+  forecasts and consumption, 180 days 55 s; P4 rate run 40 lines x 30 days 241 s with the 240 s budget, validator
+  clean (construction 32 ms per line); P5 ster plan 3.4 s; P8 day grid (4,146 cells) 0.57 s warm (1.1 s first call;
+  the day grid is aggregated in SQL). P6/P7/P9 and L1-L3 are for the LEAD's load-test run (k6 scripts provided).

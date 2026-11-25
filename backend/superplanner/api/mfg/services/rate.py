@@ -182,6 +182,8 @@ def grid(ctx: AppContext, run_id: str, bucket: str, line_id: str | None) -> dict
 
     with read_tx(ctx) as s:
         r = repo.get_row(s, MfgRateRunRow, run_id, what="Rate run")
+        if bucket == "day":
+            return _grid_day(s, r.id, line_id)
         q = select(MfgRateBlockRow).where(MfgRateBlockRow.run_id == r.id)
         if line_id:
             q = q.where(MfgRateBlockRow.line_id == line_id)
@@ -217,6 +219,39 @@ def grid(ctx: AppContext, run_id: str, bucket: str, line_id: str | None) -> dict
                            "qty": round(v["qty"], 6), "cases": int(v.get("cases", 0)) or None,
                            "hours": round(v["hours"], 4)} for (lid, key, iid), v in sorted(cells.items(),
                                                                                          key=lambda kv: kv[0])]}
+
+
+def _grid_day(s: Session, run_id: str, line_id: str | None) -> dict[str, Any]:
+    """Day grid aggregated in SQL (P8: 40 lines x 30 days < 800 ms)."""
+    hours = func.sum(func.extract("epoch", MfgRateBlockRow.end - MfgRateBlockRow.start)) / 3600.0
+    q = select(MfgRateBlockRow.line_id, MfgRateBlockRow.prod_date, MfgRateBlockRow.kind, MfgRateBlockRow.item_id,
+               func.sum(MfgRateBlockRow.qty), func.sum(MfgRateBlockRow.cases), hours).where(
+        MfgRateBlockRow.run_id == run_id).group_by(MfgRateBlockRow.line_id, MfgRateBlockRow.prod_date,
+                                                   MfgRateBlockRow.kind, MfgRateBlockRow.item_id)
+    if line_id:
+        q = q.where(MfgRateBlockRow.line_id == line_id)
+    rows = s.execute(q).all()
+    lids = {x[0] for x in rows}
+    iids = {x[3] for x in rows if x[3]}
+    codes = dict(s.execute(select(MfgLineRow.id, MfgLineRow.code).where(MfgLineRow.id.in_(lids))).all()) if lids else {}
+    pns = dict(s.execute(select(MfgItemRow.id, MfgItemRow.part_number).where(MfgItemRow.id.in_(iids))).all()) \
+        if iids else {}
+    used: dict[tuple[str, str], float] = defaultdict(float)
+    cells = []
+    for lid, d, kind, iid, qty, cases, h in rows:
+        key = d.isoformat()
+        used[(lid, key)] += float(h or 0)
+        if kind == "production":
+            cells.append({"line_id": lid, "bucket": key, "item_id": iid, "part_number": pns.get(iid or ""),
+                          "qty": round(float(qty or 0), 6), "cases": int(cases or 0) or None,
+                          "hours": round(float(h or 0), 4)})
+    cells.sort(key=lambda c: (c["line_id"], c["bucket"], c["item_id"] or ""))
+    buckets = sorted({k for _l, k in used})
+    lines = sorted(lids, key=lambda x: codes.get(x, x))
+    return {"bucket": "day", "buckets": buckets,
+            "lines": [{"line_id": lid, "code": codes.get(lid),
+                       "utilisation": {k: round(min(used[(lid, k)] / 24.0, 1.0), 4) for k in buckets
+                                       if (lid, k) in used}} for lid in lines], "cells": cells}
 
 
 def compare(ctx: AppContext, a_id: str, b_id: str) -> dict[str, Any]:
