@@ -148,7 +148,7 @@ def test_M9_m2_steps_sign_the_same_parameters_and_policy_version(w):
     s2 = signature(appr, "inspection_lot", il["id"], "decide", "rejected", decision="reject")
     appr.api.err("POST", f"/qa/inspection-lots/{il['id']}/decision", 409, "ESIG_PARAMS_CHANGED",
                  json={"decision": "reject", "signature": s2})
-    s2 = signature(appr, "inspection_lot", il["id"], "decide", "released", decision="accept")
+    s2 = signature(appr, "inspection_lot", il["id"], "decide", "released", decision="accept", comment="")
     # review m4: no header and no signature comment -> no reason in Part 11 mode
     appr.api.err("POST", f"/qa/inspection-lots/{il['id']}/decision", 422, "AUDIT_REASON_REQUIRED",
                  json={"decision": "accept", "signature": s2})
