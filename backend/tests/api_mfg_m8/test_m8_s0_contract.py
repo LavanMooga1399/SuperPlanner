@@ -100,3 +100,9 @@ def test_every_m8_list_route_answers(api):
                  "/validation/baselines", "/validation/trace-matrix", "/integration/sap-settings"):
         body = api.get(path)
         assert isinstance(body, dict), path
+
+
+def test_no_example_stub_is_left():
+    from superplanner.api.mfg.services import m8_examples
+
+    assert m8_examples.remaining() == []

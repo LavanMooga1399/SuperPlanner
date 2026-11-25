@@ -24,6 +24,11 @@
                                                           only way); E becomes its org admin
     convert-plant --from-user EMAIL --org SLUG --code C [--name N] [--dry-run]
                                                           M5: move a personal plant into an organisation
+    trace-matrix [--junit FILE ...] [--out DIR] [--register FILE]
+                                                          M8: requirement x test matrix (CSV/HTML/JSON; no DB);
+                                                          exit 1 when a high-risk requirement has no test
+    config-baseline --plant CODE|OWNER_ID [--label L]     M8: store a configuration baseline (prints id, sha256)
+    load-seed [--profile bd|small] [--email E] [--seed N] M8: BD-like load-test data (scripts/load/README.md)
 
 Uses `DATABASE_URL` (or `--url`) and runs in system scope. Like the API it refuses to run unless the schema is at
 head (`migrate.ensure_schema`; AUTO_MIGRATE=true upgrades first). Exit codes: 0 ok, 1 command error (unknown user, weak password, email
@@ -361,6 +366,61 @@ def cmd_convert_plant(db: Database, args: argparse.Namespace, out: TextIO) -> No
             print(f"  {k}: {v}", file=out)
 
 
+def cmd_trace_matrix(args: argparse.Namespace, out: TextIO) -> int:
+    from .validation import register, trace
+
+    m = trace.build(register.load(args.register) if args.register else None, junit=args.junit or [])
+    if args.out:
+        for p in trace.write(m, args.out):
+            print(f"wrote {p}", file=out)
+    print(f"requirements {m['requirements']}, covered {m['covered']}, gaps {len(m['gaps'])} "
+          f"(high risk {m['high_risk_gaps']})", file=out)
+    for g in m["gaps"]:
+        print(f"  gap: {g['id']} ({g['risk']}) {g['title']}", file=out)
+    return 0 if m["ok"] else 1
+
+
+def _plant_owner(db: Database, plant: str) -> str:
+    from sqlalchemy import or_
+
+    from .api.mfg.db_models_m5 import IntSettingsRow, OrgPlantRow
+
+    with db.read() as s:
+        hit = s.execute(select(OrgPlantRow.plant_owner_id).where(or_(OrgPlantRow.code == plant,
+                                                                     OrgPlantRow.plant_owner_id == plant))).first()
+        if hit is None:
+            hit = s.execute(select(IntSettingsRow.owner_id).where(or_(IntSettingsRow.plant_code == plant,
+                                                                      IntSettingsRow.owner_id == plant))).first()
+        if hit is None and plant.startswith("usr_"):
+            return plant
+    if hit is None:
+        raise CommandError(f"unknown plant {plant!r} (organisation plant code, integration plant code or owner id)")
+    return hit[0]
+
+
+def cmd_config_baseline(db: Database, settings: Settings, args: argparse.Namespace, out: TextIO) -> None:
+    from .api.db.ownership import owner_scope
+    from .api.mfg.services.valid import create_in
+
+    owner = _plant_owner(db, args.plant)
+    with owner_scope(owner), db.write() as s:
+        r = create_in(s, args.label or "CLI baseline", owner)
+        print(f"{r.id} {r.sha256}", file=out)
+
+
+def cmd_load_seed(db: Database, settings: Settings, args: argparse.Namespace, out: TextIO) -> None:
+    from .loadseed import seed
+
+    if args.email:
+        with db.read() as s:
+            owner = _user_by_email(s, args.email).id
+    else:
+        owner = "usr_local"
+    res = seed(db, owner, profile=args.profile, rng_seed=args.seed)
+    for k, v in res.items():
+        print(f"{k}: {v}", file=out)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m superplanner.manage", description="SuperPlanner admin commands")
     p.add_argument("--url", help="database URL (default: DATABASE_URL)")
@@ -408,6 +468,17 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--code", required=True, help="plant code in the organisation")
     c.add_argument("--name")
     c.add_argument("--dry-run", action="store_true")
+    c = sub.add_parser("trace-matrix")
+    c.add_argument("--junit", nargs="*", help="JUnit XML result files")
+    c.add_argument("--out", help="output directory (CSV, HTML, JSON)")
+    c.add_argument("--register", help="requirement register (default docs/validation/requirements.yaml)")
+    c = sub.add_parser("config-baseline")
+    c.add_argument("--plant", required=True, help="organisation plant code, integration plant code or owner id")
+    c.add_argument("--label")
+    c = sub.add_parser("load-seed")
+    c.add_argument("--profile", default="bd", choices=["bd", "small"])
+    c.add_argument("--email", help="owner of the data (default: the local user)")
+    c.add_argument("--seed", type=int, default=8)
     return p
 
 
@@ -415,6 +486,8 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
          stdin: TextIO | None = None) -> int:
     out, err, stdin = out or sys.stdout, err or sys.stderr, stdin or sys.stdin
     args = build_parser().parse_args(argv)
+    if args.command == "trace-matrix":              # M8: repository scan, no database
+        return cmd_trace_matrix(args, out)
     try:
         settings = Settings(database_url=args.url) if args.url else Settings()
     except ConfigError as exc:
@@ -449,6 +522,10 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
                 cmd_create_org(db, settings, args, out)
             elif cmd == "convert-plant":
                 cmd_convert_plant(db, args, out)
+            elif cmd == "config-baseline":
+                cmd_config_baseline(db, settings, args, out)
+            elif cmd == "load-seed":
+                cmd_load_seed(db, settings, args, out)
             else:
                 cmd_prune(db, out, settings)
         return 0

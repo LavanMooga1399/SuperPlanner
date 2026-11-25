@@ -1,0 +1,54 @@
+# Requirement register (M8-DESIGN 10). One requirement per line: a YAML flow mapping. Keys: id, title, source,
+# risk (high|medium|low), assurance (scripted|unscripted|ad_hoc), intended_use (gxp|non_gxp), match (optional
+# test-name substrings, '|'-separated, for tests written before the @pytest.mark.req markers).
+# CSA rule: high = directly affects product quality / patient safety or record integrity -> scripted test.
+- {id: M8-S0-01, title: "Migration 0011_m8 up/down keeps ORM == schema", source: "M8-DESIGN 3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-FC-01, title: "Seasonal + trend series selects Holt-Winters, holdout WAPE < 0.15", source: "M8-DESIGN 4.2", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-FC-02, title: "Intermittent series: Croston/SBA/MA only; SBA = 0.95 z/p", source: "M8-DESIGN 4.2", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-FC-03, title: "Two periods of history: zero forecast, FC_HISTORY_SHORT", source: "M8-DESIGN 4.2", risk: low, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-FC-04, title: "Outlier 10x median clipped and flagged; planner reset restores", source: "M8-DESIGN 4.1", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-FC-05, title: "Family +10 % then item abs 5,000; audit old/new + reason", source: "M8-DESIGN 4.3", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-FC-06, title: "Activate archives the previous version; MRP uses the new one", source: "M8-DESIGN 4.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-FC-07, title: "Order consumes daily-spread forecast backward; requirement total", source: "M8-DESIGN 4.4", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-FC-08, title: "Order above forecast: over-consumption, requirement = order", source: "M8-DESIGN 4.4", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-FC-09, title: "Lag-1 accuracy uses the version active before the period", source: "M8-DESIGN 4.5", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-SS-01, title: "Safety stock formula, case rounding (4,308 -> 5,000)", source: "M8-DESIGN 5", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-SS-02, title: "ABC/XYZ classes as hand table", source: "M8-DESIGN 5", risk: low, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-SS-03, title: "Approve proposal updates item SS with audit reason", source: "M8-DESIGN 5", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-MRP-01, title: "Forecast requirements in time zones; ranks order > forecast > SS", source: "M8-DESIGN 6", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-MRP-02, title: "Pack rounding: case 1,000, need 2,300 -> 3,000", source: "M8-DESIGN 6", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-MRP-03, title: "Kanban item: no planned order, components exploded, undersized warning", source: "M8-DESIGN 6", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-MRP-04, title: "Pass 2 with published rate run: rate supplies, MRP_RATE_SHORT", source: "M8-DESIGN 6", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-KB-01, title: "Scan empty card creates PR line; receipt refills the card", source: "M8-DESIGN 6.2", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-RATE-01, title: "Sequence minimises changeover; blocks match the matrix", source: "M8-DESIGN 7.2", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-RATE-02, title: "Demand above capacity: RATE_CAPACITY with load %", source: "M8-DESIGN 7.2", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-RATE-03, title: "Minimum campaign 8 h with small demand; excess reported", source: "M8-DESIGN 7.2", risk: low, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-RATE-04, title: "Cleaning every 72 h inserted; validator ok", source: "M8-DESIGN 7.2", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-RATE-05, title: "Validator mutation tests (overlap, missing changeover, qty > rate)", source: "M8-DESIGN 7.2", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-RATE-06, title: "Publish twice: firm WOs created / cancelled; started WOs untouched", source: "M8-DESIGN 7.3", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-STER-01, title: "30 pallets, chamber 24: two loads; aeration full delays (STER_AERATION_BOUND)", source: "M8-DESIGN 8", risk: medium, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-STER-02, title: "Cycle complete -> sterility holds with planned date; signed release lifts", source: "M8-DESIGN 8", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-STER-03, title: "Failed load keeps holds, one NCR with all lots; trace shows co-sterilised lots", source: "M8-DESIGN 8", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-SAP-01, title: "Recorded OData payloads v2 + v4, paging, CSRF -> golden v1 batches", source: "M8-DESIGN 9", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-SAP-02, title: "SAP round trip in -> MRP -> planned orders out -> stock reconcile clean", source: "M8-DESIGN 9", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M8-VAL-01, title: "Trace matrix from the repo: CSV/HTML; high-risk gap -> exit 1", source: "M8-DESIGN 10", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-VAL-02, title: "Configuration baseline twice with a policy change: diff path, hashes differ", source: "M8-DESIGN 10", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M8-SAMPLE-01, title: "Sample meddev_m8 loads with planning data", source: "M8-DESIGN 14.1", risk: low, assurance: unscripted, intended_use: non_gxp, match: ""}
+- {id: M7-ESIG-01, title: "Wrong password 3x: lockout, audit, admins notified", source: "M7-DESIGN 12 T-S1", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_s1_"}
+- {id: M7-ESIG-02, title: "Two-step policy, same signer refused", source: "M7-DESIGN 12 T-S2", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_s2_"}
+- {id: M7-ESIG-03, title: "Record edited between preview and sign: ESIG_CONTENT_CHANGED", source: "M7-DESIGN 12 T-S3", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_s3_"}
+- {id: M7-ESIG-04, title: "Step-up token single use and session bound", source: "M7-DESIGN 12 T-S4", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_s4_"}
+- {id: M7-ESIG-05, title: "Tampering detected (content hash, MAC)", source: "M7-DESIGN 12 T-S5", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_s5_"}
+- {id: M7-ESIG-06, title: "Part 11 mode: reason required, field-level changes audited", source: "M7-DESIGN 12 T-S6", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_s6_"}
+- {id: M7-ESIG-07, title: "Clock skew refuses signing", source: "M7-DESIGN 12 T-S7", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_s7_"}
+- {id: M7-QA-01, title: "Sampling table resolution; 100 % when n >= lot", source: "M7-DESIGN 12 T-Q1", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q1_"}
+- {id: M7-QA-02, title: "Switching rules normal <-> tightened", source: "M7-DESIGN 12 T-Q2", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q2_"}
+- {id: M7-QA-03, title: "PO receipt: inspection lot + hold; issue refused", source: "M7-DESIGN 12 T-Q3", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q3_"}
+- {id: M7-QA-04, title: "Gate operation blocked until the lot is accepted", source: "M7-DESIGN 12 T-Q4", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q4_"}
+- {id: M7-QA-05, title: "Uncalibrated gauge refused in results", source: "M7-DESIGN 12 T-Q5", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q5_"}
+- {id: M7-QA-06, title: "NCR dispositions scrap / rework / use-as-is postings", source: "M7-DESIGN 12 T-Q6", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q6_"}
+- {id: M7-QA-07, title: "WIP nonconformance scrap and rework balance", source: "M7-DESIGN 12 T-Q7", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q7_"}
+- {id: M7-QA-08, title: "Manual hold release refused while an NCR hold is open", source: "M7-DESIGN 12 T-Q8", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q6_stock_ncr"}
+- {id: M7-QA-09, title: "Line with overdue equipment blocks floor, APS and health", source: "M7-DESIGN 12 T-Q9", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q9_"}
+- {id: M7-QA-10, title: "Complaint -> recall -> field action holds and closure", source: "M7-DESIGN 12 T-Q10", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q10_"}
+- {id: M7-QA-11, title: "Calibration failure: out of service and impact list", source: "M7-DESIGN 12 T-Q11", risk: high, assurance: scripted, intended_use: gxp, match: "t_q11_"}
