@@ -1172,4 +1172,8 @@ export const qualityStrings = {
   "errors.VERSION_MISMATCH": "Someone else changed this in the meantime. Reload and try again.",
   "errors.VALIDATION_ERROR": "Some values are not valid.",
   "errors.NOT_FOUND": "Not found.",
+  "errors.ESIG_REVOKED": "Your signing rights were revoked by an administrator. Ask your administrator if you need to sign again.",
+  "errors.QA_EXTERNAL_SOR": "This record is kept in the external quality system; change it there.",
+  "errors.QA_COMPLAINT_NOT_ASSESSED": "Record the reportability assessment before closing the complaint.",
+  "errors.QA_RESULT_EXISTS": "This sample already has a result; correct it with a reason instead.",
 } as const;

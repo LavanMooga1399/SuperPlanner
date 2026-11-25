@@ -248,7 +248,7 @@ export function FieldActionPage() {
         ]}
         actions={
           <>
-            {["draft", "approved", "in_progress"].includes(x.status) && canEdit ? (
+            {x.status === "draft" && canEdit ? (
               <button type="button" className="btn ghost" onClick={() => setSign("cancel")}>
                 {t("qa.fa.btn.cancel")}
               </button>

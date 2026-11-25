@@ -1172,4 +1172,8 @@ export const qualityFrCa: Record<keyof typeof qualityStrings, string> = {
   "errors.VERSION_MISMATCH": "Quelqu'un d'autre a modifié cet élément entre-temps. Rechargez et réessayez.",
   "errors.VALIDATION_ERROR": "Certaines valeurs ne sont pas valides.",
   "errors.NOT_FOUND": "Introuvable.",
+  "errors.ESIG_REVOKED": "Vos droits de signature ont été révoqués par un administrateur. Consultez votre administrateur si vous devez signer de nouveau.",
+  "errors.QA_EXTERNAL_SOR": "Cette fiche est tenue dans le système qualité externe; modifiez-la là-bas.",
+  "errors.QA_COMPLAINT_NOT_ASSESSED": "Consignez l'évaluation de la déclarabilité avant de fermer la plainte.",
+  "errors.QA_RESULT_EXISTS": "Cet échantillon a déjà un résultat; corrigez-le plutôt avec un motif.",
 };
