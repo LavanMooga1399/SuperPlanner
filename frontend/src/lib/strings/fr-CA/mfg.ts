@@ -1073,7 +1073,7 @@ export const mfgFrCa: Record<keyof typeof mfgStrings, string> = {
   "mfg.ecoPages.str.aDateToChoose": "une date à choisir",
   "mfg.ecoPages.str.addAtLeastOneDraft": "Ajoutez au moins une nomenclature ou une gamme brouillon",
   "mfg.ecoPages.str.all": "Toutes",
-  "mfg.ecoPages.str.approved": "Approuvée",
+  "mfg.ecoPages.str.approved": "Demande de modification approuvée.",
   "mfg.ecoPages.str.cancelled": "Annulée",
   "mfg.ecoPages.str.change": "Modification",
   "mfg.ecoPages.str.choose": "Choisir…",
@@ -4317,4 +4317,6 @@ export const mfgFrCa: Record<keyof typeof mfgStrings, string> = {
   "mfg.recallPages.text.customersOne": "{n} client",
   "mfg.recallPages.text.customersOther": "{n} clients",
   "mfg.recallPages.text.shipmentsTo": "{shipments} vers {customers}",
+  "mfg.ecoPages.tpl.approveTitle": "Approuver {number}",
+  "mfg.ecoPages.btn.signApprove": "Signer et approuver",
 };

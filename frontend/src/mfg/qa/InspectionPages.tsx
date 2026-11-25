@@ -193,10 +193,11 @@ export function InspectionLotPage() {
             </Link>
             {open && canDecide ? (
               <>
-                <button type="button" className="btn" disabled={verdict !== "reject" && lot.status !== "ready"} onClick={() => setDeciding("reject")} data-testid="qa-decision-reject" title={t("qa.lots.attr.reject")}>
+                {/* the verdict decides which action is primary; neither while samples are pending */}
+                <button type="button" className={verdict === "reject" ? "btn primary" : "btn"} onClick={() => setDeciding("reject")} data-testid="qa-decision-reject" data-primary={verdict === "reject" || undefined} title={verdict === "reject" ? t("qa.lots.attr.reject") : t("qa.lots.attr.rejectAgainst")}>
                   <Icon name="x" /> {t("qa.lots.btn.reject")}
                 </button>
-                <button type="button" className="btn primary" disabled={lot.status !== "ready"} onClick={() => setDeciding("accept")} data-testid="qa-decision-accept" title={lot.status !== "ready" ? t("qa.lots.attr.notReady") : undefined}>
+                <button type="button" className={verdict === "accept" ? "btn primary" : "btn"} disabled={verdict === "pending"} onClick={() => setDeciding("accept")} data-testid="qa-decision-accept" data-primary={verdict === "accept" || undefined} title={verdict === "pending" ? t("qa.lots.attr.notReady") : verdict === "reject" ? t("qa.lots.text.contradicts") : undefined}>
                   <Icon name="check" /> {t("qa.lots.btn.accept")}
                 </button>
               </>
@@ -515,7 +516,13 @@ function CharCard({ lot, s, editable, onSaved }: { lot: InspectionLot; s: CharSt
 function DecisionDialog({ lot, decision, onClose, onDone }: { lot: InspectionLot; decision: "accept" | "reject"; onClose(): void; onDone(l: InspectionLot | null): void }) {
   const [note, setNote] = useState("");
   const [ncrId, setNcrId] = useState("");
-  const contradicts = decision === "accept" && lot.verdict?.verdict === "reject";
+  const verdict = lot.verdict?.verdict ?? "pending";
+  // mirrors the decide endpoint: accept needs a complete verdict, and against a reject verdict an approved NCR with a
+  // use-as-is disposition (QA_DECISION_CONTRADICTS); reject is always allowed - against an accept or pending verdict
+  // the UI asks for a justification (kept as the decision note)
+  const contradicts = decision === "accept" && verdict === "reject";
+  const against = contradicts || (decision === "reject" && verdict !== "reject");
+  const justified = !against || note.trim().length >= 10;
   const ncrs = useLoad((s) => (contradicts ? listNcrs({ q: lot.lot_code ?? lot.number, status: "approved,implemented", limit: 50 }, s) : null), [contradicts]);
   return (
     <SignatureDialog<InspectionLot>
@@ -529,7 +536,7 @@ function DecisionDialog({ lot, decision, onClose, onDone }: { lot: InspectionLot
       danger={decision === "reject"}
       submitLabel={decision === "accept" ? t("qa.lots.btn.signAccept") : t("qa.lots.btn.signReject")}
       plainLabel={decision === "accept" ? t("qa.lots.btn.accept") : t("qa.lots.btn.reject")}
-      canSubmit={!contradicts || Boolean(ncrId)}
+      canSubmit={(!contradicts || Boolean(ncrId)) && justified}
       effect={decision === "accept" ? (lot.hold ? t("qa.lots.text.acceptEffectHold") : t("qa.lots.text.acceptEffect")) : t("qa.lots.text.rejectEffect")}
       perform={(sig, comment) => recordAction<InspectionLot>("inspection_lot", lot.id, "decision", { decision, note: note.trim() || comment, ...(ncrId ? { ncr_id: ncrId } : {}) }, { version: lot.row_version, signature: sig })}
       onDone={(res) => {
@@ -540,8 +547,12 @@ function DecisionDialog({ lot, decision, onClose, onDone }: { lot: InspectionLot
     >
       <div className="col" style={{ gap: 8 }}>
         {contradicts ? (
-          <Banner tone="warn" title={t("qa.lots.title.contradicts")}>
+          <Banner tone="warn" title={t("qa.lots.title.acceptAgainst")} testId="qa-decision-against">
             {t("qa.lots.text.contradicts")}
+          </Banner>
+        ) : against ? (
+          <Banner tone="warn" title={verdict === "accept" ? t("qa.lots.title.rejectAgainst") : t("qa.lots.title.rejectPending")} testId="qa-decision-against">
+            {t("qa.lots.text.rejectAgainst")}
           </Banner>
         ) : null}
         {contradicts ? (
@@ -558,8 +569,17 @@ function DecisionDialog({ lot, decision, onClose, onDone }: { lot: InspectionLot
           </div>
         ) : null}
         <div className="field">
-          <label htmlFor="dec-note">{t("qa.lots.label.decisionNote")}</label>
-          <input id="dec-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} data-testid="qa-decision-note" />
+          <label htmlFor="dec-note">{against ? t("qa.lots.label.justification") : t("qa.lots.label.decisionNote")}</label>
+          {against ? (
+            <textarea id="dec-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} required aria-required="true" aria-describedby="dec-note-help" data-testid="qa-decision-note" />
+          ) : (
+            <input id="dec-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} data-testid="qa-decision-note" />
+          )}
+          {against ? (
+            <span id="dec-note-help" className="muted small">
+              {t("qa.lots.help.justification")}
+            </span>
+          ) : null}
         </div>
       </div>
     </SignatureDialog>

@@ -161,7 +161,45 @@ export async function v1Download(path: string, query?: QueryParams, fallbackName
   return { blob, filename: filenameFromDisposition(res.headers.get("Content-Disposition"), fallbackName) };
 }
 
+/**
+ * Part 11 change reasons (M7 review m4): a regulated update without a reason answers 422 `AUDIT_REASON_REQUIRED`
+ * (nothing is saved). The shell registers a prompt; the request is then repeated once with `X-SP-Change-Reason`.
+ * Screens that know they edit a regulated record may still ask up front (`useChangeReason`).
+ */
+export type ReasonPrompt = (request: { method: string; path: string }) => Promise<string | null>;
+let reasonPrompt: ReasonPrompt | null = null;
+export function setReasonPrompt(fn: ReasonPrompt): () => void {
+  reasonPrompt = fn;
+  return () => {
+    if (reasonPrompt === fn) reasonPrompt = null;
+  };
+}
+export const REASON_HEADER = "X-SP-Change-Reason";
+let ambientReason: string | null = null;
+/** Runs `fn` with a reason the user already gave (the signature dialog's comment), used instead of asking again. */
+export async function withChangeReason<T>(reason: string | null | undefined, fn: () => Promise<T>): Promise<T> {
+  const prev = ambientReason;
+  ambientReason = reason && reason.trim() ? reason.trim() : prev;
+  try {
+    return await fn();
+  } finally {
+    ambientReason = prev;
+  }
+}
+
 async function rawAt<T>(fullPath: string, opts: MfgRequestOptions): Promise<MfgRawResponse<T>> {
+  try {
+    return await rawOnce<T>(fullPath, opts);
+  } catch (e) {
+    const hasReason = Object.keys(opts.headers ?? {}).some((k) => k.toLowerCase() === REASON_HEADER.toLowerCase());
+    if (!(e instanceof ApiError) || e.code !== "AUDIT_REASON_REQUIRED" || hasReason) throw e;
+    const reason = ambientReason ?? (reasonPrompt ? await reasonPrompt({ method: opts.method ?? "GET", path: fullPath }) : null);
+    if (!reason) throw e;
+    return rawOnce<T>(fullPath, { ...opts, headers: { ...(opts.headers ?? {}), [REASON_HEADER]: encodeURIComponent(reason) } });
+  }
+}
+
+async function rawOnce<T>(fullPath: string, opts: MfgRequestOptions): Promise<MfgRawResponse<T>> {
   const headers: Record<string, string> = { Accept: "application/json", ...workspaceHeaders(), ...(opts.headers ?? {}) };
   let body: BodyInit | undefined;
   if (opts.body !== undefined) {

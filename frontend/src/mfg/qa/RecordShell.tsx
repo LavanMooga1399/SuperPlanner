@@ -4,7 +4,7 @@
  * Signatures, and the change-reason prompt of Part 11 plants. History is the record's audit trail (old -> new values,
  * reasons, signatures); Signatures lists the manifestations with a verify check per signature.
  */
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Link } from "react-router";
 import { Banner } from "../../components/Banner";
 import { Dialog } from "../../components/Dialog";
@@ -21,10 +21,8 @@ import { mfgPaths } from "../lib/paths";
 import { useCan } from "../lib/permissions";
 import { usePaged } from "../lib/usePaged";
 import { formatDateTime } from "../../lib/locale";
-import { savePref, syncPref } from "../../lib/serverPrefs";
 import { plural, t, type StringKey } from "../../lib/i18n";
 import { authText, manifestText, meaningText, recordTypeText } from "./labels";
-import { usePart11 } from "./part11";
 import "./qa.css";
 
 // ---------------------------------------------------------------- header
@@ -621,87 +619,8 @@ export function AttachmentsTab({ attachments, entityType, entityId, canEdit, loc
   );
 }
 
-// ---------------------------------------------------------------- change reason (4.4)
-const REASONS_PREF = "qa.reasons";
-const REASONS_LOCAL = "sp.qa.reasons";
-function recentReasons(): string[] {
-  try {
-    const v = JSON.parse(window.localStorage.getItem(REASONS_LOCAL) ?? "[]") as unknown;
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 6) : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Part 11 plants: every save of a regulated record asks for a reason (sent as `X-SP-Change-Reason`). Outside Part
- * 11 mode `ask()` resolves at once with "" (no header). Recent reasons are offered (server preference `qa.reasons`).
- */
-export function useChangeReason(): { ask(what: string): Promise<string | null>; dialog: ReactNode; required: boolean } {
-  const { enabled } = usePart11();
-  const [pending, setPending] = useState<{ what: string; resolve(v: string | null): void } | null>(null);
-  useEffect(() => syncPref<string[]>(REASONS_PREF, REASONS_LOCAL, () => undefined), []);
-  const ask = (what: string) => (enabled ? new Promise<string | null>((resolve) => setPending({ what, resolve })) : Promise.resolve(""));
-  const dialog = pending ? (
-    <ChangeReasonDialog
-      what={pending.what}
-      onDone={(v) => {
-        if (v) savePref(REASONS_PREF, REASONS_LOCAL, [v, ...recentReasons().filter((x) => x !== v)].slice(0, 6));
-        pending.resolve(v);
-        setPending(null);
-      }}
-    />
-  ) : null;
-  return { ask, dialog, required: enabled };
-}
-
-function ChangeReasonDialog({ what, onDone }: { what: string; onDone(v: string | null): void }) {
-  const [text, setText] = useState("");
-  const recent = recentReasons();
-  return (
-    <Dialog
-      title={t("qa.reason.title")}
-      onClose={() => onDone(null)}
-      footer={
-        <>
-          <button type="button" className="btn" onClick={() => onDone(null)} data-dialog-close>
-            {t("common.cancel")}
-          </button>
-          <button type="button" className="btn primary" disabled={!text.trim()} onClick={() => onDone(text.trim())} data-testid="change-reason-save">
-            {t("qa.reason.btn.save")}
-          </button>
-        </>
-      }
-    >
-      <form
-        className="col"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (text.trim()) onDone(text.trim());
-        }}
-      >
-        <p style={{ margin: 0 }}>{t("qa.reason.tpl.body", { what })}</p>
-        <div className="field">
-          <label htmlFor="qa-reason">{t("qa.reason.label")}</label>
-          <textarea id="qa-reason" className="textarea" rows={3} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} data-testid="change-reason" data-autofocus />
-          <span className="hint">{t("qa.esig.tpl.chars", { n: text.length })}</span>
-        </div>
-        {recent.length ? (
-          <div className="col" style={{ gap: 4 }}>
-            <span className="small muted">{t("qa.reason.recent")}</span>
-            <div className="chips">
-              {recent.map((r) => (
-                <button key={r} type="button" className="chip" style={{ cursor: "pointer", border: 0 }} onClick={() => setText(r)}>
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </form>
-    </Dialog>
-  );
-}
+// ---------------------------------------------------------------- change reason (4.4): see ./ChangeReason.tsx
+export { useChangeReason } from "./ChangeReason";
 
 // ---------------------------------------------------------------- misc
 export function NextStepBanner({ text, icon = "flag" }: { text: string; icon?: IconName }) {

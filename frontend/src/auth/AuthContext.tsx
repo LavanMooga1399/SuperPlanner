@@ -6,7 +6,7 @@
  * header. In accounts mode it keeps the user and the CSRF token (memory only), reports `expired` after a 401
  * from any protected request, and clears browser intake drafts on sign-out and when the user changes.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Outlet, useNavigate } from "react-router";
 import { ApiError, isNetworkError } from "../api/client";
 import { fetchSession, postChangePassword, postSignIn, postSignOut, postSignUp } from "./api";
@@ -14,6 +14,8 @@ import { registerAuthHandlers, setCsrfToken } from "./authFetch";
 import { forgetSignedInUser, noteSignedInUser } from "./drafts";
 import { pushSignOut } from "../pwa/pwa";
 import type { AuthMode, AuthUser, ChangePasswordRequest, SessionInfo, SignInRequest, SignUpRequest } from "./types";
+
+const ChangeReasonHost = lazy(() => import("../mfg/qa/ChangeReason").then((m) => ({ default: m.ChangeReasonHost })));
 import { t } from "../lib/i18n";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
@@ -233,6 +235,10 @@ export function AuthRoot() {
   return (
     <AuthProvider>
       <Outlet />
+      {/* Part 11 change reasons for any regulated save (422 AUDIT_REASON_REQUIRED -> ask -> repeat) */}
+      <Suspense fallback={null}>
+        <ChangeReasonHost />
+      </Suspense>
     </AuthProvider>
   );
 }

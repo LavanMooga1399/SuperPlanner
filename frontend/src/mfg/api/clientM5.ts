@@ -117,8 +117,12 @@ export const deleteEco = (id: string, version: number) => mfgRequest<void>(`/eco
 export const addEcoItem = (id: string, body: CrItemInput) => mfgRequest<ChangeRequest>(`/eco/${enc(id)}/items`, { method: "POST", body });
 export const removeEcoItem = (id: string, itemId: string) => mfgRequest<ChangeRequest>(`/eco/${enc(id)}/items/${enc(itemId)}`, { method: "DELETE" });
 export const getEcoImpact = (id: string, signal?: AbortSignal) => mfgRequest<EcoImpact>(`/eco/${enc(id)}/impact`, { signal });
-export const ecoAction = (id: string, action: "submit" | "approve" | "reject" | "cancel" | "implement", version: number, body: { note?: string } = {}) =>
-  mfgRequest<ChangeRequest>(`/eco/${enc(id)}/${action}`, { method: "POST", body, headers: ifMatch(version) });
+export const ecoAction = (id: string, action: "submit" | "approve" | "reject" | "cancel" | "implement", version: number, body: { note?: string } = {}, reason?: string | null) =>
+  mfgRequest<ChangeRequest>(`/eco/${enc(id)}/${action}`, {
+    method: "POST",
+    body,
+    headers: { ...ifMatch(version), ...(reason && reason.trim() ? { "X-SP-Change-Reason": encodeURIComponent(reason.trim()) } : {}) },
+  });
 
 // ---------------------------------------------------------------- 3.5 transfers
 export const listTransfers = (query: { status?: string; direction?: string; limit?: number; offset?: number } = {}, signal?: AbortSignal) =>

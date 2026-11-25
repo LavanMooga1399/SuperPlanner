@@ -4316,4 +4316,6 @@ export const mfgStrings = {
   "mfg.recallPages.text.customersOne": "{n} customer",
   "mfg.recallPages.text.customersOther": "{n} customers",
   "mfg.recallPages.text.shipmentsTo": "{shipments} to {customers}",
+  "mfg.ecoPages.tpl.approveTitle": "Approve {number}",
+  "mfg.ecoPages.btn.signApprove": "Sign and approve",
 } as const;

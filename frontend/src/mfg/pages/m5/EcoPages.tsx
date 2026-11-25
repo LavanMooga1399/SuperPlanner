@@ -29,6 +29,11 @@ import { FilterBar } from "../../../components/FilterBar";
 import { DataTable } from "../../components/DataTable";
 import { VirtualTable, type Column } from "../../components/VirtualTable";
 import { plural, t } from "../../../lib/i18n";
+import { SignatureDialog, signedToast } from "../../../components/SignatureDialog";
+import { toast } from "../../../components/Toast";
+import { signedAction } from "../../api/clientM7";
+import { useChangeReason } from "../../qa/ChangeReason";
+import { usePart11 } from "../../qa/part11";
 
 const STATUS: Record<CrStatus, { label: string; tone: string; icon: IconName }> = {
   draft: { label: t("mfg.ecoPages.str.draft"), tone: "info", icon: "file" },
@@ -272,7 +277,11 @@ export function EcoPage() {
   const [error, setError] = useState<unknown>(null);
   const [issues, setIssues] = useState<ReleaseIssue[] | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  const [signingApprove, setSigningApprove] = useState(false);
   const [note, setNote] = useState("");
+  // Part 11 (M7 review m4): every ECO action needs a reason; approval is signed per the plant's policy
+  const part11 = usePart11().enabled;
+  const reason = useChangeReason();
   const c = cr.data;
   useEffect(() => {
     if (c) document.title = `${c.number} - SuperPlanner`;
@@ -284,11 +293,18 @@ export function EcoPage() {
   const selfApproveBlocked = mine && !access.isOwner && !(access.me?.roles ?? []).includes("plant_admin");
 
   const act = async (a: "submit" | "approve" | "reject" | "cancel" | "implement", body: { note?: string } = {}) => {
+    if (a === "approve" && part11) {
+      setSigningApprove(true);
+      return;
+    }
+    // the reject note is the reason of a rejection; other actions ask for one in Part 11 mode
+    const why = a === "reject" && body.note ? "" : await reason.ask(c.number);
+    if (why === null) return;
     setBusy(true);
     setError(null);
     setIssues(null);
     try {
-      cr.setData(await ecoAction(c.id, a, c.row_version, body));
+      cr.setData(await ecoAction(c.id, a, c.row_version, body, why));
     } catch (e) {
       if (e instanceof ApiError && e.code === "ECO_RELEASE_BLOCKED") setIssues((e.details.issues as ReleaseIssue[]) ?? []);
       else if (isConflict(e)) {
@@ -414,6 +430,27 @@ export function EcoPage() {
       )}
       {editing ? <CrDialog cr={c} onClose={() => setEditing(false)} onSaved={(x) => { cr.setData(x); setEditing(false); }} /> : null}
       {adding ? <AddDocDialog c={c} onClose={() => setAdding(false)} onSaved={(x) => { cr.setData(x); setAdding(false); }} /> : null}
+      {reason.dialog}
+      {signingApprove ? (
+        <SignatureDialog<ChangeRequest>
+          title={t("mfg.ecoPages.tpl.approveTitle", { number: c.number })}
+          recordType="eco"
+          recordId={c.id}
+          recordLabel={c.number}
+          action="approve"
+          meaning="approved"
+          submitLabel={t("mfg.ecoPages.btn.signApprove")}
+          plainLabel={t("mfg.ecoPages.btn.approve")}
+          perform={(sig, comment) => signedAction<ChangeRequest>(`/eco/${encodeURIComponent(c.id)}/approve`, { note: comment }, { version: c.row_version, signature: sig, reason: comment })}
+          onDone={(res) => {
+            setSigningApprove(false);
+            toast(signedToast(res, t("mfg.ecoPages.str.approved")));
+            if (res.status === 200) cr.setData(res.record);
+            else cr.reload();
+          }}
+          onClose={() => setSigningApprove(false)}
+        />
+      ) : null}
       {rejecting ? (
         <Dialog
           title={t("mfg.ecoPages.tpl.reject", { number: c.number })}

@@ -14,6 +14,8 @@ import { Banner } from "./Banner";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
 import { getPreview, stepupUrl, type SignedResult } from "../mfg/api/clientM7";
+import { withChangeReason } from "../mfg/api/client";
+import { usePart11 } from "../mfg/qa/part11";
 import type { EsigPreview, Meaning, SignatureInput } from "../mfg/api/typesM7";
 import { MfgError, RequestRef } from "../mfg/components/Feedback";
 import { authText, manifestText, meaningText, recordTypeText, roleText } from "../mfg/qa/labels";
@@ -104,6 +106,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
   const [problem, setProblem] = useState<Problem>(null);
   const [changedNotice, setChangedNotice] = useState(false);
   const stepup = useStepup();
+  const part11Mode = usePart11();
   const pwRef = useRef<HTMLInputElement>(null);
   const uid = useId().replace(/:/g, "");
 
@@ -132,6 +135,9 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
   useEffect(() => load(), [load]);
 
   const required = Boolean(preview?.required);
+  // Part 11 mode: every regulated change needs a reason; the comment is that reason
+  const part11 = Boolean(preview?.part11_mode) || part11Mode.enabled;
+  const commentRequired = Boolean(props.commentRequired) || part11;
   const signer = preview?.signer ?? null;
   const step = preview?.next_step ?? null;
   const totpNeeded = step?.auth === "password_totp";
@@ -146,7 +152,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
     preview !== null &&
     props.canSubmit !== false &&
     !busy &&
-    (!props.commentRequired || Boolean(comment.trim())) &&
+    (!commentRequired || Boolean(comment.trim())) &&
     (!required || (credsOk && Boolean(meaning) && !locked && !notEnrolled && blockers.length === 0));
 
   const submit = async () => {
@@ -165,7 +171,8 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
         }
       : null;
     try {
-      const res = await props.perform(sig, comment.trim());
+      // the comment is the change reason too (sent again as X-SP-Change-Reason if the server asks for one)
+      const res = await withChangeReason(comment.trim(), () => props.perform(sig, comment.trim()));
       props.onDone(res);
     } catch (e) {
       const p = decode(e);
@@ -415,10 +422,10 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
             {!locked && !notEnrolled ? (
               <div className="field">
                 <label htmlFor={`${uid}-c`}>
-                  {props.commentLabel ?? (required ? t("qa.esig.label.comment") : t("qa.esig.label.note"))}
-                  {props.commentRequired ? <span className="mfg-required" aria-hidden> *</span> : null}
+                  {part11 && !props.commentLabel ? t("qa.esig.label.reason") : props.commentLabel ?? (required ? t("qa.esig.label.comment") : t("qa.esig.label.note"))}
+                  {commentRequired ? <span className="mfg-required" aria-hidden> *</span> : null}
                 </label>
-                <textarea id={`${uid}-c`} className="textarea" rows={2} maxLength={500} value={comment} onChange={(e) => setComment(e.target.value)} data-testid="esig-comment" />
+                <textarea id={`${uid}-c`} className="textarea" rows={2} maxLength={500} value={comment} onChange={(e) => setComment(e.target.value)} required={commentRequired} aria-required={commentRequired || undefined} data-testid="esig-comment" />
                 <span className="hint">{t("qa.esig.tpl.chars", { n: comment.length })}</span>
               </div>
             ) : null}
