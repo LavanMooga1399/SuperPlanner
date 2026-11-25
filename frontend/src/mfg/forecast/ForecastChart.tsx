@@ -136,7 +136,7 @@ export function ForecastChart({ d }: { d: ForecastChartData }) {
             <g key={v}>
               <line x1={M.l} x2={M.l + innerW} y1={y(v)} y2={y(v)} stroke="var(--grid)" />
               <text x={M.l - 6} y={y(v) + 3} textAnchor="end" className="pl-axis">
-                {num(v)}
+                {num(v, top < 10 ? 1 : 0)}
               </text>
             </g>
           ))}

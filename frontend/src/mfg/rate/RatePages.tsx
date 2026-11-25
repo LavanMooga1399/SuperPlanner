@@ -344,7 +344,7 @@ export function RateRunPage() {
           </ul>
         </Banner>
       ) : done && validOk ? (
-        <p className="pl-note" style={{ margin: 0 }} data-testid="rate-valid">
+        <p className="pl-note ok" style={{ margin: 0 }} data-testid="rate-valid">
           <Icon name="shield" size={14} /> {t("plan.rate.text.valid")}
           {r.duration_ms !== null ? <span>{t("plan.rate.tpl.duration", { s: formatNumber(r.duration_ms / 1000, 1) })}</span> : null}
         </p>

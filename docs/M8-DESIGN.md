@@ -633,3 +633,26 @@ S4 notes (sterilisation, as built):
 - MRP: WOs in a planned or running load are available at the load's `release_due` (their due date in the snapshot
   is moved), rate blocks in a load likewise (`m8mrp`).
 - Nightly chain: the sterilisation step is skipped (`ref_id "skipped"`) when the plant has no chamber.
+
+**WP-U (UI, U1-U4) notes.** Screens: `/mfg/forecast` (+ `/accuracy`), `/mfg/invopt`, `/mfg/rate` (+ `/runs/:id/
+grid|gantt|shortages|compare`), `/mfg/sterilisation`, `/mfg/kanban` (+ print sheet `/mfg/print/kanban/:loopId`),
+`/mfg/validation`, item tabs Planning and Packaging, SAP card on the integration overview, floor scanner `KB:` codes
+(`POST /kanban/scan`), MRP item view (requirement kind `forecast`, supply kinds `kanban`/`rate`, optional `packs`,
+new exception labels). Types `frontend/src/mfg/api/typesM8.ts` mirror the S0 models; `contractExamplesM8.ts` is the
+fixture typed against them. Strings `lib/strings/planning.ts` + `fr-CA/planning.ts` (`plan.*`). E2E
+`frontend/e2e/m8-planning.spec.ts` (4 tests, `@req` tags). Roles `plant_manager` and `auditor` added to the role
+pickers and permission tooltips.
+- Forecast lines (F10) carry no item name, WAPE, bias or flags; the item list therefore shows part number, family,
+  class, method, next-3-period total and the override effect (final vs statistical), and the item panel shows WAPE,
+  bias, flags and lag accuracy from F16. Filters offered are those F10 supports (search, family, ABC). Optional
+  additive fields `name`, `holdout_wape`, `bias`, `flags` on F10 lines would let the list show the accuracy badges.
+- F16 has no overrides; the panel reads F13 (version overrides) and keeps those of the item or its family.
+- Accuracy (F17) has no per-period trend; the page shows WAPE bars per group (worst first), the overall figure from
+  `group_by=all`, and the backtest summary; a `periods` selector (3/6/12) is passed through.
+- Rate shortages carry only `item_id`; item names come from the item cache. The rate Gantt reuses the M3 `ProdGantt`:
+  a production block preceded by a changeover becomes one bar whose striped start is the changeover; cleaning /
+  clearance are hatched bands, `down` is the downtime band; firm blocks (with a WO) draw as frozen ("F").
+- Aeration capacity is not in the API; the sterilisation page charts pallets in aeration over time with the peak.
+  Loads are read from a week back in pages of 200 (`PAGE_MAX`).
+- Dashboard tile names are ready for `forecast_accuracy`, `rate_shortages`, `ster_release` (values from the M6 tile
+  API once the backend adds them).

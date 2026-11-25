@@ -39,6 +39,8 @@
 .pl-by { display: flex; flex-direction: column; line-height: 1.25; }
 .pl-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: var(--fs-sm); color: var(--text-muted); }
 .pl-note > svg { color: var(--warn); }
+.pl-note.ok > svg { color: var(--ok); }
+.pl-split-panel > *, .pl-two > * { min-width: 0; }
 .pl-outlier { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; color: var(--text); }
 
 /* split: item list left, detail right (stacked below 1200 px) */
@@ -59,8 +61,8 @@
 .pl-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
 /* charts */
-.pl-chart { margin: 0; display: grid; gap: var(--sp-2); }
-.pl-chart-area { position: relative; width: 100%; border-radius: var(--radius-sm); }
+.pl-chart { margin: 0; display: grid; gap: var(--sp-2); min-width: 0; }
+.pl-chart-area { position: relative; width: 100%; min-width: 0; overflow: hidden; border-radius: var(--radius-sm); }
 .pl-chart-area svg { display: block; overflow: visible; }
 .pl-axis { font-size: 11px; fill: var(--text-muted); font-family: var(--font); font-variant-numeric: tabular-nums; }
 .pl-tip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--shadow-2); border-radius: var(--radius-sm); padding: 6px 10px; font-size: var(--fs-sm); min-width: 180px; }

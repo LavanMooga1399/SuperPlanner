@@ -75,6 +75,7 @@ export function KanbanPage() {
   const loops = usePaged<KanbanLoop, M8Page<KanbanLoop>>((offset, limit, signal) => listKanbanLoops({ limit, offset }, signal), []);
   const loopId = params.get("loop") ?? "";
   const [editing, setEditing] = useState<KanbanLoop | "new" | null>(null);
+  const [tick, setTick] = useState(0);
   const columns = useMemo<Column<KanbanLoop>[]>(
     () => [
       { key: "number", header: t("plan.kb.head.loop"), width: "110px", sortValue: (l) => l.number, render: (l) => <span className="mono">{l.number}</span> },
@@ -100,7 +101,10 @@ export function KanbanPage() {
           </button>
         }
       />
-      {canScan ? <ScanBox onScanned={() => loops.reload()} /> : null}
+      {canScan ? <ScanBox onScanned={() => {
+        loops.reload();
+        setTick((n) => n + 1);
+      }} /> : null}
       <MfgError error={loops.error} onRetry={loops.reload} />
       <div className="pl-split">
         <section className="card card-table pl-split-list" aria-label={t("plan.kb.aria.loops")}>
@@ -123,7 +127,7 @@ export function KanbanPage() {
           />
         </section>
         <section className="pl-split-panel">
-          {loopId ? <LoopPanel key={loopId} loopId={loopId} canEdit={canEdit} onEdit={(l) => setEditing(l)} /> : <div className="card card-body muted">{t("plan.kb.text.pick")}</div>}
+          {loopId ? <LoopPanel key={`${loopId}:${tick}`} loopId={loopId} canEdit={canEdit} onEdit={(l) => setEditing(l)} /> : <div className="card card-body muted">{t("plan.kb.text.pick")}</div>}
         </section>
       </div>
       {editing ? (

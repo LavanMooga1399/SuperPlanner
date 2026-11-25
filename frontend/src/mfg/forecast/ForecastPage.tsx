@@ -387,7 +387,7 @@ function ItemPanel({ itemId, version, row, overrides, canEdit, onChanged }: { it
     forecast: ps.map((p, i) => ({ period_start: p, stat_qty: line?.stat[i] ?? 0, final_qty: line?.final[i] ?? 0 })),
     consumption: d.consumption,
   };
-  const lag = (x: { wape: number | null; bias: number | null } | null | undefined) => (x ? `${pct(x.wape, 0)} · ${signedPct(x.bias)}` : "–");
+  const lag = (x: { wape: number | null; bias: number | null } | null | undefined) => (x && x.wape !== null ? `${pct(x.wape, 0)} · ${signedPct(x.bias)}` : "–");
   return (
     <div className="col pl-gap" data-testid="fc-panel" data-item={d.item.part_number}>
       <div className="card">

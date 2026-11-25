@@ -51,7 +51,18 @@ export function SterilisationPage() {
   useEffect(() => {
     document.title = t("plan.ster.title");
   }, []);
-  const loads = useLoad((s) => listSterLoads({ limit: 500 }, s), []);
+  // every load from a week back (the list is short by nature; pages of 200 up to 1,000 loads)
+  const loads = useLoad(async (s) => {
+    const from = new Date(Date.now() - 7 * DAY).toISOString().slice(0, 10);
+    const first = await listSterLoads({ from, limit: 200 }, s);
+    const items = [...first.items];
+    while (items.length < Math.min(first.total, 1000)) {
+      const next = await listSterLoads({ from, limit: 200, offset: items.length }, s);
+      if (!next.items.length) break;
+      items.push(...next.items);
+    }
+    return { ...first, items };
+  }, []);
   const all = loads.data?.items ?? [];
   const shown = all.filter((l) => (view === "all" ? true : view === "active" ? ACTIVE.includes(l.status) : l.status === "awaiting_release"));
   const awaiting = all.filter((l) => l.status === "awaiting_release");
