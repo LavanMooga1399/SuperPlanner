@@ -14,6 +14,8 @@ import { Link, Outlet, useNavigate } from "react-router";
 import { Icon } from "../../components/Icon";
 import { listOperators } from "../api/client";
 import { floorScan } from "../api/clientM4";
+import { scanKanban } from "../api/clientM8";
+import { cardStateText } from "../forecast/shared";
 import { listWoOperationsM4 } from "../api/clientM4";
 import type { ScanResult } from "../api/typesM4";
 import { mfgPaths } from "../lib/paths";
@@ -193,6 +195,12 @@ function FloorShell({ children }: { children: ReactNode }) {
     if (!text) return;
     setBusy(true);
     try {
+      // M8 6.2: kanban card (`KB:<card id>`): a full card becomes empty and the replenishment signal is created
+      if (/^KB:/i.test(text)) {
+        const r = await scanKanban(text);
+        flash(r.signal ? tr("plan.kb.floor.signal", { n: r.card.card_no, doc: r.signal.number }) : tr("plan.kb.floor.state", { n: r.card.card_no, state: cardStateText(r.card.state) }), "ok");
+        return;
+      }
       let resolved: ScanResult | null = null;
       let unknown = false;
       // badge codes are cheap to recognise locally; everything else asks the server

@@ -87,6 +87,9 @@ import { EquipmentListPage, EquipmentPage } from "./qa/EquipmentPages";
 import { PrintRecordPage } from "./qa/PrintRecord";
 import { ForecastPage } from "./forecast/ForecastPage";
 import { AccuracyPage } from "./forecast/AccuracyPage";
+import { InvoptPage } from "./invopt/InvoptPage";
+import { ItemPackagingTab, ItemPlanningTab } from "./invopt/ItemPlanningTabs";
+import { KanbanCardsPrint, KanbanPage } from "./kanban/KanbanPage";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
 import { FloorHome } from "./floor/FloorHome";
@@ -143,6 +146,8 @@ export const mfgRoutes: RouteObject[] = [
           { path: "routing", element: <RoutingTab /> },
           { path: "stock", element: <ItemStockTab /> },
           { path: "suppliers", element: <ItemSuppliersTab /> },
+          { path: "planning", element: <ItemPlanningTab /> },
+          { path: "packaging", element: <ItemPackagingTab /> },
           { path: "*", element: <MfgNotFound /> },
         ],
       },
@@ -311,6 +316,9 @@ export const mfgRoutes: RouteObject[] = [
       // ---------------------------------------------------------------- M8 planning at volume
       { path: "forecast", element: <ForecastPage /> },
       { path: "forecast/accuracy", element: <AccuracyPage /> },
+      { path: "invopt", element: <InvoptPage /> },
+      { path: "kanban", element: <KanbanPage /> },
+      { path: "print/kanban/:loopId", element: <KanbanCardsPrint /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

@@ -88,3 +88,56 @@
 /* method mix */
 .pl-mix { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; font-size: var(--fs-sm); }
 .pl-mix li { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted var(--border); padding: 2px 0; }
+
+/* forms */
+.pl-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-3) var(--sp-4); align-items: start; }
+.pl-unit-input { display: flex; align-items: center; gap: 6px; }
+.pl-unit-input .input { flex: 1 1 auto; min-width: 0; }
+.pl-form-actions { gap: var(--sp-2); }
+.pl-w-100 { width: 100px; }
+.pl-choice { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-2); }
+.pl-choice-opt { display: flex; gap: 8px; align-items: flex-start; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; background: var(--surface); }
+.pl-choice-opt > span { display: flex; flex-direction: column; gap: 2px; }
+.pl-choice-opt.on { border-color: var(--accent); background: var(--accent-soft); }
+.pl-choice-opt input { margin-top: 3px; }
+.pl-field-err { color: var(--danger); font-size: var(--fs-xs); display: flex; align-items: center; gap: 4px; margin-top: 2px; white-space: normal; }
+.pl-edit-table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); }
+.pl-edit-table th, .pl-edit-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.pl-edit-table thead th { background: var(--surface-2); color: var(--text-muted); font-weight: var(--fw-medium); font-size: var(--fs-xs); }
+.pl-edit-table tbody th { font-weight: var(--fw-medium); white-space: nowrap; }
+.pl-edit-table td.pl-num { vertical-align: middle; white-space: nowrap; }
+.pl-row-off td, .pl-row-off th { color: var(--text-faint); }
+
+/* bulk bar */
+.pl-bulk { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); padding: 6px var(--sp-3); border: 1px solid var(--accent); background: var(--accent-soft); border-radius: var(--radius); }
+
+/* ABC x XYZ matrix */
+.pl-matrix-wrap { overflow-x: auto; }
+.pl-matrix { border-collapse: separate; border-spacing: 6px; }
+.pl-matrix th { font-weight: var(--fw-medium); text-align: left; white-space: nowrap; padding: 0 4px; }
+.pl-matrix-cell { position: relative; display: grid; gap: 2px; min-width: 150px; text-align: left; padding: 8px 10px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: pointer; font: inherit; color: inherit; overflow: hidden; }
+.pl-matrix-cell:hover { border-color: var(--border-strong); }
+.pl-matrix-cell.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.pl-matrix-n { font-weight: var(--fw-semibold); }
+.pl-matrix-v, .pl-matrix-sl { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pl-matrix-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: var(--pl-share, 0%); background: var(--accent); }
+
+/* kanban */
+.pl-cards { display: inline-flex; gap: 8px; font-variant-numeric: tabular-nums; }
+.pl-cards-n { display: inline-flex; align-items: center; gap: 3px; }
+.pl-cards-n.ok { color: var(--ok); }
+.pl-cards-n.warn { color: var(--warn); }
+.pl-cards-n.accent { color: var(--accent); }
+.pl-scan { padding: var(--sp-3) var(--sp-4); }
+.pl-scan .input { max-width: 360px; }
+.pl-print { padding: var(--sp-4); }
+.pl-print-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+.pl-kcard { display: flex; gap: 12px; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); padding: 12px; break-inside: avoid; background: #fff; color: #111; }
+.pl-kcard-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pl-kcard-part { font-size: 16px; font-weight: var(--fw-bold); }
+.pl-kcard dl { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; margin: 6px 0 0; font-size: 12px; }
+.pl-kcard dt { color: #555; }
+.pl-kcard dd { margin: 0; }
+.pl-kcard-foot { display: flex; justify-content: space-between; margin-top: auto; font-size: 12px; font-weight: var(--fw-semibold); }
+.pl-kcard-code { word-break: break-all; color: #555; }
+@media print { .no-print { display: none !important; } .pl-print { padding: 0; } }

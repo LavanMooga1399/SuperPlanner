@@ -76,6 +76,8 @@ export const ROLE_LABEL: Record<Role | "owner", string> = {
   qa_engineer: t("qa.roles.str.qaEngineer"),
   qa_approver: t("qa.roles.str.qaApprover"),
   metrology: t("qa.roles.str.metrology"),
+  plant_manager: t("plan.roles.plantManager"),
+  auditor: t("plan.roles.auditor"),
 };
 
 export const ROLE_HELP: Record<Role, string> = {
@@ -91,6 +93,8 @@ export const ROLE_HELP: Record<Role, string> = {
   qa_engineer: t("qa.roles.str.qaEngineerHelp"),
   qa_approver: t("qa.roles.str.qaApproverHelp"),
   metrology: t("qa.roles.str.metrologyHelp"),
+  plant_manager: t("plan.roles.plantManagerHelp"),
+  auditor: t("plan.roles.auditorHelp"),
 };
 
 /** 10.2 matrix: which member roles hold a permission (the owner holds all). */
@@ -131,17 +135,17 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   equipment_edit: ["metrology", "qa_engineer"],
   audit_view: ["qa_engineer", "qa_approver"],
   esig_policy_edit: ["qa_approver"],
-  // M8 11 (the design's "plant_manager" is the plant_admin role here)
-  forecast_edit: ["planner"],
-  forecast_approve: ["plant_admin"],
-  inventory_policy_edit: ["planner"],
-  inventory_policy_approve: ["plant_admin"],
-  rate_plan: ["planner"],
-  ster_plan: ["planner"],
+  // M8 11 (S0: plant_manager = planner + approvals; auditor = read + validation)
+  forecast_edit: ["planner", "plant_manager"],
+  forecast_approve: ["plant_manager"],
+  inventory_policy_edit: ["planner", "plant_manager"],
+  inventory_policy_approve: ["plant_manager"],
+  rate_plan: ["planner", "plant_manager"],
+  ster_plan: ["planner", "plant_manager"],
   ster_release: ["qa_approver"],
-  kanban_edit: ["planner"],
+  kanban_edit: ["planner", "plant_manager"],
   kanban_scan: ["operator"],
-  validation_view: ["qa_approver"],
+  validation_view: ["qa_approver", "auditor"],
   owner: [],
 };
 

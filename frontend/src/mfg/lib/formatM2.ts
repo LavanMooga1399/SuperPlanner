@@ -33,6 +33,8 @@ export const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "qa_engineer", label: tr("qa.roles.str.qaEngineer") },
   { value: "qa_approver", label: tr("qa.roles.str.qaApprover") },
   { value: "metrology", label: tr("qa.roles.str.metrology") },
+  { value: "plant_manager", label: tr("plan.roles.plantManager") },
+  { value: "auditor", label: tr("plan.roles.auditor") },
 ];
 
 /** Quantity with the unit, e.g. "30 EA". */

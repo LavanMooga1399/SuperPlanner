@@ -8,8 +8,8 @@ import type { EntityId, IsoDate, IsoDateTime, ItemRecord, ItemRef, LotRule, Make
 
 // ---------------------------------------------------------------- 3 common types
 /** M7 9.1 adds the quality roles (qa_inspector, qa_engineer, qa_approver, metrology). */
-export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin" | "qa_inspector" | "qa_engineer" | "qa_approver" | "metrology";
-export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin", "qa_inspector", "qa_engineer", "qa_approver", "metrology"];
+export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin" | "qa_inspector" | "qa_engineer" | "qa_approver" | "metrology" | "plant_manager" | "auditor";
+export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "plant_manager", "auditor"];
 export type LocationKind = "stores" | "line_side" | "inspection" | "quarantine";
 export const LOCATION_KINDS: readonly LocationKind[] = ["stores", "line_side", "inspection", "quarantine"];
 export type LotRuleM2 = LotRule;

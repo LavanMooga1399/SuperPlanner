@@ -209,3 +209,11 @@ export function Segmented<V extends string>({ value, options, onChange, label, t
     </div>
   );
 }
+
+const CARD: Record<string, ChipDef> = {
+  full: { label: "plan.kb.state.full", tone: "ok", icon: "check" },
+  empty: { label: "plan.kb.state.empty", tone: "warn", icon: "circle" },
+  in_process: { label: "plan.kb.state.inProcess", tone: "accent", icon: "truck" },
+};
+export const CardChip = ({ s }: { s: string }) => <Chip def={CARD[s]} value={s} testId="kb-card-state" />;
+export const cardStateText = (s: string) => (CARD[s] ? t(CARD[s].label) : s);
