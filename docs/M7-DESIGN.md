@@ -703,3 +703,72 @@ QP9 were not measured separately (covered functionally by the receipt, NCR and e
    are realistic; the load ends with an MRP run and refreshes that run's staleness token (no "out of date" after a
    load). The sample still has no current published schedule (run APS to get one).
 
+
+**WP-U notes (UI, as built).**
+- Code: `frontend/src/mfg/qa/**` (worklists, record pages, floor inspect, print, Part 11 pages),
+  `frontend/src/components/SignatureDialog.tsx`, `frontend/src/auth/SignatureEnrolPage.tsx` (`/account/signature`),
+  `frontend/src/mfg/api/{typesM7,clientM7,contractExamplesM7}.ts` (types mirror `esig/model.py` + `qa/model.py`; the
+  fixture is typed against them, inputs as `Partial`), strings `frontend/src/lib/strings/quality.ts` and
+  `frontend/src/lib/strings/fr-CA/*.ts`. The QA package lives under `src/mfg/qa/` (not `src/qa/`) so it shares the
+  Manufacturing layout, routes and helpers.
+- Routes: `/mfg/qa/{inspection-lots,holds,ncrs,capas,complaints,field-actions,equipment,plans,schemes}[/:id]`
+  (`new` for create), `/mfg/qa/settings`, `/mfg/esig/policies`, `/mfg/part11`, `/mfg/part11/exports`,
+  `/mfg/print/qa/:type/:id`, `/mfg/floor/inspect/:lotId`. Navigation group "Quality" after Production (plus
+  "Quality settings"); Control gains Signature policies, Part 11 settings, Part 11 export. The command palette
+  searches IL/NCR/CAPA/CMP/FA numbers and equipment codes through the list endpoints (`q`).
+- Signature dialog: always previews first (E3) and shows the server summary, record version and full SHA-256 with an
+  expandable canonical content; meaning fixed or chosen; "You are signing as <legal name> (<user name>)"; user name
+  is never prefilled (`autocomplete=off`), password `current-password`, TOTP `one-time-code` when the step's auth is
+  `password_totp`; SSO users (no password method in `signer.methods`) re-authenticate in a popup and the token is
+  cleared after every attempt; passwords are cleared after every attempt. 409 `ESIG_CONTENT_CHANGED` reloads the
+  preview and says nothing was signed; 422 `ESIG_AUTH_FAILED` shows the attempts left (`details.remaining`); 423 shows
+  the unlock time and that admins and QA approvers were notified; `next_step.blocked_reason` disables signing with
+  the reason. 202 answers end with a toast naming the next step and its roles. With Part 11 off (or no policy) the
+  same dialog is a plain confirmation (title without "Sign:"). The statement shown is the UI's own localized
+  sentence with the chosen meaning (server `legal_statement` is the enrolment acknowledgement). No compliance claims.
+- Change reasons: `useChangeReason()` asks only in Part 11 mode (from `GET /plant/part11`), offers the last six reasons
+  (server preference `qa.reasons`), sends `X-SP-Change-Reason`; the signature comment doubles as the reason of
+  signed actions.
+- Floor: results are posted one sample per batch with a fresh `client_batch_id`; network failures queue the batch in
+  `localStorage` (`sp.qa.results.<workspace>`) and replay on `online`/every 15 s (4xx moves it to "needs attention").
+  The operation screen gains a "Nonconforming" stepper with a defect code (`qty_nc`, `defect_code`), shows
+  `result.ncr` when the server returns it, and an inspection-gate card when `operation.inspection_lot` is present.
+- Language: display menu "Language" (`lang-select`) stores `locale` in the `display` preference (and `sp.locale`);
+  `main.tsx` loads the French dictionary before importing the app (`boot.tsx`), so module-level labels are French;
+  switching reloads the page. Numbers/dates use `fr-CA` Intl (Chromium uses U+00A0 as the group separator, not the
+  narrow U+202F of the design; text dates are "23 nov. 2026" rather than ISO, consistent with the UX rule that UI text
+  never shows ISO dates). Quebec typography is applied by the build script of the dictionaries (no-break space before
+  ":", inside « »; none before ? ! ;). API errors: `errors.<CODE>` (45 codes) in French sessions, the server message in
+  English sessions. `npm run i18n:check` now also fails on any missing/extra fr-CA key or differing placeholders
+  (8,280 keys, 0 problems).
+- Asks for the backend (the UI degrades gracefully meanwhile): (1) records carry user ids only (`author_id`,
+  `placed_by`, `decided_by`, `owner_user_id`); the member list is owner-only, so other users see ids - please add
+  display names next to the ids (or a `GET /mfg/people` for any plant member). (2) The PO receipt response could
+  carry `inspection_lots: [{id, number}]` (the UI uses it when present; else it looks the received lot codes up).
+  (3) `GET /floor/operations/{id}` could carry `inspection_lot {id, number, status}` for gate operations and the
+  floor event result `ncr {id, number}` (both read when present). (4) The equipment status route needs a preview
+  for `equipment.return_to_service` under `action=return_to_service` (the UI asks for it under that name).
+- Tests: `frontend/e2e/m7-quality.spec.ts` (2 tests: results -> live verdict -> decision through the dialog ->
+  history; NCR dispositions, equipment validity, French switch) passes against the real routes.
+
+**fr-CA glossary (OQLF usage, medical-device manufacturing).** work order = bon de travail; purchase order = bon de
+commande; purchase request = demande d'achat; demand order = commande client; item = article; BOM = nomenclature;
+routing = gamme; lot = lot; serial number = numéro de série; shop floor = atelier; shift = quart; changeover =
+changement de série; scrap = rebut; rework = retouche; backflush = consommation à rebours; kitting = préparation;
+inspection lot = lot d'inspection; inspection plan = plan d'inspection; sampling scheme = schéma d'échantillonnage;
+AQL = NQA; usage decision = décision d'utilisation; hold = blocage (bloqué); NCR = rapport de non-conformité (RNC);
+disposition = disposition; use as is = utiliser tel quel; CAPA = CAPA (mesures correctives et préventives);
+root cause = cause fondamentale; complaint = plainte; reportability = déclarabilité; awareness date = date de prise de
+connaissance; field action = action sur le terrain; recall = rappel; calibration = étalonnage; gauge = instrument /
+jauge; equipment = équipement; electronic signature = signature électronique; audit trail = piste d'audit; legal
+name = nom légal; enrol = s'inscrire; meanings: Rédigé, Révisé, Approuvé, Libéré, Rejeté, Vérifié, Effectué, Fermé
+(same as the backend catalog).
+
+**fr-CA review list (terms a Quebec regulatory/quality reviewer should confirm).** "CAPA" kept as the acronym (some
+sites use "ACP"/"MCP"); "RNC" for NCR; "Action sur le terrain" for field action (Health Canada texts also use
+"mesure corrective de sécurité" / "avis de sécurité"); "blocage" for hold (alternatives "retenue", "mise en
+quarantaine"); "Libéré" as the meaning of release; "schéma d'échantillonnage" vs "plan d'échantillonnage" (ISO 2859 FR
+uses both); "MRP" kept (OQLF: PBM); "trousse/préparation" for kitting; "Enceinte" for chamber; "Montage" for
+fixture; "Partie 11" in "mode Partie 11"; the gender of generated nouns in "Nouveau {task}" / "Nouvelle {resource}"
+(Studio). The finance and studio examples were localized to Canadian amounts; Indian "lakh" mentions remain where the
+parser expects them.
