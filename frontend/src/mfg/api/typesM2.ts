@@ -54,6 +54,17 @@ export type Permission =
   | "equipment_edit"
   | "audit_view"
   | "esig_policy_edit"
+  /** M8 11 planning at volume */
+  | "forecast_edit"
+  | "forecast_approve"
+  | "inventory_policy_edit"
+  | "inventory_policy_approve"
+  | "rate_plan"
+  | "ster_plan"
+  | "ster_release"
+  | "kanban_edit"
+  | "kanban_scan"
+  | "validation_view"
   | "owner";
 
 export interface Actor {

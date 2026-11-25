@@ -85,6 +85,8 @@ import { CapaPage, CapasPage, ComplaintPage, ComplaintsPage } from "./qa/CapaPag
 import { FieldActionPage, FieldActionsPage } from "./qa/FieldActionPages";
 import { EquipmentListPage, EquipmentPage } from "./qa/EquipmentPages";
 import { PrintRecordPage } from "./qa/PrintRecord";
+import { ForecastPage } from "./forecast/ForecastPage";
+import { AccuracyPage } from "./forecast/AccuracyPage";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
 import { FloorHome } from "./floor/FloorHome";
@@ -306,6 +308,9 @@ export const mfgRoutes: RouteObject[] = [
       { path: "qa/equipment", element: <EquipmentListPage /> },
       { path: "qa/equipment/:equipmentId", element: <Keyed param="equipmentId">{(k) => <EquipmentPage key={k} />}</Keyed> },
       { path: "print/qa/:type/:id", element: <PrintRecordPage /> },
+      // ---------------------------------------------------------------- M8 planning at volume
+      { path: "forecast", element: <ForecastPage /> },
+      { path: "forecast/accuracy", element: <AccuracyPage /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

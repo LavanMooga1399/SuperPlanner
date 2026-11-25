@@ -49,6 +49,16 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "equipment_edit",
   "audit_view",
   "esig_policy_edit",
+  "forecast_edit",
+  "forecast_approve",
+  "inventory_policy_edit",
+  "inventory_policy_approve",
+  "rate_plan",
+  "ster_plan",
+  "ster_release",
+  "kanban_edit",
+  "kanban_scan",
+  "validation_view",
   "owner",
 ];
 
@@ -121,6 +131,17 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   equipment_edit: ["metrology", "qa_engineer"],
   audit_view: ["qa_engineer", "qa_approver"],
   esig_policy_edit: ["qa_approver"],
+  // M8 11 (the design's "plant_manager" is the plant_admin role here)
+  forecast_edit: ["planner"],
+  forecast_approve: ["plant_admin"],
+  inventory_policy_edit: ["planner"],
+  inventory_policy_approve: ["plant_admin"],
+  rate_plan: ["planner"],
+  ster_plan: ["planner"],
+  ster_release: ["qa_approver"],
+  kanban_edit: ["planner"],
+  kanban_scan: ["operator"],
+  validation_view: ["qa_approver"],
   owner: [],
 };
 

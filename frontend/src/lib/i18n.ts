@@ -16,6 +16,7 @@ import { navStrings } from "./strings/nav";
 import { shellStrings } from "./strings/shell";
 import { studioStrings } from "./strings/studio";
 import { qualityStrings } from "./strings/quality";
+import { planningStrings } from "./strings/planning";
 
 const en = {
   ...navStrings,
@@ -28,6 +29,7 @@ const en = {
   ...accountStrings,
   ...shellStrings,
   ...qualityStrings,
+  ...planningStrings,
   "common.cancel": "Cancel",
   "common.close": "Close",
   "common.dismiss": "Dismiss notification",

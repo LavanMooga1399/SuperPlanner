@@ -145,6 +145,19 @@ export const mfgPaths = {
   printQa: (type: string, id: string) => `${MFG}/print/qa/${enc(type)}/${enc(id)}`,
   floorInspect: (lotId: string) => `${MFG}/floor/inspect/${enc(lotId)}`,
   esigEnroll: (next?: string) => `/account/signature${queryString({ next })}`,
+
+  // ---------------------------------------------------------------- M8 planning at volume
+  forecast: (q?: { v?: string; item?: string }) => `${MFG}/forecast${queryString(q)}`,
+  forecastAccuracy: () => `${MFG}/forecast/accuracy`,
+  invopt: (q?: { run?: string }) => `${MFG}/invopt${queryString(q)}`,
+  ratePlans: () => `${MFG}/rate`,
+  rateRun: (id: string, tab?: "grid" | "gantt" | "shortages" | "compare") => `${MFG}/rate/runs/${enc(id)}${tab ? `/${tab}` : ""}`,
+  sterilisation: () => `${MFG}/sterilisation`,
+  kanban: (q?: { loop?: string }) => `${MFG}/kanban${queryString(q)}`,
+  kanbanCards: (loopId: string) => `${MFG}/print/kanban/${enc(loopId)}`,
+  validation: () => `${MFG}/validation`,
+  itemPlanning: (itemId: string) => `${MFG}/items/${enc(itemId)}/planning`,
+  itemPackaging: (itemId: string) => `${MFG}/items/${enc(itemId)}/packaging`,
 };
 
 /** M 11.1 `isMfgPath`. */
