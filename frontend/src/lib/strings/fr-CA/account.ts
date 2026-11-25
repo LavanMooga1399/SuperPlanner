@@ -314,6 +314,6 @@ export const accountFrCa: Record<keyof typeof accountStrings, string> = {
   "account.orgPages.tpl.signingReinstated": "Signature rétablie pour {who}.",
   "account.orgPages.text.signingHelp": "La révocation empêche cette personne de signer dans toutes les usines de l'organisation et de s'inscrire de nouveau. Le rétablissement lui permet de signer de nouveau avec son inscription existante. Les deux sont consignés dans la piste d'audit.",
   "account.orgPages.tpl.signingStateRevoked": "Révoquée le {when}",
-  "account.orgPages.text.signingStateEnrolled": "Inscrite, peut signer",
-  "account.orgPages.text.signingStateNotEnrolled": "Non inscrite",
+  "account.orgPages.text.signingStateEnrolled": "Inscription active, peut signer",
+  "account.orgPages.text.signingStateNotEnrolled": "Aucune inscription",
 };

@@ -1194,4 +1194,11 @@ export const qualityStrings = {
   "errors.QA_LINK_LOCKED": "This link cannot be removed: one of the records is closed or decided, or you cannot edit both records.",
   "qa.esig.label.reason": "Reason for change",
   "qa.reason.str.thisRecord": "this record",
+  "qa.eq.hint.dueViaCalibration": "Changes only when a calibration is recorded.",
+  "qa.eq.title.blocked": "Calibration settings are locked",
+  "qa.eq.text.blocked": "This equipment is not valid, so its calibration requirement, interval, grace days and line cannot change. Record a calibration, or retire the equipment.",
+  "qa.settings.tpl.sorTitle": "Change the system of record",
+  "qa.settings.btn.signSor": "Sign and save",
+  "qa.settings.text.sorEffect": "New CAPAs and complaints follow the new setting; existing records keep the system they were created in. The switch is refused while records managed here are still open.",
+  "qa.settings.tpl.sorChange": "{what}: {from} → {to}",
 } as const;

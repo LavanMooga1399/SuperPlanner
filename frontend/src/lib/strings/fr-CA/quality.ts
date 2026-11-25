@@ -1194,4 +1194,11 @@ export const qualityFrCa: Record<keyof typeof qualityStrings, string> = {
   "errors.QA_LINK_LOCKED": "Ce lien ne peut pas être retiré : l'un des dossiers est fermé ou décidé, ou vous ne pouvez pas modifier les deux dossiers.",
   "qa.esig.label.reason": "Raison de la modification",
   "qa.reason.str.thisRecord": "ce dossier",
+  "qa.eq.hint.dueViaCalibration": "Change seulement lorsqu'un étalonnage est enregistré.",
+  "qa.eq.title.blocked": "Les paramètres d'étalonnage sont verrouillés",
+  "qa.eq.text.blocked": "Cet équipement n'est pas valide : son exigence d'étalonnage, son intervalle, ses jours de grâce et sa ligne ne peuvent pas changer. Enregistrez un étalonnage ou retirez l'équipement.",
+  "qa.settings.tpl.sorTitle": "Changer le système de référence",
+  "qa.settings.btn.signSor": "Signer et enregistrer",
+  "qa.settings.text.sorEffect": "Les nouvelles CAPA et plaintes suivent le nouveau réglage ; les dossiers existants gardent le système dans lequel ils ont été créés. Le changement est refusé tant que des dossiers gérés ici sont encore ouverts.",
+  "qa.settings.tpl.sorChange": "{what} : {from} → {to}",
 };

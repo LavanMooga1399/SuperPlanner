@@ -63,6 +63,19 @@ test.describe("M7 quality", () => {
     }
     await expect(page.getByTestId("qa-verdict")).toHaveAttribute("data-verdict", "accept");
 
+    // the verdict decides the primary action
+    await expect(page.getByTestId("qa-decision-accept")).toHaveClass(/primary/);
+    await expect(page.getByTestId("qa-decision-reject")).not.toHaveClass(/primary/);
+    // rejecting against an accept verdict warns and needs a justification
+    await page.getByTestId("qa-decision-reject").click();
+    const against = page.getByTestId("esig-dialog");
+    await expect(against.getByTestId("qa-decision-against")).toBeVisible();
+    await expect(page.getByTestId("esig-submit")).toBeDisabled();
+    await against.getByTestId("qa-decision-note").fill("Visible flash on the parting line");
+    await expect(page.getByTestId("esig-submit")).toBeEnabled();
+    await page.getByRole("dialog").locator(".dialog-close").click();
+    await expect(against).toBeHidden();
+
     // usage decision through the shared dialog (Part 11 off: plain confirmation)
     await page.getByTestId("qa-decision-accept").click();
     const dlg = page.getByTestId("esig-dialog");

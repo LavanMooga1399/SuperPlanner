@@ -224,6 +224,9 @@ export function EquipmentPage() {
   }, [e, isNew]);
   if (!isNew && rec.loading && !e) return <Spinner />;
   if (!isNew && !e) return <MfgError error={rec.error} onRetry={rec.reload} />;
+  // review M6: while the item is not valid its calibration settings, line and tool pool are fixed (409
+  // QA_EQUIPMENT_BLOCKING) - the way out is a calibration (or retiring it); the due date moves only by calibrations
+  const blocked = Boolean(e && !e.valid && e.status !== "retired");
   const set = (p: Partial<EquipmentInput>) => {
     setForm((f) => ({ ...f, ...p }));
     setDirty(true);
@@ -253,6 +256,13 @@ export function EquipmentPage() {
   const formView = (
     <FormErrors error={error}>
       <Section title={t("qa.fa.head.details")}>
+        {blocked && canEdit ? (
+          <div style={{ padding: "12px 16px 0" }}>
+            <Banner tone="warn" icon="lock" title={t("qa.eq.title.blocked")} testId="eq-blocked">
+              {t("qa.eq.text.blocked")}
+            </Banner>
+          </div>
+        ) : null}
         <div className="qa-form-grid">
           <TextField label={t("qa.eq.head.code")} name="code" value={form.code} onChange={(v) => set({ code: v.toUpperCase() })} disabled={!canEdit || !isNew} required maxLength={32} testId="eq-code" hint={t("qa.eq.hint.code")} />
           <div className="span-2">
@@ -271,7 +281,7 @@ export function EquipmentPage() {
           <TextField label={t("qa.eq.head.class")} name="equipment_class" value={form.equipment_class} onChange={(v) => set({ equipment_class: v.toUpperCase() })} disabled={!canEdit} required hint={t("qa.eq.hint.class")} />
           <div className="field">
             <label htmlFor="eq-line">{t("qa.eq.label.line")}</label>
-            <select id="eq-line" className="select" value={form.line_id ?? ""} disabled={!canEdit} onChange={(x) => set({ line_id: x.target.value || null })}>
+            <select id="eq-line" className="select" value={form.line_id ?? ""} disabled={!canEdit || blocked} onChange={(x) => set({ line_id: x.target.value || null })}>
               <option value="">{t("qa.settings.str.none")}</option>
               {(lines.data?.items ?? []).map((l) => (
                 <option key={l.id} value={l.id}>
@@ -285,18 +295,24 @@ export function EquipmentPage() {
           <TextField label={t("qa.eq.label.manufacturer")} name="manufacturer" value={form.manufacturer} onChange={(v) => set({ manufacturer: v })} disabled={!canEdit} />
           <TextField label={t("qa.eq.head.location")} name="location" value={form.location} onChange={(v) => set({ location: v })} disabled={!canEdit} />
           <label className="checkbox" style={{ alignSelf: "end" }}>
-            <input type="checkbox" checked={form.calibration_required} disabled={!canEdit} onChange={(x) => set({ calibration_required: x.target.checked })} /> {t("qa.eq.label.required")}
+            <input type="checkbox" checked={form.calibration_required} disabled={!canEdit || blocked} onChange={(x) => set({ calibration_required: x.target.checked })} /> {t("qa.eq.label.required")}
           </label>
           {form.calibration_required ? (
             <>
-              <TextField label={t("qa.eq.label.interval")} name="interval_days" type="number" value={form.interval_days === null ? "" : String(form.interval_days)} onChange={(v) => set({ interval_days: v ? Number(v) : null })} disabled={!canEdit} required />
-              <TextField label={t("qa.eq.label.grace")} name="grace_days" type="number" value={String(form.grace_days)} onChange={(v) => set({ grace_days: Number(v) || 0 })} disabled={!canEdit} hint={t("qa.eq.hint.grace")} />
+              <TextField label={t("qa.eq.label.interval")} name="interval_days" type="number" value={form.interval_days === null ? "" : String(form.interval_days)} onChange={(v) => set({ interval_days: v ? Number(v) : null })} disabled={!canEdit || blocked} required />
+              <TextField label={t("qa.eq.label.grace")} name="grace_days" type="number" value={String(form.grace_days)} onChange={(v) => set({ grace_days: Number(v) || 0 })} disabled={!canEdit || blocked} hint={t("qa.eq.hint.grace")} />
               {isNew ? (
                 <div className="field">
                   <label htmlFor="eq-due">{t("qa.eq.head.due")}</label>
                   <DateInput id="eq-due" value={form.due_on ?? ""} onChange={(v) => set({ due_on: v || null })} />
                 </div>
-              ) : null}
+              ) : (
+                <div className="field">
+                  <span className="field-label">{t("qa.eq.head.due")}</span>
+                  <span data-testid="eq-due-readonly">{fmtDate(form.due_on)}</span>
+                  <span className="hint">{t("qa.eq.hint.dueViaCalibration")}</span>
+                </div>
+              )}
               <TextField label={t("qa.eq.label.procedure")} name="procedure_ref" value={form.procedure_ref} onChange={(v) => set({ procedure_ref: v })} disabled={!canEdit} />
               <div className="field">
                 <label htmlFor="eq-prov">{t("qa.eq.label.provider")}</label>

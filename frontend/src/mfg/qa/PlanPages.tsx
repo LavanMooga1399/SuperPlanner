@@ -15,7 +15,7 @@ import { SignatureDialog, signedToast } from "../../components/SignatureDialog";
 import { toast } from "../../components/Toast";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
 import { listLocations } from "../api/clientM2";
-import { copyPlan, createPlan, createScheme, deletePlan, deleteScheme, getPlan, getQaSettings, getScheme, listPlans, listSchemes, obsoletePlan, previewSampling, recordAction, updatePlan, updateQaSettings, updateScheme } from "../api/clientM7";
+import { copyPlan, createPlan, createScheme, deletePlan, deleteScheme, getPlan, getQaSettings, getScheme, listPlans, listSchemes, obsoletePlan, previewSampling, recordAction, signedAction, updatePlan, updateQaSettings, updateScheme } from "../api/clientM7";
 import type { ItemRef } from "../api/types";
 import type { CharacteristicInput, DefectCode, InspectionPlan, PlanInput, QaSettings, QaSettingsInput, ReportabilityRule, SamplingScheme, SchemeInput, SchemeKind, Scope, Severity3 } from "../api/typesM7";
 import { LEVELS } from "../api/typesM7";
@@ -919,6 +919,7 @@ export function QaSettingsPage() {
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [signingSor, setSigningSor] = useState(false);
   useEffect(() => {
     document.title = t("qa.settings.str.docTitle");
     if (rec.data) {
@@ -934,6 +935,8 @@ export function QaSettingsPage() {
     setDirty(true);
   };
   const cur: QaSettings = rec.data;
+  const sorChanged = form.capa_sor !== cur.capa_sor || form.complaint_sor !== cur.complaint_sor;
+  const sorText = (v: string) => (v === "external" ? t("qa.settings.str.external") : t("qa.settings.str.here"));
   const codes = form.defect_codes;
   const rules = form.reportability_rules;
   const updCode = (i: number, p: Partial<DefectCode>) => set({ defect_codes: codes.map((c, j) => (j === i ? { ...c, ...p } : c)) });
@@ -951,6 +954,11 @@ export function QaSettingsPage() {
               className="btn primary"
               disabled={busy || !dirty}
               onClick={async () => {
+                // review M7: switching a system of record is a signed action (qa_settings.sor_change)
+                if (sorChanged) {
+                  setSigningSor(true);
+                  return;
+                }
                 const r = await reason.ask(t("qa.settings.title"));
                 if (r === null) return;
                 setBusy(true);
@@ -972,6 +980,32 @@ export function QaSettingsPage() {
         }
       />
       {isConflict(error) ? <ConflictBanner onReload={rec.reload} /> : <MfgError error={error} />}
+      {signingSor ? (
+        <SignatureDialog<QaSettings>
+          title={t("qa.settings.tpl.sorTitle")}
+          recordType="qa_settings"
+          recordId="plant"
+          recordLabel={t("qa.settings.title")}
+          action="sor_change"
+          meaning="approved"
+          submitLabel={t("qa.settings.btn.signSor")}
+          plainLabel={t("qa.plans.btn.save")}
+          effect={t("qa.settings.text.sorEffect")}
+          perform={(sig, comment) => signedAction<QaSettings>("/plant/qa-settings", { ...form }, { method: "PUT", version: cur.row_version, signature: sig, reason: comment })}
+          onDone={(res) => {
+            setSigningSor(false);
+            toast(signedToast(res, t("qa.settings.toast.saved")));
+            if (res.status === 200) rec.setData(res.record);
+            else rec.reload();
+          }}
+          onClose={() => setSigningSor(false)}
+        >
+          <ul className="small" style={{ margin: 0, paddingLeft: 18 }} data-testid="qa-sor-changes">
+            {form.capa_sor !== cur.capa_sor ? <li>{t("qa.settings.tpl.sorChange", { what: t("qa.settings.label.capaSor"), from: sorText(cur.capa_sor), to: sorText(form.capa_sor) })}</li> : null}
+            {form.complaint_sor !== cur.complaint_sor ? <li>{t("qa.settings.tpl.sorChange", { what: t("qa.settings.label.complaintSor"), from: sorText(cur.complaint_sor), to: sorText(form.complaint_sor) })}</li> : null}
+          </ul>
+        </SignatureDialog>
+      ) : null}
       <FormErrors error={error}>
         <Section title={t("qa.settings.head.general")}>
           <div className="qa-form-grid">
