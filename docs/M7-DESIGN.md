@@ -826,3 +826,10 @@ parser expects them.
   enrolment confirmations count toward the signing lockout. m13 With `ESIG_LOCAL_CREDENTIALS`, an SSO user enrols
   a signing password within 10 minutes of a fresh SSO sign-in, confirmed with a TOTP code.
 
+UI follow-ups: QA records carry `people {user_id: display name}`; `PUT /plant/part11` answers `enabled_by_name`;
+receipt postings always carry `inspection_lots` (possibly empty); floor operations carry `inspection_lot`
+({id, number, status}) and floor event results `ncr` / `inspection_lot_id`; `GET /esig/preview` works for
+`equipment` / `return_to_service`; assistant citations accept grouped markers (`[R7, R8]`, `[R7; R8]`, rewritten
+as `[R7][R8]`). `0010_m7` was revised in place while unreleased: dev databases at an earlier 0010 need
+`downgrade 0009_ux` + `upgrade` (DEPLOY 17).
+

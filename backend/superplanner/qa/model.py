@@ -38,6 +38,7 @@ class Stamped(MfgModel):
     signatures: list[SignatureManifest] = Field(default_factory=list)
     links: list[dict[str, Any]] = Field(default_factory=list)          # LinkRecord
     attachments: list[dict[str, Any]] = Field(default_factory=list)    # AttachmentRecord (no data)
+    people: dict[str, str] = Field(default_factory=dict)              # user id -> display name
 
 
 # ---------------------------------------------------------------- QA settings (3)

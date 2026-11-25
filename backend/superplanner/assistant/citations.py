@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 from ..api.db import new_id, utcnow
 from ..api.mfg.db_models_m6 import AssistantRefRow
 
-MARKER = re.compile(r"\[(R[0-9]{1,4})\]")
+#: one marker or a group (`[R7, R8]`, `[R7; R8]`); groups are rewritten as adjacent single markers `[R7][R8]`
+MARKER = re.compile(r"\[(R[0-9]{1,4}(?:\s*[,;]\s*R[0-9]{1,4})*)\]")
 SAFE_LINK = re.compile(r"^/(mfg|integration|m)(/[A-Za-z0-9_.:\-]*)*(\?[A-Za-z0-9_.:=&\-]*)?$")
 MAX_REFS_PER_CONVERSATION = 2000
 LINK_TYPES = (("/mfg/demand/", "demand_order"), ("/mfg/work-orders/", "work_order"),
@@ -91,14 +92,16 @@ def resolve(answer: str, registry: RefRegistry) -> tuple[str, list[dict[str, Any
     seen: set[str] = set()
 
     def repl(m: re.Match[str]) -> str:
-        ref = m.group(1)
-        rec = registry.records.get(ref)
-        if rec is None:
-            return ""
-        if ref not in seen:
-            seen.add(ref)
-            cited.append(dict(rec))
-        return m.group(0)
+        kept = []
+        for ref in re.split(r"\s*[,;]\s*", m.group(1)):
+            rec = registry.records.get(ref)
+            if rec is None:
+                continue
+            if ref not in seen:
+                seen.add(ref)
+                cited.append(dict(rec))
+            kept.append(f"[{ref}]")
+        return "".join(kept)
 
     out = MARKER.sub(repl, answer or "")
     out = re.sub(r"[ \t]+([.,;:])", r"\1", out)          # "late [R9]." -> "late ." -> "late."

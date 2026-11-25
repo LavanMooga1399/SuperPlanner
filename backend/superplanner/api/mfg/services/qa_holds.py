@@ -60,6 +60,9 @@ def hold_record(s: Session, r: MfgLotHoldRow, full: bool = False) -> dict[str, A
         from . import esig
 
         rec["signatures"] = esig.manifests(s, "hold", r.id)
+        from .qa_common import with_people
+
+        with_people(s, rec)
     return rec
 
 

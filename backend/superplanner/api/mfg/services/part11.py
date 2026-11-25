@@ -71,7 +71,8 @@ def _mode(s: Session, ctx: AppContext) -> dict[str, Any]:
         skew = None
     on = bool(p is not None and p.part11_mode)
     return {"enabled": on, "enabled_at": sig.signed_at if (on and sig) else None,
-            "enabled_by": sig.signer_id if (on and sig) else None, "signatures": sigs,
+            "enabled_by": sig.signer_id if (on and sig) else None,
+            "enabled_by_name": sig.signer_legal_name if (on and sig) else None, "signatures": sigs,
             "esig_enabled": bool(ctx.settings.esig_enabled), "secrets_configured": bool(ctx.settings.secrets_keys),
             "clock_skew_ms": skew, "max_clock_skew_ms": float(ctx.settings.esig_max_clock_skew_ms)}
 

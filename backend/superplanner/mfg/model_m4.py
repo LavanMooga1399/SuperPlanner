@@ -107,6 +107,9 @@ class WoOperationRecord(MfgModel):
 
 
 # ---------------------------------------------------------------- floor events (3.2 / 4.2 / 11)
+    #: M7-DESIGN 5.2: the in-process inspection lot of a gate operation ({id, number, status})
+    inspection_lot: dict[str, Any] | None = None
+
 
 class ConsumedSerial(MfgModel):
     item_id: EntityId
@@ -206,6 +209,9 @@ class FloorEventResult(MfgModel):
     postings: list[dict[str, Any]] = Field(default_factory=list)       # [{id, number, type, lines}]
     warnings: list[FloorWarning] = Field(default_factory=list)
     triggers: list[dict[str, Any]] = Field(default_factory=list)       # ReplanTriggerRecord dicts raised
+    #: M7-DESIGN 6 / 5.2: the NCR a nonconforming quantity went to; the inspection lot a gate start created
+    ncr: dict[str, Any] | None = None
+    inspection_lot_id: str | None = None
 
 
 class BackflushRetryInput(MfgModel):

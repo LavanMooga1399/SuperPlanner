@@ -413,3 +413,55 @@ def test_m13_local_credentials_enrolment_for_sso_users(db_url):
         assert out["status"] == "approved"
     finally:
         world.close()
+
+
+# ---------------------------------------------------------------- UI follow-ups
+
+def test_ui_people_names_on_qa_records_single_user(api):
+    n = api.post("/qa/ncrs", {"title": "n", "qty_nc": 1})
+    assert n["people"].get(n["author_id"])                  # the local user's display name
+
+
+def test_ui_receipts_always_list_inspection_lots(api):
+    it = api.item("X")
+    sup = api.supplier("S")
+    loc = api.location("ST", receipt_default=True)
+    po = api.post("/purchase-orders", {"supplier_id": sup["id"], "lines": [{"item_id": it["id"], "schedules": [
+        {"requested_date": TODAY.isoformat(), "qty": 5}]}]})
+    po = api.post(f"/purchase-orders/{po['id']}/issue", version=po["row_version"], status=200)
+    rec = api.post("/inventory/postings", {"type": "po_receipt", "lines": [
+        {"schedule_id": po["lines"][0]["schedules"][0]["id"], "qty": 5, "location_id": loc["id"]}]})
+    assert rec["inspection_lots"] == []
+
+
+def test_ui_floor_operation_inspection_lot_and_event_ncr(api):
+    from apimfgm4_helpers import ev
+    from test_m7_inspection import gate_plant
+
+    x = gate_plant(api, lot_fg=False)
+    sc = scheme(api)
+    plan(api, x["fg"]["id"], "in_process", sc["id"], operation_seq=20)
+    op10, op20 = x["ops"]
+    ev(api, op10["id"], "start", line_id=x["l1"]["id"])
+    r = ev(api, op10["id"], "complete", qty_good=8, qty_nc=2)
+    assert r["ncr"]["number"].startswith("NCR-")
+    r = ev(api, op20["id"], "start", line_id=x["l1"]["id"])
+    assert r["operation"]["inspection_lot"]["number"].startswith("IL-") and r["inspection_lot_id"]
+
+
+def test_ui_preview_equipment_return_to_service(w):
+    e = w.owner.api.post("/qa/equipment", {"code": "EQ-P", "name": "G", "kind": "gauge", "equipment_class": "F",
+                                           "interval_days": 90, "due_on": (TODAY + timedelta(days=9)).isoformat()})
+    w.part11_on()
+    pv = w.owner.api.get("/esig/preview", record_type="equipment", record_id=e["id"], action="return_to_service")
+    assert pv["action"] == "return_to_service" and pv["required"] is True and len(pv["content_hash"]) == 64
+
+
+def test_ui_grouped_citation_markers():
+    from superplanner.assistant.citations import resolve
+
+    class Reg:
+        records = {"R7": {"ref": "R7"}, "R8": {"ref": "R8"}}
+
+    out, cited = resolve("Late [R7, R8] and [R8; R9].", Reg())
+    assert out == "Late [R7][R8] and [R8]." and [c["ref"] for c in cited] == ["R7", "R8"]

@@ -660,6 +660,13 @@ These controls are designed to *support* 21 CFR Part 11, ISO 13485 and 21 CFR 82
 an installation compliant: the customer validates the system for its intended use and owns the procedures
 (signature certification to the FDA, training, SOPs, access reviews).
 
+**Development databases created before M7 was released.** Migration `0010_m7` was revised in place while
+unreleased (e.g. the `sor` column of `qa_capas` / `qa_complaints`, recall holds). A dev database migrated to an
+earlier 0010 must be re-migrated: `python -c "from superplanner import migrate;
+migrate.run_alembic_downgrade('<owner URL>', '0009_ux')"` and then `python -m superplanner.migrate upgrade`; M7 data
+in it is dropped. Released databases are not
+affected.
+
 **Configuration**
 
 | Setting | Default | Notes |

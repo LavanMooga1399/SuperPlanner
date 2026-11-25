@@ -101,6 +101,9 @@ def cal_record(s: Session, c: QaCalibrationRow, full: bool = False) -> dict[str,
         rec["signatures"] = esig.manifests(s, "calibration", c.id, current_hash=esig.C.content_hash(
             calibration_content(s, c.id)[0]))
         rec["attachments"] = attachments_of(s, "calibration", c.id)
+        from .qa_common import with_people
+
+        with_people(s, rec)
     return rec
 
 

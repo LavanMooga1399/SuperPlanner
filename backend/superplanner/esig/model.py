@@ -224,6 +224,7 @@ class Part11ModeRecord(MfgModel):
     enabled: bool
     enabled_at: datetime | None = None
     enabled_by: str | None = None
+    enabled_by_name: str | None = None
     signatures: list[SignatureManifest] = Field(default_factory=list)
     esig_enabled: bool
     secrets_configured: bool

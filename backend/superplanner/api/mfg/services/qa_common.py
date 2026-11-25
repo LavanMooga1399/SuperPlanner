@@ -176,6 +176,33 @@ def decorate(s: Session, record: dict[str, Any], entity_type: str, record_type: 
                                               esig.C.content_hash(content))
     record["links"] = links_of(s, entity_type, rid)
     record["attachments"] = attachments_of(s, entity_type, rid)
+    return with_people(s, record)
+
+
+PERSON_KEYS = ("author_id", "decided_by", "placed_by", "released_by", "entered_by", "created_by", "uploaded_by",
+               "owner_user_id", "requested_by", "performed_by", "updated_by", "enabled_by", "signer_id")
+
+
+def with_people(s: Session, record: dict[str, Any]) -> dict[str, Any]:
+    """`people: {user_id: display name}` for every person id the record (and its child lists) mentions, so the UI
+    shows names next to ids (single-user mode: the local user's name)."""
+    from .m2util import user_names
+
+    ids: set[str] = set()
+
+    def scan(d: dict[str, Any]) -> None:
+        for k in PERSON_KEYS:
+            v = d.get(k)
+            if isinstance(v, str) and v:
+                ids.add(v)
+
+    scan(record)
+    for v in record.values():
+        if isinstance(v, list):
+            for x in v:
+                if isinstance(x, dict):
+                    scan(x)
+    record["people"] = user_names(s, ids) if ids else {}
     return record
 
 

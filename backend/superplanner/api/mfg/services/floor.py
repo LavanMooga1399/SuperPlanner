@@ -282,6 +282,16 @@ def op_records(s: Session, rows: list[MfgWoOperationRow], *, placement: bool = T
             "row_version": r.row_version, "created_at": as_utc(r.created_at), "updated_at": as_utc(r.updated_at)})
     order = {r.id: i for i, r in enumerate(rows)}
     out.sort(key=lambda x: order[x["id"]])
+    if out:                                    # M7: the operation's in-process inspection lot (gate)
+        from ..db_models_m7 import QaInspectionLotRow
+
+        ils: dict[str, Any] = {}
+        for il in s.execute(select(QaInspectionLotRow).where(
+                QaInspectionLotRow.wo_operation_id.in_([o["id"] for o in out]),
+                QaInspectionLotRow.status != "cancelled").order_by(QaInspectionLotRow.created_at)).scalars():
+            ils[il.wo_operation_id] = {"id": il.id, "number": il.number, "status": il.status}
+        for o in out:
+            o["inspection_lot"] = ils.get(o["id"])
     return out
 
 
@@ -877,8 +887,10 @@ def _apply_op_event(c: _Ctx, inp: FloorEventInput, wo_id: str, op_id: str, load:
     others = [r for r in rows if r.id != op.id and (
         r.id in c.changed or (vb[r.seq].qty_input, vb[r.seq].ready) != (va[r.seq].qty_input, va[r.seq].ready))]
     recs = op_records(s, [op] + others, placement=False)
+    ncr = (row.details or {}).get("ncr")                 # M7: the NCR a nonconforming quantity went to
     return {"event": _event_record(s, row), "operation": recs[0], "operations": recs[1:],
-            "wo": wo_summary(s, wo), "postings": c.postings, "warnings": c.warnings, "triggers": c.triggers}
+            "wo": wo_summary(s, wo), "postings": c.postings, "warnings": c.warnings, "triggers": c.triggers,
+            "ncr": ncr, "inspection_lot_id": (row.details or {}).get("inspection_lot_id")}
 
 
 def _view_status(rows: list[MfgWoOperationRow], op: MfgWoOperationRow, st: E.OpState) -> str:
