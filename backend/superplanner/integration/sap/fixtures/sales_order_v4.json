@@ -1,0 +1,35 @@
+{
+ "@odata.nextLink": null,
+ "value": [
+  {
+   "LastChangeDateTime": "2026-11-24T10:00:00Z",
+   "SalesOrder": "1000456",
+   "SoldToParty": "DIST-EAST",
+   "_Item": [
+    {
+     "Product": "SYR-3ML-LL",
+     "ProductionPlant": "1000",
+     "RequestedQuantity": "120000",
+     "SalesOrderItem": "10",
+     "_ScheduleLine": [
+      {
+       "ConfirmedDeliveryDate": "2026-12-10",
+       "ScheduleLineOrderQuantity": "60000"
+      },
+      {
+       "ConfirmedDeliveryDate": "2026-12-17",
+       "ScheduleLineOrderQuantity": "60000"
+      }
+     ]
+    },
+    {
+     "Product": "NDL-21G-1",
+     "ProductionPlant": "1000",
+     "RequestedDeliveryDate": "2026-12-12",
+     "RequestedQuantity": "50000",
+     "SalesOrderItem": "20"
+    }
+   ]
+  }
+ ]
+}

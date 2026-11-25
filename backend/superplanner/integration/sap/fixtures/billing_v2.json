@@ -1,0 +1,27 @@
+{
+ "d": {
+  "results": [
+   {
+    "BillingDocument": "90000001",
+    "BillingDocumentDate": "/Date(1759276800000)/",
+    "BillingQuantity": "400000",
+    "Material": "SYR-3ML-LL",
+    "Plant": "1000"
+   },
+   {
+    "BillingDocument": "90000002",
+    "BillingDocumentDate": "/Date(1761955200000)/",
+    "BillingQuantity": "380000",
+    "Material": "SYR-3ML-LL",
+    "Plant": "1000"
+   },
+   {
+    "BillingDocument": "90000003",
+    "BillingDocumentDate": "/Date(1761955200000)/",
+    "BillingQuantity": "150000",
+    "Material": "NDL-21G-1",
+    "Plant": "1000"
+   }
+  ]
+ }
+}

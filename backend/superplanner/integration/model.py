@@ -23,7 +23,7 @@ class _In(BaseModel):
 
 class SettingsIn(_In):
     enabled: bool = False
-    adapter: Literal["generic_v1"] = "generic_v1"
+    adapter: Literal["generic_v1", "sap_s4"] = "generic_v1"          # M8-DESIGN 9: + sap_s4
     plant_code: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.\-]{0,31}$")]
     sor: dict[Literal["items", "boms", "routings", "suppliers", "item_suppliers", "purchase_orders", "po_receipts",
                       "demand_orders", "purchase_requests", "work_orders", "floor", "transfers", "stock"],

@@ -1,0 +1,38 @@
+{
+ "d": {
+  "results": [
+   {
+    "Batch": "L2611-01",
+    "InventoryStockType": "01",
+    "Material": "SYR-3ML-LL",
+    "MatlWrhsStkQtyInMatlBaseUnit": "48000",
+    "Plant": "1000",
+    "StorageLocation": "0001"
+   },
+   {
+    "Batch": "",
+    "InventoryStockType": "01",
+    "Material": "000000000000100231",
+    "MatlWrhsStkQtyInMatlBaseUnit": "25000",
+    "Plant": "1000",
+    "StorageLocation": "0002"
+   },
+   {
+    "Batch": "",
+    "InventoryStockType": "02",
+    "Material": "000000000000100231",
+    "MatlWrhsStkQtyInMatlBaseUnit": "999",
+    "Plant": "1000",
+    "StorageLocation": "0002"
+   },
+   {
+    "Batch": "X",
+    "InventoryStockType": "01",
+    "Material": "SYR-3ML-LL",
+    "MatlWrhsStkQtyInMatlBaseUnit": "7",
+    "Plant": "2000",
+    "StorageLocation": "0001"
+   }
+  ]
+ }
+}

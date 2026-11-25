@@ -60,12 +60,12 @@ def settings_record(r: IntSettingsRow | None, plant_name: str = "") -> dict[str,
     if r is None:
         return {"enabled": False, "adapter": "generic_v1", "plant_code": "", "sor": dict(SOR_DEFAULTS),
                 "goods_receipts_owner": "superplanner", "filedrop_enabled": False, "export_enabled": False,
-                "export_interval_minutes": 15, "row_version": 0, "adapters": ["generic_v1"]}
+                "export_interval_minutes": 15, "row_version": 0, "adapters": ["generic_v1", "sap_s4"]}
     return {"enabled": r.enabled, "adapter": r.adapter, "plant_code": r.plant_code,
             "sor": {**SOR_DEFAULTS, **{k: v for k, v in (r.sor or {}).items() if not k.startswith("_")}},
             "goods_receipts_owner": r.goods_receipts_owner, "filedrop_enabled": r.filedrop_enabled,
             "export_enabled": r.export_enabled, "export_interval_minutes": r.export_interval_minutes,
-            "row_version": r.row_version, "adapters": ["generic_v1"]}
+            "row_version": r.row_version, "adapters": ["generic_v1", "sap_s4"]}
 
 
 def get_settings(ctx: AppContext) -> dict[str, Any]:

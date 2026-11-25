@@ -1,0 +1,91 @@
+{
+ "d": {
+  "results": [
+   {
+    "BaseUnit": "PCE",
+    "IsMarkedForDeletion": false,
+    "LastChangeDateTime": "/Date(1795564800000)/",
+    "Product": "NDL-21G-1",
+    "ProductType": "FERT",
+    "to_Description": {
+     "results": [
+      {
+       "Language": "EN",
+       "Product": "NDL-21G-1",
+       "ProductDescription": "Needle 21G 1 in"
+      }
+     ]
+    },
+    "to_Plant": {
+     "results": [
+      {
+       "MRPResponsible": "001",
+       "PlannedDeliveryDurationInDays": "2",
+       "Plant": "1000",
+       "ProcurementType": "E",
+       "Product": "NDL-21G-1"
+      }
+     ]
+    },
+    "to_ProductUnitsOfMeasure": {
+     "results": [
+      {
+       "AlternativeUnit": "CS",
+       "GlobalTradeItemNumber": "",
+       "Product": "NDL-21G-1",
+       "QuantityDenominator": "1",
+       "QuantityNumerator": "1000"
+      },
+      {
+       "AlternativeUnit": "PAL",
+       "GlobalTradeItemNumber": "",
+       "Product": "NDL-21G-1",
+       "QuantityDenominator": "1",
+       "QuantityNumerator": "50000"
+      }
+     ]
+    },
+    "to_Valuation": {
+     "results": [
+      {
+       "PriceUnitQty": "1000",
+       "Product": "NDL-21G-1",
+       "StandardPrice": "40.0",
+       "ValuationArea": "1000"
+      }
+     ]
+    }
+   },
+   {
+    "BaseUnit": "PCE",
+    "IsMarkedForDeletion": false,
+    "LastChangeDateTime": "/Date(1795557600000)/",
+    "Product": "OTHER-PLANT",
+    "ProductType": "ROH",
+    "to_Description": {
+     "results": [
+      {
+       "Language": "EN",
+       "Product": "OTHER-PLANT",
+       "ProductDescription": "Other plant item"
+      }
+     ]
+    },
+    "to_Plant": {
+     "results": [
+      {
+       "Plant": "2000",
+       "ProcurementType": "F"
+      }
+     ]
+    },
+    "to_ProductUnitsOfMeasure": {
+     "results": []
+    },
+    "to_Valuation": {
+     "results": []
+    }
+   }
+  ]
+ }
+}

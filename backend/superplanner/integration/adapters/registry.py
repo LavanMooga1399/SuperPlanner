@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from .base import ErpAdapter
 from .generic_v1 import GenericV1
+from .sap_s4 import SapS4
 
-ADAPTERS: dict[str, ErpAdapter] = {"generic_v1": GenericV1()}
+ADAPTERS: dict[str, ErpAdapter] = {"generic_v1": GenericV1(), "sap_s4": SapS4()}   # M8-DESIGN 9
 
 
 def get(name: str) -> ErpAdapter:

@@ -1,0 +1,23 @@
+{
+ "d": {
+  "results": [
+   {
+    "BOMHeaderQuantityInBaseUnit": "1000",
+    "BillOfMaterial": "00000001",
+    "BillOfMaterialVariant": "1",
+    "LastChangeDateTime": "/Date(1795557600000)/",
+    "Material": "SYR-3ML-LL",
+    "Plant": "1000",
+    "to_BillOfMaterialItem": {
+     "results": [
+      {
+       "BillOfMaterialComponent": "000000000000100231",
+       "BillOfMaterialItemNumber": "0010",
+       "BillOfMaterialItemQuantity": "1000"
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,281 @@
+{
+ "billing": {
+  "batches": [],
+  "extras": {
+   "history": [
+    {
+     "item_ref": "NDL-21G-1",
+     "period_start": "2025-11-01",
+     "qty": 150000.0
+    },
+    {
+     "item_ref": "SYR-3ML-LL",
+     "period_start": "2025-10-01",
+     "qty": 400000.0
+    },
+    {
+     "item_ref": "SYR-3ML-LL",
+     "period_start": "2025-11-01",
+     "qty": 380000.0
+    }
+   ]
+  }
+ },
+ "bom": {
+  "batches": [
+   {
+    "entity": "bom",
+    "mode": "upsert",
+    "records": [
+     {
+      "lines": [
+       {
+        "child_ref": "100231",
+        "find_number": "0010",
+        "qty_per": 1.0
+       }
+      ],
+      "parent_ref": "SYR-3ML-LL",
+      "ref": "SYR-3ML-LL|00000001|1"
+     }
+    ],
+    "schema": "superplanner.v1"
+   }
+  ],
+  "extras": {}
+ },
+ "info_record": {
+  "batches": [
+   {
+    "entity": "item_supplier",
+    "mode": "upsert",
+    "records": [
+     {
+      "item_ref": "100231",
+      "lead_time_days": 12,
+      "moq": 5000.0,
+      "price": 0.0045,
+      "ref": "5300000001",
+      "supplier_part_number": "PC-TC-01",
+      "supplier_ref": "100001"
+     }
+    ],
+    "schema": "superplanner.v1"
+   }
+  ],
+  "extras": {}
+ },
+ "product": {
+  "batches": [
+   {
+    "entity": "item",
+    "mode": "upsert",
+    "records": [
+     {
+      "active": true,
+      "description": "Syringe 3 mL Luer lock",
+      "lead_time_days": 2,
+      "make_buy": "make",
+      "part_number": "SYR-3ML-LL",
+      "ref": "SYR-3ML-LL",
+      "standard_cost": 0.085,
+      "uom": "EA"
+     },
+     {
+      "active": true,
+      "description": "Tip cap Luer",
+      "lead_time_days": 12,
+      "make_buy": "buy",
+      "part_number": "100231",
+      "ref": "100231",
+      "standard_cost": 0.0045,
+      "uom": "EA"
+     }
+    ],
+    "schema": "superplanner.v1"
+   },
+   {
+    "entity": "item",
+    "mode": "upsert",
+    "records": [
+     {
+      "active": true,
+      "description": "Needle 21G 1 in",
+      "lead_time_days": 2,
+      "make_buy": "make",
+      "part_number": "NDL-21G-1",
+      "ref": "NDL-21G-1",
+      "standard_cost": 0.04,
+      "uom": "EA"
+     }
+    ],
+    "schema": "superplanner.v1"
+   }
+  ],
+  "extras": {
+   "packaging": [
+    {
+     "item_ref": "SYR-3ML-LL",
+     "levels": [
+      {
+       "code": "EA",
+       "level": "each",
+       "qty_base": 1.0
+      },
+      {
+       "code": "BX",
+       "gtin": "10380000000017",
+       "level": "inner",
+       "qty_base": 100.0
+      },
+      {
+       "code": "CS",
+       "gtin": "20380000000014",
+       "level": "case",
+       "qty_base": 2000.0
+      },
+      {
+       "code": "PAL",
+       "gtin": null,
+       "level": "pallet",
+       "qty_base": 96000.0
+      }
+     ]
+    },
+    {
+     "item_ref": "100231",
+     "levels": [
+      {
+       "code": "EA",
+       "level": "each",
+       "qty_base": 1.0
+      },
+      {
+       "code": "CS",
+       "gtin": null,
+       "level": "case",
+       "qty_base": 5000.0
+      }
+     ]
+    },
+    {
+     "item_ref": "NDL-21G-1",
+     "levels": [
+      {
+       "code": "EA",
+       "level": "each",
+       "qty_base": 1.0
+      },
+      {
+       "code": "CS",
+       "gtin": null,
+       "level": "case",
+       "qty_base": 1000.0
+      },
+      {
+       "code": "PAL",
+       "gtin": null,
+       "level": "pallet",
+       "qty_base": 50000.0
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "purchase_order": {
+  "batches": [
+   {
+    "entity": "purchase_order",
+    "mode": "upsert",
+    "records": [
+     {
+      "currency": "USD",
+      "lines": [
+       {
+        "item_ref": "100231",
+        "line_no": 10,
+        "schedules": [
+         {
+          "qty": 50000.0,
+          "requested_date": "2026-12-09",
+          "seq": 1
+         },
+         {
+          "qty": 50000.0,
+          "requested_date": "2026-12-23",
+          "seq": 2
+         }
+        ],
+        "unit_price": 0.0045
+       }
+      ],
+      "number": "4500000123",
+      "order_date": "2026-11-25",
+      "ref": "4500000123",
+      "status": "open",
+      "supplier_ref": "100001"
+     }
+    ],
+    "schema": "superplanner.v1"
+   }
+  ],
+  "extras": {}
+ },
+ "sales_order": {
+  "batches": [
+   {
+    "entity": "demand_order",
+    "mode": "upsert",
+    "records": [
+     {
+      "customer": "DIST-EAST",
+      "demand_type": "customer",
+      "lines": [
+       {
+        "due_date": "2026-12-10",
+        "item_ref": "SYR-3ML-LL",
+        "line_no": 101,
+        "qty": 60000.0
+       },
+       {
+        "due_date": "2026-12-17",
+        "item_ref": "SYR-3ML-LL",
+        "line_no": 102,
+        "qty": 60000.0
+       },
+       {
+        "due_date": "2026-12-12",
+        "item_ref": "NDL-21G-1",
+        "line_no": 201,
+        "qty": 50000.0
+       }
+      ],
+      "number": "1000456",
+      "ref": "1000456"
+     }
+    ],
+    "schema": "superplanner.v1"
+   }
+  ],
+  "extras": {}
+ },
+ "supplier": {
+  "batches": [
+   {
+    "entity": "supplier",
+    "mode": "upsert",
+    "records": [
+     {
+      "active": true,
+      "code": "100001",
+      "name": "Polymer Caps Inc.",
+      "ref": "100001"
+     }
+    ],
+    "schema": "superplanner.v1"
+   }
+  ],
+  "extras": {}
+ }
+}

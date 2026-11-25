@@ -1,0 +1,38 @@
+{
+ "d": {
+  "results": [
+   {
+    "DocumentCurrency": "USD",
+    "LastChangeDateTime": "/Date(1795564800000)/",
+    "PurchaseOrder": "4500000123",
+    "PurchaseOrderDate": "/Date(1795564800000)/",
+    "PurchasingProcessingStatus": "05",
+    "Supplier": "100001",
+    "to_PurchaseOrderItem": {
+     "results": [
+      {
+       "Material": "000000000000100231",
+       "NetPriceAmount": "0.0045",
+       "Plant": "1000",
+       "PurchaseOrderItem": "10",
+       "to_ScheduleLine": {
+        "results": [
+         {
+          "ScheduleLine": "1",
+          "ScheduleLineDeliveryDate": "/Date(1796774400000)/",
+          "ScheduleLineOrderQuantity": "50000"
+         },
+         {
+          "ScheduleLine": "2",
+          "ScheduleLineDeliveryDate": "/Date(1797984000000)/",
+          "ScheduleLineOrderQuantity": "50000"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

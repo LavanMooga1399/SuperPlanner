@@ -1,0 +1,23 @@
+{
+ "d": {
+  "results": [
+   {
+    "LastChangeDateTime": "/Date(1795557600000)/",
+    "Material": "000000000000100231",
+    "PurchasingInfoRecord": "5300000001",
+    "Supplier": "100001",
+    "SupplierMaterialNumber": "PC-TC-01",
+    "to_PurgInfoRecdOrgPlantData": {
+     "results": [
+      {
+       "MaterialPlannedDeliveryDurn": "12",
+       "MinimumPurchaseOrderQuantity": "5000",
+       "NetPriceAmount": "0.0045",
+       "Plant": "1000"
+      }
+     ]
+    }
+   }
+  ]
+ }
+}
