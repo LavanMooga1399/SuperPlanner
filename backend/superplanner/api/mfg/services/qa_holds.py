@@ -159,7 +159,7 @@ def _release_row(s: Session, r: MfgLotHoldRow, actor: str, note: str, signature_
         _lock_target(s, None, r.serial_id)
         _recompute_serial(s, r.serial_id)  # type: ignore[arg-type]
     audit_regulated(s, "hold", r.id, "release", before=before, after=_content(s, r),
-                    reason=reason or note or f"Released by its {r.source.replace('_', ' ')}",
+                    reason=reason,
                     record_version=r.row_version, signature_id=signature_id)
     _emit(s, "qa.hold.released", r)
 

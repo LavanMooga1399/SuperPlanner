@@ -190,7 +190,7 @@ def update_field_action(ctx: AppContext, a: Act, fa_id: str, body: FieldActionUp
         return record(s, r, True)
 
 
-def _move(s: Session, r: QaFieldActionRow, to: str, action: str, reason: str, sig: str | None = None) -> None:
+def _move(s: Session, r: QaFieldActionRow, to: str, action: str, reason: str | None, sig: str | None = None) -> None:
     from ...audit_diff import audit_regulated
 
     before = r.status
@@ -201,10 +201,10 @@ def _move(s: Session, r: QaFieldActionRow, to: str, action: str, reason: str, si
                     reason=reason, record_version=r.row_version, signature_id=sig)
 
 
-def _why(body: Any, default: str) -> str:
+def _why(body: Any) -> str | None:
     sig = getattr(body, "signature", None)
-    return (sig.comment.strip() if sig is not None and sig.comment.strip() else "") or \
-        (getattr(body, "note", "") or "").strip() or default
+    return (sig.comment.strip() if sig is not None and sig.comment.strip() else None) or \
+        ((getattr(body, "note", "") or "").strip() or None)
 
 
 def approve(ctx: AppContext, a: Act, fa_id: str, body: ApproveInput, if_match: str | None) -> dict[str, Any]:
@@ -230,7 +230,7 @@ def approve(ctx: AppContext, a: Act, fa_id: str, body: ApproveInput, if_match: s
             elif u.in_stock and u.serial_id:
                 place(s, source="field_action", source_id=r.id, reason=f"Field action {r.number}", actor=a.user_id,
                       serial_id=u.serial_id)
-        _move(s, r, "in_progress", "approve", _why(body, "Field action approved"), sig)
+        _move(s, r, "in_progress", "approve", _why(body), sig)
         from ....integration import outbox
 
         if outbox.enabled(s):
@@ -311,7 +311,7 @@ def complete(ctx: AppContext, a: Act, fa_id: str, body: FaCompleteInput, if_matc
             raise ApiError(409, "QA_UNITS_OPEN", f"{len(left)} unit(s) are still pending or notified; complete with a "
                            "reason.", {"open": left[:50]})
         r.complete_reason = body.reason
-        _move(s, r, "completed", "complete", body.reason or "All units handled")
+        _move(s, r, "completed", "complete", body.reason)
         return record(s, r, True)
 
 
@@ -333,7 +333,7 @@ def close(ctx: AppContext, a: Act, fa_id: str, body: ApproveInput, if_match: str
         sig = out.signature_ids[-1] if out.signature_ids else None
         release_source(s, "field_action", r.id, a.user_id, f"Field action {r.number} closed", sig)
         r.closed_at = utcnow()
-        _move(s, r, "closed", "close", _why(body, "Field action closed"), sig)
+        _move(s, r, "closed", "close", _why(body), sig)
         from ....integration import outbox
 
         if outbox.enabled(s):

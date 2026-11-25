@@ -61,6 +61,8 @@ class Ev:
     migrated: bool = False
     #: `correct` events: the fields they replace on their target (`event_at` only when the client gave a time)
     fields: tuple[str, ...] = ()
+    #: M7-DESIGN 6: nonconforming quantity (consumed like scrap; corrections of qty_scrap keep it, review m3)
+    qty_nc: float | None = None
 
 
 @dataclass
@@ -168,7 +170,7 @@ def apply(st: OpState, e: Ev) -> OpState:
         _open_interval(st, e.event_at, e.operators)
     elif t in QTY_EVENTS:
         st.qty_good += e.qty_good or 0.0
-        st.qty_scrap += e.qty_scrap or 0.0
+        st.qty_scrap += (e.qty_scrap or 0.0) + (e.qty_nc or 0.0)
         st.qty_rework_out += e.qty_rework or 0.0
         if t == "complete":
             _close_interval(st, e.event_at)

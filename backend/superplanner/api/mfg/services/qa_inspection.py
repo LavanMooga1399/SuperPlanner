@@ -198,10 +198,10 @@ def approve_scheme(ctx: AppContext, a: Act, scheme_id: str, body: ApproveInput, 
         return scheme_record(s, r, True)
 
 
-def _why(body: Any) -> str:
+def _why(body: Any) -> str | None:
     sig = getattr(body, "signature", None)
-    return (sig.comment.strip() if sig is not None and sig.comment.strip() else "") or \
-        (getattr(body, "note", "") or "").strip() or "Signed action"
+    return (sig.comment.strip() if sig is not None and sig.comment.strip() else None) or \
+        ((getattr(body, "note", "") or "").strip() or None)
 
 
 def resolve(sch: QaSamplingSchemeRow, lot_size: float, level: str, aql: str, state: str) -> dict[str, Any]:
@@ -459,7 +459,7 @@ def approve_plan(ctx: AppContext, a: Act, plan_id: str, body: ApproveInput, if_m
             old.status = "obsolete"
             touch(old)
             audit_regulated(s, "inspection_plan", old.id, "obsolete", before={"status": "approved"},
-                            after={"status": "obsolete"}, reason=f"Superseded by {r.number} v{r.version}")
+                            after={"status": "obsolete"}, reason=_why(body), details={"superseded_by": f"{r.number} v{r.version}"})
         touch(r)
         s.flush()
         audit_regulated(s, "inspection_plan", r.id, "approve", before={"status": "draft"},
@@ -890,7 +890,7 @@ def decide(ctx: AppContext, a: Act, lot_id: str, body: DecisionInput, if_match: 
         if plan is not None:
             _update_switching(s, r, plan, body.decision)
         audit_regulated(s, "inspection_lot", r.id, "decision", before=before, after=lot_content(s, r),
-                        reason=_why(body) if body.signature or body.note else f"Usage decision: {body.decision}",
+                        reason=_why(body),
                         record_version=r.row_version, signature_id=sig_id)
         from ....integration import outbox
 

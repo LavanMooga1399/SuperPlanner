@@ -129,6 +129,8 @@ def mac_ok(keys: list[bytes], r: EsigSignatureRow) -> bool:
     msg = _mac_message(r)
     if r.mac.startswith("k1:"):
         return any(hmac.compare_digest(r.mac, "k1:" + hmac.new(k, msg, hashlib.sha256).hexdigest()) for k in keys)
+    if keys:                       # review m1: with keys configured an unkeyed MAC is not accepted (forgeable)
+        return False
     return hmac.compare_digest(r.mac, "sha256:" + hashlib.sha256(msg).hexdigest())
 
 
@@ -663,6 +665,8 @@ def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str
         raise ApiError(422, "ESIG_CONTENT_TOO_LARGE", "The record is too large to be signed.",
                        {"max_bytes": C.MAX_CONTENT_BYTES})
     settings = ctx_settings or _settings(s)
+    if not _mac_keys(settings):    # review m1: Part 11 signatures are always keyed
+        raise ApiError(503, "ESIG_SECRETS_REQUIRED", "Signing needs SECRETS_KEY on the server.", {})
     skew = _skew_for(s, settings)
     _check_clock(settings, skew)
     sid = new_id("esg_")
@@ -684,6 +688,10 @@ def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str
         client_ip=(a.client_ip or "")[:64] or None, session_ref=a.session_ref, row_version=1, created_at=now,
         updated_at=now)
     row.owner_id = current_owner()
+    from ...audit_diff import bind_reason, current_reason
+
+    if current_reason() is None and sig.comment.strip():      # review m4: the comment is the action's reason
+        bind_reason(sig.comment.strip())
     row.mac = compute_mac(_mac_keys(settings), row)
     s.add(row)
     s.flush()

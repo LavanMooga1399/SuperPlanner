@@ -251,7 +251,7 @@ def _move(s: Session, r: QaCapaRow, to: str, action: str, reason: str | None, si
     touch(r)
     s.flush()
     audit_regulated(s, "capa", r.id, action, before={"status": before}, after={"status": to},
-                    reason=reason or f"CAPA {action}", record_version=r.row_version, signature_id=sig_id)
+                    reason=reason, record_version=r.row_version, signature_id=sig_id)
 
 
 def advance(ctx: AppContext, a: Act, capa_id: str, body: CapaAdvanceInput, if_match: str | None) -> dict[str, Any]:
@@ -290,10 +290,10 @@ def _signed_step(ctx: AppContext, a: Act, capa_id: str, action: str, body: Any, 
         return record(s, r, True)
 
 
-def _why(body: Any, default: str) -> str:
+def _why(body: Any) -> str | None:
     sig = getattr(body, "signature", None)
-    return (sig.comment.strip() if sig is not None and sig.comment.strip() else "") or \
-        (getattr(body, "note", "") or "").strip() or default
+    return (sig.comment.strip() if sig is not None and sig.comment.strip() else None) or \
+        ((getattr(body, "note", "") or "").strip() or None)
 
 
 def approve_plan(ctx: AppContext, a: Act, capa_id: str, body: ApproveInput, if_match: str | None) -> dict[str, Any]:
@@ -306,14 +306,14 @@ def approve_plan(ctx: AppContext, a: Act, capa_id: str, body: ApproveInput, if_m
 
     return _signed_step(ctx, a, capa_id, "approve_plan", body, if_match, "plan_approval", check,
                         lambda s, r, sid: _move(s, r, "implementation", "approve_plan",
-                                                _why(body, "Plan approved"), sid))
+                                                _why(body), sid))
 
 
 def verify(ctx: AppContext, a: Act, capa_id: str, body: CapaVerifyInput, if_match: str | None) -> dict[str, Any]:
     def after(s: Session, r: QaCapaRow, sid: str | None) -> None:
         r.effectiveness = {**(r.effectiveness or {}), "result": body.result, "evidence": body.evidence}
         _move(s, r, "investigation" if body.result == "not_effective" else "effectiveness_check", "verify",
-              _why(body, f"Effectiveness: {body.result}"), sid)
+              _why(body), sid)
 
     return _signed_step(ctx, a, capa_id, "verify", body, if_match, "effectiveness_check", lambda s, r: None, after,
                         params={"result": body.result, "evidence": body.evidence})
@@ -325,7 +325,7 @@ def close(ctx: AppContext, a: Act, capa_id: str, body: ApproveInput, if_match: s
             raise ApiError(409, "QA_CAPA_INCOMPLETE", "Verify the effectiveness first.", {"missing": ["verify"]})
 
     def after(s: Session, r: QaCapaRow, sid: str | None) -> None:
-        _move(s, r, "closed", "close", _why(body, "CAPA closed"), sid)
+        _move(s, r, "closed", "close", _why(body), sid)
         from ....integration import outbox
 
         if outbox.enabled(s):

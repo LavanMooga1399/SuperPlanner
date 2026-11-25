@@ -111,7 +111,7 @@ def enable(ctx: AppContext, a: Any, body: Part11ModeInput) -> dict[str, Any]:
         s.flush()
         audit_regulated(s, "plant", plant.id, "part11_on", before=before, after={"part11_mode": True},
                         reason=(body.signature.comment.strip() if body.signature and body.signature.comment
-                                else "Part 11 mode switched on"), record_version=plant.row_version,
+                                else None), record_version=plant.row_version, create=True,
                         signature_id=out.signature_ids[-1] if out.signature_ids else None)
         return _mode(s, ctx)
 

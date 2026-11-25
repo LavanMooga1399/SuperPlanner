@@ -149,6 +149,11 @@ def test_M9_m2_steps_sign_the_same_parameters_and_policy_version(w):
     appr.api.err("POST", f"/qa/inspection-lots/{il['id']}/decision", 409, "ESIG_PARAMS_CHANGED",
                  json={"decision": "reject", "signature": s2})
     s2 = signature(appr, "inspection_lot", il["id"], "decide", "released", decision="accept")
+    # review m4: no header and no signature comment -> no reason in Part 11 mode
+    appr.api.err("POST", f"/qa/inspection-lots/{il['id']}/decision", 422, "AUDIT_REASON_REQUIRED",
+                 json={"decision": "accept", "signature": s2})
+    s2 = signature(appr, "inspection_lot", il["id"], "decide", "released", decision="accept",
+                   comment="All samples conform")
     out = appr.api.req("POST", f"/qa/inspection-lots/{il['id']}/decision", 200,
                        json={"decision": "accept", "signature": s2}).json()
     assert out["status"] == "accepted" and len(out["signatures"]) == 2
@@ -168,3 +173,71 @@ def test_M10_floor_issue_idempotent_and_over_issue_flag(api):
     out = api.post("/floor/issue-lot", {"wo_operation_id": x["op"]["id"], "scan": "A1", "qty": 40,
                                         "over_issue": True, "reason": "spill"})
     assert out["component"]["issued_qty"] == 45
+
+
+# ---------------------------------------------------------------- MINOR
+
+def test_m1_unkeyed_mac_rejected_when_keys_configured():
+    from types import SimpleNamespace
+
+    from superplanner.api.mfg.services import esig as E
+
+    r = SimpleNamespace(id="esg_1", owner_id="o", record_type="ncr", record_id="n", record_version=1, action="a",
+                        step=1, meaning="approved", signer_id="u", signer_legal_name="L", signer_username="u@x",
+                        signed_at=None, auth_method="password", policy_id=None, policy_version=1,
+                        content_hash="0" * 64, comment="", audit_event_id=1, client_ip=None, session_ref=None,
+                        mac="")
+    r.mac = E.compute_mac([], r)                  # an attacker without the key writes an unkeyed MAC
+    assert E.mac_ok([], r) is True and E.mac_ok([b"k" * 32], r) is False
+    r.mac = E.compute_mac([b"k" * 32], r)
+    assert E.mac_ok([b"k" * 32], r) is True
+
+
+def _two_step(w):
+    api = w.owner.api
+    it = api.item("P", lot_controlled=True)
+    sc = scheme(api)
+    pl = plan(api, it["id"], "incoming", sc["id"], chars=[{"seq": 1, "code": "A", "name": "A", "kind": "attribute",
+                                                           "severity": "minor"}])
+    w.part11_on()
+    insp = w.member("insp", ["qa_inspector"])
+    appr = w.member("appr", ["qa_approver"], with_totp=True)
+
+    def set_steps(steps):
+        pol = next(p for p in appr.api.get("/esig/policies")["items"] if (p["record_type"], p["action"]) ==
+                   ("inspection_lot", "decide"))
+        sig = signature(appr, "esig_policy", "inspection_lot.decide", "update", "approved", totp_code=appr.code(),
+                        comment="policy change")
+        appr.api.req("PUT", "/esig/policies/inspection_lot/decide", 200,
+                     headers={"If-Match": f'"{pol["row_version"]}"'},
+                     json={"steps": steps, "auth": "password", "signature": sig})
+
+    set_steps([{"meaning": "released", "roles": ["qa_inspector"]}, {"meaning": "released", "roles": ["qa_approver"]}])
+    il = insp.api.post("/qa/inspection-lots", {"plan_id": pl["id"], "lot_size": 3})
+    results(insp.api, il, {"A": [True, True, True]})
+    return insp, appr, il, set_steps
+
+
+def test_m2_policy_change_between_steps_restarts_the_flow(w):
+    insp, appr, il, set_steps = _two_step(w)
+    s1 = signature(insp, "inspection_lot", il["id"], "decide", "released", decision="accept", comment="ok")
+    insp.api.req("POST", f"/qa/inspection-lots/{il['id']}/decision", 202, json={"decision": "accept", "signature": s1})
+    set_steps([{"meaning": "released", "roles": ["qa_approver"]}, {"meaning": "released", "roles": ["qa_inspector"]}])
+    s2 = signature(appr, "inspection_lot", il["id"], "decide", "released", decision="accept", comment="ok")
+    r = appr.api.req("POST", f"/qa/inspection-lots/{il['id']}/decision", 202,
+                     json={"decision": "accept", "signature": s2}).json()
+    assert r["next_step"]["step"] == 2                      # the old step 1 no longer counts
+    assert [x["status"] for x in r["signatures"]] == ["superseded", "valid"]
+
+
+def test_m3_correction_keeps_nonconforming_qty(api):
+    from apimfgm4_helpers import ev
+    from test_m7_inspection import gate_plant
+
+    x = gate_plant(api, lot_fg=False)
+    op10 = x["ops"][0]
+    ev(api, op10["id"], "start", line_id=x["l1"]["id"])
+    r = ev(api, op10["id"], "report", qty_good=3, qty_scrap=1, qty_nc=4, defect_code="SCR")
+    ev(api, op10["id"], "correct", corrects_event_id=r["event"]["id"], qty_scrap=2)
+    ops = {o["seq"]: o for o in api.get(f"/work-orders/{x['wo']['id']}/operations")["items"]}
+    assert ops[10]["qty_scrap"] == 6                       # 2 scrap + 4 nonconforming, counted once

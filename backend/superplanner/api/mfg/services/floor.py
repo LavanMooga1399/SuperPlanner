@@ -404,12 +404,9 @@ def release_to_floor(s: Session, wo: MfgWorkOrderRow, override_reason: str | Non
 
 def _ev(r: MfgFloorEventRow) -> E.Ev:
     d = r.details or {}
-    scrap = r.qty_scrap
-    if r.qty_nc:                           # M7-DESIGN 6: nonconforming quantity counts against input like scrap
-        scrap = (scrap or 0.0) + r.qty_nc
     return E.Ev(r.id, int(r.seq), r.event_type, as_utc(r.event_at), r.line_id, len(r.operator_ids or []),
-                r.qty_good, scrap, r.qty_rework, r.rework_to_seq, r.corrects_event_id,
-                bool(d.get("migrated")), tuple(d.get("fields") or ()))
+                r.qty_good, r.qty_scrap, r.qty_rework, r.rework_to_seq, r.corrects_event_id,
+                bool(d.get("migrated")), tuple(d.get("fields") or ()), r.qty_nc)
 
 
 def wo_events(s: Session, wo_id: str) -> list[MfgFloorEventRow]:

@@ -245,7 +245,7 @@ def _transition(s: Session, r: QaNcrRow, to: str, action: str, reason: str | Non
     touch(r)
     s.flush()
     audit_regulated(s, "ncr", r.id, action, before={"status": before}, after={"status": to},
-                    reason=reason or f"NCR {action}", record_version=r.row_version, signature_id=signature_id)
+                    reason=reason, record_version=r.row_version, signature_id=signature_id)
 
 
 def open_ncr(ctx: AppContext, a: Act, ncr_id: str, if_match: str | None) -> dict[str, Any]:
@@ -321,7 +321,7 @@ def propose(ctx: AppContext, a: Act, ncr_id: str, body: ProposeInput, if_match: 
         r.status = "proposed"
         touch(r)
         s.flush()
-        audit_regulated(s, "ncr", r.id, "propose", before=before, after=content(s, r), reason="Dispositions proposed",
+        audit_regulated(s, "ncr", r.id, "propose", before=before, after=content(s, r), reason=None,
                         record_version=r.row_version)
         return record(s, r, True)
 
@@ -347,10 +347,10 @@ def approve(ctx: AppContext, a: Act, ncr_id: str, body: ApproveInput, if_match: 
         return record(s, r, True)
 
 
-def _why(body: Any) -> str:
+def _why(body: Any) -> str | None:
     sig = getattr(body, "signature", None)
-    return (sig.comment.strip() if sig is not None and sig.comment.strip() else "") or \
-        (getattr(body, "note", "") or "").strip() or "Signed action"
+    return (sig.comment.strip() if sig is not None and sig.comment.strip() else None) or \
+        ((getattr(body, "note", "") or "").strip() or None)
 
 
 # ---------------------------------------------------------------- implementation (ledger / floor)
@@ -458,7 +458,7 @@ def implement(ctx: AppContext, a: Act, ncr_id: str, if_match: str | None) -> dic
             d.implemented_at, d.refs = now, refs
             touch(d, now)
         s.flush()
-        _transition(s, r, "implemented", "implement", "Dispositions implemented")
+        _transition(s, r, "implemented", "implement")
         _maybe_release(s, r, a.user_id)
         from ....integration import outbox
 

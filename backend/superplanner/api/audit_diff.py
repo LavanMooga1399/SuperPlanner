@@ -155,7 +155,8 @@ def audit_regulated(s: Session, entity: str, entity_id: str, action: str, *, bef
     """Write one audit event of a regulated record (field changes + reason); returns the row (flushed: `id`)."""
     from .services.problem_service import audit_row
 
-    r = reason if reason is not None else current_reason()
+    # review m4: the change-reason header first, then the action's own text (signature comment / note), else 422
+    r = current_reason() or (reason.strip() if isinstance(reason, str) and reason.strip() else None)
     if not create:
         r = require_reason(s, r)
     changes = diff(before, after) if (before is not None or after is not None) else []

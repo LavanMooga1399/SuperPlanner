@@ -315,7 +315,7 @@ def record_calibration(ctx: AppContext, a: Any, equipment_id: str, body: Calibra
         s.flush()
         audit(s, "calibration", c.id, "create", {"equipment": e.code, "result": c.result})
         audit_regulated(s, "equipment", e.id, "calibration", before=before, after=eq_content(e),
-                        reason=f"Calibration {c.result} ({c.certificate_ref or 'no certificate'})",
+                        reason=(body.signature.comment if body.signature else None),
                         record_version=e.row_version, signature_id=out.signature_ids[-1] if out.signature_ids
                         else None)
         if before["status"] != e.status:

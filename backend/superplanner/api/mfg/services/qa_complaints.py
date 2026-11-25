@@ -184,7 +184,7 @@ def advance(ctx: AppContext, a: Act, complaint_id: str, body: ComplaintAdvanceIn
         touch(r)
         s.flush()
         audit_regulated(s, "complaint", r.id, "advance", before={"status": "open"},
-                        after={"status": "investigation"}, reason=body.note or "Investigation started",
+                        after={"status": "investigation"}, reason=body.note or None,
                         record_version=r.row_version)
         return record(s, r, True)
 
@@ -214,7 +214,7 @@ def close(ctx: AppContext, a: Act, complaint_id: str, body: ApproveInput, if_mat
         s.flush()
         sig = body.signature
         audit_regulated(s, "complaint", r.id, "close", before={"status": before}, after={"status": "closed"},
-                        reason=(sig.comment if sig and sig.comment else body.note) or "Complaint closed",
+                        reason=(sig.comment if sig and sig.comment else body.note) or None,
                         record_version=r.row_version, signature_id=out.signature_ids[-1] if out.signature_ids else None)
         return record(s, r, True)
 
