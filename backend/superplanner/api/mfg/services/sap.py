@@ -86,8 +86,8 @@ def put_settings(ctx: AppContext, a: Any, body: SapSettings, if_match: str | Non
             elif v == "":
                 new.pop(f"{f}_enc", None)
         row.sap = new
-        if body.enabled:
-            row.adapter = "sap_s4"
+        if body.enabled:                            # SAP on = integration on with the sap_s4 adapter
+            row.adapter, row.enabled = "sap_s4", True
         row.row_version += 1
         row.updated_at = utcnow()
         s.flush()

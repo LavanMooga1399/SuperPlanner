@@ -54,8 +54,14 @@ def test_sap_round_trip(sap_api):
                                                "username": "SP_TECH", "password": "s3cret",
                                                "location_map": {"0001": "FG", "0002": "STORES"}}, 0)
     assert st["password"] is None and st["password_set"] is True and st["plant"] == "1000"
-    res = _run(api, client, ["supplier", "product", "info_record", "billing", "purchase_order", "sales_order"])
-    assert res["product"]["pages"] == 2 and res["product"]["results"].get("created") == 3, res
+    ist = client.get("/api/v1/integration/settings").json()   # items shared (SAP lead times), routings local
+    keys = ("enabled", "adapter", "plant_code", "goods_receipts_owner", "filedrop_enabled", "export_enabled",
+            "export_interval_minutes")
+    r = client.put("/api/v1/integration/settings", json={**{k: ist[k] for k in keys}, "plant_code": "P1000", "sor": {
+        **ist["sor"], "items": "shared", "routings": "superplanner"}}, headers={"If-Match": f'"{ist["row_version"]}"'})
+    assert r.status_code == 200, r.text
+    res = _run(api, client, ["supplier", "product", "info_record", "bom", "billing", "purchase_order", "sales_order"])
+    assert res["product"]["pages"] == 2 and res["product"]["results"].get("created") == 3, (res["product"], res["info_record"]["errors"])
     assert res["product"]["results"]["packaging"] == 3 and res["billing"]["results"]["history"] == 3
     st = api.get("/integration/sap-settings")
     assert st["cursors"]["product"] == "2026-11-25T00:00:00Z" and st["last_sync"]["product"]["status"] == "completed"
@@ -70,7 +76,16 @@ def test_sap_round_trip(sap_api):
     n = len(fake.gets)
     _run(api, client, ["product"])
     assert "LastChangeDateTime" in fake.gets[n]
-    # MRP -> planned orders out
+    # MRP -> planned orders out (a local routing for the made item)
+    g = api.post("/groups", {"code": "ASM", "name": "Assembly"})
+    tpl = api.post("/shift-templates", {"code": "DAY", "name": "Day", "shifts": [
+        {"name": "A", "days": ["mon", "tue", "wed", "thu", "fri"], "start": "06:00", "end": "22:00"}]})
+    api.post("/shift-assignments", {"shift_template_id": tpl["id"], "target_type": "group", "group_id": g["id"],
+                                    "effective_from": "2026-01-01"})
+    api.post("/lines", {"group_id": g["id"], "code": "ASM-01", "name": "A1"})
+    rt = api.post("/routings", {"item_id": syr["id"], "operations": [
+        {"seq": 10, "name": "Assemble", "group_id": g["id"], "setup_minutes": 0, "run_minutes": 0.01}]})
+    api.post(f"/routings/{rt['id']}/release", {}, status=200, version=rt["row_version"])
     if so[0]["status"] == "draft":
         api.post(f"/demand-orders/{so[0]['id']}/open", {}, status=200, version=so[0]["row_version"])
     mrp = api.post("/mrp/runs", {"label": "sap", "horizon_days": 120})
@@ -82,12 +97,10 @@ def test_sap_round_trip(sap_api):
     again = _run(api, client, ["planned_order_out"])
     assert again["planned_order_out"]["posted"] == 0                  # once per run
     # stock reconciliation: SuperPlanner holds the same stock as SAP -> clean
-    fg = api.by_code("/locations", "FG") if hasattr(api, "by_code") else None
     locs = {x["code"]: x["id"] for x in api.get("/locations")["items"]}
     tip = api.by_pn("100231")
-    api.receive(syr["id"], locs["FG"], 48000, lot_code="L2611-01")
+    api.receive(syr["id"], locs["FG"], 48000)
     api.receive(tip["id"], locs["STORES"], 25000)
     _run(api, client, ["stock"])
-    rec = api.get("/integration/reconciliations")["items"][0]
+    rec = client.get("/api/v1/integration/reconciliations").json()["items"][0]
     assert rec["summary"]["stock"]["different"] == 0 and rec["summary"]["stock"]["missing_in_sp"] == 0, rec
-    _ = fg

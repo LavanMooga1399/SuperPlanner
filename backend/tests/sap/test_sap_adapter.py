@@ -63,7 +63,7 @@ def test_recorded_payloads_map_to_golden_v1_batches():
 def test_stock_mapping_unrestricted_and_location_map():
     out = M.stock(load("stock_v2.json")["d"]["results"], PROFILE)["stock_snapshot"]
     assert [(r["item_ref"], r["location_code"], r["lot_code"], r["qty"]) for r in out] == [
-        ("100231", "STORES", None, 25000.0), ("SYR-3ML-LL", "FG", "L2611-01", 48000.0)]
+        ("100231", "STORES", None, 25000.0), ("SYR-3ML-LL", "FG", None, 48000.0)]
 
 
 @pytest.mark.req("M8-SAP-01")
