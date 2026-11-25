@@ -6,7 +6,7 @@
  * `card` is given. Paged lists add more rows with a "Show more" button (`ShowMore`) instead of `onEndReached`.
  */
 import { VirtualTable, type VirtualTableProps } from "./VirtualTable";
-import { t } from "../../lib/i18n";
+import { noun as nounText, t } from "../../lib/i18n";
 import { LOCALE } from "../../lib/locale";
 
 /** Footer of a paged short list: "Showing 50 of 120 events" and a Show more button. */
@@ -14,7 +14,7 @@ export function ShowMore({ shown, total, noun, loading, onMore }: { shown: numbe
   return (
     <span className="row" style={{ gap: 8 }}>
       <span className="muted small">
-        {t("mfg.dataTable.text.showing", { t: t("common.nOfM", { n: shown.toLocaleString(LOCALE), m: total.toLocaleString(LOCALE) }), noun: noun })}
+        {t("mfg.dataTable.text.showing", { t: t("common.nOfM", { n: shown.toLocaleString(LOCALE), m: total.toLocaleString(LOCALE) }), noun: nounText(noun) })}
       </span>
       {shown < total ? (
         <button type="button" className="btn sm" onClick={onMore} disabled={loading}>

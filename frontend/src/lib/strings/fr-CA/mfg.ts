@@ -4310,4 +4310,11 @@ export const mfgFrCa: Record<keyof typeof mfgStrings, string> = {
   "mfg.recallPages.col.units": "Unités",
   "mfg.recallPages.col.exact": "Exactes",
   "mfg.recallPages.col.programme": "Programme",
+  "mfg.recallPages.text.lotsOnHandOne": "{n} lot en stock",
+  "mfg.recallPages.text.lotsCountOne": "{n} lot",
+  "mfg.recallPages.text.shipmentsOne": "{n} expédition",
+  "mfg.recallPages.text.shipmentsOther": "{n} expéditions",
+  "mfg.recallPages.text.customersOne": "{n} client",
+  "mfg.recallPages.text.customersOther": "{n} clients",
+  "mfg.recallPages.text.shipmentsTo": "{shipments} vers {customers}",
 };

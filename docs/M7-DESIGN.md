@@ -757,6 +757,9 @@ QP9 were not measured separately (covered functionally by the receipt, NCR and e
   "A: run" / "B: run" / "Change from A to B" with signed deltas and "better/worse in B" text; recall tiles switch
   to quantities for lot-controlled items (affected qty = shipped + in stock, shipments to customers, lots on hand;
   per-customer shipments/qty/lots) from `report.counts`, `by_customer.qty/lots`.
+- Count nouns: `plural()` and `ShowMore` translate the plain English nouns they get through `noun.<word>` keys
+  (fr-CA: "1 ligne", "3 opérations"); recall tile counts pick singular/plural keys with `Intl.PluralRules` (French
+  0 and 1 are singular). Screens: `docs/ux-screens/m7-*.png` (inspection lot 1440 light/dark, NCR 1024 and 390).
 - Tests: `frontend/e2e/m7-quality.spec.ts` (2 tests: results -> live verdict -> decision through the dialog ->
   history; NCR dispositions, equipment validity, French switch) passes against the real routes.
 

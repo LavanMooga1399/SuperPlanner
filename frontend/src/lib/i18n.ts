@@ -79,6 +79,64 @@ const en = {
   "shell.lang.label": "Language",
   "shell.lang.en": "English",
   "shell.lang.frCA": "Français (Canada)",
+  "noun.day": "day",
+  "noun.days": "days",
+  "noun.warning": "warning",
+  "noun.warnings": "warnings",
+  "noun.note": "note",
+  "noun.notes": "notes",
+  "noun.line": "line",
+  "noun.lines": "lines",
+  "noun.row": "row",
+  "noun.rows": "rows",
+  "noun.operation": "operation",
+  "noun.operations": "operations",
+  "noun.error": "error",
+  "noun.errors": "errors",
+  "noun.operator": "operator",
+  "noun.operators": "operators",
+  "noun.lot": "lot",
+  "noun.lots": "lots",
+  "noun.goal": "goal",
+  "noun.goals": "goals",
+  "noun.year": "year",
+  "noun.years": "years",
+  "noun.use": "use",
+  "noun.uses": "uses",
+  "noun.top-level product": "top-level product",
+  "noun.top-level products": "top-level products",
+  "noun.step": "step",
+  "noun.steps": "steps",
+  "noun.savings item": "savings item",
+  "noun.savings items": "savings items",
+  "noun.rule": "rule",
+  "noun.rules": "rules",
+  "noun.problem": "problem",
+  "noun.problems": "problems",
+  "noun.plan": "plan",
+  "noun.plans": "plans",
+  "noun.person": "person",
+  "noun.people": "people",
+  "noun.month": "month",
+  "noun.months": "months",
+  "noun.loan": "loan",
+  "noun.loans": "loans",
+  "noun.late line": "late line",
+  "noun.late lines": "late lines",
+  "noun.item": "item",
+  "noun.items": "items",
+  "noun.income": "income",
+  "noun.incomes": "incomes",
+  "noun.expense": "expense",
+  "noun.expenses": "expenses",
+  "noun.document": "document",
+  "noun.documents": "documents",
+  "noun.action": "action",
+  "noun.actions": "actions",
+  "noun.orders": "orders",
+  "noun.events": "events",
+  "noun.deliveries": "deliveries",
+  "noun.batches": "batches",
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -168,5 +226,12 @@ let pluralRules = new Intl.PluralRules(intlLocale());
 export function plural(n: number | null | undefined, one: string, other: string = `${one}s`): string {
   const v = n ?? 0;
   if (pluralRules.resolvedOptions().locale.slice(0, 2) !== intlLocale().slice(0, 2)) pluralRules = new Intl.PluralRules(intlLocale());
-  return `${v.toLocaleString(intlLocale())} ${pluralRules.select(v) === "one" ? one : other}`;
+  return `${v.toLocaleString(intlLocale())} ${noun(pluralRules.select(v) === "one" ? one : other)}`;
+}
+
+/** A plain English noun passed to `plural()`/`ShowMore` in the UI language (`noun.<word>`; unknown words unchanged). */
+export function noun(word: string): string {
+  if (locale === "en") return word;
+  const key = `noun.${word}`;
+  return hasKey(key) ? t(key as StringKey) : word;
 }

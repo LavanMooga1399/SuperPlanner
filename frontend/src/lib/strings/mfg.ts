@@ -4309,4 +4309,11 @@ export const mfgStrings = {
   "mfg.recallPages.col.units": "Units",
   "mfg.recallPages.col.exact": "Exact",
   "mfg.recallPages.col.programme": "Programme",
+  "mfg.recallPages.text.lotsOnHandOne": "{n} lot on hand",
+  "mfg.recallPages.text.lotsCountOne": "{n} lot",
+  "mfg.recallPages.text.shipmentsOne": "{n} shipment",
+  "mfg.recallPages.text.shipmentsOther": "{n} shipments",
+  "mfg.recallPages.text.customersOne": "{n} customer",
+  "mfg.recallPages.text.customersOther": "{n} customers",
+  "mfg.recallPages.text.shipmentsTo": "{shipments} to {customers}",
 } as const;

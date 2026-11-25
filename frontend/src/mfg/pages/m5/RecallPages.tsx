@@ -23,9 +23,9 @@ import { needsText, useCan } from "../../lib/permissions";
 import { usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { PrecisionTag } from "./TracePages";
-import { formatDate, formatDateTime, formatDay } from "../../../lib/locale";
+import { LOCALE, formatDate, formatDateTime, formatDay } from "../../../lib/locale";
 import { PageHeader } from "../../../components/PageHeader";
-import { plural, t } from "../../../lib/i18n";
+import { plural, t, type StringKey } from "../../../lib/i18n";
 
 const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "play" | "flag" | "circle" }> = {
   in_stock: { label: t("mfg.recallPages.str.inStock"), tone: "warn", icon: "layers" },
@@ -36,6 +36,11 @@ const STATUS: Record<string, { label: string; tone: string; icon: "layers" | "pl
 
 type UnitRow = NonNullable<Recall["report"]>["units"][number];
 type LotRow = NonNullable<Recall["report"]>["lots"][number];
+/** "{n} thing(s)" with the plural rules of the UI language (French treats 0 and 1 as singular). */
+function countText(n: number, one: StringKey, other: StringKey): string {
+  return t(new Intl.PluralRules(LOCALE).select(n) === "one" ? one : other, { n: fmtNum(n) });
+}
+
 type CustomerRow = NonNullable<Recall["report"]>["by_customer"][number];
 type ProgramRow = NonNullable<Recall["report"]>["by_program"][number];
 
@@ -284,7 +289,10 @@ export function RecallPage() {
             <>
               <div className="kpi-value" style={{ color: (cnt?.qty_shipped ?? 0) > 0 ? "var(--danger)" : undefined }}>{fmtNum(cnt?.qty_shipped ?? 0)}</div>
               <div className="kpi-sub">
-                {t("mfg.recallPages.text.shipmentsToCustomers", { shipments: fmtNum(cnt?.shipments ?? rep?.shipments?.length ?? 0), customers: fmtNum(customers) })}
+                {t("mfg.recallPages.text.shipmentsTo", {
+                  shipments: countText(cnt?.shipments ?? rep?.shipments?.length ?? 0, "mfg.recallPages.text.shipmentsOne", "mfg.recallPages.text.shipmentsOther"),
+                  customers: countText(customers, "mfg.recallPages.text.customersOne", "mfg.recallPages.text.customersOther"),
+                })}
               </div>
             </>
           ) : (
@@ -299,8 +307,8 @@ export function RecallPage() {
           <div className="kpi-value">{fmtNum(qtyMode ? cnt?.qty_in_stock ?? 0 : by("in_stock"))}</div>
           <div className="kpi-sub">
             {qtyMode
-              ? t("mfg.recallPages.text.lotsOnHand", { n: fmtNum(lotsOnHand) })
-              : t("mfg.recallPages.text.lotsCount", { n: fmtNum(rep?.lots.length ?? 0) })}
+              ? countText(lotsOnHand, "mfg.recallPages.text.lotsOnHandOne", "mfg.recallPages.text.lotsOnHand")
+              : countText(rep?.lots.length ?? 0, "mfg.recallPages.text.lotsCountOne", "mfg.recallPages.text.lotsCount")}
           </div>
         </div>
         <div className="card kpi">
