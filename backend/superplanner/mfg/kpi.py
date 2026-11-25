@@ -92,10 +92,19 @@ def standard_minutes(units: float, run_minutes: float, run_per: str, units_per_p
     return float(run_minutes) * n / (speed_factor or 1.0)
 
 
-def oee(availability: float | None, performance: float | None, fpy_: float | None) -> float | None:
+#: performance is capped at 100 % in OEE (standard definition); a plant may allow more through
+#: `plant.attributes.kpi_performance_cap` (e.g. 1.2 while run standards are being corrected)
+PERFORMANCE_CAP = 1.0
+
+
+def oee(availability: float | None, performance: float | None, fpy_: float | None,
+        performance_cap: float = PERFORMANCE_CAP) -> float | None:
+    """OEE = availability x min(performance, cap) x quality; with the default cap every factor is <= 100 %."""
     if availability is None or performance is None:
         return None
-    return round(availability * min(performance, 1.5) * (fpy_ if fpy_ is not None else 1.0), 6)
+    a = min(availability, 1.0)
+    q = min(fpy_, 1.0) if fpy_ is not None else 1.0
+    return round(a * min(performance, performance_cap) * q, 6)
 
 
 def sum_ratios(rs: Iterable[Ratio]) -> Ratio:

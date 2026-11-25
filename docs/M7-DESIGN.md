@@ -685,3 +685,21 @@ QP2 diff 0.03 ms per regulated update; QP4 2,000 results with evaluation 259 ms;
 inspection lots 84 ms; QP7 line equipment check 0.8 ms; QP8 record audit trail of 2,000 events 65 ms. QP3, QP5 and
 QP9 were not measured separately (covered functionally by the receipt, NCR and export tests).
 
+**Demo findings fixed after M7 (backend):**
+1. OEE: `mfg/kpi.oee` caps performance at 100 % (and availability / quality at 100 %), so OEE <= 100 %; a plant may
+   allow more with `plant.attributes.kpi_performance_cap` (1.0-2.0). The `performance` KPI shows the capped value
+   and carries `raw_value` when the run standards are slower than reality. Adherence: published operations of WOs
+   that are not tracked on the floor are not compared (adherence is null = n/a, not 0); each day is measured
+   against the plan in force that day (latest run published before the day ended, else the current published run).
+2. Recall reports: shipments carry the shipped lot (`lots`), `by_customer` carries `qty` and `lots`, counts gain
+   `qty_shipped`, `qty_in_stock`, `qty_affected`, `customers` (lot-controlled, non-serialised material).
+3. Floor "issue component lot": `POST /mfg/floor/issue-lot {wo_operation_id, scan | lot_id, wo_component_id?, qty?,
+   location_id?}` (perm `floor_report`) -> one `wo_issue` posting through the ledger (default quantity = the
+   component's remaining requirement); holds (incl. M7) 422 `INV_LOT_ON_HOLD`, expiry by the ledger, quarantine-only
+   stock 409 `FLR_LOT_QUARANTINED`, wrong item 422 `FLR_LOT_NOT_A_COMPONENT`, several lines 422
+   `FLR_CHOOSE_COMPONENT`.
+4. `meddev` sample: a pinned "Sample history plan" APS run (published before the history, not the current
+   published run) holds the history operations at planned times (every fifth one late), so history adherence/OEE
+   are realistic; the load ends with an MRP run and refreshes that run's staleness token (no "out of date" after a
+   load). The sample still has no current published schedule (run APS to get one).
+

@@ -31,3 +31,22 @@ def test_meddev_m7_sample(api):
     assert {x["lot_id"] for x in holds} >= {x["id"] for x in held}
     api.load("meddev")
     assert len(api.get("/qa/schemes")["items"]) == 3
+
+
+def test_meddev_history_plan_kpis_and_fresh_runs(api):
+    from datetime import date, timedelta
+
+    out = api.load("meddev", anchor=None)
+    assert "mrp_run" in out["result"]["after_load"], out["result"]
+    assert api.get("/mrp/runs/latest")["stale"]["is_stale"] is False
+    runs = api.get("/aps/runs")["items"]
+    hist = [r for r in runs if r["label"] == "Sample history plan"]
+    assert len(hist) == 1
+    full = api.get(f"/aps/runs/{hist[0]['id']}")
+    assert not (full.get("stale") or {}).get("is_stale")
+    k = api.get("/kpis", **{"from": (date.today() - timedelta(days=28)).isoformat(),
+                            "to": date.today().isoformat()})
+    m = k["metrics"]
+    assert m["adherence"]["value"] is not None and 0 < m["adherence"]["value"] < 1
+    assert m["oee"]["value"] is None or m["oee"]["value"] <= 1.0
+    assert m["performance"]["value"] is None or m["performance"]["value"] <= 1.0

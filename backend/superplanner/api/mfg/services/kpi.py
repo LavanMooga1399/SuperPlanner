@@ -99,7 +99,12 @@ class _Data:
             from .floor import _ev
 
             self.intervals += K.work_intervals([_ev(e) for e in lst], op_id=oid, until=min(now, hi))
-        pub = s.execute(select(MfgApsRunRow).where(MfgApsRunRow.is_published.is_(True))).scalars().first()
+        # the plan in force on that day: the latest run published before the day ends (history days keep their
+        # own plan after a later publish); falls back to the current published run
+        pub = s.execute(select(MfgApsRunRow).where(MfgApsRunRow.published_at.is_not(None),
+                                                   MfgApsRunRow.published_at < hi)
+                        .order_by(MfgApsRunRow.published_at.desc()).limit(1)).scalars().first() or \
+            s.execute(select(MfgApsRunRow).where(MfgApsRunRow.is_published.is_(True))).scalars().first()
         self.pub_ops = list(s.execute(select(MfgApsOpRow).where(
             MfgApsOpRow.run_id == pub.id, MfgApsOpRow.status == "scheduled", MfgApsOpRow.order_type == "wo",
             MfgApsOpRow.start_at >= lo, MfgApsOpRow.start_at < hi)).scalars()) if pub is not None else []
@@ -215,6 +220,9 @@ def _day(dd: _Data, d: date) -> dict[str, dict[Key, list[float]]]:
             continue
         keys = dd.keys_of_line(p.line_id)
         r = dd.pub_rows.get((p.order_id, p.seq))
+        if r is None:          # the WO is not tracked on the floor: nothing to compare (adherence n/a, not 0)
+            add("setup_planned", keys, float(p.setup_minutes), 1.0 if p.setup_minutes else 0.0)
+            continue
         num, den = K.adherence([(ps, as_utc(p.end_at), as_utc(r.actual_start) if r and r.actual_start else None,
                                  as_utc(r.actual_end) if r and r.actual_end else None)], dd.tol)
         add("adherence", keys, num, den)
@@ -299,10 +307,20 @@ def _value(n: float, den: float) -> dict[str, Any]:
     return {"value": K.ratio(n, den), "num": round(n, 6), "den": round(den, 6), "unit": "ratio"}
 
 
+def perf_cap(plant: Any) -> float:
+    """OEE performance cap: 100 % unless the plant allows more (`attributes.kpi_performance_cap`, 1.0-2.0)."""
+    try:
+        v = float(((getattr(plant, "attributes", None) or {}).get("kpi_performance_cap")) or K.PERFORMANCE_CAP)
+    except (TypeError, ValueError):
+        v = K.PERFORMANCE_CAP
+    return min(max(v, 1.0), 2.0)
+
+
 def kpis(ctx: AppContext, frm: date | None, to: date | None, dim: str, dim_id: str | None, bucket: str
          ) -> dict[str, Any]:
     with read_tx(ctx) as s:
         frm, to, _tz_, _p = _period(s, frm, to)
+        cap = perf_cap(_p)
         if dim != "plant":
             model = MfgLineRow if dim == "line" else MfgGroupRow
             if not dim_id or s.get(model, dim_id) is None:
@@ -314,8 +332,11 @@ def kpis(ctx: AppContext, frm: date | None, to: date | None, dim: str, dim_id: s
     for mt in ("otd", "wo_on_time", "utilisation", "availability", "performance", "fpy", "adherence",
                "scrap_rate"):
         metrics[mt] = _value(*_agg(days, mt, key if mt not in ("otd", "wo_on_time") else ("plant", "")))
+    pm = metrics["performance"]
+    if pm["value"] is not None and pm["value"] > cap:        # reported raw, shown capped (standards too slow)
+        pm["raw_value"], pm["value"] = pm["value"], cap
     a, pf, fq = (metrics[k]["value"] for k in ("availability", "performance", "fpy"))
-    o = K.oee(a, pf, fq)
+    o = K.oee(a, pf, fq, cap)
     metrics["oee"] = {"value": o, "num": o or 0.0, "den": 1.0 if o is not None else 0.0, "unit": "ratio"}
     sn, sd = _agg(days, "setup", key)
     pn, _pd = _agg(days, "setup_planned", key)
@@ -333,7 +354,7 @@ def kpis(ctx: AppContext, frm: date | None, to: date | None, dim: str, dim_id: s
     for mt in ("otd", "utilisation", "availability", "performance", "fpy", "adherence", "scrap_rate"):
         k2 = key if mt != "otd" else ("plant", "")
         series[mt] = [{"bucket": b, "value": K.ratio(*_agg(days, mt, k2, ds))} for b, ds in sorted(buckets.items())]
-    series["oee"] = [{"bucket": x["bucket"], "value": K.oee(x["value"], y["value"], z["value"])}
+    series["oee"] = [{"bucket": x["bucket"], "value": K.oee(x["value"], y["value"], z["value"], cap)}
                      for x, y, z in zip(series["availability"], series["performance"], series["fpy"])]
     by_dim, worst = [], []
     with read_tx(ctx) as s:
@@ -350,7 +371,7 @@ def kpis(ctx: AppContext, frm: date | None, to: date | None, dim: str, dim_id: s
             if u is None and av is None:
                 continue
             by_dim.append({"dim": "line", "ref": ref[ln.id], "utilisation": u, "availability": av,
-                           "oee": K.oee(av, pfm, fp)})
+                           "oee": K.oee(av, pfm, fp, cap)})
             n, d = _agg(days, "adherence", k3)
             if d > 0:
                 worst.append({"line": ref[ln.id], "value": K.ratio(n, d), "num": n, "den": d})

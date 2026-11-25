@@ -200,11 +200,18 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
                 from .m2util import actor_id
 
                 qa_sample.apply(s, anchor, actor_id())
+                from . import sample_plan                    # demo finding 4: history tied to a plan
+
+                sample_plan.history_plan(s, actor_id())
         result = {"counts": plan.result_counts(), "duration_ms": int((time.monotonic() - t0) * 1000),
                   "data_version": plant.data_version}
         audit(s, "plant", plant.id, "sample_load", {"sample_id": sample_id, "replace": replace,
                                                      "anchor": anchor.isoformat(),
                                                      "include_transactions": include_transactions})
+    if sample_id == "meddev" and include_transactions:         # demo finding 4: fresh MRP after the load
+        from . import sample_plan
+
+        result["after_load"] = sample_plan.after_load(ctx)
     with read_tx(ctx) as s:
         ds = repo.load_dataset(s)
     report = run_health_check(ds, plant_today(ds.plant), ds.plant.planning_horizon_days)

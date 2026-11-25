@@ -504,6 +504,13 @@ def _report(s: Session, home: str, sources: list[dict[str, Any]], include_possib
                              "location": lc.code if lc else None, "location_id": lc.id if lc else None,
                              "location_kind": lc.kind if lc else None, "hold": lr.hold,
                              "precision": node_of[lid].cumulative()})
+    # lot-controlled (non-serialised) material: the shipped lot per shipment (the lot nearest the demand line)
+    ship_nodes = [n for n in nodes if n.kind == "demand_line"]
+    near = [([x.id for x in n.path() if x.kind == "lot"] or [None])[-1] for n in ship_nodes]
+    codes = {r.id: r.lot_code for r in s.execute(select(MfgLotRow).where(MfgLotRow.id.in_(
+        sorted({i for i in near if i})))).scalars()} if any(near) else {}
+    for sh, lid in zip(ships, near):
+        sh["lots"] = [codes[lid]] if lid in codes else []
     by_customer: dict[str, dict[str, Any]] = {}
     for u in units:
         if u["customer"]:
@@ -514,6 +521,7 @@ def _report(s: Session, home: str, sources: list[dict[str, Any]], include_possib
         c = sh["customer"] or "(none)"
         by_customer.setdefault(c, {"customer": c, "units": 0, "shipments": 0})["shipments"] += 1
         by_customer[c]["qty"] = round(by_customer[c].get("qty", 0.0) + sh["qty"], 6)
+        by_customer[c]["lots"] = sorted(set(by_customer[c].get("lots", [])) | set(sh.get("lots") or []))
         if sh["program"]:
             p = by_program.setdefault(sh["program"], {"program": sh["program"], "shipments": 0, "qty": 0.0})
             p["shipments"] += 1
@@ -537,7 +545,12 @@ def _report(s: Session, home: str, sources: list[dict[str, Any]], include_possib
             "by_customer": sorted(by_customer.values(), key=lambda x: x["customer"]),
             "by_program": sorted(by_program.values(), key=lambda x: x["program"]), "open_pos": open_pos,
             "counts": {"units": len(units), "units_exact": sum(1 for u in units if u["precision"] == "exact"),
-                       "lots": len(lots), "wos": len(wos), "shipments": len(ships), "nodes": len(nodes)},
+                       "lots": len(lots), "wos": len(wos), "shipments": len(ships), "nodes": len(nodes),
+                       # quantities for lot-controlled (non-serialised) material
+                       "qty_shipped": round(sum(sh["qty"] for sh in ships), 6),
+                       "qty_in_stock": round(sum(x["on_hand"] for x in lots), 6),
+                       "qty_affected": round(sum(sh["qty"] for sh in ships) + sum(x["on_hand"] for x in lots), 6),
+                       "customers": len({sh["customer"] for sh in ships if sh["customer"]})},
             "truncated": trunc, "computed_ms": int((time.monotonic() - t0) * 1000)}
 
 

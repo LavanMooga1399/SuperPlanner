@@ -746,6 +746,7 @@ MFG_PERMISSIONS_M7 = {
     ("POST", "/mfg/qa/links"): "view",
     ("DELETE", "/mfg/qa/links/{link_id}"): "view",
 }
+MFG_PERMISSIONS_M7[("POST", "/mfg/floor/issue-lot")] = "floor_report"   # demo finding: floor lot issue
 MFG_PERMISSIONS.update(MFG_PERMISSIONS_M7)
 MFG_PROTECTED = MFG_PROTECTED | frozenset(MFG_PERMISSIONS_M7)
 PROTECTED_M7 = frozenset({

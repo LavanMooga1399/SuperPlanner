@@ -844,4 +844,17 @@ def delete_link(link_id: str, a: Act = Depends(act), ctx: AppContext = Depends(g
     return _no_content()
 
 
+# ---------------------------------------------------------------- floor: issue a component lot (demo finding)
+
+from .services.floor_issue import IssueLotInput  # noqa: E402
+
+
+@router.post("/floor/issue-lot", status_code=201, dependencies=P("floor_report"))
+def floor_issue_lot(body: IssueLotInput, a: Act = Depends(act), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    """Scan lot -> component of the operation -> quantity (default: remaining requirement) -> `wo_issue` posting."""
+    from .services import floor_issue
+
+    return _ok(floor_issue.issue_lot(ctx, a.p, body), 201)
+
+
 __all__ = ["platform_router", "router"]
