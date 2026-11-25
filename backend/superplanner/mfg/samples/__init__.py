@@ -45,6 +45,10 @@ _register("small", "SM-")
 _register("medium", "MD-")
 _register("kavach", "KV-")
 _register("meddev", "MDV-")
+# M8-DESIGN 14.1: `meddev` plus the M8 planning layer (`meddev_m8`), applied by the sample load service
+from . import meddev_m8 as _m8  # noqa: E402
+
+SAMPLES[_m8.ID] = SampleInfo(_m8.ID, _m8.NAME, _m8.DESCRIPTION, "meddev", "MDV-")
 
 
 DEFAULT_ANCHOR = date(2026, 11, 2)       # a Monday; golden values are pinned for it

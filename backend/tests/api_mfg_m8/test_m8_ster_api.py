@@ -74,6 +74,8 @@ def test_cycle_holds_release_signed_and_fail_ncr(world):
     holds = o.get("/qa/holds", source="sterility")["items"]
     assert len(holds) == 2 and all(h["planned_release"] == load["release_due"] for h in holds)
     assert all(h["source_number"] == load["number"] for h in holds)
+    lst = o.get("/ster/loads")
+    assert lst["aeration"]["positions"] == 96 and lst["chambers"][0]["pallets"] == 24
     # co-sterilised: forward trace from one lot reaches the other lot through the load
     tr = o.get("/trace", kind="lot", id=holds[0]["lot_id"], direction="forward")
     import json
@@ -81,6 +83,7 @@ def test_cycle_holds_release_signed_and_fail_ncr(world):
     # MRP pass sees the WO available at the release date (WOs are received here, so check the plan input only)
     o.err("POST", f"/qa/holds/{holds[0]['id']}/release", 409, "QA_HOLD_OWNED", json={"note": "x"})
     load = o.post(f"/ster/loads/{load['id']}/advance", {"to": "awaiting_release"}, 200)
+    assert o.get("/dashboard")["tiles"]["ster_release"]["value"] == 1
     qa.api.err("POST", f"/ster/loads/{load['id']}/release", 422, "ESIG_REQUIRED", json={})
     sig = signature(qa, "ster_load", load["id"], "release", "approved")
     rel = qa.api.post(f"/ster/loads/{load['id']}/release", {"signature": sig, "note": "BI negative"}, 200)

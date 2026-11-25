@@ -188,7 +188,7 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
                 if s.execute(_sel(MfgPurchaseDocRow.id).where(MfgPurchaseDocRow.number == "PO-KV-H001")).first() \
                         is None:
                     samples_m4.apply(s, anchor)
-            elif sample_id == "meddev":             # plant locations + floor history and genealogy (once)
+            elif sample_id in ("meddev", "meddev_m8"):  # plant locations + floor history and genealogy (once)
                 from sqlalchemy import select as _sel
 
                 from ..db_models_m2 import MfgPurchaseDocRow
@@ -204,15 +204,24 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
                 from . import sample_plan                    # demo finding 4: history tied to a plan
 
                 sample_plan.history_plan(s, actor_id())
+                if sample_id == "meddev_m8":             # M8-DESIGN 14.1: planning at volume layer (once)
+                    from . import samples_m8
+
+                    samples_m8.apply(s, anchor, actor_id())
         result = {"counts": plan.result_counts(), "duration_ms": int((time.monotonic() - t0) * 1000),
                   "data_version": plant.data_version}
         audit(s, "plant", plant.id, "sample_load", {"sample_id": sample_id, "replace": replace,
                                                      "anchor": anchor.isoformat(),
                                                      "include_transactions": include_transactions})
-    if sample_id == "meddev" and include_transactions:         # demo finding 4: fresh MRP after the load
+    if sample_id in ("meddev", "meddev_m8") and include_transactions:   # demo finding 4: fresh MRP after the load
         from . import sample_plan
 
         result["after_load"] = sample_plan.after_load(ctx)
+        if sample_id == "meddev_m8":
+            from . import samples_m8
+            from .m2util import actor_id
+
+            result["after_load_m8"] = samples_m8.after_load(ctx, actor_id())
     with read_tx(ctx) as s:
         ds = repo.load_dataset(s)
     report = run_health_check(ds, plant_today(ds.plant), ds.plant.planning_horizon_days)

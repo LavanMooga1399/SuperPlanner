@@ -49,6 +49,8 @@ def test_forecast_run_versions_overrides_activate(api, client):
     assert v1["status"] == "draft" and v1["periods"] == 6 and v1["item_count"] == 3
     lines = {x["item_id"]: x for x in api.get(f"/forecast/versions/{v1['id']}/lines")["items"]}
     syr3, syr5 = lines[items["SYR-3"]["id"]], lines[items["SYR-5"]["id"]]
+    assert "name" in syr3 and syr3["holdout_wape"] is not None and isinstance(syr3["flags"], list)
+    assert "FC_OUTLIER" in lines[items["NDL-21"]["id"]]["flags"]
     # M8-FC-05: family +10 %, then item absolute 5,000 for one period
     o1 = api.post(f"/forecast/versions/{v1['id']}/overrides", {"item_family": "SYR", "period_from": "2026-11-01",
                                                                 "period_to": "2027-04-01", "mode": "pct", "value": 10,
@@ -94,6 +96,10 @@ def test_forecast_run_versions_overrides_activate(api, client):
     assert view["result"]["method"] and view["consumption"] and len(view["history"]) == 30
     acc = api.get("/forecast/accuracy", lag=1, group_by="abc")
     assert acc["backtest"]["by_abc"]["A"]["items"] >= 1
+    assert len(acc["trend"]) == 6 and {"period_start", "wape", "bias"} <= set(acc["trend"][0])
+    tiles = api.get("/dashboard")["tiles"]
+    assert {"forecast_accuracy", "rate_shortages", "ster_release"} <= set(tiles)
+    assert tiles["rate_shortages"]["status"] == "n/a" and tiles["ster_release"]["value"] == 0
 
 
 @pytest.mark.req("M8-FC-04")

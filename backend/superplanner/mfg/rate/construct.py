@@ -209,6 +209,11 @@ def produce(problem: RateProblem, sim: Sim, cur: Cursor, item_id: str, qty: floa
             cut = 0.0
         if not prod:
             return blocks, 0.0, False
+    raw, done = 0.0, 0.0                           # whole units per block (cumulative rounding, total unchanged)
+    for b in prod:
+        raw += b.qty
+        b.qty = float(round(raw) - done)
+        done += b.qty
     for b in prod:
         b.cases = int(round(b.qty / it.case_qty)) if it.case_qty else None
     cur.prev_item = item_id

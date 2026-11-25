@@ -71,6 +71,7 @@ def test_rate_run_publish_twice(api, client):
     grid = api.get(f"/rate/runs/{run['id']}/grid", bucket="day")
     assert sum(c["qty"] for c in grid["cells"]) == pytest.approx(10_000)
     pub = api.post(f"/rate/runs/{run['id']}/publish", None, 200)
+    assert api.get("/dashboard")["tiles"]["rate_shortages"]["details"]["number"] == run["number"]
     assert pub["created_wo_ids"] and pub["cancelled_wo_ids"] == []
     wo = api.get(f"/work-orders/{pub['created_wo_ids'][0]}")
     assert wo["status"] == "released"

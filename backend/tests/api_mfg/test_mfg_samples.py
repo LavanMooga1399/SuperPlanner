@@ -10,7 +10,7 @@ from superplanner.mfg import samples
 
 def test_sample_list(mfg: Mfg):
     items = mfg.get("/samples")["items"]
-    assert [s["id"] for s in items] == ["small", "medium", "kavach", "meddev"]
+    assert [s["id"] for s in items] == ["small", "medium", "kavach", "meddev", "meddev_m8"]   # (+ M8 layer)
     assert items[0]["counts"]["items"] == 10 and set(items[0]) == {"id", "name", "description", "counts"}
 
 

@@ -656,3 +656,27 @@ pickers and permission tooltips.
   Loads are read from a week back in pages of 200 (`PAGE_MAX`).
 - Dashboard tile names are ready for `forecast_accuracy`, `rate_shortages`, `ster_release` (values from the M6 tile
   API once the backend adds them).
+
+S5 notes (SAP, UI contract additions, sample; as built):
+- SAP: `integration/sap/odata.py` (httpx client: v2/v4 paging, basic / OAuth2, CSRF fetch + one retry on 403
+  `Required`), `integration/sap/mapping.py` (pure OData -> v1 per entity, outbound planned order / PR bodies),
+  `integration/adapters/sap_s4.py` (registered; `int_settings.adapter` accepts `sap_s4`). Sync = duty run `sap_sync`
+  in `services/sap.py`: inbound entities go through the M5 `process` path (SoR and value maps apply); extras
+  (packaging levels from units of measure, monthly `sap` demand history from billing items) are applied directly;
+  the cursor is saved after each page; `planned_order_out` posts the open planned orders of the latest live MRP run
+  once per run. Saving SAP settings with `enabled` switches the plant integration on with adapter `sap_s4`.
+  Planning fields (lead times) from SAP apply only when the item SoR is `shared` (M5 4.4 rule unchanged).
+  Fixtures and `golden_v1.json` in `integration/sap/fixtures` (fictional); fake server `tests/sap/sap_fake.py`.
+- UI contract gaps closed (additive): F10 lines carry `name`, `holdout_wape`, `bias`, `flags` (latest run of the
+  version); F17 returns `trend` (per closed period: actual, lag forecast, WAPE, bias; all items); `GET /ster/loads`
+  returns `chambers` and `aeration {positions, rooms}`; the plant dashboard (D1) has tiles `forecast_accuracy`
+  (lag-1 WAPE, 6-period trend; watch > 25 %, alert > 50 %), `rate_shortages` (published, else latest completed run)
+  and `ster_release` (awaiting release; alert when overdue). The M8 tiles are not part of the organisation totals.
+- Sample: `meddev_m8` (registered next to `meddev`, same M1-M7 content + the M8 layer) - deviation from "M8 data
+  inside meddev": putting the existing ASM / ETO lines under rate / load planning would remove them from APS and the
+  forecast would change the meddev MRP, breaking the M1-M7 sample expectations. The layer adds its own flow lines
+  (`FLA-01/02`, `FLP-01`), planned chambers `EOS-01/02` and aeration room `AER-01`, history, forecast (active version
+  with 3 overrides), SS proposals, kanban loops (tip caps, roller clamps; one empty card); after the load: MRP pass
+  1, a published 30-day rate run, the sterilisation plan (one load awaiting release), MRP pass 2.
+- Rate blocks carry whole units (cumulative rounding inside a campaign; campaign totals unchanged), so repetitive
+  WOs of count items get integer quantities.
