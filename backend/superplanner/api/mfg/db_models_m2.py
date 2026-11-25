@@ -246,9 +246,10 @@ class MfgWorkOrderRow(OwnedMixin, _Editable, Base):
     closed_at: Mapped[datetime | None] = _dt()
     note: Mapped[str] = mapped_column(String(500))
     external_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    #: M7-DESIGN 6: standard | rework (rework WOs of an NCR disposition)
-    kind: Mapped[str] = mapped_column(String(8), default="standard")
+    #: M7-DESIGN 6: standard | rework (rework WOs of an NCR disposition); M8: + repetitive | kanban (S12)
+    kind: Mapped[str] = mapped_column(String(12), default="standard")
     ncr_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rate_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)      # M8-DESIGN 7.3
 
 
 class MfgWoComponentRow(OwnedMixin, _Editable, Base):

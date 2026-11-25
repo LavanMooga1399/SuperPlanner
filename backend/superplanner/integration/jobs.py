@@ -13,7 +13,8 @@ def target_model(kind: str) -> Any:
             "org_publish": m.OrgPublishRow, "maintenance_retention": m.MaintenanceRunRow,
             "trace_backfill": m.MaintenanceRunRow, "push_delivery": m.MaintenanceRunRow,
             "digest_send": m.MaintenanceRunRow, "inventory_snapshot": m.MaintenanceRunRow,
-            "part11_export": m.MaintenanceRunRow, "qa_due_scan": m.MaintenanceRunRow}[kind]
+            "part11_export": m.MaintenanceRunRow, "qa_due_scan": m.MaintenanceRunRow,
+            **{k: m.MaintenanceRunRow for k in ("forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync")}}[kind]
 
 
 def handler(kind: str) -> Callable[..., None]:
@@ -41,6 +42,10 @@ def handler(kind: str) -> Callable[..., None]:
         from ..api.mfg.services import part11, qa_due
 
         return part11.run_export_job if kind == "part11_export" else qa_due.run_job
+    if kind in ("forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync"):   # M8-DESIGN 3
+        from ..api.mfg.services import m8jobs
+
+        return m8jobs.handler(kind)
     if kind in ("push_delivery", "digest_send", "inventory_snapshot"):     # M6-DESIGN 6
         from .. import m6jobs
 

@@ -38,16 +38,18 @@ DEFAULTS: dict[tuple[str, str], tuple[list[dict[str, Any]], str, bool, bool]] = 
     ("qa_settings", "sor_change"): ([{"meaning": "approved", "roles": ["qa_approver"]}], "password", True, False),
     ("plant", "part11_on"): ([{"meaning": "approved", "roles": ["owner", "plant_admin"]}], "password_totp", True,
                              False),
+    # M8-DESIGN 8: sterility release of a sterilisation load (always signed)
+    ("ster_load", "release"): ([{"meaning": "approved", "roles": ["qa_approver"]}], "password", True, False),
 }
 #: actions whose last step cannot be removed (4.3)
 FIXED: frozenset[tuple[str, str]] = frozenset({("esig_policy", "update"), ("plant", "part11_on")})
 #: actions that create their record when signed: one step only (14)
 SINGLE_STEP: frozenset[tuple[str, str]] = frozenset({("calibration", "record")})
 #: actions that are signed even when the plant is not in Part 11 mode
-ALWAYS: frozenset[tuple[str, str]] = frozenset({("plant", "part11_on")})
+ALWAYS: frozenset[tuple[str, str]] = frozenset({("plant", "part11_on"), ("ster_load", "release")})
 PLANT_ROLES: frozenset[str] = frozenset({"owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver",
                                          "viewer", "operator", "supervisor", "qa_inspector", "qa_engineer",
-                                         "qa_approver", "metrology"})
+                                         "qa_approver", "metrology", "plant_manager", "auditor"})
 AUTH_RANK = {"password": 0, "password_totp": 1}
 
 

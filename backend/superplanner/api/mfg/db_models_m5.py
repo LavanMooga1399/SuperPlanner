@@ -208,6 +208,8 @@ class IntSettingsRow(OwnedMixin, _Editable, Base):
     export_enabled: Mapped[bool] = mapped_column(Boolean)
     export_interval_minutes: Mapped[int] = mapped_column(Integer)
     export_cursor: Mapped[int] = mapped_column(BigInteger)
+    #: M8-DESIGN 9: SAP S/4HANA profile (secrets encrypted), cursors and last sync per entity
+    sap: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
 
 
 class IntEndpointRow(OwnedMixin, _Editable, Base):

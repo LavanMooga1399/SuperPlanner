@@ -1,0 +1,1082 @@
+{
+ "accuracy": {
+  "backtest": {
+   "bias": -0.008,
+   "by_abc": {
+    "A": {
+     "bias": -0.01,
+     "items": 24,
+     "wape": 0.096
+    },
+    "B": {
+     "bias": 0.02,
+     "items": 41,
+     "wape": 0.181
+    },
+    "C": {
+     "bias": 0.05,
+     "items": 117,
+     "wape": 0.35
+    }
+   },
+   "flags": {
+    "FC_HIGH_ERROR": 1,
+    "FC_HISTORY_SHORT": 4,
+    "FC_OUTLIER": 7
+   },
+   "method_mix": {
+    "croston": 8,
+    "holt_damped": 22,
+    "hw_add": 31,
+    "hw_mul": 9,
+    "ma": 40,
+    "sba": 20,
+    "ses": 48,
+    "zero": 4
+   },
+   "wape": 0.142
+  },
+  "group_by": "abc",
+  "lag": 1,
+  "rows": [
+   {
+    "actual": 1240000.0,
+    "bias": -0.034,
+    "forecast": 1198000.0,
+    "key": "A",
+    "label": "A",
+    "periods": 6,
+    "wape": 0.096
+   }
+  ]
+ },
+ "baseline": {
+  "content": null,
+  "created_at": "2026-11-25T07:00:00.000000Z",
+  "created_by": "usr_00000000000000000000000000000001",
+  "id": "vbl_00000000000000000000000000000001",
+  "label": "Before go-live",
+  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+ },
+ "baseline_diff": {
+  "a": "vbl_00000000000000000000000000000001",
+  "a_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "b": "vbl_00000000000000000000000000000002",
+  "b_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "changes": [
+   {
+    "a": "password",
+    "b": "password_totp",
+    "kind": "changed",
+    "path": "esig_policies.ncr.approve.auth"
+   }
+  ],
+  "same": false
+ },
+ "changeover_matrix": {
+  "rows": [
+   {
+    "cost": 300.0,
+    "from_key": "*",
+    "id": "chg_00000000000000000000000000000001",
+    "kind": "changeover",
+    "line_setup_family": "ASM",
+    "minutes": 90,
+    "to_key": "*"
+   },
+   {
+    "cost": 900.0,
+    "from_key": "SYR-3ML",
+    "id": "chg_00000000000000000000000000000002",
+    "kind": "cleaning",
+    "line_setup_family": "ASM",
+    "minutes": 240,
+    "to_key": "NDL-21G"
+   }
+  ],
+  "version": 1
+ },
+ "forecast_item": {
+  "accuracy": {
+   "lag1": {
+    "bias": -0.02,
+    "periods": 6,
+    "wape": 0.091
+   },
+   "lag3": {
+    "bias": -0.03,
+    "periods": 6,
+    "wape": 0.12
+   }
+  },
+  "consumption": [
+   {
+    "consumed": 21000.0,
+    "forecast": 56160.0,
+    "item_id": "itm_00000000000000000000000000000001",
+    "open": 35160.0,
+    "orders": 21000.0,
+    "overconsumed": 0.0,
+    "period_start": "2026-12-01"
+   }
+  ],
+  "history": [
+   {
+    "bucket": "m",
+    "cleaned_qty": 61500.0,
+    "id": "dhi_00000000000000000000000000000001",
+    "item_id": "itm_00000000000000000000000000000001",
+    "outlier": true,
+    "period_start": "2026-10-01",
+    "qty": 412000.0,
+    "source": "ledger",
+    "updated_at": "2026-11-25T07:00:00.000000Z"
+   }
+  ],
+  "item": {
+   "id": "itm_00000000000000000000000000000001",
+   "name": "Syringe 3 mL Luer lock",
+   "part_number": "SYR-3ML-LL",
+   "revision": "A"
+  },
+  "planning": {
+   "abc": "A",
+   "forecast": true,
+   "replenishment": "rate",
+   "xyz": "X"
+  },
+  "result": {
+   "abc": "A",
+   "adi": 1.0,
+   "bias": -0.012,
+   "candidates": {
+    "holt_damped": 0.149,
+    "hw_add": 0.084,
+    "hw_mul": 0.091,
+    "ma": 0.172,
+    "ses": 0.155,
+    "snaive": 0.131
+   },
+   "cv2": 0.04,
+   "demand_class": "smooth",
+   "fitted_tail": [
+    40100.0,
+    39800.5,
+    44120.0
+   ],
+   "flags": [],
+   "forecast": [
+    52000.0,
+    55200.0,
+    47800.0
+   ],
+   "holdout_wape": 0.084,
+   "item_id": "itm_00000000000000000000000000000001",
+   "mean": 41250.0,
+   "method": "hw_add",
+   "n_periods": 30,
+   "params": {
+    "alpha": 0.2,
+    "beta": 0.05,
+    "gamma": 0.1
+   },
+   "part_number": "SYR-3ML-LL",
+   "rmse1": 3120.5
+  },
+  "versions": [
+   {
+    "final": [
+     56160.0,
+     59616.0,
+     51624.0
+    ],
+    "number": "FC-000001",
+    "periods": [
+     "2026-12-01",
+     "2027-01-01",
+     "2027-02-01"
+    ],
+    "status": "active",
+    "version_id": "fcv_00000000000000000000000000000001"
+   }
+  ]
+ },
+ "forecast_line": {
+  "abc": "A",
+  "family": "SYRINGE",
+  "final": [
+   56160.0,
+   59616.0,
+   51624.0
+  ],
+  "item_id": "itm_00000000000000000000000000000001",
+  "method": "hw_add",
+  "overridden": [
+   true,
+   true,
+   true
+  ],
+  "part_number": "SYR-3ML-LL",
+  "periods": [
+   "2026-12-01",
+   "2027-01-01",
+   "2027-02-01"
+  ],
+  "stat": [
+   52000.0,
+   55200.0,
+   47800.0
+  ],
+  "xyz": "X"
+ },
+ "forecast_override": {
+  "changes": [
+   {
+    "item_id": "itm_00000000000000000000000000000001",
+    "new": 56160.0,
+    "old": 52000.0,
+    "period_start": "2026-12-01"
+   }
+  ],
+  "created_at": "2026-11-25T07:00:00.000000Z",
+  "created_by": "usr_00000000000000000000000000000001",
+  "id": "fco_00000000000000000000000000000001",
+  "item_family": "SYRINGE",
+  "item_id": null,
+  "mode": "pct",
+  "period_from": "2026-12-01",
+  "period_to": "2027-02-01",
+  "reason": "Flu season: distributor pre-buy",
+  "removed_at": null,
+  "seq": 1,
+  "value": 8.0,
+  "version_id": "fcv_00000000000000000000000000000001"
+ },
+ "forecast_params": {
+  "as_of": null,
+  "bucket": null,
+  "create_version": true,
+  "horizon_periods": 18,
+  "item_ids": null,
+  "label": "Monthly",
+  "methods": null
+ },
+ "forecast_run": {
+  "actor_id": "usr_00000000000000000000000000000001",
+  "as_of": "2026-11-25",
+  "bucket": "m",
+  "error": null,
+  "finished_at": "2026-11-25T07:04:31.000000Z",
+  "first_period": "2026-12-01",
+  "id": "fcr_00000000000000000000000000000001",
+  "item_count": 182,
+  "number": "FC-000001",
+  "params": {
+   "bucket": "m",
+   "label": "Monthly"
+  },
+  "started_at": "2026-11-25T07:00:00.000000Z",
+  "status": "completed",
+  "summary": {
+   "bias": -0.008,
+   "by_abc": {
+    "A": {
+     "bias": -0.01,
+     "items": 24,
+     "wape": 0.096
+    },
+    "B": {
+     "bias": 0.02,
+     "items": 41,
+     "wape": 0.181
+    },
+    "C": {
+     "bias": 0.05,
+     "items": 117,
+     "wape": 0.35
+    }
+   },
+   "flags": {
+    "FC_HIGH_ERROR": 1,
+    "FC_HISTORY_SHORT": 4,
+    "FC_OUTLIER": 7
+   },
+   "method_mix": {
+    "croston": 8,
+    "holt_damped": 22,
+    "hw_add": 31,
+    "hw_mul": 9,
+    "ma": 40,
+    "sba": 20,
+    "ses": 48,
+    "zero": 4
+   },
+   "wape": 0.142
+  },
+  "version_id": "fcv_00000000000000000000000000000001"
+ },
+ "forecast_run_detail": {
+  "actor_id": "usr_00000000000000000000000000000001",
+  "as_of": "2026-11-25",
+  "bucket": "m",
+  "error": null,
+  "finished_at": "2026-11-25T07:04:31.000000Z",
+  "first_period": "2026-12-01",
+  "id": "fcr_00000000000000000000000000000001",
+  "item_count": 182,
+  "number": "FC-000001",
+  "params": {
+   "bucket": "m",
+   "label": "Monthly"
+  },
+  "results": {
+   "items": [
+    {
+     "abc": "A",
+     "adi": 1.0,
+     "bias": -0.012,
+     "candidates": {
+      "holt_damped": 0.149,
+      "hw_add": 0.084,
+      "hw_mul": 0.091,
+      "ma": 0.172,
+      "ses": 0.155,
+      "snaive": 0.131
+     },
+     "cv2": 0.04,
+     "demand_class": "smooth",
+     "fitted_tail": [
+      40100.0,
+      39800.5,
+      44120.0
+     ],
+     "flags": [],
+     "forecast": [
+      52000.0,
+      55200.0,
+      47800.0
+     ],
+     "holdout_wape": 0.084,
+     "item_id": "itm_00000000000000000000000000000001",
+     "mean": 41250.0,
+     "method": "hw_add",
+     "n_periods": 30,
+     "params": {
+      "alpha": 0.2,
+      "beta": 0.05,
+      "gamma": 0.1
+     },
+     "part_number": "SYR-3ML-LL",
+     "rmse1": 3120.5
+    }
+   ],
+   "limit": 50,
+   "offset": 0,
+   "total": 1
+  },
+  "started_at": "2026-11-25T07:00:00.000000Z",
+  "status": "completed",
+  "summary": {
+   "bias": -0.008,
+   "by_abc": {
+    "A": {
+     "bias": -0.01,
+     "items": 24,
+     "wape": 0.096
+    },
+    "B": {
+     "bias": 0.02,
+     "items": 41,
+     "wape": 0.181
+    },
+    "C": {
+     "bias": 0.05,
+     "items": 117,
+     "wape": 0.35
+    }
+   },
+   "flags": {
+    "FC_HIGH_ERROR": 1,
+    "FC_HISTORY_SHORT": 4,
+    "FC_OUTLIER": 7
+   },
+   "method_mix": {
+    "croston": 8,
+    "holt_damped": 22,
+    "hw_add": 31,
+    "hw_mul": 9,
+    "ma": 40,
+    "sba": 20,
+    "ses": 48,
+    "zero": 4
+   },
+   "wape": 0.142
+  },
+  "version_id": "fcv_00000000000000000000000000000001"
+ },
+ "forecast_version": {
+  "activated_at": "2026-11-25T07:04:31.000000Z",
+  "activated_by": "usr_00000000000000000000000000000001",
+  "bucket": "m",
+  "created_at": "2026-11-25T07:00:00.000000Z",
+  "id": "fcv_00000000000000000000000000000001",
+  "item_count": 182,
+  "name": "Nov 2026 consensus",
+  "note": "",
+  "number": "FC-000001",
+  "override_count": 3,
+  "periods": 18,
+  "row_version": 2,
+  "run_id": "fcr_00000000000000000000000000000001",
+  "start": "2026-12-01",
+  "status": "active",
+  "total_final": 9480000.0,
+  "total_stat": 9120000.0,
+  "updated_at": "2026-11-25T07:04:31.000000Z"
+ },
+ "history": {
+  "bucket": "m",
+  "cleaned_qty": 61500.0,
+  "id": "dhi_00000000000000000000000000000001",
+  "item_id": "itm_00000000000000000000000000000001",
+  "outlier": true,
+  "period_start": "2026-10-01",
+  "qty": 412000.0,
+  "source": "ledger",
+  "updated_at": "2026-11-25T07:00:00.000000Z"
+ },
+ "history_refresh": {
+  "items": 182,
+  "outliers": 7,
+  "periods": 30,
+  "rows_written": 5460
+ },
+ "history_update": {
+  "cleaned_qty": null,
+  "reason": "Real tender, keep raw value"
+ },
+ "item_planning": {
+  "abc": "A",
+  "aeration_hours": 48.0,
+  "campaign_key": "SYR-3ML",
+  "campaign_max_hours": 72.0,
+  "campaign_min_hours": 8.0,
+  "forecast": true,
+  "id": "ipn_00000000000000000000000000000001",
+  "item_id": "itm_00000000000000000000000000000001",
+  "like_factor": 1.0,
+  "like_item_id": null,
+  "order_pack_level": "case",
+  "post_days": null,
+  "release_days": 7.0,
+  "release_mode": "bi",
+  "replenishment": "rate",
+  "row_version": 3,
+  "service_level": null,
+  "ster_cycle_code": "ETO-STD",
+  "target_cover_days": 10,
+  "xyz": "X"
+ },
+ "item_result": {
+  "abc": "A",
+  "adi": 1.0,
+  "bias": -0.012,
+  "candidates": {
+   "holt_damped": 0.149,
+   "hw_add": 0.084,
+   "hw_mul": 0.091,
+   "ma": 0.172,
+   "ses": 0.155,
+   "snaive": 0.131
+  },
+  "cv2": 0.04,
+  "demand_class": "smooth",
+  "fitted_tail": [
+   40100.0,
+   39800.5,
+   44120.0
+  ],
+  "flags": [],
+  "forecast": [
+   52000.0,
+   55200.0,
+   47800.0
+  ],
+  "holdout_wape": 0.084,
+  "item_id": "itm_00000000000000000000000000000001",
+  "mean": 41250.0,
+  "method": "hw_add",
+  "n_periods": 30,
+  "params": {
+   "alpha": 0.2,
+   "beta": 0.05,
+   "gamma": 0.1
+  },
+  "part_number": "SYR-3ML-LL",
+  "rmse1": 3120.5
+ },
+ "kanban_card": {
+  "card_no": 2,
+  "changed_at": "2026-11-25T07:00:00.000000Z",
+  "code": "KB:kbc_00000000000000000000000000000001",
+  "doc_id": "prq_00000000000000000000000000000001",
+  "doc_number": "PR-000231",
+  "doc_type": "pr",
+  "id": "kbc_00000000000000000000000000000001",
+  "loop_id": "kbl_00000000000000000000000000000001",
+  "state": "empty"
+ },
+ "kanban_loop": {
+  "card_counts": {
+   "empty": 1,
+   "full": 3,
+   "in_process": 0
+  },
+  "cards": 4,
+  "consumed_since_signal": 0.0,
+  "container_qty": 5000.0,
+  "created_at": "2026-11-25T07:00:00.000000Z",
+  "id": "kbl_00000000000000000000000000000001",
+  "item": {
+   "id": "itm_00000000000000000000000000000002",
+   "name": "Tip cap Luer",
+   "part_number": "TIP-CAP-LL",
+   "revision": "A"
+  },
+  "item_id": "itm_00000000000000000000000000000002",
+  "lead_time_days": 5,
+  "line_id": null,
+  "location_code": "LS-ASM",
+  "location_id": "loc_00000000000000000000000000000001",
+  "number": "KB-000001",
+  "row_version": 1,
+  "sizing": {
+   "daily_demand": 2400.0,
+   "suggested_cards": 4,
+   "undersized": false
+  },
+  "source": "buy",
+  "status": "active",
+  "supplier_id": "sup_00000000000000000000000000000001",
+  "trigger": "scan",
+  "updated_at": "2026-11-25T07:00:00.000000Z"
+ },
+ "kanban_scan": {
+  "card": {
+   "card_no": 2,
+   "changed_at": "2026-11-25T07:00:00.000000Z",
+   "code": "KB:kbc_00000000000000000000000000000001",
+   "doc_id": "prq_00000000000000000000000000000001",
+   "doc_number": "PR-000231",
+   "doc_type": "pr",
+   "id": "kbc_00000000000000000000000000000001",
+   "loop_id": "kbl_00000000000000000000000000000001",
+   "state": "empty"
+  },
+  "loop_id": "kbl_00000000000000000000000000000001",
+  "signal": {
+   "doc_id": "prq_00000000000000000000000000000001",
+   "doc_type": "pr",
+   "number": "PR-000231",
+   "qty": 5000.0
+  }
+ },
+ "line_rates": {
+  "line": {
+   "chamber_pallets": null,
+   "clean_every_hours": 72.0,
+   "clean_minutes": 120,
+   "clearance_minutes": 45,
+   "cycle_hours": null,
+   "oee": 0.85,
+   "planning": "flow"
+  },
+  "line_code": "ASM-01",
+  "line_id": "lin_00000000000000000000000000000001",
+  "rates": [
+   {
+    "id": "lrt_00000000000000000000000000000001",
+    "item_family": "SYRINGE",
+    "item_id": null,
+    "oee": null,
+    "units_per_hour": 7000.0
+   }
+  ],
+  "row_version": 2
+ },
+ "mrp_params": {
+  "forecast_version_id": null,
+  "label": "nightly-1",
+  "rate_supply": false
+ },
+ "nightly": {
+  "run_id": "mnt_00000000000000000000000000000001",
+  "started_at": null,
+  "status": "queued",
+  "steps": [
+   {
+    "error": null,
+    "ref_id": null,
+    "status": "queued",
+    "step": "history_refresh"
+   }
+  ]
+ },
+ "override_input": {
+  "item_family": "SYRINGE",
+  "item_id": null,
+  "mode": "pct",
+  "period_from": "2026-12-01",
+  "period_to": "2027-02-01",
+  "reason": "Flu season: distributor pre-buy",
+  "value": 8.0
+ },
+ "packaging": {
+  "item_id": "itm_00000000000000000000000000000001",
+  "levels": [
+   {
+    "code": "EA",
+    "gtin": null,
+    "id": "pkg_00000000000000000000000000000001",
+    "level": "each",
+    "qty_base": 1.0,
+    "seq": 1,
+    "weight_kg": null
+   },
+   {
+    "code": "BX100",
+    "gtin": "10380000000017",
+    "id": "pkg_00000000000000000000000000000002",
+    "level": "inner",
+    "qty_base": 100.0,
+    "seq": 2,
+    "weight_kg": 0.9
+   },
+   {
+    "code": "CS2000",
+    "gtin": "20380000000014",
+    "id": "pkg_00000000000000000000000000000003",
+    "level": "case",
+    "qty_base": 2000.0,
+    "seq": 3,
+    "weight_kg": 19.0
+   },
+   {
+    "code": "PL48",
+    "gtin": null,
+    "id": "pkg_00000000000000000000000000000004",
+    "level": "pallet",
+    "qty_base": 96000.0,
+    "seq": 4,
+    "weight_kg": 930.0
+   }
+  ],
+  "row_version": 3
+ },
+ "planning_settings": {
+  "abc_cutoffs": [
+   0.8,
+   0.95
+  ],
+  "auto_publish": false,
+  "consume_back_days": 30,
+  "consume_fwd_days": 30,
+  "daily_days": 28,
+  "forecast_bucket": "m",
+  "forecast_priority": 7,
+  "history_basis": "shipments",
+  "horizon_periods": 18,
+  "nightly_at": "02:00",
+  "nightly_enabled": false,
+  "outlier_clean": true,
+  "rate_firm_days": 3,
+  "rate_horizon_days": 30,
+  "rate_time_budget_s": 240,
+  "rate_wo_split": "day",
+  "row_version": 1,
+  "sl_matrix": {
+   "AX": 0.99,
+   "AY": 0.98,
+   "AZ": 0.95,
+   "BX": 0.98,
+   "BY": 0.97,
+   "BZ": 0.95,
+   "CX": 0.97,
+   "CY": 0.95,
+   "CZ": 0.9
+  },
+  "ss_max_cover_days": 60,
+  "ster_max_wait_hours": 8,
+  "weekly_weeks": 26,
+  "xyz_cutoffs": [
+   0.5,
+   1.0
+  ]
+ },
+ "rate_block": {
+  "campaign_no": 3,
+  "cases": 48,
+  "end": "2026-11-26T22:00:00Z",
+  "id": "rbk_00000000000000000000000000000001",
+  "item_id": "itm_00000000000000000000000000000001",
+  "kind": "production",
+  "line_code": "ASM-01",
+  "line_id": "lin_00000000000000000000000000000001",
+  "part_number": "SYR-3ML-LL",
+  "prod_date": "2026-11-26",
+  "qty": 96000.0,
+  "start": "2026-11-26T06:00:00Z",
+  "wo_id": "wko_00000000000000000000000000000001"
+ },
+ "rate_compare": {
+  "a": "rrn_00000000000000000000000000000001",
+  "b": "rrn_00000000000000000000000000000002",
+  "items": [
+   {
+    "a_qty": 400000.0,
+    "a_short": 0.0,
+    "b_qty": 420000.0,
+    "b_short": 0.0,
+    "item_id": "itm_00000000000000000000000000000001"
+   }
+  ],
+  "lines": [
+   {
+    "a_changeovers": 9,
+    "a_qty": 1000000.0,
+    "b_changeovers": 11,
+    "b_qty": 1100000.0,
+    "code": "ASM-01",
+    "line_id": "lin_00000000000000000000000000000001"
+   }
+  ],
+  "objective": {
+   "changeover_cost": {
+    "a": 5400.0,
+    "b": 6100.0,
+    "delta": 700.0
+   }
+  }
+ },
+ "rate_grid": {
+  "bucket": "day",
+  "buckets": [
+   "2026-11-26"
+  ],
+  "cells": [
+   {
+    "bucket": "2026-11-26",
+    "cases": 48,
+    "hours": 16.0,
+    "item_id": "itm_00000000000000000000000000000001",
+    "line_id": "lin_00000000000000000000000000000001",
+    "part_number": "SYR-3ML-LL",
+    "qty": 96000.0
+   }
+  ],
+  "lines": [
+   {
+    "code": "ASM-01",
+    "line_id": "lin_00000000000000000000000000000001",
+    "utilisation": {
+     "2026-11-26": 0.9
+    }
+   }
+  ]
+ },
+ "rate_params": {
+  "horizon_days": 30,
+  "keep_firm": true,
+  "label": "",
+  "line_ids": null,
+  "mrp_run_id": null,
+  "overtime": "suggest",
+  "time_budget_s": 240
+ },
+ "rate_publish": {
+  "cancelled_wo_ids": [],
+  "created_wo_ids": [
+   "wko_00000000000000000000000000000001"
+  ],
+  "kept_wo_ids": [],
+  "rate_supplies": 180,
+  "run_id": "rrn_00000000000000000000000000000001"
+ },
+ "rate_run": {
+  "as_of": "2026-11-25",
+  "created_at": "2026-11-25T07:00:00.000000Z",
+  "duration_ms": 41230,
+  "error": null,
+  "explanations": [
+   {
+    "code": "RATE_CAPACITY",
+    "detail": {
+     "load_pct": 104
+    },
+    "item_id": "itm_00000000000000000000000000000001",
+    "line_id": "lin_00000000000000000000000000000001",
+    "message": "ASM-01 is 104 % loaded in week 49.",
+    "severity": "warning"
+   }
+  ],
+  "finished_at": "2026-11-25T07:04:31.000000Z",
+  "horizon_days": 30,
+  "id": "rrn_00000000000000000000000000000001",
+  "label": "nightly",
+  "mrp_run_id": "mrr_00000000000000000000000000000001",
+  "number": "RR-000001",
+  "objective": {
+   "changeover_cost": 5400.0,
+   "changeover_hours": 21.5,
+   "excess_cover_unit_days": 120000.0,
+   "overtime_cost": 0.0,
+   "shortage_unit_days": 0.0
+  },
+  "params": {
+   "horizon_days": 30
+  },
+  "published": true,
+  "published_at": "2026-11-25T07:04:31.000000Z",
+  "published_by": "usr_00000000000000000000000000000001",
+  "shortages": [
+   {
+    "cause": "RATE_CAPACITY",
+    "detail": {
+     "load_pct": 104
+    },
+    "due": "2026-12-04",
+    "item_id": "itm_00000000000000000000000000000001",
+    "qty": 12000.0
+   }
+  ],
+  "status": "completed",
+  "summary": {
+   "blocks": 212,
+   "campaigns": 64,
+   "lines": 6,
+   "production_qty": 8400000.0,
+   "shortage_qty": 0.0,
+   "utilisation": {
+    "lin_00000000000000000000000000000001": 0.82
+   }
+  },
+  "validator": {
+   "ok": true,
+   "violations": []
+  }
+ },
+ "sap_settings": {
+  "auth": "basic",
+  "base_url": "https://s4.example.com/sap/opu/odata/sap",
+  "client_id": "",
+  "client_secret": null,
+  "client_secret_set": false,
+  "cursors": {
+   "product": "2026-11-24T22:00:00Z"
+  },
+  "enabled": false,
+  "last_sync": {
+   "product": {
+    "at": "2026-11-25T07:00:00.000000Z",
+    "error": null,
+    "records": 182,
+    "status": "completed"
+   }
+  },
+  "location_map": {},
+  "mrp_controllers": [],
+  "odata_version": "v2",
+  "order_types": {
+   "planned_order": "LA",
+   "purchase_req": "NB",
+   "sales_order": "OR"
+  },
+  "page_size": 2000,
+  "password": null,
+  "password_set": true,
+  "plant": "1000",
+  "row_version": 2,
+  "schedule": {},
+  "strip_zeros": true,
+  "token_url": "",
+  "unit_map": {
+   "KGM": "KG",
+   "LTR": "L",
+   "MTR": "M",
+   "PCE": "EA",
+   "ST": "EA"
+  },
+  "username": "SP_TECH"
+ },
+ "sap_sync": {
+  "entities": [
+   "product"
+  ],
+  "run_id": "mnt_00000000000000000000000000000002",
+  "status": "queued"
+ },
+ "ss_decide": {
+  "decided": 1,
+  "items_updated": 1,
+  "skipped": 0
+ },
+ "ss_decide_input": {
+  "decision": "approved",
+  "line_ids": [
+   "ssl_00000000000000000000000000000001"
+  ],
+  "reason": "Quarterly SS review"
+ },
+ "ss_line": {
+  "abc": "A",
+  "cover_days": 3.08,
+  "current_ss": 4000.0,
+  "d_day": 1950.0,
+  "decided_at": null,
+  "decided_by": null,
+  "decision": "pending",
+  "delta_value": 420.0,
+  "flags": [],
+  "id": "ssl_00000000000000000000000000000001",
+  "item_id": "itm_00000000000000000000000000000001",
+  "lt_days": 10.0,
+  "part_number": "SYR-3ML-LL",
+  "proposed_ss": 6000.0,
+  "run_id": "ssp_00000000000000000000000000000001",
+  "service_level": 0.99,
+  "sigma_d_day": 680.2,
+  "sigma_lt_days": 1.2,
+  "xyz": "X",
+  "z": 2.326
+ },
+ "ss_params": {
+  "forecast_version_id": null,
+  "item_ids": null,
+  "label": ""
+ },
+ "ss_run": {
+  "created_at": "2026-11-25T07:00:00.000000Z",
+  "error": null,
+  "finished_at": "2026-11-25T07:04:31.000000Z",
+  "forecast_version_id": "fcv_00000000000000000000000000000001",
+  "id": "ssp_00000000000000000000000000000001",
+  "number": "SSP-000001",
+  "params": {},
+  "status": "completed",
+  "summary": {
+   "capped": 3,
+   "delta_value": 18250.0,
+   "lines": 182,
+   "matrix": {
+    "AX": {
+     "count": 14,
+     "value": 520000.0
+    }
+   },
+   "pending": 182
+  }
+ },
+ "ster_advance": {
+  "at": null,
+  "to": "aerating"
+ },
+ "ster_fail": {
+  "reason": "BI positive"
+ },
+ "ster_load": {
+  "actual_aeration_end": null,
+  "actual_end": "2026-11-27T16:05:00Z",
+  "actual_start": "2026-11-27T02:10:00Z",
+  "aeration_end": "2026-11-29T16:00:00Z",
+  "batch_load_id": "bld_00000000000000000000000000000001",
+  "chamber_code": "ETO-01",
+  "chamber_line_id": "lin_00000000000000000000000000000009",
+  "created_at": "2026-11-25T07:00:00.000000Z",
+  "cycle_code": "ETO-STD",
+  "flags": [],
+  "id": "stl_00000000000000000000000000000001",
+  "members": [
+   {
+    "id": "slm_00000000000000000000000000000001",
+    "item_id": "itm_00000000000000000000000000000001",
+    "lot_code": "L261126-A1",
+    "lot_id": "lot_00000000000000000000000000000001",
+    "pallets": 2.0,
+    "part_number": "SYR-3ML-LL",
+    "qty": 96000.0,
+    "rate_block_id": "rbk_00000000000000000000000000000001",
+    "wo_id": "wko_00000000000000000000000000000001",
+    "wo_number": "WO-000412"
+   }
+  ],
+  "ncr_id": null,
+  "number": "SL-000001",
+  "pallets": 22,
+  "planned_end": "2026-11-27T16:00:00Z",
+  "planned_start": "2026-11-27T02:00:00Z",
+  "release_due": "2026-12-06",
+  "release_signature_id": null,
+  "row_version": 4,
+  "run_id": "rrn_00000000000000000000000000000001",
+  "signatures": [],
+  "status": "awaiting_release",
+  "updated_at": "2026-11-25T07:04:31.000000Z"
+ },
+ "ster_plan": {
+  "load_ids": [
+   "stl_00000000000000000000000000000001"
+  ],
+  "loads": 18,
+  "pallets": 402,
+  "skipped": [],
+  "warnings": [
+   {
+    "code": "STER_AERATION_BOUND",
+    "detail": {
+     "delay_hours": 6.0
+    },
+    "load_ix": 4
+   }
+  ]
+ },
+ "ster_plan_input": {
+  "chamber_line_ids": null,
+  "days": 30,
+  "from_date": null
+ },
+ "ster_release": {
+  "note": "BI negative, 7-day",
+  "signature": null
+ },
+ "trace_matrix": {
+  "covered": 51,
+  "csv_url": "/api/v1/mfg/validation/trace-matrix?format=csv",
+  "gaps": [
+   {
+    "id": "M8-SAP-02",
+    "risk": "medium",
+    "title": "SAP round trip"
+   }
+  ],
+  "generated_at": "2026-11-25T07:00:00.000000Z",
+  "high_risk_gaps": 0,
+  "requirements": 52,
+  "rows": [
+   {
+    "id": "M8-RATE-05",
+    "last_result": "passed",
+    "risk": "high",
+    "tests": [
+     "tests/rate/test_validator.py::test_mutations"
+    ],
+    "title": "Validator mutation tests"
+   }
+  ]
+ },
+ "version_input": {
+  "copy_overrides": true,
+  "name": "Nov 2026 consensus",
+  "note": "",
+  "run_id": "fcr_00000000000000000000000000000001"
+ }
+}

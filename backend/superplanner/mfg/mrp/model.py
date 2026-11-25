@@ -95,11 +95,17 @@ class MrpParams(MfgModel):
     use_schedule: bool = True
     #: M6 review M2: an explicit what-if request (assistant drafts): the run is `what_if` whatever its inputs
     what_if: bool = Field(default=False, exclude=True)
+    #: M8-DESIGN 6: forecast requirements from a version (None = the active one, "none" = no forecast: what-if),
+    #: rate supplies from a rate run (None = the published one); `rate_supply false` = pass 1 (rate items planned)
+    forecast_version_id: EntityId | Literal["none"] | None = None
+    rate_supply: bool = True
+    rate_run_id: EntityId | None = None
 
     def what_if_inputs(self) -> bool:
         """True when any what-if input other than `as_of` is set (8.14)."""
         return bool(self.what_if or self.demand_filter is not None or self.exclude_demand_line_ids or self.extra_demand
-                    or self.supply_date_overrides or self.lead_time_overrides or not self.include_pr_supply)
+                    or self.supply_date_overrides or self.lead_time_overrides or not self.include_pr_supply
+                    or self.forecast_version_id is not None or self.rate_run_id is not None)
 
 
 # ---------------------------------------------------------------- snapshot
@@ -123,8 +129,9 @@ class MrpSnapshot:
 
 # ---------------------------------------------------------------- result parts
 
-RequirementKind = Literal["demand", "extra_demand", "safety_stock", "planned_component", "wo_component"]
-SupplyKind = Literal["stock", "inspection", "po", "pr", "wo", "planned"]
+RequirementKind = Literal["demand", "extra_demand", "safety_stock", "planned_component", "wo_component",
+                          "forecast"]                       # M8-DESIGN 6
+SupplyKind = Literal["stock", "inspection", "po", "pr", "wo", "planned", "kanban", "rate"]   # M8-DESIGN 6
 
 
 @dataclass(slots=True)

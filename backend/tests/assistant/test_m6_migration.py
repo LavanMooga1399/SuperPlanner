@@ -7,6 +7,7 @@ import sqlalchemy as sa
 from superplanner import migrate
 from superplanner.api.mfg.db_models_m6 import M6_TABLES
 from superplanner.api.mfg.db_models_m7 import M7_TABLES
+from superplanner.api.mfg.db_models_m8 import M8_TABLES
 from superplanner.api.mfg.db_models_ux import UX_TABLES
 
 
@@ -51,8 +52,8 @@ def test_migration_0007_to_0008_and_back(empty_pg_db):
     finally:
         eng.dispose()
     migrate.run_alembic_upgrade(url)
-    assert migrate.HEAD == "0010_m7" and migrate.schema_state(url) == "current"   # (UX 0009_ux, M7 0010_m7 on top)
-    assert _tables(url) - t7 == set(M6_TABLES) | set(UX_TABLES) | set(M7_TABLES)
+    assert migrate.HEAD == "0011_m8" and migrate.schema_state(url) == "current"   # (UX, M7 0010_m7, M8 0011_m8 on top)
+    assert _tables(url) - t7 == set(M6_TABLES) | set(UX_TABLES) | set(M7_TABLES) | set(M8_TABLES)
     assert _diffs(url) == []
     eng = sa.create_engine(url)
     try:

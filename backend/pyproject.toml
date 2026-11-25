@@ -50,4 +50,5 @@ markers = [
     "slow: long benchmarks",
     "inline_jobs: runs with JOB_BACKEND=inline (uses ctx.executor / inline restart recovery)",
     "pg_load: queue load test (PostgreSQL only)",
+    "req(id): requirement(s) a test verifies (validation kit, M8-DESIGN 10); multiple allowed",
 ]

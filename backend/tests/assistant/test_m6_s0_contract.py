@@ -50,7 +50,8 @@ def test_defaults_are_off():
     assert s.database_read_url is None and s.assistant_daily_tokens_per_user == 400_000
     assert roles_allowed("assistant_use") == ["owner", "plant_admin", "planner", "purchaser", "store_keeper",
                                               "approver", "viewer", "supervisor", "qa_inspector", "qa_engineer",
-                                              "qa_approver", "metrology"]   # (+ M7 QA roles)
+                                              "qa_approver", "metrology", "plant_manager",
+                                              "auditor"]   # (+ M7 QA roles, M8 roles)
     assert "assistant_use" not in ROLE_PERMISSIONS["operator"]
 
 

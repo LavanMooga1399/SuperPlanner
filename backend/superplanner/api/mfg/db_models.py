@@ -73,6 +73,8 @@ class MfgPlantRow(OwnedMixin, _Editable, Base):
     #: M7-DESIGN 0.5 / 3
     part11_mode: Mapped[bool] = mapped_column(Boolean, default=False)
     qa_settings: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
+    #: M8-DESIGN 4.6 (None = defaults)
+    planning_settings: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
 
 
 class MfgItemRow(OwnedMixin, _Editable, Base):
@@ -177,6 +179,14 @@ class MfgLineRow(OwnedMixin, _Editable, Base):
     batch_merge: Mapped[bool] = mapped_column(Boolean, default=False)
     batch_wait_minutes: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean)
+    # M8-DESIGN 3: planning kind (discrete | flow | sterilisation), rate-engine and chamber fields
+    planning: Mapped[str] = mapped_column(String(16), default="discrete")
+    oee: Mapped[float] = mapped_column(Double, default=0.85)
+    clearance_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    clean_every_hours: Mapped[float | None] = mapped_column(Double, nullable=True)
+    clean_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    chamber_pallets: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cycle_hours: Mapped[float | None] = mapped_column(Double, nullable=True)
 
     item_links: Mapped[list["MfgLineItemRow"]] = relationship(back_populates="line", cascade="all, delete-orphan",
                                                               **_REL)

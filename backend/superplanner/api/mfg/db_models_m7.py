@@ -275,7 +275,7 @@ class MfgLotHoldRow(OwnedMixin, _Editable, Base):
     serial_id: Mapped[str | None] = mapped_column(ForeignKey("mfg_unit_serials.id", ondelete="RESTRICT"),
                                                   nullable=True)
     item_id: Mapped[str] = mapped_column(ForeignKey("mfg_items.id", ondelete="RESTRICT"))
-    source: Mapped[str] = _s(16)                       # inspection | ncr | recall | field_action | manual
+    source: Mapped[str] = _s(16)                       # inspection | ncr | recall | field_action | manual | sterility
     source_id: Mapped[str | None] = _s(64, True)
     reason: Mapped[str] = _s(500)
     placed_by: Mapped[str] = _s(64)
@@ -284,6 +284,7 @@ class MfgLotHoldRow(OwnedMixin, _Editable, Base):
     released_at: Mapped[datetime | None] = _dt()
     release_signature_id: Mapped[str | None] = _s(64, True)
     release_note: Mapped[str] = _s(500)
+    planned_release: Mapped[date | None] = mapped_column(Date, nullable=True)      # M8-DESIGN 8 (sterility)
 
 
 # ---------------------------------------------------------------- NCR / CAPA / complaints / field actions (6, 7)

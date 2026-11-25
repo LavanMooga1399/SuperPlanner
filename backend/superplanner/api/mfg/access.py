@@ -35,21 +35,28 @@ PERMISSIONS: tuple[str, ...] = ("view", "master_edit", "supplier_edit", "invento
                                 # M7-DESIGN 9.1
                                 "qa_inspect", "qa_decide", "qa_plan_edit", "ncr_edit", "ncr_approve", "capa_edit",
                                 "complaint_edit", "field_action_edit", "capa_approve", "equipment_edit", "audit_view",
-                                "esig_policy_edit")
+                                "esig_policy_edit",
+                                # M8-DESIGN 11
+                                "forecast_edit", "forecast_approve", "inventory_policy_edit",
+                                "inventory_policy_approve", "rate_plan", "ster_plan", "ster_release", "kanban_edit",
+                                "kanban_scan", "validation_view")
+_PLANNER = frozenset({"view", "master_edit", "supplier_edit", "pr_edit", "demand_edit", "wo_edit", "mrp_run",
+                      "schedule_run", "schedule_publish", "import",   # M3-DESIGN 11
+                      "floor_view", "floor_report", "downtime_report", "replan_manage", "trace_view", "eco_edit",
+                      "transfer_edit", "assistant_use",               # M4-DESIGN 11, M6 5
+                      "forecast_edit", "inventory_policy_edit", "rate_plan", "ster_plan", "kanban_edit"})   # M8 11
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "owner": frozenset(PERMISSIONS),
     "plant_admin": frozenset(PERMISSIONS),          # M5-DESIGN 3.4: owner-equivalent in an organisation's plant
-    "planner": frozenset({"view", "master_edit", "supplier_edit", "pr_edit", "demand_edit", "wo_edit", "mrp_run",
-                          "schedule_run", "schedule_publish", "import",   # M3-DESIGN 11
-                          "floor_view", "floor_report", "downtime_report", "replan_manage", "trace_view", "eco_edit", "transfer_edit",
-                          "assistant_use"}),   # M4-DESIGN 11, M6 5
+    "planner": _PLANNER,
     "purchaser": frozenset({"view", "supplier_edit", "pr_edit", "po_edit", "floor_view", "trace_view",
                             "assistant_use"}),
     "store_keeper": frozenset({"view", "inventory", "floor_view", "trace_view", "transfer_edit", "assistant_use"}),
     "approver": frozenset({"view", "pr_approve", "floor_view", "trace_view", "eco_approve", "assistant_use"}),
     "viewer": frozenset({"view", "floor_view", "trace_view", "assistant_use"}),
     # M4-DESIGN 0.4 / 11: tablets (personal or station accounts) and shift supervisors
-    "operator": frozenset({"view", "floor_view", "floor_report", "downtime_report", "trace_view", "qa_inspect"}),
+    "operator": frozenset({"view", "floor_view", "floor_report", "downtime_report", "trace_view", "qa_inspect",
+                           "kanban_scan"}),
     "supervisor": frozenset({"view", "floor_view", "floor_report", "floor_supervise", "downtime_report", "trace_view",
                             "assistant_use", "qa_inspect", "ncr_edit"}),   # M6 5: every plant role except operator
     # M7-DESIGN 9.1: quality roles (signing is decided by the signature policies, 4.3)
@@ -61,13 +68,18 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "qa_approver": frozenset({"view", "floor_view", "trace_view", "assistant_use", "eco_approve", "qa_inspect",
                              "qa_decide",
                              "qa_plan_edit", "ncr_edit", "ncr_approve", "capa_edit", "complaint_edit",
-                             "field_action_edit", "capa_approve", "audit_view", "esig_policy_edit"}),
+                             "field_action_edit", "capa_approve", "audit_view", "esig_policy_edit",
+                             "ster_release", "validation_view"}),                     # M8-DESIGN 11
     "metrology": frozenset({"view", "floor_view", "assistant_use", "equipment_edit"}),
+    # M8-DESIGN 11: plant manager (planner + forecast / inventory policy approvals), auditor (read + validation)
+    "plant_manager": _PLANNER | {"forecast_approve", "inventory_policy_approve"},
+    "auditor": frozenset({"view", "floor_view", "trace_view", "assistant_use", "audit_view", "validation_view"}),
 }
 ROLE_LABELS = {"owner": "Owner", "planner": "Planner", "purchaser": "Purchaser", "store_keeper": "Store keeper",
                "approver": "Approver", "viewer": "Viewer", "operator": "Operator", "supervisor": "Supervisor",
                "plant_admin": "Plant admin", "qa_inspector": "QA inspector", "qa_engineer": "QA engineer",
-               "qa_approver": "QA approver", "metrology": "Metrology"}
+               "qa_approver": "QA approver", "metrology": "Metrology", "plant_manager": "Plant manager",
+               "auditor": "Auditor"}
 WORKSPACE_HEADER = "X-SP-Workspace"
 
 
@@ -97,7 +109,8 @@ def permissions_of(roles: tuple[str, ...] | list[str]) -> frozenset[str]:
 
 def roles_allowed(perm: str) -> list[str]:
     return [r for r in ("owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
-                        "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology")
+                        "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology",
+                        "plant_manager", "auditor")
             if perm in ROLE_PERMISSIONS[r]]
 
 

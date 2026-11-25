@@ -79,7 +79,7 @@ def test_migration_0005_to_0006_and_back(empty_pg_db):
         eng.dispose()
     t5 = _tables(url)
     migrate.run_alembic_upgrade(url, "0006_mfg_m4")      # (M5 0007_m5 sits on top; head moved)
-    assert migrate.HEAD == "0010_m7" and migrate.schema_state(url) == "behind"
+    assert migrate.HEAD == "0011_m8" and migrate.schema_state(url) == "behind"
     assert _tables(url) - t5 == set(M4_TABLES) and t5 - _tables(url) == {"mfg_wo_op_progress"}
     eng = sa.create_engine(url)
     try:
@@ -197,11 +197,14 @@ def test_roles_and_permissions():
 
     assert roles_allowed("floor_view") == ["owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
                                            "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver",
-                                           "metrology"]   # (+ M7 QA roles)
-    assert set(roles_allowed("floor_report")) == {"owner", "plant_admin", "planner", "operator", "supervisor"}
+                                           "metrology", "plant_manager", "auditor"]   # (+ M7 QA, M8 roles)
+    # (M8: plant_manager = planner + approvals)
+    assert set(roles_allowed("floor_report")) == {"owner", "plant_admin", "planner", "operator", "supervisor",
+                                                  "plant_manager"}
     assert set(roles_allowed("floor_supervise")) == {"owner", "plant_admin", "supervisor"}
-    assert set(roles_allowed("downtime_report")) == {"owner", "plant_admin", "planner", "operator", "supervisor"}
-    assert set(roles_allowed("replan_manage")) == {"owner", "plant_admin", "planner"}
+    assert set(roles_allowed("downtime_report")) == {"owner", "plant_admin", "planner", "operator", "supervisor",
+                                                     "plant_manager"}
+    assert set(roles_allowed("replan_manage")) == {"owner", "plant_admin", "planner", "plant_manager"}
     assert "wo_edit" not in ROLE_PERMISSIONS["operator"] and "inventory" not in ROLE_PERMISSIONS["supervisor"]
 
 

@@ -501,3 +501,37 @@ plant lot definition is per shift (switch `rate_wo_split`), BI vs parametric rel
 released in their tenant (adapter maps one entity per module, so a missing API is a mapping profile change).
 
 Implementation notes: (S0 and later phases append here.)
+
+**S0 frozen (2026-11-25).** Contract: `backend/superplanner/mfg/forecast/model.py`, `mfg/invopt/model.py`,
+`mfg/rate/model.py`, `mfg/ster/model.py`, `mfg/model_m8.py` (shared: planning settings, item planning, packaging,
+line rates, changeover matrix, kanban, SAP settings, validation baselines) and the MRP additions in
+`mfg/mrp/model.py` (`MrpParams.forecast_version_id | rate_supply | rate_run_id`, requirement kind `forecast`,
+supply kinds `kanban`, `rate`). Typed examples `backend/superplanner/api/mfg/fixtures/example_m8.json` (built and
+validated by `build_example.py`, test `tests/api_mfg_m8/test_m8_s0_contract.py`); migration `0011_m8`
+(`migrate.HEAD`, ORM == schema by `compare_metadata`); all 61 M8 operations live with their permissions
+(`router_m8.py`, route table `tests/auth/route_table.py` `MFG_PERMISSIONS_M8`). Until a service function is
+implemented it answers from the example file (`services/m8_examples.py`, PEP 562 fallback per service module).
+
+S0 interpretations and deviations:
+- ID prefixes are three letters so ids match `EntityId` (`^[a-z]{3}_[0-9a-f]{32}$`): `dhi_` (history), `ipn_` (item
+  planning), `rrn_` (rate run), `rbk_` (rate block), `stl_` (ster load), `slm_` (load member), `vbl_` (baseline);
+  the others as designed.
+- Roles: there was no `plant_manager` or `auditor` role; both are added (`plant_manager` = planner + `forecast_approve`,
+  `inventory_policy_approve`; `auditor` = view, floor_view, trace_view, audit_view, validation_view, assistant_use;
+  M6 rule "every plant role except operator has assistant_use" kept). "plant_admin" permissions of 11 (N1 PUT, V2
+  POST) map to the `owner` permission (held by owner and plant_admin). `qa_approver` also gets `validation_view`.
+  UI: role pickers need the two new roles.
+- `mfg_demand_history` unique key includes `source` (one row per source per item-period; precedence import > sap >
+  ledger applied on read), so a ledger refresh never overwrites imported history. Extra column `manual_qty`
+  (planner-set cleaned value).
+- Extra columns: `mfg_forecast_runs.first_period, results, error`; `mfg_forecast_versions.archived_at`;
+  `mfg_ss_runs.error, actor_id, finished_at`; `mfg_ss_lines.flags`; `mfg_rate_runs.label, shortages, error,
+  actor_id, finished_at`; `mfg_ster_loads.aeration_line_id, flags`; `mfg_kanban_loops.consumed` (consumption
+  counter); `mfg_work_orders.kind` widened to String(12) (`repetitive`); `int_settings.sap` JSON (SAP profile,
+  encrypted secrets, cursors, last sync).
+- All M8 job kinds are duty runs on `maintenance_runs` (`services/m8jobs.py`), so `ck_jobs_one_target` is unchanged.
+- Extra routes: `GET /invopt/runs/{id}`, `GET /validation/baselines/{id}`; `GET /validation/trace-matrix?format=
+  json|csv|html`. Item planning/packaging, line rates, changeover matrix, planning settings and the nightly chain are
+  served by `services/planning.py`; SAP settings/sync by `services/sap.py`.
+- `ster_load.release` is an M7 default policy (qa_approver, `approved`, password) and is always signed (also
+  outside Part 11 mode), record type `ster_load`.

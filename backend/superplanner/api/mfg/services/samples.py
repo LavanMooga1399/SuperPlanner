@@ -104,9 +104,10 @@ def delete_all(s: Session) -> dict[str, int]:
     s.info["sp_series_reset"] = True          # number allocation stays in this transaction (repo_m2)
     from ..db_models_m6 import M6_RESET_MODELS        # M6-DESIGN 6: plant-owned M6 tables go with the data
     from ..db_models_m7 import M7_RESET_MODELS        # M7-DESIGN 3: quality records (refused in Part 11 mode)
+    from ..db_models_m8 import M8_RESET_MODELS        # M8-DESIGN 3: planning at volume
     from ..db_models_ux import UX_RESET_MODELS        # bulk-action replay records (personal preferences stay)
 
-    for model in reversed(ALL_MFG_MODELS + M6_RESET_MODELS + UX_RESET_MODELS + M7_RESET_MODELS):
+    for model in reversed(ALL_MFG_MODELS + M6_RESET_MODELS + UX_RESET_MODELS + M7_RESET_MODELS + M8_RESET_MODELS):
         res = s.execute(delete(model).execution_options(synchronize_session=False))
         name = model.__tablename__
         out[name[len("mfg_"):] if name.startswith("mfg_") else name] = int(res.rowcount or 0)

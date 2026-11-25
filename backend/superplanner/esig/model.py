@@ -23,10 +23,10 @@ AuthLevel = Literal["password", "password_totp"]
 AuthMethod = Literal["password", "password_totp", "sso", "sso_mfa"]
 SignatureStatus = Literal["valid", "superseded"]
 RecordType = Literal["inspection_plan", "sampling_scheme", "inspection_lot", "hold", "ncr", "capa", "complaint",
-                     "field_action", "calibration", "equipment", "eco", "esig_policy", "plant"]
+                     "field_action", "calibration", "equipment", "eco", "esig_policy", "plant", "ster_load"]
 RECORD_TYPES: tuple[str, ...] = ("inspection_plan", "sampling_scheme", "inspection_lot", "hold", "ncr", "capa",
                                  "complaint", "field_action", "calibration", "equipment", "eco", "esig_policy",
-                                 "plant")
+                                 "plant", "ster_load")
 ActionName = Annotated[str, StringConstraints(pattern=r"^[a-z_]{2,32}$")]
 Hash = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 Comment = Annotated[str, StringConstraints(max_length=500)]
