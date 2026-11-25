@@ -260,6 +260,9 @@ def create_export(ctx: AppContext, a: Any, body: Any) -> dict[str, Any]:
         s.add(r)
         s.flush()
         _rid, job = new_run(s, ctx, "part11_export", r.owner_id, {"export_id": r.id})
+        from .common import audit
+
+        audit(s, "part11_export", r.id, "create", params)
         rec = _export_record(r)
     ctx.jobs.dispatch(job)
     return rec

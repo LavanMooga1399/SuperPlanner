@@ -465,3 +465,19 @@ def test_ui_grouped_citation_markers():
 
     out, cited = resolve("Late [R7, R8] and [R8; R9].", Reg())
     assert out == "Late [R7][R8] and [R8]." and [c["ref"] for c in cited] == ["R7", "R8"]
+
+
+def test_ui_contradicting_accept_needs_a_justification(api):
+    x = _rejected_stock_lot(api, 50)
+    ncr = api.get(f"/qa/ncrs/{x['il']['ncr_id']}")
+    api.post(f"/qa/ncrs/{ncr['id']}/propose", {"dispositions": [{"kind": "use_as_is", "qty": 50,
+                                                                 "justification": "tested"}]}, 200)
+    api.post(f"/qa/ncrs/{ncr['id']}/approve", {}, 200)
+    pl = x["il"]["plan_id"]
+    il = api.post("/qa/inspection-lots", {"plan_id": pl, "lot_id": x["lot"]["id"], "lot_size": 50})
+    results(api, il, {"LEN": [12.0]})
+    api.err("POST", f"/qa/inspection-lots/{il['id']}/decision", 422, "QA_JUSTIFICATION_REQUIRED",
+            json={"decision": "accept", "ncr_id": ncr["id"], "note": "ok"})
+    out = api.post(f"/qa/inspection-lots/{il['id']}/decision", {"decision": "accept", "ncr_id": ncr["id"],
+                                                                "note": "Use-as-is per MRB"}, 200)
+    assert out["status"] == "accepted"

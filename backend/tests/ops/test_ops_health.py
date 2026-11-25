@@ -30,7 +30,9 @@ def test_ready_body(db_url):
         body = r.json()
         assert body == {"status": "ready", "database": "ok", "schema": "ok", "schema_revision": migrate.HEAD,
                         "schema_head": migrate.HEAD, "job_backend": app.state.settings.job_backend,
-                        "workers_alive": body["workers_alive"], "queue": {"queued": 0, "running": 0}}
+                        "workers_alive": body["workers_alive"], "queue": {"queued": 0, "running": 0},
+                        "clock_skew_ms": body["clock_skew_ms"]}                     # M7-DESIGN 4.6 (reported)
+        assert isinstance(body["clock_skew_ms"], float)
         assert body["job_backend"] == "queue" and body["workers_alive"] >= 1   # embedded test workers
         # the existing endpoint is unchanged
         h = c.get(f"{API}/health").json()

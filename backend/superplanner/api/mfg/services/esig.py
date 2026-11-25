@@ -184,6 +184,9 @@ def list_policies(ctx: AppContext, a: Any) -> dict[str, Any]:
     if n < len(POL.DEFAULTS):
         with write_tx(ctx) as (s, _plant):
             seed_policies(s)
+            from .common import audit
+
+            audit(s, "esig_policy", None, "create", {"seeded": True})
     with read_tx(ctx) as s:
         rows = list(s.execute(select(EsigPolicyRow).order_by(EsigPolicyRow.record_type, EsigPolicyRow.action))
                     .scalars())

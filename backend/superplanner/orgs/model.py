@@ -63,6 +63,7 @@ class OrgMemberRecord(BaseModel):
     plants: list[dict[str, Any]] = Field(default_factory=list)   # [{plant_owner_id, code, roles}]
     row_version: int
     created_at: datetime
+    esig: dict[str, Any] | None = None   # M7: {enrolled, revoked, legal_name, locked_until}
 
 
 class OrgPlantIn(_In):

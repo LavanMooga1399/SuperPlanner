@@ -45,11 +45,13 @@ def test_frontend_finance_has_no_product_names_or_forbidden_wording():
 
 
 def test_frontend_labels_probabilities_and_assumptions():
-    text = "\n".join(p.read_text() for p in UI.rglob("*.tsx"))
+    # UI round 5/6: user-facing copy moved to keyed strings (frontend/src/lib/strings/finance.ts)
+    strings = UI.parent / "lib" / "strings" / "finance.ts"
+    text = "\n".join(p.read_text() for p in UI.rglob("*.tsx")) + "\n" + strings.read_text()
     assert "estimated chance" in text.lower()
     assert "Your assumption" in text and "Calculated" in text
     assert "SuperPlanner Finance is an educational planning tool." in "\n".join(
-        p.read_text() for p in UI.rglob("*.ts*"))
+        p.read_text() for p in UI.rglob("*.ts*")) + "\n" + strings.read_text()
 
 
 def _scan(label: str, payload) -> list[str]:

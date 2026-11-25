@@ -28,7 +28,9 @@ PUBLIC = {("GET", "/api/v1/health"), ("GET", "/api/v1/health/live"), ("GET", "/a
           ("POST", "/api/v1/auth/totp/disable"), ("POST", "/api/v1/auth/totp/recovery-codes"),
           ("POST", "/api/v1/auth/login/totp")}
 #: M5 S0: these answer from the contract fixture until their services land (M5-DESIGN 15.WP-S) - no owned ids yet
-S0_FIXTURE_PREFIXES = ("/api/v1/mfg/trace", "/api/v1/mfg/recalls", "/api/v1/mfg/eco", "/api/v1/mfg/transfer-orders")
+S0_FIXTURE_PREFIXES = ("/api/v1/mfg/trace", "/api/v1/mfg/recalls", "/api/v1/mfg/eco", "/api/v1/mfg/transfer-orders",
+                       # M7: signature policies are addressed by (record_type, action) in each plant, not owned ids
+                       "/api/v1/mfg/esig/policies/")
 PARAM = re.compile(r"\{([a-z_]+)\}")
 
 
@@ -169,6 +171,61 @@ def make_mfg_world(c: TestClient, w: dict[str, Any]) -> None:
         "/samples/{sample_id}/load": {"replace": False},
     }
     make_mfg_m2_world(c, w, item)
+    make_mfg_m7_world(c, w)
+
+
+def make_mfg_m7_world(c: TestClient, w: dict[str, Any]) -> None:
+    """M7 objects (M7-DESIGN 9): a scheme, an inspection lot with a hold, an NCR with an attachment, a CAPA with an
+    action, a complaint, equipment, a link; PUT / action bodies that would succeed for the owner."""
+    ids = w["mfg_ids"]
+
+    def post(path: str, body: Any, **kw: Any) -> dict[str, Any]:
+        r = c.post(f"{MFG}{path}", json=body, **kw)
+        assert r.status_code in (200, 201), (path, r.text)
+        return r.json()
+
+    sc = post("/qa/schemes", {"code": "SW-F3", "name": "F3", "kind": "fixed", "fixed_n": 3})
+    item = c.get(f"{MFG}/items", params={"q": "SW-LOT"}).json()["items"][0]
+    lot = c.get(f"{MFG}/lots", params={"item_id": item["id"]}).json()["items"][0]
+    hold = post("/qa/holds", {"lot_id": lot["id"], "reason": "sweep"})
+    ncr = post("/qa/ncrs", {"title": "sweep", "qty_nc": 1})
+    att = c.post(f"{MFG}/qa/attachments", params={"entity_type": "ncr", "entity_id": ncr["id"], "filename": "a.txt"},
+                 content=b"x", headers={"content-type": "text/plain"}).json()
+    capa = post("/qa/capas", {"title": "sweep"})
+    capa = post(f"/qa/capas/{capa['id']}/actions", {"description": "a1"})
+    cmp_ = post("/qa/complaints", {"received_on": "2026-11-20", "aware_on": "2026-11-20", "customer": "C"})
+    eq = post("/qa/equipment", {"code": "SW-EQ", "name": "G", "kind": "gauge", "equipment_class": "F",
+                                "interval_days": 90, "due_on": "2027-06-01"})
+    link = post("/qa/links", {"from_type": "ncr", "from_id": ncr["id"], "to_type": "capa", "to_id": capa["id"]})
+    ids.update({"scheme_id": sc["id"], "hold_id": hold["id"], "ncr_id": ncr["id"], "attachment_id": att["id"],
+                "capa_id": capa["id"], "action_id": capa["actions"][0]["id"], "complaint_id": cmp_["id"],
+                "equipment_id": eq["id"], "link_id": link["id"], "fa_id": f"fac_{uuid.uuid4().hex}",
+                "export_id": f"p1x_{uuid.uuid4().hex}", "signature_id": f"esg_{uuid.uuid4().hex}",
+                "record_type": "ncr", "record_id": ncr["id"], "action": "approve"})
+    w["mfg_bodies"].update({
+        "/qa/schemes/{scheme_id}": {"code": "SW-F3", "name": "F3b", "kind": "fixed", "fixed_n": 3},
+        "/qa/plans/{plan_id}": {"name": "p", "item_id": item["id"], "scope": "final", "scheme_id": sc["id"]},
+        "/qa/ncrs/{ncr_id}": {"title": "sweep", "qty_nc": 1},
+        "/qa/ncrs/{ncr_id}/propose": {"dispositions": [{"kind": "scrap", "qty": 1, "location_id": lot["id"]}]},
+        "/qa/ncrs/{ncr_id}/cancel": {"reason": "x"}, "/qa/capas/{capa_id}/cancel": {"reason": "x"},
+        "/qa/inspection-lots/{lot_id}/cancel": {"reason": "x"},
+        "/qa/field-actions/{fa_id}/cancel": {"reason": "x"},
+        "/qa/inspection-lots/{lot_id}/results": {"client_batch_id": "sw", "results": [
+            {"characteristic_id": f"ich_{uuid.uuid4().hex}", "sample_no": 1, "passed": True}]},
+        "/qa/inspection-lots/{lot_id}/decision": {"decision": "accept"},
+        "/qa/capas/{capa_id}": {"title": "sweep"},
+        "/qa/capas/{capa_id}/actions": {"description": "a2"},
+        "/qa/capas/{capa_id}/actions/{action_id}": {"description": "a1"},
+        "/qa/capas/{capa_id}/advance": {"to": "investigation"},
+        "/qa/capas/{capa_id}/verify": {"result": "effective"},
+        "/qa/complaints/{complaint_id}": {"received_on": "2026-11-20", "aware_on": "2026-11-20", "customer": "C"},
+        "/qa/complaints/{complaint_id}/advance": {"to": "investigation"},
+        "/qa/field-actions/{fa_id}": {"title": "fa"},
+        "/qa/equipment/{equipment_id}": {"code": "SW-EQ", "name": "G2", "kind": "gauge", "equipment_class": "F",
+                                         "interval_days": 90, "due_on": "2027-06-01"},
+        "/qa/equipment/{equipment_id}/status": {"status": "out_of_service", "reason": "x"},
+        "/qa/equipment/{equipment_id}/calibrations": {"performed_on": "2026-11-20", "result": "pass"},
+    })
 
 
 def make_mfg_m2_world(c: TestClient, w: dict[str, Any], make_item: dict[str, Any]) -> None:
@@ -357,6 +414,8 @@ def make_m6_world(c: TestClient, w: dict[str, Any]) -> None:
 
 def mfg_body_for(method: str, path: str, w: dict[str, Any]) -> dict[str, Any]:
     rel = path[len(MFG):]
+    if rel == "/qa/schemes/{scheme_id}/preview":
+        return {"params": {"lot_size": 100}}
     if rel == "/lines/{line_id}/windows":
         return {"params": {"from": "2026-11-02", "to": "2026-11-04"}}
     if rel == "/mrp/runs/{run_id}/compare":
@@ -507,6 +566,7 @@ def test_other_user_gets_404_for_every_owned_id_and_changes_nothing(db_url, whic
             kw = body_for(method, path, wa)
             r_foreign = b.request(method, fill(path, ids_a), **copy.deepcopy(kw))
             unknown = {k: f"x{uuid.uuid4().hex[:12]}" for k in ids_a}
+            unknown["record_type"] = ids_a.get("record_type", "ncr")      # M7: a type name, not an owned id
             r_unknown = b.request(method, fill(path, unknown), **copy.deepcopy(kw))
             if r_foreign.status_code != 404:
                 leaks.append((method, path, r_foreign.status_code, r_foreign.text[:200]))

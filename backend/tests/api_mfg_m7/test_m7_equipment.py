@@ -65,12 +65,10 @@ def test_t_q9_line_equipment_blocks_floor_aps_and_health(api, client):
     h = api.get("/health")
     codes = {i["code"]: i for i in h["issues"]}
     assert codes["QA_LINE_BLOCKED"]["entity"]["label"] == "L1" and h["ok"] is False
-    from superplanner.api.db.ownership import bind_owner
+    from superplanner.api.db.ownership import owner_scope
     from superplanner.api.mfg import repo_m3
     from datetime import UTC, datetime
-
-    bind_owner("usr_local")
-    with client.app.state.ctx.db.read() as s:
+    with owner_scope("usr_local"), client.app.state.ctx.db.read() as s:
         snap = repo_m3.load_aps_snapshot(s, datetime.now(UTC), None)
         blocks = [d for d in snap.downtime if d.id.startswith("qa:")]
         assert [b.line_id for b in blocks] == [x["l1"]["id"]]

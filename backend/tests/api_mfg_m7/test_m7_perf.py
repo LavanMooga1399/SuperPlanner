@@ -109,11 +109,9 @@ def test_m7_performance(db_url):
         assert tr["total"] >= 2000 and ms < 1500
 
         # QP7: equipment block check at floor start (in-process)
-        from superplanner.api.db.ownership import bind_owner
+        from superplanner.api.db.ownership import owner_scope
         from superplanner.api.mfg.services.qa_equipment import check_line
-
-        bind_owner(w.oid)
-        with w.app.state.ctx.db.read() as s:
+        with owner_scope(w.oid), w.app.state.ctx.db.read() as s:
             t0 = time.perf_counter()
             for _ in range(100):
                 check_line(s, "lin_" + "0" * 32, datetime.now(UTC))

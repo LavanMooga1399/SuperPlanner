@@ -111,10 +111,8 @@ def test_t_q3_po_receipt_creates_lot_and_hold_mrp_inspection_supply_and_accept(a
     from superplanner.api.mfg import repo_m2
 
     ctx = client.app.state.ctx
-    from superplanner.api.db.ownership import bind_owner
-
-    bind_owner("usr_local")
-    with ctx.db.read() as s:
+    from superplanner.api.db.ownership import owner_scope
+    with owner_scope("usr_local"), ctx.db.read() as s:
         t = repo_m2.load_txn(s, open_only=True)
         assert t.lots[lot["lot_id"]].inspection_hold is True
     # held material cannot be issued; releasing the hold on the lot directly is refused

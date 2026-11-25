@@ -27,6 +27,8 @@ class Person:
     def code(self) -> str:
         """A TOTP code of a step not used yet (WINDOW = 1: now-1 .. now+1; each step once)."""
         assert self.totp_secret is not None
+        if time.time() % 30 > 27:          # do not hand out a step that expires before the server checks it
+            time.sleep(30 - time.time() % 30 + 0.2)
         now = int(time.time() // 30)
         self._step = max(self._step + 1, now - 1)
         assert self._step <= now + 1, "out of TOTP steps in this 30 s window"

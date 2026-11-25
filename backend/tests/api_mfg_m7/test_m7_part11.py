@@ -48,11 +48,9 @@ def test_package_export_due_scan_approvals_summary_scan(db_url, tmp_path):
         assert man["counts"]["records"] == 2 and man["counts"]["attachments"] == 1
         recs = [json.loads(x) for x in zf.read("records.jsonl").splitlines()]
         assert {x["record_type"] for x in recs} == {"ncr", "equipment"}
-        from superplanner.api.db.ownership import bind_owner
+        from superplanner.api.db.ownership import owner_scope
         from superplanner.api.mfg.services import qa_due
-
-        bind_owner("usr_local")
-        with c.app.state.ctx.db.write() as s:
+        with owner_scope("usr_local"), c.app.state.ctx.db.write() as s:
             out = qa_due.scan(s)
         assert out["overdue"] == 1, out
         ntf = api.get("/notifications")["items"] if c.get("/api/v1/mfg/notifications").status_code == 200 else []

@@ -24,7 +24,12 @@ EXEMPT = {"downtime.py:create_downtime", "inventory.py:reverse_posting", "floor.
           # M5 round 2: release wrappers audit in `release_in_session` (shared with ECO implement / ERP inbound)
           "boms.py:release_bom", "routings.py:release_routing",
           # UX bulk actions: Idempotency-Key replay bookkeeping; every record audits through its single-record call
-          "bulk.py:_claim", "bulk.py:_finish"}
+          "bulk.py:_claim", "bulk.py:_finish",
+          # M7: the floor lot issue posts through `post_in_session` (audits itself)
+          "floor_issue.py:issue_lot",
+          # M7: wrappers whose helper audits (`place`, `_release_row`, `create_lot_in`, `_new`, the step callback)
+          "qa_capa.py:_signed_step", "qa_holds.py:place_manual", "qa_holds.py:release",
+          "qa_inspection.py:create_lot", "qa_ncr.py:create_ncr"}
 
 
 def test_every_mutating_mfg_service_records_an_audit_event():
@@ -43,7 +48,9 @@ def test_every_mutating_mfg_service_records_an_audit_event():
                 src = ast.unparse(node)
                 if "write_tx(" in src or "run_tx(" in src:
                     checked += 1
-                    if "audit(" not in src and f"{path.name}:{node.name}" not in EXEMPT:
+                    # M7: regulated records audit through `audit_regulated` (directly or in their state helpers)
+                    audits = any(x in src for x in ("audit(", "audit_regulated(", "_move(", "_transition("))
+                    if not audits and f"{path.name}:{node.name}" not in EXEMPT:
                         missing.append(f"{path.name}:{node.name}")
     assert checked >= 80, checked
     assert not missing, missing

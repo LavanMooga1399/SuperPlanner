@@ -110,7 +110,11 @@ def member_record(s: Any, m: OrgMemberRow, u: UserRow | None) -> dict[str, Any]:
                                  "display_name": u.display_name if u else None, "disabled": bool(u and u.disabled)},
             "org_role": m.org_role, "invited": m.accepted_at is None, "accepted_at": as_utc(m.accepted_at),
             "plants": _member_plants(s, m.org_id, m.user_id), "row_version": m.row_version,
-            "created_at": as_utc(m.created_at)}
+            "created_at": as_utc(m.created_at),
+            # M7: signing state for the admin's revoke / reinstate actions
+            "esig": {"enrolled": bool(u and u.esig_enrolled_at and not u.esig_revoked_at),
+                     "revoked": bool(u and u.esig_revoked_at), "legal_name": u.legal_name if u else None,
+                     "locked_until": as_utc(u.esig_locked_until) if u and u.esig_locked_until else None}}
 
 
 def list_members(ctx: AppContext, user_id: str, org_id: str) -> dict[str, Any]:
