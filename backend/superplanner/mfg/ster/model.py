@@ -153,6 +153,9 @@ class AdvanceInput(MfgModel):
 class ReleaseInput(MfgModel):
     signature: SignatureInput | None = None
     note: Annotated[str, StringConstraints(max_length=500)] = ""
+    #: release before `release_due` (review 6): required then, audited as the change reason
+    early_release_reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1,
+                                                           max_length=500)] | None = None
 
 
 class FailInput(MfgModel):

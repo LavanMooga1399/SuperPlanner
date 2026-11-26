@@ -516,6 +516,10 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     from .kanban import on_posting as _kanban                   # M8-DESIGN 6.2: refill / consumption
 
     _kanban(s, row)
+    if row.type == "wo_receipt":                                # M8 review 1: received sterile lots wait on hold
+        from .ster import on_receipt as _ster
+
+        _ster(s, row)
     if row.type in ("po_receipt", "wo_receipt"):                # M7-DESIGN 5.2: inspection lots + holds
         from .qa_inspection import on_posting
 

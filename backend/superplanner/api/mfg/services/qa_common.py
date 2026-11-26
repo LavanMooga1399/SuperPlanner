@@ -212,7 +212,8 @@ LINK_MODELS: dict[str, tuple[str, str]] = {
     "ncr": ("db_models_m7", "QaNcrRow"), "capa": ("db_models_m7", "QaCapaRow"),
     "complaint": ("db_models_m7", "QaComplaintRow"), "field_action": ("db_models_m7", "QaFieldActionRow"),
     "eco": ("db_models_m5", "MfgChangeRequestRow"), "inspection_lot": ("db_models_m7", "QaInspectionLotRow"),
-    "equipment": ("db_models_m7", "QaEquipmentRow")}
+    "equipment": ("db_models_m7", "QaEquipmentRow"),
+    "lot": ("db_models_m2", "MfgLotRow"), "ster_load": ("db_models_m8", "MfgSterLoadRow")}   # M8 review 8
 EDIT_PERM = {"ncr": "ncr_edit", "capa": "capa_edit", "complaint": "complaint_edit",
              "field_action": "field_action_edit", "eco": "eco_edit", "inspection_lot": "qa_inspect",
              "equipment": "equipment_edit"}
@@ -229,7 +230,7 @@ def _label(s: Session, kind: str, rid: str) -> str | None:
     r = s.get(_model(kind), rid)
     if r is None:
         return None
-    return getattr(r, "number", None) or getattr(r, "code", None)
+    return getattr(r, "number", None) or getattr(r, "code", None) or getattr(r, "lot_code", None)
 
 
 LINK_LOCKED = frozenset({"closed", "implemented", "accepted", "rejected", "completed", "approved", "released"})

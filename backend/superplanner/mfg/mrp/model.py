@@ -133,6 +133,8 @@ class MrpSnapshot:
     rate_supplies: list["RateSupplySnap"] = field(default_factory=list)
     forecast_priority: int = 7
     zones: tuple[int, int] = (28, 26)                                  # daily days, weekly weeks
+    #: lots held only for sterility release: supply at their planned release date (review 1)
+    release_supplies: list["RateSupplySnap"] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

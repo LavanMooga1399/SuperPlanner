@@ -191,10 +191,11 @@ def plan_in(s: Session, actor: str, body: Any) -> dict[str, Any]:
                 taken_wo.add(x.wo_id)
             if x.rate_block_id:
                 taken_block.add(x.rate_block_id)
-    # WOs already sterilised (released / failed loads) are not planned again
+    # WOs already sterilised (released loads) are not planned again; members of a failed load can be re-planned
+    # into a new load, which takes over their sterility holds (review 8)
     loaded_wo = set(s.execute(select(MfgSterLoadMemberRow.wo_id).join(
         MfgSterLoadRow, MfgSterLoadRow.id == MfgSterLoadMemberRow.load_id).where(
-        MfgSterLoadRow.status.in_(("released", "failed")), MfgSterLoadMemberRow.wo_id.is_not(None))).scalars())
+        MfgSterLoadRow.status == "released", MfgSterLoadMemberRow.wo_id.is_not(None))).scalars())
     cands: list[SterCandidate] = []
 
     def cand(key: str, item_id: str, qty: float, ready: datetime, **kw: Any) -> None:
@@ -243,12 +244,27 @@ def plan_in(s: Session, actor: str, body: Any) -> dict[str, Any]:
         for m in ld.members:
             s.add(MfgSterLoadMemberRow(id=new_id("slm_"), load_id=r.id, wo_id=m.wo_id, rate_block_id=m.rate_block_id,
                                        lot_id=m.lot_id, item_id=m.item_id, qty=m.qty, pallets=float(m.pallets)))
+            if m.wo_id:                                  # held received lots: planned release date for MRP
+                _set_planned_release(s, m.wo_id, ld.release_due)
         ids.append(r.id)
     s.flush()
     out = {"loads": len(res.loads), "pallets": sum(ld.pallets for ld in res.loads), "skipped": res.skipped,
            "warnings": res.warnings, "load_ids": ids}
     audit(s, "ster_plan", None, "plan", {"loads": out["loads"], "replaced": len(old), "skipped": len(res.skipped)})
     return out
+
+
+def _set_planned_release(s: Session, wo_id: str, due: date) -> None:
+    from ..db_models_m7 import MfgLotHoldRow
+
+    lots = [x for x in s.execute(select(MfgInvTransactionRow.lot_id).where(
+        MfgInvTransactionRow.wo_id == wo_id, MfgInvTransactionRow.txn_type == "wo_receipt",
+        MfgInvTransactionRow.lot_id.is_not(None))).scalars()]
+    if lots:
+        for h in s.execute(select(MfgLotHoldRow).where(MfgLotHoldRow.lot_id.in_(lots),
+                                                       MfgLotHoldRow.source == "sterility",
+                                                       MfgLotHoldRow.released_at.is_(None))).scalars():
+            h.planned_release = due
 
 
 def plan(ctx: AppContext, a: Any, body: Any) -> dict[str, Any]:
@@ -321,9 +337,46 @@ def _lots_of(s: Session, m: MfgSterLoadMemberRow) -> list[str]:
         MfgInvTransactionRow.lot_id.is_not(None))).scalars()})
 
 
+def adopt_hold(s: Session, r: MfgSterLoadRow, lot: str, item: str, actor: str) -> Any:
+    """The lot's open sterility hold (placed at receipt, `source_id` None, or left by a failed load) is taken over by
+    this load; without one a hold is placed."""
+    from ..db_models_m7 import MfgLotHoldRow
+    from .qa_holds import place
+
+    h = s.execute(select(MfgLotHoldRow).where(MfgLotHoldRow.lot_id == lot, MfgLotHoldRow.source == "sterility",
+                                              MfgLotHoldRow.released_at.is_(None)).with_for_update()).scalars().first()
+    if h is None:
+        h = place(s, source="sterility", reason=f"Sterility release pending ({r.number})", actor=actor, lot_id=lot,
+                  source_id=r.id, item_id=item)
+    elif h.source_id != r.id:
+        before = h.source_id
+        h.source_id, h.reason = r.id, f"Sterility release pending ({r.number})"
+        h.row_version += 1
+        h.updated_at = utcnow()
+        audit(s, "hold", h.id, "reassign", {"from_source_id": before, "to_source_id": r.id, "load": r.number})
+    h.planned_release = r.release_due
+    return h
+
+
+def on_receipt(s: Session, posting: Any) -> int:
+    """Review 1: a `wo_receipt` lot of an item with a sterilisation cycle is held (`sterility`, no load yet) from
+    the moment it is received until its load is released."""
+    from ..db_models_m2 import MfgInvTransactionRow
+    from .qa_holds import place
+
+    rows = s.execute(select(MfgInvTransactionRow.lot_id, MfgInvTransactionRow.item_id).join(
+        MfgItemPlanningRow, MfgItemPlanningRow.item_id == MfgInvTransactionRow.item_id).where(
+        MfgInvTransactionRow.posting_id == posting.id, MfgInvTransactionRow.txn_type == "wo_receipt",
+        MfgInvTransactionRow.qty > 0, MfgInvTransactionRow.lot_id.is_not(None),
+        MfgItemPlanningRow.ster_cycle_code.is_not(None))).all()
+    for lot, item in sorted(set(rows)):
+        place(s, source="sterility", reason="Awaiting sterilisation", actor=posting.actor_id, lot_id=lot,
+              item_id=item)
+    return len(rows)
+
+
 def _cycle_complete(s: Session, r: MfgSterLoadRow, actor: str) -> None:
     from ....mfg.tz import plant_tz
-    from .qa_holds import place
     from .trace import _edge, _insert
 
     p = plant_row(s)
@@ -340,9 +393,7 @@ def _cycle_complete(s: Session, r: MfgSterLoadRow, actor: str) -> None:
     planned = (end + (r.aeration_end - r.planned_end)).astimezone(tz).date() + timedelta(days=max(rel_days, 0))
     r.release_due = planned                             # from the actual cycle end
     for lot, item in sorted(set(lots)):
-        h = place(s, source="sterility", reason=f"Sterility release pending ({r.number})", actor=actor, lot_id=lot,
-                  source_id=r.id, item_id=item)
-        h.planned_release = r.release_due
+        adopt_hold(s, r, lot, item, actor)
     rows = []
     for lot, item in sorted(set(lots)):
         rows.append(_edge(r.owner_id, f"ster:{r.id}:in:{lot}", "lot", lot, item, "ster_load", r.id, None, None,
@@ -357,7 +408,19 @@ def _cycle_complete(s: Session, r: MfgSterLoadRow, actor: str) -> None:
 def advance(ctx: AppContext, a: Any, load_id: str, body: Any, if_match: str | None) -> dict[str, Any]:
     with write_tx(ctx) as (s, _):
         r = _get(s, load_id, if_match)
-        at = body.at or utcnow()
+        now = utcnow()
+        at = body.at or now
+        if at > now + timedelta(minutes=5):
+            raise ApiError(422, "STER_TIME_INVALID", "The time cannot be in the future.", {"at": at.isoformat()})
+        prev = {"aerating": r.actual_start, "awaiting_release": r.actual_end}.get(body.to)
+        if prev is not None and at < prev:
+            raise ApiError(422, "STER_TIME_INVALID", "The time is before the previous step.",
+                           {"at": at.isoformat(), "previous": prev.isoformat()})
+        if body.to == "awaiting_release" and r.actual_end is not None:
+            done = r.actual_end + (r.aeration_end - r.planned_end)
+            if at < done - timedelta(minutes=1):
+                raise ApiError(409, "STER_AERATION_INCOMPLETE", "Aeration is not complete yet.",
+                               {"aeration_until": done.isoformat()})
         _move(s, r, body.to)
         if body.to == "cycling":
             r.actual_start = at
@@ -393,6 +456,11 @@ def release(ctx: AppContext, a: Any, load_id: str, body: Any, if_match: str | No
         if r.status != "awaiting_release":
             raise ApiError(409, "MFG_INVALID_STATE", "Only a load awaiting release can be released.",
                            {"status": r.status})
+        from .m8common import today as _today
+
+        if _today(s) < r.release_due and not body.early_release_reason:
+            raise ApiError(409, "STER_RELEASE_TOO_EARLY", f"The planned release date is {r.release_due.isoformat()}; "
+                           "an early release needs a reason.", {"release_due": r.release_due.isoformat()})
         out = esig.sign(s, a, auth, "ster_load", r.id, "release", body.signature)
         if out.pending is not None:
             return out.pending
@@ -400,7 +468,9 @@ def release(ctx: AppContext, a: Any, load_id: str, body: Any, if_match: str | No
         n = release_source(s, "sterility", r.id, a.user_id, body.note or f"Sterility released ({r.number})", sig_id)
         _move(s, r, "released")
         r.release_signature_id = sig_id
-        audit(s, "ster_load", r.id, "release_holds", {"holds": n, "signature_id": sig_id})
+        audit(s, "ster_load", r.id, "release_holds", {"holds": n, "signature_id": sig_id,
+                                                      "early_release_reason": body.early_release_reason},
+              reason=body.early_release_reason)
         s.flush()
         return _record(s, r)
 
@@ -428,6 +498,10 @@ def fail(ctx: AppContext, a: Any, load_id: str, body: Any, if_match: str | None)
                    description=f"{body.reason}\n\nCo-sterilised lots: " +
                                ", ".join(codes.get(x, x) for x, _i in lots))
         r.ncr_id = ncr.id
+        from .qa_common import add_link
+
+        for lot, _i in lots:                                   # review 8: every lot linked to the NCR
+            add_link(s, "ncr", ncr.id, "lot", lot, a.user_id)
         _move(s, r, "failed")
         audit(s, "ster_load", r.id, "fail_reason", {"reason": body.reason, "ncr": ncr.number, "lots": len(lots)},
               reason=body.reason)

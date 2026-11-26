@@ -708,3 +708,19 @@ S5 notes (validation kit, load test, health):
   forecasts and consumption, 180 days 55 s; P4 rate run 40 lines x 30 days 241 s with the 240 s budget, validator
   clean (construction 32 ms per line); P5 ster plan 3.4 s; P8 day grid (4,146 cells) 0.57 s warm (1.1 s first call;
   the day grid is aggregated in SQL). P6/P7/P9 and L1-L3 are for the LEAD's load-test run (k6 scripts provided).
+
+Review round (2026-11-26) decisions:
+- R1 Sterility holds: every `wo_receipt` lot of an item with `ster_cycle_code` gets a `sterility` hold at posting
+  time (`source_id` null = waiting for a load, `services/ster.on_receipt`). Planning a load sets `planned_release`
+  on those holds; cycle complete takes them over (`source_id` = load; also holds left by a failed load); release /
+  fail act on the load's holds. MRP: a lot whose only open holds are sterility holds is not free stock but supply of
+  kind `inspection` at `planned_release` (pending lots: as_of + 1 day + aeration + release days) -
+  `MrpSnapshot.release_supplies` (additive, default empty).
+- R6 Timing: `advance.at` not in the future (5 min tolerance) and not before the previous step; `awaiting_release`
+  only after cycle end + aeration duration (409 `STER_AERATION_INCOMPLETE`); release before `release_due` needs
+  `early_release_reason` (409 `STER_RELEASE_TOO_EARLY`), audited as the change reason. The signature meaning stays
+  the policy's (`approved`); the early release is the explicit reason, not a separate meaning.
+- R8 Failed loads: their WOs are planned again into a new load, which takes over the open holds at cycle complete;
+  the NCR of a failed load links every lot (`qa_links` to_type `lot`; link labels show the lot code).
+- R11 Downgrade 0011 -> 0010: sterility holds become `manual` holds (reason prefixed), `ster_load` signatures and
+  policies are deleted (audit rows keep their signature ids; no FK).

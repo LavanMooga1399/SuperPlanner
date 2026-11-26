@@ -440,6 +440,10 @@ class Pass:
                              (1, fp, f.date, "~FORECAST", 0), f"P{fp} {lab}",
                              SourceRef("forecast", f"{f.version_id}:{f.period_start.isoformat()}", lab), None)
             self.fc_reqs.append(r)
+        for rs in sorted(snap.release_supplies, key=lambda x: (x.item_id, x.avail_date, x.ref_id)):
+            if rs.item_id in items and rs.qty > EPS:              # M8 review 1: sterile lots awaiting release
+                self.new_sup(rs.item_id, "inspection", rs.qty, max(rs.avail_date, as_of),
+                             SourceRef("balance", rs.ref_id, rs.label))
         if p.rate_supply:
             for rs in sorted(snap.rate_supplies, key=lambda x: (x.item_id, x.avail_date, x.ref_id)):
                 if rs.item_id in items and rs.qty > EPS:

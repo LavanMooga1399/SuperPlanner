@@ -64,8 +64,32 @@ def test_migration_0010_to_0011_and_back(empty_pg_db):
             assert width == 12
     finally:
         eng.dispose()
+    eng = sa.create_engine(url)       # review 11: a sterility hold survives the downgrade as a manual hold
+    try:
+        with eng.begin() as c:
+            migrate.ensure_local_user_conn(c)
+            c.execute(sa.text("INSERT INTO mfg_items (id, owner_id, part_number, revision, description, uom, make_buy, "
+                              "receiving_days, lot_rule, min_order_qty, order_multiple, safety_stock, serialized, "
+                              "handling_note, attributes, active, lot_controlled, issue_method, row_version, "
+                              "created_at, updated_at) VALUES ('itm_1', 'usr_local', 'P', 'A', '', 'EA', 'make', 0, "
+                              "'lot_for_lot', 0, 0, 0, false, '', '{}', true, true, 'manual', 1, now(), now())"))
+            c.execute(sa.text("INSERT INTO mfg_lots (id, owner_id, item_id, lot_code, supplier_lot, hold, note, row_version, "
+                              "created_at, updated_at) VALUES ('lot_1', 'usr_local', 'itm_1', 'L1', '', true, '', 1, now(), "
+                              "now())"))
+            c.execute(sa.text("INSERT INTO mfg_lot_holds (id, owner_id, lot_id, item_id, source, reason, placed_by, "
+                              "placed_at, release_note, row_version, created_at, updated_at) VALUES ('hld_1', "
+                              "'usr_local', 'lot_1', 'itm_1', 'sterility', 'Awaiting sterilisation', 'usr_local', "
+                              "now(), '', 1, now(), now())"))
+    finally:
+        eng.dispose()
     migrate.run_alembic_downgrade(url, "0010_m7")
     assert _tables(url) == t10 and _columns(url) == c10
+    eng = sa.create_engine(url)
+    try:
+        with eng.connect() as c:
+            assert c.execute(sa.text("SELECT source FROM mfg_lot_holds")).scalar() == "manual"
+    finally:
+        eng.dispose()
 
 
 def test_examples_validate_and_are_current():

@@ -12,7 +12,7 @@ Create Date: 2026-11-25
 
 Policy: expand. Frozen migration: literal definitions only. Additive only (the kind column is widened); NOT NULL
 columns on existing tables are added with a server default (backfill) that is dropped right after (no server
-defaults, M4 3.1). Downgrade deletes the new kinds' jobs, narrows `kind` back (M8 kinds -> `standard`) and drops
+defaults, M4 3.1). Downgrade turns sterility holds into manual holds, deletes ster_load signatures / policies and the new kinds' jobs, narrows `kind` back (M8 kinds -> `standard`) and drops
 everything it added.
 """
 
@@ -430,6 +430,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # review 11: sterility holds stay holds (as manual holds M7 understands); ster_load signatures / policies go
+    op.execute("UPDATE mfg_lot_holds SET source = 'manual', reason = left('Sterility (M8 downgrade): ' || reason, 500) "
+               "WHERE source = 'sterility'")
+    op.execute("DELETE FROM esig_signatures WHERE record_type = 'ster_load'")
+    op.execute("DELETE FROM esig_policies WHERE record_type = 'ster_load'")
     op.execute("DELETE FROM jobs WHERE kind IN (" + ", ".join(f"'{k}'" for k in KINDS) + ")")
     op.execute("DELETE FROM maintenance_runs WHERE kind IN (" + ", ".join(f"'{k}'" for k in KINDS) + ")")
     for table in reversed(TABLES):
