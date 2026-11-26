@@ -20,7 +20,7 @@ from datetime import date, datetime, timedelta
 from ortools.sat.python import cp_model
 
 from . import explain
-from .construct import Cursor, Sim, produce, transition
+from .construct import Cursor, Sim, produce, run_since_clean, transition
 from .model import RateBlock, RateLine, RateProblem
 from .validator import validate
 
@@ -53,6 +53,7 @@ def relayout(problem: RateProblem, line: RateLine, firm: list[RateBlock], seq: l
     prods = [b for b in blocks if b.kind == "production"]
     if prods:
         cur.prev_item = prods[-1].item_id
+    cur.run_since_clean = run_since_clean(line, blocks)
     for c in seq:
         got, made, _ok = produce(problem, sim, cur, c.item_id, c.qty)
         blocks += got

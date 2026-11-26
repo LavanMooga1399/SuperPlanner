@@ -242,6 +242,23 @@ class ItemState:
         return min((p for _d, _q, p in self.demands), default=9)
 
 
+def run_since_clean(line: RateLine, blocks: list[RateBlock]) -> float:
+    """Production hours after the last qualifying cleaning (>= `clean_minutes` of consecutive cleaning blocks) in
+    `blocks` (the firm blocks a construction continues from) - the same counting rule as the validator."""
+    run = acc = 0.0
+    for b in sorted(blocks, key=lambda x: x.start):
+        h = (b.end - b.start).total_seconds() / 3600.0
+        if b.kind == "cleaning":
+            acc += h * 60.0
+            if acc + 0.01 >= float(line.clean_minutes or 0):
+                run = 0.0
+            continue
+        acc = 0.0
+        if b.kind == "production":
+            run += h
+    return run
+
+
 def construct_line(problem: RateProblem, line: RateLine, item_ids: list[str],
                    demands: dict[str, list[tuple[date, float, int]]], firm: list[RateBlock]
                    ) -> list[RateBlock]:
@@ -253,6 +270,7 @@ def construct_line(problem: RateProblem, line: RateLine, item_ids: list[str],
     last_prod = [b for b in blocks if b.kind == "production"]
     if last_prod:
         cur.prev_item = last_prod[-1].item_id
+    cur.run_since_clean = run_since_clean(line, blocks)    # firm production counts toward the next cleaning
     states = {}
     for i in item_ids:
         firm_qty = 0.0 if problem.firm_netted else \
