@@ -1,6 +1,6 @@
 {
  "d": {
-  "__next": "https://s4.example.com/sap/opu/odata/sap/API_PRODUCT_SRV/A_Product?$skiptoken=2",
+  "__next": "https://localhost/sap/opu/odata/sap/API_PRODUCT_SRV/A_Product?$skiptoken=2",
   "results": [
    {
     "BaseUnit": "PCE",

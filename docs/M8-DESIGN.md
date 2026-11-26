@@ -724,3 +724,15 @@ Review round (2026-11-26) decisions:
   the NCR of a failed load links every lot (`qa_links` to_type `lot`; link labels show the lot code).
 - R11 Downgrade 0011 -> 0010: sterility holds become `manual` holds (reason prefixed), `ster_load` signatures and
   policies are deleted (audit rows keep their signature ids; no FK).
+- R2 SAP SSRF / credentials: `odata.PinnedTransport` sends every request (base, OAuth2 token URL, next links)
+  through the M5 `resolve_checked` + pinned HTTPS connection (optional `WEBHOOK_PROXY` CONNECT); next links only for
+  the base URL's scheme/host/port (`SAP_FOREIGN_NEXT_LINK`); PUT checks `base_url` and `token_url`; stored password /
+  client secret are dropped when base URL, token URL or user name change unless given again; `last_sync.error` is
+  `<OData error code or HTTP_<status>> (HTTP <status>)` or the exception class, never the response body.
+- R4 Paging: no `$top`; `Prefer: odata.maxpagesize=<page_size>` with server next links; `$orderby <change field>
+  asc` always; delta filter `ge` the cursor (upserts are idempotent, so the boundary record is re-read, never lost).
+  The fake server truncates on `$top` like a real one.
+- R9 `planned_order_out`: per-document progress (`int_settings.sap.outbound[<run>]`, committed after each POST); a
+  re-run after an interruption posts only the remaining documents; the run cursor marks completion.
+- R10 SAP packaging levels are applied only when the item SoR is `erp` or `shared` (`packaging_skipped` count);
+  extras are written under the plant lock.

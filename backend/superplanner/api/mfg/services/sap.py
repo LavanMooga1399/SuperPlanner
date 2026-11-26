@@ -61,8 +61,9 @@ def put_settings(ctx: AppContext, a: Any, body: SapSettings, if_match: str | Non
     from ..db_models_m5 import IntSettingsRow
     from .integration import SOR_DEFAULTS
 
-    if body.base_url:
-        check_url(body.base_url, ctx.settings.integration_allow_private_targets)
+    for u in (body.base_url, body.token_url):            # review 2: both targets pass the SSRF check
+        if u:
+            check_url(u, ctx.settings.integration_allow_private_targets)
     if (body.password or body.client_secret) and not ctx.settings.secrets_keys:
         raise ApiError(409, "INT_SECRETS_REQUIRED", "Storing SAP credentials needs SECRETS_KEYS on the server.", {})
     with write_tx(ctx) as (s, _):
@@ -79,6 +80,12 @@ def put_settings(ctx: AppContext, a: Any, body: SapSettings, if_match: str | Non
         raw = _raw(row)
         before = _record(row)
         new = {**raw, **body.model_dump(mode="json", exclude=set(SECRET_FIELDS))}
+        # review 2: a stored secret never follows the connection to another target or user
+        moved = any((raw.get(k) or "") != (getattr(body, k) or "") for k in ("base_url", "token_url", "username"))
+        if moved and raw:
+            for f in SECRET_FIELDS:
+                if not getattr(body, f):
+                    new.pop(f"{f}_enc", None)
         for f in SECRET_FIELDS:
             v = getattr(body, f)
             if v:
@@ -126,7 +133,18 @@ def client_of(ctx: AppContext, raw: dict[str, Any]) -> Any:
                   password=dec("password"), token_url=raw.get("token_url", ""), client_id=raw.get("client_id", ""),
                   client_secret=dec("client_secret"), auth=raw.get("auth", "basic"),
                   transport=TRANSPORT() if TRANSPORT else None,
-                  allow_private=bool(ctx.settings.integration_allow_private_targets))
+                  allow_private=bool(ctx.settings.integration_allow_private_targets),
+                  page_size=int(raw.get("page_size") or 2000), proxy=_proxy(ctx))
+
+
+def _proxy(ctx: AppContext) -> Any:
+    from ....integration.outbox import proxy_config
+
+    try:
+        return proxy_config(getattr(ctx.settings, "webhook_proxy", None),
+                            getattr(ctx.settings, "webhook_proxy_connect", "ip") or "ip")
+    except ValueError:
+        return None
 
 
 def _save(ctx: AppContext, entity: str, cursor: str | None, status: dict[str, Any] | None) -> None:
@@ -157,7 +175,13 @@ def apply_extras(s: Session, extras: dict[str, list[dict[str, Any]]]) -> dict[st
     now = utcnow()
     from sqlalchemy import delete
 
-    for p in extras.get("packaging", []):
+    from .. import repo
+    from .integration import sor_of
+
+    repo.lock_plant(s)                                     # review 10: master data writes under the plant lock
+    packs = extras.get("packaging", []) if sor_of(s, "items") in ("erp", "shared") else []
+    out["packaging_skipped"] = len(extras.get("packaging", [])) - len(packs)
+    for p in packs:
         it = by_ref.get(p["item_ref"])
         if it is None:
             continue
@@ -203,7 +227,6 @@ def _pull(ctx: AppContext, client: Any, entity: str, raw: dict[str, Any], full: 
     cursor = None if full else (raw.get("cursors") or {}).get(entity)
     path = M.ENTITIES[entity][0]
     params = M.delta_filter(entity, cursor, prof.odata_version)
-    params["$top"] = str(prof.page_size) if prof.odata_version == "v4" else params.get("$top", str(prof.page_size))
     counts: dict[str, int] = {}
     errors: list[dict[str, Any]] = []
     pages = records = 0
@@ -238,6 +261,7 @@ def _push_planned(ctx: AppContext, client: Any, raw: dict[str, Any]) -> dict[str
             return {"posted": 0, "reason": "no live MRP run"}
         if (raw.get("cursors") or {}).get("planned_order_out") == run.id:
             return {"posted": 0, "reason": "already sent", "run_id": run.id}
+        sent = set(((raw.get("outbound") or {}).get(run.id) or {}).keys())
         pos = [{"kind": p.kind, "part_number": p.part_number, "qty": p.qty, "need_date": p.need_date.isoformat(),
                 "start_date": p.start_date.isoformat(), "ref": f"MRP{run.run_no}-P{p.planned_no}"}
                for p in s.execute(select(MfgMrpPlannedOrderRow).where(MfgMrpPlannedOrderRow.run_id == run.id,
@@ -246,11 +270,24 @@ def _push_planned(ctx: AppContext, client: Any, raw: dict[str, Any]) -> dict[str
         run_id = run.id
     posted = []
     for po in pos:
+        if po["ref"] in sent:                      # review 9: posted in an earlier (interrupted) sync
+            continue
         path, body = M.planned_order_out(po, prof)
         res = client.post(path, body)
         posted.append({"ref": po["ref"], "path": path.split("/")[0], "sap_id": _sap_id(res)})
+        _progress(ctx, run_id, po["ref"], _sap_id(res))          # committed per document
     _save(ctx, "planned_order_out", run_id, None)
     return {"posted": len(posted), "run_id": run_id, "documents": posted[:200]}
+
+
+def _progress(ctx: AppContext, run_id: str, ref: str, sap_id: str | None) -> None:
+    with ctx.write_guard(), ctx.db.write() as s:
+        row = _row(s)
+        raw = _raw(row)
+        ob = dict(raw.get("outbound") or {})
+        ob = {run_id: {**(ob.get(run_id) or {}), ref: sap_id or ""}}          # only the current run is kept
+        raw["outbound"] = ob
+        row.sap = raw
 
 
 def _sap_id(res: dict[str, Any]) -> str | None:
@@ -282,8 +319,12 @@ def sync_job_body(ctx: AppContext, info: dict[str, Any]) -> dict[str, Any]:
                 out[entity] = res
                 _save(ctx, entity, None, {"at": t0.isoformat(), "status": "completed",
                                           "records": res.get("records", res.get("posted", 0)), "error": None})
-            except Exception as exc:
-                err = f"{exc.__class__.__name__}: {exc}"[:500]
+            except Exception as exc:                       # review 2: no response bodies in last_sync
+                from ....integration.sap.odata import ODataError
+
+                err = f"{exc.code} (HTTP {exc.status})" if isinstance(exc, ODataError) else \
+                    (f"{exc.code}" if hasattr(exc, "code") and isinstance(getattr(exc, "code"), str)
+                     else exc.__class__.__name__)
                 out[entity] = {"error": err}
                 _save(ctx, entity, None, {"at": t0.isoformat(), "status": "failed", "records": 0, "error": err})
                 failed = failed or err

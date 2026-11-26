@@ -27,6 +27,9 @@ class FakeS4:
         self.expire_next_post = False
         self.fail: dict[str, int] = {}
         self.counter = 0
+        self.prefer: list[str] = []
+        self.foreign_next = False
+        self.fail_posts_after: int | None = None
 
     def handler(self, req: httpx.Request) -> httpx.Response:
         path = req.url.path
@@ -34,9 +37,19 @@ class FakeS4:
             return httpx.Response(200, headers={"x-csrf-token": self.token, "set-cookie": "SAP_SESSIONID=abc; path=/"})
         if req.method == "GET":
             self.gets.append(str(req.url))
+            self.prefer.append(req.headers.get("prefer", ""))
+            if "$top" in str(req.url) or "%24top" in str(req.url):      # a real server: $top = client limit, no
+                body = load("product_v2_page1.json")                     # next link (review 4)
+                body["d"]["results"] = body["d"]["results"][:1]
+                body["d"].pop("__next", None)
+                return httpx.Response(200, json=body)
+            if self.foreign_next and path.endswith("/A_Product"):
+                body = load("product_v2_page1.json")
+                body["d"]["__next"] = "https://evil.example.net/steal?x=1"
+                return httpx.Response(200, json=body)
             for frag, code in self.fail.items():
                 if frag in path:
-                    return httpx.Response(code, json={"error": {"code": "X", "message": {"value": "Boom"}}})
+                    return httpx.Response(code, json={"error": {"code": "X", "message": {"value": "Boom secret"}}})
             if path.endswith("/A_Product"):
                 page2 = "skiptoken" in str(req.url)
                 return httpx.Response(200, json=load("product_v2_page2.json" if page2 else "product_v2_page1.json"))
@@ -46,6 +59,8 @@ class FakeS4:
                     "MaterialBOM": "bom_v2.json"}[path.rsplit("/", 1)[-1]]
             return httpx.Response(200, json=load(name))
         if req.method == "POST":
+            if self.fail_posts_after is not None and len(self.posts) >= self.fail_posts_after:
+                return httpx.Response(500, json={"error": {"code": "SY/530", "message": {"value": "dump secret"}}})
             if req.headers.get("x-csrf-token") != self.token or self.expire_next_post:
                 self.expire_next_post = False
                 self.token = f"tok-{len(self.posts) + 2}"

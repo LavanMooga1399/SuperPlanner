@@ -293,10 +293,11 @@ def delta_filter(entity: str, cursor: str | None, version: str) -> dict[str, str
     q: dict[str, str] = {}
     if entity in EXPAND:
         q["$expand"] = EXPAND[entity]
+    if field_:
+        q["$orderby"] = f"{field_} asc"                  # review 4: stable order for the cursor
     if cursor and field_:
         lit = f"datetimeoffset'{cursor}'" if version == "v2" else cursor
-        q["$filter"] = f"{field_} gt {lit}"
-        q["$orderby"] = field_
+        q["$filter"] = f"{field_} ge {lit}"               # ge + idempotent upserts: no change lost at a tie
     return q
 
 

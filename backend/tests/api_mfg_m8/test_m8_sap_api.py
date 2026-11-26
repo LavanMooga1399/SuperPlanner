@@ -29,7 +29,7 @@ def sap_api(db_url, monkeypatch):
         yield Api(c), c, fake
 
 
-def _run(api, client, entities):
+def _run(api, client, entities, expect="completed"):
     from superplanner.api.db.ownership import system_scope
     from superplanner.api.mfg.db_models_m5 import MaintenanceRunRow
 
@@ -40,7 +40,7 @@ def _run(api, client, entities):
             r = s.get(MaintenanceRunRow, out["run_id"])
             return {"status": r.status, "results": r.results}
     r = wait_for(get, lambda x: x["status"] in ("completed", "failed"), timeout=60)
-    assert r["status"] == "completed", r
+    assert r["status"] == expect, r
     return r["results"]
 
 
@@ -91,8 +91,13 @@ def test_sap_round_trip(sap_api):
     mrp = api.post("/mrp/runs", {"label": "sap", "horizon_days": 120})
     pos = api.get(f"/mrp/runs/{mrp['id']}/planned-orders", limit=200)["items"]
     assert pos
+    fake.fail_posts_after = 1                                   # review 9: interrupted after the first document
+    _run(api, client, ["planned_order_out"], expect="failed")
+    err = api.get("/integration/sap-settings")["last_sync"]["planned_order_out"]["error"]
+    assert err == "SY/530 (HTTP 500)" and "secret" not in err          # review 2: no response body stored
+    fake.fail_posts_after = None
     out = _run(api, client, ["planned_order_out"])
-    assert out["planned_order_out"]["posted"] == len(pos) == len(fake.posts)
+    assert out["planned_order_out"]["posted"] == len(pos) - 1 and len(fake.posts) == len(pos)
     assert all(p[2]["x-csrf-token"] for p in fake.posts)
     again = _run(api, client, ["planned_order_out"])
     assert again["planned_order_out"]["posted"] == 0                  # once per run
@@ -104,3 +109,35 @@ def test_sap_round_trip(sap_api):
     _run(api, client, ["stock"])
     rec = client.get("/api/v1/integration/reconciliations").json()["items"][0]
     assert rec["summary"]["stock"]["different"] == 0 and rec["summary"]["stock"]["missing_in_sp"] == 0, rec
+
+
+def test_sap_settings_ssrf_and_secret_handling(sap_api):
+    api, client, fake = sap_api
+    st = api.put("/integration/sap-settings", {"base_url": BASE, "username": "SP_TECH", "password": "s3cret",
+                                               "auth": "oauth2", "token_url": BASE + "token",
+                                               "client_secret": "cs"}, 0)
+    assert st["password_set"] and st["client_secret_set"]
+    api.err("PUT", "/integration/sap-settings", 422, "INT_URL_NOT_ALLOWED",
+            json={"base_url": BASE, "token_url": "http://idp.example.com/token"}, headers={"If-Match": '"1"'})
+    st = api.put("/integration/sap-settings", {"base_url": "https://127.0.0.1/sap/", "username": "SP_TECH",
+                                               "auth": "oauth2", "token_url": BASE + "token"}, 1)
+    assert st["password_set"] is False and st["client_secret_set"] is False      # moved target: secrets dropped
+    st = api.put("/integration/sap-settings", {"base_url": "https://127.0.0.1/sap/", "username": "SP_TECH",
+                                               "auth": "oauth2", "token_url": BASE + "token", "password": "n"}, 2)
+    st = api.put("/integration/sap-settings", {"base_url": "https://127.0.0.1/sap/", "username": "SP_TECH",
+                                               "auth": "oauth2", "token_url": BASE + "token"}, 3)
+    assert st["password_set"] is True                                             # same target: kept
+
+
+def test_sap_packaging_only_for_erp_items(sap_api):
+    api, client, fake = sap_api
+    api.put("/integration/sap-settings", {"enabled": True, "base_url": BASE, "plant": "1000"}, 0)
+    ist = client.get("/api/v1/integration/settings").json()
+    keys = ("enabled", "adapter", "goods_receipts_owner", "filedrop_enabled", "export_enabled",
+            "export_interval_minutes")
+    r = client.put("/api/v1/integration/settings", json={**{k: ist[k] for k in keys}, "plant_code": "P1000",
+                                                         "sor": {**ist["sor"], "items": "superplanner"}},
+                   headers={"If-Match": f'"{ist["row_version"]}"'})
+    assert r.status_code == 200, r.text
+    res = _run(api, client, ["product"])
+    assert res["product"]["results"].get("packaging", 0) == 0 and res["product"]["results"]["packaging_skipped"] == 3

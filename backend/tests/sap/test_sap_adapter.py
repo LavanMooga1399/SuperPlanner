@@ -72,7 +72,9 @@ def test_fake_server_paging_csrf_and_errors():
     c = Client(BASE, transport=fake.transport(), username="u", password="p")
     pages = list(c.get_all(M.ENTITIES["product"][0], M.delta_filter("product", "2026-11-20T00:00:00Z", "v2")))
     assert [len(p) for p in pages] == [2, 2]
-    assert "LastChangeDateTime+gt+datetimeoffset" in fake.gets[0] or "LastChangeDateTime%20gt" in fake.gets[0]
+    assert "datetimeoffset" in fake.gets[0] and "LastChangeDateTime+ge" in fake.gets[0].replace("%20", "+")
+    assert "orderby" in fake.gets[0] and "top" not in fake.gets[0]                 # review 4
+    assert fake.prefer[0] == "odata.maxpagesize=2000"
     assert M.max_cursor(pages[0] + pages[1], "product", None) == "2026-11-25T00:00:00Z"
     path, body = M.planned_order_out({"kind": "make", "part_number": "SYR-3ML-LL", "qty": 3000.0,
                                       "need_date": "2026-12-10", "start_date": "2026-12-08", "ref": "P-1"}, PROFILE)
@@ -87,7 +89,7 @@ def test_fake_server_paging_csrf_and_errors():
     fake.fail["A_Supplier"] = 500
     with pytest.raises(ODataError) as e:
         list(c.get_all(M.ENTITIES["supplier"][0]))
-    assert e.value.status == 500 and "Boom" in e.value.message
+    assert e.value.status == 500 and "Boom" not in e.value.code and e.value.code == "X"   # no body text
 
 
 def test_outbound_events_and_v4_paging():
@@ -101,3 +103,30 @@ def test_outbound_events_and_v4_paging():
     from superplanner.integration.sap.odata import page_of
     assert page_of({"value": [{"a": 1}], "@odata.nextLink": "x"}) == ([{"a": 1}], "x")
     assert M.to_date("/Date(1796774400000)/").isoformat() == "2026-12-09"
+
+
+def test_top_is_never_sent_and_foreign_next_link_refused():
+    fake = FakeS4()
+    c = Client(BASE, transport=fake.transport())
+    pages = list(c.get_all(M.ENTITIES["product"][0], {"$top": "1"}))   # a caller's $top is dropped
+    assert [len(p) for p in pages] == [2, 2]
+    fake.foreign_next = True
+    with pytest.raises(ODataError) as e:
+        list(c.get_all(M.ENTITIES["product"][0]))
+    assert e.value.code == "SAP_FOREIGN_NEXT_LINK"
+    assert not [g for g in fake.gets if "evil" in g]
+
+
+def test_ssrf_checks_every_request():
+    from superplanner.api.errors import ApiError
+
+    c = Client("https://localhost/sap/", allow_private=False)          # real transport: pinned + checked
+    with pytest.raises(ApiError) as e:
+        list(c.get_all("API_PRODUCT_SRV/A_Product"))
+    assert e.value.code == "INT_URL_NOT_ALLOWED"
+    c = Client("http://s4.example.com/sap/", allow_private=True)
+    with pytest.raises(ApiError):
+        list(c.get_all("API_PRODUCT_SRV/A_Product"))
+    c = Client("https://localhost/sap/", allow_private=False, auth="oauth2", token_url="https://127.0.0.1/token")
+    with pytest.raises(ApiError):
+        list(c.get_all("API_PRODUCT_SRV/A_Product"))                    # token URL checked too
