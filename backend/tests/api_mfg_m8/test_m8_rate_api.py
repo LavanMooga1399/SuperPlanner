@@ -63,6 +63,13 @@ def test_rate_run_publish_twice(api, client):
     demand(api, items, 5000, 3, "DO-R1")
     run = rate_run(api)
     assert run["status"] == "completed", run["error"]
+    from superplanner.api.db.ownership import owner_scope as _os
+    from superplanner.api.mfg.db_models_m8 import MfgRateRunRow
+    with _os("usr_local"), owner_db(client).write() as s:          # review 3: a run of an earlier day is stale
+        s.get(MfgRateRunRow, run["id"]).as_of = date.today() - timedelta(days=1)
+    api.err("POST", f"/rate/runs/{run['id']}/publish", 409, "RATE_RUN_STALE")
+    with _os("usr_local"), owner_db(client).write() as s:
+        s.get(MfgRateRunRow, run["id"]).as_of = date.today()
     assert run["validator"]["ok"] and run["summary"]["demands"] == 2
     blocks = api.get(f"/rate/runs/{run['id']}/blocks")["items"]
     prod = [b for b in blocks if b["kind"] == "production"]

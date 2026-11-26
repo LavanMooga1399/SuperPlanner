@@ -305,15 +305,23 @@ def publish_in(s: Session, run: MfgRateRunRow, actor: str) -> dict[str, Any]:
         raise ApiError(409, "MFG_INVALID_STATE", "This rate run is already published.", {})
     st = settings_of(s)
     d = today(s)
+    if run.as_of < d:
+        raise ApiError(409, "RATE_RUN_STALE", "This rate run was planned on an earlier day; run a new one before "
+                       "publishing.", {"as_of": run.as_of.isoformat(), "today": d.isoformat()})
     firm_end = d + timedelta(days=st.rate_firm_days)
     blocks = list(s.execute(select(MfgRateBlockRow).where(MfgRateBlockRow.run_id == run.id)
                             .order_by(MfgRateBlockRow.line_id, MfgRateBlockRow.start)).scalars())
-    groups = PUB.firm_groups(blocks, firm_end, st.rate_wo_split)
+    groups = [g for g in PUB.firm_groups(blocks, firm_end, st.rate_wo_split) if g.prod_date >= d]
     prev_rows = list(s.execute(select(MfgWorkOrderRow).where(
         MfgWorkOrderRow.kind == "repetitive", MfgWorkOrderRow.rate_run_id.is_not(None),
         MfgWorkOrderRow.status.in_(("planned", "released", "in_progress")),
         MfgWorkOrderRow.due_date >= d, MfgWorkOrderRow.due_date <= firm_end).with_for_update()).scalars())
-    prev = [PUB.PrevWo(w.id, w.item_id, w.due_date, float(w.qty), _started(w)) for w in prev_rows]
+    from ..db_models_m4 import MfgWoOperationRow
+
+    pinned = {wid: lid for wid, lid in s.execute(select(MfgWoOperationRow.wo_id, MfgWoOperationRow.line_id).where(
+        MfgWoOperationRow.wo_id.in_([w.id for w in prev_rows]), MfgWoOperationRow.line_id.is_not(None)))} \
+        if prev_rows else {}
+    prev = [PUB.PrevWo(w.id, w.item_id, w.due_date, float(w.qty), _started(w), pinned.get(w.id)) for w in prev_rows]
     dec = PUB.decide(groups, prev)
     by_id = {w.id: w for w in prev_rows}
     now = utcnow()
@@ -353,7 +361,7 @@ def publish_in(s: Session, run: MfgRateRunRow, actor: str) -> dict[str, Any]:
     run.row_version += 1
     rate_supplies = sum(1 for b in blocks if b.kind == "production" and b.wo_id is None)
     out = {"run_id": run.id, "created_wo_ids": created, "cancelled_wo_ids": cancelled, "kept_wo_ids": kept,
-           "rate_supplies": rate_supplies}
+           "rate_supplies": rate_supplies, "skipped": jsonable(dec.skipped)}
     audit(s, "rate_run", run.id, "publish", {k: (len(v) if isinstance(v, list) else v) for k, v in out.items()})
     return out
 

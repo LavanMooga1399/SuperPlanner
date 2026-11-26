@@ -736,3 +736,7 @@ Review round (2026-11-26) decisions:
   re-run after an interruption posts only the remaining documents; the run cursor marks completion.
 - R10 SAP packaging levels are applied only when the item SoR is `erp` or `shared` (`packaging_skipped` count);
   extras are written under the plant lock.
+- R3 Publish: a started repetitive WO claims the group of its item, pinned line and day whatever its quantity
+  (no second WO; the difference is reported in `PublishResult.skipped`); unstarted WOs match item, line, day and
+  quantity. Publishing a run planned on an earlier day answers 409 `RATE_RUN_STALE`; groups dated before today are
+  never created.

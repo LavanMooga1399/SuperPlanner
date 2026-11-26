@@ -189,3 +189,17 @@ def test_determinism():
     assert [(x.kind, x.item_id, x.start, x.qty) for x in a.blocks] == [(x.kind, x.item_id, x.start, x.qty)
                                                                        for x in b.blocks]
     assert date(2026, 11, 30) <= min(x.prod_date for x in a.blocks)
+
+
+def test_publish_started_wo_never_duplicated():
+    from superplanner.mfg.rate.publish import Group, PrevWo, decide
+
+    d = date(2026, 12, 1)
+    g = [Group(("lin_a", "s3", d), "lin_a", "s3", d, d, 5000.0, ["b1"]),
+         Group(("lin_b", "s3", d), "lin_b", "s3", d, d, 3000.0, ["b2"])]
+    started = PrevWo("w1", "s3", d, 4800.0, True, "lin_a")        # started, quantity differs
+    unstarted = PrevWo("w2", "s3", d, 2999.0, False, "lin_b")     # quantity differs -> cancelled, recreated
+    dec = decide(g, [unstarted, started])
+    assert [x.key for x in dec.create] == [("lin_b", "s3", d)]
+    assert [w.id for w, _g in dec.keep] == ["w1"] and [w.id for w in dec.cancel] == ["w2"]
+    assert dec.skipped == [{"wo_id": "w1", "item_id": "s3", "due": d, "planned_qty": 5000.0, "wo_qty": 4800.0}]

@@ -210,3 +210,4 @@ class PublishResult(MfgModel):
     cancelled_wo_ids: list[str]
     kept_wo_ids: list[str]
     rate_supplies: int
+    skipped: list[dict[str, Any]] = Field(default_factory=list)   # groups held by started WOs (review 3)
