@@ -217,6 +217,27 @@ export const CAPTION_INIT = `(() => {
     const t = sessionStorage.getItem(KEY) || "";
     if (el.textContent !== t) el.textContent = t;
     el.dataset.empty = t ? "false" : "true";
+    // never cover an open dialog or drawer: move the bar into the wider free strip beside it
+    const open = [...document.querySelectorAll('[role="dialog"], [data-testid="asst-panel"]')]
+      .map((d) => d.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    let pos = "";
+    if (open) {
+      const left = open.left, right = window.innerWidth - open.right;
+      const gap = Math.max(left, right);
+      if (gap >= 170) {
+        const cx = left >= right ? left / 2 : open.right + right / 2;
+        pos = "left:" + cx + "px;top:50%;bottom:auto;transform:translate(-50%,-50%);max-width:" + (gap - 24) + "px;font-size:" + (gap < 260 ? 15 : 18) + "px;padding:10px 14px";
+      } else if (open.bottom < window.innerHeight - 110) {
+        pos = "";                                  // the default bottom bar is below the dialog
+      } else {
+        pos = "top:auto;bottom:4px;font-size:16px;padding:6px 14px;opacity:.95";
+      }
+    }
+    if (el.dataset.pos !== pos) {
+      el.dataset.pos = pos;
+      el.style.cssText = pos;
+    }
     let cur = document.getElementById("sp-demo-cursor");
     if (!cur) {
       cur = document.createElement("div");
@@ -247,7 +268,7 @@ export const CAPTION_INIT = `(() => {
   if (window.top === window) {
     new MutationObserver(() => { ensure(); ensureCard(); }).observe(document.documentElement, { childList: true, subtree: true });
     document.addEventListener("DOMContentLoaded", ensure);
-    setInterval(ensure, 500);
+    setInterval(ensure, 200);
   }
 })();`;
 
@@ -255,15 +276,8 @@ export async function caption(page, text) {
   await page.evaluate((t) => window.__spCaption?.(t), text);
 }
 
-/** Move the caption bar to the top of the screen (while a dialog covers the bottom) or back. */
-export async function captionAtTop(page, top) {
-  await page.evaluate((t) => {
-    const el = document.getElementById("sp-demo-caption");
-    if (!el) return;
-    el.style.bottom = t ? "auto" : "";
-    el.style.top = t ? "12px" : "";
-  }, top);
-}
+/** Kept for older scene code: the caption bar now moves beside open dialogs by itself (CAPTION_INIT). */
+export async function captionAtTop() {}
 
 export async function card(page, title, lines, small, holdMs) {
   await page.evaluate((init) => {

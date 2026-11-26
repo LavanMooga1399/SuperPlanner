@@ -51,6 +51,18 @@ async function lookup() {
   const ils = (await api("GET", "/qa/inspection-lots?limit=100")).items;
   ctx.incoming = ils.find((l) => l.scope === "incoming" && l.status === "open") ?? ils.find((l) => l.status === "open");
   ctx.capa = (await api("GET", "/qa/capas?limit=20")).items[0];
+  const stp = await item("MDV-SOLV");
+  // bonding solvent is issued by lot scan at the line in this demo (the sample backflushes every component)
+  const rec = await api("GET", `/items/${stp.id}`);
+  const KEYS = ["part_number", "revision", "description", "uom", "make_buy", "family", "setup_family", "lead_time_days", "receiving_days", "lot_rule",
+    "fixed_lot_qty", "min_order_qty", "order_multiple", "safety_stock", "serialized", "shelf_life_days", "handling_class", "handling_note",
+    "attributes", "active", "external_ref", "standard_cost", "lot_controlled", "lot_period_days", "issue_method"];
+  const body = Object.fromEntries(KEYS.filter((k) => k in rec).map((k) => [k, rec[k]]));
+  await api("PUT", `/items/${stp.id}`, { ...body, issue_method: "manual" }, { "If-Match": `"${rec.row_version}"`, "X-SP-Change-Reason": "Demo%3A%20solvent%20issued%20by%20lot%20scan" });
+  const lots = (await api("GET", `/lots?item_id=${stp.id}&limit=20`)).items.filter((l) => (l.on_hand ?? 0) > 0);
+  ctx.stopperLot = lots[0]?.lot_code ?? null;
+  ctx.wo3 = await doc("/work-orders", "WO-MDV-0003");
+  ctx.ops3 = (await api("GET", `/work-orders/${ctx.wo3.id}/operations`)).items;
 }
 
 /** Navigate: client-side (history + popstate, no reload and no blank frame) once the app is open, else a page load. */
@@ -169,22 +181,35 @@ async function sceneMrp(page) {
 }
 
 async function sceneRatePlan(page) {
-  // the sample's nightly rate plan (published); a new run is not created here (see README: validation of new runs)
   await go(page, "/mfg/rate");
   await caption(page, "Rate planning for flow lines: campaigns by size and gauge, with changeovers and cleanroom cleaning.");
-  await hold(page, 2500);
-  const run = page.getByRole("link", { name: /^RR-/ }).first();
-  await glide(page, run, { click: true });
+  await hold(page, 2000);
+  await glide(page, tid(page, "rate-new"), { click: true });
+  await glide(page, tid(page, "rate-start"), { click: true });
   await tid(page, "rate-run-page").waitFor({ timeout: 60_000 });
+  await page.waitForFunction(() => !/queued|running/.test(document.querySelector('[data-testid="rate-run-page"]')?.getAttribute("data-status") ?? "running"), null, { timeout: 180_000 });
   await settle(page, 1000);
-  await caption(page, "The published plan: what each line makes each day against its rate; the first days are firm work orders.");
+  await caption(page, "Each new plan is checked by an independent validator: shift windows, changeovers, cleaning and rate holds.");
+  await glide(page, tid(page, "rate-valid"), { optional: true });
+  await hold(page, 3500);
+  await caption(page, "The grid shows what each line makes each day against its rate.");
   await glide(page, tid(page, "rate-grid"), { optional: true });
-  await hold(page, 5000);
+  await hold(page, 4000);
   await glide(page, tid(page, "rate-tab-gantt"), { click: true });
   await tid(page, "rate-gantt").waitFor();
   await settle(page, 800);
   await caption(page, "The campaign Gantt: long runs of one size, changeovers and cleaning between them.");
-  await hold(page, 5500);
+  await hold(page, 4500);
+  await caption(page, "Publishing makes the plan the supply that MRP and the lines work to; its firm days are work orders.");
+  await glide(page, tid(page, "rate-publish"), { click: true });
+  const dlg = page.getByRole("dialog");
+  await dlg.waitFor();
+  await hold(page, 1500);
+  await glide(page, dlg.getByRole("button").last(), { click: true });
+  await tid(page, "rate-publish-result").waitFor({ timeout: 60_000 });
+  await settle(page, 1000);
+  await glide(page, tid(page, "rate-publish-result"));
+  await hold(page, 4000);
 }
 
 async function sceneSchedule(page) {
@@ -317,28 +342,29 @@ async function sceneInspection(page) {
 }
 
 async function sceneCapa(page) {
-  if (!ctx.capa) return;
-  await go(page, `/mfg/qa/capas/${ctx.capa.id}`);
-  await tid(page, "capa-page").waitFor({ timeout: 30_000 });
+  await go(page, "/mfg/qa/capas");
   await caption(page, "CAPA: root cause, actions with owners and due dates, and the effectiveness check, linked to the NCR.");
-  await hold(page, 5500);
+  const row = page.getByRole("link", { name: /^CAPA-/ }).first();
+  await glide(page, row, { click: true });
+  await tid(page, "capa-page").waitFor({ timeout: 30_000 });
+  await settle(page, 800);
+  await hold(page, 5000);
 }
 
 async function sceneFloor(page) {
   await go(page, "/mfg/floor");
   await caption(page, "The shop-floor tablet: pick the line, sign in with a badge scan, scan the traveller.");
-  const tile = page.locator('[data-testid="floor-line-pick"][data-code="ASM-01"]');
+  const tile = page.locator('[data-testid="floor-line-pick"][data-code="ASM-04"]');
   await glide(page, tile, { click: true });
   await tid(page, "floor-line-title").waitFor();
   await settle(page, 600);
   await tid(page, "floor-crew").click();
   await page.keyboard.type("OP:OP-010\n", { delay: 50 });
   await hold(page, 1200);
-  const op = ctx.ops.find((o) => o.seq === 20) ?? ctx.ops[1];
+  const op = ctx.ops3[0];
   await tid(page, "floor-crew").click();
-  await page.keyboard.type(`${ctx.wo1.number}/${op.seq}\n`, { delay: 50 });
+  await page.keyboard.type(`${ctx.wo3.number}/${op.seq}\n`, { delay: 50 });
   await tid(page, "floor-op").waitFor();
-  await settle(page, 1200);
   await settle(page, 1500);
   await glide(page, tid(page, "floor-action-start"), { click: true });
   const running = () => page.waitForFunction(() => document.querySelector('[data-testid="floor-op"]')?.getAttribute("data-status") === "running", null, { timeout: 6000 });
@@ -346,9 +372,22 @@ async function sceneFloor(page) {
     await tid(page, "floor-action-start").click();          // the layout moved under the pointer: click it directly
     await running();
   });
-  await caption(page, "Report good and nonconforming quantities; components are backflushed by lot, first-expiry-first.");
+  await settle(page, 800);
+  if (ctx.stopperLot) {
+    await caption(page, "Issue a component lot by scanning its label: the bonding-solvent lot is booked to this work order.");
+    await glide(page, tid(page, "floor-action-issue-lot"), { click: true });
+    await tid(page, "floor-issue-panel").waitFor();
+    await tid(page, "floor-issue-lot").click();
+    await page.keyboard.type(ctx.stopperLot, { delay: 60 });
+    await tid(page, "floor-issue-qty").fill("4");
+    await hold(page, 1500);
+    await glide(page, tid(page, "floor-issue-submit"), { click: true });
+    await settle(page, 2500);
+    await hold(page, 1500);
+  }
+  await caption(page, "Report good and nonconforming quantities as they are made; other parts are backflushed by lot.");
   await glide(page, tid(page, "floor-action-report"), { click: true });
-  await tid(page, "floor-qty-good").fill("24000");
+  await tid(page, "floor-qty-good").fill("6000");
   await hold(page, 1500);
   await glide(page, tid(page, "floor-qty-submit"), { click: true });
   await settle(page, 2000);
@@ -398,9 +437,12 @@ async function sceneFrench(page) {
   await tid(page, "lang-select").selectOption("fr-CA");
   await page.waitForLoadState("load");
   await settle(page, 1000);
-  await go(page, "/mfg/dashboard");
+  await go(page, "/mfg/sterilisation");
   await caption(page, "The interface is also available in Canadian French; numbers and dates follow the language.");
-  await hold(page, 5000);
+  await tid(page, "ster-timeline").waitFor({ timeout: 30_000 });
+  await hold(page, 2500);
+  await page.mouse.wheel(0, 380);
+  await hold(page, 3500);
   await tid(page, "display-menu").click();
   await tid(page, "lang-select").selectOption("en");
   await page.waitForLoadState("load");
@@ -430,9 +472,11 @@ async function sceneAssistant(page) {
   }, null, { timeout: 90_000 });
   await settle(page, 800);
   const turn = panel.getByTestId("asst-turn").last();
-  await caption(page, "It cites the records it used; any suggested change is a draft the planner reviews before applying.");
+  await caption(page, "It cites the records it used, and proposes a draft action that the planner reviews; nothing is applied.");
   await glide(page, turn.getByTestId("asst-answer"));
-  await hold(page, 4500);
+  await hold(page, 3000);
+  await glide(page, turn.getByTestId("asst-draft").first(), { optional: true });
+  await hold(page, 4000);
   await page.keyboard.press("Escape").catch(() => undefined);
 }
 
