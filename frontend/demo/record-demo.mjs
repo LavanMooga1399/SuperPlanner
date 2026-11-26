@@ -157,9 +157,11 @@ async function sceneSafetyStock(page) {
   await caption(page, "Nothing changes until a manager approves; the approval and its reason are recorded.");
   await glide(page, tid(page, "ss-approve"), { click: true });
   await tid(page, "ss-reason").waitFor();
+  await captionAtTop(page, true);
   await page.keyboard.type("Reviewed with materials team, weekly S&OP", { delay: 30 });
   await hold(page, 600);
   await glide(page, page.getByRole("dialog").getByRole("button", { name: "Approve" }), { click: true });
+  await captionAtTop(page, false);
   await settle(page, 1500);
   await glide(page, tid(page, "ss-page").getByRole("button", { name: "Approved", exact: true }), { click: true, optional: true });
   await settle(page, 2500);
@@ -204,8 +206,10 @@ async function sceneRatePlan(page) {
   await glide(page, tid(page, "rate-publish"), { click: true });
   const dlg = page.getByRole("dialog");
   await dlg.waitFor();
+  await captionAtTop(page, true);
   await hold(page, 1500);
   await glide(page, dlg.getByRole("button").last(), { click: true });
+  await captionAtTop(page, false);
   await tid(page, "rate-publish-result").waitFor({ timeout: 60_000 });
   await settle(page, 1000);
   await glide(page, tid(page, "rate-publish-result"));
@@ -241,7 +245,9 @@ async function sceneSchedule(page) {
     await caption(page, "The planner publishes the plan without overtime; suggested shifts go to supervisors to approve.");
     await glide(page, tid(page, "aps-publish-base"), { click: true });
     await page.getByRole("dialog").waitFor();
+    await captionAtTop(page, true);
     await glide(page, page.getByRole("dialog").getByRole("button", { name: "Publish" }), { click: true });
+    await captionAtTop(page, false);
     await settle(page, 2000);
   }
 }

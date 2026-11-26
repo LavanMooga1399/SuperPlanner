@@ -5,78 +5,78 @@
   },
   {
     "scene": "1-overview",
-    "at_s": 15.015
+    "at_s": 14.854
   },
   {
     "scene": "2-master-data",
-    "at_s": 35.496
+    "at_s": 35.278
   },
   {
     "scene": "3-forecast",
-    "at_s": 53.661
+    "at_s": 53.507
   },
   {
     "scene": "4-safety-stock",
-    "at_s": 92.612
+    "at_s": 92.434
   },
   {
     "scene": "5-mrp",
-    "at_s": 112.104
+    "at_s": 112.077
   },
   {
     "scene": "6-rate-plan",
-    "at_s": 128.106
+    "at_s": 127.826
   },
   {
     "scene": "7-schedule",
-    "at_s": 156.591
+    "at_s": 175.308
   },
   {
     "scene": "8-sterilisation",
-    "at_s": 219.887
+    "at_s": 224.46
   },
   {
     "scene": "9-inspection-ncr",
-    "at_s": 251.664
+    "at_s": 255.753
   },
   {
     "scene": "10-capa",
-    "at_s": 283.039
+    "at_s": 287.308
   },
   {
     "scene": "11-floor",
-    "at_s": 293.768
+    "at_s": 299.085
   },
   {
     "scene": "12-trace-recall",
-    "at_s": 310.975
+    "at_s": 325.759
   },
   {
     "scene": "13-audit",
-    "at_s": 342.426
+    "at_s": 357.141
   },
   {
     "scene": "14-french",
-    "at_s": 364.147
+    "at_s": 378.834
   },
   {
     "scene": "15-validation",
-    "at_s": 377.781
+    "at_s": 393.841
   },
   {
     "scene": "16-assistant",
-    "at_s": 389.571
+    "at_s": 406.247
   },
   {
     "scene": "17-phone",
-    "at_s": 406.483
+    "at_s": 429.324
   },
   {
     "scene": "end",
-    "at_s": 420.9
+    "at_s": 443.171
   },
   {
     "scene": "end-of-video",
-    "at_s": 432.809
+    "at_s": 455.079
   }
 ]

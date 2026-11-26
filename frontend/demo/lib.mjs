@@ -219,7 +219,9 @@ export const CAPTION_INIT = `(() => {
     el.dataset.empty = t ? "false" : "true";
     // never cover an open dialog or drawer: move the bar into the wider free strip beside it
     const open = [...document.querySelectorAll('[role="dialog"], [data-testid="asst-panel"]')]
-      .map((d) => d.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+      .filter((d) => d.id !== "sp-demo-card" && getComputedStyle(d).visibility !== "hidden" && getComputedStyle(d).display !== "none")
+      .map((d) => d.getBoundingClientRect())
+      .filter((r) => r.width > 80 && r.height > 80 && r.left >= -1 && r.right <= window.innerWidth + 1 && r.width < window.innerWidth * 0.95 && r.top < window.innerHeight && r.bottom > 0)
       .sort((a, b) => b.width * b.height - a.width * a.height)[0];
     let pos = "";
     if (open) {
@@ -234,6 +236,7 @@ export const CAPTION_INIT = `(() => {
         pos = "top:auto;bottom:4px;font-size:16px;padding:6px 14px;opacity:.95";
       }
     }
+    if (el.dataset.pinned) pos = el.dataset.pinned;
     if (el.dataset.pos !== pos) {
       el.dataset.pos = pos;
       el.style.cssText = pos;
@@ -276,8 +279,32 @@ export async function caption(page, text) {
   await page.evaluate((t) => window.__spCaption?.(t), text);
 }
 
-/** Kept for older scene code: the caption bar now moves beside open dialogs by itself (CAPTION_INIT). */
-export async function captionAtTop() {}
+/**
+ * While a dialog is open (`on`), pin the caption bar into the wider free strip beside the dialog box (measured from
+ * the page), so it never covers the dialog heading or content; `on = false` releases it.
+ */
+export async function captionAtTop(page, on) {
+  let pos = "";
+  if (on) {
+    const box = await page.locator(".dialog").first().boundingBox().catch(() => null);
+    const vw = page.viewportSize()?.width ?? 1440;
+    if (box) {
+      const left = box.x;
+      const right = vw - (box.x + box.width);
+      const gap = Math.max(left, right);
+      const cx = left >= right ? left / 2 : box.x + box.width + right / 2;
+      pos = `left:${cx}px;top:50%;bottom:auto;transform:translate(-50%,-50%);max-width:${gap - 24}px;font-size:${gap < 260 ? 15 : 18}px;padding:10px 14px`;
+    }
+  }
+  await page.evaluate((p) => {
+    const el = document.getElementById("sp-demo-caption");
+    if (!el) return;
+    if (p) el.dataset.pinned = p;
+    else delete el.dataset.pinned;
+    el.dataset.pos = p;
+    el.style.cssText = p;
+  }, pos);
+}
 
 export async function card(page, title, lines, small, holdMs) {
   await page.evaluate((init) => {
