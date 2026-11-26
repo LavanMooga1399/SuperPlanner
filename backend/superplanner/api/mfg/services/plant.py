@@ -29,9 +29,17 @@ from .common import (audit, check_limit, check_version, count, ensure_unique, il
 # ---------------------------------------------------------------- plant
 
 
+def _with_locale(rec: PlantRecord) -> PlantRecord:
+    from ....mfg.model import plant_locale
+
+    c, loc = plant_locale(rec.attributes, rec.currency, rec.time_zone)
+    rec.__dict__.update(country=c, locale=loc)
+    return rec
+
+
 def get_plant(ctx: AppContext) -> PlantRecord:
     with read_tx(ctx) as s:
-        return repo.plant_or_default(s)
+        return _with_locale(repo.plant_or_default(s))
 
 
 def put_plant(ctx: AppContext, inp: PlantInput, if_match: str | None) -> PlantRecord:
@@ -80,7 +88,7 @@ def put_plant(ctx: AppContext, inp: PlantInput, if_match: str | None) -> PlantRe
         if rebased:
             details["rebased_exceptions"] = rebased
         audit(s, "plant", row.id, "create" if current == 0 else "update", details)
-        return repo.to_record(row)
+        return _with_locale(repo.to_record(row))
 
 
 def rebase_exceptions(s: Session, old_offset: str, new_offset: str) -> int:

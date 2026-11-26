@@ -375,7 +375,7 @@ function DecideDialog({ decision, count, onClose, run }: { decision: "approved" 
         <MfgError error={err} />
         <div className="field">
           <label htmlFor="ss-reason">
-            {t("plan.label.reason")} <span className="req" aria-hidden>*</span>
+            {t("plan.label.reason")} <span className="req" aria-hidden />
           </label>
           <textarea id="ss-reason" className="textarea" rows={2} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} placeholder={t("plan.ss.ph.reason")} data-testid="ss-reason" data-autofocus />
         </div>

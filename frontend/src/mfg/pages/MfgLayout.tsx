@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { getPlant } from "../api/client";
+import { refreshLocale } from "../../lib/locale";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { Icon } from "../../components/Icon";
 import { HeaderTools } from "../../components/shell/HeaderSlot";
@@ -10,7 +12,9 @@ import { mfgPaths } from "../lib/paths";
 import { MFG_NAV, sectionFor, type NavGroupDef } from "../lib/nav";
 import { AccessProvider, useAccess } from "../lib/permissions";
 import { useStoredState } from "../../lib/useAsync";
-import { t, t as tr } from "../../lib/i18n";
+import { regionOf, setPlantRegion, t, t as tr } from "../../lib/i18n";
+import { useLoad } from "../lib/useMfg";
+import { Spinner } from "../components/Feedback";
 
 function NavGroup({ group, ownerVisible, collapsed }: { group: NavGroupDef; ownerVisible: boolean; collapsed: boolean }) {
   const sections = group.sections.filter((s) => !s.ownerOnly || ownerVisible);
@@ -132,7 +136,9 @@ export function MfgLayout() {
           <MfgBreadcrumbs onMenu={() => setOpen(true)} />
           <div className="mfg-page">
             <AccessError />
-            <Outlet />
+            <PlantLocaleGate>
+              <Outlet />
+            </PlantLocaleGate>
           </div>
         </div>
       </div>
@@ -164,4 +170,21 @@ export function SectionTabs({ label, tabs }: { label: string; tabs: { to: string
       ))}
     </nav>
   );
+}
+
+/**
+ * Number and date format follow the plant's country (demo review): the plant record is read before the first page
+ * renders, its region stored, and the formatters re-created when the format changes (no reload).
+ */
+function PlantLocaleGate({ children }: { children: ReactNode }) {
+  const plant = useLoad((s) => getPlant(s), []);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (plant.data) {
+      setPlantRegion(regionOf(plant.data.currency, plant.data.utc_offset));
+      refreshLocale();
+      setReady(true);
+    } else if (plant.error) setReady(true);
+  }, [plant.data, plant.error]);
+  return ready ? <>{children}</> : <Spinner />;
 }

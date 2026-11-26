@@ -241,7 +241,7 @@ def test_meta_has_every_field(mfg: Mfg, client):
     assert names[0] == "plant" and "bom_lines" in names
     col = m["import_spec"]["sheets"][1]["columns"][0]
     assert set(col) == {"field", "type", "required_on_create", "key", "enum_values", "synonyms"}
-    assert {s["id"] for s in m["samples"]} == {"small", "medium", "kavach", "meddev"}
+    assert {s["id"] for s in m["samples"]} == {"small", "medium", "kavach", "meddev", "meddev_m8"}   # (+ M8)
     assert len(m["health_codes"]) >= 40
 
 

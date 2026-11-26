@@ -169,9 +169,59 @@ export function getLocale(): Locale {
   return locale;
 }
 
-/** Intl locale for numbers and dates (UX-STANDARD 4: en-IN for English, fr-CA for French). */
+/**
+ * Number and date format (demo review): the person's choice (`sp.numfmt`, display menu) wins; otherwise the UI
+ * language and the plant's country - French -> fr-CA, English -> en-CA for Canadian plants, en-IN for Indian plants,
+ * en-US elsewhere. The plant region (`sp.region`) is cached from the plant record (`setPlantRegion`).
+ */
+export type NumberFormatPref = "auto" | "en-IN" | "en-CA" | "en-US" | "fr-CA";
+export const NUMBER_FORMATS: readonly NumberFormatPref[] = ["auto", "en-CA", "en-IN", "en-US", "fr-CA"];
+const FORMAT_KEY = "sp.numfmt";
+const REGION_KEY = "sp.region";
+function readKey(k: string): string | null {
+  try {
+    return window.localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+}
+export function numberFormatPref(): NumberFormatPref {
+  const v = typeof window === "undefined" ? null : readKey(FORMAT_KEY);
+  return (NUMBER_FORMATS as readonly string[]).includes(v ?? "") ? (v as NumberFormatPref) : "auto";
+}
 export function intlLocale(): string {
-  return locale === "fr-CA" ? "fr-CA" : "en-IN";
+  const pref = numberFormatPref();
+  if (pref !== "auto") return pref;
+  if (locale === "fr-CA") return "fr-CA";
+  const region = typeof window === "undefined" ? null : readKey(REGION_KEY);
+  return region === "CA" ? "en-CA" : region === "IN" ? "en-IN" : "en-US";
+}
+/** Country of a plant from its currency (else its UTC offset): IN, CA or US (default). */
+export function regionOf(currency: string | null | undefined, utcOffset?: string | null): string {
+  const c = (currency ?? "").toUpperCase();
+  if (c === "INR" || (!c && utcOffset === "+05:30")) return "IN";
+  if (c === "CAD") return "CA";
+  return "US";
+}
+/** Store the plant's region; true when the number/date format changed. */
+export function setPlantRegion(region: string): boolean {
+  const before = intlLocale();
+  try {
+    window.localStorage.setItem(REGION_KEY, region);
+  } catch {
+    /* storage unavailable */
+  }
+  return intlLocale() !== before;
+}
+/** The person's number/date format override (display menu); reloads so every formatter follows. */
+export function setNumberFormat(pref: NumberFormatPref): void {
+  try {
+    if (pref === "auto") window.localStorage.removeItem(FORMAT_KEY);
+    else window.localStorage.setItem(FORMAT_KEY, pref);
+  } catch {
+    /* storage unavailable */
+  }
+  window.location.reload();
 }
 
 let dict: Record<StringKey, string> = en;

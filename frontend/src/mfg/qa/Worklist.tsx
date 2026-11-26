@@ -92,12 +92,15 @@ export function QaWorklist<T>({
   const extra = filters.map((f) => [f.param, params.get(f.param) ?? ""] as const);
   const key = JSON.stringify([dq, view, status, sort, extra]);
   const viewDef = views?.find((v) => v.key === view);
+  // the list routes take at most 64 characters of status; a longer set (CAPA's active statuses) is filtered here
+  const wanted = status || defaultStatus;
+  const keep = wanted.length > 64 ? new Set(wanted.split(",")) : null;
   const data = usePaged<T, QaPage<T>>(
     (offset, limit, signal) =>
       fetch(
         {
           q: dq || undefined,
-          status: status || defaultStatus || undefined,
+          status: keep ? undefined : wanted || undefined,
           sort: sort || undefined,
           ...(viewDef?.query ?? {}),
           ...Object.fromEntries(extra.filter(([, v]) => v)),
@@ -108,6 +111,8 @@ export function QaWorklist<T>({
       ),
     [key],
   );
+  const rows = keep ? data.rows.filter((r) => keep.has(String((r as { status?: unknown }).status))) : data.rows;
+  const total = keep ? data.total - (data.rows.length - rows.length) : data.total;
   const chips: FilterChip[] = [];
   if (dq) chips.push({ key: "q", label: t("qa.list.label.search"), value: dq, onClear: () => setQ("") });
   if (status && statusOptions) chips.push({ key: "status", label: t("qa.list.label.status"), value: statusOptions.find((o) => o.value === status)?.label ?? status, onClear: () => set("status", "") });
@@ -173,13 +178,13 @@ export function QaWorklist<T>({
       </FilterBar>
       <MfgError error={data.error} onRetry={data.reload} />
       <VirtualTable
-        rows={data.rows}
+        rows={rows}
         columns={cols}
         rowKey={rowKey}
         label={title}
         testId={`${pageKey}-table`}
         card={card}
-        totalCount={data.total}
+        totalCount={total}
         rowExtras={rowExtras}
         onRowClick={rowPath ? (r) => navigate(rowPath(r)) : undefined}
         onActivate={rowPath ? (r) => navigate(rowPath(r)) : undefined}
@@ -189,7 +194,7 @@ export function QaWorklist<T>({
         onSortChange={(x) => set("sort", x && x.key !== sortDefault ? x.key : "")}
         exportName={pageKey}
         empty={empty}
-        footer={<span>{t("qa.list.tpl.showing", { n: t("common.nOfM", { n: fmtNum(data.rows.length), m: fmtNum(data.total) }), noun })}</span>}
+        footer={<span>{t("qa.list.tpl.showing", { n: t("common.nOfM", { n: fmtNum(rows.length), m: fmtNum(total) }), noun })}</span>}
       />
     </div>
   );

@@ -27,6 +27,8 @@ export interface PlantClock {
 
 const WD = [t("mfg.plantTime.str.sun"), t("mfg.plantTime.str.mon"), t("mfg.plantTime.str.tue"), t("mfg.plantTime.str.wed"), t("mfg.plantTime.str.thu"), t("mfg.plantTime.str.fri"), t("mfg.plantTime.str.sat")];
 const MO = [t("mfg.plantTime.str.jan"), t("mfg.plantTime.str.feb"), t("mfg.plantTime.str.mar"), t("mfg.plantTime.str.apr"), t("mfg.plantTime.str.may"), t("mfg.plantTime.str.jun"), t("mfg.plantTime.str.jul"), t("mfg.plantTime.str.aug"), t("mfg.plantTime.str.sep"), t("mfg.plantTime.str.oct"), t("mfg.plantTime.str.nov"), t("mfg.plantTime.str.dec")];
+/** en-GB short weekday names as `formatToParts` returns them (index lookup only; never shown). */
+const WD_EN = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2023, 0, 1 + i))));
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export function makeClock(plant: (PlantRecord & PlantM3Fields) | null | undefined): PlantClock {
@@ -44,7 +46,7 @@ export function makeClock(plant: (PlantRecord & PlantM3Fields) | null | undefine
     if (fmt) {
       const p: Record<string, string> = {};
       for (const x of fmt.formatToParts(new Date(ms))) p[x.type] = x.value;
-      return { y: Number(p.year), mo: Number(p.month), d: Number(p.day), h: Number(p.hour) % 24, mi: Number(p.minute), wd: WD.indexOf(p.weekday) };
+      return { y: Number(p.year), mo: Number(p.month), d: Number(p.day), h: Number(p.hour) % 24, mi: Number(p.minute), wd: WD_EN.indexOf(p.weekday) };
     }
     const d = new Date(ms + off * 60000);
     return { y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes(), wd: d.getUTCDay() };

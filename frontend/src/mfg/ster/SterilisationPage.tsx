@@ -17,6 +17,7 @@ import { Legend } from "../../finance/charts/Legend";
 import { niceTicks, useWidth } from "../../finance/charts/scales";
 import { plural, t } from "../../lib/i18n";
 import { formatDay, formatNumber } from "../../lib/locale";
+import { listHolds } from "../api/clientM7";
 import { advanceSterLoad, failSterLoad, listSterLoads, loadSterLoad, planSterLoads, releaseSterLoad } from "../api/clientM8";
 import type { SterAdvanceTo, SterLoad, SterMember, SterStatus } from "../api/typesM8";
 import { DataTable } from "../components/DataTable";
@@ -356,6 +357,20 @@ function SterError({ error }: { error: unknown }) {
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
+/** The lots of a load: member lot codes, else the lots under this load's sterility holds (M7 holds, source_id = load). */
+function LoadLots({ load }: { load: SterLoad }) {
+  const fromMembers = [...new Set(load.members.map((m) => m.lot_code).filter((x): x is string => Boolean(x)))];
+  const holds = useLoad((s) => (fromMembers.length ? null : listHolds({ source: "sterility", limit: 200 }, s)), [load.id]);
+  const codes = fromMembers.length ? fromMembers : [...new Set((holds.data?.items ?? []).filter((h) => h.source_id === load.id).map((h) => h.lot_code).filter((x): x is string => Boolean(x)))];
+  if (!fromMembers.length && holds.loading) return <span className="muted">…</span>;
+  if (!codes.length) return <span className="muted">{t("plan.ster.sig.noLots")}</span>;
+  return (
+    <span className="mono" data-testid="ster-sig-lots">
+      {codes.join(", ")}
+    </span>
+  );
+}
+
 function useLoadActions(onChanged: () => void) {
   const [releasing, setReleasing] = useState<SterLoad | null>(null);
   const [early, setEarly] = useState("");
@@ -380,7 +395,7 @@ function useLoadActions(onChanged: () => void) {
                 <Banner tone="warn" title={t("plan.ster.early.title", { d: formatDay(releasing.release_due) })}>{t("plan.ster.early.body")}</Banner>
                 <div className="field">
                   <label htmlFor="ster-early-reason">
-                    {t("plan.ster.early.label")} <span className="req" aria-hidden>*</span>
+                    {t("plan.ster.early.label")} <span className="req" aria-hidden />
                   </label>
                   <textarea id="ster-early-reason" className="textarea" rows={2} maxLength={500} required aria-required value={early} onChange={(e) => setEarly(e.target.value)} data-testid="ster-early-reason" />
                 </div>
@@ -388,6 +403,7 @@ function useLoadActions(onChanged: () => void) {
             ) : undefined
           }
           canSubmit={releasing.release_due <= todayIso() || early.trim().length > 0}
+          extraRows={[{ label: t("plan.ster.sig.lots"), value: <LoadLots load={releasing} /> }]}
           perform={(sig, comment) => releaseSterLoad(releasing, sig, comment, releasing.release_due > todayIso() ? early : null)}
           onDone={(res) => {
             toast(signedToast(res, t("plan.ster.toast.released", { n: releasing.number })));

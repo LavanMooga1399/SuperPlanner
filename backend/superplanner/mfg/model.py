@@ -228,6 +228,29 @@ class PlantRecord(PlantInput):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     data_version: int = 0
+    #: demo review: ISO country and UI locale (attributes `country` / `locale` win; else derived from the
+    #: currency, then the time zone); read-only, filled by `GET/PUT /plant`
+    country: str | None = None
+    locale: str | None = None
+
+
+CURRENCY_COUNTRY = {"CAD": "CA", "INR": "IN", "USD": "US", "GBP": "GB", "AUD": "AU", "MXN": "MX", "JPY": "JP"}
+TZ_COUNTRY = {"Asia/Kolkata": "IN", "Asia/Calcutta": "IN", "America/Toronto": "CA", "America/Montreal": "CA",
+              "America/Vancouver": "CA", "America/Edmonton": "CA", "America/Winnipeg": "CA", "America/Halifax": "CA",
+              "America/New_York": "US", "America/Chicago": "US", "America/Denver": "US",
+              "America/Los_Angeles": "US", "Europe/London": "GB"}
+COUNTRY_LOCALE = {"CA": "en-CA", "IN": "en-IN", "US": "en-US", "GB": "en-GB", "AU": "en-AU", "MX": "es-MX",
+                  "JP": "ja-JP", "FR": "fr-FR", "DE": "de-DE"}
+
+
+def plant_locale(attributes: dict | None, currency: str | None, time_zone: str | None) -> tuple[str | None, str]:
+    """(country, locale) of a plant: attributes `country` / `locale`, else currency, else time zone; locale
+    defaults from the country ("en" when unknown)."""
+    a = attributes or {}
+    country = str(a["country"]).upper() if a.get("country") else (
+        CURRENCY_COUNTRY.get((currency or "").upper()) or TZ_COUNTRY.get(time_zone or ""))
+    locale = str(a["locale"]) if a.get("locale") else COUNTRY_LOCALE.get(country or "", "en")
+    return country, locale
 
 
 # ---------------------------------------------------------------- item (3.4)

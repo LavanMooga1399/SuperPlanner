@@ -704,7 +704,7 @@ function OverrideDialog({ versionId, bucket, periods, itemId, itemText, family, 
         <p className="muted small" style={{ margin: 0 }}>{f.mode === "pct" ? t("plan.fc.ov.pctHint") : t("plan.fc.ov.absHint")}</p>
         <div className="field">
           <label htmlFor="ov-reason">
-            {t("plan.fc.ov.head.reason")} <span className="req" aria-hidden>*</span>
+            {t("plan.fc.ov.head.reason")} <span className="req" aria-hidden />
           </label>
           <textarea id="ov-reason" className="textarea" rows={2} maxLength={500} required aria-required value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} data-testid="fc-ov-reason" />
           <span className="hint">{t("plan.fc.ov.reasonHint")}</span>
@@ -740,7 +740,7 @@ export function ReasonConfirm({ title, body, confirm, danger, onClose, run }: { 
         <MfgError error={err} />
         <div className="field">
           <label htmlFor="pl-reason">
-            {t("plan.label.reason")} <span className="req" aria-hidden>*</span>
+            {t("plan.label.reason")} <span className="req" aria-hidden />
           </label>
           <textarea id="pl-reason" className="textarea" rows={2} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} data-testid="pl-reason" data-autofocus />
         </div>

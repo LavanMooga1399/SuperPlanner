@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../Icon";
 import { setDensity, setLanguage, setTheme, usePrefs, type Density, type ThemePref } from "../../lib/prefs";
-import { getLocale, LOCALES, t, t as tr, type Locale } from "../../lib/i18n";
+import { getLocale, LOCALES, NUMBER_FORMATS, numberFormatPref, setNumberFormat, t, t as tr, type Locale, type NumberFormatPref } from "../../lib/i18n";
 
 const THEMES: { v: ThemePref; label: string }[] = [
   { v: "system", label: tr("shell.displayMenu.str.matchSystem") },
@@ -83,6 +83,19 @@ export function DisplayMenu() {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="popover-group">
+            <label className="popover-legend" htmlFor="sp-numfmt">
+              {t("shell.numfmt.label")}
+            </label>
+            <select id="sp-numfmt" className="select" value={numberFormatPref()} onChange={(e) => setNumberFormat(e.target.value as NumberFormatPref)} data-testid="numfmt-select">
+              {NUMBER_FORMATS.map((f) => (
+                <option key={f} value={f}>
+                  {f === "auto" ? t("shell.numfmt.auto") : t("shell.numfmt.sample", { name: f === "en-IN" ? t("shell.numfmt.in") : f === "en-CA" ? t("shell.numfmt.ca") : f === "fr-CA" ? t("shell.numfmt.fr") : t("shell.numfmt.us"), sample: (1234567.5).toLocaleString(f, { maximumFractionDigits: 1 }) })}
+                </option>
+              ))}
+            </select>
+            <span className="faint small">{t("shell.numfmt.hint")}</span>
           </div>
         </div>
       ) : null}

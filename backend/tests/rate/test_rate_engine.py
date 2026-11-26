@@ -203,3 +203,26 @@ def test_publish_started_wo_never_duplicated():
     assert [x.key for x in dec.create] == [("lin_b", "s3", d)]
     assert [w.id for w, _g in dec.keep] == ["w1"] and [w.id for w in dec.cancel] == ["w2"]
     assert dec.skipped == [{"wo_id": "w1", "item_id": "s3", "due": d, "planned_qty": 5000.0, "wo_qty": 4800.0}]
+
+
+def test_cleaning_interval_counts_firm_production():
+    """Demo review: firm blocks with 70 h of production since the last cleaning; the construction must clean
+    within the next 2 h of production (validator: run hours <= 72)."""
+    from superplanner.mfg.rate.model import RateBlock
+
+    wins = tuple(Window(T0 + timedelta(days=k), T0 + timedelta(days=k + 1)) for k in range(14))
+    ln = line({"s3": 1000.0}, wins=wins, clean_every_hours=72, clean_minutes=120)
+    firm = []
+    t = T0
+    for h in (24, 24, 22):                         # 70 h, split at midnight like real blocks
+        firm.append(RateBlock("lin_a", "production", "s3", 1, t, t + timedelta(hours=h), qty=1000.0 * h,
+                              prod_date=t.date(), firm=True))
+        t += timedelta(hours=24)
+    p = problem(ln, [item("s3", "SYR", target_cover_days=10)], _dem("s3", [4, 7, 10], 40_000), days=14,
+                firm_blocks=tuple(firm))
+    res = engine.solve(p)
+    assert res.validator["ok"], res.validator
+    first_clean = min(b.start for b in res.blocks if b.kind == "cleaning")
+    prod_before = sum((b.end - b.start).total_seconds() / 3600 for b in res.blocks
+                      if b.kind == "production" and b.start < first_clean)
+    assert prod_before <= 72 + 1e-6

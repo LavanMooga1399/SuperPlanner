@@ -31,3 +31,36 @@ def test_meddev_m8_sample(api):
     loops = api.get("/kanban/loops")["items"]
     assert len(loops) == 2 and sum(lp["card_counts"]["empty"] for lp in loops) == 1
     assert {x["label"] for x in api.get("/mrp/runs")["items"]} >= {"nightly-1", "nightly-2"}
+
+
+def test_meddev_m8_fresh_rate_run_validates_and_publishes(api):
+    """Demo review: a new rate run on the loaded sample (firm blocks of the published run carried over) is
+    validator-clean and publishable."""
+    from m8_helpers import wait_for
+
+    api.load("meddev_m8")
+    r = api.post("/rate/runs", {"label": "demo", "horizon_days": 30, "time_budget_s": 20}, 202)
+    run = wait_for(lambda: api.get(f"/rate/runs/{r['id']}"), lambda x: x["status"] not in ("queued", "running"),
+                   timeout=180)
+    assert run["status"] == "completed", run["validator"]["violations"][:3]
+    pub = api.post(f"/rate/runs/{run['id']}/publish", None, 200)
+    assert pub["run_id"] == run["id"]
+
+
+def test_plant_country_and_locale(api):
+    """Demo review: the plant exposes country / locale (meddev: CAD -> en-CA; attributes override)."""
+    api.load("meddev_m8")
+    p = api.get("/plant")
+    assert p["country"] == "CA" and p["locale"] == "en-CA" and p["currency"] == "CAD"
+    keys = ("name", "utc_offset", "planning_horizon_days", "currency", "attributes")
+    out = api.put("/plant", {**{k: p[k] for k in keys}, "attributes": {"locale": "fr-CA"}}, p["row_version"])
+    assert out["locale"] == "fr-CA" and out["country"] == "CA"
+
+
+def test_plant_locale_derivation():
+    from superplanner.mfg.model import plant_locale
+
+    assert plant_locale({}, "INR", None) == ("IN", "en-IN")
+    assert plant_locale({}, "", "America/Toronto") == ("CA", "en-CA")
+    assert plant_locale({"country": "us"}, "CAD", None) == ("US", "en-US")
+    assert plant_locale({}, "", None) == (None, "en")

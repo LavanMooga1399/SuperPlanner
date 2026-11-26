@@ -44,6 +44,8 @@ export interface SignatureDialogProps<T> {
   plainLabel: string;
   /** what happens after signing (one sentence) */
   effect?: ReactNode;
+  /** extra rows of "what you sign" from the record itself (e.g. the lots of a sterilisation load) */
+  extraRows?: { label: string; value: ReactNode }[];
   /** extra fields of the action (decision note, NCR) rendered above the signature */
   children?: ReactNode;
   canSubmit?: boolean;
@@ -241,8 +243,13 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
                   {recordTypeText(preview.record_type)} <span className="mono">{props.recordLabel ?? preview.record_id}</span>{" "}
                   {signable ? <span className="muted small">{t("qa.esig.tpl.version", { v: preview.record_version })}</span> : null}
                 </dd>
-                {preview.summary.map((l, i) => (
-                  <PreviewRow key={i} label={l.label} value={l.value} />
+                {preview.summary
+                  .filter((l) => !(props.extraRows?.some((x) => x.label === l.label) && (!l.value || /^[-–]$/.test(l.value.trim()))))
+                  .map((l, i) => (
+                    <PreviewRow key={i} label={l.label} value={l.value} />
+                  ))}
+                {props.extraRows?.map((x) => (
+                  <PreviewRow key={`x-${x.label}`} label={x.label} value={x.value} />
                 ))}
                 {required ? (
                   <>
@@ -443,7 +450,7 @@ export function SignatureDialog<T>(props: SignatureDialogProps<T>) {
   );
 }
 
-function PreviewRow({ label, value }: { label: string; value: string }) {
+function PreviewRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <>
       <dt>{label}</dt>

@@ -149,4 +149,12 @@ export const shellStrings = {
   "shell.time.str.tue": "Tue",
   "shell.time.str.wed": "Wed",
   "shell.time.tpl.minAgo": "{Math} min ago",
+  "shell.numfmt.label": "Number and date format",
+  "shell.numfmt.auto": "Automatic (plant country and language)",
+  "shell.numfmt.sample": "{name} ({sample})",
+  "shell.numfmt.in": "India",
+  "shell.numfmt.ca": "Canada (English)",
+  "shell.numfmt.fr": "Canada (French)",
+  "shell.numfmt.us": "United States",
+  "shell.numfmt.hint": "Applies to numbers, amounts and dates on every screen.",
 } as const;

@@ -2,11 +2,11 @@
 import { intlLocale, t } from "./i18n";
 
 /**
- * One place for number/date formatting (UX-STANDARD 4): Indian English (or French (Canada), M7 10: narrow no-break
- * space thousands, comma decimal), 24-hour clock, digit grouping. Plant-local values keep their own offset (see
+ * One place for number/date formatting (UX-STANDARD 4): the format from `intlLocale()` (person override, else language +
+ * plant country: en-CA / fr-CA, en-IN, en-US), 24-hour clock, digit grouping. Plant-local values keep their own offset (see
  * mfg/lib/plantTime.ts); browser-local timestamps use these.
  */
-export const LOCALE = intlLocale();
+export let LOCALE = intlLocale();
 
 const nf = new Map<string, Intl.NumberFormat>();
 function numberFormat(min: number, max: number): Intl.NumberFormat {
@@ -25,8 +25,24 @@ export function formatNumber(x: number | null | undefined, max = 6, min = 0): st
   return numberFormat(min, Math.max(min, max)).format(x);
 }
 
-const dtf = new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-const df = new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short", year: "numeric" });
+const mkDtf = () => new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const mkDf = () => new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short", year: "numeric" });
+const mkTf = () => new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+let dtf = mkDtf();
+let df = mkDf();
+let tf = mkTf();
+
+/** Re-read the format after the plant region is known (live binding: importers of `LOCALE` see the new value). */
+export function refreshLocale(): boolean {
+  const next = intlLocale();
+  if (next === LOCALE) return false;
+  LOCALE = next;
+  nf.clear();
+  dtf = mkDtf();
+  df = mkDf();
+  tf = mkTf();
+  return true;
+}
 
 /** Browser-local date and time, e.g. "21 Nov 2026, 17:20". */
 export function formatDateTime(d: Date | string | number | null | undefined): string {
@@ -41,7 +57,6 @@ export function formatDate(d: Date | string | number | null | undefined): string
   return Number.isNaN(x.getTime()) ? String(d) : df.format(x);
 }
 
-const tf = new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 /** Browser-local time of day, 24 h, e.g. "17:20". */
 export function formatTime(d: Date | string | number | null | undefined): string {

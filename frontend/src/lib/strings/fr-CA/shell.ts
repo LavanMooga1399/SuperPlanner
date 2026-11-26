@@ -151,4 +151,12 @@ export const shellFrCa: Record<keyof typeof shellStrings, string> = {
   "shell.time.str.tue": "mar.",
   "shell.time.str.wed": "mer.",
   "shell.time.tpl.minAgo": "il y a {Math} min",
+  "shell.numfmt.label": "Format des nombres et des dates",
+  "shell.numfmt.auto": "Automatique (pays de l'usine et langue)",
+  "shell.numfmt.sample": "{name} ({sample})",
+  "shell.numfmt.in": "Inde",
+  "shell.numfmt.ca": "Canada (anglais)",
+  "shell.numfmt.fr": "Canada (français)",
+  "shell.numfmt.us": "États-Unis",
+  "shell.numfmt.hint": "S'applique aux nombres, montants et dates de tous les écrans.",
 };
