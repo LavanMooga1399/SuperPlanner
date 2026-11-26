@@ -32,7 +32,7 @@ async function waitHttp(url, timeoutMs = 90_000) {
 }
 
 /** Start API (fresh database `sp_demo_<ts>`, APP_ENV=development, ASSISTANT_AI_DEMO=true) and the Vite dev server. */
-export async function startServers({ log = false } = {}) {
+export async function startServers({ log = false, accounts = false } = {}) {
   const db = process.env.SP_E2E_DB ?? `sp_demo_${Date.now()}`;
   const procs = [];
   const out = log ? "inherit" : "ignore";
@@ -44,7 +44,20 @@ export async function startServers({ log = false } = {}) {
       APP_ENV: "development",
       PORT: String(API_PORT),
       RUN_WORKERS: "2",
-      AUTH_MODE: "single_user",
+      AUTH_MODE: accounts ? "accounts" : "single_user",
+      ...(accounts
+        ? {
+            // accounts mode (signatures need a person with a password); development-only settings as in
+            // e2e/playwright.accounts.config.ts, with a throwaway signing/TOTP key for this run
+            COOKIE_SECURE: "false",
+            AUTH_SIGNIN_LIMIT_PER_IP: "1000",
+            AUTH_SIGNUP_LIMIT_PER_IP: "1000",
+            PUBLIC_BASE_URL: `http://127.0.0.1:${WEB_PORT}`,
+            CORS_ORIGINS: `http://127.0.0.1:${WEB_PORT}`,
+            PASSWORD_HASH_PROFILE: "fast",
+            SECRETS_KEY: Buffer.from(Array.from({ length: 32 }, (_, i) => (i * 7 + 3) % 256)).toString("base64").replace(/\+/g, "-").replace(/\//g, "_"),
+          }
+        : {}),
       JOB_BACKEND: "queue",
       WORKER_POLL_SECONDS: "0.2",
       ASSISTANT_AI_DEMO: "true",
@@ -85,9 +98,62 @@ export async function startServers({ log = false } = {}) {
   return { stop, db };
 }
 
-// ---------------------------------------------------------------- API helpers (single-user mode: no login)
+// ---------------------------------------------------------------- accounts-mode session (cookie + CSRF + workspace)
+
+export class Session {
+  constructor() {
+    this.cookies = new Map();
+    this.csrf = "";
+    this.workspace = null;
+    this.userId = null;
+  }
+
+  async raw(method, url, body, headers = {}) {
+    const r = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+        ...(this.csrf ? { "X-CSRF-Token": this.csrf } : {}),
+        ...headers,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    for (const c of r.headers.getSetCookie?.() ?? []) {
+      const [kv] = c.split(";");
+      const i = kv.indexOf("=");
+      this.cookies.set(kv.slice(0, i).trim(), kv.slice(i + 1).trim());
+    }
+    const text = await r.text();
+    if (!r.ok) throw new Error(`${method} ${url} -> ${r.status} ${text.slice(0, 400)}`);
+    const json = text ? JSON.parse(text) : null;
+    if (json && typeof json === "object" && json.csrf_token) this.csrf = json.csrf_token;
+    return json;
+  }
+
+  async signUp(email, password, displayName) {
+    await this.raw("POST", `${API}/auth/sign-up`, { email, password, display_name: displayName });
+    const s = await this.raw("GET", `${API}/auth/session`);
+    this.userId = s.user.id;
+    if (s.csrf_token) this.csrf = s.csrf_token;
+    return s;
+  }
+
+  mfg(method, p, body, headers = {}) {
+    return this.raw(method, `${API}/mfg${p}`, body, { ...(this.workspace ? { "X-SP-Workspace": this.workspace } : {}), ...headers });
+  }
+}
+
+/** The session `api()` uses (accounts mode); null = single-user mode (no login). */
+let current = null;
+export function useSession(s) {
+  current = s;
+}
+
+// ---------------------------------------------------------------- API helpers
 
 export async function api(method, p, body, headers = {}) {
+  if (current) return current.mfg(method, p, body, headers);
   const r = await fetch(`${API}/mfg${p}`, {
     method,
     headers: { "Content-Type": "application/json", ...headers },
@@ -187,6 +253,16 @@ export const CAPTION_INIT = `(() => {
 
 export async function caption(page, text) {
   await page.evaluate((t) => window.__spCaption?.(t), text);
+}
+
+/** Move the caption bar to the top of the screen (while a dialog covers the bottom) or back. */
+export async function captionAtTop(page, top) {
+  await page.evaluate((t) => {
+    const el = document.getElementById("sp-demo-caption");
+    if (!el) return;
+    el.style.bottom = t ? "auto" : "";
+    el.style.top = t ? "12px" : "";
+  }, top);
 }
 
 export async function card(page, title, lines, small, holdMs) {

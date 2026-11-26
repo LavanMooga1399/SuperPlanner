@@ -60,9 +60,9 @@ const RECALL_LIST_COLS: Column<Recall>[] = [
     ),
   },
   { key: "created", header: t("mfg.recallPages.str.created"), width: "160px", render: (r) => formatDateTime(r.created_at) },
-  { key: "units", header: t("mfg.recallPages.str.units"), width: "100px", align: "right", render: (r) => fmtNum(r.report?.units.length ?? 0) },
+  { key: "units", header: t("mfg.recallPages.str.units"), width: "100px", align: "right", render: (r) => fmtNum(r.report?.units?.length ?? 0) },
   { key: "shipped", header: t("mfg.recallPages.str.shipped"), width: "100px", align: "right", render: (r) => fmtNum((r.report?.units ?? []).filter((u) => u.status === "shipped").length) },
-  { key: "customers", header: t("mfg.recallPages.str.customers"), width: "110px", align: "right", render: (r) => fmtNum(r.report?.by_customer.length ?? 0) },
+  { key: "customers", header: t("mfg.recallPages.str.customers"), width: "110px", align: "right", render: (r) => fmtNum(r.report?.by_customer?.length ?? 0) },
 ];
 
 const QUARANTINE_COLS: Column<LotRow>[] = [

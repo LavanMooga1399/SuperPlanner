@@ -13,7 +13,7 @@ import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { BASE, CAPTION_INIT, api, caption, card, frontendDir, glide, settle, startServers, uncard, waitRun } from "./lib.mjs";
+import { API, BASE, CAPTION_INIT, Session, api, caption, captionAtTop, card, frontendDir, glide, settle, startServers, uncard, useSession, waitRun } from "./lib.mjs";
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => {
@@ -34,17 +34,23 @@ const tid = (page, id) => page.getByTestId(id);
 
 /** Data the scenes share (ids looked up through the API once the sample is loaded). */
 const ctx = {};
+const PASSWORD = "fictional demo passphrase 2026";
+const PLANNER = { email: "claire.gagnon@example.com", name: "Claire Gagnon" };   // fictional person
 
 async function lookup() {
   const item = async (pn) => (await api("GET", `/items?q=${encodeURIComponent(pn)}&limit=50`)).items.find((i) => i.part_number === pn);
   const doc = async (coll, no) => (await api("GET", `${coll}?q=${encodeURIComponent(no)}&limit=50`)).items.find((d) => d.number === no);
   ctx.ivs = await item("MDV-IVS-20");
   ctx.pp = await item("MDV-RES-PP");
+  ctx.syr10 = await item("MDV-SYR-10");
   ctx.rush = await doc("/demand-orders", "DO-MDV-1003");
   ctx.wo1 = await doc("/work-orders", "WO-MDV-0001");
   ctx.lines = (await api("GET", "/lines?limit=200")).items;
   ctx.groups = (await api("GET", "/groups?limit=200")).items;
   ctx.ops = (await api("GET", `/work-orders/${ctx.wo1.id}/operations`)).items;
+  const ils = (await api("GET", "/qa/inspection-lots?limit=100")).items;
+  ctx.incoming = ils.find((l) => l.scope === "incoming" && l.status === "open") ?? ils.find((l) => l.status === "open");
+  ctx.capa = (await api("GET", "/qa/capas?limit=20")).items[0];
 }
 
 /** Navigate: client-side (history + popstate, no reload and no blank frame) once the app is open, else a page load. */
@@ -67,253 +73,353 @@ async function sceneTitle(page) {
   // the app loads under the card; the video is trimmed to start once the card is up (no blank frames)
   await page.goto(`${BASE}/mfg`);
   await card(page, "SuperPlanner", ["Production planning for regulated manufacturing.", "Demo with fictional data."],
-    "Products modelled on a typical medical-device portfolio. All names, customers and suppliers are fictional.", 0);
+    "Products modelled on a typical medical-device portfolio. All names, people, customers and suppliers are fictional.", 0);
   ctx.trimStart = (Date.now() - ctx.videoStart) / 1000;
   await settle(page, 0);
-  await hold(page, 7000);
+  await hold(page, 6500);
   await uncard(page);
 }
 
 async function sceneOverview(page) {
-  await caption(page, "The plant: a fictional single-use medical-device site with moulding, cleanroom assembly, EtO sterilisation and QC release.");
-  await hold(page, 2500);
-  await glide(page, tid(page, "mfg-count-items"), { optional: true });
-  await hold(page, 2500);
+  await caption(page, "A fictional single-use medical-device plant: moulding, cleanroom assembly, EtO sterilisation and QC release.");
+  await hold(page, 3000);
   await go(page, "/mfg/dashboard");
   await tid(page, "tile-otd").waitFor({ timeout: 30_000 });
   await settle(page, 800);
-  await caption(page, "The plant dashboard: on-time delivery, load against capacity, material risk and execution in one view.");
+  await caption(page, "The plant dashboard: on-time delivery, load against capacity, material risk, execution and quality.");
   await glide(page, tid(page, "tile-otd").getByTestId("tile-status"), { scroll: false });
-  await hold(page, 3500);
+  await hold(page, 3000);
   await glide(page, tid(page, "tile-material_risk").getByTestId("tile-status"), { scroll: false });
-  await caption(page, "Material risk lists the items short within four weeks and the demand lines they make late.");
-  await hold(page, 3500);
-  await glide(page, tid(page, "tile-execution").getByTestId("tile-status"), { scroll: false });
-  await caption(page, "Execution figures come from shop-floor reporting: first-pass yield, scrap rate and equipment use.");
-  await hold(page, 3500);
+  await hold(page, 3000);
 }
 
 async function sceneMasterData(page) {
   await go(page, `/mfg/items/${ctx.ivs.id}/bom`);
-  await caption(page, "Master data: the IV administration set's BOM, with moulded drip chamber and spike, extruded tubing and bought-in parts.");
-  await hold(page, 2000);
-  await page.mouse.wheel(0, 260);
-  await hold(page, 4000);
+  await caption(page, "Master data: the IV administration set's BOM, from moulded parts and extruded tubing down to resin.");
+  await hold(page, 4500);
   await go(page, `/mfg/items/${ctx.ivs.id}/routing`);
-  await caption(page, "Its routing: cleanroom assembly, leak test, packaging and labelling, EtO sterilisation with aeration, then a QC release hold.");
-  await hold(page, 6000);
-  await go(page, "/mfg/plant/setups");
-  await caption(page, "Mould changeovers: press setup times depend on the mould family that ran before.");
+  await caption(page, "Its routing: cleanroom assembly, leak test, packaging and UDI labelling, EtO sterilisation, QC release.");
   await hold(page, 4500);
 }
 
-async function sceneMrp(page) {
-  await go(page, "/mfg/demand");
-  await caption(page, "Demand from fictional provincial purchasing groups, hospitals and distributors, in units.");
+async function sceneForecast(page) {
+  await go(page, "/mfg/forecast");
+  await caption(page, "Demand forecasting: statistical models are fitted per item from 30 months of shipment history.");
+  await hold(page, 2500);
+  await glide(page, tid(page, "fc-run"), { click: true });
+  await glide(page, tid(page, "fc-run-start"), { click: true });
+  await page.waitForFunction(() => document.querySelector('[data-testid="fc-version-status"]')?.getAttribute("data-status") === "draft", null, { timeout: 120_000 });
+  await settle(page, 800);
+  await tid(page, "fc-search").fill(ctx.syr10.part_number);
+  await hold(page, 600);
+  await glide(page, tid(page, "fc-item-row").filter({ hasText: ctx.syr10.part_number }), { click: true });
+  await tid(page, "fc-panel").waitFor();
+  await settle(page, 800);
+  await caption(page, "The workbench shows history, model fit and forecast; the planner overrides a month and gives the reason.");
+  await hold(page, 3000);
+  const cell = tid(page, "fc-final-cell").nth(2);
+  await glide(page, cell, { click: true });
+  await tid(page, "fc-ov-value").fill("3200000");
+  await tid(page, "fc-ov-reason").click();
+  await page.keyboard.type("Provincial tender awarded for Q1", { delay: 35 });
+  await hold(page, 600);
+  await glide(page, tid(page, "fc-override-save"), { click: true });
+  await settle(page, 1500);
+  await glide(page, tid(page, "fc-overrides"), { optional: true });
+  await hold(page, 2500);
+  await go(page, "/mfg/forecast/accuracy");
+  await caption(page, "Forecast accuracy: error and bias by ABC class, and a backtest of each method on held-out periods.");
+  await hold(page, 4500);
+}
+
+async function sceneSafetyStock(page) {
+  await go(page, "/mfg/invopt");
+  await tid(page, "ss-matrix").waitFor({ timeout: 30_000 });
+  await caption(page, "Safety stock by ABC / XYZ class: proposals from forecast error, lead time and a service level per class.");
+  await glide(page, tid(page, "ss-matrix"));
   await hold(page, 4000);
+  const all = tid(page, "ss-page").getByTestId("vt-select-all");
+  await glide(page, all, { click: true });
+  await tid(page, "ss-bulk").waitFor();
+  await caption(page, "Nothing changes until a manager approves; the approval and its reason are recorded.");
+  await glide(page, tid(page, "ss-approve"), { click: true });
+  await tid(page, "ss-reason").waitFor();
+  await page.keyboard.type("Reviewed with materials team, weekly S&OP", { delay: 30 });
+  await hold(page, 600);
+  await glide(page, page.getByRole("dialog").getByRole("button", { name: "Approve" }), { click: true });
+  await settle(page, 2500);
+}
+
+async function sceneMrp(page) {
   await go(page, "/mfg/mrp");
-  await caption(page, "Run MRP: net requirements through the BOM against stock lots, open orders and lead times.");
+  await caption(page, "MRP nets the forecast and orders through the BOM against lots, open orders and lead times.");
   await glide(page, tid(page, "mrp-new-run"), { click: true });
   await tid(page, "mrp-run-form").waitFor();
-  await page.getByTestId("mrp-label").fill("Weekly MRP");
-  await hold(page, 800);
+  await tid(page, "mrp-label").fill("Weekly MRP");
   await glide(page, tid(page, "mrp-run-submit"), { click: true });
   await page.waitForURL(/\/mfg\/mrp\/runs\/[^/]+/, { timeout: 120_000 });
   await tid(page, "run-summary").waitFor({ timeout: 120_000 });
   await settle(page);
-  ctx.mrpRunId = /runs\/([^/?#]+)/.exec(page.url())[1];
-  await caption(page, "Late demand is listed with why it is late: the limiting part and the reason, down the BOM.");
+  await caption(page, "Late demand is listed with why: the limiting part and the reason, down the BOM.");
   await glide(page, tid(page, "run-late-demand"));
-  await hold(page, 6000);
-  await glide(page, tid(page, "run-exception-codes"));
-  await caption(page, "Exceptions: expedite and defer messages for purchase orders, expiring lots, past-due supply.");
-  await hold(page, 4500);
-  await go(page, `/mfg/mrp/runs/${ctx.mrpRunId}/planned`);
-  await caption(page, "Planned work orders and purchase requests, with release dates, ready to convert.");
-  await hold(page, 4500);
-  await go(page, "/mfg/shortages");
-  await caption(page, "Shortages across the plan, with the supply that would cover them.");
-  await hold(page, 4000);
+  await hold(page, 5500);
+}
+
+async function sceneRatePlan(page) {
+  // the sample's nightly rate plan (published); a new run is not created here (see README: validation of new runs)
+  await go(page, "/mfg/rate");
+  await caption(page, "Rate planning for flow lines: campaigns by size and gauge, with changeovers and cleanroom cleaning.");
+  await hold(page, 2500);
+  const run = page.getByRole("link", { name: /^RR-/ }).first();
+  await glide(page, run, { click: true });
+  await tid(page, "rate-run-page").waitFor({ timeout: 60_000 });
+  await settle(page, 1000);
+  await caption(page, "The published plan: what each line makes each day against its rate; the first days are firm work orders.");
+  await glide(page, tid(page, "rate-grid"), { optional: true });
+  await hold(page, 5000);
+  await glide(page, tid(page, "rate-tab-gantt"), { click: true });
+  await tid(page, "rate-gantt").waitFor();
+  await settle(page, 800);
+  await caption(page, "The campaign Gantt: long runs of one size, changeovers and cleaning between them.");
+  await hold(page, 5500);
 }
 
 async function sceneSchedule(page) {
   await go(page, "/mfg/schedule");
-  await caption(page, "Finite-capacity scheduling on shifts: three shifts on the presses, two in assembly, EtO around the clock.");
+  await caption(page, "Finite scheduling of moulding presses and assembly lines on their shifts, with overtime suggestions.");
   await glide(page, tid(page, "aps-new-run"), { click: true });
   await tid(page, "aps-run-form").waitFor();
   await tid(page, "aps-label").fill("Weekly schedule");
-  await hold(page, 800);
   await glide(page, tid(page, "aps-run-submit"), { click: true });
   await page.waitForURL(/\/mfg\/schedule\/runs\/[^/]+/, { timeout: 120_000 });
   await tid(page, "aps-summary").waitFor({ timeout: 120_000 });
   await settle(page);
-  ctx.apsRunId = /runs\/([^/?#]+)/.exec(page.url())[1];
-  await hold(page, 2500);
   await glide(page, tid(page, "aps-tab-gantt"), { click: true });
   await tid(page, "gantt-canvas").waitFor();
-  await settle(page);
-  await caption(page, "The Gantt by line: assembly lines, presses with mould changeovers, EtO chambers running batch loads.");
-  await hold(page, 4500);
   const grp = (code) => ctx.groups.find((g) => g.code === code)?.id;
-  await glide(page, tid(page, "gantt-group"));
   await tid(page, "gantt-group").selectOption(grp("MOULD"));
-  await settle(page, 600);
-  await caption(page, "Injection moulding: six presses on three shifts; changeovers depend on the mould family before.");
-  await hold(page, 5000);
-  await tid(page, "gantt-group").selectOption(grp("STER"));
-  await settle(page, 600);
-  await caption(page, "EtO sterilisation: batch loads per chamber, followed by aeration before QC release.");
-  await hold(page, 5000);
-  await tid(page, "gantt-group").selectOption(grp("ASSY"));
-  await settle(page, 600);
-  await caption(page, "Dashed outlines are overtime the scheduler suggests where work would otherwise be late.");
-  await hold(page, 4000);
-  await glide(page, tid(page, "aps-tab-overtime"), { click: true });
-  await settle(page);
-  await caption(page, "Each suggested shift states its cost and the lateness it saves.");
-  await hold(page, 5000);
+  await settle(page, 800);
+  await caption(page, "Presses run on three shifts; mould changeover times depend on the mould family before.");
+  await hold(page, 4500);
   const allow = tid(page, "aps-rerun-allow");
   if (await allow.count()) {
-    await caption(page, "Re-run allowing overtime, then compare the two plans side by side.");
+    await caption(page, "Re-run allowing overtime and compare: lateness saved against overtime hours and cost.");
     await glide(page, allow, { click: true });
     await page.waitForURL(/\/compare/, { timeout: 120_000 });
     await tid(page, "aps-tradeoff").waitFor({ timeout: 120_000 });
     await settle(page);
-    await caption(page, "The trade-off: late demand and priority-weighted lateness against overtime hours and cost.");
     await glide(page, tid(page, "aps-tradeoff"));
-    await hold(page, 6000);
-    await caption(page, "Here the planner publishes the plan without overtime; the suggested shifts go to supervisors to approve.");
+    await hold(page, 5000);
+    await caption(page, "The planner publishes the plan without overtime; suggested shifts go to supervisors to approve.");
     await glide(page, tid(page, "aps-publish-base"), { click: true });
     await page.getByRole("dialog").waitFor();
-    await hold(page, 1200);
     await glide(page, page.getByRole("dialog").getByRole("button", { name: "Publish" }), { click: true });
-    await settle(page);
-    await caption(page, "Published: this plan now drives dispatch lists, the shop-floor queues and the phone app.");
-    await hold(page, 3500);
+    await settle(page, 2000);
   }
 }
 
+async function sceneSterilisation(page) {
+  await go(page, "/mfg/sterilisation");
+  await tid(page, "ster-timeline").waitFor({ timeout: 30_000 });
+  await caption(page, "EtO sterilisation: loads per chamber, the cycle, aeration and the wait for QA release.");
+  await glide(page, tid(page, "ster-timeline"));
+  await hold(page, 4500);
+  const rel = tid(page, "ster-release").first();
+  await caption(page, "Releasing a load is an electronic signature: the record, the meaning, and the signer's password.");
+  await glide(page, rel, { click: true });
+  const dlg = tid(page, "esig-dialog");
+  await dlg.waitFor();
+  await captionAtTop(page, true);
+  await settle(page, 800);
+  await glide(page, tid(page, "esig-meaning"), { optional: true });
+  await hold(page, 2500);
+  const early = tid(page, "ster-early-reason");
+  if (await early.count()) {
+    await early.click();
+    await page.keyboard.type("Parametric release data reviewed; customer order due", { delay: 20 });
+  }
+  const user = tid(page, "esig-username");
+  if ((await user.count()) && !(await user.inputValue())) await user.fill(PLANNER.email);
+  await tid(page, "esig-password").click();
+  await page.keyboard.type(PASSWORD, { delay: 25 });
+  const comment = tid(page, "esig-comment");
+  if (await comment.count()) {
+    await comment.click();
+    await page.keyboard.type("Biological indicators negative; cycle parameters within limits", { delay: 20 });
+  }
+  await hold(page, 1200);
+  await glide(page, tid(page, "esig-submit"), { click: true });
+  await dlg.waitFor({ state: "hidden", timeout: 30_000 });
+  await captionAtTop(page, false);
+  await settle(page, 1500);
+  await caption(page, "The lots on the load come off hold; the signature is stored with the record and can be verified.");
+  await hold(page, 3500);
+}
+
+async function sceneInspection(page) {
+  const il = ctx.incoming;
+  await go(page, `/mfg/qa/inspection-lots/${il.id}`);
+  await tid(page, "qa-lot-page").waitFor({ timeout: 30_000 });
+  await caption(page, `Incoming inspection of ${il.item?.part_number ?? "a supplier lot"}: the plan sets sample size and accept / reject numbers.`);
+  await hold(page, 3500);
+  const first = tid(page, "qa-char").first();
+  for (let i = 0; i < 3; i++) {
+    const verdict = await tid(page, "qa-verdict").getAttribute("data-verdict");
+    if (verdict === "reject") break;
+    if (await first.getByTestId("qa-fail").count()) await glide(page, first.getByTestId("qa-fail"), { click: true });
+    else {
+      await first.getByTestId("qa-value").fill("0.5");
+      await glide(page, first.getByTestId("qa-save-result"), { click: true });
+    }
+    await settle(page, 700);
+  }
+  await caption(page, "Results are entered per sample; the verdict updates live and decides the next step.");
+  await glide(page, tid(page, "qa-verdict"));
+  await hold(page, 2500);
+  await glide(page, tid(page, "qa-decision-reject"), { click: true });
+  const dlg = tid(page, "esig-dialog");
+  await dlg.waitFor();
+  await captionAtTop(page, true);
+  await tid(page, "qa-decision-note").fill("Chipped flanges above the reject number");
+  const pw = tid(page, "esig-password");
+  if (await pw.count()) {
+    const user = tid(page, "esig-username");
+    if ((await user.count()) && !(await user.inputValue())) await user.fill(PLANNER.email);
+    await pw.fill(PASSWORD);
+  }
+  await hold(page, 1200);
+  await glide(page, tid(page, "esig-submit"), { click: true });
+  await dlg.waitFor({ state: "hidden", timeout: 30_000 });
+  await captionAtTop(page, false);
+  await settle(page, 1500);
+  await caption(page, "Rejecting opens a nonconformance report and keeps the lot on hold.");
+  const decided = await api("GET", `/qa/inspection-lots/${il.id}`);
+  const open = page.locator(`main a[href$="/qa/ncrs/${decided.ncr_id}"]`).first();
+  if (await open.count()) await glide(page, open, { click: true });
+  else await go(page, `/mfg/qa/ncrs/${decided.ncr_id}`);
+  await tid(page, "ncr-page").waitFor({ timeout: 30_000 });
+  await settle(page, 1000);
+  await glide(page, tid(page, "qa-tab-dispositions"), { click: true });
+  await caption(page, "The material review proposes a disposition for the quantity: here, return to the supplier.");
+  await glide(page, tid(page, "ncr-disposition-add"), { click: true });
+  const row = tid(page, "ncr-disposition-row").first();
+  const kind = row.locator("select").first();
+  if (await kind.count()) await kind.selectOption({ index: 2 }).catch(() => undefined);
+  await hold(page, 3500);
+}
+
+async function sceneCapa(page) {
+  if (!ctx.capa) return;
+  await go(page, `/mfg/qa/capas/${ctx.capa.id}`);
+  await tid(page, "capa-page").waitFor({ timeout: 30_000 });
+  await caption(page, "CAPA: root cause, actions with owners and due dates, and the effectiveness check, linked to the NCR.");
+  await hold(page, 5500);
+}
+
 async function sceneFloor(page) {
-  const asmLine = ctx.lines.find((l) => l.code === "ASM-01");
   await go(page, "/mfg/floor");
-  await caption(page, "The shop-floor tablet: the operator picks the line and signs in with a badge scan.");
-  await hold(page, 1500);
+  await caption(page, "The shop-floor tablet: pick the line, sign in with a badge scan, scan the traveller.");
   const tile = page.locator('[data-testid="floor-line-pick"][data-code="ASM-01"]');
   await glide(page, tile, { click: true });
   await tid(page, "floor-line-title").waitFor();
-  await settle(page, 800);
+  await settle(page, 600);
   await tid(page, "floor-crew").click();
-  await page.keyboard.type("OP:OP-010\n", { delay: 60 });
-  await hold(page, 2000);
-  const op = ctx.ops.find((o) => o.seq === 20);
-  await caption(page, "Scanning the traveller opens the operation: 10 mL syringe assembly, with its components and lots.");
+  await page.keyboard.type("OP:OP-010\n", { delay: 50 });
+  await hold(page, 1200);
+  const op = ctx.ops.find((o) => o.seq === 20) ?? ctx.ops[1];
   await tid(page, "floor-crew").click();
-  await page.keyboard.type(`${ctx.wo1.number}/${op.seq}\n`, { delay: 60 });
+  await page.keyboard.type(`${ctx.wo1.number}/${op.seq}\n`, { delay: 50 });
   await tid(page, "floor-op").waitFor();
-  await settle(page, 1500);
+  await settle(page, 1200);
   await glide(page, tid(page, "floor-action-start"), { click: true });
   await page.waitForFunction(() => document.querySelector('[data-testid="floor-op"]')?.getAttribute("data-status") === "running", null, { timeout: 20_000 });
-  await caption(page, "Start, report quantities as they are made, and complete; components are backflushed first-expiry-first by lot.");
-  await hold(page, 1500);
+  await caption(page, "Report good and nonconforming quantities; components are backflushed by lot, first-expiry-first.");
   await glide(page, tid(page, "floor-action-report"), { click: true });
   await tid(page, "floor-qty-good").fill("24000");
-  await hold(page, 1200);
-  await glide(page, tid(page, "floor-qty-submit"), { click: true });
-  await settle(page, 1500);
-  await glide(page, tid(page, "floor-action-complete"), { click: true });
   await hold(page, 1500);
   await glide(page, tid(page, "floor-qty-submit"), { click: true });
-  await settle(page, 1500);
-  await caption(page, "A line stop is reported in two taps; the planner sees it and can replan.");
-  await go(page, `/mfg/floor/lines/${asmLine.id}/downtime`);
-  await glide(page, tid(page, "downtime-kind-breakdown"), { click: true });
-  await tid(page, "downtime-reason").fill("Heat-sealer temperature alarm");
-  await hold(page, 1200);
-  await glide(page, tid(page, "downtime-submit"), { click: true });
-  await settle(page, 2500);
+  await settle(page, 2000);
 }
 
 async function sceneTrace(page) {
   await go(page, "/mfg/trace");
-  await caption(page, "Traceability: enter a finished lot of IV sets and trace it back.");
+  await caption(page, "Traceability: a finished lot of IV sets traced back to its component and resin supplier lots.");
   await tid(page, "trace-code").fill("WO-MDV-H03");
-  await hold(page, 800);
   await glide(page, tid(page, "trace-find"), { click: true });
   await tid(page, "trace-tree").waitFor({ timeout: 30_000 });
   await settle(page);
-  await caption(page, "Back to the drip-chamber and tubing lots, and to the resin, solvent and label supplier lots.");
   await glide(page, tid(page, "trace-tree"));
-  await hold(page, 6000);
+  await hold(page, 4500);
   await go(page, `/mfg/trace/where-used?item=${ctx.pp.id}&supplier_lot=RSN-PP-88412`);
-  await caption(page, "Where used: one resin supplier lot went into IV sets and 10 mL syringes, shipped to three customers.");
-  await hold(page, 5000);
+  await caption(page, "Where used: one resin supplier lot reached IV sets and syringes, shipped to three customers; start a recall.");
+  await hold(page, 3500);
   await glide(page, tid(page, "whereused-recall"), { click: true });
   await tid(page, "recall-new").waitFor();
-  await hold(page, 1200);
   await glide(page, tid(page, "recall-create"), { click: true });
   await tid(page, "recall-page").waitFor({ timeout: 30_000 });
   await settle(page);
-  await caption(page, "The recall report: affected work orders, lots, shipments and customers, exportable.");
+  await caption(page, "The recall report lists affected lots, quantities, shipments and customers; stock on hand goes to quarantine.");
   await hold(page, 5000);
-  await glide(page, tid(page, "recall-quarantine"));
-  await caption(page, "Stock still on hand is moved to quarantine and put on hold in one step.");
-  await glide(page, tid(page, "quarantine-run"), { click: true });
-  await page.getByRole("dialog").waitFor();
-  await hold(page, 1200);
-  await glide(page, page.getByRole("dialog").getByRole("button").last(), { click: true });
-  await settle(page, 3000);
 }
 
-async function sceneEco(page) {
-  // a change request with a draft copy of the IV set's BOM (made through the API for brevity)
-  const eco = await api("POST", "/eco", { title: "IV set: switch roller clamp supplier part", reason: "Second source for the roller clamp", kind: "eco", priority: 2, effectivity: { mode: "date", date: null }, note: "" });
-  const boms = (await api("GET", `/items/${ctx.ivs.id}/boms`)).items;
-  const rel = boms.find((b) => b.status === "released") ?? boms[0];
-  const draft = await api("POST", `/boms/${rel.id}/copy`, { revision: null }, { "If-Match": `"${rel.row_version}"` });
-  await api("POST", `/eco/${eco.id}/items`, { doc_type: "bom", doc_id: draft.id, disposition: { open_wos: "flag", open_pos: "flag_cancel", stock: "use_up" } });
-  await go(page, `/mfg/eco/${eco.id}`);
-  await caption(page, "Engineering change: the draft BOM is held by the change request until it is approved and implemented.");
-  await hold(page, 4000);
-  await glide(page, tid(page, "eco-tab-impact"), { click: true });
-  await tid(page, "eco-impact").waitFor({ timeout: 60_000 });
-  await settle(page);
-  await caption(page, "Impact analysis: the orders that use the old structure, purchases no longer needed and parts being phased out.");
-  await hold(page, 5500);
+async function sceneAudit(page) {
+  await go(page, `/mfg/qa/inspection-lots/${ctx.incoming.id}`);
+  await tid(page, "qa-lot-page").waitFor({ timeout: 30_000 });
+  await glide(page, tid(page, "qa-tab-history"), { click: true });
+  await tid(page, "qa-history-event").first().waitFor({ timeout: 30_000 });
+  await settle(page, 800);
+  await caption(page, "Each regulated record keeps its history: who, when, the reason, the signature, and old and new values.");
+  await glide(page, page.locator("table.qa-changes").first(), { optional: true });
+  await hold(page, 5000);
   await go(page, "/mfg/audit");
-  await caption(page, "Every change is recorded in the audit trail, with who, when and what, and can be exported.");
+  await tid(page, "audit-page").waitFor();
+  await settle(page, 800);
+  await caption(page, "The plant-wide audit trail is hash-chained, so later tampering shows up, and can be exported.");
+  await glide(page, tid(page, "audit-verify"), { optional: true });
+  await hold(page, 3500);
+}
+
+async function sceneFrench(page) {
+  await caption(page, "The interface is also available in Canadian French; numbers and dates follow the language.");
+  await glide(page, tid(page, "display-menu"), { click: true });
+  await tid(page, "lang-select").selectOption("fr-CA");
+  await page.waitForLoadState("load");
+  await settle(page, 1000);
+  await go(page, "/mfg/sterilisation");
+  await hold(page, 5000);
+  await tid(page, "display-menu").click();
+  await tid(page, "lang-select").selectOption("en");
+  await page.waitForLoadState("load");
+  await settle(page, 800);
+}
+
+async function sceneValidation(page) {
+  await go(page, "/mfg/validation");
+  await tid(page, "val-matrix").waitFor({ timeout: 30_000 });
+  await caption(page, "A requirement trace matrix links each requirement to its scripted tests, as input to the customer's own validation.");
   await hold(page, 5000);
 }
 
 async function sceneAssistant(page) {
   await go(page, `/mfg/demand/${ctx.rush.id}`);
-  await caption(page, "The planning assistant (scripted demo mode) answers from live plan data.");
+  await caption(page, "The planning assistant (scripted demo mode) answers from live plan records.");
   await glide(page, tid(page, "asst-open"), { click: true });
   const panel = tid(page, "asst-panel");
   await panel.waitFor();
-  await hold(page, 1000);
-  const accept = panel.getByTestId("asst-privacy-accept");
-  if (await accept.count()) {
-    await glide(page, accept, { click: true });
-    await hold(page, 600);
-  }
+  await glide(page, panel.getByTestId("asst-privacy-accept"), { click: true, optional: true });
   await panel.getByTestId("asst-input").click();
-  await page.keyboard.type("Why is DO-MDV-1003 late and what can I do?", { delay: 45 });
-  await hold(page, 600);
+  await page.keyboard.type("Why is DO-MDV-1003 late and what can I do?", { delay: 40 });
   await glide(page, panel.getByTestId("asst-send"), { click: true });
-  const turn = panel.getByTestId("asst-turn").last();
   await page.waitForFunction(() => {
     const t = [...document.querySelectorAll('[data-testid="asst-turn"]')].pop();
     return t && /completed|failed/.test(t.getAttribute("data-status") ?? "");
   }, null, { timeout: 90_000 });
   await settle(page, 800);
-  await caption(page, "The answer is built from live plan records, with a draft action the planner reviews and applies; nothing changes on its own.");
+  const turn = panel.getByTestId("asst-turn").last();
+  await caption(page, "It cites the records it used and proposes a draft action that the planner reviews and applies.");
   await glide(page, turn.getByTestId("asst-answer"));
-  await hold(page, 5000);
-  const draft = turn.getByTestId("asst-draft").first();
-  if (await draft.count()) {
-    await glide(page, draft);
-    await hold(page, 4000);
-  }
+  await hold(page, 4500);
+  await page.keyboard.press("Escape").catch(() => undefined);
 }
 
 async function scenePhone(page) {
@@ -331,24 +437,18 @@ async function scenePhone(page) {
   }, BASE);
   const phone = page.frameLocator("#sp-demo-phone iframe");
   await phone.getByTestId("m-approvals").waitFor({ timeout: 30_000 });
-  await hold(page, 3500);
+  await hold(page, 3000);
   const pr = phone.locator('[data-testid="m-approval"][data-kind="pr"]').first();
   if (await pr.count()) {
     await glide(page, pr.locator('[data-label="Approve"]'), { click: true });
     await hold(page, 3000);
-  }
-  const ot = phone.locator('[data-testid="m-approval"][data-kind="overtime"]').first();
-  if (await ot.count()) {
-    await caption(page, "Accepting a suggested shift re-runs the schedule with it, for the planner to compare and publish.");
-    await glide(page, ot, { optional: true });
-    await hold(page, 3500);
   }
   await page.evaluate(() => document.getElementById("sp-demo-phone")?.remove());
 }
 
 async function sceneEnd(page) {
   await caption(page, "");
-  await card(page, "SuperPlanner", ["Plan, schedule, run and trace production on one data model.", "Thank you for watching."],
+  await card(page, "SuperPlanner", ["Forecast, plan, schedule, release and trace production on one data model.", "Thank you for watching."],
     "Demo with fictional data. Features shown as implemented in the current build.", 7000 * PACE);
 }
 
@@ -356,13 +456,21 @@ const SCENES = [
   ["title", sceneTitle],
   ["1-overview", sceneOverview],
   ["2-master-data", sceneMasterData],
-  ["3-mrp", sceneMrp],
-  ["4-schedule", sceneSchedule],
-  ["5-floor", sceneFloor],
-  ["6-trace", sceneTrace],
-  ["7-eco-audit", sceneEco],
-  ["8-assistant", sceneAssistant],
-  ["9-phone", scenePhone],
+  ["3-forecast", sceneForecast],
+  ["4-safety-stock", sceneSafetyStock],
+  ["5-mrp", sceneMrp],
+  ["6-rate-plan", sceneRatePlan],
+  ["7-schedule", sceneSchedule],
+  ["8-sterilisation", sceneSterilisation],
+  ["9-inspection-ncr", sceneInspection],
+  ["10-capa", sceneCapa],
+  ["11-floor", sceneFloor],
+  ["12-trace-recall", sceneTrace],
+  ["13-audit", sceneAudit],
+  ["14-french", sceneFrench],
+  ["15-validation", sceneValidation],
+  ["16-assistant", sceneAssistant],
+  ["17-phone", scenePhone],
   ["end", sceneEnd],
 ];
 
@@ -372,21 +480,30 @@ async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   const rawDir = path.join(OUT, ".raw");
   fs.rmSync(rawDir, { recursive: true, force: true });
-  const servers = await startServers({ log: Boolean(process.env.DEMO_LOG) });
+  const servers = await startServers({ log: Boolean(process.env.DEMO_LOG), accounts: true });
   try {
-    // fresh database: load the sample, then the plan the dashboard reads (MRP + a published schedule)
-    await api("POST", "/samples/meddev/load", { replace: true, anchor: null });
-    const mrp = await api("POST", "/mrp/runs", { label: "Overnight MRP" });
-    await waitRun("mrp", mrp.id);
-    const run = await api("POST", "/aps/runs", { label: "Overnight schedule" });
-    const done = await waitRun("aps", run.id);
-    await api("POST", `/aps/runs/${run.id}/publish`, {}, { "If-Match": `"${done.row_version}"` });
-    await lookup();
-
+    await setup();
     const browser = await chromium.launch();
     ctx.videoStart = Date.now();
-    const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: 1, recordVideo: { dir: rawDir, size: VIDEO } });
+    // sign in once (not recorded), then record in a context with that session and the plant workspace selected
+    const login = await browser.newContext({ viewport: VIEW });
+    const lp = await login.newPage();
+    await lp.goto(`${BASE}/sign-in`);
+    await lp.getByTestId("signin-email").fill(PLANNER.email);
+    await lp.getByTestId("signin-password").fill(PASSWORD);
+    await lp.getByTestId("signin-submit").click();
+    await lp.getByTestId("account-menu").waitFor({ timeout: 30_000 });
+    const state = await login.storageState();
+    await login.close();
+    const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: 1, storageState: state, recordVideo: { dir: rawDir, size: VIDEO } });
     await context.addInitScript(CAPTION_INIT);
+    await context.addInitScript((ws) => {
+      try {
+        sessionStorage.setItem("sp.mfg.workspace", ws);
+      } catch {
+        /* ignore */
+      }
+    }, ctx.ownerId);
     const page = await context.newPage();
     const marks = [];
     const t0 = Date.now();
@@ -414,6 +531,29 @@ async function main() {
   } finally {
     if (!args.includes("--keep-servers")) servers.stop();
   }
+}
+
+/**
+ * Accounts mode (signatures need a person with a password): the plant owner signs up and loads the `meddev_m8` sample
+ * (meddev + quality + planning layers); a fictional planner / QA approver is added as a member and enrols for
+ * electronic signatures; a schedule is published so the dashboard has a plan. The video is recorded as that member.
+ */
+async function setup() {
+  const owner = new Session();
+  await owner.signUp("plant.owner@example.com", PASSWORD, "Plant owner");
+  ctx.ownerId = owner.userId;
+  useSession(owner);
+  await api("POST", "/samples/meddev_m8/load", { replace: true, anchor: null });
+  const me = new Session();
+  await me.signUp(PLANNER.email, PASSWORD, PLANNER.name);
+  await api("POST", "/members", { email: PLANNER.email, roles: ["plant_admin", "qa_approver", "qa_engineer"] });
+  await me.raw("POST", `${API}/auth/esig/enroll`, { legal_name: PLANNER.name, password: PASSWORD, acknowledgement: true });
+  me.workspace = owner.userId;
+  useSession(me);
+  const run = await api("POST", "/aps/runs", { label: "Overnight schedule" });
+  const done = await waitRun("aps", run.id);
+  await api("POST", `/aps/runs/${run.id}/publish`, {}, { "If-Match": `"${done.row_version}"` });
+  await lookup();
 }
 
 function toMp4(webm, trim = 0) {
