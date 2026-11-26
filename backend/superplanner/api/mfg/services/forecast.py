@@ -601,11 +601,11 @@ def remove_override(ctx: AppContext, a: Any, override_id: str) -> dict[str, Any]
     from ...audit_diff import REASON_HEADER, current_reason
 
     reason = current_reason()
-    if not reason:
-        raise ApiError(422, "VALIDATION_ERROR", f"Removing an override needs a reason ({REASON_HEADER}).",
-                       {"header": REASON_HEADER})
     with write_tx(ctx, lock=False) as (s, _):
         o = repo.get_row(s, MfgForecastOverrideRow, override_id, what="Override", lock=True)
+        if not reason:                              # after the lookup: unknown / foreign ids answer 404 first
+            raise ApiError(422, "VALIDATION_ERROR", f"Removing an override needs a reason ({REASON_HEADER}).",
+                           {"header": REASON_HEADER})
         v = repo.get_row(s, MfgForecastVersionRow, o.version_id, what="Forecast version", lock=True)
         if v.status != "draft":
             raise _locked("Overrides", v.status)

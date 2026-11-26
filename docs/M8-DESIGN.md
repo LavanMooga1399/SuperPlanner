@@ -750,3 +750,6 @@ Review round (2026-11-26) decisions:
   (publish cancellations: "Superseded by rate plan RR-..."), which also covers the nightly auto-publish. SS approval
   reason = "SSP-... approved: <user reason>". Changing sterilisation fields of item planning needs `qa_plan_edit`
   (403 `MFG_FORBIDDEN`).
+- Authorisation sweep: `make_mfg_m8_world` builds history, forecast run / version / override, SS run, rate run,
+  sterilisation load, kanban loop and baseline; `{run_id}` maps per family (`fc_run_id`, `ss_run_id`,
+  `rate_run_id`). Removing an override looks the row up before checking the reason header (404 before 422).

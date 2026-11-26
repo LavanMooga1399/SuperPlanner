@@ -172,6 +172,72 @@ def make_mfg_world(c: TestClient, w: dict[str, Any]) -> None:
     }
     make_mfg_m2_world(c, w, item)
     make_mfg_m7_world(c, w)
+    make_mfg_m8_world(c, w, item)
+
+
+def make_mfg_m8_world(c: TestClient, w: dict[str, Any], make_item: dict[str, Any]) -> None:
+    """M8 objects (M8-DESIGN 11): demand history, a forecast run with its draft version and an override, a
+    safety-stock run, a rate run, a sterilisation load (chamber line), a kanban loop, a baseline."""
+    from datetime import date as _d
+
+    from superplanner.api.db.models import new_id, utcnow
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.api.mfg.db_models_m8 import MfgDemandHistoryRow, MfgSterLoadRow
+
+    ids = w["mfg_ids"]
+    owner = c.get(f"{API}/auth/session").json()["user"]["id"]
+
+    def ok(r: Any, code: int = 201) -> Any:
+        assert r.status_code == code, r.text
+        return r.json()
+
+    it = make_item["id"]
+    ok(c.put(f"{MFG}/items/{it}/planning", json={"forecast": True}, headers={"If-Match": '"0"'}), 200)
+    db = c.app.state.ctx.db
+    with owner_scope(owner), db.write() as s:
+        hid = new_id("dhi_")
+        for k in range(12):
+            s.add(MfgDemandHistoryRow(id=hid if k == 0 else new_id("dhi_"), item_id=it,
+                                      period_start=_d(2025, k + 1, 1), bucket="m", qty=100.0 + k, cleaned_qty=None,
+                                      manual_qty=None, source="import", updated_at=utcnow()))
+    fr = ok(c.post(f"{MFG}/forecast/runs", json={"as_of": "2026-11-25", "horizon_periods": 3}), 202)
+    fr = wait_status(c, f"{MFG}/forecast/runs/{fr['id']}")
+    ov = ok(c.post(f"{MFG}/forecast/versions/{fr['version_id']}/overrides", json={
+        "item_id": it, "period_from": "2026-11-01", "period_to": "2026-11-01", "mode": "pct", "value": 5,
+        "reason": "sweep"}))
+    ss = ok(c.post(f"{MFG}/invopt/runs", json={}), 202)
+    rr = ok(c.post(f"{MFG}/rate/runs", json={"time_budget_s": 10}), 202)
+    line = c.get(f"{MFG}/lines").json()["items"][0]
+    loc = next(x for x in c.get(f"{MFG}/locations").json()["items"] if x["code"] == "STORES")
+    buy = c.get(f"{MFG}/items", params={"q": "SW-LOT"}).json()["items"][0]
+    loop = ok(c.post(f"{MFG}/kanban/loops", json={"item_id": buy["id"], "location_id": loc["id"], "source": "buy",
+                                                    "cards": 2, "container_qty": 10, "lead_time_days": 2}))
+    now = utcnow()
+    with owner_scope(owner), db.write() as s:
+        ld = MfgSterLoadRow(id=new_id("stl_"), number="SL-SWEEP", run_id=None, chamber_line_id=line["id"],
+                            aeration_line_id=None, cycle_code="ETO", status="planned", pallets=1, planned_start=now,
+                            planned_end=now, aeration_end=now, release_due=_d(2026, 12, 1), actual_start=None,
+                            actual_end=None, actual_aeration_end=None, batch_load_id=None, release_signature_id=None,
+                            ncr_id=None, flags=[], row_version=1, created_at=now, updated_at=now)
+        s.add(ld)
+    bl = ok(c.post(f"{MFG}/validation/baselines", json={"label": "sweep"}))
+    ids.update({"history_id": hid, "fc_run_id": fr["id"], "version_id": fr["version_id"], "override_id": ov["id"],
+                "ss_run_id": ss["id"], "rate_run_id": rr["id"], "load_id": ld.id, "loop_id": loop["id"],
+                "baseline_id": bl["id"], "a_id": bl["id"], "b_id": bl["id"]})
+    w["mfg_bodies"].update({
+        "/forecast/history/{history_id}": {"cleaned_qty": 1, "reason": "x"},
+        "/forecast/versions/{version_id}/overrides": {"item_id": it, "period_from": "2026-11-01",
+                                                      "period_to": "2026-11-01", "mode": "pct", "value": 1,
+                                                      "reason": "x"},
+        "/invopt/runs/{run_id}/decide": {"line_ids": [new_id("ssl_")], "decision": "approved", "reason": "x"},
+        "/items/{item_id}/planning": {"forecast": True},
+        "/items/{item_id}/packaging": {"levels": []},
+        "/lines/{line_id}/rates": {"rates": []},
+        "/kanban/loops/{loop_id}": {"item_id": buy["id"], "location_id": loc["id"], "source": "buy", "cards": 2,
+                                    "container_qty": 10, "lead_time_days": 2},
+        "/ster/loads/{load_id}/advance": {"to": "cycling"},
+        "/ster/loads/{load_id}/fail": {"reason": "x"},
+    })
 
 
 def make_mfg_m7_world(c: TestClient, w: dict[str, Any]) -> None:
@@ -502,6 +568,12 @@ def fill(path: str, ids: dict[str, str]) -> str:
             return "fin_run_id"
         if n == "run_id" and "/mfg/aps/" in path:
             return "aps_run_id"
+        if n == "run_id" and "/mfg/forecast/" in path:          # M8 run families
+            return "fc_run_id"
+        if n == "run_id" and "/mfg/invopt/" in path:
+            return "ss_run_id"
+        if n == "run_id" and "/mfg/rate/" in path:
+            return "rate_run_id"
         return "mrp_run_id" if (n == "run_id" and "/mfg/" in path) else n
     return PARAM.sub(lambda m: ids[key(m.group(1))], path)
 
