@@ -7,7 +7,7 @@ import { Link } from "react-router";
 import { Icon, type IconName } from "../../../components/Icon";
 import type { DashboardPeriod, DashboardTile, TileStatus } from "../../api/typesM6";
 import { safeInternalLink } from "../../assistant/AnswerText";
-import { t, t as tr } from "../../../lib/i18n";
+import { hasKey, t, t as tr, type StringKey } from "../../../lib/i18n";
 import { LOCALE } from "../../../lib/locale";
 
 export const PERIODS: { value: DashboardPeriod; label: string }[] = [
@@ -39,6 +39,9 @@ export function orderedTiles(tiles: Record<string, DashboardTile>): [string, Das
 }
 
 export function humanize(key: string): string {
+  // demo review: known detail keys have translated labels (`mfg.dash.key.<key>`)
+  const known = `mfg.dash.key.${key}`;
+  if (hasKey(known)) return tr(known as StringKey);
   const w = key
     .replace(/_4w$/, " (4 weeks)")
     .replace(/_8w$/, " (8 weeks)")
@@ -75,7 +78,7 @@ const num = (v: number, digits = 1) => v.toLocaleString(LOCALE, { maximumFractio
 
 /** Tile value in its unit: "%" is a fraction (0.91 = 91 %), "count", "h", "turns", else a currency code. */
 export function fmtValue(v: number | null | undefined, unit: string): string {
-  if (v === null || v === undefined) return "n/a";
+  if (v === null || v === undefined) return tr("mfg.dash.na");
   switch (unit) {
     case "%":
       return pct(v);
@@ -85,7 +88,7 @@ export function fmtValue(v: number | null | undefined, unit: string): string {
     case "h":
       return `${num(v)} h`;
     case "turns":
-      return `${num(v)} turns`;
+      return tr("mfg.dash.turns", { n: num(v) });
     default:
       return `${unit} ${num(v, 0)}`;
   }
@@ -96,8 +99,8 @@ const SKIP_KEYS = new Set(["id", "currency", "weights", "turns_note"]);
 
 /** One detail value by its key: fractions as %, `_h` hours, `value*` in currency, booleans as yes / no. */
 export function fmtDetail(key: string, v: unknown, currency?: string): string {
-  if (v === null || v === undefined) return "n/a";
-  if (typeof v === "boolean") return v ? "yes" : "no";
+  if (v === null || v === undefined) return tr("mfg.dash.na");
+  if (typeof v === "boolean") return v ? tr("mfg.dash.yes") : tr("mfg.dash.no");
   if (typeof v === "number") {
     if (PCT_KEYS.test(key)) return pct(v);
     if (/_h$/.test(key)) return `${num(v)} h`;
@@ -185,7 +188,7 @@ function DetailList({ details, currency }: { details: Record<string, unknown>; c
       {note ? (
         <div>
           <dt>{t("mfg.dashboardBits.head.turns")}</dt>
-          <dd>n/a ({note})</dd>
+          <dd>{tr("mfg.dash.naNote", { note })}</dd>
         </div>
       ) : null}
     </dl>

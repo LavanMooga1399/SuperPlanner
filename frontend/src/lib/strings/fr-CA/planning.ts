@@ -759,4 +759,6 @@ export const planningFrCa: Record<keyof typeof planningStrings, string> = {
   "plan.ip.sterQa": "Gérés par la qualité",
   "plan.sap.sync.packSkipped": "{n} emballages ignorés",
   "plan.sap.hint.packSkipped": "Les niveaux d'emballage de SAP ne s'appliquent que si les articles relèvent de l'ERP ou sont partagés",
+  "plan.ster.sig.lots": "Lots",
+  "plan.ster.sig.noLots": "Aucun lot enregistré pour cette charge",
 };

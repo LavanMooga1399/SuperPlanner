@@ -85,6 +85,9 @@ export interface PlantRecord extends PlantInput {
   created_at: IsoDateTime | null;
   updated_at: IsoDateTime | null;
   data_version?: number;
+  /** demo review: ISO country (attributes, else currency, else time zone); read-only */
+  country?: string | null;
+  locale?: string | null;
 }
 
 // ---------------------------------------------------------------- 3.4 item

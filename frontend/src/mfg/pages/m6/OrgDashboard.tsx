@@ -15,7 +15,7 @@ import { formatDateTime } from "../../../lib/locale";
 import { t, t as tr } from "../../../lib/i18n";
 
 function Cell({ t }: { t: DashboardTile | undefined }) {
-  if (!t) return <td className="muted">n/a</td>;
+  if (!t) return <td className="muted">{tr("mfg.dash.na")}</td>;
   return (
     <td>
       <div className="col" style={{ gap: 2 }}>

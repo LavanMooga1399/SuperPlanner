@@ -181,7 +181,7 @@ function PlantLocaleGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     if (plant.data) {
-      setPlantRegion(regionOf(plant.data.currency, plant.data.utc_offset));
+      setPlantRegion(plant.data.country || regionOf(plant.data.currency, plant.data.utc_offset));
       refreshLocale();
       setReady(true);
     } else if (plant.error) setReady(true);

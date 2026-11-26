@@ -759,4 +759,6 @@ export const planningStrings = {
   "plan.ip.sterQa": "Maintained by quality",
   "plan.sap.sync.packSkipped": "{n} packaging skipped",
   "plan.sap.hint.packSkipped": "Packaging levels from SAP apply only when items are owned by the ERP or shared",
+  "plan.ster.sig.lots": "Lots",
+  "plan.ster.sig.noLots": "No lots recorded on this load yet",
 } as const;

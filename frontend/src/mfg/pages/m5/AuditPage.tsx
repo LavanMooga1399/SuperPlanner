@@ -2,6 +2,7 @@
  * Audit trail (M5 7, owner / plant admin / org admin): every change with who (person, or API token for a person or
  * plant), when and what; export as JSON lines or CSV for an auditor; check the tamper-evident hash chain.
  */
+import { usePersonName } from "../../qa/common";
 import { useEffect, useState } from "react";
 import { ApiError } from "../../../api/client";
 import { Banner } from "../../../components/Banner";
@@ -20,6 +21,7 @@ import { DateInput } from "../../../components/DateInput";
 import { t } from "../../../lib/i18n";
 
 export function AuditPage() {
+  const person = usePersonName();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [entity, setEntity] = useState("");
@@ -39,10 +41,10 @@ export function AuditPage() {
       key: "who",
       header: t("mfg.auditPage.str.who"),
       width: "minmax(170px, 1fr)",
-      exportValue: (e) => e.actor_id ?? "system",
+      exportValue: (e) => (e.actor_id ? (e as { actor_name?: string | null }).actor_name ?? person(e.actor_id) : "system"),
       render: (e) => (
-        <span className="mono small">
-          {e.actor_id ?? "system"}
+        <span className="small" title={e.actor_id ?? undefined}>
+          {e.actor_id ? (e as { actor_name?: string | null }).actor_name ?? person(e.actor_id) : t("mfg.auditPage.str.system")}
           {e.actor_id?.startsWith("tok_") ? <span className="faint">{" "}{t("mfg.auditPage.text.apiToken")}</span> : null}
         </span>
       ),

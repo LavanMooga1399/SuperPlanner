@@ -194,7 +194,7 @@ export function intlLocale(): string {
   if (pref !== "auto") return pref;
   if (locale === "fr-CA") return "fr-CA";
   const region = typeof window === "undefined" ? null : readKey(REGION_KEY);
-  return region === "CA" ? "en-CA" : region === "IN" ? "en-IN" : "en-US";
+  return region && ["CA", "IN", "US", "GB", "AU"].includes(region) ? `en-${region}` : "en-US";
 }
 /** Country of a plant from its currency (else its UTC offset): IN, CA or US (default). */
 export function regionOf(currency: string | null | undefined, utcOffset?: string | null): string {

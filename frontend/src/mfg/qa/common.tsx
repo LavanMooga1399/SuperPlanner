@@ -24,12 +24,13 @@ const bump = () => {
 let peopleStarted = false;
 let suppliersStarted = false;
 
-function loadPeople(owner: boolean) {
-  if (peopleStarted || !owner) return;
+function loadPeople(_owner: boolean) {
+  // members are readable by owners and plant admins; other roles fall back to the names records carry (`people`)
+  if (peopleStarted) return;
   peopleStarted = true;
   listMembers()
     .then((r) => {
-      people = new Map(r.items.map((m) => [m.user.id, m.user.display_name || m.user.email]));
+      people = new Map([...(people ?? new Map<string, string>()), ...r.items.map((m) => [m.user.id, m.user.display_name || m.user.email] as [string, string])]);
       bump();
     })
     .catch(() => undefined);
@@ -48,6 +49,22 @@ const subscribe = (l: () => void) => {
   listeners.add(l);
   return () => listeners.delete(l);
 };
+
+/** Names that a record or list carries (`people` map, `actor_name`): kept for every person-name lookup. */
+export function rememberPeople(map: Record<string, string | null | undefined> | null | undefined): void {
+  if (!map) return;
+  const next = new Map(people ?? []);
+  let changed = false;
+  for (const [id, name] of Object.entries(map))
+    if (name && next.get(id) !== name) {
+      next.set(id, name);
+      changed = true;
+    }
+  if (changed) {
+    people = next;
+    bump();
+  }
+}
 
 /** Name of a person by user id: "You", a member's name (owners see the member list), else the id. */
 export function usePersonName(): (id: string | null | undefined) => string {
