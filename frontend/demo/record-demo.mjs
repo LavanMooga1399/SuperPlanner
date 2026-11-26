@@ -27,7 +27,7 @@ const VIEW = { width: Number(opt("width", 1440)), height: Number(opt("height", 8
 // so the app renders at a readable 1440x810 and the delivered video is 1920x1080.
 const VIDEO = VIEW;
 const OUT_SIZE = opt("out-size", "1920x1080");
-const PACE = Number(opt("pace", 1.2)); // multiply every hold
+const PACE = Number(opt("pace", 1.7)); // multiply every hold
 
 const hold = (page, ms) => page.waitForTimeout(ms * PACE);
 const tid = (page, id) => page.getByTestId(id);
@@ -55,6 +55,7 @@ async function lookup() {
 
 /** Navigate: client-side (history + popstate, no reload and no blank frame) once the app is open, else a page load. */
 async function go(page, url) {
+  await caption(page, "").catch(() => undefined);                 // no caption of the previous step on the new page
   if (page.url().startsWith(BASE) && !page.url().startsWith(`${BASE}/m/`)) {
     await page.evaluate((u) => {
       window.history.pushState({}, "", u);
@@ -147,6 +148,8 @@ async function sceneSafetyStock(page) {
   await page.keyboard.type("Reviewed with materials team, weekly S&OP", { delay: 30 });
   await hold(page, 600);
   await glide(page, page.getByRole("dialog").getByRole("button", { name: "Approve" }), { click: true });
+  await settle(page, 1500);
+  await glide(page, tid(page, "ss-page").getByRole("button", { name: "Approved", exact: true }), { click: true, optional: true });
   await settle(page, 2500);
 }
 
@@ -304,7 +307,12 @@ async function sceneInspection(page) {
   await glide(page, tid(page, "ncr-disposition-add"), { click: true });
   const row = tid(page, "ncr-disposition-row").first();
   const kind = row.locator("select").first();
-  if (await kind.count()) await kind.selectOption({ index: 2 }).catch(() => undefined);
+  if (await kind.count()) await kind.selectOption("return_to_supplier").catch(() => undefined);
+  const txt = row.locator('input[type="text"], input:not([type]), textarea').last();
+  if (await txt.count()) {
+    await txt.click();
+    await page.keyboard.type("Supplier to replace the lot and send a corrective action", { delay: 25 });
+  }
   await hold(page, 3500);
 }
 
@@ -331,8 +339,13 @@ async function sceneFloor(page) {
   await page.keyboard.type(`${ctx.wo1.number}/${op.seq}\n`, { delay: 50 });
   await tid(page, "floor-op").waitFor();
   await settle(page, 1200);
+  await settle(page, 1500);
   await glide(page, tid(page, "floor-action-start"), { click: true });
-  await page.waitForFunction(() => document.querySelector('[data-testid="floor-op"]')?.getAttribute("data-status") === "running", null, { timeout: 20_000 });
+  const running = () => page.waitForFunction(() => document.querySelector('[data-testid="floor-op"]')?.getAttribute("data-status") === "running", null, { timeout: 6000 });
+  await running().catch(async () => {
+    await tid(page, "floor-action-start").click();          // the layout moved under the pointer: click it directly
+    await running();
+  });
   await caption(page, "Report good and nonconforming quantities; components are backflushed by lot, first-expiry-first.");
   await glide(page, tid(page, "floor-action-report"), { click: true });
   await tid(page, "floor-qty-good").fill("24000");
@@ -385,7 +398,8 @@ async function sceneFrench(page) {
   await tid(page, "lang-select").selectOption("fr-CA");
   await page.waitForLoadState("load");
   await settle(page, 1000);
-  await go(page, "/mfg/sterilisation");
+  await go(page, "/mfg/dashboard");
+  await caption(page, "The interface is also available in Canadian French; numbers and dates follow the language.");
   await hold(page, 5000);
   await tid(page, "display-menu").click();
   await tid(page, "lang-select").selectOption("en");
@@ -416,7 +430,7 @@ async function sceneAssistant(page) {
   }, null, { timeout: 90_000 });
   await settle(page, 800);
   const turn = panel.getByTestId("asst-turn").last();
-  await caption(page, "It cites the records it used and proposes a draft action that the planner reviews and applies.");
+  await caption(page, "It cites the records it used; any suggested change is a draft the planner reviews before applying.");
   await glide(page, turn.getByTestId("asst-answer"));
   await hold(page, 4500);
   await page.keyboard.press("Escape").catch(() => undefined);
