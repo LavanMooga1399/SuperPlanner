@@ -753,3 +753,11 @@ Review round (2026-11-26) decisions:
 - Authorisation sweep: `make_mfg_m8_world` builds history, forecast run / version / override, SS run, rate run,
   sterilisation load, kanban loop and baseline; `{run_id}` maps per family (`fc_run_id`, `ss_run_id`,
   `rate_run_id`). Removing an override looks the row up before checking the reason header (404 before 422).
+- UI review follow-ups: publish shows its result (created / cancelled / kept WOs, rate supplies, `skipped` started
+  WOs with plan vs WO quantity); 409 `RATE_RUN_STALE` reads "planned on an earlier day" with a new-plan action.
+  Sterilisation: readable `STER_AERATION_INCOMPLETE` / `STER_RELEASE_TOO_EARLY`; release before `release_due` asks
+  for `early_release_reason` inside the signature dialog (required); step time input capped at now; a failed load
+  offers "Plan loads" so its WOs go into a new load; every load state change asks the Part 11 reason. Item planning:
+  sterilisation fields read-only without `qa_plan_edit`. SAP card: `last_sync.error` (code + HTTP status) and an
+  optional `packaging_skipped` count. Part 11 reasons are wired on forecast activation, packaging, kanban loop edits
+  and SAP settings; line rates, changeover matrix and planning settings have no M8 UI (import / API).

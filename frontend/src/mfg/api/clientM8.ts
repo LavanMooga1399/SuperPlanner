@@ -134,11 +134,13 @@ export const planSterLoads = (body: SterPlanInput = {}) => mfgRequest<SterPlanRe
 export const listSterLoads = (query: { status?: string; from?: string; to?: string; chamber_line_id?: string; limit?: number; offset?: number } = {}, signal?: AbortSignal) =>
   mfgRequest<M8Page<SterLoad>>(SL, { query, signal });
 export const getSterLoad = (id: string, signal?: AbortSignal) => mfgRequest<SterLoad>(`${SL}/${enc(id)}`, { signal });
-export const loadSterLoad = (l: SterLoad) => mfgRequest<SterLoad>(`${SL}/${enc(l.id)}/load`, { method: "POST", body: {}, headers: reasonHeaders(null, l.row_version) });
-export const advanceSterLoad = (l: SterLoad, to: SterAdvanceTo) => mfgRequest<SterLoad>(`${SL}/${enc(l.id)}/advance`, { method: "POST", body: { to }, headers: reasonHeaders(null, l.row_version) });
+export const loadSterLoad = (l: SterLoad, reason?: string | null) => mfgRequest<SterLoad>(`${SL}/${enc(l.id)}/load`, { method: "POST", body: {}, headers: reasonHeaders(reason, l.row_version) });
+/** `at` (step time) may not be in the future nor before the previous step (409 otherwise). */
+export const advanceSterLoad = (l: SterLoad, to: SterAdvanceTo, at?: string | null, reason?: string | null) =>
+  mfgRequest<SterLoad>(`${SL}/${enc(l.id)}/advance`, { method: "POST", body: { to, at: at ?? null }, headers: reasonHeaders(reason, l.row_version) });
 /** S6: signed QA release (M7 policy `ster_load.release`, always signed); 202 = a step signed, the next one pending. */
-export const releaseSterLoad = (l: SterLoad, signature: SignatureInput | null, note: string) =>
-  signedAction<SterLoad>(`${SL}/${enc(l.id)}/release`, { note }, { version: l.row_version, signature, reason: note });
+export const releaseSterLoad = (l: SterLoad, signature: SignatureInput | null, note: string, earlyReason?: string | null) =>
+  signedAction<SterLoad>(`${SL}/${enc(l.id)}/release`, { note, early_release_reason: earlyReason?.trim() || null }, { version: l.row_version, signature, reason: earlyReason?.trim() || note });
 export const failSterLoad = (l: SterLoad, reason: string) =>
   mfgRequest<SterLoad>(`${SL}/${enc(l.id)}/fail`, { method: "POST", body: { reason }, headers: reasonHeaders(reason, l.row_version) });
 

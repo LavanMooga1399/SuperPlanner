@@ -468,6 +468,8 @@ export interface RatePublishResult {
   cancelled_wo_ids: EntityId[];
   kept_wo_ids: EntityId[];
   rate_supplies: number;
+  /** groups held by started work orders whose quantity differs from the plan (no second WO) */
+  skipped?: { wo_id: EntityId; wo_number?: string | null; item_id: EntityId; due: IsoDate | null; planned_qty: number; wo_qty: number }[];
 }
 
 // ---------------------------------------------------------------- 8 sterilisation (S1-S7)
@@ -668,7 +670,8 @@ export interface SapSettings extends SapSettingsInput {
   password_set: boolean;
   client_secret_set: boolean;
   cursors: Record<string, string>;
-  last_sync: Record<string, { at: IsoDateTime | null; status: string; records: number | null; error: string | null }>;
+  /** `error` = "<OData code or HTTP_<status>> (HTTP <status>)", never a response body */
+  last_sync: Record<string, { at: IsoDateTime | null; status: string; records: number | null; error: string | null; packaging_skipped?: number | null }>;
   row_version: number;
 }
 export interface SapSyncResult {

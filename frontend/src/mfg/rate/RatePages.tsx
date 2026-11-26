@@ -21,7 +21,7 @@ import { formatDateTime, formatDay, formatNumber } from "../../lib/locale";
 import { listLines } from "../api/client";
 import { compareRateRuns, createRateRun, getPlanningSettings, getRateBlocks, getRateGrid, getRateRun, listRateRuns, publishRateRun, runNightlyNow } from "../api/clientM8";
 import type { GanttBand, GanttBar, GanttResponse } from "../api/typesM3";
-import type { OvertimePolicy, RateBlock, RateExplanation, RateGrid, RateRun, RateShortage } from "../api/typesM8";
+import type { OvertimePolicy, RatePublishResult, RateBlock, RateExplanation, RateGrid, RateRun, RateShortage } from "../api/typesM8";
 import { DataTable } from "../components/DataTable";
 import { MfgError, Spinner } from "../components/Feedback";
 import { ProdGantt } from "../components/ProdGantt";
@@ -30,7 +30,7 @@ import { mfgPaths } from "../lib/paths";
 import { needsText, useCan } from "../lib/permissions";
 import { usePlantClock } from "../lib/plantTime";
 import { usePolling } from "../lib/usePolling";
-import { useLoad } from "../lib/useMfg";
+import { errorCode, useLoad } from "../lib/useMfg";
 import { useChangeReason } from "../qa/ChangeReason";
 import { codeText, colorOf, isRunning, ItemById, JobChip, num, pct, Segmented } from "../forecast/shared";
 
@@ -260,6 +260,9 @@ export function RateRunPage() {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
+  const [result, setResult] = useState<RatePublishResult | null>(null);
+  const [rerun, setRerun] = useState(false);
+  const navigate = useNavigate();
   useEffect(() => {
     if (r) document.title = `${r.number} - ${t("plan.rate.title")}`;
   }, [r]);
@@ -277,10 +280,12 @@ export function RateRunPage() {
     try {
       const res = await publishRateRun(r.id, why);
       toast(t("plan.rate.toast.published", { n: r.number, c: formatNumber(res.created_wo_ids.length), x: formatNumber(res.cancelled_wo_ids.length), s: formatNumber(res.rate_supplies) }));
+      setResult(res);
       setConfirm(false);
       run.reload();
     } catch (e) {
       setErr(e);
+      if (errorCode(e) === "RATE_RUN_STALE") setConfirm(false);
     } finally {
       setBusy(false);
     }
@@ -322,7 +327,15 @@ export function RateRunPage() {
           </button>
         }
       />
-      <MfgError error={err} />
+      {errorCode(err) === "RATE_RUN_STALE" ? (
+        <Banner tone="warn" role="alert" title={t("plan.rate.text.stale")} testId="rate-stale" actions={canPublish ? <button type="button" className="btn sm primary" onClick={() => setRerun(true)}><Icon name="play" /> {t("plan.rate.btn.new")}</button> : null}>
+          {t("plan.rate.text.staleBody")}
+        </Banner>
+      ) : (
+        <MfgError error={err} />
+      )}
+      {result ? <PublishResultPanel res={result} onClose={() => setResult(null)} /> : null}
+      {rerun ? <NewRunDialog onClose={() => setRerun(false)} onStarted={(x) => navigate(mfgPaths.rateRun(x.id))} /> : null}
       {isRunning(r.status) ? (
         <Banner tone="accent" icon="loader" role="status" testId="rate-running">
           {t("plan.rate.text.running")}
@@ -801,5 +814,50 @@ function CompareTab({ run }: { run: RateRun }) {
         <p className="muted">{t("plan.rate.cmp.noneHint")}</p>
       ) : null}
     </div>
+  );
+}
+
+/** Publish outcome (7.3): work orders created / cancelled / kept, rate supplies, and groups held by started work
+ * orders whose quantity differs from the plan (no second work order is made; the difference is listed). */
+function PublishResultPanel({ res, onClose }: { res: RatePublishResult; onClose(): void }) {
+  return (
+    <section className="card" data-testid="rate-publish-result" aria-labelledby="rpr-h">
+      <div className="card-header pl-card-header">
+        <h2 className="pl-h2" id="rpr-h">{t("plan.rate.pub.title")}</h2>
+        <button type="button" className="btn sm ghost icon" aria-label={t("common.close")} onClick={onClose}>
+          <Icon name="x" />
+        </button>
+      </div>
+      <div className="card-body col pl-gap">
+        <dl className="pl-facts">
+          <div><dt>{t("plan.rate.pub.created")}</dt><dd>{formatNumber(res.created_wo_ids.length)}</dd></div>
+          <div><dt>{t("plan.rate.pub.cancelled")}</dt><dd>{formatNumber(res.cancelled_wo_ids.length)}</dd></div>
+          <div><dt>{t("plan.rate.pub.kept")}</dt><dd>{formatNumber(res.kept_wo_ids.length)}</dd></div>
+          <div><dt>{t("plan.rate.pub.supplies")}</dt><dd>{formatNumber(res.rate_supplies)}</dd></div>
+        </dl>
+        {res.skipped?.length ? (
+          <>
+            <p className="pl-note" style={{ margin: 0 }}>
+              <Icon name="alert" size={14} /> {t("plan.rate.pub.skippedText", { n: res.skipped?.length ?? 0 })}
+            </p>
+            <DataTable
+              rows={res.skipped ?? []}
+              rowKey={(x) => x.wo_id}
+              label={t("plan.rate.pub.skipped")}
+              testId="rate-publish-skipped"
+              columnSettings={false}
+              columns={[
+                { key: "wo", header: t("plan.ster.head.wo"), width: "130px", render: (x) => <Link to={mfgPaths.workOrder(x.wo_id)} className="mono">{x.wo_number ?? t("plan.rate.pub.open")}</Link> },
+                { key: "item", header: t("plan.fc.head.item"), width: "minmax(180px, 2fr)", render: (x) => <ItemById id={x.item_id} /> },
+                { key: "due", header: t("plan.rate.short.due"), width: "120px", render: (x) => (x.due ? formatDay(x.due) : "") },
+                { key: "wq", header: t("plan.rate.pub.woQty"), width: "110px", align: "right", render: (x) => <span className="pl-num">{num(x.wo_qty)}</span> },
+                { key: "pq", header: t("plan.rate.pub.planQty"), width: "110px", align: "right", render: (x) => <span className="pl-num">{num(x.planned_qty)}</span> },
+                { key: "d", header: t("plan.rate.pub.diff"), width: "110px", align: "right", render: (x) => <span className="pl-num">{num(x.planned_qty - x.wo_qty)}</span> },
+              ]}
+            />
+          </>
+        ) : null}
+      </div>
+    </section>
   );
 }

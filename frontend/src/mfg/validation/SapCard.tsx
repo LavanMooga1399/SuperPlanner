@@ -95,20 +95,34 @@ export function SapCard() {
               {
                 key: "status",
                 header: t("plan.sap.sync.status"),
-                width: "140px",
+                width: "200px",
                 render: (r) =>
                   !r.last ? (
                     <span className="muted">{t("plan.sap.sync.never")}</span>
                   ) : r.last.status === "completed" ? (
                     <span className="badge ok"><Icon name="check" /> {t("plan.status.done")}</span>
                   ) : r.last.status === "failed" ? (
-                    <span className="badge danger" title={r.last.error ?? ""}><Icon name="x" /> {t("plan.status.failed")}</span>
+                    <span className="pl-by">
+                      <span className="badge danger"><Icon name="x" /> {t("plan.status.failed")}</span>
+                      {r.last.error ? <span className="mono small" data-testid="sap-error">{r.last.error}</span> : null}
+                    </span>
                   ) : (
                     <span className="badge accent"><Icon name="loader" /> {t("plan.status.running")}</span>
                   ),
               },
               { key: "at", header: t("plan.sap.sync.at"), width: "150px", render: (r) => (r.last?.at ? formatDateTime(r.last.at) : "") },
-              { key: "n", header: t("plan.sap.sync.records"), width: "100px", align: "right", render: (r) => <span className="pl-num">{r.last?.records !== null && r.last?.records !== undefined ? formatNumber(r.last.records) : ""}</span> },
+              {
+                key: "n",
+                header: t("plan.sap.sync.records"),
+                width: "130px",
+                align: "right",
+                render: (r) => (
+                  <span className="pl-by">
+                    <span className="pl-num">{r.last?.records !== null && r.last?.records !== undefined ? formatNumber(r.last.records) : ""}</span>
+                    {r.last?.packaging_skipped ? <span className="muted small" title={t("plan.sap.hint.packSkipped")}>{t("plan.sap.sync.packSkipped", { n: formatNumber(r.last.packaging_skipped) })}</span> : null}
+                  </span>
+                ),
+              },
               { key: "cursor", header: t("plan.sap.sync.cursor"), width: "minmax(160px, 1fr)", drop: 1, render: (r) => (r.cursor ? <span className="mono small">{r.cursor}</span> : <span className="muted">–</span>) },
             ]}
           />

@@ -67,6 +67,8 @@ function NumField({ id, label, value, onChange, hint, disabled, unit, step = "an
 export function ItemPlanningTab() {
   const { item } = useItem();
   const canEdit = useCan("master_edit");
+  // sterilisation and release fields are maintained by quality (review 7: qa_plan_edit)
+  const canSter = useCan("qa_plan_edit");
   const reason = useChangeReason();
   const rec = useLoad((s) => getItemPlanning(item.id, s), [item.id]);
   const pack = useLoad((s) => getItemPackaging(item.id, s), [item.id]);
@@ -224,23 +226,24 @@ export function ItemPlanningTab() {
         <section className="card">
           <div className="card-header pl-card-header">
             <h2 className="pl-h2">{t("plan.ip.sec.ster")}</h2>
+            {!canSter ? <span className="muted small" data-testid="ip-ster-ro"><Icon name="lock" size={12} /> {t("plan.ip.sterQa")}</span> : null}
           </div>
           <div className="card-body pl-form-grid">
             <div className="field">
               <label htmlFor="ip-cycle">{t("plan.ip.cycle")}</label>
-              <input id="ip-cycle" name="ster_cycle_code" className="input" maxLength={16} value={f.ster_cycle_code ?? ""} disabled={ro} onChange={(e) => set({ ster_cycle_code: e.target.value.trim() ? e.target.value : null })} data-testid="ip-cycle" />
+              <input id="ip-cycle" name="ster_cycle_code" className="input" maxLength={16} value={f.ster_cycle_code ?? ""} disabled={ro || !canSter} onChange={(e) => set({ ster_cycle_code: e.target.value.trim() ? e.target.value : null })} data-testid="ip-cycle" />
               <span className="hint">{t("plan.ip.cycleHint")}</span>
             </div>
-            <NumField id="ip-aer" label={t("plan.ip.aeration")} value={txt(f.aeration_hours)} onChange={(v) => set({ aeration_hours: numOrNull(v) })} unit={t("plan.unit.hours")} disabled={ro || !f.ster_cycle_code} />
+            <NumField id="ip-aer" label={t("plan.ip.aeration")} value={txt(f.aeration_hours)} onChange={(v) => set({ aeration_hours: numOrNull(v) })} unit={t("plan.unit.hours")} disabled={ro || !canSter || !f.ster_cycle_code} />
             <div className="field">
               <label htmlFor="ip-rel">{t("plan.ip.release")}</label>
-              <select id="ip-rel" className="select" value={f.release_mode} disabled={ro} onChange={(e) => set({ release_mode: e.target.value as ReleaseMode })}>
+              <select id="ip-rel" className="select" value={f.release_mode} disabled={ro || !canSter} onChange={(e) => set({ release_mode: e.target.value as ReleaseMode })}>
                 <option value="none">{t("plan.ip.release.none")}</option>
                 <option value="bi">{t("plan.ip.release.bi")}</option>
                 <option value="parametric">{t("plan.ip.release.parametric")}</option>
               </select>
             </div>
-            <NumField id="ip-reldays" label={t("plan.ip.releaseDays")} value={txt(f.release_days)} onChange={(v) => set({ release_days: numOrNull(v) ?? 0 })} unit={t("plan.unit.days")} hint={t("plan.ip.releaseDaysHint")} disabled={ro || f.release_mode === "none"} />
+            <NumField id="ip-reldays" label={t("plan.ip.releaseDays")} value={txt(f.release_days)} onChange={(v) => set({ release_days: numOrNull(v) ?? 0 })} unit={t("plan.unit.days")} hint={t("plan.ip.releaseDaysHint")} disabled={ro || !canSter || f.release_mode === "none"} />
           </div>
         </section>
       </FormErrors>

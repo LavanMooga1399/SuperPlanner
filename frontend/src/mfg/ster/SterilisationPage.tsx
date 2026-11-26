@@ -26,7 +26,8 @@ import { mfgPaths } from "../lib/paths";
 import { needsText, useCan } from "../lib/permissions";
 import { usePlantClock } from "../lib/plantTime";
 import { setSearchParam } from "../lib/usePaged";
-import { useLoad } from "../lib/useMfg";
+import { errorCode, useLoad } from "../lib/useMfg";
+import { useChangeReason } from "../qa/ChangeReason";
 import { ReasonConfirm } from "../forecast/ForecastPage";
 import { codeText, Facts, ItemById, num, Segmented, SterChip } from "../forecast/shared";
 
@@ -345,8 +346,19 @@ function AerationChart({ loads }: { loads: SterLoad[] }) {
 }
 
 // ---------------------------------------------------------------- awaiting release, load panel, actions
+/** Readable texts of the sterilisation 409s (R6); other errors use the shared error banner. */
+function SterError({ error }: { error: unknown }) {
+  const code = errorCode(error);
+  if (code === "STER_AERATION_INCOMPLETE") return <Banner tone="warn" role="alert" title={t("plan.ster.err.aeration")}>{t("plan.ster.err.aerationBody")}</Banner>;
+  if (code === "STER_RELEASE_TOO_EARLY") return <Banner tone="warn" role="alert" title={t("plan.ster.err.early")}>{t("plan.ster.err.earlyBody")}</Banner>;
+  return <MfgError error={error} />;
+}
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
 function useLoadActions(onChanged: () => void) {
   const [releasing, setReleasing] = useState<SterLoad | null>(null);
+  const [early, setEarly] = useState("");
   const [failing, setFailing] = useState<SterLoad | null>(null);
   const dialogs = (
     <>
@@ -362,13 +374,31 @@ function useLoadActions(onChanged: () => void) {
           plainLabel={t("plan.ster.btn.release")}
           commentLabel={t("plan.ster.label.releaseNote")}
           effect={t("plan.ster.dlg.releaseEffect", { n: plural(releasing.members.length, t("plan.noun.lot"), t("plan.noun.lots")) })}
-          perform={(sig, comment) => releaseSterLoad(releasing, sig, comment)}
+          children={
+            releasing.release_due > todayIso() ? (
+              <div className="col pl-gap" data-testid="ster-early">
+                <Banner tone="warn" title={t("plan.ster.early.title", { d: formatDay(releasing.release_due) })}>{t("plan.ster.early.body")}</Banner>
+                <div className="field">
+                  <label htmlFor="ster-early-reason">
+                    {t("plan.ster.early.label")} <span className="req" aria-hidden>*</span>
+                  </label>
+                  <textarea id="ster-early-reason" className="textarea" rows={2} maxLength={500} required aria-required value={early} onChange={(e) => setEarly(e.target.value)} data-testid="ster-early-reason" />
+                </div>
+              </div>
+            ) : undefined
+          }
+          canSubmit={releasing.release_due <= todayIso() || early.trim().length > 0}
+          perform={(sig, comment) => releaseSterLoad(releasing, sig, comment, releasing.release_due > todayIso() ? early : null)}
           onDone={(res) => {
             toast(signedToast(res, t("plan.ster.toast.released", { n: releasing.number })));
             setReleasing(null);
+            setEarly("");
             onChanged();
           }}
-          onClose={() => setReleasing(null)}
+          onClose={() => {
+            setReleasing(null);
+            setEarly("");
+          }}
         />
       ) : null}
       {failing ? (
@@ -388,7 +418,14 @@ function useLoadActions(onChanged: () => void) {
       ) : null}
     </>
   );
-  return { release: setReleasing, fail: setFailing, dialogs };
+  return {
+    release: (l: SterLoad) => {
+      setEarly("");
+      setReleasing(l);
+    },
+    fail: setFailing,
+    dialogs,
+  };
 }
 
 function AwaitingList({ loads, onChanged, onSelect }: { loads: SterLoad[]; onChanged(): void; onSelect(id: string): void }) {
@@ -459,13 +496,20 @@ function LoadPanel({ load, onChanged, onClose }: { load: SterLoad; onChanged(): 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const [cancel, setCancel] = useState(false);
+  const [at, setAt] = useState("");
+  const reason = useChangeReason();
   const next = NEXT[load.status];
+  const atIso = at ? clock.fromLocal(at) : null;
+  const atFuture = atIso !== null && Date.parse(atIso) > Date.now() + 60000;
+  const nowLocal = clock.toLocal(new Date().toISOString());
   const step = async (to: SterAdvanceTo | "load") => {
+    const why = await reason.ask(t("plan.ster.what", { n: load.number }));
+    if (why === null) return;
     setBusy(true);
     setErr(null);
     try {
-      if (to === "load") await loadSterLoad(load);
-      else await advanceSterLoad(load, to);
+      if (to === "load") await loadSterLoad(load, why);
+      else await advanceSterLoad(load, to, to === "cancelled" ? null : atIso, why);
       toast(t("plan.ster.toast.step", { n: load.number }));
       setCancel(false);
       onChanged();
@@ -482,8 +526,14 @@ function LoadPanel({ load, onChanged, onClose }: { load: SterLoad; onChanged(): 
           <span className="mono">{load.number}</span> <SterChip s={load.status} />
         </h2>
         <span className="row" style={{ gap: 6 }}>
+          {next && next.to !== "load" ? (
+            <span className="pl-at">
+              <label htmlFor="ster-at" className="small muted">{t("plan.ster.label.at")}</label>
+              <input id="ster-at" className="input" type="datetime-local" max={nowLocal} value={at} aria-invalid={atFuture} onChange={(e) => setAt(e.target.value)} data-testid="ster-at" />
+            </span>
+          ) : null}
           {next ? (
-            <button type="button" className="btn sm primary" disabled={!canPlan || busy} title={canPlan ? undefined : needsText("ster_plan")} onClick={() => void step(next.to)} data-testid="ster-next">
+            <button type="button" className="btn sm primary" disabled={!canPlan || busy || atFuture} title={canPlan ? undefined : needsText("ster_plan")} onClick={() => void step(next.to)} data-testid="ster-next">
               <Icon name="arrow-right" /> {t(next.label)}
             </button>
           ) : null}
@@ -508,7 +558,28 @@ function LoadPanel({ load, onChanged, onClose }: { load: SterLoad; onChanged(): 
         </span>
       </div>
       <div className="card-body col pl-gap">
-        <MfgError error={err} />
+        {atFuture ? <p className="pl-field-err" role="alert"><Icon name="alert" size={12} /> {t("plan.ster.err.future")}</p> : null}
+        <SterError error={err} />
+        {load.status === "failed" ? (
+          <p className="pl-note" style={{ margin: 0 }} data-testid="ster-failed-replan">
+            <Icon name="refresh" size={14} /> {t("plan.ster.text.replan")}
+            {canPlan ? (
+              <button type="button" className="btn sm" disabled={busy} onClick={() => {
+                setBusy(true);
+                setErr(null);
+                planSterLoads({ days: 30 })
+                  .then((r) => {
+                    toast(t("plan.ster.toast.planned", { n: plural(r.loads, t("plan.noun.load"), t("plan.noun.loads")), p: formatNumber(r.pallets), w: r.warnings.length }));
+                    onChanged();
+                  })
+                  .catch((e: unknown) => setErr(e))
+                  .finally(() => setBusy(false));
+              }} data-testid="ster-replan">
+                {t("plan.ster.btn.plan")}
+              </button>
+            ) : null}
+          </p>
+        ) : null}
         {load.ncr_id ? (
           <Banner tone="danger" title={t("plan.ster.text.ncr")}>
             <Link to={mfgPaths.qaNcr(load.ncr_id)}>{t("plan.ster.text.openNcr")}</Link>
@@ -553,6 +624,7 @@ function LoadPanel({ load, onChanged, onClose }: { load: SterLoad; onChanged(): 
         </ConfirmDialog>
       ) : null}
       {act.dialogs}
+      {reason.dialog}
     </section>
   );
 }
