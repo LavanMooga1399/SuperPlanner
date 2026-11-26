@@ -102,9 +102,91 @@ def refs_in(payload: Any) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+def _all_tool_results(kw: dict[str, Any]) -> list[dict[str, Any]]:
+    out = []
+    for m in kw.get("messages") or []:
+        if isinstance(m.get("content"), list):
+            for b in m["content"]:
+                if isinstance(b, dict) and b.get("type") == "tool_result":
+                    try:
+                        out.append(json.loads(b["content"]))
+                    except (TypeError, ValueError):
+                        out.append({})
+    return out
+
+
+def _used(kw: dict[str, Any], name: str) -> bool:
+    for m in kw.get("messages") or []:
+        if m.get("role") == "assistant" and isinstance(m.get("content"), list):
+            for b in m["content"]:
+                if (b.get("type") if isinstance(b, dict) else getattr(b, "type", None)) == "tool_use" and \
+                        (b.get("name") if isinstance(b, dict) else getattr(b, "name", None)) == name:
+                    return True
+    return False
+
+
+def demo_drafts(results: list[dict[str, Any]], today: Any = None) -> list[dict[str, Any]]:
+    """Draft actions the data supports (demo review): open the suggested overtime; for a late demand line, expedite
+    the purchase order on its limiting path, or a purchase request for a bought item that cannot arrive in time;
+    raise the order's priority when it is not top priority; always also a what-if schedule with overtime allowed
+    (never live). Each becomes one `draft_action` call; invalid ones are reported by the tool, the rest stand."""
+    from datetime import date as _date, timedelta
+
+    today = today or _date.today()
+    out: list[dict[str, Any]] = []
+    for r in results:
+        d = r.get("data") if isinstance(r, dict) else None
+        if isinstance(d, dict) and d.get("items") and isinstance(d["items"], list) and \
+                isinstance(d["items"][0], dict) and d["items"][0].get("line_id") and d["items"][0].get("start"):
+            x = d["items"][0]
+            out.append({"kind": "open_overtime", "args": {"open_shifts": [{"line_id": x["line_id"],
+                                                                           "start": x["start"], "end": x["end"]}],
+                                                          "summary": "Accept the suggested overtime."}})
+    for r in results:
+        d = r.get("data") if isinstance(r, dict) else None
+        if not isinstance(d, dict) or "order" not in d:
+            continue
+        order = d.get("order") or {}
+        rows = ((d.get("mrp") or {}).get("lines") or [])
+        late = [x for x in rows if (x.get("late_days") or 0) > 0 or x.get("status") in ("late", "past_due")]
+        for row in late[:1]:
+            due = row.get("due_date")
+            try:
+                due_d = _date.fromisoformat(str(due)[:10])
+            except ValueError:
+                due_d = today
+            need = max(today, due_d - timedelta(days=3)).isoformat()
+            for st in row.get("limiting") or []:
+                label = str(st.get("label") or "")
+                if label.upper().startswith("PO-"):
+                    out.append({"kind": "expedite_po_schedule", "args": {
+                        "purchase_order": label.split("/")[0], "needed_date": need,
+                        "summary": f"{label.split('/')[0]} limits {order.get('number')}: pull it forward."}})
+                    break
+                if label.startswith("Planned PR") or st.get("reason") in ("lead_time", "start_in_past") and \
+                        "PR" in label:
+                    out.append({"kind": "create_pr", "args": {
+                        "item": st.get("part_number"), "qty": float(row.get("qty") or 1), "needed_date": need,
+                        "summary": f"Order {st.get('part_number')} now for {order.get('number')}."}})
+                    break
+        if late and (order.get("priority") or 1) > 1:
+            out.append({"kind": "raise_priority", "args": {"demand_order": order.get("number"), "priority": 1,
+                                                           "summary": "Plan this order first."}})
+        if late:
+            out.append({"kind": "whatif_run", "args": {"target": "aps", "whatif_aps": {
+                "overtime": "allow", "label": f"Overtime for {order.get('number')}"[:60]},
+                "summary": "See whether overtime recovers the date (what-if, never live)."}})
+    seen, uniq = set(), []
+    for x in out:
+        if x["kind"] not in seen:
+            seen.add(x["kind"])
+            uniq.append(x)
+    return uniq[:3]
+
+
 def demo_script(kw: dict[str, Any], n: int) -> Any:
     tools = {t["name"] for t in kw.get("tools") or []}
-    if n == 0:
+    if not _all_tool_results(kw):
         q = (kw["messages"][-1]["content"] if isinstance(kw["messages"][-1]["content"], str) else "")
         order = next((w.strip(".,?") for w in q.split() if w.upper().startswith("DO-")), None)
         uses = []
@@ -115,17 +197,14 @@ def demo_script(kw: dict[str, Any], n: int) -> Any:
         if not uses:
             return response(text("I can only look at planning data here."))
         return response(text("Let me look at the plan."), *uses)
-    res = last_tool_results(kw)
-    if n == 1 and "draft_action" in tools:
-        ot = next((r for r in res if isinstance(r.get("data"), dict) and "items" in r["data"]), None)
-        items = (ot or {}).get("data", {}).get("items") or []
-        if items:
-            x = items[0]
-            return response(tool_use("draft_action", {"kind": "open_overtime", "args": {
-                "open_shifts": [{"line_id": x.get("line_id"), "start": x.get("start"), "end": x.get("end")}],
-                "summary": "Accept the suggested overtime."}}, "toolu_demo_3"))
+    res = _all_tool_results(kw)
+    if "draft_action" in tools and not _used(kw, "draft_action"):
+        drafts = demo_drafts(res)
+        if drafts:
+            return response(text("These actions could help; nothing changes until you apply one."),
+                            *[tool_use("draft_action", d, f"toolu_demo_d{k}") for k, d in enumerate(drafts)])
     refs = [r for p in res for r in refs_in(p)]
-    cite = " ".join(f"[{r}]" for r in refs[:3])
+    cite = " ".join(f"[{r}]" for r in list(dict.fromkeys(refs))[:3])
     return response(text(f"Here is what I found {cite}. Review the drafts below; nothing has been changed."))
 
 

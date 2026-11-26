@@ -761,3 +761,15 @@ Review round (2026-11-26) decisions:
   sterilisation fields read-only without `qa_plan_edit`. SAP card: `last_sync.error` (code + HTTP status) and an
   optional `packaging_skipped` count. Part 11 reasons are wired on forecast activation, packaging, kanban loop edits
   and SAP settings; line rates, changeover matrix and planning settings have no M8 UI (import / API).
+
+Demo review (2026-11-26):
+- Rate construction now starts the periodic-cleaning counter from the firm blocks it continues (production hours
+  after their last qualifying cleaning, the validator's rule), so a fresh run on top of a published plan never
+  exceeds `clean_every_hours` (`construct.run_since_clean`, also used by the CP-SAT relayout).
+- Demo assistant (`assistant/fake.demo_drafts`): after `demand_status` / `overtime_options` it proposes up to three
+  drafts the data supports - suggested overtime, expedite the PO on the late line's limiting path, a PR for a bought
+  item that is too late, raise the order's priority (only when not already 1), and a what-if schedule with overtime
+  allowed (never live); the step is derived from the conversation, not from the client's call count.
+- `PlantRecord.country` / `locale` (read-only, filled by GET/PUT `/plant`): plant attributes `country` / `locale`
+  win, else derived from the currency (CAD -> CA / en-CA, INR -> IN / en-IN, USD -> US / en-US, ...), then the time
+  zone; unknown -> `en`. No schema change (the override lives in the plant attributes).

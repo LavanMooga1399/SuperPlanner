@@ -443,3 +443,37 @@ def test_m2_whatif_run_drafts_apply_as_what_if_only(world: World):
     mrp_card = next(c for c in cards if c["path"].endswith("/mrp/runs"))
     m = api.post("/mrp/runs", mrp_card["body"])
     assert m["kind"] == "what_if"
+
+
+def test_demo_mode_proposes_a_draft_for_a_late_order(world: World):
+    """Demo review: the demo assistant cites the records and proposes a draft the data supports."""
+    from superplanner.assistant.fake import demo_script
+
+    dl = late_demand_line(world.api())
+    order = dl["order"]["number"]
+    world.script(demo_script)
+    turn = ask(world.api("planner"), f"Why is {order} late and what can I do?")
+    assert turn["status"] == "completed", world.holder.client.errors
+    assert turn["citations"] and turn["drafts"], turn
+    assert {d["kind"] for d in turn["drafts"]} & {"open_overtime", "expedite_po_schedule", "create_pr",
+                                                 "raise_priority", "whatif_run"}
+
+
+def test_demo_drafts_from_a_limiting_po_when_priority_is_top():
+    from datetime import date
+
+    from superplanner.assistant.fake import demo_drafts
+
+    res = [{"data": {"items": []}},
+           {"data": {"order": {"number": "DO-MDV-1003", "priority": 1},
+                     "mrp": {"lines": [{"line_no": 10, "qty": 30000, "due_date": "2026-11-30", "late_days": 4,
+                                        "status": "late", "limiting": [
+                                            {"part_number": "MDV-IVS-20", "label": "Planned WO P-3", "reason":
+                                             "component"},
+                                            {"part_number": "MDV-CLAMP", "label": "PO-MDV-2004/10/1",
+                                             "reason": "supply_date"}]}]}}}]
+    out = demo_drafts(res, today=date(2026, 11, 26))
+    assert out[0] == {"kind": "expedite_po_schedule", "args": {
+        "purchase_order": "PO-MDV-2004", "needed_date": "2026-11-27",
+        "summary": "PO-MDV-2004 limits DO-MDV-1003: pull it forward."}}
+    assert [x["kind"] for x in out] == ["expedite_po_schedule", "whatif_run"]       # priority 1: not raised
