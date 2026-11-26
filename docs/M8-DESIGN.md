@@ -773,3 +773,12 @@ Demo review (2026-11-26):
 - `PlantRecord.country` / `locale` (read-only, filled by GET/PUT `/plant`): plant attributes `country` / `locale`
   win, else derived from the currency (CAD -> CA / en-CA, INR -> IN / en-IN, USD -> US / en-US, ...), then the time
   zone; unknown -> `en`. No schema change (the override lives in the plant attributes).
+- Demo review (UI): number/date format = person override (display menu, `sp.numfmt`) else language + plant country
+  (`GET /plant` `country`, else currency / offset): fr-CA, en-CA, en-IN, en-US default; `MfgLayout` reads the plant
+  before the first page and re-creates the formatters (`LOCALE` is a live binding, no reload). Plant clock weekday
+  lookup no longer depends on the UI language (fixes "undefined 27 nov." in French). Signature dialog takes
+  `extraRows` (sterilisation release lists the load's lots from members or its sterility holds; an empty server row
+  of the same label is hidden). QA worklists filter a status set longer than the routes' 64 characters on the client
+  (CAPA "active"). QA responses' `people` maps feed every person-name lookup; the audit trail shows names. Dashboard
+  detail labels are keyed (`mfg.dash.key.*`, fr-CA). Floor operation: "Issue component lot" (`POST
+  /floor/issue-lot`; component choice, remaining default, over-issue confirm + reason).

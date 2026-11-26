@@ -93,3 +93,23 @@ export const createSimulation = (body: SimulationInput) => mfgRequest<Simulation
 export const getSimulation = (id: string, signal?: AbortSignal) => mfgRequest<Simulation>(`/aps/simulations/${enc(id)}`, { signal });
 export const listSimulations = (query: { limit?: number; offset?: number } = {}, signal?: AbortSignal) =>
   mfgRequest<Page<Simulation>>("/aps/simulations", { query: { ...query }, signal });
+
+// ---------------------------------------------------------------- demo review: issue a component lot at an operation
+export interface IssueLotInput {
+  wo_operation_id: string;
+  scan?: string | null;
+  lot_id?: string | null;
+  wo_component_id?: string | null;
+  qty?: number | null;
+  over_issue?: boolean;
+  reason?: string | null;
+  client_event_id?: string | null;
+}
+export interface IssueLotResult {
+  component: { id: string; item_id: string; required_qty: number; issued_qty: number; remaining: number };
+  lot: { id: string; lot_code: string; expires_on: string | null };
+  location_id: string;
+  qty: number;
+}
+/** `POST /mfg/floor/issue-lot`: one `wo_issue` posting of a scanned lot; 422 `FLR_OVER_ISSUE` (details.remaining) needs `over_issue` + reason. */
+export const floorIssueLot = (body: IssueLotInput) => mfgRequest<IssueLotResult>("/floor/issue-lot", { method: "POST", body });

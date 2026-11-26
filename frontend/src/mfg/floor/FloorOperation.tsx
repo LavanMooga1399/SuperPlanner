@@ -20,6 +20,7 @@ import { mfgPaths } from "../lib/paths";
 import { useCan } from "../lib/permissions";
 import { useLoad } from "../lib/useMfg";
 import { crewForEvent, useFloor, useScanHandler } from "./FloorLayout";
+import { IssueLotPanel } from "./IssueLotPanel";
 import { ACTION, DEFAULT_REASONS, EVENT_LABEL, KitChip, OpStatusChip, floorErrorText, fmtQty, humanCode } from "./floorText";
 import { newClientEventId, submitFloorEvent } from "./offlineQueue";
 import { t, t as tr } from "../../lib/i18n";
@@ -42,6 +43,7 @@ export function FloorOperation() {
   const [lastResult, setLastResult] = useState<(FloorEventResult & { replayed: boolean }) | null>(null);
   const [lineId, setLineId] = useState<string>("");
   const [eventAt, setEventAt] = useState<string>(""); // local datetime, "" = now
+  const [issuing, setIssuing] = useState(false);
   const op = d?.operation;
   /** M7 5.2: the inspection lot of an inspection-gate operation, when the server sends it */
   const gate = (d as (FloorOperationDetail & { inspection_lot?: { id: string; number: string; status: string } | null }) | null)?.inspection_lot ?? null;
@@ -209,6 +211,11 @@ export function FloorOperation() {
               </button>
             ))}
             {allowed.length === 0 ? <span className="muted">{tr("floor.floorOperation.text.noActionIsPossibleIn")}</span> : null}
+            {d.components.some((c) => !c.backflush) && op && op.status !== "completed" && op.status !== "skipped" ? (
+              <button type="button" className={`btn floor-action${issuing ? " active" : ""}`} aria-pressed={issuing} onClick={() => setIssuing((v) => !v)} data-testid="floor-action-issue-lot">
+                <Icon name="box" size={22} /> {tr("plan.fi.title")}
+              </button>
+            ) : null}
           </div>
           <details>
             <summary className="muted">{t("floor.floorOperation.head.itHappenedEarlierUpTo")}</summary>
@@ -222,6 +229,10 @@ export function FloorOperation() {
         <div className="floor-card muted">{tr("floor.floorOperation.text.yourRoleCanSeeThe")}</div>
       )}
 
+      {issuing ? <IssueLotPanel d={d} onCancel={() => setIssuing(false)} onDone={() => {
+        setIssuing(false);
+        det.reload();
+      }} /> : null}
       {panel === "pause" ? <PausePanel d={d} busy={busy} onCancel={() => setPanel(null)} onSubmit={(reason, note) => void post("pause", { reason_code: reason, ...(note ? { note } : {}) })} /> : null}
       {panel === "report" || panel === "complete" ? (
         <QtyPanel
