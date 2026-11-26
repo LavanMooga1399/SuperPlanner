@@ -35,7 +35,10 @@ PART11_ENTITIES: frozenset[str] = frozenset({
     "item", "bom", "routing", "operation", "plant", "location", "lot", "hold", "work_order", "change_request",
     "member", "plant_roles", "qa_settings", "eco", "sampling_scheme", "inspection_plan", "inspection_lot", "ncr", "capa",
     "capa_action", "complaint", "field_action", "field_action_unit", "equipment", "calibration", "esig_policy",
-    "attachment", "link"})
+    "attachment", "link",
+    # M8 review 7: planning records that steer production / sterility
+    "forecast_version", "item_planning", "item_packaging", "line_rates", "changeover_matrix", "kanban_loop",
+    "planning_settings", "ster_load"})
 #: actions that never need a reason (creates, postings and their replays, sample loads, imports with their own reason)
 EXEMPT_ACTIONS: frozenset[str] = frozenset({"create", "post", "replay", "sample_load", "import", "add", "copy",
                                              "member_add", "results"})

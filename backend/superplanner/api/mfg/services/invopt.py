@@ -308,7 +308,7 @@ def decide(ctx: AppContext, a: Any, run_id: str, body: Any) -> dict[str, Any]:
                 updated += 1
                 audit(s, "item", it.id, "update", {"source": run.number, "line_id": ln.id},
                       before={"safety_stock": old}, after={"safety_stock": ln.proposed_ss},
-                      reason=f"{run.number} approved")
+                      reason=f"{run.number} approved: {body.reason}"[:500])
         pending = int(s.execute(select(func.count()).select_from(MfgSsLineRow).where(
             MfgSsLineRow.run_id == run.id, MfgSsLineRow.decision == "pending")).scalar() or 0)
         run.summary = {**(run.summary or {}), "pending": pending}

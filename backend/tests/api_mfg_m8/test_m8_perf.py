@@ -71,7 +71,11 @@ def test_seed_small_and_chain(api, client):
     from superplanner.loadseed import seed
 
     res = seed(owner_db(client), "usr_local", profile="small")
-    assert res["items"] == 150 and res["history_rows"] == 90 * 24
+    assert res["items"] == 150
+    from superplanner.api.db.models import AuditEventRow
+    from superplanner.api.db.ownership import system_scope
+    with system_scope(), owner_db(client).read() as s:
+        assert s.query(AuditEventRow).filter(AuditEventRow.action == "load_seed").count() == 1 and res["history_rows"] == 90 * 24
     t = _chain(client, api, 10)
     assert t["P4_rate_s"] < 60
 
@@ -87,3 +91,32 @@ def test_bd_profile_timings(api, client):
     print({"seed_s": round(seed_s, 1), **{k: round(v, 2) for k, v in t.items()}})
     assert t["P1_forecast_s"] < 60 and t["P3_ss_s"] < 10 and t["P2_mrp_forecast_s"] < 90
     assert t["P4_rate_s"] < 300 and t["P5_ster_s"] < 10 and t["P8_grid_s"] < 0.8
+
+
+def test_load_seed_guards(api, client):
+    """Review 5: CLI confirmation flags, postings need --force, Part 11 refused (seed and sample replace)."""
+    import io
+
+    from superplanner import manage
+    from superplanner.loadseed import SeedRefused, seed
+
+    url = str(owner_db(client).engine.url.render_as_string(hide_password=False))
+    err = io.StringIO()
+    assert manage.main(["--url", url, "load-seed", "--profile", "small"], out=io.StringIO(), err=err) == 1
+    assert "--replace-all-data --yes" in err.getvalue()
+    it = api.item("GUARD-1")
+    loc = api.location("ST-G")
+    api.receive(it["id"], loc["id"], 5)
+    with pytest.raises(SeedRefused):
+        seed(owner_db(client), "usr_local", profile="small")
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.api.mfg.db_models import MfgPlantRow
+    with owner_scope("usr_local"), owner_db(client).write() as s:
+        s.query(MfgPlantRow).one().part11_mode = True
+    with pytest.raises(SeedRefused):
+        seed(owner_db(client), "usr_local", profile="small", force=True)
+    api.err("POST", "/samples/small/load", 409, "PART11_DELETE_NOT_ALLOWED", json={"replace": True})
+    from superplanner.api.db.models import AuditEventRow
+    from superplanner.api.db.ownership import system_scope
+    with system_scope(), owner_db(client).read() as s:
+        assert not s.query(AuditEventRow).filter(AuditEventRow.action == "load_seed").count()

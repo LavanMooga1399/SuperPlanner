@@ -37,7 +37,7 @@ def test_ss_run_and_approval_updates_item_with_reason(api, client):
     assert out == {"decided": 1, "skipped": 0, "items_updated": 1}
     assert api.get(f"/items/{it['id']}")["safety_stock"] == ln["proposed_ss"]
     ev = [e for e in audit_rows(client, "item", it["id"]) if e["details"].get("source") == ss["number"]]
-    assert ev and ev[0]["reason"] == f"{ss['number']} approved"
+    assert ev and ev[0]["reason"] == f"{ss['number']} approved: Q4 review"          # review 7: user's reason
     again = api.post(f"/invopt/runs/{ss['id']}/decide", {"line_ids": [ln["id"]], "decision": "rejected",
                                                          "reason": "x"}, 200)
     assert again["skipped"] == 1
@@ -83,3 +83,25 @@ def test_m8_health_issues(api):
     h = api.get("/health")
     codes = {i["code"] for i in h["issues"] if i["entity"] and i["entity"]["id"] == it["id"]}
     assert {"MFG_RATE_NO_RATE", "MFG_PACK_INVALID", "MFG_STER_NO_CHAMBER"} <= codes
+
+
+def test_part11_mode_needs_reasons_for_m8_records(api, client):
+    """Review 7: planning records are regulated in Part 11 mode (reason header required for changes)."""
+    from urllib.parse import quote
+
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.api.mfg.db_models import MfgPlantRow
+    from m8_helpers import owner_db
+
+    it = api.item("P11-1", "make", lead_time_days=1)
+    st = api.get("/plant/planning-settings")
+    with owner_scope("usr_local"), owner_db(client).write() as s:
+        s.query(MfgPlantRow).one().part11_mode = True
+    body = {k: v for k, v in st.items() if k != "row_version"}
+    api.err("PUT", "/plant/planning-settings", 422, "AUDIT_REASON_REQUIRED", json=body,
+            headers={"If-Match": f'"{api.get("/plant/planning-settings")["row_version"]}"'})
+    v = api.get("/plant/planning-settings")["row_version"]
+    api.req("PUT", "/plant/planning-settings", 200, json={**body, "rate_firm_days": 2},
+            headers={"If-Match": f'"{v}"', "X-SP-Change-Reason": quote("Firm zone 2 days")})
+    api.err("PUT", f"/items/{it['id']}/planning", 422, "AUDIT_REASON_REQUIRED", json={"forecast": True},
+            headers={"If-Match": '"0"'})

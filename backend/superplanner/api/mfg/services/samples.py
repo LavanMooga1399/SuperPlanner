@@ -161,6 +161,9 @@ def load(ctx: AppContext, sample_id: str, replace: bool, anchor: date | None = N
             ds = repo_m2.load_import_dataset(s)
         plan = plan_import(bundle, ds, opts, id_factory=new_id)
     with write_tx(ctx) as (s, plant):
+        if replace and plant.part11_mode:                   # M8 review 5: like a reset, never in Part 11 mode
+            raise ApiError(409, "PART11_DELETE_NOT_ALLOWED", "This plant runs in Part 11 mode; a sample load with "
+                           "replace would delete its records.", {})
         if replace:
             dv = plant.data_version
             delete_all(s)

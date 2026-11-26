@@ -28,7 +28,9 @@
                                                           M8: requirement x test matrix (CSV/HTML/JSON; no DB);
                                                           exit 1 when a high-risk requirement has no test
     config-baseline --plant CODE|OWNER_ID [--label L]     M8: store a configuration baseline (prints id, sha256)
-    load-seed [--profile bd|small] [--email E] [--seed N] M8: BD-like load-test data (scripts/load/README.md)
+    load-seed --replace-all-data --yes [--profile bd|small] [--email E] [--seed N] [--force]
+                                                          M8: BD-like load-test data (scripts/load/README.md);
+                                                          refused in Part 11 mode, and with postings unless --force
 
 Uses `DATABASE_URL` (or `--url`) and runs in system scope. Like the API it refuses to run unless the schema is at
 head (`migrate.ensure_schema`; AUTO_MIGRATE=true upgrades first). Exit codes: 0 ok, 1 command error (unknown user, weak password, email
@@ -416,7 +418,14 @@ def cmd_load_seed(db: Database, settings: Settings, args: argparse.Namespace, ou
             owner = _user_by_email(s, args.email).id
     else:
         owner = "usr_local"
-    res = seed(db, owner, profile=args.profile, rng_seed=args.seed)
+    from .loadseed import SeedRefused
+
+    if not (args.replace_all_data and args.yes):
+        raise CommandError("load-seed deletes all manufacturing data of the plant: pass --replace-all-data --yes")
+    try:
+        res = seed(db, owner, profile=args.profile, rng_seed=args.seed, force=args.force)
+    except SeedRefused as e:
+        raise CommandError(str(e)) from None
     for k, v in res.items():
         print(f"{k}: {v}", file=out)
 
@@ -479,6 +488,9 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--profile", default="bd", choices=["bd", "small"])
     c.add_argument("--email", help="owner of the data (default: the local user)")
     c.add_argument("--seed", type=int, default=8)
+    c.add_argument("--replace-all-data", action="store_true", help="required: the plant's data is replaced")
+    c.add_argument("--yes", action="store_true", help="required: confirm")
+    c.add_argument("--force", action="store_true", help="also when the plant has inventory postings")
     return p
 
 

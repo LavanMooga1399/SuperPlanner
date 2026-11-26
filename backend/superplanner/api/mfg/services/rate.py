@@ -354,7 +354,8 @@ def publish_in(s: Session, run: MfgRateRunRow, actor: str) -> dict[str, Any]:
         row.row_version += 1
         row.updated_at = now
         cancelled.append(row.id)
-        audit(s, "work_order", row.id, "cancel", {"number": row.number, "rate_run": run.number})
+        audit(s, "work_order", row.id, "cancel", {"number": row.number, "rate_run": run.number},
+              reason=f"Superseded by rate plan {run.number}")          # system reason (review 7)
     s.execute(update(MfgRateRunRow).where(MfgRateRunRow.published.is_(True), MfgRateRunRow.id != run.id)
               .values(published=False).execution_options(synchronize_session=False))
     run.published, run.published_at, run.published_by = True, now, actor

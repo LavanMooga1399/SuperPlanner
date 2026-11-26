@@ -740,3 +740,13 @@ Review round (2026-11-26) decisions:
   (no second WO; the difference is reported in `PublishResult.skipped`); unstarted WOs match item, line, day and
   quantity. Publishing a run planned on an earlier day answers 409 `RATE_RUN_STALE`; groups dated before today are
   never created.
+- R5 `manage.py load-seed` needs `--replace-all-data --yes`; refused in Part 11 mode, and when the plant has
+  inventory postings unless `--force`; audited (`mfg_plant.load_seed`). `POST /samples/{id}/load` with `replace`
+  answers 409 `PART11_DELETE_NOT_ALLOWED` in Part 11 mode (like a reset).
+- R7 Regulated in Part 11 mode (reason required for every non-create change): `forecast_version` (activate,
+  delete), `item_planning`, `item_packaging`, `line_rates`, `changeover_matrix`, `kanban_loop`,
+  `planning_settings`, `ster_load` (every state change; release uses the early-release reason, else the signature
+  comment, else "Signed sterility release"; fail uses its reason). System actions carry a system reason
+  (publish cancellations: "Superseded by rate plan RR-..."), which also covers the nightly auto-publish. SS approval
+  reason = "SSP-... approved: <user reason>". Changing sterilisation fields of item planning needs `qa_plan_edit`
+  (403 `MFG_FORBIDDEN`).

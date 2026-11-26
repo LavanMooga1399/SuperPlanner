@@ -286,7 +286,7 @@ def _get(s: Session, load_id: str, if_match: str | None) -> MfgSterLoadRow:
     return r
 
 
-def _move(s: Session, r: MfgSterLoadRow, to: str) -> None:
+def _move(s: Session, r: MfgSterLoadRow, to: str, reason: str | None = None) -> None:
     if to not in LOAD_FLOW.get(r.status, ()):
         raise ApiError(409, "MFG_INVALID_STATE", f"A {r.status.replace('_', ' ')} load cannot become "
                        f"{to.replace('_', ' ')}.", {"status": r.status, "to": to})
@@ -294,7 +294,7 @@ def _move(s: Session, r: MfgSterLoadRow, to: str) -> None:
     r.status = to
     r.row_version += 1
     r.updated_at = utcnow()
-    audit(s, "ster_load", r.id, to, {"from": before, "number": r.number})
+    audit(s, "ster_load", r.id, to, {"from": before, "number": r.number}, reason=reason)
 
 
 def load(ctx: AppContext, a: Any, load_id: str, if_match: str | None) -> dict[str, Any]:
@@ -466,7 +466,8 @@ def release(ctx: AppContext, a: Any, load_id: str, body: Any, if_match: str | No
             return out.pending
         sig_id = out.signature_ids[-1] if out.signature_ids else None
         n = release_source(s, "sterility", r.id, a.user_id, body.note or f"Sterility released ({r.number})", sig_id)
-        _move(s, r, "released")
+        sig_reason = (body.signature.comment if body.signature and body.signature.comment else None)
+        _move(s, r, "released", body.early_release_reason or sig_reason or f"Signed sterility release {r.number}")
         r.release_signature_id = sig_id
         audit(s, "ster_load", r.id, "release_holds", {"holds": n, "signature_id": sig_id,
                                                       "early_release_reason": body.early_release_reason},
@@ -502,8 +503,9 @@ def fail(ctx: AppContext, a: Any, load_id: str, body: Any, if_match: str | None)
 
         for lot, _i in lots:                                   # review 8: every lot linked to the NCR
             add_link(s, "ncr", ncr.id, "lot", lot, a.user_id)
-        _move(s, r, "failed")
+        _move(s, r, "failed", body.reason)
         audit(s, "ster_load", r.id, "fail_reason", {"reason": body.reason, "ncr": ncr.number, "lots": len(lots)},
+              # (reason also on the failed transition)
               reason=body.reason)
         s.flush()
         return _record(s, r)

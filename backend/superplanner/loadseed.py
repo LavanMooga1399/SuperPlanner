@@ -83,8 +83,14 @@ def bundle(profile: str, anchor: date, rng: random.Random) -> dict[str, Any]:
     return bd
 
 
-def seed(db: Any, owner: str, *, profile: str = "bd", rng_seed: int = 8, anchor: date | None = None
-         ) -> dict[str, Any]:
+class SeedRefused(Exception):
+    pass
+
+
+def seed(db: Any, owner: str, *, profile: str = "bd", rng_seed: int = 8, anchor: date | None = None,
+         force: bool = False) -> dict[str, Any]:
+    """Replaces the plant's manufacturing data. Refused in Part 11 mode, and when the plant has inventory postings
+    unless `force` (review 5); audited (`plant.load_seed`)."""
     from .api.db.models import new_id, utcnow
     from .api.db.ownership import owner_scope
     from .api.mfg import repo, writer
@@ -108,7 +114,18 @@ def seed(db: Any, owner: str, *, profile: str = "bd", rng_seed: int = 8, anchor:
     if not plan.ok:
         raise ValueError(f"seed import has errors: {plan.row_errors[:5]}")
     with owner_scope(owner), db.write() as s:
+        from sqlalchemy import func as _f
+
+        from .api.mfg.db_models_m2 import MfgInvPostingRow
+        from .api.mfg.services.common import audit
+
         plant = repo.lock_plant(s)
+        if plant.part11_mode:
+            raise SeedRefused("the plant runs in Part 11 mode: its records cannot be deleted")
+        n_post = int(s.execute(select(_f.count()).select_from(MfgInvPostingRow)).scalar() or 0)
+        if n_post and not force:
+            raise SeedRefused(f"the plant has {n_post} inventory postings; use --force to delete them")
+        audit(s, "plant", plant.id, "load_seed", {"profile": profile, "seed": rng_seed, "postings_deleted": n_post})
         dv = plant.data_version
         delete_all(s)
         plant = repo.lock_plant(s)

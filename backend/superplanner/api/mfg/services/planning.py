@@ -101,6 +101,10 @@ def put_item_planning(ctx: AppContext, a: Any, item_id: str, body: Any, if_match
             raise ApiError(422, "VALIDATION_ERROR", "Only make items can be planned on flow lines (rate).",
                            {"errors": [{"loc": ["body", "replenishment"], "msg": "buy item", "type": "value_error"}]})
         row = _planning_row(s, item_id, if_match)
+        ster = ("ster_cycle_code", "aeration_hours", "release_mode", "release_days")
+        if any(getattr(row, k) != getattr(body, k) for k in ster) and not a.p.has("qa_plan_edit"):
+            raise ApiError(403, "MFG_FORBIDDEN", "Sterilisation fields are maintained by quality (qa_plan_edit).",
+                           {"fields": [k for k in ster if getattr(row, k) != getattr(body, k)]})
         before = _planning_record(item_id, row) if row.row_version else None
         for k, v in body.model_dump().items():
             setattr(row, k, v)

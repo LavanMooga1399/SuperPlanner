@@ -161,3 +161,14 @@ def test_mrp_avail_is_release_date(world):
     assert not [x for x in plan["supplies"] if x["kind"] == "stock"]
     held = [x for x in plan["supplies"] if x["kind"] == "inspection"]
     assert held and held[0]["avail_date"] == due and held[0]["qty"] == 2000
+
+
+def test_ster_fields_need_quality_permission(world):
+    o = world.owner.api
+    pl = world.member("pl", ["planner"], enroll=False)
+    it = o.item("STF-1", "make", lead_time_days=1)
+    pl.api.err("PUT", f"/items/{it['id']}/planning", 403, "MFG_FORBIDDEN",
+               json={"ster_cycle_code": "ETO-STD"}, headers={"If-Match": '"0"'})
+    pl.api.put(f"/items/{it['id']}/planning", {"forecast": True}, 0)                   # other fields: fine
+    qa = world.member("qe", ["qa_engineer", "planner"], enroll=False)
+    qa.api.put(f"/items/{it['id']}/planning", {"forecast": True, "ster_cycle_code": "ETO-STD"}, 1)
