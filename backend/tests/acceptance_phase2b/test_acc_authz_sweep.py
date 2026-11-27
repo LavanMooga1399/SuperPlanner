@@ -515,6 +515,7 @@ def make_mfg_m9_world(c: TestClient, w: dict[str, Any], org: dict[str, Any], pla
         "/sop/cycles/{cycle_id}/approve": {"scenario_id": sc["id"]},
         "/sop/scenarios/{scenario_id}": {"name": "Base"},
         "/items/{item_id}/trade": {},
+        "/lots/{lot_id}/coo": {"coo": "US", "reason": "sweep"},
     })
 
 
