@@ -471,7 +471,9 @@ def network_lot_content(ctx: AppContext, a: Any, plant: str, lot_id: str, milest
         nodes = {n["owner_id"]: n for n in org_nodes(s, a.user_id)}
         n = nodes.get(plant) or next((x for x in nodes.values() if x["code"] == plant), None)
         if n is None or not n["member"]:
-            raise ApiError(404, "NOT_FOUND", "Lot not found.", {"id": lot_id})
+            from ...errors import not_found
+
+            raise not_found("Lot", lot_id)          # same answer as an unknown lot of a member plant
     with owner_scope(n["owner_id"]), write_tx(ctx, lock=False) as (s, _):
         return _content(s, lot_id, milestone_id)
 

@@ -458,6 +458,64 @@ def make_m5_world(c: TestClient, w: dict[str, Any]) -> None:
         "/integration/endpoints/{endpoint_id}": {"name": "erp", "url": "https://127.0.0.1/hook"},
     })
     make_m6_world(c, w)
+    make_mfg_m9_world(c, w, org, plant)
+
+
+NET_ROUTES = re.compile(r"^/api/v1/mfg/(net|sop)/|^/api/v1/mfg/trade/(tariffs|fx|milestones|country-risk|reports|lots)")
+
+
+def make_mfg_m9_world(c: TestClient, w: dict[str, Any], org: dict[str, Any], plant: dict[str, Any]) -> None:
+    """M9 objects (M9-DESIGN 9) in the organisation's network workspace: a DC node, a lane, a sourcing rule, a
+    network run, an S&OP cycle with an override and a scenario, a milestone and a tariff report. Network routes are
+    called in the caller's own network workspace (`X-SP-Workspace`), so a stranger's lookups go through the owner
+    filter of a workspace of the same kind."""
+    ids = w["mfg_ids"]
+
+    def ok(r: Any, code: int = 201) -> Any:
+        assert r.status_code == code, r.text
+        return r.json()
+
+    dc = ok(c.post(f"{API}/orgs/{org['id']}/plants", json={"code": "SWDC", "name": "SW DC", "kind": "dc"}))
+    net = ok(c.post(f"{API}/orgs/{org['id']}/network", json={}))["owner_id"]
+    h = {"X-SP-Workspace": net}
+    lane = ok(c.post(f"{MFG}/net/lanes", json={"from_owner_id": plant["plant_owner_id"],
+                                              "to_owner_id": dc["plant_owner_id"], "transit_days": 2}, headers=h))
+    rule = ok(c.post(f"{MFG}/net/sourcing", json={"dest_owner_id": dc["plant_owner_id"], "family": "SW",
+                                                 "source_owner_id": plant["plant_owner_id"]}, headers=h))
+    run = ok(c.post(f"{MFG}/net/runs", json={}, headers=h), 202)
+    wait_for(lambda: (lambda j: j if j["status"] in ("completed", "failed") else None)(
+        c.get(f"{MFG}/net/runs/{run['id']}", headers=h).json()), 60, 0.1, what="net run")
+    cyc = ok(c.post(f"{MFG}/sop/cycles", json={"period": "2027-01-01", "horizon_months": 3}, headers=h))
+    ov = ok(c.post(f"{MFG}/sop/cycles/{cyc['id']}/demand/overrides", json={
+        "family": "SW", "month_from": "2027-01-01", "month_to": "2027-01-01", "mode": "abs", "value": 5,
+        "reason": "sweep"}, headers=h))
+    sc = ok(c.post(f"{MFG}/sop/scenarios", json={"cycle_id": cyc["id"], "name": "Base"}, headers=h))
+    ok(c.put(f"{MFG}/trade/milestones", json={"rows": [{"code": "SW", "name": "SW", "dest_country": "US",
+                                                        "family": "SW", "rule": {"min_pct": 50},
+                                                        "effective": "2027-01-01"}]}, headers=h), 200)
+    ms = ok(c.get(f"{MFG}/trade/milestones", headers=h), 200)["items"][0]
+    rep = ok(c.post(f"{MFG}/trade/reports", json={"milestone_ids": [ms["id"]], "from": "2027-01-01",
+                                                  "to": "2027-01-01"}, headers=h), 202)
+    ids.update({"net_owner": net, "lane_id": lane["id"], "rule_id": rule["id"], "net_run_id": run["id"],
+                "cycle_id": cyc["id"], "sop_override_id": ov["id"], "scenario_id": sc["id"],
+                "report_id": rep["id"]})
+    w["mfg_bodies"].update({
+        "/net/lanes/{lane_id}": {"from_owner_id": plant["plant_owner_id"], "to_owner_id": dc["plant_owner_id"],
+                                 "transit_days": 3},
+        "/net/sourcing/{rule_id}": {"dest_owner_id": dc["plant_owner_id"], "family": "SW",
+                                    "source_owner_id": plant["plant_owner_id"]},
+        "/sop/cycles/{cycle_id}/reopen": {"to_step": "pre_sop", "reason": "x"},
+        "/sop/cycles/{cycle_id}/cancel": {"reason": "x"},
+        "/sop/cycles/{cycle_id}/demand/overrides": {"family": "SW", "month_from": "2027-01-01",
+                                                    "month_to": "2027-01-01", "mode": "pct", "value": 1,
+                                                    "reason": "x"},
+        "/sop/cycles/{cycle_id}/demand/asp": {"rows": [{"node_owner_id": dc["plant_owner_id"], "family": "SW",
+                                                        "asp": 1, "currency": "USD"}]},
+        "/sop/cycles/{cycle_id}/recommend": {"scenario_id": sc["id"]},
+        "/sop/cycles/{cycle_id}/approve": {"scenario_id": sc["id"]},
+        "/sop/scenarios/{scenario_id}": {"name": "Base"},
+        "/items/{item_id}/trade": {},
+    })
 
 
 def make_m6_world(c: TestClient, w: dict[str, Any]) -> None:
@@ -574,6 +632,8 @@ def fill(path: str, ids: dict[str, str]) -> str:
             return "ss_run_id"
         if n == "run_id" and "/mfg/rate/" in path:
             return "rate_run_id"
+        if n == "run_id" and "/mfg/net/" in path:              # M9
+            return "net_run_id"
         return "mrp_run_id" if (n == "run_id" and "/mfg/" in path) else n
     return PARAM.sub(lambda m: ids[key(m.group(1))], path)
 
@@ -636,6 +696,8 @@ def test_other_user_gets_404_for_every_owned_id_and_changes_nothing(db_url, whic
             if method == "PUT" and path == f"{API}/me/preferences/{{key}}":
                 continue                                    # personal: B's PUT writes B's own key, never A's
             kw = body_for(method, path, wa)
+            if NET_ROUTES.match(path):                     # M9: B asks in B's own network workspace
+                kw = {**kw, "headers": {**kw.get("headers", {}), "X-SP-Workspace": wb["mfg_ids"]["net_owner"]}}
             r_foreign = b.request(method, fill(path, ids_a), **copy.deepcopy(kw))
             unknown = {k: f"x{uuid.uuid4().hex[:12]}" for k in ids_a}
             unknown["record_type"] = ids_a.get("record_type", "ncr")      # M7: a type name, not an owned id

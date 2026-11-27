@@ -857,7 +857,7 @@ MFG_PERMISSIONS_M9 = {
     ("GET", "/mfg/sop/cycles/{cycle_id}/demand/overrides"): "view",
     ("POST", "/mfg/sop/cycles/{cycle_id}/demand/overrides"): "sop_edit",
     ("PUT", "/mfg/sop/cycles/{cycle_id}/demand/asp"): "sop_edit",
-    ("DELETE", "/mfg/sop/demand-overrides/{override_id}"): "sop_edit",
+    ("DELETE", "/mfg/sop/demand-overrides/{sop_override_id}"): "sop_edit",
     ("POST", "/mfg/sop/cycles/{cycle_id}/recommend"): "sop_edit",
     ("POST", "/mfg/sop/cycles/{cycle_id}/approve"): "view",
     ("POST", "/mfg/sop/cycles/{cycle_id}/publish"): "sop_publish",

@@ -285,12 +285,12 @@ def put_asp(cycle_id: str, body: AspInput, a: Act = Depends(act), ctx: AppContex
     return _ok(sop.put_asp(ctx, a, cycle_id, body))
 
 
-@router.delete("/sop/demand-overrides/{override_id}", dependencies=P("sop_edit"))
-def remove_demand_override(override_id: str, a: Act = Depends(act), ctx: AppContext = Depends(get_ctx)
+@router.delete("/sop/demand-overrides/{sop_override_id}", dependencies=P("sop_edit"))
+def remove_demand_override(sop_override_id: str, a: Act = Depends(act), ctx: AppContext = Depends(get_ctx)
                            ) -> JSONResponse:
     from .services import sop
 
-    return _ok(sop.remove_override(ctx, a, override_id))
+    return _ok(sop.remove_override(ctx, a, sop_override_id))
 
 
 @router.post("/sop/cycles/{cycle_id}/recommend", dependencies=P("sop_edit"))
