@@ -105,7 +105,13 @@ def test_thresholds_export_and_snapshot_duty(world: World):
     from superplanner.integration import scheduler
 
     ctx = world.app.state.ctx
-    noon = datetime.now(UTC).replace(hour=12, minute=0)
+    from superplanner.mfg.tz import plant_tz    # noon of the plant's own today (the job snapshots its today)
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.api.mfg.db_models import MfgPlantRow
+
+    with owner_scope(world.owner_id), ctx.db.read() as s:
+        tz = plant_tz(s.execute(sa.select(MfgPlantRow)).scalars().first())
+    noon = datetime.now(tz).replace(hour=12, minute=0, second=0, microsecond=0).astimezone(UTC)
     got = scheduler.tick(ctx, now=noon, duties={"inventory_snapshot"})
     assert ("inventory_snapshot", world.owner_id) in got
     t0 = time.monotonic()
