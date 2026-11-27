@@ -752,6 +752,8 @@ def _plant_risk_rows(s: Session, node: str, tables: dict[str, Any]) -> list[dict
         o = otd.get((r.item_id, r.supplier_id))
         lead = r.lead_time_days if r.lead_time_days is not None else (sups[r.supplier_id].lead_time_days
                                                                       if r.supplier_id in sups else None)
+        if lead is None:
+            lead = it.lead_time_days
         duty = sum(d["amount"] or 0 for d in lc["duty"])
         row = {"node_owner_id": node, "item_id": it.id, "item_key": key_of(it), "part_number": it.part_number,
                "description": it.description, "family": it.family,

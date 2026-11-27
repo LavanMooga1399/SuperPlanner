@@ -980,7 +980,10 @@ def list_lots(ctx: AppContext, *, item_id: str | None, q: str | None, expiring_b
         out = [{"id": r.id, "item": iref(its.get(r.item_id), r.item_id), "item_id": r.item_id,
                 "lot_code": r.lot_code, "expires_on": r.expires_on, "received_on": r.received_on,
                 "supplier_lot": r.supplier_lot, "hold": r.hold, "note": r.note, "on_hand": r6(on.get(r.id) or 0.0),
-                "row_version": r.row_version, "created_at": as_utc(r.created_at), "updated_at": as_utc(r.updated_at)}
+                "row_version": r.row_version, "created_at": as_utc(r.created_at), "updated_at": as_utc(r.updated_at),
+                "coo": r.coo, "coo_source": r.coo_source, "unit_value": r.unit_value,          # M9 8.1 (additive)
+                "dom_share_value": r.dom_share_value, "dom_share_weight": r.dom_share_weight,
+                "dom_estimated": r.dom_estimated}
                for r in rows]
         return page(out, total, limit, offset)
 

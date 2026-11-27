@@ -619,3 +619,27 @@ S3 notes (S&OP, as built):
   months >= period replace the plant's rows; follow-ups list structural changes.
 - UI follow-ups: `/me.workspace_kind`, `/workspaces[].plant_kind`; pegging links use UI routes (`/mfg/transfers/
   {id}`, `/mfg/work-orders`, `/mfg/purchasing`, `/mfg/demand?search=DO-...`), only for member plants.
+
+S4 notes (trade, as built):
+- `mfg/trade/{fx,landed,content,milestones,risk}.py`; `services/trade.py`. Plant routes read the tables of the
+  plant's organisation network in system scope (no network -> empty tables, default settings).
+- Capture (8.1) is a posting hook (`trade.after_post`, same transaction) for `po_receipt` (request `coo` on the
+  receipt line > item-supplier > item trade; else null and `TRADE_COO_MISSING` in `session.info`, never blocking;
+  `unit_value` = PO line price, FX to the plant currency at the receipt month), `wo_receipt` (plant country, std
+  cost) and `transfer_receipt` (COO, domestic shares and FX-converted value from the source plant's lot of the same
+  code). Only the first receipt of a lot sets them; later corrections are not built (regulated edit deferred).
+- Item-supplier rows / inputs carry `coo`, `hts_code`, `incoterm`, `freight_per_unit`, `cap_per_month` (omitted from
+  dumps when unset, so M2-M8 bundles and fingerprints are unchanged) and a read-only `landed`; lot records carry
+  `coo`, `coo_source`, `unit_value`, `dom_share_*`.
+- Roll-up: the lot's content is computed on read (`GET /lots/{id}/content`, `GET /trade/lots/{plant}/{lot}/content`
+  for members of that plant only) and stored on the lot for the default rule; the `content_rollup` job body rolls
+  the last 30 days of made lots (no automatic debounce after `wo_receipt` yet - enqueue from the nightly chain is a
+  follow-up). A transferred lot without a WO contributes its carried shares.
+- Milestone report: actual months from `wo_receipt` lots in scope (family or item HTS prefix) at the plant nodes
+  (or `nodes`); projection (months after the current one) = mean BOM share of the family's made items with the
+  preferred (else all active) supplier COO, the same for every projected month; `projection.scenario_id` is
+  recorded as the source but the scenario's allocation shares are not yet applied to the projection
+  (simplification). xlsx export: two sheets (cells, lots below minimum).
+- Risk: spend and OTD from `po_receipt` transactions of the last 12 months (on time = receipt date <= confirmed,
+  else requested date); lead time = item-supplier, else supplier, else item lead time; in the network workspace
+  the table covers every node.
