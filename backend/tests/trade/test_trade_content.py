@@ -55,3 +55,11 @@ def test_bom_share_with_supplier_split():
     num, den = bom_share("F", {"F": [("ST", 2.0)]}, items, {"ST": [("US", 0.6), ("CN", 0.4)]},
                          Rule("US", frozenset({"steel"})))
     assert num / den == pytest.approx(0.6)
+
+
+def test_bom_share_follows_scenario_supplier_split():
+    """M9 8.3 projection: a dual-source split 60 / 40 (US / CN) gives a 60 % steel share."""
+    items = {"F": ItemT("F", "F"), "ST": ItemT("ST", "ST", std_cost=1.0, material_class="steel")}
+    for split, expect in (([("US", 0.6), ("CN", 0.4)], 0.6), ([("CN", 1.0)], 0.0)):
+        num, den = bom_share("F", {"F": [("ST", 1.0)]}, items, {"ST": split}, Rule("US", frozenset({"steel"})))
+        assert num / den == pytest.approx(expect)

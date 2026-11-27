@@ -108,7 +108,12 @@ def test_made_lot_content_transfer_carries_coo_and_shares_and_report(db_url, mon
         net, us, qc = w.net, w.api("US1"), w.api("QC")
         _tables(net)
         loc = us.location("ST", receipt_default=True)
-        steel = us.item("STEEL", lead_time_days=10, external_ref="STEEL", standard_cost=10, lot_controlled=True)
+        steel = us.item("STEEL", lead_time_days=10, external_ref="STEEL", standard_cost=10, lot_controlled=True,
+                        family="STL")
+        for code, coo in (("KT", "US"), ("AT", "CN")):
+            sup = us.supplier(code, currency="USD")
+            us.post("/item-suppliers", {"item_id": steel["id"], "supplier_id": sup["id"], "unit_price": 10,
+                                        "currency": "USD", "coo": coo})
         us.req("PUT", f"/items/{steel['id']}/trade", 200, json={"coo": "US", "material_class": "steel",
                                                                  "unit_weight_kg": 1.0})
         ndl = us.item("NDL", "make", external_ref="NDL", family="NDL", standard_cost=30, lot_controlled=True)
@@ -162,6 +167,20 @@ def test_made_lot_content_transfer_carries_coo_and_shares_and_report(db_url, mon
         assert rep["status"] == "completed", rep["error"]
         cell = rep["result"]["milestones"][0]["groups"][0]["cells"][0]
         assert cell["share_pct"] == 100.0 and cell["lots"] == 1
-        r = net.client if hasattr(net, "client") else None
+        # projection (next month): BOM share with every active supplier (50 / 50), then the scenario's 60 / 40 split
+        nxt = date(MONTH.year + (MONTH.month == 12), MONTH.month % 12 + 1, 1)
+        sc = net.post("/sop/scenarios", {"name": "Dual source", "changes": [
+            {"kind": "supplier_allocation", "id": "c1", "node": "US1", "family": "STL",
+             "suppliers": [{"code": "KT", "min_share": 0.6, "max_share": 0.6}, {"code": "AT", "min_share": 0.4,
+                                                                                 "max_share": 0.4}]}]})
+        shares = []
+        for proj in (None, {"scenario_id": sc["id"]}):
+            rp = net.post("/trade/reports", {"milestone_ids": [ms["id"]], "from": MONTH.isoformat(),
+                                             "to": nxt.isoformat(), "projection": proj}, status=202)
+            rp = wait_for(lambda: net.get(f"/trade/reports/{rp['id']}"), lambda x: x["status"] in ("completed",
+                                                                                                  "failed"))
+            cells = rp["result"]["milestones"][0]["groups"][0]["cells"]
+            shares.append([c["share_pct"] for c in cells if c["projected"]])
+        assert shares == [[50.0], [60.0]]
         x = net.req("GET", f"/trade/reports/{rep['id']}", 200, params={"format": "xlsx"})
         assert x.content[:2] == b"PK"

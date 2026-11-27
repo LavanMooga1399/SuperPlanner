@@ -622,6 +622,7 @@ def compute_report(ctx: AppContext, report_id: str) -> dict[str, Any]:
     if params.get("nodes"):
         nodes = [n for n in nodes if n["owner_id"] in params["nodes"]]
     mss = [m for m in tables["milestones"] if m["id"] in params["milestone_ids"]]
+    splits = _scenario_splits(ctx, net, (params.get("projection") or {}).get("scenario_id"), nodes)
     m_from, m_to = date.fromisoformat(params["from"]).replace(day=1), date.fromisoformat(params["to"]).replace(day=1)
     months = months_between(m_from, m_to)
     cur = date.today().replace(day=1)
@@ -676,7 +677,7 @@ def compute_report(ctx: AppContext, report_id: str) -> dict[str, Any]:
                                             trade[it.id].unit_weight_kg if it.id in trade else None,
                                             trade[it.id].coo if it.id in trade else None,
                                             trade[it.id].material_class if it.id in trade else None) for it in items}
-                buy_coo = _buy_coo(s, trade)
+                buy_coo = _buy_coo(s, trade, splits.get(n["owner_id"]), items)
                 for iid, it in scope.items():
                     if iid not in bom:
                         continue
@@ -727,15 +728,57 @@ def _bom_map(s: Session) -> dict[str, list[tuple[str, float]]]:
     return out
 
 
-def _buy_coo(s: Session, trade: dict[str, Any]) -> dict[str, list[tuple[str | None, float]]]:
+def _scenario_splits(ctx: AppContext, net: str, scenario_id: str | None, nodes: list[dict[str, Any]]
+                     ) -> dict[str, dict[str, dict[str, float]]]:
+    """node owner -> family -> supplier code -> share, from the scenario's `supplier_allocation` changes and the
+    supplier rows of `sourcing` changes (share = mean of min / max share)."""
+    from ..db_models_m9 import MfgSopScenarioRow
+
+    if not scenario_id:
+        return {}
+    with read_tx(ctx) as s:
+        sc = s.execute(select(MfgSopScenarioRow).where(MfgSopScenarioRow.id == scenario_id,
+                                                       MfgSopScenarioRow.owner_id == net)).scalars().first()
+        changes = list(sc.changes or []) if sc else []
+    if sc is None:
+        raise ApiError(404, "NOT_FOUND", "Scenario not found.", {"id": scenario_id})
+    by_ref = {n["owner_id"]: n["owner_id"] for n in nodes} | {n["code"]: n["owner_id"] for n in nodes}
+    out: dict[str, dict[str, dict[str, float]]] = defaultdict(dict)
+    for ch in changes:
+        if ch["kind"] == "supplier_allocation":
+            node, rows = by_ref.get(ch["node"]), ch["suppliers"]
+        elif ch["kind"] == "sourcing":
+            node, rows = by_ref.get(ch["dest_node"]), [r for r in ch["sources"] if r.get("supplier_code")]
+        else:
+            continue
+        if node is None or not rows:
+            continue
+        out[node][ch["family"]] = {(r.get("code") or r.get("supplier_code")): (float(r.get("min_share", 0)) + float(
+            r.get("max_share", 1))) / 2 for r in rows}
+    return out
+
+
+def _buy_coo(s: Session, trade: dict[str, Any], splits: dict[str, dict[str, float]] | None = None,
+             items: list[Any] | None = None) -> dict[str, list[tuple[str | None, float]]]:
+    """Bought item -> [(COO, share)]: the scenario's split for the item's family when given, else the preferred
+    (else every active) supplier."""
     out: dict[str, list[tuple[str | None, float]]] = defaultdict(list)
     rows = list(s.execute(select(MfgItemSupplierRow).where(MfgItemSupplierRow.active.is_(True))).scalars())
+    codes = dict(s.execute(select(MfgSupplierRow.id, MfgSupplierRow.code)).all())
+    fam = {it.id: it.family for it in items or []}
     pref = {r.item_id for r in rows if r.preferred}
     for r in rows:
+        tr = trade.get(r.item_id)
+        coo = r.coo or (tr.coo if tr else None)
+        split = (splits or {}).get(fam.get(r.item_id) or "")
+        if split is not None:
+            share = split.get(codes.get(r.supplier_id, ""))
+            if share:
+                out[r.item_id].append((coo, share))
+            continue
         if r.item_id in pref and not r.preferred:
             continue
-        tr = trade.get(r.item_id)
-        out[r.item_id].append((r.coo or (tr.coo if tr else None), 1.0))
+        out[r.item_id].append((coo, 1.0))
     return out
 
 
