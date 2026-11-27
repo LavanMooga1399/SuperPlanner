@@ -698,3 +698,30 @@ Review round (2026-11-27) decisions - minor:
   be converted is null with `FX_MISSING`. Warnings are returned as `trade_warnings` on the posting (receipts).
 - m11 `POST /orgs/{org}/network` runs in one transaction (org row locked, principal, org plant, plant row,
   memberships and seeds together).
+
+S5 completion notes (2026-11-27):
+- Authorisation sweep: `make_mfg_m9_world` builds a DC, the network workspace, a lane, a rule, a network run, a cycle
+  with an override and a scenario, a milestone and a report; network routes are called in the caller's own network
+  workspace so a stranger's lookups go through the owner filter of a workspace of the same kind. The S&OP override
+  removal path parameter is `{sop_override_id}` (distinct from the M8 forecast override).
+- `content_rollup` is queued after every `wo_receipt` posting: one duty run per plant while none is queued or
+  running; the queue executor claims it 5 minutes later (`run_after`), the inline executor at once.
+- `PUT /lots/{id}/coo {coo, reason}` (`master_edit`): reason always required, audited `lot.coo_change` with the
+  before / after values; clears the lot's stored shares and queues the roll-up.
+- Tiles: network `sop_cycle`, `net_shortages`, `tariff_milestones`; plant `mps_attainment` (current month, status vs
+  elapsed share of the month). Overdue S&OP steps notify the network workspace from the daily due scan
+  (`qa_due.scan`, notification kind `sop_overdue`). Two plant-dashboard tests fail with and without these changes
+  (pre-existing M8 tile-set assertions in `tests/dashboard`).
+- Milestone projection applies the scenario's `supplier_allocation` / supplier `sourcing` splits (share = mean of
+  min / max) to the bought components of that family at that node.
+- Load seed: `load-seed --profile bd-network|small-network --org <slug> --email <org admin> --replace-all-data
+  --yes` creates P1-P3 and D1-D2 (+ network) when missing and seeds every node with the node profile (same seed, same
+  keys; DCs without lines, items bought); safeguards per node as `seed`. Plant reset now includes the M9 tables.
+- Measured on `bd-network` (local PostgreSQL dev cluster): seed 73 s; P1 network run 21.1 s end to end (snapshot
+  5.3 s, engine 4.8 s, validator 0.5 s; 2,990 keys, 9,960 transfers).
+- `meddev_m9`: `load-org-sample meddev_m9 --org <slug> --email <org admin> --replace` (`services/samples_m9.py`).
+  QC = `meddev_m8`; US1 and DCUS from small bundles; COO-captured steel lots and three needle WOs (one all-US,
+  two mixed); published network run; previous cycle published (sample shortcut: approved without signatures,
+  documented in the loader), current cycle at `pre_sop` with baseline, expansion and dual-source scenarios.
+  Fix found by the sample: the TO number check of a network publish now looks at both plants (system scope).
+- Validation hand sheet: `docs/validation/m9-coo-reconciliation.md`.

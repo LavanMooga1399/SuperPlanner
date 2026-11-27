@@ -872,9 +872,10 @@ def publish(ctx: AppContext, a: Any, run_id: str) -> dict[str, Any]:
                     continue
 
                 def taken(c: str, src: str = src, dst: str = dst) -> bool:
-                    return s.execute(select(MfgTransferOrderRow.id).where(
-                        MfgTransferOrderRow.owner_id.in_([src, dst]), MfgTransferOrderRow.number == c)).first() \
-                        is not None
+                    with system_scope():               # both plants (next_number runs in the source's scope)
+                        return s.execute(select(MfgTransferOrderRow.id).where(
+                            MfgTransferOrderRow.owner_id.in_([src, dst]), MfgTransferOrderRow.number == c)
+                        ).first() is not None
                 with owner_scope(src):
                     number = repo_m2.next_number(s, "TO", taken)
                 now = utcnow()

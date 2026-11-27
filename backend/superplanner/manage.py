@@ -438,6 +438,27 @@ def cmd_load_seed(db: Database, settings: Settings, args: argparse.Namespace, ou
         print(f"{k}: {v}", file=out)
 
 
+def cmd_load_org_sample(db: Database, settings: Settings, args: argparse.Namespace, out: TextIO) -> None:
+    """M9-DESIGN 12.1: `load-org-sample meddev_m9 --org <slug> --email <org admin> --replace` (replaces the data of
+    the organisation's QC, US1 and DCUS workspaces; refused when a plant runs in Part 11 mode)."""
+    from .api.errors import ApiError
+    from .api.mfg.services.samples_m9 import load_org_sample
+
+    if args.sample != "meddev_m9":
+        raise CommandError("unknown organisation sample (choose from meddev_m9)")
+    if not args.replace:
+        raise CommandError("the sample replaces the data of the QC, US1 and DCUS plants: pass --replace")
+    with db.read() as s:
+        uid = _user_by_email(s, args.email).id
+    try:
+        res = load_org_sample(_CliContext(settings, db), uid, args.org)
+    except ApiError as exc:
+        raise CommandError(exc.message) from None
+    print(f"loaded {args.sample} into {args.org}: network run {res['net_run']['number']} "
+          f"({res['net_run']['status']}), published cycle {res['published_cycle']}, current cycle {res['cycle']}",
+          file=out)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m superplanner.manage", description="SuperPlanner admin commands")
     p.add_argument("--url", help="database URL (default: DATABASE_URL)")
@@ -492,6 +513,11 @@ def build_parser() -> argparse.ArgumentParser:
     c = sub.add_parser("config-baseline")
     c.add_argument("--plant", required=True, help="organisation plant code, integration plant code or owner id")
     c.add_argument("--label")
+    c = sub.add_parser("load-org-sample")
+    c.add_argument("sample")
+    c.add_argument("--org", required=True)
+    c.add_argument("--email", required=True, help="an org admin")
+    c.add_argument("--replace", action="store_true", help="required: the plants' data is replaced")
     c = sub.add_parser("load-seed")
     c.add_argument("--profile", default="bd", choices=["bd", "small", "bd-network", "small-network"])
     c.add_argument("--org", help="organisation slug (network profiles)")
@@ -547,6 +573,8 @@ def main(argv: Sequence[str] | None = None, *, out: TextIO | None = None, err: T
                 cmd_config_baseline(db, settings, args, out)
             elif cmd == "load-seed":
                 cmd_load_seed(db, settings, args, out)
+            elif cmd == "load-org-sample":
+                cmd_load_org_sample(db, settings, args, out)
             else:
                 cmd_prune(db, out, settings)
         return 0
