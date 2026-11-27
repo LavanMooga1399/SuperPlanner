@@ -156,6 +156,18 @@ export const mfgPaths = {
   kanban: (q?: { loop?: string }) => `${MFG}/kanban${queryString(q)}`,
   kanbanCards: (loopId: string) => `${MFG}/print/kanban/${enc(loopId)}`,
   validation: () => `${MFG}/validation`,
+  // ---------------------------------------------------------------- M9 network, S&OP, trade
+  network: () => `${MFG}/network`,
+  networkSourcing: () => `${MFG}/network/sourcing`,
+  netRun: (id: string, tab?: string) => `${MFG}/network/runs/${enc(id)}${tab ? `/${tab}` : ""}`,
+  sop: () => `${MFG}/sop`,
+  sopCycle: (id: string, step?: string) => `${MFG}/sop/cycles/${enc(id)}${step ? `/${step}` : ""}`,
+  sopScenario: (id: string) => `${MFG}/sop/scenarios/${enc(id)}`,
+  trade: (tab?: string) => `${MFG}/trade${tab ? `/${tab}` : ""}`,
+  tradeReport: (id: string) => `${MFG}/trade/reports/${enc(id)}`,
+  sourcingRisk: () => `${MFG}/sourcing-risk`,
+  mps: () => `${MFG}/mps`,
+  itemTrade: (itemId: string) => `${MFG}/items/${enc(itemId)}/trade`,
   itemPlanning: (itemId: string) => `${MFG}/items/${enc(itemId)}/planning`,
   itemPackaging: (itemId: string) => `${MFG}/items/${enc(itemId)}/packaging`,
 };

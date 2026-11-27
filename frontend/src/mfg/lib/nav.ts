@@ -18,6 +18,8 @@ export interface NavSection {
   /** Words the command palette also matches. */
   keywords?: string;
   ownerOnly?: boolean;
+  /** M9: `network` = only in the network workspace, `both` = everywhere; default plant only. */
+  scope?: "plant" | "network" | "both";
 }
 
 export interface NavGroupDef {
@@ -25,9 +27,27 @@ export interface NavGroupDef {
   label: string;
   testId: string;
   sections: NavSection[];
+  /** M9: `network` = only in the network workspace, `both` = everywhere; default plant only. */
+  scope?: "plant" | "network" | "both";
 }
 
 export const MFG_NAV: NavGroupDef[] = [
+  // M9 10: the network workspace shows its own group; plant-only menus are hidden there
+  {
+    key: "network",
+    get label() {
+      return t("net.nav.group");
+    },
+    testId: "nav-group-network",
+    scope: "network",
+    sections: [
+      { key: "network", get label() { return t("net.nav.network"); }, to: mfgPaths.network(), icon: "link", end: true, match: ["/mfg/network/runs"], keywords: t("net.nav.kwNetwork") },
+      { key: "network-sourcing", get label() { return t("net.nav.sourcing"); }, to: mfgPaths.networkSourcing(), icon: "truck", keywords: t("net.nav.kwSourcing") },
+      { key: "sop", get label() { return t("net.nav.sop"); }, to: mfgPaths.sop(), icon: "calendar", keywords: t("net.nav.kwSop") },
+      { key: "trade", get label() { return t("net.nav.trade"); }, to: mfgPaths.trade(), icon: "flag", keywords: t("net.nav.kwTrade") },
+      { key: "sourcing-risk", get label() { return t("net.nav.risk"); }, to: mfgPaths.sourcingRisk(), icon: "shield", scope: "both", keywords: t("net.nav.kwRisk") },
+    ],
+  },
   {
     key: "overview",
     get label() {
@@ -56,6 +76,7 @@ export const MFG_NAV: NavGroupDef[] = [
       { key: "sterilisation", get label() { return t("nav.mfg.section.sterilisation"); }, to: mfgPaths.sterilisation(), icon: "clock", keywords: t("nav.mfg.kw.sterilisation") },
       { key: "kanban", get label() { return t("nav.mfg.section.kanban"); }, to: mfgPaths.kanban(), icon: "barcode", keywords: t("nav.mfg.kw.kanban") },
       { key: "shortages", get label() { return t("nav.mfg.section.shortages"); }, to: mfgPaths.shortages(), icon: "alert", keywords: t("mfg.nav.str.missingMaterial") },
+      { key: "mps", get label() { return t("net.nav.mps"); }, to: mfgPaths.mps(), icon: "compare", keywords: t("net.nav.kwMps") },
       { key: "replan", get label() { return t("nav.mfg.section.replan"); }, to: mfgPaths.replan(), icon: "refresh", keywords: t("mfg.nav.str.triggersNotifications") },
     ],
   },
@@ -69,6 +90,7 @@ export const MFG_NAV: NavGroupDef[] = [
       { key: "purchasing", get label() { return t("nav.mfg.section.purchasing"); }, to: mfgPaths.purchasing(), icon: "briefcase", keywords: t("mfg.nav.str.purchaseOrdersRequestsSuppliersDeliveries") },
       { key: "inventory", get label() { return t("nav.mfg.section.inventory"); }, to: mfgPaths.inventory(), icon: "box", keywords: t("mfg.nav.str.stockBalancesLotsLocationsPostings") },
       { key: "transfers", get label() { return t("nav.mfg.section.transfers"); }, to: mfgPaths.transfers(), icon: "truck", keywords: "inter-plant" },
+      { key: "plant-sourcing-risk", get label() { return t("net.nav.risk"); }, to: mfgPaths.sourcingRisk(), icon: "shield", keywords: t("net.nav.kwRisk") },
     ],
   },
   {
@@ -124,6 +146,7 @@ export const MFG_NAV: NavGroupDef[] = [
       return t("nav.mfg.group.control");
     },
     testId: "nav-group-control",
+    scope: "both",
     sections: [
       { key: "eco", get label() { return t("nav.mfg.section.eco"); }, to: mfgPaths.ecos(), icon: "file", keywords: t("mfg.nav.str.ecoChangeRequests") },
       { key: "integration", get label() { return t("nav.mfg.section.integration"); }, to: mfgPaths.integration(), icon: "database", keywords: t("mfg.nav.str.erpSyncEndpoints") },
@@ -135,6 +158,12 @@ export const MFG_NAV: NavGroupDef[] = [
     ],
   },
 ];
+
+/** Groups and sections visible in the current workspace kind (M9 10). */
+export function navFor(isNetwork: boolean): NavGroupDef[] {
+  const show = (scope: NavGroupDef["scope"]) => (scope === "both" ? true : scope === "network" ? isNetwork : !isNetwork);
+  return MFG_NAV.filter((g) => show(g.scope)).map((g) => (g.scope === "both" ? { ...g, sections: g.sections.filter((s) => s.scope !== "network" || isNetwork) } : g));
+}
 
 /** The section (and its group) a pathname belongs to; the longest matching prefix wins. */
 export function sectionFor(pathname: string): { group: NavGroupDef; section: NavSection } | null {

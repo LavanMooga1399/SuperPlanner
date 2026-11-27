@@ -93,6 +93,11 @@ import { KanbanCardsPrint, KanbanPage } from "./kanban/KanbanPage";
 import { RateRunPage, RateRunsPage } from "./rate/RatePages";
 import { SterilisationPage } from "./ster/SterilisationPage";
 import { ValidationPage } from "./validation/ValidationPage";
+import { NetworkHome } from "./network/NetworkHome";
+import { NetRunPage } from "./network/NetRunPage";
+import { SourcingPage } from "./network/SourcingPage";
+import { SopCyclesPage } from "./sop/SopCyclesPage";
+import { useAccess } from "./lib/permissions";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
 import { FloorHome } from "./floor/FloorHome";
@@ -112,6 +117,12 @@ import { SimulationPage, SimulationsPage } from "./pages/m4/SimulationsPage";
 function Keyed({ param, children }: { param: string; children: (key: string) => ReactElement }) {
   const params = useParams();
   return children(params[param] ?? "");
+}
+
+/** M9 10: the network workspace opens on its network home; plants keep the overview. */
+function MfgIndex() {
+  const { isNetwork } = useAccess();
+  return isNetwork ? <Navigate to="/mfg/network" replace /> : <MfgHome />;
 }
 
 export const mfgRoutes: RouteObject[] = [
@@ -136,7 +147,7 @@ export const mfgRoutes: RouteObject[] = [
     path: "mfg",
     element: <MfgLayout />,
     children: [
-      { index: true, element: <MfgHome /> },
+      { index: true, element: <MfgIndex /> },
       { path: "items", element: <ItemsPage /> },
       {
         path: "items/:itemId",
@@ -326,6 +337,11 @@ export const mfgRoutes: RouteObject[] = [
       { path: "validation", element: <ValidationPage /> },
       { path: "rate/runs/:runId/:tab?", element: <Keyed param="runId">{(k) => <RateRunPage key={k} />}</Keyed> },
       { path: "print/kanban/:loopId", element: <KanbanCardsPrint /> },
+      // ---------------------------------------------------------------- M9 network, S&OP, trade
+      { path: "network", element: <NetworkHome /> },
+      { path: "network/sourcing", element: <SourcingPage /> },
+      { path: "network/runs/:runId/:tab?", element: <Keyed param="runId">{(k) => <NetRunPage key={k} />}</Keyed> },
+      { path: "sop", element: <SopCyclesPage /> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

@@ -32,6 +32,7 @@ export function refreshLocale(): boolean {
   if (next === LOCALE) return false;
   LOCALE = next;
   nf.clear();
+  cf.clear();
   return true;
 }
 
@@ -96,4 +97,41 @@ export function formatQty(x: number | null | undefined, uom?: string | null): st
   // small amounts keep 3 significant digits (0.00025 kg), larger ones at most 3 decimals
   if (v !== 0 && Math.abs(v) < 1) return Number(v.toPrecision(3)).toLocaleString(LOCALE, { maximumFractionDigits: 10 });
   return formatNumber(v, 3);
+}
+
+const cf = new Map<string, Intl.NumberFormat>();
+/**
+ * Money with its ISO currency (M9 executive views): "US$1,234,567" / "1 234 567 $ CA" by the active format;
+ * `compact` gives "US$45M" for KPI cards, `digits` the fraction digits (default 0, unit costs pass 2-4),
+ * `signed` a leading + for deltas. Null -> "–" (FX missing is never shown as a number).
+ */
+export function formatMoney(x: number | null | undefined, currency: string, opts: { compact?: boolean; digits?: number; signed?: boolean } = {}): string {
+  if (x === null || x === undefined || Number.isNaN(x)) return "–";
+  const digits = opts.digits ?? 0;
+  const k = `${currency}:${digits}:${opts.compact ? 1 : 0}:${opts.signed ? 1 : 0}`;
+  let f = cf.get(k);
+  if (!f) {
+    try {
+      f = new Intl.NumberFormat(LOCALE, {
+        style: "currency",
+        currency: currency || "USD",
+        currencyDisplay: "symbol",
+        minimumFractionDigits: opts.compact ? 0 : digits,
+        maximumFractionDigits: opts.compact ? 1 : digits,
+        notation: opts.compact ? "compact" : "standard",
+        signDisplay: opts.signed ? "exceptZero" : "auto",
+      });
+    } catch {
+      f = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: digits });
+    }
+    cf.set(k, f);
+  }
+  return f.format(x);
+}
+
+/** Signed number for deltas: "+1,200", "−300", "0". */
+export function formatSigned(x: number | null | undefined, max = 0): string {
+  if (x === null || x === undefined || Number.isNaN(x)) return "–";
+  const s = formatNumber(Math.abs(x), max);
+  return x > 0 ? `+${s}` : x < 0 ? `−${s}` : s;
 }

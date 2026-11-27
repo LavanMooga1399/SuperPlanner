@@ -8,8 +8,8 @@ import type { EntityId, IsoDate, IsoDateTime, ItemRecord, ItemRef, LotRule, Make
 
 // ---------------------------------------------------------------- 3 common types
 /** M7 9.1 adds the quality roles (qa_inspector, qa_engineer, qa_approver, metrology). */
-export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin" | "qa_inspector" | "qa_engineer" | "qa_approver" | "metrology" | "plant_manager" | "auditor";
-export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "plant_manager", "auditor"];
+export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin" | "qa_inspector" | "qa_engineer" | "qa_approver" | "metrology" | "plant_manager" | "auditor" | "executive";
+export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "plant_manager", "auditor", "executive"];
 export type LocationKind = "stores" | "line_side" | "inspection" | "quarantine";
 export const LOCATION_KINDS: readonly LocationKind[] = ["stores", "line_side", "inspection", "quarantine"];
 export type LotRuleM2 = LotRule;
@@ -65,6 +65,12 @@ export type Permission =
   | "kanban_edit"
   | "kanban_scan"
   | "validation_view"
+  | "network_plan"
+  | "network_edit"
+  | "network_publish"
+  | "sop_edit"
+  | "sop_publish"
+  | "trade_admin"
   | "owner";
 
 export interface Actor {
@@ -959,6 +965,8 @@ export interface MeResponse {
   is_owner: boolean;
   roles: Role[];
   permissions: Permission[];
+  /** M9 4: kind of the current workspace (absent = plant) */
+  workspace_kind?: "plant" | "dc" | "network";
 }
 
 export interface WorkspaceInfo {
@@ -969,6 +977,8 @@ export interface WorkspaceInfo {
   /** M5 3.4: plants of organisations */
   plant_code?: string | null;
   org?: { slug: string; name: string } | null;
+  /** M9 4: `network` marks the organisation's network workspace */
+  plant_kind?: "plant" | "dc" | "network";
 }
 
 export interface ForbiddenDetails {

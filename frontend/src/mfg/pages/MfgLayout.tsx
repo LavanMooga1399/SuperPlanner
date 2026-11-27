@@ -9,7 +9,7 @@ import { NotificationBell } from "../components/NotificationBell";
 import { AssistantButton } from "../assistant/AssistantPanel";
 import { RoleBadge, WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { mfgPaths } from "../lib/paths";
-import { MFG_NAV, sectionFor, type NavGroupDef } from "../lib/nav";
+import { navFor, sectionFor, type NavGroupDef } from "../lib/nav";
 import { AccessProvider, useAccess } from "../lib/permissions";
 import { useStoredState } from "../../lib/useAsync";
 import { regionOf, setPlantRegion, t, t as tr } from "../../lib/i18n";
@@ -56,7 +56,7 @@ function AccessError() {
 
 /** Left navigation (UX-STANDARD 3): role-oriented groups, collapsible to an icon rail, drawer on phones. */
 function MfgSidebar({ collapsed, onToggle, open, onClose }: { collapsed: boolean; onToggle(): void; open: boolean; onClose(): void }) {
-  const { isOwner, assumed } = useAccess();
+  const { isOwner, assumed, isNetwork } = useAccess();
   const { pathname } = useLocation();
   useEffect(() => onClose(), [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
@@ -64,7 +64,7 @@ function MfgSidebar({ collapsed, onToggle, open, onClose }: { collapsed: boolean
       {open ? <div className="side-scrim" onClick={onClose} aria-hidden /> : null}
       <aside className={`side${collapsed ? " collapsed" : ""}${open ? " open" : ""}`} aria-label={t("mfg.mfgLayout.aria.manufacturing")}>
         <nav className="side-scroll" aria-label={t("mfg.mfgLayout.aria.manufacturingSections")}>
-          {MFG_NAV.map((g) => (
+          {navFor(isNetwork).map((g) => (
             <NavGroup key={g.key} group={g} ownerVisible={isOwner && !assumed} collapsed={collapsed} />
           ))}
         </nav>

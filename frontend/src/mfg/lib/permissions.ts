@@ -59,6 +59,12 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "kanban_edit",
   "kanban_scan",
   "validation_view",
+  "network_plan",
+  "network_edit",
+  "network_publish",
+  "sop_edit",
+  "sop_publish",
+  "trade_admin",
   "owner",
 ];
 
@@ -78,6 +84,7 @@ export const ROLE_LABEL: Record<Role | "owner", string> = {
   metrology: t("qa.roles.str.metrology"),
   plant_manager: t("plan.roles.plantManager"),
   auditor: t("plan.roles.auditor"),
+  executive: t("net.roles.executive"),
 };
 
 export const ROLE_HELP: Record<Role, string> = {
@@ -95,11 +102,12 @@ export const ROLE_HELP: Record<Role, string> = {
   metrology: t("qa.roles.str.metrologyHelp"),
   plant_manager: t("plan.roles.plantManagerHelp"),
   auditor: t("plan.roles.auditorHelp"),
+  executive: t("net.roles.executiveHelp"),
 };
 
 /** 10.2 matrix: which member roles hold a permission (the owner holds all). */
 export const PERMISSION_ROLES: Record<Permission, Role[]> = {
-  view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology"],
+  view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "executive"],
   master_edit: ["planner"],
   supplier_edit: ["planner", "purchaser"],
   inventory: ["store_keeper"],
@@ -146,6 +154,13 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   kanban_edit: ["planner", "plant_manager"],
   kanban_scan: ["operator"],
   validation_view: ["qa_approver", "auditor"],
+  // M9 9 (network workspace): planner plans, plant_manager edits and publishes, executive signs the S&OP approval
+  network_plan: ["planner", "plant_manager"],
+  network_edit: ["plant_manager"],
+  network_publish: ["plant_manager"],
+  sop_edit: ["planner", "plant_manager"],
+  sop_publish: ["plant_manager"],
+  trade_admin: ["plant_manager"],
   owner: [],
 };
 
@@ -169,6 +184,8 @@ export interface Access {
   retry(): void;
   can(p: Permission): boolean;
   isOwner: boolean;
+  /** M9 4: the current workspace is the organisation's network workspace (plant-only menus hidden). */
+  isNetwork: boolean;
 }
 
 const OWNER_FALLBACK: MeResponse = {
@@ -240,6 +257,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       // while loading or after an error, nothing is offered (avoids flashing buttons a viewer cannot use)
       can: (p) => perms.has(p),
       isOwner: Boolean(me?.is_owner),
+      isNetwork: me?.workspace_kind === "network" || workspaces.some((w) => w.plant_kind === "network" && w.owner_id === (currentWorkspace() ?? me?.workspace_owner_id)),
     };
   }, [me, workspaces, loading, assumed, error]);
 
@@ -259,6 +277,7 @@ export function useAccess(): Access {
     retry: () => undefined,
     can: () => true,
     isOwner: true,
+    isNetwork: false,
   };
 }
 

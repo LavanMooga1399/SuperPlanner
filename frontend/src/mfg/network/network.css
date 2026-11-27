@@ -1,0 +1,89 @@
+/* M9 network, S&OP and trade screens. Theme tokens only; status always text + icon. */
+.net-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--sp-2); }
+.net-kpi { padding: var(--sp-2) var(--sp-3); display: grid; gap: 2px; min-width: 0; }
+.net-kpi-label { font-size: var(--fs-sm); color: var(--text-muted); font-weight: var(--fw-medium); }
+.net-kpi-value { font-size: var(--fs-lg); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.net-kpi-unit { font-size: var(--fs-sm); color: var(--text-muted); font-weight: var(--fw-regular, 400); margin-left: 4px; }
+.net-kpi-sub { font-size: var(--fs-xs); color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.net-delta { display: inline-flex; align-items: center; gap: 2px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.net-delta.good { color: var(--ok); }
+.net-delta.bad { color: var(--danger); }
+.net-delta.flat { color: var(--text-muted); }
+
+/* node / lane diagram */
+.net-diagram { width: 100%; overflow-x: auto; }
+.net-diagram svg { display: block; }
+.net-node rect { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1; }
+.net-node.dc rect { stroke-dasharray: 4 3; }
+.net-node:focus-visible rect, .net-node.sel rect { stroke: var(--accent); stroke-width: 2; }
+.net-node:focus { outline: none; }
+.net-node text { fill: var(--text); font-size: 12px; font-family: var(--font); }
+.net-node .sub { fill: var(--text-muted); font-size: 11px; }
+.net-lane { stroke: var(--border-strong); stroke-width: 1.5; fill: none; }
+.net-lane-label { fill: var(--text-muted); font-size: 11px; font-family: var(--font); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.net-arrow { fill: var(--border-strong); }
+
+/* heatmaps (capacity, rough-cut): value text in every cell, tone as background + icon past the limit */
+.net-heat td { min-width: 56px; }
+.net-heat td.h0 { background: transparent; }
+.net-heat td.h1 { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.net-heat td.h2 { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.net-heat td.watch { background: var(--warn-soft); color: var(--warn); }
+.net-heat td.alert { background: var(--danger-soft); color: var(--danger); font-weight: var(--fw-semibold); }
+.net-heat td svg { vertical-align: -2px; margin-right: 2px; }
+
+/* projection grid */
+.net-neg { color: var(--danger); font-weight: var(--fw-semibold); }
+.net-below { color: var(--warn); }
+.net-grid-sub th { font-weight: var(--fw-regular, 400) !important; color: var(--text-muted); padding-left: 20px !important; }
+.net-firm-zone { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+
+/* quota bar */
+.net-quota { display: flex; height: 18px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); min-width: 160px; }
+.net-quota > span { display: flex; align-items: center; justify-content: center; font-size: var(--fs-xs); color: #fff; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+.net-quota.bad { border-color: var(--danger); }
+
+/* pegging / content tree */
+.net-tree { list-style: none; margin: 0; padding: 0; font-size: var(--fs-sm); }
+.net-tree ul { list-style: none; margin: 0; padding-left: 20px; border-left: 1px solid var(--border); margin-left: 7px; }
+.net-tree li { padding: 2px 0; }
+.net-tree-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 24px; }
+.net-tree-row .pl-num { margin-left: auto; }
+
+/* S&OP stepper */
+.sop-steps { display: flex; gap: 0; list-style: none; margin: 0; padding: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.sop-steps li { flex: 1 1 0; min-width: 120px; border-right: 1px solid var(--border); }
+.sop-steps li:last-child { border-right: 0; }
+.sop-steps a, .sop-steps .sop-step { display: grid; gap: 2px; padding: 6px 10px; color: var(--text); text-decoration: none; height: 100%; }
+.sop-steps a:hover { background: var(--surface-2); }
+.sop-steps .active { box-shadow: inset 0 -2px 0 var(--accent); background: var(--accent-soft); }
+.sop-step-name { display: flex; align-items: center; gap: 6px; font-weight: var(--fw-semibold); font-size: var(--fs-sm); }
+.sop-step-meta { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.sop-step-meta.overdue { color: var(--danger); }
+.sop-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.sop-strip span { font-size: var(--fs-xs); padding: 2px 4px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-flex; gap: 3px; align-items: center; }
+.sop-strip span.done { background: var(--ok-soft); color: var(--ok); }
+.sop-strip span.cur { background: var(--accent-soft); color: var(--accent-strong); font-weight: var(--fw-semibold); }
+.sop-strip span.late { background: var(--danger-soft); color: var(--danger); }
+
+/* demand grid */
+.sop-cell-ovr { background: var(--accent-soft); }
+.sop-cell-btn { all: unset; cursor: pointer; display: block; width: 100%; text-align: right; }
+.sop-cell-btn:focus-visible { outline: 2px solid var(--focus-color, var(--accent)); outline-offset: 1px; }
+.sop-total th, .sop-total td { font-weight: var(--fw-semibold); background: var(--surface-2); }
+
+/* scenario compare */
+.sop-compare th[scope="row"] { min-width: 200px; }
+.sop-compare td { min-width: 150px; vertical-align: top; }
+.sop-compare .net-delta { display: block; }
+
+/* trade report chips */
+.trd-cell { display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
+.trd-proj { font-style: italic; }
+.trd-proj-band { background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--accent) 7%, transparent) 6px 12px); }
+
+/* paste grid */
+.trd-paste { width: 100%; font-family: var(--font-mono, monospace); font-size: var(--fs-sm); }
+
+/* curve editor */
+.net-curve-pts input { width: 72px; }

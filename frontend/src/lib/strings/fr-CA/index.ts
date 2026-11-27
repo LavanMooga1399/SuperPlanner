@@ -12,6 +12,7 @@ import { floorFrCa } from "./floor";
 import { mfgFrCa } from "./mfg";
 import { mobileFrCa } from "./mobile";
 import { navFrCa } from "./nav";
+import { networkFrCa } from "./network";
 import { planningFrCa } from "./planning";
 import { qualityFrCa } from "./quality";
 import { shellFrCa } from "./shell";
@@ -26,6 +27,7 @@ export const frCaStrings: Partial<Record<StringKey, string>> = {
   ...mfgFrCa,
   ...mobileFrCa,
   ...navFrCa,
+  ...networkFrCa,
   ...planningFrCa,
   ...qualityFrCa,
   ...shellFrCa,

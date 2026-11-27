@@ -9,14 +9,14 @@ import { currentWorkspace, switchWorkspace } from "../lib/workspace";
 import { t } from "../../lib/i18n";
 
 export function WorkspaceSwitcher() {
-  const { me, workspaces } = useAccess();
+  const { me, workspaces, isNetwork } = useAccess();
   if (workspaces.length <= 1) return null;
   const own = workspaces.find((w) => w.is_owner);
   const selected = currentWorkspace() ?? own?.owner_id ?? "";
   return (
     <label className="row small mfg-workspace">
-      <Icon name="factory" size={14} />
-      <span className="muted">{t("mfg.workspaceSwitcher.text.plant")}</span>
+      <Icon name={isNetwork ? "link" : "factory"} size={14} />
+      <span className="muted">{isNetwork ? t("net.ws.label") : t("mfg.workspaceSwitcher.text.plant")}</span>
       <select
         className="select sm"
         value={selected}
@@ -51,12 +51,16 @@ function groupByOrg(ws: WorkspaceInfo[]): [string | null, WorkspaceInfo[]][] {
   const m = new Map<string | null, WorkspaceInfo[]>();
   for (const w of ws) {
     const k = w.org?.name ?? null;
+    // the network workspace leads its organisation's group
     m.set(k, [...(m.get(k) ?? []), w]);
   }
+  for (const list of m.values()) list.sort((a, b) => Number(b.plant_kind === "network") - Number(a.plant_kind === "network"));
   return [...m.entries()].sort((a, b) => (a[0] === null ? -1 : b[0] === null ? 1 : a[0].localeCompare(b[0])));
 }
 
 function wsLabel(w: WorkspaceInfo): string {
+  // M9 4: the network workspace is marked, so planners see where org-level planning happens
+  if (w.plant_kind === "network") return t("net.ws.option", { org: w.org?.name ?? w.plant_name });
   const name = `${w.plant_code ? `${w.plant_code} · ` : ""}${w.plant_name || t("mfg.workspaceSwitcher.str.plant")}`;
   return `${name}${w.is_owner ? " (mine)" : ` (${w.roles.map((r) => ROLE_LABEL[r]).join(", ")})`}`;
 }
