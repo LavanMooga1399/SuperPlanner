@@ -32,6 +32,7 @@ export function PlantSettingsPage() {
     utc_offset: "+00:00",
     horizon: "90",
     currency: "",
+    country: "",
     workdays: ["mon", "tue", "wed", "thu", "fri", "sat"] as Weekday[],
     dayMinutes: "480",
     deferTol: "7",
@@ -72,6 +73,7 @@ export function PlantSettingsPage() {
       utc_offset: p.utc_offset,
       horizon: String(p.planning_horizon_days),
       currency: p.currency,
+      country: typeof p.attributes?.country === "string" ? String(p.attributes.country) : "",
       workdays: x.mrp_workdays ?? ["mon", "tue", "wed", "thu", "fri", "sat"],
       dayMinutes: String(x.mrp_day_minutes ?? 480),
       deferTol: String(x.mrp_defer_tolerance_days ?? 7),
@@ -133,7 +135,8 @@ export function PlantSettingsPage() {
     utc_offset: f.utc_offset.trim(),
     planning_horizon_days: numOr(f.horizon, 90),
     currency: f.currency.trim(),
-    attributes: base.attributes,
+    // M9 8.1: the plant country (made lots' origin, duty-free when equal to the destination) is the `country` attribute
+    attributes: f.country.trim() ? { ...base.attributes, country: f.country.trim().toUpperCase() } : Object.fromEntries(Object.entries(base.attributes ?? {}).filter(([k]) => k !== "country")),
     ...m2Body,
   };
   const horizon = Number(f.horizon);
@@ -199,6 +202,7 @@ export function PlantSettingsPage() {
             />
             <TextField label={t("mfg.plantSettingsPage.label.planningHorizonDays")} type="number" value={f.horizon} onChange={(v) => setF({ ...f, horizon: v })} hint={t("mfg.plantSettingsPage.hint.7To730UsedBy")} testId="plant-horizon" />
             <TextField label={t("mfg.plantSettingsPage.label.currency")} value={f.currency} onChange={(v) => setF({ ...f, currency: v })} maxLength={8} hint={t("mfg.plantSettingsPage.hint.shownWithCostsEgInr")} />
+            <TextField label={t("net.plant.country")} value={f.country} onChange={(v) => setF({ ...f, country: v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2) })} maxLength={2} hint={base?.country && !f.country ? t("net.plant.countryDerived", { c: base.country }) : t("net.plant.countryHint")} testId="plant-country" />
           </div>
           {m3 ? (
             <fieldset className="mfg-fieldset" data-testid="plant-aps">

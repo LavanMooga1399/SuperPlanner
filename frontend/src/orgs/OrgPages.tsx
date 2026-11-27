@@ -348,7 +348,7 @@ function PlantsTab({ org, admin }: { org: Org; admin: boolean }) {
   const [edit, setEdit] = useState<OrgPlant | "new" | null>(null);
   const [roles, setRoles] = useState<OrgPlant | null>(null);
   const [netErr, setNetErr] = useState<unknown>(null);
-  const hasNetwork = (plants.data?.items ?? []).some((p) => p.kind === "network" || p.code === "NET");
+  const hasNetwork = (plants.data?.items ?? []).some((p) => p.kind === "network");
   return (
     <section className="card card-table" data-testid="org-plants">
       <div className="card-header row" style={{ justifyContent: "space-between" }}>

@@ -4,13 +4,15 @@
  * by value and weight, estimated badge, input tree) used by the lot dialog and the tariff report.
  */
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
+import { mfgPaths } from "../lib/paths";
 import { Banner } from "../../components/Banner";
 import { Icon } from "../../components/Icon";
 import { toast } from "../../components/Toast";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
 import { t } from "../../lib/i18n";
 import { formatDateTime, formatMoney, formatNumber, formatQty } from "../../lib/locale";
-import { getItemTrade, getLanded, getLotContent, putItemTrade } from "../api/clientM9";
+import { getItemTrade, getLanded, getLotContent, putItemTrade, putLotCoo } from "../api/clientM9";
 import type { ContentNode, ItemTradeInput, LandedCost, LandedRow, LotContent } from "../api/typesM9";
 import { MfgError, Spinner } from "../components/Feedback";
 import { useItem } from "../pages/ItemShell";
@@ -114,10 +116,21 @@ export function ItemTradeTab() {
   );
 }
 
+/** The plant has no country (attribute `country`): origin and duty cannot be decided - say where to set it. */
+export function CountryMissing() {
+  return (
+    <Banner tone="warn" title={codeText9("COUNTRY_MISSING")} testId="country-missing" actions={<Link className="btn sm" to={mfgPaths.settings()}>{t("net.plant.setCountry")}</Link>}>
+      {t("net.plant.countryMissingBody")}
+    </Banner>
+  );
+}
+
 function LandedTable({ rows }: { rows: LandedRow[] }) {
   const [open, setOpen] = useState<string | null>(null);
+  const noCountry = rows.some((r) => r.landed.flags.includes("COUNTRY_MISSING"));
   return (
     <div className="pl-pivot-wrap">
+      {noCountry ? <CountryMissing /> : null}
       <table className="pl-pivot" aria-label={t("net.it.landed")} data-testid="landed-table">
         <thead>
           <tr>
@@ -231,16 +244,18 @@ export function LandedBreakdown({ l }: { l: LandedCost }) {
 }
 
 // ---------------------------------------------------------------- lot domestic content
-export function LotContentPanel({ lotId, load }: { lotId: string; load?: (signal: AbortSignal) => Promise<LotContent> }) {
+export function LotContentPanel({ lotId, load, version }: { lotId: string; load?: (signal: AbortSignal) => Promise<LotContent>; version?: number }) {
   const c = useLoad((s) => (load ? load(s) : getLotContent(lotId, s)).catch((e: unknown) => (isNotFound(e) ? null : Promise.reject(e))), [lotId]);
   if (c.error) return <MfgError error={c.error} onRetry={c.reload} />;
   if (c.loading && !c.data) return <Spinner />;
   if (!c.data) return null;
-  return <LotContentView c={c.data} />;
+  return <LotContentView c={c.data} onCooEdit={load ? undefined : { version, onDone: c.reload }} />;
 }
 
-export function LotContentView({ c }: { c: LotContent }) {
+export function LotContentView({ c, onCooEdit }: { c: LotContent; onCooEdit?: { version?: number; onDone(): void } }) {
   const [tree, setTree] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const canEdit = useCan("master_edit");
   return (
     <section className="col pl-gap" aria-label={t("net.lc.title")} data-testid="lot-content">
       <div className="row wrap" style={{ gap: 12 }}>
@@ -254,7 +269,13 @@ export function LotContentView({ c }: { c: LotContent }) {
             <Icon name="alert" /> {codeText9("TRADE_COO_MISSING")}
           </span>
         ) : null}
+        {onCooEdit && !edit ? (
+          <button type="button" className="btn ghost sm" disabled={!canEdit} title={canEdit ? undefined : needsText("master_edit")} onClick={() => setEdit(true)} data-testid="lot-coo-edit">
+            <Icon name="settings" /> {t("net.lc.editCoo")}
+          </button>
+        ) : null}
       </div>
+      {edit && onCooEdit ? <CooEditor lotId={c.lot_id} current={c.coo} version={onCooEdit.version} onClose={() => setEdit(false)} onDone={() => (setEdit(false), onCooEdit.onDone())} /> : null}
       <dl className="pl-facts">
         <div>
           <dt>{t("net.lc.byValue")}</dt>
@@ -283,6 +304,55 @@ export function LotContentView({ c }: { c: LotContent }) {
         </ul>
       ) : null}
     </section>
+  );
+}
+
+/** Regulated correction of a lot's country of origin: new value and a required reason (audit trail, Part 11). */
+function CooEditor({ lotId, current, version, onClose, onDone }: { lotId: string; current: string | null; version?: number; onClose(): void; onDone(): void }) {
+  const [coo, setCoo] = useState(current ?? "");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+  const valid = (coo === "" || /^[A-Z]{2}$/.test(coo)) && coo !== (current ?? "") && reason.trim().length > 0;
+  return (
+    <div className="pl-expert col pl-gap" data-testid="lot-coo-form">
+      <MfgError error={err} />
+      <div className="row wrap" style={{ gap: 12, alignItems: "flex-end" }}>
+        <div className="field">
+          <label htmlFor="lot-coo-v">{t("net.chg.coo")}</label>
+          <input id="lot-coo-v" className="input sm mono" style={{ width: 70 }} maxLength={2} value={coo} onChange={(e) => setCoo(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))} data-testid="lot-coo-input" />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 220 }}>
+          <label htmlFor="lot-coo-why">
+            {t("plan.label.reason")} <span className="req" aria-hidden />
+          </label>
+          <input id="lot-coo-why" className="input sm" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="lot-coo-reason" />
+        </div>
+        <button type="button" className="btn sm" onClick={onClose}>
+          {t("common.cancel")}
+        </button>
+        <button
+          type="button"
+          className="btn sm primary"
+          disabled={!valid || busy}
+          onClick={() => {
+            setBusy(true);
+            setErr(null);
+            putLotCoo(lotId, coo || null, reason.trim(), version)
+              .then(() => {
+                toast(t("net.lc.cooSaved"));
+                onDone();
+              })
+              .catch((e: unknown) => setErr(e))
+              .finally(() => setBusy(false));
+          }}
+          data-testid="lot-coo-save"
+        >
+          <Icon name="save" /> {t("net.btn.save")}
+        </button>
+      </div>
+      <span className="hint">{t("net.lc.cooHint")}</span>
+    </div>
   );
 }
 

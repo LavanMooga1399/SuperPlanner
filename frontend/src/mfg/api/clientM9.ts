@@ -170,5 +170,8 @@ export const putItemTrade = (itemId: string, body: ItemTradeInput, version: numb
   mfgRequest<ItemTrade>(`/items/${enc(itemId)}/trade`, { method: "PUT", body, headers: reasonHeaders(reason, version) });
 export const getLanded = (itemId: string, signal?: AbortSignal) => mfgRequest<M9List<LandedRow>>("/trade/landed", { query: { item_id: itemId }, signal });
 export const getLotContent = (lotId: string, signal?: AbortSignal) => mfgRequest<LotContent>(`/lots/${enc(lotId)}/content`, { signal });
+/** P4b (8.1): regulated correction of a lot's country of origin; the reason is required (body and Part 11 header). */
+export const putLotCoo = (lotId: string, coo: string | null, reason: string, version?: number) =>
+  mfgRequest<unknown>(`/lots/${enc(lotId)}/coo`, { method: "PUT", body: { coo, reason }, headers: reasonHeaders(reason, version) });
 export const getMpsTargets = (query: { family?: string; from?: string; to?: string } = {}, signal?: AbortSignal) =>
   mfgRequest<M9List<MpsTarget>>("/mps/targets", { query: q(query), signal });

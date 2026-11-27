@@ -43,6 +43,7 @@ export const MFG_NAV: NavGroupDef[] = [
     sections: [
       { key: "network", get label() { return t("net.nav.network"); }, to: mfgPaths.network(), icon: "link", end: true, match: ["/mfg/network/runs"], keywords: t("net.nav.kwNetwork") },
       { key: "network-sourcing", get label() { return t("net.nav.sourcing"); }, to: mfgPaths.networkSourcing(), icon: "truck", keywords: t("net.nav.kwSourcing") },
+      { key: "net-dashboard", get label() { return t("nav.mfg.section.dashboard"); }, to: mfgPaths.dashboard(), icon: "dashboard", keywords: t("net.nav.kwDashboard") },
       { key: "sop", get label() { return t("net.nav.sop"); }, to: mfgPaths.sop(), icon: "calendar", keywords: t("net.nav.kwSop") },
       { key: "trade", get label() { return t("net.nav.trade"); }, to: mfgPaths.trade(), icon: "flag", keywords: t("net.nav.kwTrade") },
       { key: "sourcing-risk", get label() { return t("net.nav.risk"); }, to: mfgPaths.sourcingRisk(), icon: "shield", scope: "both", keywords: t("net.nav.kwRisk") },

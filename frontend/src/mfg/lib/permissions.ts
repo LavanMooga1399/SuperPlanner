@@ -281,9 +281,9 @@ export function useAccess(): Access {
   };
 }
 
-/** M9 4: the network workspace (kind from `/workspaces`; until the server sends it, the org plant coded `NET`). */
+/** M9 4: the network workspace (`/workspaces[].plant_kind`). */
 export function isNetworkWs(w: WorkspaceInfo): boolean {
-  return w.plant_kind === "network" || (!w.plant_kind && Boolean(w.org) && w.plant_code === "NET");
+  return w.plant_kind === "network";
 }
 
 export function useCan(p: Permission): boolean {

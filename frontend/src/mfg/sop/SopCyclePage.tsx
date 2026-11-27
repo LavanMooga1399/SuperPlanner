@@ -29,7 +29,7 @@ import { SignatureList } from "../qa/RecordShell";
 import { ReasonConfirm } from "../forecast/ForecastPage";
 import { codeText9, CycleChip, isRunning, KpiCard, monthLabel, NodeTag, num, pct, pct100, stepText, useNodes } from "../network/shared";
 import { DemandTab } from "./SopDemandTab";
-import { CompareTab, FinancialTab, SupplyTab } from "./SopSupplyTabs";
+import { CompareTab, FinancialTab, ScenarioError, SupplyTab } from "./SopSupplyTabs";
 
 const VIEWS = ["demand", "supply", "financial", "compare", "approve", "publish"] as const;
 export type View = (typeof VIEWS)[number];
@@ -223,7 +223,7 @@ function AdvanceDialog({ cycle, next, onClose, onDone }: { cycle: SopCycle; next
       }
     >
       <div className="col pl-gap">
-        {code === "SOP_NO_BASELINE" ? <Banner tone="warn" role="alert" title={t("net.cyc.err.noBaseline")}>{t("net.cyc.err.noBaselineBody")}</Banner> : code === "SOP_NO_RECOMMENDATION" ? <Banner tone="warn" role="alert" title={t("net.cyc.err.noRec")}>{t("net.cyc.err.noRecBody")}</Banner> : <MfgError error={err} />}
+        {code === "SOP_NO_BASELINE" ? <Banner tone="warn" role="alert" title={t("net.cyc.err.noBaseline")}>{t("net.cyc.err.noBaselineBody")}</Banner> : code === "SOP_NO_RECOMMENDATION" ? <Banner tone="warn" role="alert" title={t("net.cyc.err.noRec")}>{t("net.cyc.err.noRecBody")}</Banner> : <ScenarioError error={err} onRerun={onClose} />}
         <p style={{ margin: 0 }}>{t(`net.cyc.advance.${next}` as "net.cyc.advance.demand_review")}</p>
         <div className="field">
           <label htmlFor="sop-adv-note">{t("net.cyc.label.stepNote")}</label>
@@ -288,6 +288,7 @@ function ApproveTab({ cycle, scenarios, onChanged }: { cycle: SopCycle; scenario
   const done = scenarios.filter((s) => s.status === "completed");
   const [scenarioId, setScenarioId] = useState(cycle.approved_scenario_id ?? cycle.recommended_scenario_id ?? done[0]?.id ?? "");
   const [signing, setSigning] = useState(false);
+  const [stale, setStale] = useState<unknown>(null);
   const demand = useLoad((s) => getDemand(cycle.id, {}, s), [cycle.id]);
   const sc = scenarios.find((s) => s.id === scenarioId) ?? null;
   const valid = cycle.signatures.filter((s) => s.status === "valid");
@@ -300,6 +301,7 @@ function ApproveTab({ cycle, scenarios, onChanged }: { cycle: SopCycle; scenario
   const ccy = sc?.kpis?.currency ?? cycle.report_currency;
   return (
     <div className="col pl-gap" data-testid="sop-approve">
+      {stale ? <ScenarioError error={stale} onRerun={() => (setStale(null), onChanged())} /> : null}
       {cycle.status === "approved" || cycle.status === "published" ? (
         <Banner tone="ok" icon="check" title={t("net.cyc.appr.done")}>
           {t("net.cyc.appr.doneBody")}
@@ -398,7 +400,16 @@ function ApproveTab({ cycle, scenarios, onChanged }: { cycle: SopCycle; scenario
             { label: t("net.cyc.appr.consensus"), value: formatNumber(totals.consensus) },
           ]}
           commentLabel={t("net.cyc.label.signComment")}
-          perform={(sig, comment) => approveCycle(cycle, sc.id, sig, comment)}
+          perform={(sig, comment) =>
+            approveCycle(cycle, sc.id, sig, comment).catch((e: unknown) => {
+              // a scenario run before the last consensus change: close the dialog and offer the re-run
+              if (errorCode(e) === "SOP_SCENARIO_STALE") {
+                setStale(e);
+                setSigning(false);
+              }
+              throw e;
+            })
+          }
           onDone={(res) => {
             toast(signedToast(res, t("net.cyc.toast.approved", { n: cycle.number })));
             setSigning(false);

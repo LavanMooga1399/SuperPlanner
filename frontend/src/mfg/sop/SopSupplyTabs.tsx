@@ -19,6 +19,7 @@ import { compareScenarios, copyScenario, createScenario, getFinancial, getRoughC
 import type { SopCycle, SopKpiSet, SopKpis, SopScenario } from "../api/typesM9";
 import { DataTable } from "../components/DataTable";
 import { MfgError, Spinner } from "../components/Feedback";
+import { ApiError } from "../../api/client";
 import type { Column } from "../components/VirtualTable";
 import { mfgPaths } from "../lib/paths";
 import { needsText, useCan } from "../lib/permissions";
@@ -26,6 +27,50 @@ import { useLoad } from "../lib/useMfg";
 import { Delta, HeatValue, heatClass, KpiCard, monthLabel, monthShort, NodeTag, num, pct, pct100, Segmented, useNodes } from "../network/shared";
 
 type Nodes = ReturnType<typeof useNodes>;
+
+/**
+ * 409 `SOP_SCENARIO_STALE` (the consensus changed after the scenario was run): says so and offers "Re-run scenario";
+ * any other error is shown as usual.
+ */
+export function ScenarioError({ error, onRerun }: { error: unknown; onRerun?(): void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+  if (!(error instanceof ApiError) || error.code !== "SOP_SCENARIO_STALE") return <MfgError error={error} />;
+  const id = typeof error.details.scenario_id === "string" ? error.details.scenario_id : null;
+  return (
+    <Banner
+      tone="warn"
+      role="alert"
+      title={t("net.code.SOP_SCENARIO_STALE")}
+      testId="sop-stale"
+      actions={
+        id ? (
+          <button
+            type="button"
+            className="btn sm primary"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              runScenario(id)
+                .then(() => {
+                  toast(t("net.scn.toast.rerun"));
+                  onRerun?.();
+                })
+                .catch((e: unknown) => setErr(e))
+                .finally(() => setBusy(false));
+            }}
+            data-testid="sop-rerun"
+          >
+            <Icon name="refresh" /> {t("net.scn.btn.rerun")}
+          </button>
+        ) : null
+      }
+    >
+      {t("net.scn.staleBody")}
+      <MfgError error={err} />
+    </Banner>
+  );
+}
 
 export function ScenarioChip({ s }: { s: SopScenario }) {
   if (s.status === "running")
@@ -609,7 +654,7 @@ function RecommendDialog({ cycle, scenario, onClose, onDone }: { cycle: SopCycle
       }
     >
       <div className="col pl-gap">
-        <MfgError error={err} />
+        <ScenarioError error={err} onRerun={onDone} />
         <p style={{ margin: 0 }}>{t("net.cmp.dlgBody")}</p>
         <div className="field">
           <label htmlFor="rec-note">
