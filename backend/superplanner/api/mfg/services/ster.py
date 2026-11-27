@@ -79,7 +79,27 @@ def _record(s: Session, r: MfgSterLoadRow, members: list[MfgSterLoadMemberRow] |
         from . import esig
 
         rec["signatures"] = esig.manifests(s, "ster_load", r.id)
+        rec["lots"] = load_lots(s, r, ms)
     return rec
+
+
+def load_lots(s: Session, r: MfgSterLoadRow, members: list[MfgSterLoadMemberRow] | None = None
+              ) -> list[dict[str, Any]]:
+    """`[{lot_id, lot_code}]` of a load (M8 15 request): its open sterility holds (`source_id` = load, taken over
+    at cycle complete); before that (or with none open) the members' lots (own lot, else the WO receipt lots)."""
+    from ..db_models_m7 import MfgLotHoldRow
+
+    ids = sorted(set(s.execute(select(MfgLotHoldRow.lot_id).where(
+        MfgLotHoldRow.source == "sterility", MfgLotHoldRow.source_id == r.id,
+        MfgLotHoldRow.released_at.is_(None))).scalars()))
+    if not ids:
+        ms = members if members is not None else _members(s, [r.id])[r.id]
+        ids = sorted({x for m in ms for x in _lots_of(s, m)})
+    if not ids:
+        return []
+    codes = dict(s.execute(select(MfgLotRow.id, MfgLotRow.lot_code).where(MfgLotRow.id.in_(ids))).all())
+    return sorted(({"lot_id": i, "lot_code": codes.get(i)} for i in ids),
+                  key=lambda x: (x["lot_code"] or "", x["lot_id"]))
 
 
 def _content(s: Session, r: MfgSterLoadRow) -> dict[str, Any]:
@@ -94,7 +114,7 @@ def _content(s: Session, r: MfgSterLoadRow) -> dict[str, Any]:
 def _loader(s: Session, record_id: str, lock: bool) -> C.Loaded:
     r = repo.get_row(s, MfgSterLoadRow, record_id, what="Sterilisation load", lock=lock)
     c = _content(s, r)
-    lots = ", ".join(sorted({m["lot_id"] or "-" for m in c["members"]}))
+    lots = ", ".join(x["lot_code"] or x["lot_id"] for x in load_lots(s, r)) or "-"
     return C.Loaded(r, c, r.row_version, None, [("Load", r.number), ("Cycle", r.cycle_code), ("Lots", lots)])
 
 

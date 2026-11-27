@@ -75,6 +75,7 @@ LOAD = {"id": _id("stl_", 1), "number": "SL-000001", "run_id": _id("rrn_", 1), "
         "members": [{"id": _id("slm_", 1), "wo_id": _id("wko_", 1), "wo_number": "WO-000412", "rate_block_id":
                      BLOCK["id"], "lot_id": _id("lot_", 1), "lot_code": "L261126-A1", "item_id": ITEM["id"],
                      "part_number": "SYR-3ML-LL", "qty": 96000.0, "pallets": 2.0}],
+        "lots": [{"lot_id": _id("lot_", 1), "lot_code": "L261126-A1"}],
         "signatures": [], "row_version": 4, "created_at": TS, "updated_at": TS2}
 CARD = {"id": _id("kbc_", 1), "loop_id": _id("kbl_", 1), "card_no": 2, "code": f"KB:{_id('kbc_', 1)}",
         "state": "empty", "doc_type": "pr", "doc_id": _id("prq_", 1), "doc_number": "PR-000231", "changed_at": TS}

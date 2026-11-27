@@ -131,6 +131,8 @@ class SterLoadRecord(MfgModel):
     ncr_id: str | None
     flags: list[str] = Field(default_factory=list)
     members: list[SterMemberRecord] = Field(default_factory=list)
+    #: M9 follow-up (M8 15 request): the load's lots - its open sterility holds, else its members' lots
+    lots: list[dict[str, Any]] = Field(default_factory=list)
     signatures: list[dict[str, Any]] = Field(default_factory=list)
     row_version: int
     created_at: datetime

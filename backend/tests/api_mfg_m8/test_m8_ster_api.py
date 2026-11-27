@@ -97,6 +97,12 @@ def test_cycle_holds_release_signed_and_fail_ncr(world):
     o.err("POST", f"/ster/loads/{load['id']}/advance", 409, "STER_AERATION_INCOMPLETE",
           json={"to": "awaiting_release", "at": at(-50)})
     load = o.post(f"/ster/loads/{load['id']}/advance", {"to": "awaiting_release", "at": at(-1)}, 200)
+    # M9 follow-up (M8 15): the record lists the held lots; the signature preview's "Lots" row shows their codes
+    assert {x["lot_id"] for x in load["lots"]} == {h["lot_id"] for h in holds} and all(x["lot_code"]
+                                                                                      for x in load["lots"])
+    pv = qa.api.get("/esig/preview", record_type="ster_load", record_id=load["id"], action="release")
+    lots_row = [r for r in pv["summary"] if r.get("label") == "Lots"]
+    assert lots_row and lots_row[0]["value"] == ", ".join(sorted(x["lot_code"] for x in load["lots"])), pv
     assert o.get("/dashboard")["tiles"]["ster_release"]["value"] == 1
     qa.api.err("POST", f"/ster/loads/{load['id']}/release", 422, "ESIG_REQUIRED", json={"early_release_reason": "x"})
     sig = signature(qa, "ster_load", load["id"], "release", "approved")
