@@ -52,7 +52,8 @@ def record(s: Session, o: MfgTransferOrderRow, lines: list[MfgTransferLineRow] |
             "source_plant": {"owner_id": o.source_owner_id, "code": codes.get(o.source_owner_id, "")},
             "dest_plant": {"owner_id": o.dest_owner_id, "code": codes.get(o.dest_owner_id, "")},
             "mirror_of": o.mirror_of, "from_location_id": o.from_location_id, "to_location_id": o.to_location_id,
-            "note": o.note, "row_version": o.row_version, "created_at": as_utc(o.created_at),
+            "note": o.note, "source": o.source or "manual", "net_run_id": o.net_run_id,     # M9 5.4
+            "row_version": o.row_version, "created_at": as_utc(o.created_at),
             "updated_at": as_utc(o.updated_at),
             "lines": [{"id": ln.id, "line_no": ln.line_no, "item_id": ln.item_id, "qty": ln.qty,
                        "shipped_qty": ln.shipped_qty, "received_qty": ln.received_qty,

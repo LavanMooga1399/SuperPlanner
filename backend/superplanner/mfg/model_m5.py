@@ -196,6 +196,8 @@ class TransferOrderRecord(MfgModel):
     from_location_id: str | None = None
     to_location_id: str | None = None
     note: str = ""
+    source: str = "manual"                       # M9-DESIGN 5.4: manual | network
+    net_run_id: str | None = None
     lines: list[dict[str, Any]] = Field(default_factory=list)
     row_version: int
     created_at: datetime

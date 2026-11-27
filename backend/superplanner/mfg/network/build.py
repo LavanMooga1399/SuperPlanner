@@ -74,10 +74,11 @@ def build_node(s: Any, info: dict[str, Any], as_of: date, horizon_weeks_n: int,
                                   float(it.safety_stock or 0.0), int(it.lead_time_days or 0),
                                   "buy" if it.make_buy == "buy" else "make", float(it.order_multiple or 0.0),
                                   float(it.min_order_qty or 0.0)))
+    replanned = _replanned_tos(s)          # open unshipped network TOs are re-planned (keep / cancel at publish)
     # demand
     for d in snap.demand:
         k = keys.get(d.item_id)
-        if k is None or d.open_qty <= 0:
+        if k is None or d.open_qty <= 0 or (d.demand_type == "transfer" and d.order_id in replanned):
             continue
         kind = "transfer_open" if d.demand_type == "transfer" else "order"
         part.demand.append(NetDemand(node.id, k, d.due_date, float(d.open_qty), kind,
@@ -108,6 +109,8 @@ def build_node(s: Any, info: dict[str, Any], as_of: date, horizon_weeks_n: int,
     for sc in snap.schedules:
         k = keys.get(sc.item_id)
         if k is None or sc.open_qty <= 0 or sc.doc_type not in ("po",):
+            continue
+        if sc.doc_id in replanned:
             continue
         kind = "transfer_in" if sc.doc_id.startswith("tro_") else "po"
         part.supply.append(NetSupply(node.id, k, sc.confirmed_date or sc.requested_date, float(sc.open_qty), kind,
@@ -149,6 +152,26 @@ def build_node(s: Any, info: dict[str, Any], as_of: date, horizon_weeks_n: int,
             for g, h in hours_per_unit(ds, it, rates, oee):
                 part.load.append(NetLoad(node.id, g, k, h))
     return part
+
+
+def _replanned_tos(s: Any) -> set[str]:
+    """Ids (both directions) of the network's open transfer orders without any shipment."""
+    from sqlalchemy import select
+
+    from ...api.db.ownership import current_owner, system_scope
+    from ...api.mfg.db_models_m5 import MfgTransferLineRow, MfgTransferOrderRow
+
+    owner = str(current_owner())
+    with system_scope():
+        rows = list(s.execute(select(MfgTransferOrderRow.id, MfgTransferOrderRow.mirror_of).where(
+            MfgTransferOrderRow.source == "network", MfgTransferOrderRow.status.in_(("draft", "open")),
+            (MfgTransferOrderRow.source_owner_id == owner) | (MfgTransferOrderRow.dest_owner_id == owner))).all())
+        if not rows:
+            return set()
+        src_ids = {i for i, m in rows if m is None} | {m for _i, m in rows if m is not None}
+        shipped = set(s.execute(select(MfgTransferLineRow.order_id).where(
+            MfgTransferLineRow.order_id.in_(src_ids), MfgTransferLineRow.shipped_qty > 0)).scalars())
+    return {i for i, m in rows if (m or i) not in shipped}
 
 
 def assemble(parts: list[NodePart], rules: list[NetRule], lanes: list[NetLane], *, as_of: date, horizon: int,

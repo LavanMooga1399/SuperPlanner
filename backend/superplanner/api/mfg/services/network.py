@@ -736,4 +736,206 @@ def pegging(ctx: AppContext, a: Any, run_id: str, node: str | None, key: str | N
                                           "ref": None, "cause": None, "link": None, "children": kids}}
 
 
+# ---------------------------------------------------------------- publish (5.4; N15) and plant MRP inputs
+
+class _Lines:
+    def __init__(self, lines: list[Any]):
+        self.lines = lines
+
+
+class _Line:
+    def __init__(self, item_id: str, qty: float, ship: date, recv: date):
+        self.item_id, self.qty, self.ship_date, self.receive_date, self.line_no = item_id, qty, ship, recv, None
+
+
+def _key_of_items(s: Session, owner: str, ids: set[str]) -> dict[str, str]:
+    from ..db_models import MfgItemRow
+
+    if not ids:
+        return {}
+    with system_scope():
+        return {r.id: B.key_of(r) for r in s.execute(select(MfgItemRow).where(MfgItemRow.owner_id == owner,
+                                                                                MfgItemRow.id.in_(ids))).scalars()}
+
+
+def _to_summary(o: Any, lines: list[Any]) -> dict[str, Any]:
+    return {"to_id": o.id, "number": o.number, "src_owner_id": o.source_owner_id, "dst_owner_id": o.dest_owner_id,
+            "ship_date": min((ln.ship_date for ln in lines), default=None), "lines": len(lines),
+            "qty": round(sum(ln.qty for ln in lines), 6)}
+
+
+def publish(ctx: AppContext, a: Any, run_id: str) -> dict[str, Any]:
+    """Firm transfers (ship <= today + firm days) become M5 transfer orders (`source network`, status open), grouped by
+    (source, destination, lane, ship date); open unshipped network TOs whose lines all match a planned firm transfer
+    (key, ship date, qty) are kept and re-linked, the others cancelled ("Superseded by network plan NR-...");
+    shipped TOs are never touched. Later transfers reach plant MRP from the published run (`mrp_inputs`)."""
+    from ....mfg import transfers as TRM
+    from .. import repo_m2
+    from ..db_models_m5 import MfgTransferLineRow, MfgTransferOrderRow
+    from .transfers import _write_lines
+
+    with write_tx(ctx) as (s, _):
+        r = repo.get_row(s, MfgNetRunRow, run_id, what="Network run", lock=True)
+        if r.status != "completed" or not (r.validator or {}).get("ok"):
+            raise ApiError(409, "NET_NOT_PUBLISHABLE", "Only a completed, validator-clean network run can be "
+                           "published.", {"status": r.status, "validator_ok": (r.validator or {}).get("ok")})
+        if r.as_of < today(s):
+            raise ApiError(409, "NET_RUN_STALE", "This network plan was made on an earlier day; run it again.",
+                           {"as_of": r.as_of.isoformat()})
+        nodes = _node_ids(s)
+        names = _names(r)
+        firm = list(s.execute(select(MfgNetTransferRow).where(MfgNetTransferRow.run_id == r.id,
+                                                              MfgNetTransferRow.firm.is_(True))
+                              .order_by(MfgNetTransferRow.ship_date, MfgNetTransferRow.id)).scalars())
+        later = int(s.execute(select(func.count()).select_from(MfgNetTransferRow).where(
+            MfgNetTransferRow.run_id == r.id, MfgNetTransferRow.firm.is_(False))).scalar() or 0)
+        reason = f"Superseded by network plan {r.number}"
+        via = f"network:{r.number}"
+        result: dict[str, Any] = {"created": [], "kept": [], "cancelled": [], "network_demands": later,
+                                  "network_supplies": later, "warnings": []}
+        open_planned = {t.id: t for t in firm}
+        with system_scope():
+            existing = list(s.execute(select(MfgTransferOrderRow).where(
+                MfgTransferOrderRow.source == "network", MfgTransferOrderRow.direction == "out",
+                MfgTransferOrderRow.status.in_(("draft", "open")),
+                MfgTransferOrderRow.source_owner_id.in_(list(nodes))).order_by(MfgTransferOrderRow.number)).scalars())
+            for o in existing:
+                lines = list(s.execute(select(MfgTransferLineRow).where(MfgTransferLineRow.order_id == o.id)
+                                       .order_by(MfgTransferLineRow.line_no)).scalars())
+                if any(ln.shipped_qty > 0 for ln in lines):
+                    continue                                          # shipped TOs are never touched
+                keys = _key_of_items(s, o.source_owner_id, {ln.item_id for ln in lines})
+                match: list[str] = []
+                for ln in lines:
+                    hit = next((t.id for t in open_planned.values() if t.id not in match
+                                and t.src_owner_id == o.source_owner_id and t.dst_owner_id == o.dest_owner_id
+                                and t.item_key == keys.get(ln.item_id) and t.ship_date == ln.ship_date
+                                and abs(t.qty - ln.qty) <= 1e-6), None)
+                    if hit is None:
+                        break
+                    match.append(hit)
+                if len(match) == len(lines) and lines:
+                    for tid in match:
+                        open_planned.pop(tid).to_id = o.id
+                    o.net_run_id = r.id
+                    result["kept"].append(_to_summary(o, lines))
+                    continue
+                mirror = s.execute(select(MfgTransferOrderRow).where(MfgTransferOrderRow.mirror_of == o.id)
+                                   ).scalars().first()
+                for x in (o, mirror):
+                    if x is not None and TRM.can("cancel", x.status, 0.0):
+                        x.status, x.row_version, x.updated_at = "cancelled", x.row_version + 1, utcnow()
+                with owner_scope(o.source_owner_id):
+                    audit(s, "transfer_order", o.id, "cancel", {"number": o.number, "via": via}, reason=reason)
+                result["cancelled"].append(_to_summary(o, lines))
+            groups: dict[tuple[str, str, str | None, date], list[MfgNetTransferRow]] = defaultdict(list)
+            for t in open_planned.values():
+                groups[(t.src_owner_id, t.dst_owner_id, t.lane_id, t.ship_date)].append(t)
+            for (src, dst, _lane_id, ship), ts in sorted(groups.items(), key=lambda x: (x[0][3], x[0][0], x[0][1])):
+                lines = []
+                for t in sorted(ts, key=lambda t: t.item_key):
+                    iid = (names.get(src, {}).get(t.item_key) or [None])[0]
+                    if iid is None:
+                        result["warnings"].append({"code": "NET_ITEM_MISSING", "node": src, "key": t.item_key})
+                        continue
+                    lines.append((t, _Line(iid, t.qty, t.ship_date, t.receive_date)))
+                if not lines:
+                    continue
+
+                def taken(c: str, src: str = src, dst: str = dst) -> bool:
+                    return s.execute(select(MfgTransferOrderRow.id).where(
+                        MfgTransferOrderRow.owner_id.in_([src, dst]), MfgTransferOrderRow.number == c)).first() \
+                        is not None
+                with owner_scope(src):
+                    number = repo_m2.next_number(s, "TO", taken)
+                now = utcnow()
+                so = MfgTransferOrderRow(id=new_id("tro_"), owner_id=src, number=number, direction="out",
+                                         status="open", source_owner_id=src, dest_owner_id=dst, mirror_of=None,
+                                         from_location_id=None, to_location_id=None, note=f"Network plan {r.number}",
+                                         source="network", net_run_id=r.id, row_version=1, created_at=now,
+                                         updated_at=now)
+                from .transfers import _dest_location
+
+                do = MfgTransferOrderRow(id=new_id("tro_"), owner_id=dst, number=number, direction="in",
+                                         status="open", source_owner_id=src, dest_owner_id=dst, mirror_of=so.id,
+                                         from_location_id=None, to_location_id=_dest_location(s, dst, None),
+                                         note=f"Network plan {r.number}", source="network", net_run_id=r.id,
+                                         row_version=1, created_at=now, updated_at=now)
+                so.to_location_id = do.to_location_id
+                s.add_all([so, do])
+                s.flush()
+                try:
+                    _write_lines(s, so, do, _Lines([x for _t, x in lines]))
+                except ApiError as exc:
+                    result["warnings"].append({"code": exc.code, "node": dst, "detail": jsonable(exc.details)})
+                    s.delete(do)
+                    s.delete(so)
+                    s.flush()
+                    continue
+                for t, _x in lines:
+                    t.to_id = so.id
+                for owner, oid in ((src, so.id), (dst, do.id)):
+                    with owner_scope(owner):
+                        audit(s, "transfer_order", oid, "create", {"number": number, "via": via, "source": "network"})
+                result["created"].append(_to_summary(so, [x for _t, x in lines]))
+        for o in s.execute(select(MfgNetRunRow).where(MfgNetRunRow.published.is_(True),
+                                                      MfgNetRunRow.id != r.id)).scalars():
+            o.published = False
+        r.published, r.published_at, r.published_by = True, utcnow(), a.user_id
+        r.publish_result = jsonable(result)
+        audit(s, "net_run", r.id, "publish", {"number": r.number, "created": len(result["created"]),
+                                              "kept": len(result["kept"]), "cancelled": len(result["cancelled"])})
+        s.flush()
+        return _run(r)
+
+
+def publish_job_body(ctx: AppContext, info: dict[str, Any]) -> dict[str, Any]:   # pragma: no cover - sync publish
+    return {"status": "skipped"}
+
+
+def mrp_inputs(s: Session) -> tuple[list[Any], list[Any]]:
+    """Plant MRP (5.4): the published network run's later transfers out of / into the bound plant ->
+    (`NetworkDemandSnap`s, `RateSupplySnap`s). Empty outside an organisation with a published network run."""
+    from ....mfg.mrp.model import NetworkDemandSnap, RateSupplySnap
+    from ..db_models import MfgPlantRow
+    from ..db_models_m5 import OrgPlantRow
+
+    owner = str(current_owner())
+    with system_scope():
+        org = s.execute(select(OrgPlantRow.org_id).where(OrgPlantRow.plant_owner_id == owner)).scalar()
+        if org is None:
+            return [], []
+        codes = dict(s.execute(select(OrgPlantRow.plant_owner_id, OrgPlantRow.code).where(
+            OrgPlantRow.org_id == org)).all())
+        net = s.execute(select(MfgPlantRow.owner_id).where(MfgPlantRow.owner_id.in_(list(codes)),
+                                                           MfgPlantRow.kind == "network")).scalar()
+        if net is None:
+            return [], []
+        run = s.execute(select(MfgNetRunRow).where(MfgNetRunRow.owner_id == net, MfgNetRunRow.published.is_(True))
+                        .order_by(MfgNetRunRow.published_at.desc())).scalars().first()
+        if run is None:
+            return [], []
+        rows = list(s.execute(select(MfgNetTransferRow).where(
+            MfgNetTransferRow.run_id == run.id, MfgNetTransferRow.firm.is_(False),
+            (MfgNetTransferRow.src_owner_id == owner) | (MfgNetTransferRow.dst_owner_id == owner))
+            .order_by(MfgNetTransferRow.ship_date, MfgNetTransferRow.id)).scalars())
+    names = _names(run).get(owner, {})
+    dem, sup = [], []
+    for t in rows:
+        iid = (names.get(t.item_key) or [None])[0]
+        if iid is None:
+            continue
+        pegs = [p for p in t.pegs if p.get("kind") != "ss"][:5]
+        first = pegs[0]["ref"] if pegs else None
+        if t.src_owner_id == owner:
+            dst = codes.get(t.dst_owner_id, "?")
+            label = f"Transfer to {dst}" + (f" for {first}" if first else "")
+            dem.append(NetworkDemandSnap(iid, t.ship_date, float(t.qty), t.id, label, 5,
+                                         {"net_run": run.number, "dst": dst, "pegs": pegs}))
+        if t.dst_owner_id == owner:
+            label = f"Transfer from {codes.get(t.src_owner_id, '?')} ({run.number})"
+            sup.append(RateSupplySnap(iid, t.receive_date, float(t.qty), t.id, label))
+    return dem, sup
+
+
 __getattr__ = m9_examples.module_getattr(__name__)

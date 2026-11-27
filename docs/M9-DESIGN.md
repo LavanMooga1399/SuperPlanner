@@ -540,3 +540,17 @@ S1 notes (network planning, as built):
   ref (<= 50); links (`/mfg/transfer-orders/{id}`) only for nodes the caller is a member of.
 - Sourcing rule ids use `nsg_` (`nsr_` is already the M2 number-series prefix).
 
+
+S2 notes (publish, plant MRP, as built):
+- `POST /net/runs/{id}/publish` runs synchronously in one transaction (no `net_publish` job is queued; the kind is
+  registered for a later asynchronous variant). The network's open, unshipped `source network` TOs are excluded from
+  the next network snapshot (they are re-planned and kept / cancelled at publish); shipped ones stay as in-transit
+  supply / open demand. A TO is kept only when every line matches a planned firm transfer (key, ship date, qty);
+  partial matches are cancelled (both directions, system reason "Superseded by network plan NR-...", audited in the
+  source plant with `via network:NR-...`). New TOs: number from the source plant's `TO` series (unique across both
+  plants), `status open`, receipt location = the destination's receipt default; items matched by key as M5.
+- Plant MRP: `m8mrp.add_inputs` adds `services/network.mrp_inputs` (the organisation's published run, non-firm
+  transfers in / out of the plant). Requirement kind `network` ranks like a P5 transfer, label "Transfer to DCUS for
+  DO-000001/10"; supply kind `network` sorts after rate supplies ("Transfer from QC (NR-000001)"). Items with
+  replenishment `transfer` get no planned order; each residual is a critical `MRP_NETWORK_SHORT`. TO records carry
+  `source` and `net_run_id` (additive). MRP goldens unchanged (`tests/mrp` green).

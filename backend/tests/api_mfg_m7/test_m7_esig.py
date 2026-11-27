@@ -60,7 +60,7 @@ def test_enrolment_status_and_part11_switch_is_signed_and_one_way(w):
     assert "(UTC" in mode["signatures"][0]["signed_at_local"]
     o.api.err("PUT", "/plant/part11", 409, "PART11_MODE_LOCKED", json={"enabled": True})
     pols = o.api.get("/esig/policies")["items"]
-    assert len(pols) == len(ESIG.POL.DEFAULTS)
+    assert len(pols) == len(ESIG.POL.DEFAULTS) - len(ESIG.POL.NETWORK_ONLY)   # M9: sop_cycle only in networks
 
 
 def test_part11_needs_secrets_key(db_url):

@@ -279,6 +279,7 @@ class Pass:
         # M8-DESIGN 6
         self.fc_reqs: list[Req] = []
         self.kanban: list[_Planned] = []
+        self.network_short: list[tuple[str, date, float, str]] = []   # M9 5.4: (item, need, qty, label)
         self.pack_rounded: list[tuple[_Planned, float]] = []
 
     # -------------------------------------------------- node factories
@@ -456,6 +457,17 @@ class Pass:
                     sup.po = po
                     if items[rs.item_id].make_buy != "buy":   # components are planned from the rate plan
                         self.st(rs.item_id).planned.append(po)
+        # M9-DESIGN 5.4: the published network plan's later transfers (demand out, supply in); default empty
+        for nd in sorted(snap.network_demands, key=lambda x: (x.item_id, x.need_date, x.ref_id)):
+            if nd.item_id not in items or nd.qty <= EPS or nd.need_date > c.horizon_end:
+                continue
+            self.new_req(nd.item_id, "network", max(nd.need_date, as_of), float(nd.qty),
+                         (1, nd.priority, nd.need_date, nd.label, 0), f"P{nd.priority} {nd.label}",
+                         SourceRef("network", nd.ref_id, nd.label), None)
+        for ns in sorted(snap.network_supplies, key=lambda x: (x.item_id, x.avail_date, x.ref_id)):
+            if ns.item_id in items and ns.qty > EPS:
+                self.new_sup(ns.item_id, "network", ns.qty, max(ns.avail_date, as_of),
+                             SourceRef("network", ns.ref_id, ns.label))
         if p.safety_stock:
             for iid in c.order:
                 it = items[iid]
@@ -531,6 +543,11 @@ class Pass:
             for key in keys:
                 for d, _rk, _nd, r, q in sorted(groups[key], key=lambda x: (x[0], x[1], x[2])):
                     self.new_kanban(st, d, q, r)
+            return
+        if c.repl(item.id) == "transfer":                # M9 5.4: the network supplies it; residual -> exception
+            for key in keys:
+                for d, _rk, _nd, r, q in sorted(groups[key], key=lambda x: (x[0], x[1], x[2])):
+                    self.network_short.append((item.id, d, q, r.source.label))
             return
         rate1 = c.rate_pass1(item.id)
         for key in keys:
@@ -700,7 +717,7 @@ class Pass:
             item = st.item
             for s in st.sups:
                 k = s.kind
-                if k in ("stock", "inspection", "po", "pr", "rate", "kanban"):
+                if k in ("stock", "inspection", "po", "pr", "rate", "kanban", "network"):
                     s.proj = s.avail
                 elif k == "planned" and s.po.kind == "buy":
                     if s.start >= as_of:

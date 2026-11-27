@@ -112,5 +112,9 @@ def add_inputs(s: Session, snap: MrpSnapshot, params: Any) -> MrpSnapshot:
     wos = [replace(w, due_date=max(w.due_date, rel[w.id])) if w.id in rel else w for w in snap.work_orders] \
         if rel else snap.work_orders
     bals, rel_sup = release_balances(s, snap)
+    from .network import mrp_inputs                 # M9-DESIGN 5.4: published network plan (empty outside a network)
+
+    net_dem, net_sup = mrp_inputs(s)
     return replace(snap, work_orders=wos, balances=bals, release_supplies=rel_sup, forecasts=snaps, planning=planning_snaps(s), rate_supplies=rs,
+                   network_demands=net_dem, network_supplies=net_sup,
                    forecast_priority=st.forecast_priority, zones=(st.daily_days, st.weekly_weeks))

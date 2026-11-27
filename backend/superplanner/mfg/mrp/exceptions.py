@@ -25,7 +25,7 @@ CODES: tuple[tuple[str, str], ...] = (
 )
 #: M8-DESIGN 6 (listed in summaries only when they occur, so M2-M7 results are unchanged)
 M8_CODES: tuple[tuple[str, str], ...] = (
-    ("MRP_RATE_SHORT", "critical"), ("MRP_FORECAST_SHORT", "warning"), ("MRP_KANBAN_UNDERSIZED", "warning"),
+    ("MRP_RATE_SHORT", "critical"), ("MRP_NETWORK_SHORT", "critical"), ("MRP_FORECAST_SHORT", "warning"), ("MRP_KANBAN_UNDERSIZED", "warning"),
     ("MRP_PACK_ROUNDING", "info"),
 )
 SEVERITY = dict(CODES + M8_CODES)
@@ -379,6 +379,12 @@ def _m8(b: _Builder, c: Any, p: Any) -> None:
                   d=po.need, qty=po.qty,
                   message=f"The rate plan does not cover {fqty(po.qty)} {it.part_number} needed by {fdate(po.need)}.",
                   action="Re-run the rate plan with more capacity or overtime, or accept the shortfall.")
+    for iid, d, q, label in getattr(p, "network_short", []):                        # M9-DESIGN 5.4
+        it = items[iid]
+        b.add("MRP_NETWORK_SHORT", item_id=iid, subject=ExRef("item", iid, it.part_number), d=d, qty=q,
+              message=f"The network plan does not cover {fqty(q)} {it.part_number} needed by {fdate(d)} "
+                      f"({label}).",
+              action="Re-run and publish the network plan, or change the item's replenishment.")
     for st in p.states.values():
         if c.repl(st.item.id) != "kanban":
             continue

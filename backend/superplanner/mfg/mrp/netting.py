@@ -12,7 +12,8 @@ from typing import Any
 
 from .model import EPS, SerialRange, SourceRef
 
-KIND_ORDER = {"stock": 0, "inspection": 1, "po": 2, "pr": 3, "wo": 4, "rate": 5, "planned": 6, "kanban": 7}  # M8: rate, kanban
+KIND_ORDER = {"stock": 0, "inspection": 1, "po": 2, "pr": 3, "wo": 4, "rate": 5, "network": 5.5, "planned": 6,
+              "kanban": 7}   # M9 5.4: network supply after transfers (po) and rate  # M8: rate, kanban
 DATE_MAX = date.max
 
 
