@@ -97,6 +97,7 @@ import { NetworkHome } from "./network/NetworkHome";
 import { NetRunPage } from "./network/NetRunPage";
 import { SourcingPage } from "./network/SourcingPage";
 import { SopCyclesPage } from "./sop/SopCyclesPage";
+import { SopCyclePage } from "./sop/SopCyclePage";
 import { useAccess } from "./lib/permissions";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
@@ -342,6 +343,7 @@ export const mfgRoutes: RouteObject[] = [
       { path: "network/sourcing", element: <SourcingPage /> },
       { path: "network/runs/:runId/:tab?", element: <Keyed param="runId">{(k) => <NetRunPage key={k} />}</Keyed> },
       { path: "sop", element: <SopCyclesPage /> },
+      { path: "sop/cycles/:cycleId/:step?", element: <Keyed param="cycleId">{(k) => <SopCyclePage key={k} />}</Keyed> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },
