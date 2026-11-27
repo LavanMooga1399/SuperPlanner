@@ -610,8 +610,8 @@ function Components({ d }: { d: FloorOperationDetail }) {
                 <span className="mono">{c.item.part_number}</span>
                 {c.item.description ? <div className="faint small">{c.item.description}</div> : null}
               </td>
-              <td>{fmtQty(c.required_qty)}</td>
-              <td>{fmtQty(c.issued_qty)}</td>
+              <td>{fmtQty(c.required_qty, (c.item as { uom?: string }).uom)}</td>
+              <td>{fmtQty(c.issued_qty, (c.item as { uom?: string }).uom)}</td>
               <td>
                 {c.backflush ? tr("floor.floorOperation.str.automaticBackflush") : tr("floor.floorOperation.str.fromStores")}
                 {c.backflush && c.location ? <div className="faint small">{tr("floor.floorOperation.text.from", { code: c.location.code })}</div> : null}

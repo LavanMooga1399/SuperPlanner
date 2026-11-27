@@ -1,4 +1,5 @@
 /** Integration console, part 2 (M5 4.3-4.8): webhooks, deliveries, data in, events out, file drop, code mappings, reconciliation, plant tokens. */
+import { formatDateTime } from "../../../lib/locale";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { TokenManager } from "../../../auth/TokensPage";
@@ -37,7 +38,6 @@ import { setSearchParam, usePaged } from "../../lib/usePaged";
 import { useLoad } from "../../lib/useMfg";
 import { usePolling } from "../../lib/usePolling";
 import { t, t as tr } from "../../../lib/i18n";
-import { LOCALE } from "../../../lib/locale";
 
 const EVENT_TYPES = [
   "work_order.created",
@@ -55,7 +55,7 @@ const EVENT_TYPES = [
   "transfer_order.received",
 ];
 
-const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString(LOCALE, { dateStyle: "short", timeStyle: "medium", hourCycle: "h23" }) : "");
+const when = (iso: string | null | undefined) => (iso ? formatDateTime(iso) : "");
 
 // ---------------------------------------------------------------- webhooks
 /** 32 random bytes, url-safe base64: the signing secret (shown once; the server stores it encrypted) */

@@ -782,3 +782,12 @@ Demo review (2026-11-26):
   (CAPA "active"). QA responses' `people` maps feed every person-name lookup; the audit trail shows names. Dashboard
   detail labels are keyed (`mfg.dash.key.*`, fr-CA). Floor operation: "Issue component lot" (`POST
   /floor/issue-lot`; component choice, remaining default, over-issue confirm + reason).
+- Product UI fixes (27 Nov): floor quantities use `formatQty` (grouped, by unit); `formatDate` / `formatDateTime` /
+  `formatTime` are day - month - year with the UI language's short month in every number format (en-CA Intl would
+  give "Nov 27, 2026"), so `DateInput`, account and integration pages match. Sterilisation release dialog lists the
+  load's lots from `lots` / member lot codes, else pages through the open `sterility` holds of the load.
+  **Backend request:** add `lots: [{lot_id, lot_code}]` (the load's open sterility holds) to the load record and use
+  them for the preview's "Lots" row (today it shows member `lot_id`s, which are empty, as "-"). Validation page: until
+  a test run is merged (`manage.py trace-matrix --junit`), the status column shows coverage (has tests / no test) with
+  an explanation instead of "Not run"; "New baseline" is offered to holders of `owner` (owner, plant admin), also in
+  the empty list.

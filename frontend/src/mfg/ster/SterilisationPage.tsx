@@ -359,10 +359,21 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /** The lots of a load: member lot codes, else the lots under this load's sterility holds (M7 holds, source_id = load). */
 function LoadLots({ load }: { load: SterLoad }) {
-  const fromMembers = [...new Set(load.members.map((m) => m.lot_code).filter((x): x is string => Boolean(x)))];
-  const holds = useLoad((s) => (fromMembers.length ? null : listHolds({ source: "sterility", limit: 200 }, s)), [load.id]);
-  const codes = fromMembers.length ? fromMembers : [...new Set((holds.data?.items ?? []).filter((h) => h.source_id === load.id).map((h) => h.lot_code).filter((x): x is string => Boolean(x)))];
-  if (!fromMembers.length && holds.loading) return <span className="muted">…</span>;
+  // 1. lots the record carries (`lots`, members' lot codes); 2. else the open sterility holds of this load (paged:
+  //    a plant can hold many lots awaiting sterilisation, so the first page alone is not enough)
+  const fromRecord = [...new Set([...(load.lots ?? []).map((l) => l.lot_code), ...load.members.map((m) => m.lot_code)].filter((x): x is string => Boolean(x)))];
+  const holds = useLoad(async (s) => {
+    if (fromRecord.length) return [] as string[];
+    const out = new Set<string>();
+    for (let offset = 0; offset < 2000; offset += 200) {
+      const page = await listHolds({ source: "sterility", limit: 200, offset }, s);
+      for (const h of page.items) if (h.source_id === load.id && h.lot_code) out.add(h.lot_code);
+      if (offset + page.items.length >= page.total || !page.items.length) break;
+    }
+    return [...out].sort();
+  }, [load.id]);
+  const codes = fromRecord.length ? fromRecord : holds.data ?? [];
+  if (!fromRecord.length && holds.loading) return <span className="muted">…</span>;
   if (!codes.length) return <span className="muted">{t("plan.ster.sig.noLots")}</span>;
   return (
     <span className="mono" data-testid="ster-sig-lots">

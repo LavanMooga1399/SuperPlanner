@@ -19,7 +19,7 @@ import type { Baseline, BaselineDiff, TraceMatrixRow } from "../api/typesM8";
 import { DataTable } from "../components/DataTable";
 import { MfgError, Spinner } from "../components/Feedback";
 import type { Column } from "../components/VirtualTable";
-import { needsText, useAccess, useCan } from "../lib/permissions";
+import { needsText, useCan } from "../lib/permissions";
 import { useDebounced, useLoad } from "../lib/useMfg";
 import { usePersonName } from "../qa/common";
 import { Chip, Segmented } from "../forecast/shared";
@@ -60,21 +60,36 @@ export function ValidationPage() {
       setDl(null);
     }
   };
+  // results exist only after `manage.py trace-matrix --junit ...` merged a test run; until then the matrix shows coverage
+  const hasResults = (m?.rows ?? []).some((r) => r.last_result && r.last_result !== "not_run");
   const columns = useMemo<Column<TraceMatrixRow>[]>(
     () => [
       { key: "id", header: t("plan.val.head.id"), width: "140px", sortValue: (r) => r.id, render: (r) => <span className="mono">{r.id}</span> },
       { key: "title", header: t("plan.val.head.title"), width: "minmax(220px, 3fr)", wrap: true, sortValue: (r) => r.title, render: (r) => r.title },
       { key: "risk", header: t("plan.val.head.risk"), width: "110px", sortValue: (r) => ["high", "medium", "low"].indexOf(r.risk), exportValue: (r) => r.risk, render: (r) => <Chip def={RISK[r.risk]} value={r.risk} /> },
       { key: "tests", header: t("plan.val.head.tests"), width: "90px", align: "right", sortValue: (r) => r.tests.length, exportValue: (r) => r.tests.join(" "), render: (r) => <span className="pl-num" title={r.tests.join("\n")}>{r.tests.length}</span> },
-      {
-        key: "status",
-        header: t("plan.val.head.result"),
-        width: "130px",
-        exportValue: (r) => r.last_result,
-        render: (r) => (r.tests.length ? <Chip def={RESULT[(r.last_result ?? "not_run") as keyof typeof RESULT]} value={r.last_result ?? "not_run"} /> : <Chip def={{ label: "plan.val.res.noTest", tone: r.risk === "high" ? "danger" : "warn", icon: "alert" }} value="no_test" />),
-      },
+      ...(hasResults
+        ? [
+            {
+            key: "status",
+            header: t("plan.val.head.result"),
+            width: "130px",
+            exportValue: (r: TraceMatrixRow) => r.last_result,
+            render: (r: TraceMatrixRow) => (r.tests.length ? <Chip def={RESULT[(r.last_result ?? "not_run") as keyof typeof RESULT]} value={r.last_result ?? "not_run"} /> : <Chip def={{ label: "plan.val.res.noTest", tone: r.risk === "high" ? "danger" : "warn", icon: "alert" }} value="no_test" />),
+          },
+          ]
+        : [
+            {
+              key: "status",
+              header: t("plan.val.head.coverage"),
+              width: "130px",
+              exportValue: (r: TraceMatrixRow) => (r.tests.length ? "covered" : "no_test"),
+              render: (r: TraceMatrixRow) =>
+                r.tests.length ? <Chip def={{ label: "plan.val.res.covered", tone: "ok", icon: "check" }} value="covered" /> : <Chip def={{ label: "plan.val.res.noTest", tone: r.risk === "high" ? "danger" : "warn", icon: "alert" }} value="no_test" />,
+            },
+          ]),
     ],
-    [],
+    [hasResults],
   );
   if (!canView)
     return (
@@ -112,6 +127,11 @@ export function ValidationPage() {
           ) : (
             <Banner tone="ok" testId="val-no-high-gaps">{t("plan.val.text.noHighGaps")}</Banner>
           )}
+          {!hasResults ? (
+            <Banner tone="info" title={t("plan.val.noResults.title")} testId="val-no-results">
+              {t("plan.val.noResults.body")} <code className="mono">manage.py trace-matrix --junit results.xml</code>
+            </Banner>
+          ) : null}
           <FilterBar search={{ id: "val-q", value: q, onChange: setQ, placeholder: t("plan.val.ph.search") }}>
             <div className="field">
               <span className="field-label">{t("plan.val.head.risk")}</span>
@@ -139,7 +159,7 @@ export function ValidationPage() {
 }
 
 function Baselines() {
-  const access = useAccess();
+  const canCreate = useCan("owner");
   const person = usePersonName();
   const list = useLoad((s) => listBaselines(s), []);
   const items = list.data?.items ?? [];
@@ -154,7 +174,7 @@ function Baselines() {
     <section className="card" aria-labelledby="val-bl-h" data-testid="val-baselines">
       <div className="card-header pl-card-header">
         <h2 className="pl-h2" id="val-bl-h">{t("plan.val.bl.title")}</h2>
-        <button type="button" className="btn sm primary" disabled={!access.isOwner} title={access.isOwner ? undefined : needsText("owner")} onClick={() => setCreating(true)} data-testid="val-baseline-new">
+        <button type="button" className="btn sm primary" disabled={!canCreate} title={canCreate ? undefined : needsText("owner")} onClick={() => setCreating(true)} data-testid="val-baseline-new">
           <Icon name="plus" /> {t("plan.val.bl.new")}
         </button>
       </div>
@@ -165,7 +185,16 @@ function Baselines() {
         label={t("plan.val.bl.title")}
         testId="val-baseline-list"
         loading={list.loading && !list.data}
-        empty={t("plan.val.bl.empty")}
+        empty={
+          <span className="col" style={{ gap: 8, alignItems: "center" }}>
+            <span>{t("plan.val.bl.empty")}</span>
+            {canCreate ? (
+              <button type="button" className="btn primary sm" onClick={() => setCreating(true)} data-testid="val-baseline-new-empty">
+                <Icon name="plus" /> {t("plan.val.bl.new")}
+              </button>
+            ) : null}
+          </span>
+        }
         columns={[
           { key: "label", header: t("plan.val.bl.label"), width: "minmax(180px, 2fr)", render: (x) => x.label },
           { key: "sha", header: t("plan.val.bl.hash"), width: "160px", render: (x) => <span className="mono small" title={x.sha256}>{x.sha256.slice(0, 12)}</span> },

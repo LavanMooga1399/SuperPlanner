@@ -25,12 +25,6 @@ export function formatNumber(x: number | null | undefined, max = 6, min = 0): st
   return numberFormat(min, Math.max(min, max)).format(x);
 }
 
-const mkDtf = () => new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-const mkDf = () => new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short", year: "numeric" });
-const mkTf = () => new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-let dtf = mkDtf();
-let df = mkDf();
-let tf = mkTf();
 
 /** Re-read the format after the plant region is known (live binding: importers of `LOCALE` see the new value). */
 export function refreshLocale(): boolean {
@@ -38,31 +32,33 @@ export function refreshLocale(): boolean {
   if (next === LOCALE) return false;
   LOCALE = next;
   nf.clear();
-  dtf = mkDtf();
-  df = mkDf();
-  tf = mkTf();
   return true;
 }
 
-/** Browser-local date and time, e.g. "21 Nov 2026, 17:20". */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Browser-local date and time, e.g. "21 Nov 2026 17:20". Dates are always day - month - year with the short month
+ * of the UI language (UX-STANDARD 8), whatever the number format (en-CA's Intl date would be "Nov 21, 2026").
+ */
 export function formatDateTime(d: Date | string | number | null | undefined): string {
   if (d === null || d === undefined || d === "") return "";
   const x = d instanceof Date ? d : new Date(d);
-  return Number.isNaN(x.getTime()) ? String(d) : dtf.format(x);
+  return Number.isNaN(x.getTime()) ? String(d) : `${formatDate(x)} ${pad2(x.getHours())}:${pad2(x.getMinutes())}`;
 }
 
+/** Browser-local calendar date, e.g. "21 Nov 2026". */
 export function formatDate(d: Date | string | number | null | undefined): string {
   if (d === null || d === undefined || d === "") return "";
   const x = d instanceof Date ? d : new Date(d);
-  return Number.isNaN(x.getTime()) ? String(d) : df.format(x);
+  return Number.isNaN(x.getTime()) ? String(d) : `${x.getDate()} ${MON[x.getMonth()]} ${x.getFullYear()}`;
 }
-
 
 /** Browser-local time of day, 24 h, e.g. "17:20". */
 export function formatTime(d: Date | string | number | null | undefined): string {
   if (d === null || d === undefined || d === "") return "";
   const x = d instanceof Date ? d : new Date(d);
-  return Number.isNaN(x.getTime()) ? String(d) : tf.format(x);
+  return Number.isNaN(x.getTime()) ? String(d) : `${pad2(x.getHours())}:${pad2(x.getMinutes())}`;
 }
 
 const MON = [t("shell.locale.str.jan"), t("shell.locale.str.feb"), t("shell.locale.str.mar"), t("shell.locale.str.apr"), t("shell.locale.str.may"), t("shell.locale.str.jun"), t("shell.locale.str.jul"), t("shell.locale.str.aug"), t("shell.locale.str.sep"), t("shell.locale.str.oct"), t("shell.locale.str.nov"), t("shell.locale.str.dec")];

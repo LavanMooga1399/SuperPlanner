@@ -777,4 +777,8 @@ export const planningStrings = {
   "plan.fi.submit": "Issue lot",
   "plan.fi.submitOver": "Issue with over-issue",
   "plan.fi.done": "Issued {qty} from lot {lot}; {rem} remain",
+  "plan.val.head.coverage": "Coverage",
+  "plan.val.res.covered": "Has tests",
+  "plan.val.noResults.title": "No test results loaded yet",
+  "plan.val.noResults.body": "The matrix shows which requirements have tests. Pass/fail results appear after a test run is merged on the server with",
 } as const;

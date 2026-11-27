@@ -508,6 +508,8 @@ export interface SterLoad {
   /** `STER_AERATION_BOUND`, ... */
   flags: string[];
   members: SterMember[];
+  /** lots under this load's sterility holds (requested in M8-DESIGN 15; optional until the backend sends it) */
+  lots?: { lot_id: EntityId; lot_code: string }[] | null;
   signatures: Record<string, unknown>[];
   row_version: number;
   created_at: IsoDateTime;

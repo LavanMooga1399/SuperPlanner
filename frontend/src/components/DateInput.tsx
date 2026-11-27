@@ -1,5 +1,5 @@
 /**
- * Date input with the app's date format (en-IN "21 Nov 2026") regardless of the browser locale. The native
+ * Date input with the app's date format ("21 Nov 2026", day - month - year in every number format) regardless of the browser locale. The native
  * `type="date"` control stays underneath (transparent) for the picker, keyboard entry and the label link, so
  * behaviour and accessibility are the browser's own; only the visible text is ours.
  */

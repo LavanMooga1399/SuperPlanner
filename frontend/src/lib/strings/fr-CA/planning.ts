@@ -777,4 +777,8 @@ export const planningFrCa: Record<keyof typeof planningStrings, string> = {
   "plan.fi.submit": "Sortir le lot",
   "plan.fi.submitOver": "Sortir avec dépassement",
   "plan.fi.done": "{qty} sortis du lot {lot} ; il reste {rem}",
+  "plan.val.head.coverage": "Couverture",
+  "plan.val.res.covered": "Testée",
+  "plan.val.noResults.title": "Aucun résultat de test chargé",
+  "plan.val.noResults.body": "La matrice montre quelles exigences ont des tests. Les résultats réussi/échoué apparaissent après la fusion d'une exécution de tests sur le serveur avec",
 };

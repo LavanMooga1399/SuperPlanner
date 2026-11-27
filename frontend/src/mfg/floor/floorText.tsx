@@ -1,4 +1,5 @@
 /** Floor wording (M4 12): statuses and lights as icon + text, never colour alone; server errors in plain words. */
+import { formatQty } from "../../lib/locale";
 import { ApiError } from "../../api/client";
 import { Icon, type IconName } from "../../components/Icon";
 import type { DowntimeKind, FloorEventType, KitLight, TriggerKind, WoOpStatus } from "../api/typesM4";
@@ -134,7 +135,8 @@ export function floorErrorText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-export const fmtQty = (n: number | null | undefined) => (n === null || n === undefined ? "" : Number.isInteger(n) ? String(n) : n.toFixed(2));
+/** Floor quantities: grouped in the plant's number format, by unit (count units whole, others up to 3 decimals). */
+export const fmtQty = (n: number | null | undefined, uom?: string | null) => formatQty(n, uom);
 
 /** "SOLDER_BRIDGE" / "break" -> "Solder bridge" / "Break" (reason codes are plant data) */
 export const humanCode = (code: string | null | undefined) => (code ? code.charAt(0).toUpperCase() + code.slice(1).toLowerCase().replace(/_/g, " ") : "");
