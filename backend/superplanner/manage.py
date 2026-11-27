@@ -423,7 +423,15 @@ def cmd_load_seed(db: Database, settings: Settings, args: argparse.Namespace, ou
     if not (args.replace_all_data and args.yes):
         raise CommandError("load-seed deletes all manufacturing data of the plant: pass --replace-all-data --yes")
     try:
-        res = seed(db, owner, profile=args.profile, rng_seed=args.seed, force=args.force)
+        if args.profile.endswith("-network"):           # M9-DESIGN 12.2: an organisation of 3 plants + 2 DCs
+            from .loadseed import seed_network
+
+            if not args.org or not args.email:
+                raise CommandError("network profiles need --org <slug> and --email <org admin>")
+            res = seed_network(db, settings, owner, args.org, profile=args.profile, rng_seed=args.seed,
+                               force=args.force)
+        else:
+            res = seed(db, owner, profile=args.profile, rng_seed=args.seed, force=args.force)
     except SeedRefused as e:
         raise CommandError(str(e)) from None
     for k, v in res.items():
@@ -485,7 +493,8 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--plant", required=True, help="organisation plant code, integration plant code or owner id")
     c.add_argument("--label")
     c = sub.add_parser("load-seed")
-    c.add_argument("--profile", default="bd", choices=["bd", "small"])
+    c.add_argument("--profile", default="bd", choices=["bd", "small", "bd-network", "small-network"])
+    c.add_argument("--org", help="organisation slug (network profiles)")
     c.add_argument("--email", help="owner of the data (default: the local user)")
     c.add_argument("--seed", type=int, default=8)
     c.add_argument("--replace-all-data", action="store_true", help="required: the plant's data is replaced")

@@ -87,8 +87,14 @@ class SeedRefused(Exception):
     pass
 
 
+DC_EMPTY = ("groups", "lines", "shift_templates", "shifts", "shift_assignments", "boms", "bom_lines", "routings",
+            "operations", "operation_line_rates", "setup_matrix")
+#: M9-DESIGN 12.2: network profiles = 3 plants + 2 DCs of one organisation sharing the node profile's keys
+NETWORK_PROFILES = {"bd-network": "bd", "small-network": "small"}
+
+
 def seed(db: Any, owner: str, *, profile: str = "bd", rng_seed: int = 8, anchor: date | None = None,
-         force: bool = False) -> dict[str, Any]:
+         force: bool = False, dc: bool = False) -> dict[str, Any]:
     """Replaces the plant's manufacturing data. Refused in Part 11 mode, and when the plant has inventory postings
     unless `force` (review 5); audited (`plant.load_seed`)."""
     from .api.db.models import new_id, utcnow
@@ -109,6 +115,11 @@ def seed(db: Any, owner: str, *, profile: str = "bd", rng_seed: int = 8, anchor:
     p = PROFILES[profile]
     anchor = anchor or date.today() - timedelta(days=date.today().weekday())
     bd = bundle(profile, anchor, rng)
+    if dc:                                   # M9: a distribution centre holds items, stock and orders, no lines
+        for k in DC_EMPTY:
+            bd[k] = []
+        for it in bd["items"]:
+            it["make_buy"] = "buy"
     plan = plan_import(bd, MfgDataset(plant=PlantRecord()), ImportOptions(release=True, today=anchor),
                        id_factory=new_id)
     if not plan.ok:
@@ -127,11 +138,16 @@ def seed(db: Any, owner: str, *, profile: str = "bd", rng_seed: int = 8, anchor:
             raise SeedRefused(f"the plant has {n_post} inventory postings; use --force to delete them")
         audit(s, "plant", plant.id, "load_seed", {"profile": profile, "seed": rng_seed, "postings_deleted": n_post})
         dv = plant.data_version
+        keep_kind, keep_country = plant.kind, (plant.attributes or {}).get("country")   # M9: node identity
         delete_all(s)
         plant = repo.lock_plant(s)
         plant.data_version = dv + 1
         s.flush()
         writer.apply(s, plan, plant, stock_date=anchor - timedelta(days=1))
+        plant = repo.lock_plant(s)
+        plant.kind = keep_kind or "plant"
+        if keep_country:
+            plant.attributes = {**(plant.attributes or {}), "country": keep_country}
         now = utcnow()
         lines = {ln.code: ln for ln in s.execute(select(MfgLineRow)).scalars()}
         fams = [f"FAM{k + 1:02d}" for k in range(p["families"])]
@@ -150,8 +166,8 @@ def seed(db: Any, owner: str, *, profile: str = "bd", rng_seed: int = 8, anchor:
                 ln.chamber_pallets = 96
         s.add(MfgChangeoverRow(id=new_id("chg_"), line_setup_family="BDF", from_key="*", to_key="*", minutes=60,
                                cost=200.0, kind="changeover", row_version=1, created_at=now, updated_at=now))
-        items = list(s.execute(select(MfgItemRow).where(MfgItemRow.make_buy == "make"))
-                     .scalars())
+        items = [] if dc else list(s.execute(select(MfgItemRow).where(MfgItemRow.make_buy == "make"))
+                                       .scalars())
         planning, packs, hist = [], [], []
         first = date(anchor.year, anchor.month, 1)
         months = []
@@ -185,3 +201,78 @@ def seed(db: Any, owner: str, *, profile: str = "bd", rng_seed: int = 8, anchor:
     return {"profile": profile, "items": p["finished"] + p["components"], "lines": p["lines"],
             "chambers": p["chambers"], "order_lines": p["order_lines"], "history_rows": len(hist),
             "seconds": round(time.monotonic() - t0, 1)}
+
+
+def seed_network(db: Any, settings: Any, admin_id: str, org_slug: str, *, profile: str = "bd-network",
+                 rng_seed: int = 8, force: bool = False) -> dict[str, Any]:
+    """M9 load profile: plants P1-P3 and DCs D1-D2 of organisation `org_slug` (created when missing, with the
+    network workspace) each replaced by the node profile (same seed -> the same keys); lanes from every plant to
+    every DC; per family a primary / secondary plant source at each DC (a quarter of the families on 60 / 40
+    quotas). The safeguards of `seed` apply per node (Part 11, postings unless `force`)."""
+    from types import SimpleNamespace
+
+    from sqlalchemy import select
+
+    from .api.db.models import new_id, utcnow
+    from .api.db.ownership import owner_scope, system_scope
+    from .api.mfg.db_models import MfgItemRow, MfgPlantRow
+    from .api.mfg.db_models_m5 import OrgPlantRow, OrgRow
+    from .api.mfg.db_models_m9 import MfgNetLaneRow, MfgNetSourcingRow
+    from .orgs.model import NetworkIn, OrgPlantIn
+    from .orgs.service import create_network, create_plant
+
+    t0 = time.monotonic()
+    node_profile = NETWORK_PROFILES[profile]
+    ctx = SimpleNamespace(settings=settings, db=db)
+    with system_scope(), db.read() as s:
+        org_row = s.execute(select(OrgRow).where(OrgRow.slug == org_slug)).scalars().first()
+        if org_row is None:
+            raise SeedRefused(f"no organisation {org_slug!r}")
+        org = SimpleNamespace(id=org_row.id)
+        have = {p.code: p.plant_owner_id for p in s.execute(select(OrgPlantRow).where(
+            OrgPlantRow.org_id == org.id)).scalars()}
+    nodes = {"P1": "plant", "P2": "plant", "P3": "plant", "D1": "dc", "D2": "dc"}
+    for code, kind in nodes.items():
+        if code not in have:
+            r = create_plant(ctx, admin_id, org.id, OrgPlantIn(code=code, name=f"Load {code}", kind=kind,
+                                                                country="US", currency="USD"))
+            have[code] = r["plant_owner_id"]
+    with system_scope(), db.read() as s:
+        net = s.execute(select(MfgPlantRow.owner_id).where(MfgPlantRow.owner_id.in_(list(have.values())),
+                                                           MfgPlantRow.kind == "network")).scalar()
+    if net is None:
+        net = create_network(ctx, admin_id, org.id, NetworkIn(name="Network"))["owner_id"]
+    out: dict[str, Any] = {"profile": profile, "org": org_slug, "nodes": {}}
+    for code, kind in nodes.items():
+        out["nodes"][code] = seed(db, have[code], profile=node_profile, rng_seed=rng_seed, force=force,
+                                  dc=kind == "dc")["items"]
+    with owner_scope(have["P1"]), db.read() as s:
+        fams = sorted({f for f in s.execute(select(MfgItemRow.family).where(MfgItemRow.family.is_not(None)))
+                       .scalars()})
+    rng = random.Random(rng_seed)
+    now = utcnow()
+    with owner_scope(net), db.write() as s:
+        from sqlalchemy import delete
+
+        s.execute(delete(MfgNetSourcingRow))
+        s.execute(delete(MfgNetLaneRow))
+        for p in ("P1", "P2", "P3"):
+            for d in ("D1", "D2"):
+                s.add(MfgNetLaneRow(id=new_id("nln_"), from_owner_id=have[p], to_owner_id=have[d], mode="road",
+                                    transit_days=rng.randint(1, 4), freight_per_unit=0.002, freight_per_kg=None,
+                                    currency="USD", active=True, row_version=1, created_at=now, updated_at=now))
+        n_rules = 0
+        for k, f in enumerate(fams):
+            a, b = f"P{k % 3 + 1}", f"P{(k + 1) % 3 + 1}"
+            quota = k % 4 == 0
+            for d in ("D1", "D2"):
+                for prio, src, q in ((1, a, 60.0), (2, b, 40.0)):
+                    s.add(MfgNetSourcingRow(id=new_id("nsg_"), dest_owner_id=have[d], item_key=None, family=f,
+                                            source_kind="plant", source_owner_id=have[src], supplier_code=None,
+                                            priority=prio, quota_pct=q if quota else None, lane_id=None,
+                                            valid_from=None, valid_to=None, active=True, row_version=1,
+                                            created_at=now, updated_at=now))
+                    n_rules += 1
+    out.update(network_owner=net, families=len(fams), rules=n_rules, seconds=round(time.monotonic() - t0, 1))
+    return out
+
