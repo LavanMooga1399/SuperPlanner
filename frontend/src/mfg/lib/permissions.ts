@@ -257,7 +257,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       // while loading or after an error, nothing is offered (avoids flashing buttons a viewer cannot use)
       can: (p) => perms.has(p),
       isOwner: Boolean(me?.is_owner),
-      isNetwork: me?.workspace_kind === "network" || workspaces.some((w) => w.plant_kind === "network" && w.owner_id === (currentWorkspace() ?? me?.workspace_owner_id)),
+      isNetwork: me?.workspace_kind === "network" || workspaces.some((w) => isNetworkWs(w) && w.owner_id === (currentWorkspace() ?? me?.workspace_owner_id)),
     };
   }, [me, workspaces, loading, assumed, error]);
 
@@ -279,6 +279,11 @@ export function useAccess(): Access {
     isOwner: true,
     isNetwork: false,
   };
+}
+
+/** M9 4: the network workspace (kind from `/workspaces`; until the server sends it, the org plant coded `NET`). */
+export function isNetworkWs(w: WorkspaceInfo): boolean {
+  return w.plant_kind === "network" || (!w.plant_kind && Boolean(w.org) && w.plant_code === "NET");
 }
 
 export function useCan(p: Permission): boolean {

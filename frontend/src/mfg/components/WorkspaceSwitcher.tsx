@@ -4,7 +4,7 @@
  */
 import { Icon } from "../../components/Icon";
 import type { WorkspaceInfo } from "../api/typesM2";
-import { ROLE_LABEL, useAccess } from "../lib/permissions";
+import { isNetworkWs, ROLE_LABEL, useAccess } from "../lib/permissions";
 import { currentWorkspace, switchWorkspace } from "../lib/workspace";
 import { t } from "../../lib/i18n";
 
@@ -54,13 +54,13 @@ function groupByOrg(ws: WorkspaceInfo[]): [string | null, WorkspaceInfo[]][] {
     // the network workspace leads its organisation's group
     m.set(k, [...(m.get(k) ?? []), w]);
   }
-  for (const list of m.values()) list.sort((a, b) => Number(b.plant_kind === "network") - Number(a.plant_kind === "network"));
+  for (const list of m.values()) list.sort((a, b) => Number(isNetworkWs(b)) - Number(isNetworkWs(a)));
   return [...m.entries()].sort((a, b) => (a[0] === null ? -1 : b[0] === null ? 1 : a[0].localeCompare(b[0])));
 }
 
 function wsLabel(w: WorkspaceInfo): string {
   // M9 4: the network workspace is marked, so planners see where org-level planning happens
-  if (w.plant_kind === "network") return t("net.ws.option", { org: w.org?.name ?? w.plant_name });
+  if (isNetworkWs(w)) return t("net.ws.option", { org: w.org?.name ?? w.plant_name });
   const name = `${w.plant_code ? `${w.plant_code} · ` : ""}${w.plant_name || t("mfg.workspaceSwitcher.str.plant")}`;
   return `${name}${w.is_owner ? " (mine)" : ` (${w.roles.map((r) => ROLE_LABEL[r]).join(", ")})`}`;
 }
