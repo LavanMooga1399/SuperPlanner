@@ -493,6 +493,8 @@ class NetTransfer:
     firm: bool
     rule_id: str | None = None
     pegs: list[NetPeg] = field(default_factory=list)
+    requested: float = 0.0                    # quantity before capacity cuts at the source
+    spill: bool = False                       # created by a capacity spill (3c), exempt from the quota check
 
 
 @dataclass

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 _HERE = Path(__file__).resolve().parent
-for _p in (str(_HERE.parents[1]), str(_HERE.parent / "api_mfg_m2"), str(_HERE.parent / "api_mfg_m7"), str(_HERE)):
+for _p in (str(_HERE.parents[1]), str(_HERE.parent / "api_mfg_m2"), str(_HERE.parent / "api_mfg_m8"), str(_HERE)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

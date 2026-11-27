@@ -26,7 +26,8 @@ if TYPE_CHECKING:  # pragma: no cover
 JobKind = Literal["solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import",
     "integration_filedrop", "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention",
     "trace_backfill", "push_delivery", "digest_send", "inventory_snapshot", "part11_export", "qa_due_scan",
-    "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync"]
+    "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync",
+    "net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report"]
 JobStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 JOB_KINDS: tuple[str, ...] = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integration_import",
                               "integration_filedrop", "integration_delivery", "integration_reconcile", "org_publish",
@@ -36,8 +37,11 @@ JOB_KINDS: tuple[str, ...] = ("solver_run", "finance_run", "aps_run", "aps_simul
                               # M7-DESIGN 3
                               "part11_export", "qa_due_scan",
                               # M8-DESIGN 3 (duty runs on maintenance_runs)
-                              "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync")
+                              "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync",
+                              # M9-DESIGN 3 (duty runs on maintenance_runs)
+                              "net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report")
 M8_KINDS: tuple[str, ...] = ("forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync")
+M9_KINDS: tuple[str, ...] = ("net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report")
 #: kind -> the `jobs` column that references its run (exactly one is set, `ck_jobs_one_target`)
 RUN_ID_COLUMN: dict[str, str] = {"solver_run": "solver_run_id", "finance_run": "finance_run_id",
                                  "aps_run": "aps_run_id", "aps_simulation": "aps_simulation_id",
@@ -58,13 +62,15 @@ RUN_ID_COLUMN: dict[str, str] = {"solver_run": "solver_run_id", "finance_run": "
                                  "qa_due_scan": "maintenance_run_id",
                                  # M8-DESIGN 3 (duty runs)
                                  **{k: "maintenance_run_id" for k in ("forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync")},
+                                 **{k: "maintenance_run_id" for k in ("net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report")},   # M9
                                  }
 M5_KINDS: tuple[str, ...] = ("integration_import", "integration_filedrop", "integration_delivery",
                              "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill",
                              # M6-DESIGN 6: duty runs handled through integration.jobs as well
                              "push_delivery", "digest_send", "inventory_snapshot",
                              "part11_export", "qa_due_scan",                      # M7-DESIGN 3
-                             "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync")                    # M8-DESIGN 3
+                             "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync",   # M8-DESIGN 3
+                             "net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report")   # M9-DESIGN 3
 TERMINAL_JOB_STATUSES: tuple[str, ...] = ("succeeded", "failed", "cancelled")
 ACTIVE_RUN_STATUSES: tuple[str, ...] = ("queued", "running")
 RUN_TO_JOB_STATUS = {"completed": "succeeded", "failed": "failed", "cancelled": "cancelled"}

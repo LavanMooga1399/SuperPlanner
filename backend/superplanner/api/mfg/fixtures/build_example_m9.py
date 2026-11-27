@@ -28,7 +28,7 @@ USER, EXEC = _id("usr_", 1), _id("usr_", 2)
 LANE = {"id": _id("nln_", 1), "from_owner_id": QC, "to_owner_id": DCUS, "mode": "road", "transit_days": 3,
         "freight_per_unit": 0.004, "freight_per_kg": None, "currency": "USD", "active": True, "row_version": 1,
         "updated_at": TS}
-RULE = {"id": _id("nsr_", 1), "dest_owner_id": DCUS, "item_key": None, "family": "SYR", "source_kind": "plant",
+RULE = {"id": _id("nsg_", 1), "dest_owner_id": DCUS, "item_key": None, "family": "SYR", "source_kind": "plant",
         "source_owner_id": QC, "supplier_code": None, "priority": 1, "quota_pct": None, "lane_id": LANE["id"],
         "valid_from": None, "valid_to": None, "active": True, "row_version": 1, "updated_at": TS}
 PEG = {"node": DCUS, "kind": "order", "ref": "SO-000123/1", "qty": 4800.0}

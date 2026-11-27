@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from apimfgm2_helpers import V1, Api, acc_app, sign_up
+from apimfgm2_helpers import V1, Api, acc_app, sign_up  # noqa: F401  (re-exported)
 
 
 @dataclass

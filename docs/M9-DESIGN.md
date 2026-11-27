@@ -508,3 +508,35 @@ S0 interpretations:
   `mfg_mps_targets.cycle_number`, `created_at`. Report-currency KPIs and records carry `currency`.
 - M8 follow-up (M8 15 request): `SterLoadRecord.lots [{lot_id, lot_code}]` = the load's open sterility holds, else
   its members' lots; the signature preview's "Lots" row lists those lot codes.
+
+S1 notes (network planning, as built):
+- `mfg/network/{model,calendar,capacity,build,engine,validator,peg}.py`. The engine processes vertices (node, key)
+  from a work queue ordered by (low-level code, node code, key); a vertex re-plans when its dependent requirements
+  change (spill targets), retracting what it emitted before (bounded; `NET_NOT_CONVERGED` guard). Safety stock is a
+  requirement in the first week ranked after that week's orders; lot excess is pegged `ss`. One receipt (one source
+  decision) per vertex-week; quota mode applies the cumulative formula per receipt (M9-NET-01 hand table).
+- Capacity: rank order inside a vertex (orders, forecast, safety stock, lot excess last); across vertices the
+  booking order is the processing order. Pre-built receipts are separate production rows with `prebuilt_from`.
+  A spilled part becomes a transfer from the destination's next source (`spill true`, exempt from the quota check)
+  or a buy from a supplier rule; without a further source the cut is a `NET_CAPACITY_SHORT` at the cause vertex
+  (`final false`) and at the pegged destination demand (`final true`). A capacity cut of a BOM component is
+  recorded at the component (no cascade to the parent's production) - simplification.
+- Lateness: a receipt that cannot arrive in its need week (start / ship before `as_of`) keeps its later date; the
+  covered demand gets a `NET_LEAD_TIME` shortage (`late_weeks`) in the need week. KPI `fill_rate` = 1 - final
+  non-lead-time shortages / independent demand (orders + forecast in the horizon).
+- Build: per node `repo_m2.load_mrp_snapshot` + `m8mrp.add_inputs` inside the node's owner scope and a REPEATABLE
+  READ snapshot transaction (`snapshot_tx`; replica reads follow `DATABASE_READ_URL` through it). Stock in
+  inspection is supply one week out; quarantine / scrap locations and expired lots are excluded. Item master values
+  (std cost, lead time, SS, multiples) are the node's own; money is not FX-converted in DRP (KPIs are informative).
+- Capacity: `base` shift windows of active lines x parallel capacity per Monday week (plant time zone); hours /
+  unit from M8 line rates (item, else family; mean over the group's lines) else the first released routing
+  (run + setup / max(fixed lot, MOQ, 1)), all groups of the item booked.
+- `POST /net/runs` checks synchronously (422): quota sums (`NET_QUOTA_SUM`), lanes of plant rules
+  (`NET_NO_LANE`), rule loops per key / family (`NET_CYCLE` with the path); loops through BOMs fail the run with
+  `NET_CYCLE`. Lanes / rules referencing a node outside the organisation: 422 `NET_UNKNOWN_NODE`.
+- The run stores item names / UoM per node and the utilisation in `summary` (stripped from the record's summary),
+  timings (`snapshot_s`, `engine_s`, `validator_s`) and the input hash; retention keeps the last 60 runs plus
+  published ones. Pegging without a single demand ref at (node, key, week) returns a root grouping one subtree per
+  ref (<= 50); links (`/mfg/transfer-orders/{id}`) only for nodes the caller is a member of.
+- Sourcing rule ids use `nsg_` (`nsr_` is already the M2 number-series prefix).
+

@@ -150,10 +150,18 @@ def policy_record(r: EsigPolicyRow | POL.Policy, sigs: list[dict[str, Any]] | No
             "signatures": sigs or []}
 
 
+def expected_policy_keys(s: Session) -> list[tuple[str, str]]:
+    """Default policy keys of the bound workspace (network-only policies in the network workspace, M9 6.6)."""
+    from ..db_models import MfgPlantRow
+
+    net = s.execute(select(MfgPlantRow.kind).limit(1)).scalar() == "network"
+    return [k for k in POL.DEFAULTS if net or k not in POL.NETWORK_ONLY]
+
+
 def seed_policies(s: Session) -> dict[tuple[str, str], EsigPolicyRow]:
     """Insert the missing default policies of the bound plant (4.3); returns all rows by key."""
     rows = {(r.record_type, r.action): r for r in s.execute(select(EsigPolicyRow)).scalars()}
-    missing = [k for k in POL.DEFAULTS if k not in rows]
+    missing = [k for k in expected_policy_keys(s) if k not in rows]
     if missing:
         frr = _final_release_role(s)
         now = utcnow()
@@ -181,7 +189,8 @@ def effective_policy(s: Session, record_type: str, action: str) -> POL.Policy | 
 def list_policies(ctx: AppContext, a: Any) -> dict[str, Any]:
     with read_tx(ctx) as s:
         n = int(s.execute(select(func.count()).select_from(EsigPolicyRow)).scalar() or 0)
-    if n < len(POL.DEFAULTS):
+        expected = len(expected_policy_keys(s))
+    if n < expected:
         with write_tx(ctx) as (s, _plant):
             seed_policies(s)
             from .common import audit

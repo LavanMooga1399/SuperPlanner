@@ -40,7 +40,8 @@ JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integrat
              "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill",
              "push_delivery", "digest_send", "inventory_snapshot",   # M6-DESIGN 6
              "part11_export", "qa_due_scan",                           # M7-DESIGN 3
-             "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync")   # M8
+             "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync",   # M8
+             "net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report")      # M9
 
 
 class ConfigError(ValueError):

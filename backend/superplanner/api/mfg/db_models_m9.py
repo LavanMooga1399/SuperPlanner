@@ -414,7 +414,7 @@ M9_COLUMNS: tuple[tuple[str, str], ...] = (
     ("mfg_lots", "unit_value"), ("mfg_lots", "dom_share_value"), ("mfg_lots", "dom_share_weight"),
     ("mfg_lots", "dom_estimated"), ("mfg_lots", "dom_computed_at"), ("mfg_transfer_orders", "source"),
     ("mfg_transfer_orders", "net_run_id"))
-M9_ID_PREFIXES = {"lane": "nln_", "sourcing": "nsr_", "net_run": "nrn_", "net_transfer": "npt_",
+M9_ID_PREFIXES = {"lane": "nln_", "sourcing": "nsg_", "net_run": "nrn_", "net_transfer": "npt_",
                   "net_production": "npp_", "net_shortage": "nsh_", "net_projection": "npj_", "sop_cycle": "scy_",
                   "sop_demand": "sdm_", "sop_override": "sdo_", "sop_scenario": "ssc_", "ramp_curve": "rmp_",
                   "mps_target": "mps_", "item_trade": "itr_", "tariff": "trf_", "fx": "fxr_", "milestone": "tms_",
