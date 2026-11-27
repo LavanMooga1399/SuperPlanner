@@ -51,3 +51,32 @@ def test_fx_inverse_via_usd_stale_missing():
     out = landed(SupplierTerms(1.0, "JPY", coo="JP", hts_code="901832", freight_per_unit=0.0), "CA", "CAD", NOV, fx,
                  tariffs())
     assert out["total"] is None and out["unit_price"] is None and "FX_MISSING" in out["flags"]
+
+
+@pytest.mark.req("M9-TRD-05")
+def test_milestone_status_met_at_risk_missed():
+    from superplanner.mfg.trade.milestones import month_cell, status
+
+    eff = date(2027, 7, 1)
+    assert [status(x, 100, date(2027, 8, 1), eff) for x in (100, 97, 80)] == ["met", "at_risk", "missed"]
+    assert status(80, 100, date(2027, 6, 1), eff) is None
+    cell = month_cell([{"share": 1.0, "denom": 30, "qty": 600, "estimated": False},
+                       {"share": 0.5, "denom": 10, "qty": 400, "estimated": True}], 100, date(2027, 8, 1), eff)
+    assert cell["share_pct"] == 87.5 and cell["status"] == "missed" and cell["lots_below"] == 1
+    assert cell["qty_below_pct"] == 40 and cell["estimated_pct"] == 40
+
+
+@pytest.mark.req("M9-TRD-08")
+def test_supplier_risk_score_and_suggestion():
+    from superplanner.mfg.trade.risk import score, suggestions
+
+    row = {"supplier_code": "ATUBE", "coo": "CN", "family": "CAN", "hts": "730411", "spend_12m": 1000.0,
+           "otd_pct": 88.0, "lead_days": 75, "duty_pct": 25.0, "landed": 0.012}
+    out = score(row, n_suppliers=1, countries={"CN"}, country_risk={"CN": 20}, domestic="US",
+                milestone_families=set())
+    assert out["score"] == 35 + 20 + 15 + 15 + 10 and out["flags"] == ["single_source"]
+    sug = suggestions(row, [{"supplier_code": "KTUBE", "node_owner_id": "n", "coo": "US", "family": "OTHER",
+                             "hts": "730419", "landed": 0.011, "score": 5},
+                            {"supplier_code": "ZZ", "node_owner_id": "n", "family": "X", "hts": "9999", "landed": 0.001}])
+    assert [s["supplier_code"] for s in sug] == ["KTUBE"] and sug[0]["basis"] == "heading"
+    assert sug[0]["landed_delta"] == pytest.approx(-0.001)

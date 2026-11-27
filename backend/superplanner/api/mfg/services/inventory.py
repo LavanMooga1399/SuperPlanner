@@ -513,6 +513,10 @@ def post_in_session(s: Session, inp: Any, *, system: bool = False, txn_date: dat
     if trf is not None:
         trf.after_post(s, row, plan)
     _trace.write_posting_edges(s, row)
+    if row.type in ("po_receipt", "wo_receipt", "transfer_receipt"):   # M9-DESIGN 8.1: lot COO, value, shares
+        from .trade import after_post as _trade
+
+        _trade(s, row, inp)
     from .kanban import on_posting as _kanban                   # M8-DESIGN 6.2: refill / consumption
 
     _kanban(s, row)
@@ -936,7 +940,12 @@ def lot_record(s: Session, row: MfgLotRow) -> dict[str, Any]:
     return {"id": row.id, "item": iref(it, row.item_id), "item_id": row.item_id, "lot_code": row.lot_code,
             "expires_on": row.expires_on, "received_on": row.received_on, "supplier_lot": row.supplier_lot,
             "hold": row.hold, "note": row.note, "on_hand": r6(on or 0.0), "row_version": row.row_version,
-            "created_at": as_utc(row.created_at), "updated_at": as_utc(row.updated_at)}
+            "created_at": as_utc(row.created_at), "updated_at": as_utc(row.updated_at),
+            # M9-DESIGN 8.1-8.2 (additive)
+            "coo": row.coo, "coo_source": row.coo_source, "unit_value": row.unit_value,
+            "dom_share_value": row.dom_share_value, "dom_share_weight": row.dom_share_weight,
+            "dom_estimated": row.dom_estimated, "dom_computed_at": as_utc(row.dom_computed_at)
+            if row.dom_computed_at else None}
 
 
 def list_lots(ctx: AppContext, *, item_id: str | None, q: str | None, expiring_before: date | None,

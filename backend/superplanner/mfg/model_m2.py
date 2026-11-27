@@ -154,6 +154,16 @@ class ItemSupplierInput(MfgModel):
     preferred: bool = False
     active: bool = True
     note: Text500 = ""
+    # M9-DESIGN 3 / 8 (additive; left out of dumps when unset so M2-M8 bundles and fingerprints are unchanged)
+    coo: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{2}$")] | None = \
+        Field(default=None, exclude_if=lambda v: v is None)
+    hts_code: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[0-9]{6,10}$")] | None = \
+        Field(default=None, exclude_if=lambda v: v is None)
+    incoterm: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{3}$")] | None = \
+        Field(default=None, exclude_if=lambda v: v is None)
+    freight_per_unit: Annotated[float, Field(ge=0, le=1_000_000)] | None = Field(default=None,
+                                                                                 exclude_if=lambda v: v is None)
+    cap_per_month: Annotated[float, Field(ge=0, le=1e10)] | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class ItemSupplierRecord(ItemSupplierInput, _Stamped):
@@ -180,6 +190,14 @@ class LotRecord(_Stamped):
     hold: bool = False
     note: str = ""
     on_hand: float = 0.0
+    # M9-DESIGN 8.1-8.2 (additive)
+    coo: str | None = None
+    coo_source: str | None = None
+    unit_value: float | None = None
+    dom_share_value: float | None = None
+    dom_share_weight: float | None = None
+    dom_estimated: bool | None = None
+    dom_computed_at: datetime | None = None
 
 
 class BalanceRow(MfgModel):
@@ -302,6 +320,9 @@ class PoReceiptLine(_LineBase):
     expires_on: PlanDate | None = None
     supplier_lot: SupplierLot = ""
     unit_cost: Money | None = None
+    #: M9-DESIGN 8.1: country of origin of the received lot (wins over item-supplier / item COO)
+    coo: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{2}$")] | None = \
+        Field(default=None, exclude_if=lambda v: v is None)
 
 
 class WoIssueLine(_LineBase):

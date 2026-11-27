@@ -49,8 +49,14 @@ def _isu_records(s: Any, rows: list[MfgItemSupplierRow]) -> list[ItemSupplierRec
     refs = item_refs(s, [r.item_id for r in rows])
     sups = {x.id: x for x in s.execute(select(MfgSupplierRow).where(
         MfgSupplierRow.id.in_(sorted({r.supplier_id for r in rows})))).scalars()} if rows else {}
-    return [item_supplier_record(r, refs.get(r.item_id) or iref(None, r.item_id),
+    recs = [item_supplier_record(r, refs.get(r.item_id) or iref(None, r.item_id),
                                  ref(sups[r.supplier_id]) if r.supplier_id in sups else None) for r in rows]
+    if recs:                                                     # M9-DESIGN 8.4: read-only landed cost
+        from .trade import landed_of_rows
+
+        for rec, lc in zip(recs, landed_of_rows(s, rows)):
+            rec.__dict__["landed"] = lc
+    return recs
 
 
 def get_supplier(ctx: AppContext, supplier_id: str) -> dict[str, Any]:

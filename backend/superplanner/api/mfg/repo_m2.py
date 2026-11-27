@@ -64,7 +64,8 @@ def item_supplier_record(row: MfgItemSupplierRow, item: Any = None, supplier: An
         lead_time_days=row.lead_time_days, min_order_qty=row.min_order_qty, order_multiple=row.order_multiple,
         purchase_unit=row.purchase_unit, units_per_purchase_unit=row.units_per_purchase_unit,
         unit_price=row.unit_price, currency=row.currency, preferred=row.preferred, active=row.active,
-        note=row.note, item=item, supplier=supplier, **_stamp(row))
+        note=row.note, item=item, supplier=supplier, coo=row.coo, hts_code=row.hts_code, incoterm=row.incoterm,
+        freight_per_unit=row.freight_per_unit, cap_per_month=row.cap_per_month, **_stamp(row))
 
 
 # ---------------------------------------------------------------- loaders
