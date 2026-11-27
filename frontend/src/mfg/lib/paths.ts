@@ -170,6 +170,24 @@ export const mfgPaths = {
   itemTrade: (itemId: string) => `${MFG}/items/${enc(itemId)}/trade`,
   itemPlanning: (itemId: string) => `${MFG}/items/${enc(itemId)}/planning`,
   itemPackaging: (itemId: string) => `${MFG}/items/${enc(itemId)}/packaging`,
+  // ---------------------------------------------------------------- M10 eDHR, CoA, labels, UDI, validation
+  dhr: (q?: Record<string, string>) => `${MFG}/dhr${queryString(q)}`,
+  dhrRecord: (id: string, q?: { section?: string; v?: string }) => `${MFG}/dhr/${enc(id)}${queryString(q)}`,
+  deviations: (q?: Record<string, string>) => `${MFG}/deviations${queryString(q)}`,
+  deviation: (id: string, q?: Record<string, string>) => `${MFG}/deviations/${enc(id)}${queryString(q)}`,
+  agreements: () => `${MFG}/quality/agreements`,
+  agreement: (id: string) => `${MFG}/quality/agreements/${enc(id)}`,
+  coas: (q?: Record<string, string>) => `${MFG}/coa${queryString(q)}`,
+  coa: (id: string) => `${MFG}/coa/${enc(id)}`,
+  batchPacks: () => `${MFG}/batch-packs`,
+  batchPack: (id: string) => `${MFG}/batch-packs/${enc(id)}`,
+  labels: (tab?: "templates" | "assignments" | "printers") => `${MFG}/labels${tab && tab !== "templates" ? `?tab=${tab}` : ""}`,
+  labelTemplate: (id: string) => `${MFG}/labels/templates/${enc(id)}`,
+  labelJobs: (q?: Record<string, string>) => `${MFG}/labels/jobs${queryString(q)}`,
+  labelJob: (id: string) => `${MFG}/labels/jobs/${enc(id)}`,
+  udi: (tab?: "devices" | "exports") => `${MFG}/udi${tab === "exports" ? "?tab=exports" : ""}`,
+  validationTab: (tab: string) => `${MFG}/validation?tab=${enc(tab)}`,
+  plantTemplate: () => `${MFG}/plant-template`,
 };
 
 /** M 11.1 `isMfgPath`. */

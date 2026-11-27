@@ -278,7 +278,7 @@ export interface Threshold {
 }
 
 export interface DashboardTile {
-  value: number | null;
+  value: number | string | null;
   /** "%" (a fraction, 0.91 = 91 %), "h", "count", a currency code, "turns" */
   unit: string;
   trend: { period: string; value: number | null }[];

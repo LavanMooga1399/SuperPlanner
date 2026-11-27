@@ -9,6 +9,7 @@ import { assistantFrCa } from "./assistant";
 import { commonFrCa } from "./common";
 import { financeFrCa } from "./finance";
 import { floorFrCa } from "./floor";
+import { gxpFrCa } from "./gxp";
 import { mfgFrCa } from "./mfg";
 import { mobileFrCa } from "./mobile";
 import { navFrCa } from "./nav";
@@ -24,6 +25,7 @@ export const frCaStrings: Partial<Record<StringKey, string>> = {
   ...commonFrCa,
   ...financeFrCa,
   ...floorFrCa,
+  ...gxpFrCa,
   ...mfgFrCa,
   ...mobileFrCa,
   ...navFrCa,

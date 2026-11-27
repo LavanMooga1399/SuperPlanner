@@ -127,6 +127,16 @@ export const MFG_NAV: NavGroupDef[] = [
     ],
   },
   {
+    key: "records",
+    get label() {
+      return t("gxp.nav.group");
+    },
+    testId: "nav-group-records",
+    sections: [
+      { key: "dhr", get label() { return t("gxp.nav.dhr"); }, to: mfgPaths.dhr(), icon: "book", keywords: t("gxp.nav.kwDhr") },
+    ],
+  },
+  {
     key: "master",
     get label() {
       return t("nav.mfg.group.master");

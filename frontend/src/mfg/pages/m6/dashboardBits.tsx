@@ -81,9 +81,13 @@ export function TileStatusBadge({ status }: { status: TileStatus }) {
 const pct = (v: number) => `${(v * 100).toFixed(1).replace(/\.0$/, "")} %`;
 const num = (v: number, digits = 1) => v.toLocaleString(LOCALE, { maximumFractionDigits: digits });
 
-/** Tile value in its unit: "%" is a fraction (0.91 = 91 %), "count", "h", "turns", else a currency code. */
-export function fmtValue(v: number | null | undefined, unit: string): string {
+/** M9 `sop_cycle` tile: the value (and `details.overdue`) are S&OP step codes, shown by their step names. */
+const stepName = (v: unknown) => (typeof v === "string" && hasKey(`net.sop.step.${v}`) ? tr(`net.sop.step.${v}` as StringKey) : String(v));
+
+/** Tile value in its unit: "%" is a fraction (0.91 = 91 %), "count", "h", "turns", "step" (S&OP step code), else a currency code. */
+export function fmtValue(v: number | string | null | undefined, unit: string): string {
   if (v === null || v === undefined) return tr("mfg.dash.na");
+  if (unit === "step" || typeof v === "string") return stepName(v);
   switch (unit) {
     case "%":
       return pct(v);
@@ -105,6 +109,7 @@ const SKIP_KEYS = new Set(["id", "currency", "weights", "turns_note"]);
 /** One detail value by its key: fractions as %, `_h` hours, `value*` in currency, booleans as yes / no. */
 export function fmtDetail(key: string, v: unknown, currency?: string): string {
   if (v === null || v === undefined) return tr("mfg.dash.na");
+  if (key === "overdue" && Array.isArray(v)) return v.length ? v.map(stepName).join(", ") : tr("mfg.dash.no");
   if (typeof v === "boolean") return v ? tr("mfg.dash.yes") : tr("mfg.dash.no");
   if (typeof v === "number") {
     if (PCT_KEYS.test(key)) return pct(v);

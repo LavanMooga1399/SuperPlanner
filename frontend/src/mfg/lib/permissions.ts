@@ -65,6 +65,14 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "sop_edit",
   "sop_publish",
   "trade_admin",
+  "dhr_review",
+  "deviation_edit",
+  "coa_edit",
+  "udi_edit",
+  "udi_export",
+  "label_admin",
+  "label_print",
+  "validation_admin",
   "owner",
 ];
 
@@ -85,6 +93,8 @@ export const ROLE_LABEL: Record<Role | "owner", string> = {
   plant_manager: t("plan.roles.plantManager"),
   auditor: t("plan.roles.auditor"),
   executive: t("net.roles.executive"),
+  regulatory: t("gxp.roles.regulatory"),
+  labeling: t("gxp.roles.labeling"),
 };
 
 export const ROLE_HELP: Record<Role, string> = {
@@ -103,11 +113,13 @@ export const ROLE_HELP: Record<Role, string> = {
   plant_manager: t("plan.roles.plantManagerHelp"),
   auditor: t("plan.roles.auditorHelp"),
   executive: t("net.roles.executiveHelp"),
+  regulatory: t("gxp.roles.regulatoryHelp"),
+  labeling: t("gxp.roles.labelingHelp"),
 };
 
 /** 10.2 matrix: which member roles hold a permission (the owner holds all). */
 export const PERMISSION_ROLES: Record<Permission, Role[]> = {
-  view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "executive"],
+  view: ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "executive", "regulatory", "labeling"],
   master_edit: ["planner"],
   supplier_edit: ["planner", "purchaser"],
   inventory: ["store_keeper"],
@@ -153,7 +165,7 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   ster_release: ["qa_approver"],
   kanban_edit: ["planner", "plant_manager"],
   kanban_scan: ["operator"],
-  validation_view: ["qa_approver", "auditor"],
+  validation_view: ["qa_approver", "auditor", "plant_admin"],
   // M9 9 (network workspace): planner plans, plant_manager edits and publishes, executive signs the S&OP approval
   network_plan: ["planner", "plant_manager"],
   network_edit: ["plant_manager"],
@@ -161,6 +173,15 @@ export const PERMISSION_ROLES: Record<Permission, Role[]> = {
   sop_edit: ["planner", "plant_manager"],
   sop_publish: ["plant_manager"],
   trade_admin: ["plant_manager"],
+  // M10 10: eDHR review, deviations, CoA, UDI (new role regulatory), labels (new role labeling), validation
+  dhr_review: ["qa_engineer", "qa_approver"],
+  deviation_edit: ["qa_engineer", "qa_approver", "supervisor"],
+  coa_edit: ["qa_engineer", "qa_approver"],
+  udi_edit: ["regulatory", "qa_approver"],
+  udi_export: ["regulatory", "qa_approver"],
+  label_admin: ["labeling", "qa_engineer"],
+  label_print: ["labeling", "supervisor", "operator"],
+  validation_admin: ["qa_approver", "plant_admin"],
   owner: [],
 };
 

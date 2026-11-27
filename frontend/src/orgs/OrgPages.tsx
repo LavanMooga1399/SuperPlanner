@@ -47,7 +47,7 @@ import type { EsigStatus } from "../mfg/api/typesM7";
 import { createNetwork } from "../mfg/api/clientM9";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
-const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "plant_manager", "auditor", "executive"];
+const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "plant_manager", "auditor", "executive", "regulatory", "labeling"];
 
 function openPlant(ownerId: string) {
   switchWorkspace(ownerId, null);

@@ -8,8 +8,8 @@ import type { EntityId, IsoDate, IsoDateTime, ItemRecord, ItemRef, LotRule, Make
 
 // ---------------------------------------------------------------- 3 common types
 /** M7 9.1 adds the quality roles (qa_inspector, qa_engineer, qa_approver, metrology). */
-export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin" | "qa_inspector" | "qa_engineer" | "qa_approver" | "metrology" | "plant_manager" | "auditor" | "executive";
-export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "plant_manager", "auditor", "executive"];
+export type Role = "viewer" | "planner" | "purchaser" | "store_keeper" | "approver" | "operator" | "supervisor" | "plant_admin" | "qa_inspector" | "qa_engineer" | "qa_approver" | "metrology" | "plant_manager" | "auditor" | "executive" | "regulatory" | "labeling";
+export const ROLES: readonly Role[] = ["viewer", "planner", "purchaser", "store_keeper", "approver", "operator", "supervisor", "plant_admin", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "plant_manager", "auditor", "executive", "regulatory", "labeling"];
 export type LocationKind = "stores" | "line_side" | "inspection" | "quarantine";
 export const LOCATION_KINDS: readonly LocationKind[] = ["stores", "line_side", "inspection", "quarantine"];
 export type LotRuleM2 = LotRule;
@@ -71,6 +71,14 @@ export type Permission =
   | "sop_edit"
   | "sop_publish"
   | "trade_admin"
+  | "dhr_review"
+  | "deviation_edit"
+  | "coa_edit"
+  | "udi_edit"
+  | "udi_export"
+  | "label_admin"
+  | "label_print"
+  | "validation_admin"
   | "owner";
 
 export interface Actor {

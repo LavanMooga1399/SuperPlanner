@@ -104,6 +104,8 @@ import { ItemTradeTab } from "./trade/TradeBits";
 import { TradePage } from "./trade/TradePage";
 import { TradeReportPage } from "./trade/TradeReportPage";
 import { SourcingRiskPage } from "./trade/SourcingRiskPage";
+import { DhrQueuePage } from "./dhr/DhrQueuePage";
+import { DhrRecordPage } from "./dhr/DhrRecordPage";
 import { useAccess } from "./lib/permissions";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
@@ -356,6 +358,9 @@ export const mfgRoutes: RouteObject[] = [
       { path: "trade/:tab?", element: <TradePage /> },
       { path: "sourcing-risk", element: <SourcingRiskPage /> },
       { path: "sop/cycles/:cycleId/:step?", element: <Keyed param="cycleId">{(k) => <SopCyclePage key={k} />}</Keyed> },
+      // ---------------------------------------------------------------- M10 eDHR, deviations, CoA, labels, UDI
+      { path: "dhr", element: <DhrQueuePage /> },
+      { path: "dhr/:dhrId", element: <Keyed param="dhrId">{(k) => <DhrRecordPage key={k} />}</Keyed> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },
