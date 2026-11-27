@@ -643,3 +643,21 @@ S4 notes (trade, as built):
 - Risk: spend and OTD from `po_receipt` transactions of the last 12 months (on time = receipt date <= confirmed,
   else requested date); lead time = item-supplier, else supplier, else item lead time; in the network workspace
   the table covers every node.
+
+S5 notes (performance, register; as built 2026-11-27):
+- Measured (developer container, synthetic `bd-network`-size problems, `pytest -m slow -s tests/network/
+  test_m9_perf.py`): P1 DRP engine 3 plants + 2 DCs x 3,000 keys x 26 weeks, constrained, quota on a quarter of the
+  keys: 8.0 s (122,761 transfers, 77,578 production rows), max RSS 559 MB; P2 network validator 6.6 s, clean; P3
+  S&OP LP 5 nodes x 60 families x 18 months, three GLOP solves 1.6 s + validator 0.01 s, clean. The engine indexes
+  rules by (destination, key / family); the validator indexes rules, transfers and buys. The snapshot part of P1
+  (5 node reads) and P4-P10 were not measured (no `bd-network` seed yet).
+- Network validator quota band: the cumulative arrangement assigns whole receipts, so a source's share stays within
+  one receipt (>= one order multiple) of its target; the check uses max(order multiple, MOQ, largest receipt).
+  A receipt that arrives late only for safety stock is recorded as a non-final `NET_LEAD_TIME` shortage.
+- Register: M9-S0-01, M9-NET-01..10, M9-SOP-01..10, M9-TRD-01..09 in `docs/validation/requirements.yaml`
+  (SOP-07/08 and TRD-01/02/06 `gxp`), each with a `@pytest.mark.req` test.
+- Not built in this pass (follow-ups): the `meddev_m9` organisation sample (`load-org-sample`), the `bd-network`
+  load-seed profile, `docs/validation/m9-coo-reconciliation.md`, the M9 objects in the authorisation sweep
+  (`make_mfg_m9_world`), overdue-step notifications and the network / plant M9 dashboard tiles, automatic
+  `content_rollup` enqueue after `wo_receipt`, scenario allocation shares in the milestone projection, the
+  regulated COO edit of a received lot.

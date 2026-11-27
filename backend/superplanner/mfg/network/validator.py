@@ -121,6 +121,9 @@ def validate(p: NetProblem, r: NetResult) -> dict[str, Any]:
 
     # ---- transit, rules, lanes
     lanes = {ln.id: ln for ln in p.lanes}
+    rules_at: dict[tuple[str, str | None], list[Any]] = defaultdict(list)
+    for ru in p.rules:
+        rules_at[(ru.dest, ru.source)].append(ru)
     for t in r.transfers:
         ln = lanes.get(t.lane_id or "")
         if ln is None or not ln.active or ln.src != t.src or ln.dst != t.dst:
@@ -137,8 +140,8 @@ def validate(p: NetProblem, r: NetResult) -> dict[str, Any]:
                                                           "expected": expect.isoformat()}})
         it = items.get((t.dst, t.key))
         ok = False
-        for ru in p.rules:
-            if ru.dest != t.dst or ru.source_kind != "plant" or ru.source != t.src:
+        for ru in rules_at.get((t.dst, t.src), []):
+            if ru.source_kind != "plant":
                 continue
             if not (ru.key == t.key or (ru.key is None and it is not None and ru.family == it.family)):
                 continue
@@ -155,25 +158,40 @@ def validate(p: NetProblem, r: NetResult) -> dict[str, Any]:
     for ru in p.rules:
         if ru.quota_pct is not None:
             qrules[(ru.dest, ru.key, ru.family)].append(ru)
+    tr_by: dict[tuple[str, str], list[Any]] = defaultdict(list)
+    for t in r.transfers:
+        tr_by[(t.dst, t.key)].append(t)
+    buy_by: dict[tuple[str, str], list[Any]] = defaultdict(list)
+    for pr in r.production:
+        if pr.kind == "buy":
+            buy_by[(pr.node, pr.key)].append(pr)
+    key_rules = {(ru.dest, ru.key) for ru in p.rules if ru.key is not None}
+    keys_of: dict[tuple[str, str | None], list[str]] = defaultdict(list)
+    for (n, k), it in items.items():
+        keys_of[(n, k)].append(k)
+        keys_of[(n, "~" + (it.family or ""))].append(k)
     for (dest, key, fam), rs in qrules.items():
-        keys = {k for (n, k), it in items.items() if n == dest and (k == key or (key is None and it.family == fam))}
+        keys = keys_of.get((dest, key), []) if key is not None else keys_of.get((dest, "~" + (fam or "")), [])
         for k in keys:
-            if any(ru.key == k for ru in p.rules if ru.dest == dest) and key is None:
+            if key is None and (dest, k) in key_rules:
                 continue                      # item-key rules win over this family set
             it = items[(dest, k)]
             got = defaultdict(float)
-            for t in r.transfers:
-                if t.dst == dest and t.key == k and not t.spill:
+            for t in tr_by.get((dest, k), []):
+                if not t.spill:
                     got[t.rule_id] += t.requested or t.qty
-            for pr in r.production:
-                if pr.node == dest and pr.key == k and pr.kind == "buy" and pr.supplier_code:
+            for pr in buy_by.get((dest, k), []):
+                if pr.supplier_code:
                     for ru in rs:
                         if ru.supplier_code == pr.supplier_code:
                             got[ru.id] += pr.qty
             total = sum(got.values())
             if total <= TOL:
                 continue
-            band = max(it.order_multiple or 0.0, it.min_qty or 0.0, 1.0)
+            # the cumulative arrangement assigns whole receipts: within one receipt (>= one order multiple)
+            biggest = max([t.requested or t.qty for t in tr_by.get((dest, k), []) if not t.spill]
+                          + [pr.qty for pr in buy_by.get((dest, k), [])] + [0.0])
+            band = max(it.order_multiple or 0.0, it.min_qty or 0.0, 1.0, biggest)
             for ru in rs:
                 target = (ru.quota_pct or 0.0) / 100.0 * total
                 if abs(got.get(ru.id, 0.0) - target) > band + TOL:

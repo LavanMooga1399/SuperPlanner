@@ -52,3 +52,33 @@
 - {id: M7-QA-09, title: "Line with overdue equipment blocks floor, APS and health", source: "M7-DESIGN 12 T-Q9", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q9_"}
 - {id: M7-QA-10, title: "Complaint -> recall -> field action holds and closure", source: "M7-DESIGN 12 T-Q10", risk: high, assurance: scripted, intended_use: gxp, match: "test_t_q10_"}
 - {id: M7-QA-11, title: "Calibration failure: out of service and impact list", source: "M7-DESIGN 12 T-Q11", risk: high, assurance: scripted, intended_use: gxp, match: "t_q11_"}
+- {id: M9-S0-01, title: "Migration 0011 -> 0012 -> 0011, ORM equals schema", source: "M9-DESIGN 11 S0", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-01, title: "Quota cumulative arrangement 60/40", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-02, title: "Capacity spill to the secondary source", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-03, title: "Pre-build into spare weeks", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-04, title: "Capacity cut pegged to the DC order", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-05, title: "Sourcing loop refused with the path", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-06, title: "Transit in source working days", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-07, title: "Publish keeps / cancels / creates TOs; shipped untouched", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-08, title: "Plant MRP network demand / supply, MRP_NETWORK_SHORT", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-09, title: "Pegging DC order -> QC kit -> transfer -> US1 production -> component", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-NET-10, title: "Network validator detects mutations", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-SOP-01, title: "Consensus overrides by hand table", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-SOP-02, title: "Cheaper landed source chosen with ample capacity", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-SOP-03, title: "Unmet = demand - capacity, never traded for cost", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-SOP-04, title: "Ramp-up curve factor by hand", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-SOP-05, title: "Yield reduces good output", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-SOP-06, title: "Revenue in report currency", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-SOP-07, title: "Signed two-step S&OP approval, distinct signers, lock", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M9-SOP-08, title: "Reopen supersedes signatures; content hash changes", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M9-SOP-09, title: "Disaggregation pro rata to item finals", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-SOP-10, title: "Enforced milestone limits supply to domestic", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-TRD-01, title: "Receipt COO precedence", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M9-TRD-02, title: "Lot domestic share by value / weight / steel only", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M9-TRD-03, title: "Made sub-assembly share in the roll-up", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-TRD-04, title: "Transfer carries COO, value and shares", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-TRD-05, title: "Milestone status met / at_risk / missed", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-TRD-06, title: "Landed cost hand example", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: gxp, match: ""}
+- {id: M9-TRD-07, title: "FX inverse / via USD / stale / missing", source: "M9-DESIGN 12.3", risk: high, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-TRD-08, title: "Supplier risk score and suggestion", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}
+- {id: M9-TRD-09, title: "Make-vs-buy buys to cap, makes the rest", source: "M9-DESIGN 12.3", risk: medium, assurance: scripted, intended_use: non_gxp, match: ""}

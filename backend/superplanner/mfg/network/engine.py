@@ -122,8 +122,17 @@ class Engine:
         self.lanes = [ln for ln in p.lanes if ln.active]
         self.lane_by_id = {ln.id: ln for ln in p.lanes}
         self.rules_by_dest: dict[str, list[NetRule]] = defaultdict(list)
+        self.rules_by_key: dict[tuple[str, str], list[NetRule]] = defaultdict(list)
+        self.rules_by_fam: dict[tuple[str, str], list[NetRule]] = defaultdict(list)
+        self.rule_by_id: dict[str, NetRule] = {}
         for r in p.rules:
             self.rules_by_dest[r.dest].append(r)
+            self.rule_by_id[r.id] = r
+            if r.key is not None:
+                self.rules_by_key[(r.dest, r.key)].append(r)
+            elif r.family:
+                self.rules_by_fam[(r.dest, r.family)].append(r)
+        self._rules_cache: dict[tuple[str, str], list[NetRule]] = {}
         self.bom: dict[tuple[str, str], list[tuple[str, float]]] = defaultdict(list)
         for b in p.bom:
             self.bom[(b.node, b.parent_key)].append((b.component_key, b.qty_per))
@@ -146,11 +155,21 @@ class Engine:
     # ------------------------------------------------------------ rules
 
     def rules_of(self, node: str, key: str, week: date | None = None) -> list[NetRule]:
+        base = self._rules_cache.get((node, key))
+        if base is None:
+            base = self._rules_base(node, key)
+            self._rules_cache[(node, key)] = base
+        if week is None:
+            return base
+        end = week + timedelta(days=6)
+        return [r for r in base if (r.valid_from is None or r.valid_from <= end)
+                and (r.valid_to is None or r.valid_to >= week)]
+
+    def _rules_base(self, node: str, key: str, week: date | None = None) -> list[NetRule]:
         item = self.items.get((node, key))
-        rs = self.rules_by_dest.get(node, [])
-        by_key = [r for r in rs if r.key == key]
-        chosen = by_key or [r for r in rs if r.key is None and item is not None and item.family
-                            and r.family == item.family]
+        by_key = list(self.rules_by_key.get((node, key), []))
+        chosen = by_key or (list(self.rules_by_fam.get((node, item.family), [])) if item is not None and item.family
+                            else [])
         if week is not None:
             end = week + timedelta(days=6)
             chosen = [r for r in chosen if (r.valid_from is None or r.valid_from <= end)
@@ -478,10 +497,11 @@ class Engine:
         actual = monday(o.receive_date) if isinstance(o, NetTransfer) else o.week
         if actual > pl.week:
             late = (actual - pl.week).days // 7
-            covered = sum(q for _rk, _wk, r, q in pl.cons if r.rank < 20)
-            if covered > EPS:
+            covered = sum(q for _rk, _wk, r, q in pl.cons)
+            if covered > EPS:              # (a late receipt for safety stock only is recorded, not final)
                 v.shortages.append(NetShortage(v.node, v.key, pl.week, _round(covered), "NET_LEAD_TIME", {
-                    "final": True, "late_weeks": late, "available": actual.isoformat()}))
+                    "final": any(r.rank < 20 for _rk, _wk, r, _q in pl.cons), "late_weeks": late,
+                    "available": actual.isoformat()}))
             for _rk, _wk, r, _q in pl.cons:
                 for pg in r.pegs:
                     pg.late_weeks = max(pg.late_weeks, late)
@@ -638,11 +658,8 @@ class Engine:
     def _rule_source(self, rid: Any) -> Any:
         if isinstance(rid, NetRule):
             return rid.source or rid.supplier_code
-        for rs in self.rules_by_dest.values():
-            for x in rs:
-                if x.id == rid:
-                    return x.source or x.supplier_code
-        return rid
+        x = self.rule_by_id.get(rid)
+        return (x.source or x.supplier_code) if x is not None else rid
 
     # ------------------------------------------------------------ result
 
