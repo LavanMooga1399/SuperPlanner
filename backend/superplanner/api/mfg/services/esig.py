@@ -64,6 +64,7 @@ def load_registry() -> None:
     """Import the modules that register content loaders (lazy: they import this module)."""
     from . import eco_m7, part11, qa_capa, qa_complaints, qa_equipment, qa_field_actions, qa_holds, qa_inspection, \
         qa_ncr  # noqa: F401
+    from . import sop, ster  # noqa: F401   (M8 ster_load, M9 sop_cycle)
     C.register("esig_policy", _policy_loader)
 
 

@@ -741,9 +741,13 @@ def _deser(rows: list[list[Any]]) -> dict[tuple, float]:
 def compute(ctx: AppContext, scenario_id: str) -> dict[str, Any]:
     t0 = time.monotonic()
     with read_tx(ctx) as s:
-        r = s.get(MfgSopScenarioRow, scenario_id)
-        if r is None:
+        row = s.get(MfgSopScenarioRow, scenario_id)
+        if row is None:
             return {"error": "scenario gone"}
+        from types import SimpleNamespace
+
+        r = SimpleNamespace(cycle_id=row.cycle_id, changes=list(row.changes or []),
+                            enforce_milestones=row.enforce_milestones)
     try:
         p, meta, extra = problem_for(ctx, r)
         t1 = time.monotonic()

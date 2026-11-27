@@ -65,5 +65,28 @@ def make_world(app: Any, slug: str = "demo", email: str = "admin@demo.example", 
     return w
 
 
+KEY = None
+
+
 def app_for(db_url: str) -> Any:
-    return acc_app(db_url, org_self_service=True)
+    global KEY
+    if KEY is None:
+        from cryptography.fernet import Fernet
+
+        KEY = Fernet.generate_key().decode()
+    return acc_app(db_url, org_self_service=True, secrets_keys=[KEY])
+
+
+def enroll(c: TestClient, legal: str) -> None:
+    from apimfgm2_helpers import PASSWORD
+
+    r = c.post(f"{V1}/auth/esig/enroll", json={"legal_name": legal, "password": PASSWORD, "acknowledgement": True})
+    assert r.status_code == 200, r.text
+
+
+def signature(c: TestClient, api: Api, email: str, record_type: str, record_id: str, action: str, meaning: str
+              ) -> dict[str, Any]:
+    from apimfgm2_helpers import PASSWORD
+
+    h = api.get("/esig/preview", record_type=record_type, record_id=record_id, action=action)["content_hash"]
+    return {"meaning": meaning, "content_hash": h, "username": email, "password": PASSWORD, "comment": "Reviewed"}
