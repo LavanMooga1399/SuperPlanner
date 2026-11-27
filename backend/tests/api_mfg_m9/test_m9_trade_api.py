@@ -82,6 +82,15 @@ def test_tables_landed_cost_and_receipt_coo(db_url):
             sources.append((lot["coo"], lot["coo_source"], lot["unit_value"]))
         assert sources[0][:2] == ("MX", "receipt") and sources[1][:2] == ("CN", "supplier")
         assert sources[0][2] == pytest.approx(0.14)
+        # regulated COO correction after receipt: reason required, audited with it
+        r1 = [x for x in qc.get("/lots", item_id=it["id"])["items"] if x["lot_code"] == "R1"][0]
+        qc.err("PUT", f"/lots/{r1['id']}/coo", 422, "VALIDATION_ERROR", json={"coo": "US"})
+        fixed = qc.put(f"/lots/{r1['id']}/coo", {"coo": "US", "reason": "Mill certificate says US"},
+                       r1["row_version"])
+        assert fixed["coo"] == "US" and fixed["coo_source"] == "receipt"
+        from m8_helpers import audit_rows
+        rows = audit_rows(w.admin, "lot", r1["id"], owner=w.owner("QC"))
+        assert rows[-1]["action"] == "coo_change" and rows[-1]["reason"] == "Mill certificate says US"
         # supplier risk: CN single-source-like row scores country 20 + tariff
         risk = {(r["supplier_code"]): r for r in qc.get("/trade/risk")["items"]}
         assert risk["ATUBE"]["parts"]["country"] == 20 and risk["ATUBE"]["parts"]["tariff"] == 10
@@ -89,7 +98,10 @@ def test_tables_landed_cost_and_receipt_coo(db_url):
 
 
 @pytest.mark.req("M9-TRD-04")
-def test_made_lot_content_transfer_carries_coo_and_shares_and_report(db_url):
+def test_made_lot_content_transfer_carries_coo_and_shares_and_report(db_url, monkeypatch):
+    from superplanner.api.mfg.services import trade as TRADE
+
+    monkeypatch.setattr(TRADE, "ROLLUP_DEBOUNCE_S", 0)           # the queue claims the debounced run at once
     app = app_for(db_url)
     with TestClient(app):
         w = make_world(app)
@@ -115,6 +127,10 @@ def test_made_lot_content_transfer_carries_coo_and_shares_and_report(db_url):
             {"wo_id": wo["id"], "location_id": loc["id"], "qty": 10, "lot_code": "N1"}]})
         lot = [x for x in us.get("/lots", item_id=ndl["id"])["items"] if x["lot_code"] == "N1"][0]
         assert lot["coo"] == "US" and lot["coo_source"] == "plant"
+        # the receipt queued the (debounced) roll-up; the inline executor runs it at once
+        done = wait_for(lambda: [x for x in us.get("/lots", item_id=ndl["id"])["items"] if x["lot_code"] == "N1"][0],
+                        lambda x: x["dom_share_value"] is not None, timeout=30)
+        assert done["dom_share_value"] == 1.0
         c = us.get(f"/lots/{lot['id']}/content")
         assert c["share_value"] == 1.0 and c["tree"]["children"][0]["lot_code"] == "S1"
         ms = net.get("/trade/milestones")["items"][0]

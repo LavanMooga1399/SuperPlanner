@@ -586,7 +586,12 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
             raise
         return posting_record(s, row, warnings), False
 
-    return run_tx(ctx, fn)
+    out = run_tx(ctx, fn)
+    if inp.type == "wo_receipt" and not out[1]:          # M9-DESIGN 3: debounced domestic-content roll-up
+        from .trade import queue_rollup
+
+        queue_rollup(ctx)
+    return out
 
 
 def _check_held_serials(s: Session, inp: Any, L: _Loaded) -> None:

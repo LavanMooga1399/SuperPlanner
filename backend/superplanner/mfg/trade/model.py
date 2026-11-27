@@ -36,6 +36,12 @@ class ItemTradeInput(MfgModel):
     unit_weight_kg: Annotated[float, Field(ge=0, le=100_000)] | None = None
 
 
+class LotCooInput(MfgModel):
+    """PUT /lots/{id}/coo (8.1): a regulated correction of a received lot's country of origin."""
+    coo: Country | None
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+
+
 class ItemTradeRecord(ItemTradeInput):
     item_id: EntityId
     row_version: int

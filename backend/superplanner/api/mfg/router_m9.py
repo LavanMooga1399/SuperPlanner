@@ -20,8 +20,8 @@ from fastapi.responses import JSONResponse, Response
 from ...mfg.network.model import LaneInput, NetParams, RampCurvesInput, SourcingInput
 from ...mfg.sop.model import (AdvanceInput, ApproveInput, AspInput, CancelInput, CopyInput, CycleInput,
                               OverrideInput, RecommendInput, ReopenInput, ScenarioInput)
-from ...mfg.trade.model import (CountryRiskListInput, FxInput, ItemTradeInput, MilestonesInput, ReportInput,
-                                TariffsInput)
+from ...mfg.trade.model import (CountryRiskListInput, FxInput, ItemTradeInput, LotCooInput, MilestonesInput,
+                                ReportInput, TariffsInput)
 from ..context import AppContext, get_ctx
 from .router_m2 import P, Id, Limit, Offset, _if_match, _no_content, _ok
 from .services.qa_common import Act, act
@@ -543,6 +543,14 @@ def lot_content(lot_id: str, milestone_id: str | None = Id(), ctx: AppContext = 
     from .services import trade
 
     return _ok(trade.lot_content(ctx, lot_id, milestone_id))
+
+
+@router.put("/lots/{lot_id}/coo", dependencies=P("master_edit"))
+def put_lot_coo(lot_id: str, body: LotCooInput, if_match: str | None = _if_match(), a: Act = Depends(act),
+                ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    from .services import trade
+
+    return _rec(trade.put_lot_coo(ctx, a, lot_id, body, if_match))
 
 
 @router.get("/mps/targets", dependencies=P("view"))

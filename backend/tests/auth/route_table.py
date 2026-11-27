@@ -891,6 +891,7 @@ MFG_PERMISSIONS_M9 = {
     ("PUT", "/mfg/items/{item_id}/trade"): "master_edit",
     ("GET", "/mfg/lots/{lot_id}/content"): "view",
     ("GET", "/mfg/mps/targets"): "view",
+    ("PUT", "/mfg/lots/{lot_id}/coo"): "master_edit",
 }
 MFG_PERMISSIONS.update(MFG_PERMISSIONS_M9)
 MFG_PROTECTED = MFG_PROTECTED | frozenset(MFG_PERMISSIONS_M9)

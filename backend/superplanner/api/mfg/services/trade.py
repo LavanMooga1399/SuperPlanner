@@ -369,6 +369,28 @@ def _source_lot(s: Session, t: Any) -> dict[str, Any] | None:
                 "unit_value": src.unit_value, "currency": ccy}
 
 
+def put_lot_coo(ctx: AppContext, a: Any, lot_id: str, body: Any, if_match: str | None) -> dict[str, Any]:
+    """8.1: change a received lot's COO - always with a reason (audited as the change reason, also outside
+    Part 11 mode); the lot's stored domestic shares are cleared and the plant's roll-up is queued."""
+    with write_tx(ctx) as (s, _):
+        lot = repo.get_row(s, MfgLotRow, lot_id, what="Lot", lock=True)
+        if if_match is not None:
+            check_version(lot, if_match)
+        before = {"coo": lot.coo, "coo_source": lot.coo_source}
+        lot.coo = body.coo
+        lot.coo_source = lot.coo_source or "receipt"
+        lot.dom_share_value = lot.dom_share_weight = lot.dom_estimated = lot.dom_computed_at = None
+        lot.row_version += 1
+        lot.updated_at = utcnow()
+        audit(s, "lot", lot.id, "coo_change", {"lot_code": lot.lot_code}, before=before,
+              after={"coo": lot.coo, "coo_source": lot.coo_source}, reason=body.reason)
+        from .inventory import lot_record
+
+        rec = lot_record(s, lot)
+    queue_rollup(ctx)
+    return rec
+
+
 # ---------------------------------------------------------------- lot content (8.2; T7, P4)
 
 def load_graph(s: Session, lot_id: str) -> CT.Graph:
@@ -488,6 +510,25 @@ def rollup_lots(s: Session, since: date) -> int:
     for lid in ids:
         _content(s, lid, None)
     return len(ids)
+
+
+ROLLUP_DEBOUNCE_S = 300
+
+
+def queue_rollup(ctx: AppContext) -> str | None:
+    """After a `wo_receipt`: one `content_rollup` duty run per plant, debounced - none is queued while one is queued
+    or running; the queue executor claims it 5 minutes later (`run_after`), the inline executor runs it at once."""
+    from ....integration.jobs import active_run, new_run
+
+    owner = str(current_owner())
+    with write_tx(ctx, lock=False) as (s, _):
+        if active_run(s, "content_rollup", owner):
+            return None
+        rid, job = new_run(s, ctx, "content_rollup", owner, {"days": 30})
+        if hasattr(job, "run_after") and job.run_after is not None:
+            job.run_after = job.run_after + timedelta(seconds=ROLLUP_DEBOUNCE_S)
+    ctx.jobs.dispatch(job)
+    return rid
 
 
 def rollup_job_body(ctx: AppContext, info: dict[str, Any]) -> dict[str, Any]:
