@@ -63,7 +63,7 @@ export function ItemTradeTab() {
   };
   if (tr.error) return <MfgError error={tr.error} onRetry={tr.reload} />;
   return (
-    <div className="col pl-gap" data-testid="item-trade">
+    <div className="col pl-gap net-page" data-testid="item-trade">
       <section className="card col pl-gap" aria-labelledby="it-h">
         <div className="pl-card-header">
           <h2 className="pl-h2" id="it-h">

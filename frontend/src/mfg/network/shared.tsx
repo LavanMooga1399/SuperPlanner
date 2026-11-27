@@ -58,14 +58,14 @@ export function KpiCard({ label, value, unit, sub, delta, testId }: { label: str
 }
 
 /**
- * Delta versus the baseline: sign, value and a word (better / worse), tone by direction - never colour alone.
+ * Delta versus the baseline (`pts` = difference of two percentages given as 0..100): sign, value and a word (better / worse), tone by direction - never colour alone.
  * `better` says which direction is good (service up, unmet down); `kind` picks the formatter.
  */
 export function Delta({ v, better, kind = "num", ccy = "USD", digits = 0 }: { v: number | null | undefined; better: "up" | "down"; kind?: "num" | "money" | "pts"; ccy?: string; digits?: number }) {
   if (v === null || v === undefined || !Number.isFinite(v)) return <span className="net-delta flat">–</span>;
-  const flat = Math.abs(v) < (kind === "pts" ? 0.0005 : 0.5);
+  const flat = Math.abs(v) < (kind === "pts" ? 0.05 : 0.5);
   const good = !flat && (better === "up" ? v > 0 : v < 0);
-  const text = kind === "money" ? formatMoney(v, ccy, { compact: Math.abs(v) >= 100000, signed: true }) : kind === "pts" ? t("net.tpl.pts", { v: formatSigned(v * 100, 1) }) : formatSigned(v, digits);
+  const text = kind === "money" ? formatMoney(v, ccy, { compact: Math.abs(v) >= 100000, signed: true }) : kind === "pts" ? t("net.tpl.pts", { v: formatSigned(v, 1) }) : formatSigned(v, digits);
   return (
     <span className={`net-delta ${flat ? "flat" : good ? "good" : "bad"}`} data-testid="kpi-delta" data-dir={flat ? "flat" : good ? "better" : "worse"}>
       <Icon name={flat ? "circle" : good ? "check" : "alert"} size={12} />

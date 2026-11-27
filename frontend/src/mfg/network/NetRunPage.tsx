@@ -72,7 +72,7 @@ export function NetRunPage() {
     }
   };
   return (
-    <div className="col gap-lg" data-testid="net-run-page" data-status={r.status}>
+    <div className="col gap-lg net-page" data-testid="net-run-page" data-status={r.status}>
       <div className="mfg-breadcrumb small muted">
         <Link to={mfgPaths.network()}>{t("net.home.title")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{r.number}</span>
       </div>
@@ -550,6 +550,11 @@ function PeggingTab({ run, nodes }: { run: NetRun; nodes: Nodes }) {
   );
 }
 
+/** Server links name the API collection (`/mfg/transfer-orders/{id}`); the UI route is `/mfg/transfers/{id}`. */
+function uiLink(link: string): string {
+  return link.replace(/^\/mfg\/transfer-orders\//, "/mfg/transfers/").replace(/^\/mfg\/demand-orders\//, "/mfg/demand/").replace(/^\/mfg\/purchase-orders\//, "/mfg/purchasing/orders/");
+}
+
 function PegNode({ n, nodes, level }: { n: NetPegNode; nodes: Nodes; level: number }) {
   const node = nodes.byId.get(n.node_owner_id);
   return (
@@ -562,7 +567,7 @@ function PegNode({ n, nodes, level }: { n: NetPegNode; nodes: Nodes; level: numb
         {n.week ? <span className="muted small">{weekShort(n.week)}</span> : null}
         {n.ref ? (
           n.link && node?.member ? (
-            <button type="button" className="btn ghost sm" onClick={() => switchWorkspace(n.node_owner_id, null, n.link!)} title={t("net.peg.open", { p: node.code })}>
+            <button type="button" className="btn ghost sm" onClick={() => switchWorkspace(n.node_owner_id, null, uiLink(n.link!))} title={t("net.peg.open", { p: node.code })}>
               <span className="mono">{n.ref}</span> <Icon name="external" size={12} />
             </button>
           ) : (

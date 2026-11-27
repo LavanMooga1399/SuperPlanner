@@ -23,7 +23,7 @@ import type { Column } from "../components/VirtualTable";
 import { mfgPaths } from "../lib/paths";
 import { needsText, useCan } from "../lib/permissions";
 import { useLoad } from "../lib/useMfg";
-import { Delta, HeatValue, heatClass, KpiCard, monthLabel, monthShort, NodeTag, num, pct, Segmented, useNodes } from "../network/shared";
+import { Delta, HeatValue, heatClass, KpiCard, monthLabel, monthShort, NodeTag, num, pct, pct100, Segmented, useNodes } from "../network/shared";
 
 type Nodes = ReturnType<typeof useNodes>;
 
@@ -107,7 +107,7 @@ export function SupplyTab({ cycle, nodes, scenarios, onChanged }: { cycle: SopCy
       },
       { key: "status", header: t("net.run.head.status"), width: "130px", render: (s) => <ScenarioChip s={s} /> },
       { key: "changes", header: t("net.scn.head.changes"), width: "100px", align: "right", sortValue: (s) => s.changes.length, render: (s) => <span className="pl-num">{num(s.changes.length)}</span> },
-      { key: "service", header: t("net.kpi.service"), width: "100px", align: "right", sortValue: (s) => s.kpis?.horizon.service_pct ?? -1, render: (s) => <span className="pl-num">{pct(s.kpis?.horizon.service_pct)}</span> },
+      { key: "service", header: t("net.kpi.service"), width: "100px", align: "right", sortValue: (s) => s.kpis?.horizon.service_pct ?? -1, render: (s) => <span className="pl-num">{pct100(s.kpis?.horizon.service_pct)}</span> },
       { key: "unmet", header: t("net.kpi.unmet"), width: "110px", align: "right", sortValue: (s) => s.kpis?.horizon.unmet_units ?? 0, render: (s) => <span className="pl-num">{num(s.kpis?.horizon.unmet_units)}</span> },
       { key: "gm", header: t("net.kpi.gm"), width: "130px", align: "right", drop: 2, sortValue: (s) => s.kpis?.horizon.gross_margin ?? 0, render: (s) => <span className="pl-num">{formatMoney(s.kpis?.horizon.gross_margin, ccy, { compact: true })}</span> },
       { key: "run", header: t("net.scn.head.runAt"), width: "140px", drop: 3, render: (s) => (s.run_at ? formatDateTime(s.run_at) : "–") },
@@ -311,7 +311,7 @@ export function FinancialTab({ cycle, nodes, scenarios }: { cycle: SopCycle; nod
   const yMax = niceTicks(0, Math.max(1, ...rev, ...cogs), 4).slice(-1)[0] ?? 1;
   const keys = [...new Set((f?.rows ?? []).filter((r) => r.key !== "total").map((r) => r.key))];
   const cell = (key: string, m: string) => f?.rows.find((r) => r.key === key && r.month === m);
-  const fmt = (v: number | null | undefined, money: boolean, k: string) => (money ? formatMoney(v, ccy, { compact: Math.abs(v ?? 0) >= 1e6 }) : k === "gm_pct" ? pct(v) : num(v));
+  const fmt = (v: number | null | undefined, money: boolean, k: string) => (money ? formatMoney(v, ccy, { compact: Math.abs(v ?? 0) >= 1e6 }) : k === "gm_pct" ? pct100(v) : num(v));
   return (
     <div className="col pl-gap" data-testid="sop-financial">
       <div className="filter-bar toolbar mfg-filters">
@@ -339,7 +339,7 @@ export function FinancialTab({ cycle, nodes, scenarios }: { cycle: SopCycle; nod
           <div className="net-kpis">
             <KpiCard label={t("net.kpi.revenue")} value={formatMoney(f.totals.horizon.revenue, ccy, { compact: true })} unit={ccy} sub={t("net.fin.next3", { v: formatMoney(f.totals.next3.revenue, ccy, { compact: true }) })} />
             <KpiCard label={t("net.kpi.cogs")} value={formatMoney(f.totals.horizon.cogs, ccy, { compact: true })} unit={ccy} />
-            <KpiCard label={t("net.kpi.gm")} value={formatMoney(f.totals.horizon.gross_margin, ccy, { compact: true })} unit={ccy} sub={t("net.tpl.gmPct", { v: pct(f.totals.horizon.gm_pct) })} />
+            <KpiCard label={t("net.kpi.gm")} value={formatMoney(f.totals.horizon.gross_margin, ccy, { compact: true })} unit={ccy} sub={t("net.tpl.gmPct", { v: pct100(f.totals.horizon.gm_pct) })} />
             <KpiCard label={t("net.kpi.inventory")} value={formatMoney(f.totals.horizon.inventory_value, ccy, { compact: true })} unit={ccy} sub={f.totals.horizon.days_of_cover === null ? undefined : t("net.tpl.cover", { n: num(f.totals.horizon.days_of_cover) })} />
             <KpiCard label={t("net.kpi.capex")} value={formatMoney(f.totals.horizon.capex, ccy, { compact: true })} unit={ccy} />
             <KpiCard label={t("net.fin.year")} value={formatMoney(f.totals.year.gross_margin, ccy, { compact: true })} unit={ccy} sub={t("net.fin.yearSub")} />
@@ -441,7 +441,7 @@ export function CompareTab({ cycle, scenarios, onChanged }: { cycle: SopCycle; s
   if (!done.length) return <p className="muted card">{t("net.fin.none")}</p>;
   const ccy = c?.currency ?? cycle.report_currency;
   const toggle = (id: string) => setIds((x) => (x.includes(id) ? x.filter((y) => y !== id) : x.length >= 5 ? x : [...x, id]));
-  const value = (k: KRow, v: number | null | undefined) => (k.kind === "money" ? formatMoney(v, ccy, { compact: Math.abs(v ?? 0) >= 1e5 }) : k.kind === "pct" ? pct(v) : k.kind === "days" ? (v === null || v === undefined ? "–" : t("net.tpl.days", { n: num(v) })) : num(v));
+  const value = (k: KRow, v: number | null | undefined) => (k.kind === "money" ? formatMoney(v, ccy, { compact: Math.abs(v ?? 0) >= 1e5 }) : k.kind === "pct" ? pct100(v) : k.kind === "days" ? (v === null || v === undefined ? "–" : t("net.tpl.days", { n: num(v) })) : num(v));
   const domestic = domesticCodes(c?.items.map((x) => x.kpis) ?? []);
   const canRecommend = canEdit && cycle.status === "pre_sop";
   return (

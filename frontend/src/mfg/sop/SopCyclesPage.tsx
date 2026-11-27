@@ -93,7 +93,7 @@ export function SopCyclesPage() {
     [],
   );
   return (
-    <div className="col gap-lg" data-testid="sop-cycles">
+    <div className="col gap-lg net-page" data-testid="sop-cycles">
       <PageHeader
         title={t("net.sop.title")}
         description={t("net.sop.desc")}

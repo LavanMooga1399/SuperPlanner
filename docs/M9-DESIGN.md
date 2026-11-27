@@ -554,3 +554,39 @@ S2 notes (publish, plant MRP, as built):
   DO-000001/10"; supply kind `network` sorts after rate supplies ("Transfer from QC (NR-000001)"). Items with
   replenishment `transfer` get no planned order; each residual is a critical `MRP_NETWORK_SHORT`. TO records carry
   `source` and `net_run_id` (additive). MRP goldens unchanged (`tests/mrp` green).
+
+U notes (WP-U, UI as built):
+- Contract: `frontend/src/mfg/api/typesM9.ts` (written first, adopted by S0), `clientM9.ts` (all N/S/T/P routes),
+  `contractExamplesM9.ts` = `example_m9.json` verbatim, typed - zero drift at S0. Units as in the fixture: `*_pct`
+  fields are 0..100 (service, GM, OTD, duty, domestic share, utilisation max/avg), plain ratios are 0..1 (fill
+  rate, rough-cut `util`, `factor`, MPS `attainment`, lot `share_value/weight`, `duty_share`). Scenario deltas of
+  `*_pct` are shown as points.
+- Network workspace detection: `/me.workspace_kind` or `/workspaces[].plant_kind` = `network` (both optional; the
+  server does not send them yet - **S to add**); until then the org plant coded `NET` is treated as the network
+  workspace. There `/mfg` opens `/mfg/network`, the sidebar shows the Network group plus Control, plant groups are
+  hidden; the workspace switcher lists it first as "Network · <org>". Org admins get "Create network workspace"
+  (O1) on the organisation's Plants tab; role pickers offer `plant_manager`, `auditor`, `executive`.
+- Screens: `/mfg/network` (SVG node/lane diagram by country, latest-run KPIs, shortages, cycle strip, runs),
+  `/mfg/network/sourcing` (rules + quota bar per set, resolve tester, lanes), `/mfg/network/runs/:id/:tab`
+  (projection grid with firm zone, transfers, shortages with cause and Trace, capacity heatmap, pegging tree,
+  publish result), `/mfg/sop` and `/mfg/sop/cycles/:id/:view` (Demand / Supply / Financial / Compare / Approve /
+  Publish), `/mfg/sop/scenarios/:id` (change forms per kind, ramp/yield curve editor + chart, `STD26`, curve
+  library N16, make-or-buy), `/mfg/mps`, `/mfg/trade/:tab` (tariffs / FX paste grids, milestones, country risk,
+  reports), `/mfg/trade/reports/:id`, `/mfg/sourcing-risk` (plant and network). Plant: item tab Trade (HTS, COO,
+  material class, weight, landed cost per supplier with breakdown - the item-supplier list itself is unchanged),
+  receipt dialog Origin column (optional; empty = supplier, then item), lot dialog domestic content (value /
+  weight, estimated, input tree), MRP labels `network` demand/supply and `MRP_NETWORK_SHORT`, item planning
+  replenishment `transfer`, tiles `sop_cycle`, `net_shortages`, `tariff_milestones`, `mps_attainment`.
+- Approval: SignatureDialog `sop_cycle` / `approve`, meaning from the policy step (reviewed, then approved); the
+  approved scenario is chosen on the Approve view (default the recommended one) and locked after the first
+  signature. Advance shows `SOP_NO_BASELINE` / `SOP_NO_RECOMMENDATION` (assumed code for leaving pre-S&OP) as
+  guidance banners. Every override, removal, reopen, cancel and publish carries a reason (Part 11 header).
+- Pegging links from the server (`/mfg/transfer-orders/{id}`, demand, purchase) are mapped to UI routes and open
+  the plant through the workspace switcher; nodes the caller is not a member of show the reference as text.
+- e2e: `frontend/e2e/m9-network.spec.ts` (5 tests, `@req` M9-NET-01/04/07/09, M9-SOP-01/04/07, M9-TRD-02/05/08)
+  runs on the single-user e2e server with `/me` marked as the network workspace and the N/S/T routes answered from
+  the S0 fixture (an org workspace is not available there); writes are asserted for the contract shape.
+  `SP_M9_SHOTS=1` refreshes `docs/ux-screens/m9-{network-home,sop-compare,tariff-report}.png`.
+- Not done in U (follow-ups): ASP edit dialog (S10 is wired in the client, the grid shows the ASP source flag
+  only), editing tariff rows inside a `cost_change` (the form takes FX and freight; tariff rows come from the trade
+  table), item-supplier list columns for COO/HTS/incoterm/freight/cap (shown on the item Trade tab instead).

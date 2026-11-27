@@ -27,7 +27,7 @@ import { usePolling } from "../lib/usePolling";
 import { errorCode, useLoad } from "../lib/useMfg";
 import { SignatureList } from "../qa/RecordShell";
 import { ReasonConfirm } from "../forecast/ForecastPage";
-import { codeText9, CycleChip, isRunning, KpiCard, monthLabel, NodeTag, num, pct, stepText, useNodes } from "../network/shared";
+import { codeText9, CycleChip, isRunning, KpiCard, monthLabel, NodeTag, num, pct, pct100, stepText, useNodes } from "../network/shared";
 import { DemandTab } from "./SopDemandTab";
 import { CompareTab, FinancialTab, SupplyTab } from "./SopSupplyTabs";
 
@@ -72,7 +72,7 @@ export function SopCyclePage() {
   };
   const curIdx = SOP_STEPS.indexOf(c.status as SopStep);
   return (
-    <div className="col gap-lg" data-testid="sop-cycle-page" data-status={c.status}>
+    <div className="col gap-lg net-page" data-testid="sop-cycle-page" data-status={c.status}>
       <div className="mfg-breadcrumb small muted">
         <Link to={mfgPaths.sop()}>{t("net.sop.title")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{c.number}</span>
       </div>
@@ -342,9 +342,9 @@ function ApproveTab({ cycle, scenarios, onChanged }: { cycle: SopCycle; scenario
         ) : null}
         {k ? (
           <div className="net-kpis">
-            <KpiCard label={t("net.kpi.service")} value={pct(k.service_pct)} sub={t("net.tpl.unmet", { n: num(k.unmet_units) })} />
+            <KpiCard label={t("net.kpi.service")} value={pct100(k.service_pct)} sub={t("net.tpl.unmet", { n: num(k.unmet_units) })} />
             <KpiCard label={t("net.kpi.revenue")} value={formatMoney(k.revenue, ccy, { compact: true })} unit={ccy} />
-            <KpiCard label={t("net.kpi.gm")} value={formatMoney(k.gross_margin, ccy, { compact: true })} unit={ccy} sub={t("net.tpl.gmPct", { v: pct(k.gm_pct) })} />
+            <KpiCard label={t("net.kpi.gm")} value={formatMoney(k.gross_margin, ccy, { compact: true })} unit={ccy} sub={t("net.tpl.gmPct", { v: pct100(k.gm_pct) })} />
             <KpiCard label={t("net.kpi.inventory")} value={formatMoney(k.inventory_value, ccy, { compact: true })} unit={ccy} sub={k.days_of_cover === null ? undefined : t("net.tpl.cover", { n: num(k.days_of_cover) })} />
             <KpiCard label={t("net.kpi.capex")} value={formatMoney(k.capex, ccy, { compact: true })} unit={ccy} />
           </div>
@@ -393,8 +393,8 @@ function ApproveTab({ cycle, scenarios, onChanged }: { cycle: SopCycle; scenario
           effect={valid.length ? t("net.cyc.dlg.signEffect2") : t("net.cyc.dlg.signEffect1")}
           extraRows={[
             { label: t("net.cyc.appr.scenario"), value: `${sc.number} · ${sc.name}` },
-            { label: t("net.kpi.service"), value: pct(k?.service_pct) },
-            { label: t("net.kpi.gm"), value: `${formatMoney(k?.gross_margin, ccy)} (${pct(k?.gm_pct)})` },
+            { label: t("net.kpi.service"), value: pct100(k?.service_pct) },
+            { label: t("net.kpi.gm"), value: `${formatMoney(k?.gross_margin, ccy)} (${pct100(k?.gm_pct)})` },
             { label: t("net.cyc.appr.consensus"), value: formatNumber(totals.consensus) },
           ]}
           commentLabel={t("net.cyc.label.signComment")}

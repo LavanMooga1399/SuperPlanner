@@ -840,4 +840,5 @@ export const networkFrCa: Record<keyof typeof networkStrings, string> = {
   "net.trd.rep.lot": "Lot",
   "net.trd.rep.share": "Part nationale",
   "net.trd.rep.lotTitle": "Lot {l} : contenu national",
+  "net.trd.rep.atRisk": "Aucun mois manqué; à risque pendant {n} (à 5 points ou moins du minimum).",
 };

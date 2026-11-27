@@ -840,4 +840,5 @@ export const networkStrings = {
   "net.trd.rep.lot": "Lot",
   "net.trd.rep.share": "Domestic share",
   "net.trd.rep.lotTitle": "Lot {l}: domestic content",
+  "net.trd.rep.atRisk": "No month missed; at risk in {n} (within 5 points of the minimum).",
 } as const;

@@ -28,7 +28,7 @@ import { needsText, useCan } from "../lib/permissions";
 import { usePolling } from "../lib/usePolling";
 import { useLoad } from "../lib/useMfg";
 import { useChangeReason } from "../qa/ChangeReason";
-import { codeText9, KpiCard, NodeTag, num, pct, Segmented, useNodes } from "../network/shared";
+import { codeText9, KpiCard, NodeTag, num, pct, pct100, Segmented, useNodes } from "../network/shared";
 import { ScenarioChip } from "./SopSupplyTabs";
 
 type Nodes = ReturnType<typeof useNodes>;
@@ -137,7 +137,7 @@ export function ScenarioPage() {
   const ccy = s.kpis?.currency ?? cycle.data?.report_currency ?? "USD";
   const nodeCodes = [...nodes.nodes.map((n) => n.code), ...changes.filter((c) => c.kind === "add_node").map((c) => (c as Extract<ScenarioChange, { kind: "add_node" }>).code).filter(Boolean)];
   return (
-    <div className="col gap-lg" data-testid="scenario-page" data-status={s.status}>
+    <div className="col gap-lg net-page" data-testid="scenario-page" data-status={s.status}>
       <div className="mfg-breadcrumb small muted">
         <Link to={mfgPaths.sop()}>{t("net.sop.title")}</Link> <Icon name="chevron-right" size={12} />
         {cycle.data ? (
@@ -202,9 +202,9 @@ export function ScenarioPage() {
       ) : null}
       {k ? (
         <div className="net-kpis" data-testid="scn-kpis">
-          <KpiCard label={t("net.kpi.service")} value={pct(k.service_pct)} sub={t("net.tpl.unmet", { n: num(k.unmet_units) })} />
+          <KpiCard label={t("net.kpi.service")} value={pct100(k.service_pct)} sub={t("net.tpl.unmet", { n: num(k.unmet_units) })} />
           <KpiCard label={t("net.kpi.revenue")} value={formatMoney(k.revenue, ccy, { compact: true })} unit={ccy} />
-          <KpiCard label={t("net.kpi.gm")} value={formatMoney(k.gross_margin, ccy, { compact: true })} unit={ccy} sub={t("net.tpl.gmPct", { v: pct(k.gm_pct) })} />
+          <KpiCard label={t("net.kpi.gm")} value={formatMoney(k.gross_margin, ccy, { compact: true })} unit={ccy} sub={t("net.tpl.gmPct", { v: pct100(k.gm_pct) })} />
           <KpiCard label={t("net.kpi.inventory")} value={formatMoney(k.inventory_value, ccy, { compact: true })} unit={ccy} />
           <KpiCard label={t("net.kpi.capex")} value={formatMoney(k.capex, ccy, { compact: true })} unit={ccy} />
         </div>

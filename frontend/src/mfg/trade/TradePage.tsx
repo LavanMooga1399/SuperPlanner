@@ -37,7 +37,7 @@ export function TradePage() {
     document.title = t("net.trd.title");
   }, []);
   return (
-    <div className="col gap-lg" data-testid="trade-page">
+    <div className="col gap-lg net-page" data-testid="trade-page">
       <PageHeader title={t("net.trd.title")} description={t("net.trd.desc")} />
       <nav className="tabs" aria-label={t("net.trd.aria.tabs")}>
         {TABS.map((k) => (

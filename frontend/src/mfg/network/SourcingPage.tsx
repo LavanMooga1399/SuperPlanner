@@ -103,7 +103,7 @@ export function SourcingPage() {
   };
   const badSets = [...sets.values()].filter((s) => s.some((r) => r.quota_pct !== null) && Math.abs(s.reduce((a, r) => a + (r.quota_pct ?? 0), 0) - 100) > 0.01);
   return (
-    <div className="col gap-lg" data-testid="net-sourcing">
+    <div className="col gap-lg net-page" data-testid="net-sourcing">
       <PageHeader
         title={t("net.src.title")}
         description={t("net.src.desc")}

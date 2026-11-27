@@ -80,7 +80,7 @@ export function SourcingRiskPage() {
     [isNet, nodes],
   );
   return (
-    <div className="col gap-lg" data-testid="risk-page">
+    <div className="col gap-lg net-page" data-testid="risk-page">
       <PageHeader title={t("net.risk.title")} description={t("net.risk.desc")} facts={[[t("net.risk.fact.rows"), formatNumber(rows.length)], [t("net.risk.fact.high"), formatNumber(rows.filter((r) => r.score >= 50).length)]]} />
       <FilterBar
         search={{ id: "risk-q", value: q, onChange: setQ, placeholder: t("net.risk.searchPh") }}

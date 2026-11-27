@@ -42,7 +42,7 @@ export function MpsPage() {
   const shown = fams.filter((f) => !family || f === family);
   const total = (f: string, k: "qty_target" | "actual_qty") => months.reduce((a, m) => a + (by.get(`${f}|${m}`)?.[k] ?? 0), 0);
   return (
-    <div className="col gap-lg" data-testid="mps-page">
+    <div className="col gap-lg net-page" data-testid="mps-page">
       <PageHeader title={t("net.mps.title")} description={t("net.mps.desc")} facts={[[t("net.mps.fact.cycle"), cycle ?? "–"], [t("net.mps.fact.families"), formatNumber(fams.length)]]} />
       <FilterBar chips={family ? [{ key: "family", label: t("net.label.family"), value: family, onClear: () => setFamily("") }] : []}>
         <div className="field">

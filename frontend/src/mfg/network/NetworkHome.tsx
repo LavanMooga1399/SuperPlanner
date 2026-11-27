@@ -73,7 +73,7 @@ export function NetworkHome() {
     [],
   );
   return (
-    <div className="col gap-lg" data-testid="net-home">
+    <div className="col gap-lg net-page" data-testid="net-home">
       <PageHeader
         title={t("net.home.title")}
         description={t("net.home.desc")}

@@ -39,7 +39,7 @@ export function TradeReportPage() {
   if (!r) return <Spinner />;
   const res = r.result;
   return (
-    <div className="col gap-lg" data-testid="trade-report" data-status={r.status}>
+    <div className="col gap-lg net-page" data-testid="trade-report" data-status={r.status}>
       <div className="mfg-breadcrumb small muted">
         <Link to={mfgPaths.trade("reports")}>{t("net.trd.title")}</Link> <Icon name="chevron-right" size={12} /> <span className="mono">{r.number}</span>
       </div>
@@ -92,6 +92,7 @@ function Cell({ c }: { c: TradeReportCell | undefined }) {
 
 function MilestoneSection({ m, months, projFrom, nodes }: { m: TradeReportMilestone; months: string[]; projFrom: string | null; nodes: Nodes }) {
   const [lot, setLot] = useState<TradeReportLot | null>(null);
+  const atRisk = new Set(m.groups.flatMap((g) => g.cells.filter((c) => c.status === "at_risk").map((c) => c.month))).size;
   const columns = useMemo<Column<TradeReportLot>[]>(
     () => [
       { key: "plant", header: t("net.label.node"), width: "100px", render: (l) => <NodeTag node={nodes.byId.get(l.plant_owner_id)} id={l.plant_owner_id} /> },
@@ -99,7 +100,7 @@ function MilestoneSection({ m, months, projFrom, nodes }: { m: TradeReportMilest
       { key: "key", header: t("net.label.key"), width: "140px", sortValue: (l) => l.item_key, render: (l) => <span className="mono">{l.item_key}</span> },
       { key: "month", header: t("net.label.month"), width: "110px", sortValue: (l) => l.month, render: (l) => monthLabel(l.month) },
       { key: "qty", header: t("net.label.qty"), width: "100px", align: "right", sortValue: (l) => l.qty, render: (l) => <span className="pl-num">{num(l.qty)}</span> },
-      { key: "share", header: t("net.trd.rep.share"), width: "120px", align: "right", sortValue: (l) => l.share_pct ?? -1, render: (l) => <span className="pl-num">{pct100(l.share_pct)}{l.estimated ? <span className="badge warn" style={{ marginLeft: 4 }}><Icon name="info" /> {t("net.lc.est")}</span> : null}</span> },
+      { key: "share", header: t("net.trd.rep.share"), width: "180px", align: "right", sortValue: (l) => l.share_pct ?? -1, render: (l) => <span className="pl-num">{pct100(l.share_pct)}{l.estimated ? <span className="badge warn" style={{ marginLeft: 4 }}><Icon name="info" /> {t("net.lc.est")}</span> : null}</span> },
       { key: "open", header: <span className="sr-only">{t("net.lc.inputs")}</span>, label: t("net.lc.inputs"), width: "110px", render: (l) => <button type="button" className="btn ghost sm" onClick={(e) => (e.stopPropagation(), setLot(l))} data-testid="trd-lot-open"><Icon name="layers" /> {t("net.lc.inputs")}</button> },
     ],
     [nodes],
@@ -116,6 +117,10 @@ function MilestoneSection({ m, months, projFrom, nodes }: { m: TradeReportMilest
         <Banner tone="danger" title={t("net.trd.rep.firstMissed", { m: monthLabel(m.first_missed_month) })} testId="trd-first-missed">
           {t("net.trd.rep.firstMissedBody")}
         </Banner>
+      ) : atRisk ? (
+        <p className="pl-note" style={{ margin: 0 }} data-testid="trd-at-risk">
+          <Icon name="alert" size={14} /> {t("net.trd.rep.atRisk", { n: plural(atRisk, t("noun.month"), t("noun.months")) })}
+        </p>
       ) : (
         <p className="pl-note ok" style={{ margin: 0 }}>
           <Icon name="check" size={14} /> {t("net.trd.rep.allMet")}

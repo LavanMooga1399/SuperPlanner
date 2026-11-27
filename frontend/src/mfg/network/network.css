@@ -87,3 +87,9 @@
 
 /* curve editor */
 .net-curve-pts input { width: 72px; }
+
+/* content cards of the M9 pages carry their own padding (tables and KPI tiles excepted) */
+.net-page .card:not(.card-table):not(.net-kpi) { padding: var(--sp-3) var(--sp-4); }
+.net-page .card-table > .pl-card-header { padding: var(--sp-2) var(--sp-3); }
+/* the cycle strip wraps into two rows inside narrow cards */
+.pl-two .sop-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
