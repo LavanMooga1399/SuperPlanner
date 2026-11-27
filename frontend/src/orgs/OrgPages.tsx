@@ -44,9 +44,10 @@ import { DataTable } from "../mfg/components/DataTable";
 import { toast } from "../components/Toast";
 import { reinstateEsig, revokeEsig } from "../mfg/api/clientM7";
 import type { EsigStatus } from "../mfg/api/typesM7";
+import { createNetwork } from "../mfg/api/clientM9";
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);
-const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer", "qa_inspector", "qa_engineer", "qa_approver", "metrology"];
+const PLANT_ROLES: (Role | "plant_admin")[] = ["plant_admin", "planner", "purchaser", "store_keeper", "approver", "supervisor", "operator", "viewer", "qa_inspector", "qa_engineer", "qa_approver", "metrology", "plant_manager", "auditor", "executive"];
 
 function openPlant(ownerId: string) {
   switchWorkspace(ownerId, null);
@@ -346,16 +347,40 @@ function PlantsTab({ org, admin }: { org: Org; admin: boolean }) {
   const members = useLoad((signal) => (admin ? listOrgMembers(org.id, signal) : null), [org.id, admin]);
   const [edit, setEdit] = useState<OrgPlant | "new" | null>(null);
   const [roles, setRoles] = useState<OrgPlant | null>(null);
+  const [netErr, setNetErr] = useState<unknown>(null);
+  const hasNetwork = (plants.data?.items ?? []).some((p) => p.kind === "network" || p.code === "NET");
   return (
     <section className="card card-table" data-testid="org-plants">
       <div className="card-header row" style={{ justifyContent: "space-between" }}>
         <h2>{t("account.orgPages.head.plants")}</h2>
         {admin ? (
-          <button type="button" className="btn sm primary" onClick={() => setEdit("new")} data-testid="plant-new">
-            <Icon name="plus" /> {t("account.orgPages.btn.newPlant")}
-          </button>
+          <span className="row" style={{ gap: 6 }}>
+            {!hasNetwork && plants.data ? (
+              <button
+                type="button"
+                className="btn sm"
+                title={t("net.org.networkHint")}
+                onClick={() => {
+                  setNetErr(null);
+                  createNetwork(org.id)
+                    .then(() => {
+                      toast(t("net.org.networkCreated"));
+                      plants.reload();
+                    })
+                    .catch((e: unknown) => setNetErr(e));
+                }}
+                data-testid="network-new"
+              >
+                <Icon name="link" /> {t("net.org.networkBtn")}
+              </button>
+            ) : null}
+            <button type="button" className="btn sm primary" onClick={() => setEdit("new")} data-testid="plant-new">
+              <Icon name="plus" /> {t("account.orgPages.btn.newPlant")}
+            </button>
+          </span>
         ) : null}
       </div>
+      <MfgError error={netErr} />
       <MfgError error={plants.error} onRetry={plants.reload} />
       <DataTable
         rows={plants.data?.items ?? []}

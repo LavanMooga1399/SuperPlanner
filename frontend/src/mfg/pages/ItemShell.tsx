@@ -47,6 +47,7 @@ export function ItemShell() {
     ...(it.make_buy === "buy" ? [{ to: mfgPaths.itemSuppliers(it.id), label: tr("mfg.itemShell.str.suppliers"), testId: "item-tab-suppliers" }] : []),
     { to: mfgPaths.itemPlanning(it.id), label: tr("plan.ip.tab"), testId: "item-tab-planning" },
     { to: mfgPaths.itemPackaging(it.id), label: tr("plan.pack.tab"), testId: "item-tab-packaging" },
+    { to: mfgPaths.itemTrade(it.id), label: tr("net.it.tab"), testId: "item-tab-trade" },
   ];
   const ctx: ItemContext = { item: it, setItem: (x) => item.setData(x), reloadItem: item.reload };
 

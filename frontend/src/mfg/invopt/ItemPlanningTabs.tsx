@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "../../components/Icon";
 import { toast } from "../../components/Toast";
 import { UnsavedChangesGuard } from "../../components/UnsavedChangesGuard";
-import { t } from "../../lib/i18n";
+import { t, type StringKey } from "../../lib/i18n";
 import { formatNumber } from "../../lib/locale";
 import { getItem } from "../api/client";
 import type { ItemRef } from "../api/types";
@@ -25,10 +25,11 @@ import { ClassTag } from "../forecast/shared";
 
 const LEVELS: PackLevel[] = ["each", "inner", "case", "pallet"];
 const LEVEL_KEY = { each: "plan.pack.level.each", inner: "plan.pack.level.inner", case: "plan.pack.level.case", pallet: "plan.pack.level.pallet" } as const;
-const REPL: { v: Replenishment; label: "plan.ip.repl.mrp" | "plan.ip.repl.rate" | "plan.ip.repl.kanban"; help: "plan.ip.repl.mrpHelp" | "plan.ip.repl.rateHelp" | "plan.ip.repl.kanbanHelp" }[] = [
+const REPL: { v: Replenishment; label: StringKey; help: StringKey }[] = [
   { v: "mrp", label: "plan.ip.repl.mrp", help: "plan.ip.repl.mrpHelp" },
   { v: "rate", label: "plan.ip.repl.rate", help: "plan.ip.repl.rateHelp" },
   { v: "kanban", label: "plan.ip.repl.kanban", help: "plan.ip.repl.kanbanHelp" },
+  { v: "transfer", label: "net.ip.repl.transfer", help: "net.ip.repl.transferHelp" },
 ];
 
 const toInput = (p: ItemPlanning): ItemPlanningInput => ({

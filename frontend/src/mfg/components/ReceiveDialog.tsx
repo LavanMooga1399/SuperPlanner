@@ -34,11 +34,12 @@ interface Row {
   lot_code: string;
   expires_on: string;
   supplier_lot: string;
+  coo: string;
 }
 
 function LotCells({ row, onChange }: { row: Row; onChange(p: Partial<Row>): void }) {
   const info = useItemInfo(row.item_id);
-  if (!info?.lot_controlled) return <td colSpan={3} className="faint small">{t("mfg.receiveDialog.text.notLotTracked")}</td>;
+  if (!info?.lot_controlled) return <td colSpan={4} className="faint small">{t("mfg.receiveDialog.text.notLotTracked")}</td>;
   return (
     <>
       <td>
@@ -49,6 +50,9 @@ function LotCells({ row, onChange }: { row: Row; onChange(p: Partial<Row>): void
       </td>
       <td>
         <input className="input sm" aria-label={t("mfg.receiveDialog.tpl.supplierLotFor", { label: row.label })} value={row.supplier_lot} maxLength={64} onChange={(e) => onChange({ supplier_lot: e.target.value })} />
+      </td>
+      <td>
+        <input className="input sm mono" style={{ width: 56 }} aria-label={t("net.rcv.cooFor", { label: row.label })} title={t("net.rcv.cooHint")} placeholder={t("net.rcv.cooPh")} value={row.coo} maxLength={2} onChange={(e) => onChange({ coo: e.target.value.toUpperCase().replace(/[^A-Z]/g, "") })} aria-invalid={row.coo.length === 1} data-testid="receive-coo" />
       </td>
     </>
   );
@@ -78,6 +82,7 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
             lot_code: "",
             expires_on: "",
             supplier_lot: "",
+            coo: "",
           })),
       )
       .sort((a, b) => (a.dock < b.dock ? -1 : a.dock > b.dock ? 1 : a.label.localeCompare(b.label))),
@@ -113,6 +118,7 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
         lot_code: r.lot_code.trim() || null,
         expires_on: r.expires_on || null,
         supplier_lot: r.supplier_lot.trim(),
+        ...(r.coo.length === 2 ? { coo: r.coo } : {}),
       })),
     [chosen],
   );
@@ -193,6 +199,7 @@ export function ReceiveDialog({ doc, onClose, onDone, scheduleId }: { doc: Purch
                 <th>{t("mfg.receiveDialog.head.lot")}</th>
                 <th>{t("mfg.receiveDialog.head.expires")}</th>
                 <th>{t("mfg.receiveDialog.head.supplierLot")}</th>
+                <th title={t("net.rcv.cooHint")}>{t("net.rcv.coo")}</th>
               </tr>
             </thead>
             <tbody>

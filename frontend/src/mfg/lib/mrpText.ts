@@ -39,6 +39,8 @@ export const EXCEPTION_LABEL: Record<string, string> = {
   MRP_RATE_SHORT: t("plan.code.MRP_RATE_SHORT"),
   MRP_KANBAN_UNDERSIZED: t("plan.code.MRP_KANBAN_UNDERSIZED"),
   MRP_PACK_ROUNDING: t("plan.code.MRP_PACK_ROUNDING"),
+  // M9 5.4
+  MRP_NETWORK_SHORT: t("net.code.MRP_NETWORK_SHORT"),
 };
 
 export const exceptionLabel = (code: string) => EXCEPTION_LABEL[code] ?? code.replace(/^MRP_/, "").replace(/_/g, " ").toLowerCase();
@@ -57,6 +59,7 @@ export const REQUIREMENT_KIND: Record<RequirementKind, string> = {
   planned_component: t("mfg.mrpText.str.forPlannedOrder"),
   wo_component: t("mfg.mrpText.str.forWorkOrder"),
   forecast: t("plan.mrp.forecast"),
+  network: t("net.mrp.demand"),
 };
 
 export const SUPPLY_KIND: Record<SupplyKind, string> = {
@@ -68,6 +71,7 @@ export const SUPPLY_KIND: Record<SupplyKind, string> = {
   planned: t("mfg.mrpText.str.plannedOrder"),
   kanban: t("plan.mrp.kanban"),
   rate: t("plan.mrp.rate"),
+  network: t("net.mrp.supply"),
 };
 
 const LT_SOURCE: Record<LeadTimeInfo["source"], string> = {

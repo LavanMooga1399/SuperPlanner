@@ -100,6 +100,10 @@ import { SopCyclesPage } from "./sop/SopCyclesPage";
 import { SopCyclePage } from "./sop/SopCyclePage";
 import { ScenarioPage } from "./sop/ScenarioPage";
 import { MpsPage } from "./sop/MpsPage";
+import { ItemTradeTab } from "./trade/TradeBits";
+import { TradePage } from "./trade/TradePage";
+import { TradeReportPage } from "./trade/TradeReportPage";
+import { SourcingRiskPage } from "./trade/SourcingRiskPage";
 import { useAccess } from "./lib/permissions";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
@@ -165,6 +169,7 @@ export const mfgRoutes: RouteObject[] = [
           { path: "suppliers", element: <ItemSuppliersTab /> },
           { path: "planning", element: <ItemPlanningTab /> },
           { path: "packaging", element: <ItemPackagingTab /> },
+          { path: "trade", element: <ItemTradeTab /> },
           { path: "*", element: <MfgNotFound /> },
         ],
       },
@@ -347,6 +352,9 @@ export const mfgRoutes: RouteObject[] = [
       { path: "sop", element: <SopCyclesPage /> },
       { path: "sop/scenarios/:scenarioId", element: <Keyed param="scenarioId">{(k) => <ScenarioPage key={k} />}</Keyed> },
       { path: "mps", element: <MpsPage /> },
+      { path: "trade/reports/:reportId", element: <Keyed param="reportId">{(k) => <TradeReportPage key={k} />}</Keyed> },
+      { path: "trade/:tab?", element: <TradePage /> },
+      { path: "sourcing-risk", element: <SourcingRiskPage /> },
       { path: "sop/cycles/:cycleId/:step?", element: <Keyed param="cycleId">{(k) => <SopCyclePage key={k} />}</Keyed> },
       { path: "*", element: <MfgNotFound /> },
     ],

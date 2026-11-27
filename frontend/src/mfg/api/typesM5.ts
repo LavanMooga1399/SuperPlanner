@@ -112,6 +112,10 @@ export interface OrgPlant {
   my_roles?: string[];
   row_version?: number;
   created_at?: IsoDateTime;
+  /** M9 4: `plant` (default), `dc` or `network` */
+  kind?: "plant" | "dc" | "network";
+  country?: string | null;
+  currency?: string | null;
 }
 
 export interface PlantRoleGrant {

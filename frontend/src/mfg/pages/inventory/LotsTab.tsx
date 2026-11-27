@@ -2,6 +2,7 @@
  * `/mfg/inventory/lots?lot=` (M2 14.2): lots by expiry with hold toggle and an edit dialog (store keeper).
  * `?lot=` (exception links) highlights that lot; further pages are loaded until it is found.
  */
+import { LotContentPanel } from "../../trade/TradeBits";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Icon } from "../../../components/Icon";
@@ -51,6 +52,7 @@ function LotDialog({ lot, onClose, onSaved }: { lot: LotRecord; onClose(): void;
       </div>
       <CheckField label={t("mfg.lotsTab.label.onHold")} checked={f.hold} onChange={(v) => setF({ ...f, hold: v })} hint={t("mfg.lotsTab.hint.heldStockIsNotPlanned")} testId="lot-hold" />
       <TextField label={t("mfg.lotsTab.label.note")} value={f.note} onChange={(v) => setF({ ...f, note: v })} maxLength={500} />
+      <LotContentPanel lotId={lot.id} />
     </EntityFormDialog>
   );
 }

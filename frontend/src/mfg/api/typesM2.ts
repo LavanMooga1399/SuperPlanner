@@ -426,6 +426,8 @@ export interface PoReceiptLine {
   expires_on?: IsoDate | null;
   supplier_lot?: string;
   unit_cost?: number | null;
+  /** M9 8.1: country of origin (ISO 2); empty = item-supplier, then item default */
+  coo?: string | null;
 }
 export interface WoIssueLine {
   wo_component_id: EntityId;
@@ -1165,8 +1167,8 @@ export interface Bucket {
   short: boolean;
 }
 
-export type RequirementKind = "demand" | "extra_demand" | "safety_stock" | "planned_component" | "wo_component" | "forecast";
-export type SupplyKind = "stock" | "inspection" | "po" | "pr" | "wo" | "planned" | "kanban" | "rate";
+export type RequirementKind = "demand" | "extra_demand" | "safety_stock" | "planned_component" | "wo_component" | "forecast" | "network";
+export type SupplyKind = "stock" | "inspection" | "po" | "pr" | "wo" | "planned" | "kanban" | "rate" | "network";
 
 export interface PlanRequirement {
   node: number;

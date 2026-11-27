@@ -30,6 +30,11 @@ export const TILE_NAMES: Record<string, { name: string; help: string }> = {
   forecast_accuracy: { name: tr("plan.tile.forecast"), help: tr("plan.tile.forecastHelp") },
   rate_shortages: { name: tr("plan.tile.rate"), help: tr("plan.tile.rateHelp") },
   ster_release: { name: tr("plan.tile.ster"), help: tr("plan.tile.sterHelp") },
+  // M9 10
+  sop_cycle: { name: tr("net.tile.sop"), help: tr("net.tile.sopHelp") },
+  net_shortages: { name: tr("net.tile.short"), help: tr("net.tile.shortHelp") },
+  tariff_milestones: { name: tr("net.tile.milestones"), help: tr("net.tile.milestonesHelp") },
+  mps_attainment: { name: tr("net.tile.mps"), help: tr("net.tile.mpsHelp") },
 };
 
 export function orderedTiles(tiles: Record<string, DashboardTile>): [string, DashboardTile][] {

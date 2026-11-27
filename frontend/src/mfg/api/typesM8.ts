@@ -285,7 +285,8 @@ export interface SsDecideResult {
 }
 
 // ---------------------------------------------------------------- 3 item planning and packaging (I5-I7)
-export type Replenishment = "mrp" | "rate" | "kanban";
+/** M9 2: `transfer` = supplied by the network run (no planned orders from plant MRP). */
+export type Replenishment = "mrp" | "rate" | "kanban" | "transfer";
 export type ReleaseMode = "none" | "bi" | "parametric";
 export type PackLevel = "each" | "inner" | "case" | "pallet";
 export interface ItemPlanningInput {
