@@ -64,6 +64,13 @@ def test_cycle_demand_scenarios_signed_approval_reopen_publish(db_url):
         assert net.get(f"/sop/scenarios/{base['id']}/make-buy")["items"]
         cyc = net.post(f"/sop/cycles/{cyc['id']}/advance", {"note": "Supply ok"}, status=200)
         net.err("POST", f"/sop/cycles/{cyc['id']}/advance", 409, "SOP_NO_RECOMMENDATION", json={})
+        # review M2: a demand change after the run makes the scenario stale until it runs again
+        net.post(f"/sop/cycles/{cyc['id']}/demand/overrides", {
+            "node_owner_id": None, "family": "SYR", "month_from": period.isoformat(), "month_to": period.isoformat(),
+            "mode": "pct", "value": 2, "reason": "Late order"})
+        net.err("POST", f"/sop/cycles/{cyc['id']}/recommend", 409, "SOP_SCENARIO_STALE",
+                json={"scenario_id": base["id"], "note": "Baseline"})
+        base = _run(net, base["id"])
         cyc = net.post(f"/sop/cycles/{cyc['id']}/recommend", {"scenario_id": base["id"], "note": "Baseline"},
                        status=200)
         cyc = net.post(f"/sop/cycles/{cyc['id']}/advance", {"note": ""}, status=200)
@@ -152,3 +159,50 @@ def test_overdue_steps_notify_and_m9_tiles(db_url):
         with owner_scope(w.net_owner), db.read() as s:
             kinds = [n.kind for n in s.execute(select(MfgNotificationRow)).scalars()]
         assert "sop_overdue" in kinds
+
+
+def test_publish_keeps_other_lines_of_the_pinned_version(db_url):
+    """Review M3: only family-month cells with a consensus value change; other items / months keep their finals."""
+    from superplanner.api.db.models import new_id, utcnow
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.api.mfg.db_models_m8 import MfgForecastLineRow, MfgForecastVersionRow
+    from superplanner.api.mfg.db_models_m9 import MfgSopCycleRow
+
+    app = app_for(db_url)
+    with TestClient(app):
+        w = make_world(app)
+        s_ = network_setup(w)
+        dc = w.api("DCUS")
+        other = dc.item("OTHER-1", external_ref="OTH", family="OTHER")
+        period = _next_month()
+        far = date(period.year + 1, period.month, 1)
+        db = app.state.ctx.db
+        with owner_scope(w.owner("DCUS")), db.write() as s:
+            now = utcnow()
+            v = MfgForecastVersionRow(id=new_id("fcv_"), number="FCV-900001", name="pinned", run_id=None,
+                                      status="active", bucket="m", start=period, periods=18, activated_by=None,
+                                      activated_at=now, archived_at=None, note="", row_version=1, created_at=now,
+                                      updated_at=now)
+            s.add(v)
+            s.flush()
+            for iid, m, q in ((s_["dc_item"]["id"], period, 1000.0), (other["id"], period, 77.0),
+                              (s_["dc_item"]["id"], far, 55.0)):
+                s.add(MfgForecastLineRow(id=new_id("fcl_"), version_id=v.id, item_id=iid, period_start=m,
+                                         stat_qty=q, final_qty=q))
+        cyc = w.net.post("/sop/cycles", {"period": period.isoformat(), "horizon_months": 3})
+        sc = w.net.post("/sop/scenarios", {"cycle_id": cyc["id"], "name": "Baseline"})
+        sc = _run(w.net, sc["id"])
+        assert sc["status"] == "completed", sc["error"]
+        with owner_scope(w.net_owner), db.write() as s:
+            c = s.get(MfgSopCycleRow, cyc["id"])
+            c.status, c.approved_scenario_id = "approved", sc["id"]
+        out = w.net.post(f"/sop/cycles/{cyc['id']}/publish", None, status=202)
+        vid = {n["node"]: n for n in out["publish_result"]["nodes"]}[w.owner("DCUS")]["forecast_version_id"]
+        with owner_scope(w.owner("DCUS")), db.read() as s:
+            lines = {(ln.item_id, ln.period_start): ln.final_qty for ln in s.query(MfgForecastLineRow).filter(
+                MfgForecastLineRow.version_id == vid)}
+            n_active = s.query(MfgForecastVersionRow).filter(MfgForecastVersionRow.status == "active").count()
+        assert lines[(other["id"], period)] == 77.0                  # other family untouched
+        assert lines[(s_["dc_item"]["id"], far)] == 55.0             # month outside the consensus untouched
+        assert lines[(s_["dc_item"]["id"], period)] > 0              # the consensus cell replaced
+        assert n_active == 1

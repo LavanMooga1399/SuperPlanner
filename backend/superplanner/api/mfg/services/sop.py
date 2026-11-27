@@ -311,6 +311,8 @@ def advance(ctx: AppContext, a: Any, cycle_id: str, body: Any, if_match: str | N
             raise ApiError(409, "SOP_NO_BASELINE", "Run the baseline scenario before leaving the supply review.", {})
         if c.status == "pre_sop" and not c.recommended_scenario_id:
             raise ApiError(409, "SOP_NO_RECOMMENDATION", "Recommend a scenario before the executive meeting.", {})
+        if c.status == "pre_sop":
+            check_current(s, c, s.get(MfgSopScenarioRow, c.recommended_scenario_id))
         nxt = STEPS[STEPS.index(c.status) + 1]
         steps = [dict(x) for x in c.steps]
         for st in steps:
@@ -450,6 +452,21 @@ def put_asp(ctx: AppContext, a: Any, cycle_id: str, body: Any) -> dict[str, Any]
     return demand(ctx, cycle_id, None, None)
 
 
+def consensus_hash(s: Session, c: MfgSopCycleRow) -> str:
+    return D.content_hash_table([_drow(x) for x in s.execute(select(MfgSopDemandRow).where(
+        MfgSopDemandRow.cycle_id == c.id)).scalars()])
+
+
+def check_current(s: Session, c: MfgSopCycleRow, sc: MfgSopScenarioRow | None) -> None:
+    """Review M2: a scenario stands for the consensus it was run on; after a demand change it must run again."""
+    if sc is None or sc.status != "completed" or not (sc.validator or {}).get("ok"):
+        raise ApiError(409, "SOP_SCENARIO_INVALID", "The scenario is not completed and validator-clean.",
+                       {"status": sc.status if sc else None})
+    if (sc.result or {}).get("consensus_hash") != consensus_hash(s, c):
+        raise ApiError(409, "SOP_SCENARIO_STALE", "The consensus changed after this scenario was run; run it "
+                       "again.", {"scenario_id": sc.id})
+
+
 def recommend(ctx: AppContext, a: Any, cycle_id: str, body: Any, if_match: str | None) -> dict[str, Any]:
     with write_tx(ctx) as (s, _):
         c = _get_cycle(s, cycle_id, lock=True)
@@ -459,6 +476,7 @@ def recommend(ctx: AppContext, a: Any, cycle_id: str, body: Any, if_match: str |
         if sc.cycle_id != c.id or sc.status != "completed" or not (sc.validator or {}).get("ok"):
             raise ApiError(409, "SOP_SCENARIO_INVALID", "Recommend a completed, validator-clean scenario of this "
                            "cycle.", {"status": sc.status})
+        check_current(s, c, sc)
         c.recommended_scenario_id, c.recommend_note = sc.id, body.note
         _touch(c)
         audit(s, "sop_cycle", c.id, "recommend", {"scenario": sc.number})
@@ -513,6 +531,7 @@ def approve(ctx: AppContext, a: Any, cycle_id: str, body: Any) -> dict[str, Any]
         if sc.status != "completed" or not (sc.validator or {}).get("ok") or sc.id != c.recommended_scenario_id:
             raise ApiError(409, "SOP_SCENARIO_INVALID", "Only the recommended, validator-clean scenario can be "
                            "approved.", {"recommended": c.recommended_scenario_id})
+        check_current(s, c, sc)
         out = esig.sign(s, a, auth, "sop_cycle", c.id, "approve", body.signature)
         if out.pending is not None:
             return out.pending
@@ -677,9 +696,11 @@ def problem_for(ctx: AppContext, r: MfgSopScenarioRow) -> tuple[Any, dict[str, A
             dem = {(x.node_owner_id, x.family, x.month): x.consensus_qty for x in drows}
             orders = {(x.node_owner_id, x.family, x.month): x.order_qty for x in drows}
             asp_rows = {(x.node_owner_id, x.family): (x.asp, x.asp_currency) for x in drows}
+            cons_hash = D.content_hash_table([_drow(x) for x in drows])
         else:
             period, horizon = today(s).replace(day=1), 18
             dem, orders, asp_rows = {}, {}, {}
+            cons_hash = None
         lanes = [{"id": x.id, "src": x.from_owner_id, "dst": x.to_owner_id, "transit_days": x.transit_days,
                   "freight_per_unit": x.freight_per_unit, "currency": x.currency, "active": x.active}
                  for x in s.execute(select(MfgNetLaneRow)).scalars()]
@@ -721,7 +742,7 @@ def problem_for(ctx: AppContext, r: MfgSopScenarioRow) -> tuple[Any, dict[str, A
     for ru in sorted(rules, key=lambda x: x["priority"]):
         if ru["source_kind"] == "plant" and ru["family"]:
             primary.setdefault((ru["dest"], ru["family"]), ru["source"])
-    return p, meta, {"asp": asp, "primary": primary, "milestones": ms}
+    return p, meta, {"asp": asp, "primary": primary, "milestones": ms, "consensus_hash": cons_hash}
 
 
 def _ser(d: dict[tuple, float]) -> list[list[Any]]:
@@ -774,7 +795,7 @@ def compute(ctx: AppContext, scenario_id: str) -> dict[str, Any]:
                               "primary": [[n, f, v] for (n, f), v in sorted(extra["primary"].items())]},
                   "make": _ser(res.make), "buy": _ser(res.buy), "ship": _ser(res.ship), "inv": _ser(res.inv),
                   "unmet": _ser(res.unmet), "ss_short": _ser(res.ss_short), "objective": res.objective,
-                  "meta": meta, "timings": {"build_s": round(t1 - t0, 3), "lp_s": round(t2 - t1, 3),
+                  "meta": meta, "consensus_hash": extra["consensus_hash"], "timings": {"build_s": round(t1 - t0, 3), "lp_s": round(t2 - t1, 3),
                                             "validator_s": round(t3 - t2, 3)}}
         hsh = hashlib.sha256(json.dumps(result["problem"], sort_keys=True, default=str).encode()).hexdigest()
         status, err = "completed", None
@@ -973,29 +994,44 @@ def publish(ctx: AppContext, a: Any, cycle_id: str) -> dict[str, Any]:
                 items = {i.id: i for i in s.execute(select(MfgItemRow)).scalars()}
                 src_vid = (c.demand_sources or {}).get(nid)
                 src = s.get(MfgForecastVersionRow, src_vid) if src_vid else None
+                from .. import repo as _repo
+
+                _repo.lock_plant(s)                              # review m2: the plant's write mutex
                 if cons.get(nid):
+                    # review M3: copy every line of the pinned version; replace only the family-month cells that
+                    # carry a consensus value (other families, items and months keep their finals)
+                    src_lines = list(s.execute(select(MfgForecastLineRow).where(
+                        MfgForecastLineRow.version_id == src.id)).scalars()) if src is not None else []
                     finals: dict[tuple[str, date], dict[str, float]] = defaultdict(dict)
-                    if src is not None:
-                        for ln in s.execute(select(MfgForecastLineRow).where(
-                                MfgForecastLineRow.version_id == src.id)).scalars():
-                            it = items.get(ln.item_id)
-                            if it is not None and it.family:
-                                finals[(it.family, ln.period_start.replace(day=1))][ln.item_id] = \
-                                    finals[(it.family, ln.period_start.replace(day=1))].get(ln.item_id, 0.0) + \
-                                    ln.final_qty
+                    periods: dict[tuple[str, date], dict[date, float]] = defaultdict(lambda: defaultdict(float))
+                    for ln in src_lines:
+                        it = items.get(ln.item_id)
+                        m = ln.period_start.replace(day=1)
+                        if it is not None and it.family:
+                            finals[(it.family, m)][ln.item_id] = finals[(it.family, m)].get(ln.item_id, 0.0) + \
+                                ln.final_qty
+                            periods[(ln.item_id, m)][ln.period_start] += ln.final_qty
                     hist: dict[str, float] = defaultdict(float)
                     for iid, q in s.execute(select(MfgDemandHistoryRow.item_id, MfgDemandHistoryRow.qty).where(
                             MfgDemandHistoryRow.bucket == "m",
                             MfgDemandHistoryRow.period_start >= D.add_months(c.period, -12))):
                         hist[iid] += float(q or 0)
+                    bucket = src.bucket if src is not None else "m"
                     v = MfgForecastVersionRow(
                         id=new_id("fcv_"), number=next_number(s, "FCV", MfgForecastVersionRow),
                         name=f"{c.number} consensus"[:100], run_id=src.run_id if src else None, status="draft",
-                        bucket="m", start=c.period, periods=c.horizon_months, activated_by=None, activated_at=None,
+                        bucket=bucket, start=src.start if src else c.period,
+                        periods=src.periods if src else c.horizon_months, activated_by=None, activated_at=None,
                         archived_at=None, note="source sop", row_version=1, created_at=now, updated_at=now)
                     s.add(v)
                     s.flush()
-                    lines = []
+                    replaced = {k for k, q in cons[nid].items()}
+                    cells: dict[tuple[str, date], list[float]] = {}
+                    for ln in src_lines:
+                        it = items.get(ln.item_id)
+                        if it is not None and it.family and (it.family, ln.period_start.replace(day=1)) in replaced:
+                            continue
+                        cells[(ln.item_id, ln.period_start)] = [ln.stat_qty, ln.final_qty]
                     for (fam, m), q in sorted(cons[nid].items()):
                         fin = finals.get((fam, m), {})
                         fh = {i: hist.get(i, 0.0) for i, it in items.items() if it.family == fam and it.active}
@@ -1003,10 +1039,20 @@ def publish(ctx: AppContext, a: Any, cycle_id: str) -> dict[str, Any]:
                         if err:
                             if q > 0:
                                 warnings.append({"code": err, "node": nid, "family": fam, "month": m})
+                            for iid, x in fin.items():         # nothing to scale by: keep the pinned finals
+                                for ps, f in periods[(iid, m)].items():
+                                    cells[(iid, ps)] = [f, f]
                             continue
                         for iid, x in qty.items():
-                            lines.append({"id": new_id("fcl_"), "owner_id": nid, "version_id": v.id, "item_id": iid,
-                                          "period_start": m, "stat_qty": float(fin.get(iid, 0.0)), "final_qty": x})
+                            ps_map = periods.get((iid, m)) or {m: 1.0}
+                            tot = sum(ps_map.values())
+                            for ps, f in ps_map.items():         # weekly versions: spread over the item's weeks
+                                share = f / tot if tot > 0 else 1.0 / len(ps_map)
+                                cells[(iid, ps)] = [float(ps_map.get(ps, 0.0)) if periods.get((iid, m)) else 0.0,
+                                                    round(x * share, 6)]
+                    lines = [{"id": new_id("fcl_"), "owner_id": nid, "version_id": v.id, "item_id": iid,
+                              "period_start": ps, "stat_qty": float(st), "final_qty": float(fq)}
+                             for (iid, ps), (st, fq) in sorted(cells.items(), key=lambda kv: (kv[0][0], kv[0][1]))]
                     if lines:
                         s.execute(MfgForecastLineRow.__table__.insert(), lines)
                     for old in s.execute(select(MfgForecastVersionRow).where(

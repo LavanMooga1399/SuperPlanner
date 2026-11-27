@@ -56,8 +56,23 @@ def test_publish_keep_cancel_create_and_shipped_untouched(db_url):
         # demand changes inside the firm zone -> the old TO is cancelled, a new one created
         _order(dc, s["dc_item"]["id"], 500, 12)
         r3 = run(net)
-        p3 = net.post(f"/net/runs/{r3['id']}/publish", None, status=200)["publish_result"]
+        from sqlalchemy import event
+        seen: list[str] = []
+        eng = app.state.ctx.db.engine
+
+        def grab(conn, cursor, statement, *a):            # review M1: candidates are locked before the decision
+            seen.append(statement)
+        event.listen(eng, "before_cursor_execute", grab)
+        try:
+            p3 = net.post(f"/net/runs/{r3['id']}/publish", None, status=200)["publish_result"]
+        finally:
+            event.remove(eng, "before_cursor_execute", grab)
+        assert any("FROM mfg_transfer_orders" in x and "FOR UPDATE" in x for x in seen)
+        assert any("FROM mfg_transfer_lines" in x and "FOR UPDATE" in x for x in seen)
         assert len(p3["cancelled"]) == 1 and len(p3["created"]) == 1, p3
+        from m8_helpers import audit_rows                  # review m1: the mirror's cancel is audited in the DC
+        dst_rows = audit_rows(w.admin, "transfer_order", owner=w.owner("DCUS"))
+        assert any(x["action"] == "cancel" and x["reason"].startswith("Superseded by network plan") for x in dst_rows)
         live = [t for t in _network_tos(qc) if t["status"] == "open"]
         assert len(live) == 1 and live[0]["lines"][0]["qty"] == 1500
         # a shipped network TO is never touched

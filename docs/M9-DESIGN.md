@@ -661,3 +661,16 @@ S5 notes (performance, register; as built 2026-11-27):
   (`make_mfg_m9_world`), overdue-step notifications and the network / plant M9 dashboard tiles, automatic
   `content_rollup` enqueue after `wo_receipt`, scenario allocation shares in the milestone projection, the
   regulated COO edit of a received lot.
+
+Review round (2026-11-27) decisions - major:
+- M1 Network publish locks the candidate network TOs, their mirrors and lines `FOR UPDATE` (ordered by id,
+  `populate_existing`) and re-checks status and shipments on the locked rows; a TO shipped concurrently is skipped,
+  never cancelled. The mirror's cancel is audited in the destination plant's chain too (m1).
+- M2 A scenario result stores the cycle's consensus hash at run time; `recommend`, leaving `pre_sop` (which also
+  re-checks that the recommended scenario is still completed and validator-clean) and `approve` answer 409
+  `SOP_SCENARIO_STALE` when the consensus changed since the run.
+- M3 S&OP publish copies every line of the pinned version (bucket, start, periods kept) and replaces only the
+  family-month cells that carry a consensus value; in weekly versions the item's monthly quantity is spread over its
+  weeks by its pinned finals. A family-month without any basis (`SOP_DISAGG_NONE`) keeps the pinned finals.
+- M4 Trade uses only an explicit plant country (attribute `country`, set at plant creation): without it a made
+  lot's COO is null (`TRADE_COO_MISSING`) and landed cost has a null total with `COUNTRY_MISSING`.

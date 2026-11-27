@@ -76,12 +76,13 @@ def network_tables(s: Session, net: str | None = None) -> dict[str, Any]:
 
 
 def _plant_country(s: Session) -> tuple[str | None, str]:
-    from ....mfg.model import plant_locale
-
+    """(explicit plant country, currency). Review M4: trade never derives the country from the currency or the time
+    zone - without the plant attribute `country` the COO of made lots is missing and landed cost has no total."""
     p = s.execute(select(MfgPlantRow)).scalars().first()
     if p is None:
         return None, "USD"
-    return plant_locale(p.attributes, p.currency, p.time_zone)[0], p.currency or "USD"
+    c = (p.attributes or {}).get("country")
+    return (c.upper() if isinstance(c, str) and len(c) == 2 else None), p.currency or "USD"
 
 
 # ---------------------------------------------------------------- T1-T4 tables
@@ -311,8 +312,10 @@ def after_post(s: Session, posting: Any, inp: Any) -> None:
             continue
         if posting.type == "wo_receipt":
             it = s.get(MfgItemRow, t.item_id)
-            lot.coo, lot.coo_source = country, "plant"
+            lot.coo, lot.coo_source = country, ("plant" if country else None)
             lot.unit_value = it.standard_cost if it else None
+            if not country:
+                warn.append({"code": "TRADE_COO_MISSING", "lot_id": lot.id, "detail": "COUNTRY_MISSING"})
         elif posting.type == "po_receipt":
             sched = s.get(MfgPurchaseScheduleRow, t.schedule_id) if t.schedule_id else None
             line = s.get(MfgPurchaseLineRow, sched.line_id) if sched else None

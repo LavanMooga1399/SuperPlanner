@@ -80,3 +80,10 @@ def test_supplier_risk_score_and_suggestion():
                             {"supplier_code": "ZZ", "node_owner_id": "n", "family": "X", "hts": "9999", "landed": 0.001}])
     assert [s["supplier_code"] for s in sug] == ["KTUBE"] and sug[0]["basis"] == "heading"
     assert sug[0]["landed_delta"] == pytest.approx(-0.001)
+
+
+def test_landed_without_plant_country_has_no_total():
+    """Review M4: the destination country is never guessed."""
+    fx = FxTable([("USD", "CAD", NOV, 1.40)])
+    out = landed(SupplierTerms(100.0, "USD", 1000, "CN", "901832", 0.005), None, "CAD", NOV, fx, tariffs())
+    assert out["total"] is None and "COUNTRY_MISSING" in out["flags"] and out["unit_price"] == pytest.approx(0.14)

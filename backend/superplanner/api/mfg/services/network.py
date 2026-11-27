@@ -806,13 +806,29 @@ def publish(ctx: AppContext, a: Any, run_id: str) -> dict[str, Any]:
                                   "network_supplies": later, "warnings": []}
         open_planned = {t.id: t for t in firm}
         with system_scope():
-            existing = list(s.execute(select(MfgTransferOrderRow).where(
+            # review M1: lock the candidate TOs and their mirrors (ordered by id), then re-check status and
+            # shipments on the locked rows - a TO shipped concurrently is never cancelled
+            cand = list(s.execute(select(MfgTransferOrderRow.id).where(
                 MfgTransferOrderRow.source == "network", MfgTransferOrderRow.direction == "out",
                 MfgTransferOrderRow.status.in_(("draft", "open")),
-                MfgTransferOrderRow.source_owner_id.in_(list(nodes))).order_by(MfgTransferOrderRow.number)).scalars())
+                MfgTransferOrderRow.source_owner_id.in_(list(nodes)))).scalars())
+            mirrors = list(s.execute(select(MfgTransferOrderRow.id).where(
+                MfgTransferOrderRow.mirror_of.in_(cand))).scalars()) if cand else []
+            locked = {o.id: o for o in s.execute(select(MfgTransferOrderRow).where(
+                MfgTransferOrderRow.id.in_(sorted(cand + mirrors))).order_by(MfgTransferOrderRow.id)
+                .with_for_update().execution_options(populate_existing=True)).scalars()} if cand else {}
+            all_lines: dict[str, list[Any]] = defaultdict(list)
+            if cand:
+                for ln in s.execute(select(MfgTransferLineRow).where(MfgTransferLineRow.order_id.in_(sorted(cand)))
+                                    .order_by(MfgTransferLineRow.id).with_for_update()
+                                    .execution_options(populate_existing=True)).scalars():
+                    all_lines[ln.order_id].append(ln)
+            by_mirror = {o.mirror_of: o for o in locked.values() if o.mirror_of}
+            existing = sorted((locked[i] for i in cand), key=lambda o: o.number)
             for o in existing:
-                lines = list(s.execute(select(MfgTransferLineRow).where(MfgTransferLineRow.order_id == o.id)
-                                       .order_by(MfgTransferLineRow.line_no)).scalars())
+                if o.status not in ("draft", "open"):
+                    continue                                          # changed before the lock
+                lines = sorted(all_lines.get(o.id, []), key=lambda ln: ln.line_no)
                 if any(ln.shipped_qty > 0 for ln in lines):
                     continue                                          # shipped TOs are never touched
                 keys = _key_of_items(s, o.source_owner_id, {ln.item_id for ln in lines})
@@ -831,13 +847,15 @@ def publish(ctx: AppContext, a: Any, run_id: str) -> dict[str, Any]:
                     o.net_run_id = r.id
                     result["kept"].append(_to_summary(o, lines))
                     continue
-                mirror = s.execute(select(MfgTransferOrderRow).where(MfgTransferOrderRow.mirror_of == o.id)
-                                   ).scalars().first()
+                mirror = by_mirror.get(o.id)
                 for x in (o, mirror):
                     if x is not None and TRM.can("cancel", x.status, 0.0):
                         x.status, x.row_version, x.updated_at = "cancelled", x.row_version + 1, utcnow()
-                with owner_scope(o.source_owner_id):
-                    audit(s, "transfer_order", o.id, "cancel", {"number": o.number, "via": via}, reason=reason)
+                for owner, oid in ((o.source_owner_id, o.id), (o.dest_owner_id, mirror.id if mirror else None)):
+                    if oid is not None:                               # review m1: both plants' audit chains
+                        with owner_scope(owner):
+                            audit(s, "transfer_order", oid, "cancel", {"number": o.number, "via": via},
+                                  reason=reason)
                 result["cancelled"].append(_to_summary(o, lines))
             groups: dict[tuple[str, str, str | None, date], list[MfgNetTransferRow]] = defaultdict(list)
             for t in open_planned.values():

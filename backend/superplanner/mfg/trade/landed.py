@@ -106,6 +106,9 @@ def landed(terms: SupplierTerms, dest_country: str | None, dest_currency: str, m
                     amount += t.per_unit * pr
             duty.append({"layer": t.layer, "rate_pct": t.rate_pct, "per_unit": t.per_unit, "amount": r6(amount)})
     other = None if customs is None else customs * other_cost_pct / 100.0
+    if not dest_country:                       # review M4: duty cannot be decided without the plant country
+        flags.append("COUNTRY_MISSING")
+        duty_missing = True
     total = None
     if price is not None and not duty_missing and all(d["amount"] is not None for d in duty):
         total = price + freight + sum(d["amount"] for d in duty) + (other or 0.0)
