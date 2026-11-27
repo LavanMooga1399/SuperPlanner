@@ -50,7 +50,9 @@ def test_plant_dashboard_matches_the_endpoints(world: World):
     ms13 = (time.monotonic() - t0) * 1000
     tiles = d["tiles"]
     assert set(tiles) == {"otd", "backlog", "material_risk", "execution", "inventory", "late_pos", "quality",
-                          "integration"}
+                          "integration",
+                          "forecast_accuracy", "rate_shortages", "ster_release",     # M8-DESIGN 12
+                          "mps_attainment"}                                           # M9-DESIGN 10 (plant)
     # OTD equals the M4 KPI of the same period
     today = date.fromisoformat(api.get("/kpis")["period"]["to"])
     k = api.get("/kpis", **{"from": (today - timedelta(days=90)).isoformat(), "to": today.isoformat()},
@@ -95,7 +97,8 @@ def test_thresholds_export_and_snapshot_duty(world: World):
     world.api("viewer").err("PUT", "/plant/dashboard-thresholds", 403, "MFG_FORBIDDEN",
                             json={"thresholds": {"otd": {"alert_below": 0.5}}})
     r = api.req("GET", "/dashboard/export", 200, params={"format": "csv"})
-    assert r.text.splitlines()[0] == "tile,value,unit,status,note" and len(r.text.splitlines()) == 9
+    assert r.text.splitlines()[0] == "tile,value,unit,status,note" and len(r.text.splitlines()) == 1 + len(
+        api.get("/dashboard")["tiles"])                          # one row per tile (M8 and M9 tiles included)
     r = api.req("GET", "/dashboard/export", 200, params={"format": "xlsx"})
     assert r.content[:2] == b"PK"
     # 3.2: the scheduler enqueues inventory_snapshot (00:30 plant time); the job writes the day's rows once
