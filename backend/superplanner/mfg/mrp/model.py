@@ -135,13 +135,29 @@ class MrpSnapshot:
     zones: tuple[int, int] = (28, 26)                                  # daily days, weekly weeks
     #: lots held only for sterility release: supply at their planned release date (review 1)
     release_supplies: list["RateSupplySnap"] = field(default_factory=list)
+    #: M9-DESIGN 5.4: the published network run's later (non-firm) transfers - demand at the source (kind `network`,
+    #: ranked as a transfer) and supply at the destination (kind `network`); both default empty
+    network_demands: list["NetworkDemandSnap"] = field(default_factory=list)
+    network_supplies: list["RateSupplySnap"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class NetworkDemandSnap:
+    """A planned network transfer out of this plant (M9 5.4): requirement kind `network`."""
+    item_id: str
+    need_date: date
+    qty: float
+    ref_id: str                                      # net transfer id
+    label: str                                       # "Transfer to DCUS for SO-000123"
+    priority: int = 5
+    ref: Mapping[str, Any] = field(default_factory=dict)   # {net_run, dst, pegs[:5]}
 
 
 @dataclass(frozen=True)
 class PlanningSnap:
     """M8 item planning as MRP sees it."""
     item_id: str
-    replenishment: str = "mrp"                       # mrp | rate | kanban
+    replenishment: str = "mrp"                       # mrp | rate | kanban | transfer (M9)
     pack_multiple: float | None = None               # qty_base of the order pack level
     case_qty: float | None = None
     pallet_qty: float | None = None
@@ -163,8 +179,8 @@ class RateSupplySnap:
 # ---------------------------------------------------------------- result parts
 
 RequirementKind = Literal["demand", "extra_demand", "safety_stock", "planned_component", "wo_component",
-                          "forecast"]                       # M8-DESIGN 6
-SupplyKind = Literal["stock", "inspection", "po", "pr", "wo", "planned", "kanban", "rate"]   # M8-DESIGN 6
+                          "forecast", "network"]            # M8-DESIGN 6, M9 5.4
+SupplyKind = Literal["stock", "inspection", "po", "pr", "wo", "planned", "kanban", "rate", "network"]   # M8 6, M9
 
 
 @dataclass(slots=True)

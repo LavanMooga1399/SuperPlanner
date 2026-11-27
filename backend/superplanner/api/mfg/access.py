@@ -39,12 +39,16 @@ PERMISSIONS: tuple[str, ...] = ("view", "master_edit", "supplier_edit", "invento
                                 # M8-DESIGN 11
                                 "forecast_edit", "forecast_approve", "inventory_policy_edit",
                                 "inventory_policy_approve", "rate_plan", "ster_plan", "ster_release", "kanban_edit",
-                                "kanban_scan", "validation_view")
+                                "kanban_scan", "validation_view",
+                                # M9-DESIGN 9
+                                "network_edit", "network_plan", "network_publish", "sop_edit", "sop_publish",
+                                "trade_admin")
 _PLANNER = frozenset({"view", "master_edit", "supplier_edit", "pr_edit", "demand_edit", "wo_edit", "mrp_run",
                       "schedule_run", "schedule_publish", "import",   # M3-DESIGN 11
                       "floor_view", "floor_report", "downtime_report", "replan_manage", "trace_view", "eco_edit",
                       "transfer_edit", "assistant_use",               # M4-DESIGN 11, M6 5
-                      "forecast_edit", "inventory_policy_edit", "rate_plan", "ster_plan", "kanban_edit"})   # M8 11
+                      "forecast_edit", "inventory_policy_edit", "rate_plan", "ster_plan", "kanban_edit",   # M8 11
+                      "network_plan", "sop_edit"})                                                       # M9 9
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "owner": frozenset(PERMISSIONS),
     "plant_admin": frozenset(PERMISSIONS),          # M5-DESIGN 3.4: owner-equivalent in an organisation's plant
@@ -72,14 +76,17 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
                              "ster_release", "validation_view"}),                     # M8-DESIGN 11
     "metrology": frozenset({"view", "floor_view", "assistant_use", "equipment_edit"}),
     # M8-DESIGN 11: plant manager (planner + forecast / inventory policy approvals), auditor (read + validation)
-    "plant_manager": _PLANNER | {"forecast_approve", "inventory_policy_approve"},
+    "plant_manager": _PLANNER | {"forecast_approve", "inventory_policy_approve",
+                                 "network_edit", "network_publish", "sop_publish", "trade_admin"},   # M9 9
     "auditor": frozenset({"view", "floor_view", "trace_view", "assistant_use", "audit_view", "validation_view"}),
+    # M9-DESIGN 9: executives read and sign the S&OP approval (policy `sop_cycle.approve`)
+    "executive": frozenset({"view", "assistant_use"}),
 }
 ROLE_LABELS = {"owner": "Owner", "planner": "Planner", "purchaser": "Purchaser", "store_keeper": "Store keeper",
                "approver": "Approver", "viewer": "Viewer", "operator": "Operator", "supervisor": "Supervisor",
                "plant_admin": "Plant admin", "qa_inspector": "QA inspector", "qa_engineer": "QA engineer",
                "qa_approver": "QA approver", "metrology": "Metrology", "plant_manager": "Plant manager",
-               "auditor": "Auditor"}
+               "auditor": "Auditor", "executive": "Executive"}
 WORKSPACE_HEADER = "X-SP-Workspace"
 
 
@@ -95,6 +102,8 @@ class MfgPrincipal:
     token_id: str | None = None
     #: the role permissions before the token cap (integration scopes need `integration_admin` there)
     role_permissions: frozenset[str] | None = None
+    #: M9-DESIGN 4: kind of the workspace (`plant`, `dc` or `network`)
+    kind: str = "plant"
 
     def has(self, perm: str) -> bool:
         return perm in self.permissions
@@ -110,7 +119,7 @@ def permissions_of(roles: tuple[str, ...] | list[str]) -> frozenset[str]:
 def roles_allowed(perm: str) -> list[str]:
     return [r for r in ("owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
                         "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology",
-                        "plant_manager", "auditor")
+                        "plant_manager", "auditor", "executive")
             if perm in ROLE_PERMISSIONS[r]]
 
 
@@ -119,14 +128,47 @@ def workspace_not_found(owner_id: str) -> ApiError:
 
 
 def _membership(ctx: AppContext, owner_id: str, user_id: str) -> tuple[str, ...] | None:
+    found = _membership_kind(ctx, owner_id, user_id)
+    return found[0] if found is not None else None
+
+
+def _membership_kind(ctx: AppContext, owner_id: str, user_id: str) -> tuple[tuple[str, ...], str] | None:
+    """(roles, workspace kind) of an active membership."""
     from ..auth.models import UserRow
+    from .db_models import MfgPlantRow
     from .db_models_m2 import MfgPlantMemberRow
 
     with system_scope(), ctx.db.read() as s:
-        row = s.execute(select(MfgPlantMemberRow.roles).join(UserRow, UserRow.id == MfgPlantMemberRow.owner_id)
+        row = s.execute(select(MfgPlantMemberRow.roles, MfgPlantRow.kind)
+                        .join(UserRow, UserRow.id == MfgPlantMemberRow.owner_id)
+                        .outerjoin(MfgPlantRow, MfgPlantRow.owner_id == MfgPlantMemberRow.owner_id)
                         .where(MfgPlantMemberRow.owner_id == owner_id, MfgPlantMemberRow.user_id == user_id,
                                MfgPlantMemberRow.active.is_(True), UserRow.disabled.is_(False))).first()
-    return tuple(row[0]) if row is not None else None
+    return (tuple(row[0]), row[1] or "plant") if row is not None else None
+
+
+#: M9-DESIGN 4 / 9: routes of the network workspace (N/S/T) and the writes allowed there besides them
+NETWORK_PREFIXES = ("/mfg/net/", "/mfg/sop/", "/mfg/trade/")
+PLANT_TRADE_PATHS = ("/mfg/trade/landed",)            # P2: plant route under /trade (P3 /trade/risk serves both)
+NETWORK_WRITE_ALLOWED = NETWORK_PREFIXES + ("/mfg/esig/", "/mfg/plant/planning-settings", "/mfg/plant/part11",
+                                            "/mfg/part11/")
+
+
+def workspace_guard(path: str, method: str, kind: str) -> None:
+    """409 `NET_WORKSPACE_REQUIRED` for network routes outside the network workspace; 409 `NET_WORKSPACE` for the
+    M1-M8 writes inside it (reads answer, with empty plant data)."""
+    i = path.find("/mfg/")
+    if i < 0:
+        return
+    p = path[i:]
+    network_route = p.startswith(NETWORK_PREFIXES) and not p.startswith(PLANT_TRADE_PATHS) \
+        and not p.startswith("/mfg/trade/risk")
+    if kind != "network" and network_route:
+        raise ApiError(409, "NET_WORKSPACE_REQUIRED", "This page belongs to the organisation's network workspace.",
+                       {"kind": kind})
+    if kind == "network" and method not in ("GET", "HEAD", "OPTIONS") and not p.startswith(NETWORK_WRITE_ALLOWED):
+        raise ApiError(409, "NET_WORKSPACE", "The network workspace holds no plant data; open a plant to change it.",
+                       {"kind": kind})
 
 
 async def mfg_principal(request: Request, ctx: AppContext = Depends(get_ctx)) -> MfgPrincipal:
@@ -149,12 +191,14 @@ async def mfg_principal(request: Request, ctx: AppContext = Depends(get_ctx)) ->
     else:
         if ctx.settings.single_user or len(target) > 64:
             raise workspace_not_found(target[:64])
-        roles = await run_in_threadpool(_membership, ctx, target, user_id)
-        if not roles:
+        found = await run_in_threadpool(_membership_kind, ctx, target, user_id)
+        if not found or not found[0]:
             raise workspace_not_found(target)
+        roles, kind = found
         p = MfgPrincipal(user_id, target, False, tuple(r for r in roles if r in ROLE_PERMISSIONS),
-                         permissions_of(list(roles)))
+                         permissions_of(list(roles)), kind=kind)
         bind_owner(target)
+    workspace_guard(request.url.path, request.method, p.kind)
     if scopes is not None:
         from dataclasses import replace
 

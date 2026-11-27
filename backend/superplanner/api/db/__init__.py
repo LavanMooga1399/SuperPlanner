@@ -20,6 +20,7 @@ def load_all_models():
     from ..mfg import db_models_ux as _mfg_db_models_ux  # noqa: F401
     from ..mfg import db_models_m7 as _mfg_db_models_m7  # noqa: F401
     from ..mfg import db_models_m8 as _mfg_db_models_m8  # noqa: F401
+    from ..mfg import db_models_m9 as _mfg_db_models_m9  # noqa: F401
 
     return Base.metadata
 

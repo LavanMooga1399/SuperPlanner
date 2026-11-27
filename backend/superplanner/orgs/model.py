@@ -17,7 +17,8 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 PlantCode = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.\-]{0,31}$")]
 PLANT_ROLES = ("plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer", "operator", "supervisor",
                "qa_inspector", "qa_engineer", "qa_approver", "metrology",   # M7-DESIGN 9.1
-               "plant_manager", "auditor")                                  # M8-DESIGN 11
+               "plant_manager", "auditor",                                  # M8-DESIGN 11
+               "executive")                                                 # M9-DESIGN 9
 
 
 class OrgIn(_In):
@@ -72,10 +73,21 @@ class OrgPlantIn(_In):
     name: Name
     utc_offset: Annotated[str, StringConstraints(pattern=r"^[+-](0\d|1[0-4]):[0-5]\d$")] = "+00:00"
     time_zone: Annotated[str, StringConstraints(max_length=64)] | None = None
+    #: M9-DESIGN 2 / 4: a plant or a distribution centre; country (plant attribute) and currency
+    kind: Literal["plant", "dc"] = "plant"
+    country: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{2}$")] | None = None
+    currency: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Z]{3}$")] | None = None
 
 
 class OrgPlantUpdate(_In):
     name: Name
+    kind: Literal["plant", "dc"] | None = None          # M9 4: to `dc` only without lines (409 NET_DC_HAS_LINES)
+
+
+class NetworkIn(_In):
+    """O1 (M9-DESIGN 4): the organisation's network workspace."""
+    name: Name = "Network"
+    time_zone: Annotated[str, StringConstraints(max_length=64)] | None = None
 
 
 class OrgPlantRecord(BaseModel):
@@ -83,6 +95,7 @@ class OrgPlantRecord(BaseModel):
     code: str
     name: str
     plant_owner_id: str
+    kind: Literal["plant", "dc", "network"] = "plant"
     my_roles: list[str] = Field(default_factory=list)
     row_version: int
     created_at: datetime
@@ -92,7 +105,7 @@ class PlantRolesIn(_In):
     user_id: Annotated[str, StringConstraints(max_length=64)]
     roles: Annotated[list[Literal["plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
                                   "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver",
-                                  "metrology", "plant_manager", "auditor"]], Field(max_length=14)]   # [] removes the membership
+                                  "metrology", "plant_manager", "auditor", "executive"]], Field(max_length=15)]   # [] removes the membership
 
 
 class PublishIn(_In):

@@ -418,6 +418,9 @@ class MfgTransferOrderRow(OwnedMixin, _Editable, Base):
     from_location_id: Mapped[str | None] = _s(64, True)
     to_location_id: Mapped[str | None] = _s(64, True)
     note: Mapped[str] = _s(500)
+    #: M9-DESIGN 5.4: `manual` | `network` (created by a network publish) and the publishing run
+    source: Mapped[str] = mapped_column(String(8), default="manual")
+    net_run_id: Mapped[str | None] = _s(64, True)
 
 
 class MfgTransferLineRow(OwnedMixin, _Editable, Base):

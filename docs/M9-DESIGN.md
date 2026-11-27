@@ -482,3 +482,29 @@ which materials ("melted and poured" steel origin is captured as supplier COO); 
 SAP EWM (DC stock would then come through the M8 adapter).
 
 Implementation notes: (S0 and later phases append here.)
+
+**S0 frozen (2026-11-27, WP-S).** Contracts `mfg/network/model.py`, `mfg/sop/model.py` (incl. `ScenarioChange`, a
+union discriminated on `kind`), `mfg/trade/model.py`, MRP additions (`MrpSnapshot.network_demands` /
+`network_supplies`, `NetworkDemandSnap`, requirement / supply kind `network`, replenishment `transfer`); migration
+`0012_m9` (+ `migrate.HEAD`); all routes of 9 live in `api/mfg/router_m9.py` answering from
+`api/mfg/fixtures/example_m9.json` (`build_example_m9.py`; `services/m9_examples.py`, PEP 562 fallback as M8);
+permissions `network_edit`, `network_plan`, `network_publish`, `sop_edit`, `sop_publish`, `trade_admin`, role
+`executive`; O1 `POST /orgs/{org}/network`. Field names follow the UI draft `frontend/src/mfg/api/typesM9.ts`.
+S0 interpretations:
+- Workspace guards live in `access.mfg_principal` (`workspace_guard`): N/S/T paths outside the network workspace ->
+  409 `NET_WORKSPACE_REQUIRED`; writes in the network workspace -> 409 `NET_WORKSPACE` except N/S/T, `/esig/`,
+  `/part11/`, `/plant/part11` and `/plant/planning-settings` (the network settings of 3 are additive keys of
+  `planning_settings` there). Reads answer (plant reads return empty data). The guard runs before the permission
+  check (409 before 403). `GET /trade/risk` serves both P3 (plant) and T8 (network, org-wide).
+- S22 approve declares permission `view`: the signers are decided by the policy `sop_cycle.approve` (plant manager
+  `reviewed`, executive `approved`); requiring `sop_edit` would exclude the executive role of 9.
+- Bulk tables: `PUT /trade/tariffs` / `/trade/fx` take `{rows, replace}` (upsert by natural key; `replace` deletes
+  rows not given); `PUT /trade/milestones` / `/trade/country-risk` / `/net/ramp-curves` are list replaces
+  (`{rows}` / `{curves}`); results `BulkResult {inserted, updated, deleted}`.
+- Plants are created with `kind` (`plant` | `dc`), `country` (plant attribute, read by `PlantRecord.country`) and
+  `currency` (`OrgPlantIn`, additive); `PUT /orgs/{org}/plants/{plant}` accepts `kind` (409 `NET_DC_HAS_LINES`).
+- Additive columns beyond 3: `mfg_net_runs.label`, `publish_result`; `mfg_sop_demand.items` (per-item basis for the
+  drill-down and disaggregation); `mfg_sop_scenarios.baseline`, `enforce_milestones`, `warnings`;
+  `mfg_mps_targets.cycle_number`, `created_at`. Report-currency KPIs and records carry `currency`.
+- M8 follow-up (M8 15 request): `SterLoadRecord.lots [{lot_id, lot_code}]` = the load's open sterility holds, else
+  its members' lots; the signature preview's "Lots" row lists those lot codes.

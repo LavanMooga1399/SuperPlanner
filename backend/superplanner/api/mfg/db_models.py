@@ -75,6 +75,8 @@ class MfgPlantRow(OwnedMixin, _Editable, Base):
     qa_settings: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
     #: M8-DESIGN 4.6 (None = defaults)
     planning_settings: Mapped[dict[str, Any] | None] = mapped_column(JsonType, nullable=True)
+    #: M9-DESIGN 4: `plant` | `dc` | `network` (the organisation's network workspace)
+    kind: Mapped[str] = mapped_column(String(8), default="plant")
 
 
 class MfgItemRow(OwnedMixin, _Editable, Base):

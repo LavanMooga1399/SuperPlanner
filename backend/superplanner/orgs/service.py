@@ -221,7 +221,10 @@ def plant_record(s: Any, p: OrgPlantRow, user_id: str) -> dict[str, Any]:
     roles = s.execute(select(MfgPlantMemberRow.roles).where(MfgPlantMemberRow.owner_id == p.plant_owner_id,
                                                             MfgPlantMemberRow.user_id == user_id,
                                                             MfgPlantMemberRow.active.is_(True))).scalar()
-    return {"id": p.id, "code": p.code, "name": p.name, "plant_owner_id": p.plant_owner_id,
+    from ..api.mfg.db_models import MfgPlantRow
+
+    kind = s.execute(select(MfgPlantRow.kind).where(MfgPlantRow.owner_id == p.plant_owner_id)).scalar()
+    return {"id": p.id, "code": p.code, "name": p.name, "plant_owner_id": p.plant_owner_id, "kind": kind or "plant",
             "my_roles": list(roles or []), "row_version": p.row_version, "created_at": as_utc(p.created_at)}
 
 
@@ -255,6 +258,11 @@ def create_plant(ctx: AppContext, user_id: str, org_id: str, inp: Any) -> dict[s
         plant.name, plant.utc_offset = inp.name, inp.utc_offset
         if inp.time_zone:
             plant.time_zone = inp.time_zone
+        plant.kind = getattr(inp, "kind", None) or "plant"                 # M9 4
+        if getattr(inp, "currency", None):
+            plant.currency = inp.currency
+        if getattr(inp, "country", None):
+            plant.attributes = {**(plant.attributes or {}), "country": inp.country}
         s.add(MfgPlantMemberRow(id=new_id("mbr_"), user_id=user_id, roles=["plant_admin"], active=True,
                                 invited_by=user_id, row_version=1, created_at=now, updated_at=now))
     with system_scope(), ctx.db.read() as s:
@@ -274,9 +282,73 @@ def update_plant(ctx: AppContext, user_id: str, org_id: str, plant: str, inp: An
     with system_scope(), ctx.db.write() as s:
         _org(s, org_id, user_id, admin=True)
         p = _plant(s, org_id, plant)
+        if getattr(inp, "kind", None) is not None:
+            set_kind(s, p.plant_owner_id, inp.kind)
         p.name, p.row_version = inp.name, p.row_version + 1
         s.flush()
         return plant_record(s, p, user_id)
+
+
+def set_kind(s: Any, owner: str, kind: str) -> None:
+    """M9 4: plant <-> dc; a plant becomes a DC only without lines (409 `NET_DC_HAS_LINES`); the network workspace
+    keeps its kind."""
+    from ..api.mfg.db_models import MfgLineRow, MfgPlantRow
+
+    row = s.execute(select(MfgPlantRow).where(MfgPlantRow.owner_id == owner)).scalars().first()
+    current = row.kind if row is not None else "plant"
+    if current == kind:
+        return
+    if current == "network":
+        raise ApiError(409, "NET_WORKSPACE", "The network workspace keeps its kind.", {"kind": current})
+    if kind == "dc" and s.execute(select(func.count()).select_from(MfgLineRow).where(
+            MfgLineRow.owner_id == owner)).scalar():
+        raise ApiError(409, "NET_DC_HAS_LINES", "A plant with lines cannot become a distribution centre.", {})
+    if row is None:
+        with owner_scope(owner):
+            from ..api.mfg import repo
+
+            row = repo.lock_plant(s)
+    row.kind = kind
+    row.row_version += 1
+
+
+def create_network(ctx: AppContext, user_id: str, org_id: str, inp: Any) -> dict[str, Any]:
+    """O1 (M9-DESIGN 4): the organisation's network workspace (plant principal, `mfg_plant.kind = network`, code
+    `NET`); the org admins become `plant_admin` there; the policy `sop_cycle.approve` and curve `STD26` are seeded."""
+    from ..api.mfg import repo
+    from ..api.mfg.db_models import MfgPlantRow
+
+    now = utcnow()
+    with system_scope(), ctx.db.write() as s:
+        _org(s, org_id, user_id, admin=True)
+        owners = [p.plant_owner_id for p in _plants(s, org_id)]
+        if owners and s.execute(select(MfgPlantRow.id).where(MfgPlantRow.owner_id.in_(owners),
+                                                             MfgPlantRow.kind == "network")).first():
+            raise ApiError(409, "NET_EXISTS", "The organisation already has a network workspace.", {})
+        if s.execute(select(OrgPlantRow.id).where(OrgPlantRow.org_id == org_id, OrgPlantRow.code == "NET")).first():
+            raise ApiError(409, "MFG_DUPLICATE_KEY", "Plant 'NET' exists.", {"key": {"code": "NET"}})
+        principal = UserRow(id=new_id("usr_"), email=None, display_name="Network", password_hash=None,
+                            is_local=False, disabled=False, created_at=now, updated_at=now, kind="plant")
+        s.add(principal)
+        s.flush()
+        s.add(OrgPlantRow(id=new_id("orp_"), org_id=org_id, plant_owner_id=principal.id, code="NET", name=inp.name,
+                          created_at=now, row_version=1))
+        admins = list(s.execute(select(OrgMemberRow.user_id).where(
+            OrgMemberRow.org_id == org_id, OrgMemberRow.org_role == "org_admin",
+            OrgMemberRow.accepted_at.is_not(None))).scalars())
+        s.flush()
+    with owner_scope(principal.id), ctx.db.write() as s:
+        plant = repo.lock_plant(s)
+        plant.name, plant.kind, plant.currency = inp.name, "network", "USD"
+        if inp.time_zone:
+            plant.time_zone = inp.time_zone
+        for uid in dict.fromkeys([user_id, *admins]):
+            s.add(MfgPlantMemberRow(id=new_id("mbr_"), user_id=uid, roles=["plant_admin"], active=True,
+                                    invited_by=user_id, row_version=1, created_at=now, updated_at=now))
+        from ..api.mfg.services import network as net_svc
+
+        net_svc.seed_workspace(s)
+    return {"owner_id": principal.id, "code": "NET", "name": inp.name}
 
 
 def grant_roles(ctx: AppContext, user_id: str, org_id: str, plant: str, inp: Any) -> dict[str, Any]:

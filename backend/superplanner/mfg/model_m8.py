@@ -12,7 +12,7 @@ from pydantic import Field, StringConstraints, model_validator
 from .model import Code, EntityId, MfgModel
 
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
-Replenishment = Literal["mrp", "rate", "kanban"]
+Replenishment = Literal["mrp", "rate", "kanban", "transfer"]   # M9 2: transfer = supplied by the network
 PackLevel = Literal["each", "inner", "case", "pallet"]
 PACK_LEVELS: tuple[str, ...] = ("each", "inner", "case", "pallet")
 LinePlanning = Literal["discrete", "flow", "sterilisation"]

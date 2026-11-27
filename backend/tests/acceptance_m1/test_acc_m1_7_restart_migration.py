@@ -129,7 +129,7 @@ def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_u
         assert api.get("/summary")["counts"]["items"] == 0          # mfg starts empty after the downgrade
         api.load("small")
         assert api.health()["ok"]
-    assert migrate.current_revision(db_url) == migrate.HEAD == "0011_m8"     # head moved with M2 / M3 / M4 / M5 / M6 / UX / M7
+    assert migrate.current_revision(db_url) == migrate.HEAD == "0012_m9"     # head moved with M2 / M3 / M4 / M5 / M6 / UX / M7
     after = _table_counts(db_url)
     for t, n in at_0002.items():
         if t == "audit_events":

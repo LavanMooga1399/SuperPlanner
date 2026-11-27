@@ -89,6 +89,12 @@ class MfgItemSupplierRow(OwnedMixin, _Editable, Base):
     preferred: Mapped[bool] = mapped_column(Boolean)
     active: Mapped[bool] = mapped_column(Boolean)
     note: Mapped[str] = mapped_column(String(500))
+    # M9-DESIGN 3 (trade): country of origin, HTS, incoterm, freight per base unit, supplier cap per month
+    coo: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    hts_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    incoterm: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    freight_per_unit: Mapped[float | None] = mapped_column(Double, nullable=True)
+    cap_per_month: Mapped[float | None] = mapped_column(Double, nullable=True)
 
 
 # ---------------------------------------------------------------- lots, purchasing, demand, work orders
@@ -107,6 +113,15 @@ class MfgLotRow(OwnedMixin, _Editable, Base):
     supplier_lot: Mapped[str] = mapped_column(String(64))
     hold: Mapped[bool] = mapped_column(Boolean)
     note: Mapped[str] = mapped_column(String(500))
+    # M9-DESIGN 8.1-8.2: country of origin (+ where it came from), unit value (plant currency at receipt) and the
+    # default domestic-content roll-up of made lots
+    coo: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    coo_source: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    unit_value: Mapped[float | None] = mapped_column(Double, nullable=True)
+    dom_share_value: Mapped[float | None] = mapped_column(Double, nullable=True)
+    dom_share_weight: Mapped[float | None] = mapped_column(Double, nullable=True)
+    dom_estimated: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    dom_computed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class MfgPurchaseDocRow(OwnedMixin, _Editable, Base):

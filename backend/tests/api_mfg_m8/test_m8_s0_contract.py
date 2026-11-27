@@ -51,11 +51,17 @@ def test_migration_0010_to_0011_and_back(empty_pg_db):
     url = empty_pg_db()
     migrate.run_alembic_upgrade(url, "0010_m7")
     t10, c10 = _tables(url), _columns(url)
-    migrate.run_alembic_upgrade(url)
-    assert migrate.HEAD == "0011_m8" and migrate.schema_state(url) == "current"
+    migrate.run_alembic_upgrade(url, "0011_m8")
+    assert migrate.HEAD == "0012_m9" and migrate.schema_state(url) == "behind"      # (M9 0012_m9 on top)
     assert _tables(url) - t10 == set(M8_TABLES)
     assert {tc for tc in _columns(url) - c10 if tc[0] in t10} == set(M8_COLUMNS)
-    assert _diffs(url) == []
+    from superplanner.api.mfg.db_models_m9 import M9_COLUMNS, M9_TABLES   # (the M9 ORM is ahead of 0011)
+
+    def _m9(d: tuple) -> bool:
+        return (d[0] == "add_table" and d[1].name in M9_TABLES) or (d[0] == "add_index" and d[1].table.name in
+                                                                     M9_TABLES) or (d[0] == "add_column" and (
+            d[2], d[3].name) in M9_COLUMNS)
+    assert [d for d in _diffs(url) if not _m9(d)] == []
     eng = sa.create_engine(url)
     try:
         with eng.connect() as c:

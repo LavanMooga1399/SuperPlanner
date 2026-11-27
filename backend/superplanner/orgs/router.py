@@ -11,8 +11,8 @@ from ..api.context import AppContext, get_ctx
 from ..api.errors import ApiError
 from ..api.mfg.router_m2 import _ok
 from . import service as svc
-from .model import (OrgIn, OrgMemberIn, OrgMemberUpdate, OrgPlantIn, OrgPlantUpdate, OrgUpdate, PlantRolesIn,
-                    PublishIn)
+from .model import (NetworkIn, OrgIn, OrgMemberIn, OrgMemberUpdate, OrgPlantIn, OrgPlantUpdate, OrgUpdate,
+                    PlantRolesIn, PublishIn)
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
@@ -80,6 +80,13 @@ def list_plants(org_id: str, u: str = Depends(person), ctx: AppContext = Depends
 def create_plant(org_id: str, body: OrgPlantIn, u: str = Depends(person), ctx: AppContext = Depends(get_ctx)
                  ) -> JSONResponse:
     return _ok(svc.create_plant(ctx, u, org_id, body), 201)
+
+
+@router.post("/{org_id}/network", status_code=201)
+def create_network(org_id: str, body: NetworkIn | None = None, u: str = Depends(person),
+                   ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    """O1 (M9-DESIGN 4): the organisation's network workspace (org admins)."""
+    return _ok(svc.create_network(ctx, u, org_id, body or NetworkIn()), 201)
 
 
 @router.put("/{org_id}/plants/{plant}")
