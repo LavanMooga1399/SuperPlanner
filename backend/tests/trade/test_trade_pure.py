@@ -87,3 +87,27 @@ def test_landed_without_plant_country_has_no_total():
     fx = FxTable([("USD", "CAD", NOV, 1.40)])
     out = landed(SupplierTerms(100.0, "USD", 1000, "CN", "901832", 0.005), None, "CAD", NOV, fx, tariffs())
     assert out["total"] is None and "COUNTRY_MISSING" in out["flags"] and out["unit_price"] == pytest.approx(0.14)
+
+
+def test_price_missing_is_not_fx_missing():
+    out = landed(SupplierTerms(None, "JPY", coo="CN", hts_code="901832", freight_per_unit=0.0), "CA", "CAD", NOV,
+                 FxTable(), tariffs())
+    assert out["total"] is None and "PRICE_MISSING" in out["flags"] and "FX_MISSING" not in out["flags"]
+
+
+def test_report_xlsx_text_is_never_a_formula():
+    """Review m8: a group label or lot code starting with `=` stays text."""
+    import io
+
+    from openpyxl import load_workbook
+
+    from superplanner.api.mfg.services.trade import _xlsx
+
+    rec = {"result": {"milestones": [{"code": "=HYPERLINK(\"x\")", "groups": [
+        {"label": "=1+1", "cells": [{"month": "2027-01-01", "share_pct": 1.0, "status": "met", "projected": False,
+                                     "lots": 1, "lots_below": 0, "qty_below_pct": None, "estimated_pct": None}]}],
+        "lots_below": [{"plant_owner_id": "p", "lot_code": "=cmd", "item_key": "K", "month": "2027-01-01", "qty": 1,
+                        "share_pct": 1, "estimated": False}]}]}}
+    wb = load_workbook(io.BytesIO(_xlsx(rec)))
+    assert wb["Milestones"]["B2"].data_type == "s" and wb["Milestones"]["B2"].value == "=1+1"
+    assert wb["Lots below minimum"]["C2"].data_type == "s"

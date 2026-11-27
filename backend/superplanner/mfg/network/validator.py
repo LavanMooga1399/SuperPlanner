@@ -78,21 +78,22 @@ def validate(p: NetProblem, r: NetResult) -> dict[str, Any]:
             for comp, q in bom.get((pr.node, pr.key), []):
                 if (pr.node, comp) in verts:
                     flow[(pr.node, comp, start)] -= pr.qty * q
-    first_short: dict[tuple[str, str], date] = {}
+    short_at: dict[tuple[str, str, date], float] = defaultdict(float)
     for s in r.shortages:
-        k = (s.node, s.key)
-        first_short[k] = min(first_short.get(k, s.week), s.week)
+        short_at[(s.node, s.key, max(_monday(s.week), w0))] += s.qty
     proj = {(x.node, x.key, x.week): x.projected for x in r.projection}
     for node, key in sorted(verts):
         bal = 0.0
+        cum_short = 0.0
         for w in weeks:
+            cum_short += short_at.get((node, key, w), 0.0)
             bal += flow.get((node, key, w), 0.0)
             got = proj.get((node, key, w))
             if got is None or abs(got - bal) > TOL * max(1.0, abs(bal)):
                 v.append({"code": "NET_V_BALANCE", "detail": {"node": node, "key": key, "week": w.isoformat(),
                                                               "expected": round(bal, 6), "got": got}})
                 break
-            if bal < -TOL and not (first_short.get((node, key)) and first_short[(node, key)] <= w):
+            if bal < -TOL and -bal > cum_short + TOL * max(1.0, abs(bal)):   # review m6: covered by shortages
                 v.append({"code": "NET_V_NEGATIVE", "detail": {"node": node, "key": key, "week": w.isoformat(),
                                                                "projected": round(bal, 6)}})
                 break

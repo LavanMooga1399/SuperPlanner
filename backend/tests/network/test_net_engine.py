@@ -204,6 +204,14 @@ def test_validator_detects_mutations():
     assert "NET_V_PEGS" in bad(pegs)
     assert "NET_V_TRANSIT" in bad(transit)
 
+    def short_too_small(r):                     # review m6: a shortage must cover the whole negative projection
+        r.transfers = [t for t in r.transfers if not (t.dst == DC and t.receive_date == W[2])]
+        r.projection = __import__("superplanner.mfg.network.engine", fromlist=["projection"]).projection(
+            p, r.weeks, {(x.node, x.key) for x in r.projection}, r)
+        from superplanner.mfg.network.model import NetShortage
+        r.shortages.append(NetShortage(DC, "K", W[2], 1.0, "NET_CAPACITY_SHORT", {"final": True}))
+    assert "NET_V_NEGATIVE" in bad(short_too_small)
+
 
 def test_unconstrained_reports_load_only_and_family_rule():
     items = [NetItem(DC, "K", "i_dc", family="F"), NetItem(A, "K", "i_a")]

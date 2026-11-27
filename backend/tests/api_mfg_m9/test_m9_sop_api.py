@@ -118,6 +118,10 @@ def test_cycle_demand_scenarios_signed_approval_reopen_publish(db_url):
         net.err("POST", f"/sop/cycles/{cyc['id']}/demand/overrides", 409, "SOP_CYCLE_LOCKED", json={
             "node_owner_id": None, "family": "SYR", "month_from": period.isoformat(), "month_to": period.isoformat(),
             "mode": "pct", "value": 5, "reason": "x"})
+        # review m3: cancelling an approved (signed) cycle needs S&OP publish rights
+        pl = w.person("pl@demo.example", {"NET": ["planner"]})
+        Api(pl, w.net_owner).err("POST", f"/sop/cycles/{cyc['id']}/cancel", 403, "MFG_FORBIDDEN",
+                                 json={"reason": "x"})
         # publish: consensus forecast version per node + MPS targets in the making plant
         cyc = net.post(f"/sop/cycles/{cyc['id']}/publish", None, status=202)
         assert cyc["status"] == "published"

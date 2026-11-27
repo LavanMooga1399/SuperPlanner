@@ -156,3 +156,39 @@ def test_lp_shares_safety_stock_tier_and_validator_mutations():
     bad.make[("P", "F", M[0])] += 50
     bad.inv[("P", "F", M[0])] += 50
     assert "SOP_V_CAPACITY" in {x["code"] for x in validate(p2, bad)["violations"]}
+    # review m7: make where not allowed, an unknown supplier, an SS shortfall not reported
+    bad = copy.deepcopy(r)
+    bad.make[("P", "F", M[0])] = 5.0
+    bad.buy[("P", "F", "ZZ", M[1])] = 5.0
+    bad.ss_short = {}
+    bad.inv = {k: 0.0 for k in bad.inv}
+    codes = {x["code"] for x in validate(p, bad)["violations"]}
+    assert {"SOP_V_MAKE", "SOP_V_BUY", "SOP_V_SS"} <= codes
+
+
+def test_missing_fx_drops_make_and_lane_options():
+    """Review m4: a cost that cannot be converted is never 0 - the option is dropped and reported."""
+    from superplanner.mfg.sop.scenario import build_problem
+    from superplanner.mfg.trade.fx import FxTable as FX
+
+    m = [date(2027, 1, 1)]
+    node = {"info": {"code": "JP1", "kind": "plant"}, "items": {"i1": {"id": "i1", "key": "K", "family": "F",
+                                                                       "make_buy": "make", "std_cost": 5.0,
+                                                                       "ss": 0.0, "part_number": "K"}},
+            "stock": {}, "isp": [], "material": {}, "hours": {}, "hpu": {}, "currency": "JPY", "country": "JP",
+            "workdays": (0, 1, 2, 3, 4)}
+    dc = {"info": {"code": "DC", "kind": "dc"}, "items": {"i2": {"id": "i2", "key": "K", "family": "F",
+                                                                 "make_buy": "buy", "std_cost": 5.0, "ss": 0.0,
+                                                                 "part_number": "K"}},
+          "stock": {}, "isp": [], "material": {}, "hours": {}, "hpu": {}, "currency": "USD", "country": "US",
+          "workdays": (0, 1, 2, 3, 4)}
+    p, meta = build_problem(months=m, nodes={"jp": node, "dc": dc}, demand={("dc", "F", m[0]): 10.0}, orders={},
+                            lanes=[{"id": "L", "src": "jp", "dst": "dc", "transit_days": 5, "freight_per_unit": 1.0,
+                                    "currency": "JPY", "active": True}],
+                            rules=[{"id": "r", "dest": "dc", "key": None, "family": "F", "source_kind": "plant",
+                                    "source": "jp", "supplier_code": None, "priority": 1}],
+                            settings={"report_currency": "USD"}, fx=FX(), tariffs=[], curves_by_code={},
+                            milestones=[], changes=[], enforce=False)
+    codes = {w["code"] for w in meta["warnings"]}
+    assert ("jp", "F") not in p.make_allowed and not p.lanes
+    assert {"SOP_MAKE_DROPPED", "SOP_LANE_DROPPED", "FX_MISSING"} <= codes

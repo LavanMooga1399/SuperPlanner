@@ -63,3 +63,15 @@ def test_bom_share_follows_scenario_supplier_split():
     for split, expect in (([("US", 0.6), ("CN", 0.4)], 0.6), ([("CN", 1.0)], 0.0)):
         num, den = bom_share("F", {"F": [("ST", 1.0)]}, items, {"ST": split}, Rule("US", frozenset({"steel"})))
         assert num / den == pytest.approx(expect)
+
+
+def test_genealogy_cycle_is_flagged_not_followed():
+    """Review m5: a lot that (indirectly) consumes itself stops at the back edge, flagged and estimated."""
+    items = {"A": ItemT("A", "A", std_cost=1), "B": ItemT("B", "B", std_cost=1), "X": ItemT("X", "X", std_cost=1,
+                                                                                         coo="US")}
+    lots = {"LA": LotT("LA", "A1", "A", wo_id="W1", out_qty=1), "LB": LotT("LB", "B1", "B", wo_id="W2", out_qty=1),
+            "LX": LotT("LX", "X1", "X", coo="US", unit_value=1)}
+    g = Graph(items, lots, {"W1": [EdgeT("lot", "LB", "B", 1), EdgeT("lot", "LX", "X", 1)],
+                            "W2": [EdgeT("lot", "LA", "A", 1)]})
+    out = rollup(g, "LA", Rule("US"))
+    assert out["flags"] == ["TRADE_GENEALOGY_CYCLE"] and out["estimated"] is True

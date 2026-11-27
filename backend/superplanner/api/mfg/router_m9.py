@@ -477,7 +477,7 @@ def list_reports(limit: int = Limit(), offset: int = Offset(), ctx: AppContext =
     return _ok(trade.list_reports(ctx, limit, offset))
 
 
-@router.post("/trade/reports", status_code=202, dependencies=P("view"))
+@router.post("/trade/reports", status_code=202, dependencies=P("network_plan"))
 def create_report(body: ReportInput, a: Act = Depends(act), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     from .services import trade
 

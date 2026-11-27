@@ -303,12 +303,18 @@ def after_post(s: Session, posting: Any, inp: Any) -> None:
     lots = {r.id: r for r in s.execute(select(MfgLotRow).where(MfgLotRow.id.in_({t.lot_id for t in txns}))
                                        .with_for_update()).scalars()}
     country, ccy = _plant_country(s)
-    req = {getattr(ln, "schedule_id", None): getattr(ln, "coo", None) for ln in getattr(inp, "lines", [])}
+    lines_in = list(getattr(inp, "lines", []))          # review m10: keyed by the 1-based receipt line
+    req = {i + 1: getattr(ln, "coo", None) for i, ln in enumerate(lines_in)}
     warn = []
     tables = None
     for t in txns:
         lot = lots.get(t.lot_id)
-        if lot is None or lot.coo_source is not None:
+        if lot is None:
+            continue
+        if lot.coo_source is not None:                    # later receipt into a lot: keep, warn on a conflict
+            asked = req.get(t.line_no) if posting.type == "po_receipt" else None
+            if asked and lot.coo and asked != lot.coo:
+                warn.append({"code": "TRADE_COO_CONFLICT", "lot_id": lot.id, "coo": lot.coo, "requested": asked})
             continue
         if posting.type == "wo_receipt":
             it = s.get(MfgItemRow, t.item_id)
@@ -324,7 +330,7 @@ def after_post(s: Session, posting: Any, inp: Any) -> None:
                                                              MfgItemSupplierRow.supplier_id == doc.supplier_id)
                             ).scalars().first() if doc and doc.supplier_id else None
             tr = s.execute(select(MfgItemTradeRow).where(MfgItemTradeRow.item_id == t.item_id)).scalars().first()
-            coo, src = req.get(t.schedule_id), "receipt"
+            coo, src = req.get(t.line_no), "receipt"
             if not coo and isp is not None and isp.coo:
                 coo, src = isp.coo, "supplier"
             if not coo and tr is not None and tr.coo:
@@ -339,6 +345,8 @@ def after_post(s: Session, posting: Any, inp: Any) -> None:
                 else:
                     tables = tables or network_tables(s)
                     lot.unit_value, _f = tables["fx"].convert(price, doc.currency, ccy, t.txn_date)
+                    if lot.unit_value is None:
+                        warn.append({"code": "FX_MISSING", "lot_id": lot.id, "from": doc.currency, "to": ccy})
         else:
             src_lot = _source_lot(s, t)
             if src_lot is not None:
@@ -349,6 +357,8 @@ def after_post(s: Session, posting: Any, inp: Any) -> None:
                 if v is not None and src_lot["currency"] != ccy:
                     tables = tables or network_tables(s)
                     v, _f = tables["fx"].convert(v, src_lot["currency"], ccy, t.txn_date)
+                    if v is None:
+                        warn.append({"code": "FX_MISSING", "lot_id": lot.id, "from": src_lot["currency"], "to": ccy})
                 lot.unit_value = v
     if warn:
         s.info.setdefault("sp_trade_warnings", []).extend(warn)
@@ -473,7 +483,7 @@ def _content(s: Session, lot_id: str, milestone_id: str | None, store: bool = Tr
     g = load_graph(s, lot.id)
     out = CT.rollup(g, lot.id, _rule(ms, t["settings"], country))
     now = utcnow()
-    if store and ms is None and lot.coo_source != "transfer" and g.lots[lot.id].wo_id:
+    if store and ms is None and lot.coo_source != "transfer" and g.lots[lot.id].wo_id:    # job only (m9)
         lot.dom_share_value, lot.dom_share_weight = out["share_value"], out["share_weight"]
         lot.dom_estimated, lot.dom_computed_at = out["estimated"], now
     it = g.items.get(lot.item_id)
@@ -484,8 +494,8 @@ def _content(s: Session, lot_id: str, milestone_id: str | None, store: bool = Tr
 
 
 def lot_content(ctx: AppContext, lot_id: str, milestone_id: str | None) -> dict[str, Any]:
-    with write_tx(ctx, lock=False) as (s, _):
-        return _content(s, lot_id, milestone_id)
+    with read_tx(ctx) as s:                          # review m9: computed on read, never stored by a GET
+        return _content(s, lot_id, milestone_id, store=False)
 
 
 def network_lot_content(ctx: AppContext, a: Any, plant: str, lot_id: str, milestone_id: str | None
@@ -499,8 +509,8 @@ def network_lot_content(ctx: AppContext, a: Any, plant: str, lot_id: str, milest
             from ...errors import not_found
 
             raise not_found("Lot", lot_id)          # same answer as an unknown lot of a member plant
-    with owner_scope(n["owner_id"]), write_tx(ctx, lock=False) as (s, _):
-        return _content(s, lot_id, milestone_id)
+    with owner_scope(n["owner_id"]), read_tx(ctx) as s:
+        return _content(s, lot_id, milestone_id, store=False)
 
 
 def rollup_lots(s: Session, since: date) -> int:
@@ -510,8 +520,16 @@ def rollup_lots(s: Session, since: date) -> int:
     ids = sorted(set(s.execute(select(MfgInvTransactionRow.lot_id).where(
         MfgInvTransactionRow.txn_type == "wo_receipt", MfgInvTransactionRow.txn_date >= since,
         MfgInvTransactionRow.lot_id.is_not(None))).scalars()))
+    changed = 0
     for lid in ids:
-        _content(s, lid, None)
+        before = s.execute(select(MfgLotRow.dom_share_value, MfgLotRow.dom_share_weight).where(
+            MfgLotRow.id == lid)).first()
+        out = _content(s, lid, None)
+        if before is None or (before[0], before[1]) != (out["share_value"], out["share_weight"]):
+            changed += 1
+            audit(s, "lot", lid, "content_rollup", {"share_value": out["share_value"],
+                                                    "share_weight": out["share_weight"],
+                                                    "estimated": out["estimated"]})
     return len(ids)
 
 
@@ -604,6 +622,11 @@ def _xlsx(rec: dict[str, Any]) -> bytes:
         for x in m["lots_below"]:
             lots.append([m["code"], x["plant_owner_id"], x["lot_code"], x["item_key"], str(x["month"]), x["qty"],
                          x["share_pct"], x["estimated"]])
+    for sh in wb.worksheets:                 # review m8: text is an explicit string cell (as mfg/io/export.py)
+        for row in sh.iter_rows():
+            for c in row:
+                if isinstance(c.value, str):
+                    c.data_type = "s"
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()

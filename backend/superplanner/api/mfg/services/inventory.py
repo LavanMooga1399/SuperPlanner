@@ -575,8 +575,12 @@ def create_posting(ctx: AppContext, inp: Any, body: Any, idem: str | None) -> tu
             with s.begin_nested():
                 row, warnings = post_in_session(s, inp, idem=idem, body_hash=h if idem else None)
             made = s.info.pop("sp_inspection_lots", None)
+            tw = s.info.pop("sp_trade_warnings", None)               # M9 8.1 (review m10): never blocking
             if made or row.type in ("po_receipt", "wo_receipt"):     # M7: always present on receipts
-                return {**posting_record(s, row, warnings), "inspection_lots": _lot_refs(s, made or [])}, False
+                out = {**posting_record(s, row, warnings), "inspection_lots": _lot_refs(s, made or [])}
+                if tw:
+                    out["trade_warnings"] = tw
+                return out, False
         except IntegrityError as exc:
             if idem and is_unique_violation(exc, "uq_mfg_inv_postings_idem"):
                 found = _find_idem(s, idem)

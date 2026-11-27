@@ -357,6 +357,14 @@ def cancel(ctx: AppContext, a: Any, cycle_id: str, body: Any, if_match: str | No
         if c.status in ("published", "cancelled"):
             raise ApiError(409, "MFG_INVALID_STATE", "A published or cancelled cycle cannot be cancelled.",
                            {"status": c.status})
+        if c.status == "approved" or _signed(s, c):           # review m3: signed content needs the publisher
+            if not a.p.has("sop_publish"):
+                raise ApiError(403, "MFG_FORBIDDEN", "Cancelling a signed or approved cycle needs S&OP publish "
+                               "rights.", {"permission": "sop_publish"})
+            from . import esig
+
+            for ver in range(1, c.row_version + 1):
+                esig.supersede_pending(s, "sop_cycle", c.id, ver)
         c.status = "cancelled"
         _touch(c)
         audit(s, "sop_cycle", c.id, "cancel", {}, reason=body.reason)

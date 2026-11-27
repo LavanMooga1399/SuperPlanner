@@ -314,13 +314,15 @@ def set_kind(s: Any, owner: str, kind: str) -> None:
 
 def create_network(ctx: AppContext, user_id: str, org_id: str, inp: Any) -> dict[str, Any]:
     """O1 (M9-DESIGN 4): the organisation's network workspace (plant principal, `mfg_plant.kind = network`, code
-    `NET`); the org admins become `plant_admin` there; the policy `sop_cycle.approve` and curve `STD26` are seeded."""
+    `NET`); the org admins become `plant_admin` there; the policy `sop_cycle.approve` and curve `STD26` are seeded.
+    One transaction (review m11): a failure leaves no principal, org plant or membership behind."""
     from ..api.mfg import repo
     from ..api.mfg.db_models import MfgPlantRow
 
     now = utcnow()
     with system_scope(), ctx.db.write() as s:
         _org(s, org_id, user_id, admin=True)
+        s.execute(select(OrgRow.id).where(OrgRow.id == org_id).with_for_update())   # one creator per organisation
         owners = [p.plant_owner_id for p in _plants(s, org_id)]
         if owners and s.execute(select(MfgPlantRow.id).where(MfgPlantRow.owner_id.in_(owners),
                                                              MfgPlantRow.kind == "network")).first():
@@ -337,17 +339,18 @@ def create_network(ctx: AppContext, user_id: str, org_id: str, inp: Any) -> dict
             OrgMemberRow.org_id == org_id, OrgMemberRow.org_role == "org_admin",
             OrgMemberRow.accepted_at.is_not(None))).scalars())
         s.flush()
-    with owner_scope(principal.id), ctx.db.write() as s:
-        plant = repo.lock_plant(s)
-        plant.name, plant.kind, plant.currency = inp.name, "network", "USD"
-        if inp.time_zone:
-            plant.time_zone = inp.time_zone
-        for uid in dict.fromkeys([user_id, *admins]):
-            s.add(MfgPlantMemberRow(id=new_id("mbr_"), user_id=uid, roles=["plant_admin"], active=True,
-                                    invited_by=user_id, row_version=1, created_at=now, updated_at=now))
-        from ..api.mfg.services import network as net_svc
+        with owner_scope(principal.id):
+            plant = repo.lock_plant(s)
+            plant.name, plant.kind, plant.currency = inp.name, "network", "USD"
+            if inp.time_zone:
+                plant.time_zone = inp.time_zone
+            for uid in dict.fromkeys([user_id, *admins]):
+                s.add(MfgPlantMemberRow(id=new_id("mbr_"), user_id=uid, roles=["plant_admin"], active=True,
+                                        invited_by=user_id, row_version=1, created_at=now, updated_at=now))
+            from ..api.mfg.services import network as net_svc
 
-        net_svc.seed_workspace(s)
+            net_svc.seed_workspace(s)
+            s.flush()
     return {"owner_id": principal.id, "code": "NET", "name": inp.name}
 
 

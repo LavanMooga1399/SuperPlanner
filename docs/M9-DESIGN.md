@@ -674,3 +674,27 @@ Review round (2026-11-27) decisions - major:
   weeks by its pinned finals. A family-month without any basis (`SOP_DISAGG_NONE`) keeps the pinned finals.
 - M4 Trade uses only an explicit plant country (attribute `country`, set at plant creation): without it a made
   lot's COO is null (`TRADE_COO_MISSING`) and landed cost has a null total with `COUNTRY_MISSING`.
+
+Review round (2026-11-27) decisions - minor:
+- m1 see M1. m2 S&OP publish takes each node's plant lock (`lock_plant` in that owner scope) before archiving the
+  active version, so concurrent activations serialise and one version stays active.
+- m3 Cancelling an approved cycle or one with signatures needs `sop_publish` (403 otherwise) and supersedes the
+  signatures.
+- m4 A make cost or lane freight that cannot be converted to the report currency drops the option (warnings
+  `SOP_MAKE_DROPPED` / `SOP_LANE_DROPPED` + `FX_MISSING`); a zero amount needs no FX. Landed cost: no price ->
+  `PRICE_MISSING` only (the FX flags apply to a price that exists).
+- m5 Genealogy cycles: lots being rolled up form a shared in-progress set; a back edge is not followed, the
+  result is `estimated` with flag `TRADE_GENEALOGY_CYCLE`.
+- m6 Network validator: a negative projection must be covered by the cumulative shortage quantity of the vertex up
+  to that week.
+- m7 S&OP validator: make only where allowed and (capacity-bound) in months with hours (`SOP_V_MAKE`), buys only of
+  known priced supplier options (`SOP_V_BUY`), inventory + SS shortfall >= SS target (`SOP_V_SS`).
+- m8 Report xlsx: every text cell is an explicit string cell (rule of `mfg/io/export.py`).
+- m9 `GET /lots/{id}/content` and `GET /trade/lots/{plant}/{lot}/content` compute on read and never write;
+  the stored default shares are written only by the `content_rollup` job, audited (`lot.content_rollup`) when they
+  change. `POST /trade/reports` needs `network_plan`.
+- m10 Receipt COO is keyed by the 1-based receipt line (two lines of one schedule keep their own COO); a later
+  receipt into a lot never changes its COO but returns `TRADE_COO_CONFLICT` when it differs; a unit value that cannot
+  be converted is null with `FX_MISSING`. Warnings are returned as `trade_warnings` on the posting (receipts).
+- m11 `POST /orgs/{org}/network` runs in one transaction (org row locked, principal, org plant, plant row,
+  memberships and seeds together).

@@ -82,6 +82,16 @@ def test_tables_landed_cost_and_receipt_coo(db_url):
             sources.append((lot["coo"], lot["coo_source"], lot["unit_value"]))
         assert sources[0][:2] == ("MX", "receipt") and sources[1][:2] == ("CN", "supplier")
         assert sources[0][2] == pytest.approx(0.14)
+        # review m10: two lines of one schedule keep their own COO; a later receipt with another COO only warns
+        rec = qc.post("/inventory/postings", {"type": "po_receipt", "lines": [
+            {"schedule_id": sid, "qty": 2, "lot_code": "R3", "location_id": loc["id"], "coo": "DE"},
+            {"schedule_id": sid, "qty": 2, "lot_code": "R4", "location_id": loc["id"], "coo": "FR"}]})
+        lots = {x["lot_code"]: x["coo"] for x in qc.get("/lots", item_id=it["id"])["items"]}
+        assert (lots["R3"], lots["R4"]) == ("DE", "FR") and "trade_warnings" not in rec
+        rec = qc.post("/inventory/postings", {"type": "po_receipt", "lines": [
+            {"schedule_id": sid, "qty": 1, "lot_code": "R3", "location_id": loc["id"], "coo": "IT"}]})
+        assert rec["trade_warnings"][0]["code"] == "TRADE_COO_CONFLICT"
+        assert {x["lot_code"]: x["coo"] for x in qc.get("/lots", item_id=it["id"])["items"]}["R3"] == "DE"
         # regulated COO correction after receipt: reason required, audited with it
         r1 = [x for x in qc.get("/lots", item_id=it["id"])["items"] if x["lot_code"] == "R1"][0]
         qc.err("PUT", f"/lots/{r1['id']}/coo", 422, "VALIDATION_ERROR", json={"coo": "US"})
@@ -136,7 +146,16 @@ def test_made_lot_content_transfer_carries_coo_and_shares_and_report(db_url, mon
         done = wait_for(lambda: [x for x in us.get("/lots", item_id=ndl["id"])["items"] if x["lot_code"] == "N1"][0],
                         lambda x: x["dom_share_value"] is not None, timeout=30)
         assert done["dom_share_value"] == 1.0
-        c = us.get(f"/lots/{lot['id']}/content")
+        from sqlalchemy import event
+        seen: list[str] = []
+        eng = app.state.ctx.db.engine
+        grab = lambda conn, cur, stmt, *a: seen.append(stmt)   # noqa: E731
+        event.listen(eng, "before_cursor_execute", grab)
+        try:
+            c = us.get(f"/lots/{lot['id']}/content")
+        finally:
+            event.remove(eng, "before_cursor_execute", grab)
+        assert not [x for x in seen if x.lstrip().upper().startswith("UPDATE MFG_LOTS")]   # review m9: no write
         assert c["share_value"] == 1.0 and c["tree"]["children"][0]["lot_code"] == "S1"
         ms = net.get("/trade/milestones")["items"][0]
         c2 = net.get(f"/trade/lots/{w.owner('US1')}/{lot['id']}/content", milestone_id=ms["id"])

@@ -882,7 +882,7 @@ MFG_PERMISSIONS_M9 = {
     ("GET", "/mfg/trade/country-risk"): "view",
     ("PUT", "/mfg/trade/country-risk"): "trade_admin",
     ("GET", "/mfg/trade/reports"): "view",
-    ("POST", "/mfg/trade/reports"): "view",
+    ("POST", "/mfg/trade/reports"): "network_plan",
     ("GET", "/mfg/trade/reports/{report_id}"): "view",
     ("GET", "/mfg/trade/lots/{plant}/{lot_id}/content"): "view",
     ("GET", "/mfg/trade/risk"): "view",

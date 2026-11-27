@@ -73,11 +73,12 @@ def landed(terms: SupplierTerms, dest_country: str | None, dest_currency: str, m
            item_hts: str | None = None, item_coo: str | None = None) -> dict[str, Any]:
     flags: list[str] = []
     rate, fl = fx.rate(terms.currency, dest_currency, month)
-    flags += fl
     upu = terms.units_per_purchase_unit or 1.0
     price = None if (rate is None or terms.unit_price is None) else terms.unit_price / upu * rate
     if terms.unit_price is None:
-        flags.append("PRICE_MISSING")
+        flags.append("PRICE_MISSING")                   # review m4: no price is not an FX problem
+    else:
+        flags += fl
     if terms.freight_per_unit is None:
         freight = 0.0
         flags.append("FREIGHT_MISSING")

@@ -142,6 +142,8 @@ def build_problem(*, months: list[date], nodes: dict[str, dict[str, Any]], deman
             freight_pct[ch["freight"]["lane"]] = float(ch["freight"]["pct"])
 
     def to_rc(amount: float | None, ccy: str) -> float | None:
+        if amount == 0:
+            return 0.0                                  # nothing to convert
         x, fl = fx.convert(amount, ccy, rc, m0)
         if x is None and amount is not None:
             warnings.append({"code": "FX_MISSING", "detail": {"from": ccy, "to": rc}})
@@ -192,14 +194,20 @@ def build_problem(*, months: list[date], nodes: dict[str, dict[str, Any]], deman
             if not its:
                 continue
             sc = sum(i["std_cost"] for i in its) / len(its)
-            std_cost[(n, f)] = to_rc(sc, ccy) or 0.0
+            sc_rc = to_rc(sc, ccy)                      # review m4: no FX -> the cost is unknown, never 0
+            std_cost[(n, f)] = sc_rc if sc_rc is not None else 0.0
             init_inv[(n, f)] = sum(nd["stock"].get(i["id"], 0.0) for i in its)
             ss_target[(n, f)] = sum(i["ss"] for i in its)
             made = [i for i in its if i["make_buy"] != "buy"]
             if made and nd["info"]["kind"] == "plant":
-                make_allowed.add((n, f))
                 cc = [max(i["std_cost"] - nd["material"].get(i["id"], 0.0), 0.0) or i["std_cost"] for i in made]
-                conv_cost[(n, f)] = to_rc(sum(cc) / len(cc), ccy) or 0.0
+                conv = to_rc(sum(cc) / len(cc), ccy)
+                if conv is None or sc_rc is None:          # review m4: drop the make option (FX_MISSING warned)
+                    warnings.append({"code": "SOP_MAKE_DROPPED", "node": n, "family": f,
+                                     "detail": {"reason": "FX_MISSING", "currency": ccy}})
+                    continue
+                make_allowed.add((n, f))
+                conv_cost[(n, f)] = conv
                 acc: dict[str, list[float]] = defaultdict(list)
                 for i in made:
                     for g, h in nd["hpu"].get(i["id"], []):
@@ -269,7 +277,10 @@ def build_problem(*, months: list[date], nodes: dict[str, dict[str, Any]], deman
         if k not in best or ln["transit_days"] < best[k]["transit_days"]:
             best[k] = ln
     for (a, b), ln in sorted(best.items()):
-        fr = to_rc(ln["freight_per_unit"], ln["currency"]) or 0.0
+        fr = to_rc(ln["freight_per_unit"], ln["currency"])
+        if fr is None:                                  # review m4: a lane without FX is dropped, not free
+            warnings.append({"code": "SOP_LANE_DROPPED", "detail": {"lane": ln["id"], "reason": "FX_MISSING"}})
+            continue
         fr *= 1 + freight_pct.get(ln["id"], 0.0) / 100.0
         fams = lane_fams.get((a, b), set())
         if fams:

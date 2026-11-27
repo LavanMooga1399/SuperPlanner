@@ -85,16 +85,22 @@ def rollup(g: Graph, lot_id: str, rule: Rule, memo: dict[str, Any] | None = None
     """{share_value, share_weight, estimated, tree} of a lot (`memo` per rule, shared across calls)."""
     memo = {} if memo is None else memo
     filt = rule.material_classes
+    stack: set[str] = memo.setdefault("~stack", set())          # review m5: lots being rolled up (shared)
+    flags: set[str] = memo.setdefault("~flags", set())
 
     def per_unit(lid: str, depth: int) -> tuple[_Tot, list[dict[str, Any]]]:
         """Totals per unit of the lot's output (filtered leaves), and the child nodes for 1 unit."""
         if lid in memo:
             return memo[lid]
         lot = g.lots[lid]
+        if lid in stack:                                 # back edge: a genealogy cycle - not followed, estimated
+            flags.add("TRADE_GENEALOGY_CYCLE")
+            return _Tot(est=True), []
         tot, kids = _Tot(), []
         if lot.wo_id is None or depth > MAX_DEPTH:
             memo[lid] = (tot, kids)
             return memo[lid]
+        stack.add(lid)
         out = lot.out_qty / lot.wo_share if lot.wo_share > 0 else lot.out_qty
         out = out or 1.0
         mat_value = 0.0
@@ -154,6 +160,7 @@ def rollup(g: Graph, lot_id: str, rule: Rule, memo: dict[str, Any] | None = None
                              "Conversion", "coo": rule.plant_country, "material_class": None, "qty": 1.0, "uom": "",
                              "value": round(conv, 6), "weight_kg": None, "domestic": d, "estimated": False,
                              "children": []})
+        stack.discard(lid)
         memo[lid] = (tot, kids)
         return memo[lid]
 
@@ -169,12 +176,16 @@ def rollup(g: Graph, lot_id: str, rule: Rule, memo: dict[str, Any] | None = None
             sv = sw = 1.0 if (lot.coo or it.coo) == rule.domestic_country else 0.0
     tree = _node(lot, it, q, tot.dv * q if lot.wo_id else None, tot.dw * q if lot.wo_id else None, sv, tot.est,
                  _scale(kids, q), "made" if lot.wo_id else "bought", lot.coo)
-    return {"share_value": sv, "share_weight": sw, "estimated": tot.est, "tree": tree}
+    return {"share_value": sv, "share_weight": sw, "estimated": tot.est or bool(flags), "tree": tree,
+            "flags": sorted(flags)}
 
 
 def rollup_shares(g: Graph, lot_id: str, rule: Rule, memo: dict[str, Any], depth: int = 0
                   ) -> tuple[float | None, float | None]:
     key = f"~shares:{lot_id}"
+    if lot_id in memo.get("~stack", set()) and key not in memo:
+        memo.setdefault("~flags", set()).add("TRADE_GENEALOGY_CYCLE")
+        return None, None
     if key not in memo:
         unf = Rule(rule.domestic_country, None, rule.include_conversion, rule.plant_country)
         sub_memo = memo.setdefault("~unfiltered", {}) if rule.material_classes is not None else memo

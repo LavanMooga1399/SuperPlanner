@@ -53,6 +53,28 @@ def validate(p: SopProblem, r: SopResult) -> dict[str, Any]:
                     v.append({"code": "SOP_V_BALANCE", "detail": {"node": n, "family": f, "month": t.isoformat(),
                                                                   "expected": round(exp, 3), "got": got}})
                 prev = got
+    # review m7: make only where allowed (and, when capacity-bound, only in months with hours); buys only of known
+    # supplier options; inventory + SS shortfall covers the SS target
+    groups_of: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for (n, g, f) in p.hpu:
+        groups_of[(n, f)].append(g)
+    for (n, f, t), q in r.make.items():
+        if q <= 1e-6:
+            continue
+        if (n, f) not in p.make_allowed:
+            v.append({"code": "SOP_V_MAKE", "detail": {"node": n, "family": f, "month": t.isoformat()}})
+        elif groups_of.get((n, f)) and all(p.hours.get((n, g, t), 0.0) <= 0 for g in groups_of[(n, f)]):
+            v.append({"code": "SOP_V_MAKE", "detail": {"node": n, "family": f, "month": t.isoformat(),
+                                                       "hours": 0}})
+    known = {(b.node, b.family, b.code) for b in p.buys if b.landed is not None}
+    for (n, f, c, t), q in r.buy.items():
+        if q > 1e-6 and (n, f, c) not in known:
+            v.append({"code": "SOP_V_BUY", "detail": {"node": n, "family": f, "supplier": c}})
+    for (n, f), ss in p.ss_target.items():
+        for t in T:
+            if r.inv.get((n, f, t), 0.0) + r.ss_short.get((n, f, t), 0.0) < ss - TOL:
+                v.append({"code": "SOP_V_SS", "detail": {"node": n, "family": f, "month": t.isoformat()}})
+                break
     used: dict[tuple[str, str, Any], float] = defaultdict(float)
     hmax: dict[tuple[str, str], float] = defaultdict(float)
     for (n, g, f), h in p.hpu.items():

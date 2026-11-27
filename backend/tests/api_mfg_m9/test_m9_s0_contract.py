@@ -135,3 +135,23 @@ def test_no_example_stub_is_left():
     from superplanner.api.mfg.services import m9_examples
 
     assert m9_examples.remaining() == []
+
+
+def test_network_creation_is_one_transaction(db_url, monkeypatch):
+    """Review m11: a failure while seeding leaves nothing behind; a retry then succeeds."""
+    from superplanner.api.mfg.services import network as net_svc
+
+    app = app_for(db_url)
+    with TestClient(app):
+        w = make_world(app, network=False)
+
+        def boom(s):
+            raise RuntimeError("seed failed")
+        monkeypatch.setattr(net_svc, "seed_workspace", boom)
+        with pytest.raises(RuntimeError):
+            w.admin.post(f"{V1}/orgs/{w.org['id']}/network", json={})
+        codes = {p["code"] for p in w.admin.get(f"{V1}/orgs/{w.org['id']}/plants").json()["items"]}
+        assert "NET" not in codes
+        monkeypatch.undo()
+        r = w.admin.post(f"{V1}/orgs/{w.org['id']}/network", json={})
+        assert r.status_code == 201, r.text
