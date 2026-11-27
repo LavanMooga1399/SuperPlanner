@@ -117,23 +117,25 @@ def me(ctx: AppContext, p: MfgPrincipal) -> dict[str, Any]:
     from ..access import PERMISSIONS
 
     return {"user_id": p.user_id, "workspace_owner_id": p.owner_id, "workspace_name": name, "is_owner": p.is_owner,
-            "roles": list(p.roles), "permissions": [x for x in PERMISSIONS if x in p.permissions]}
+            "roles": list(p.roles), "permissions": [x for x in PERMISSIONS if x in p.permissions],
+            "workspace_kind": getattr(p, "kind", "plant")}                     # M9-DESIGN 4
 
 
 def workspaces(ctx: AppContext, user_id: str) -> dict[str, Any]:
     """Own workspace first, then active memberships (by plant name)."""
     with system_scope(), ctx.db.read() as s:
         own = s.execute(select(MfgPlantRow.name).where(MfgPlantRow.owner_id == user_id)).scalar()
-        out = [{"owner_id": user_id, "plant_name": own or "Plant", "is_owner": True, "roles": ["owner"]}]
+        out = [{"owner_id": user_id, "plant_name": own or "Plant", "is_owner": True, "roles": ["owner"],
+                "plant_kind": "plant"}]
         if not ctx.settings.single_user:
             rows = s.execute(select(MfgPlantMemberRow.owner_id, MfgPlantMemberRow.roles, MfgPlantRow.name,
-                                    UserRow.email)
+                                    UserRow.email, MfgPlantRow.kind)
                              .join(UserRow, UserRow.id == MfgPlantMemberRow.owner_id)
                              .outerjoin(MfgPlantRow, MfgPlantRow.owner_id == MfgPlantMemberRow.owner_id)
                              .where(MfgPlantMemberRow.user_id == user_id, MfgPlantMemberRow.active.is_(True),
                                     UserRow.disabled.is_(False))).all()
             others = [{"owner_id": r[0], "plant_name": r[2] or f"Plant of {r[3] or r[0]}", "is_owner": False,
-                       "roles": list(r[1] or [])} for r in rows]
+                       "roles": list(r[1] or []), "plant_kind": r[4] or "plant"} for r in rows]
             others.sort(key=lambda w: (w["plant_name"], w["owner_id"]))
             out += others
         # M5-DESIGN 3.4 (15.WP-S): organisation and plant code of organisation plants (else null / "")

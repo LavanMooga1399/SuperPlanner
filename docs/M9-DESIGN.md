@@ -590,3 +590,32 @@ U notes (WP-U, UI as built):
 - Not done in U (follow-ups): ASP edit dialog (S10 is wired in the client, the grid shows the ASP source flag
   only), editing tariff rows inside a `cost_change` (the form takes FX and freight; tariff rows come from the trade
   table), item-supplier list columns for COO/HTS/incoterm/freight/cap (shown on the item Trade tab instead).
+
+S3 notes (S&OP, as built):
+- `mfg/sop/{curves,demand,lp,validator,finance,scenario}.py`; `services/sop.py`. The scenario job reads each node in
+  its owner scope (`scenario.node_data`) and builds the `SopProblem` purely (`scenario.build_problem`); the stored
+  result carries the problem essentials so plan / rough-cut / financial / make-buy views never re-read plants.
+- Demand: `stat_qty` from the pinned version's finals (monthly; weekly versions fold into months), `order_qty` open
+  customer orders (overdue ones in the first month). ASP: M2 demand lines carry no price, so ASP = mean item
+  attribute `list_price` / `asp` of the family (`asp_source history`), else std cost (`cost`), else `manual`;
+  `PUT .../demand/asp` sets `manual`. Overrides re-apply in `seq` on every change; removal needs the reason header
+  (422 `REASON_REQUIRED`).
+- LP: allocation and sourcing shares hold over horizon totals (a per-month share with transit offsets and lost sales
+  over-constrains); tier weights = 1 + order share of the cell (orders before forecast); buy options without FX are
+  dropped (`FX_MISSING` warning), never priced at 1. Unmet cause `SOP_MILESTONE` when the family's milestone
+  constraint is binding in tier 1 (dual value), else `SOP_CAPACITY`. Rounding: cumulative per series, then
+  inventory / unmet / SS shortfall recomputed from the rounded flows (sources before destinations within a month);
+  the validator allows one unit's hours on capacity and one unit per month on shares. An added line adds
+  group-equivalent hours (line hours x group hpu / line hpu); a new cap group takes the line's hpu. Domestic share
+  of making = 1 when the plant country is the domestic country unless the BOM share of 8.3 is available.
+- Approval: `sop_cycle.approve` is seeded only in the network workspace (`POL.NETWORK_ONLY`), always signed;
+  `approve` signs the recommended scenario only (409 `SOP_SCENARIO_INVALID` otherwise). Signatures bind to the
+  cycle's `row_version`, so pending steps do not bump it; any edit after the first signature answers 409
+  `SOP_CYCLE_LOCKED`; `reopen` supersedes the signatures (M7 `superseded`) and clears the approval.
+  `SOP_NO_RECOMMENDATION` (409) when leaving `pre_sop` without one.
+- Publish runs synchronously (idempotent; `publish_job_status` is `completed` afterwards): the consensus version is
+  a new monthly version "SOP-YYYY-MM consensus" (`note source sop`, lines = disaggregated consensus, stat = the
+  pinned final) activated in each node (previous active archived, audited with the publish reason); MPS targets for
+  months >= period replace the plant's rows; follow-ups list structural changes.
+- UI follow-ups: `/me.workspace_kind`, `/workspaces[].plant_kind`; pegging links use UI routes (`/mfg/transfers/
+  {id}`, `/mfg/work-orders`, `/mfg/purchasing`, `/mfg/demand?search=DO-...`), only for member plants.

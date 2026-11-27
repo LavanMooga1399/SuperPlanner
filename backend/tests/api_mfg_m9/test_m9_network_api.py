@@ -48,6 +48,9 @@ def test_topology_run_grid_pegging(db_url):
         nodes = {n["code"]: n for n in net.get("/net/nodes")["items"]}
         assert set(nodes) == {"QC", "US1", "DCUS"} and nodes["DCUS"]["kind"] == "dc" and nodes["QC"]["country"] == "CA"
         assert nodes["QC"]["member"] is True
+        assert net.get("/me")["workspace_kind"] == "network" and w.api("QC").get("/me")["workspace_kind"] == "plant"
+        kinds = {x["plant_code"]: x["plant_kind"] for x in net.get("/workspaces")["items"] if x["plant_code"]}
+        assert kinds == {"QC": "plant", "US1": "plant", "DCUS": "dc", "NET": "network"}
         res = net.get("/net/sourcing/resolve", dest=w.owner("DCUS"), key="SYR")
         assert res["mode"] == "priority" and res["matched_by"] == "family"
         assert res["sources"][0]["source_owner_id"] == w.owner("QC") and res["sources"][0]["transit_days"] == 3
@@ -70,6 +73,8 @@ def test_topology_run_grid_pegging(db_url):
         assert root["children"][0]["children"][0]["kind"] == "production"
         up = net.get(f"/net/runs/{r['id']}/pegging", supply_id=trs[0]["id"])
         assert up["direction"] == "up" and up["root"]["children"][0]["kind"] == "demand"
+        assert root["link"].startswith("/mfg/demand?search=DO-") and root["children"][0]["link"] == "/mfg/transfers"
+        assert root["children"][0]["children"][0]["link"] == "/mfg/work-orders"
         # loops are refused synchronously with the path
         net.post("/net/lanes", {"from_owner_id": w.owner("DCUS"), "to_owner_id": w.owner("QC"), "transit_days": 3})
         loop = net.post("/net/sourcing", {"dest_owner_id": w.owner("QC"), "family": "SYR", "source_kind": "plant",

@@ -809,7 +809,9 @@ def _completed(s: Session, scenario_id: str) -> MfgSopScenarioRow:
     r = repo.get_row(s, MfgSopScenarioRow, scenario_id, what="Scenario")
     if r.status != "completed" or not r.result:
         raise ApiError(409, "SOP_SCENARIO_NOT_RUN", "Run the scenario first.", {"status": r.status})
-    return r
+    from types import SimpleNamespace
+
+    return SimpleNamespace(result=r.result, warnings=list(r.warnings or []), changes=list(r.changes or []))
 
 
 class _P:
@@ -924,13 +926,13 @@ def compare(ctx: AppContext, ids: str) -> dict[str, Any]:
     with read_tx(ctx) as s:
         rows = [repo.get_row(s, MfgSopScenarioRow, i, what="Scenario") for i in lst]
         cur = net_settings(s)["report_currency"]
-    base = rows[0].kpis
-    items = []
-    for i, r in enumerate(rows):
-        items.append({"scenario": {"id": r.id, "number": r.number, "name": r.name, "status": r.status,
-                                   "baseline": r.baseline,
-                                   "validator_ok": (r.validator or {}).get("ok") if r.validator else None},
-                      "kpis": r.kpis, "delta": None if i == 0 else FIN.delta(base, r.kpis)})
+        base = rows[0].kpis
+        items = []
+        for i, r in enumerate(rows):
+            items.append({"scenario": {"id": r.id, "number": r.number, "name": r.name, "status": r.status,
+                                       "baseline": r.baseline,
+                                       "validator_ok": (r.validator or {}).get("ok") if r.validator else None},
+                          "kpis": r.kpis, "delta": None if i == 0 else FIN.delta(base, r.kpis)})
     return {"currency": cur, "items": items}
 
 

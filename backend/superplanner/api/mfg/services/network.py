@@ -701,10 +701,15 @@ def pegging(ctx: AppContext, a: Any, run_id: str, node: str | None, key: str | N
         objs, sh = _objects(s, r.id)
 
     def link(nd: str, o: dict[str, Any]) -> str | None:
+        """UI routes of the plant records (only for members of that plant)."""
         if nd not in members:
             return None
-        if o.get("type") == "transfer" and o.get("to_id"):
-            return f"/mfg/transfer-orders/{o['to_id']}"
+        if o.get("type") == "transfer":
+            return f"/mfg/transfers/{o['to_id']}" if o.get("to_id") else "/mfg/transfers"
+        if o.get("type") == "production":
+            return "/mfg/purchasing" if o.get("kind") == "buy" else "/mfg/work-orders"
+        if o.get("type") == "demand" and o.get("ref"):
+            return f"/mfg/demand?search={o['ref'].split('/')[0]}"
         return None
 
     if supply_id:
@@ -727,10 +732,16 @@ def pegging(ctx: AppContext, a: Any, run_id: str, node: str | None, key: str | N
         if (x["node"], x["key"]) == (node, key) and x["detail"].get("final"):
             for p in x["detail"].get("pegs", []):
                 refs[p["ref"]] += 0.0
+    def tree(ref: str, q: float) -> dict[str, Any]:
+        t = PEG.down(ref, node, key, week, round(q, 6), objs, sh, link)
+        if not ref.startswith(("FC:", "SS:")):
+            t["link"] = link(node, {"type": "demand", "ref": ref})
+        return t
+
     if len(refs) == 1:
         ref, q = next(iter(refs.items()))
-        return {"direction": "down", "root": PEG.down(ref, node, key, week, round(q, 6), objs, sh, link)}
-    kids = [PEG.down(ref, node, key, week, round(q, 6), objs, sh, link) for ref, q in sorted(refs.items())[:50]]
+        return {"direction": "down", "root": tree(ref, q)}
+    kids = [tree(ref, q) for ref, q in sorted(refs.items())[:50]]
     return {"direction": "down", "root": {"id": f"v:{node}:{key}", "kind": "demand", "node_owner_id": node,
                                           "item_key": key, "week": week, "qty": round(sum(refs.values()), 6),
                                           "ref": None, "cause": None, "link": None, "children": kids}}
