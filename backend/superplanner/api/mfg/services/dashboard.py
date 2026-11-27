@@ -103,6 +103,9 @@ def _plant_row(s: Any) -> MfgPlantRow | None:
     return s.execute(select(MfgPlantRow)).scalars().first()
 
 
+#: M9-DESIGN 10: tiles of the network workspace / plants (present by workspace kind)
+M9_TILE_NAMES = ("sop_cycle", "net_shortages", "tariff_milestones", "mps_attainment")
+
 def _today(p: Any) -> date:
     from ....mfg.tz import plant_tz
 
@@ -139,6 +142,9 @@ def plant_dashboard(ctx: AppContext, period: str) -> dict[str, Any]:
         from .m8tiles import tiles as m8_tiles                 # M8-DESIGN 12
 
         tiles.update(timed("m8", m8_tiles, s, today))
+        from .m9tiles import tiles as m9_tiles                 # M9-DESIGN 10
+
+        tiles.update(timed("m9", m9_tiles, s, today))
     t1 = time.monotonic()
     try:
         k = kpi.kpis(ctx, today - timedelta(days=days - 1), today, "plant", None, "week")
@@ -169,6 +175,7 @@ def plant_dashboard(ctx: AppContext, period: str) -> dict[str, Any]:
     from ....mfg.model_m8 import M8_TILE_NAMES
 
     out_tiles = {n: _tile(tiles[n]) for n in TILE_NAMES + M8_TILE_NAMES}
+    out_tiles.update({n: _tile(tiles[n]) for n in M9_TILE_NAMES if n in tiles})   # M9-DESIGN 10 (by workspace kind)
     src = _read_source.get()
     return {"as_of": utcnow(), "period": period, "plant": plant, "tiles": out_tiles,
             "source": "replica" if src and "replica" in src and "primary" not in src else "primary",

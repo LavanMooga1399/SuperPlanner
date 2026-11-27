@@ -20,8 +20,12 @@ def due_plants(s: Session, now: datetime) -> list[str]:
     from ..db_models_m5 import MaintenanceRunRow
     from ..db_models_m7 import QaEquipmentRow, QaInspectionLotRow
 
+    from ..db_models_m9 import MfgSopCycleRow
+
     has = set(s.execute(select(QaEquipmentRow.owner_id).distinct()).scalars()) | \
-        set(s.execute(select(QaInspectionLotRow.owner_id).distinct()).scalars())
+        set(s.execute(select(QaInspectionLotRow.owner_id).distinct()).scalars()) | \
+        set(s.execute(select(MfgSopCycleRow.owner_id).where(MfgSopCycleRow.status.in_(   # M9 6.1: S&OP steps
+            ("draft", "demand_review", "supply_review", "pre_sop", "executive"))).distinct()).scalars())
     out = []
     for p in s.execute(select(MfgPlantRow).where(MfgPlantRow.owner_id.in_(sorted(has)))).scalars() if has else []:
         tz = plant_tz(p)
@@ -72,7 +76,11 @@ def scan(s: Session) -> dict[str, Any]:
         if vals:
             notify(s, f"qa_{key}", sev, t(f"qa.{key}.title", loc, count=len(vals)), t(f"qa.{key}.body", loc, **kw),
                    link[key])
-    return {k: len(v) for k, v in out.items()}
+    from .m9tiles import scan_overdue                         # M9-DESIGN 6.1: overdue S&OP steps
+
+    res = {k: len(v) for k, v in out.items()}
+    res["sop_overdue"] = scan_overdue(s, d)
+    return res
 
 
 def run_job(ctx: Any, run_id: str, lease: Any) -> None:

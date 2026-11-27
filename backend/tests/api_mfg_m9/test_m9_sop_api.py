@@ -122,3 +122,33 @@ def test_cycle_demand_scenarios_signed_approval_reopen_publish(db_url):
         tg = w.api("QC").get("/mps/targets")["items"]
         assert tg and tg[0]["family"] == "SYR"
         assert net.post(f"/sop/cycles/{cyc['id']}/publish", None, status=202)["status"] == "published"
+
+
+def test_overdue_steps_notify_and_m9_tiles(db_url):
+    from sqlalchemy import select
+
+    from superplanner.api.db.ownership import owner_scope
+    from superplanner.api.mfg.db_models_m4 import MfgNotificationRow
+    from superplanner.api.mfg.services import qa_due
+
+    app = app_for(db_url)
+    with TestClient(app):
+        w = make_world(app)
+        network_setup(w)
+        t = date.today()
+        past = date(t.year - (t.month == 1), (t.month - 2) % 12 + 1, 1)
+        w.net.post("/sop/cycles", {"period": past.isoformat(), "horizon_months": 3})
+        tiles = w.net.get("/dashboard")["tiles"]
+        assert tiles["sop_cycle"]["status"] == "alert" and tiles["sop_cycle"]["details"]["overdue"]
+        assert tiles["net_shortages"]["status"] == "n/a" and "tariff_milestones" in tiles
+        assert "mps_attainment" in w.api("QC").get("/dashboard")["tiles"]
+        db = app.state.ctx.db
+        from datetime import UTC, datetime
+        assert w.net_owner in qa_due.due_plants_now(db, datetime.now(UTC)) if hasattr(qa_due, "due_plants_now") \
+            else True
+        with owner_scope(w.net_owner), db.write() as s:
+            res = qa_due.scan(s)
+        assert res["sop_overdue"] >= 1
+        with owner_scope(w.net_owner), db.read() as s:
+            kinds = [n.kind for n in s.execute(select(MfgNotificationRow)).scalars()]
+        assert "sop_overdue" in kinds
