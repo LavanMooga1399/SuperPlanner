@@ -2,14 +2,13 @@
  * M10 contract (docs/M10-DESIGN.md 3-10; S0 freeze): electronic device history record (eDHR) with review by
  * exception and signed release, deviations, customer quality agreements, certificates of analysis and batch packs,
  * UDI device records and GUDID / Health Canada exports, label templates, printers, print jobs with reconciliation and
- * verification scans, validation packages, IQ check, evidence, data residency and the organisation audit. Field names
- * are the JSON names of `backend/superplanner/{dhr,udi,qa,validation}/model.py`. `contractExamplesM10.ts` types
- * example payloads against these declarations so `tsc` fails on drift. Shapes the design leaves open are UI
- * interpretations (listed in M10-DESIGN 14) and are adapted when the S0 fixture lands.
+ * verification scans, validation packages, IQ check, evidence, data residency and the organisation audit. Mirrors
+ * `backend/superplanner/{dhr,udi,validation}/model.py` and `qa/model_m10.py`; field names are the JSON names.
+ * `contractExamplesM10.ts` types the S0 fixture (`api/mfg/fixtures/example_m10.json`) against these declarations, so
+ * `tsc` fails on drift.
  */
 import type { EntityId, IsoDate, IsoDateTime } from "./types";
-import type { AttachmentRef, QaItemRef, QaLink, SignatureManifest } from "./typesM7";
-import type { PackLevel } from "./typesM8";
+import type { QaLink, SignatureManifest } from "./typesM7";
 
 export type { EntityId, IsoDate, IsoDateTime };
 
@@ -18,17 +17,31 @@ export interface M10Page<T> {
   total: number;
   limit: number;
   offset: number;
-  /** user id -> display name of people the page mentions */
-  people?: Record<string, string>;
 }
 export interface M10List<T> {
   items: T[];
 }
 export type JobStatus = "queued" | "running" | "completed" | "failed";
 
+export interface RenditionRef {
+  id: EntityId;
+  kind: "pdf" | "json" | "zip" | "zpl" | "csv" | "xlsx";
+  filename: string;
+  sha256: string;
+  size: number;
+  renderer_version: string;
+  created_at: IsoDateTime;
+  warnings: string[];
+}
+export interface M10ItemRef {
+  id: EntityId;
+  part_number: string | null;
+  revision: string | null;
+  name: string | null;
+}
+
 // ---------------------------------------------------------------- 4 eDHR
 export type DhrStatus = "open" | "assembled" | "in_review" | "released" | "rejected";
-export const DHR_STATUSES: readonly DhrStatus[] = ["open", "assembled", "in_review", "released", "rejected"];
 export type DhrSubject = "lot" | "wo";
 export type ExcSeverity = "major" | "minor" | "info";
 export type DhrDisposition = "accepted" | "ncr" | "deviation";
@@ -45,35 +58,7 @@ export type DhrSectionKey =
   | "genealogy"
   | "holds"
   | "review";
-export const DHR_SECTIONS: readonly DhrSectionKey[] = [
-  "header",
-  "materials",
-  "operations",
-  "equipment",
-  "inspections",
-  "nonconformance",
-  "sterilisation",
-  "labels",
-  "serials",
-  "genealogy",
-  "holds",
-  "review",
-];
-export type DhrExceptionCode =
-  | "DHR_NCR"
-  | "DHR_DEVIATION"
-  | "DHR_CORRECTION"
-  | "DHR_OVERRIDE"
-  | "DHR_TIME_WINDOW"
-  | "DHR_YIELD"
-  | "DHR_QTY_BALANCE"
-  | "DHR_LATE_ENTRY"
-  | "DHR_CAL"
-  | "DHR_MATERIAL_HOLD"
-  | "DHR_GENEALOGY_POSSIBLE"
-  | "DHR_STER"
-  | "DHR_LABEL_RECON"
-  | "DHR_POST_RELEASE";
+export const DHR_SECTIONS: readonly DhrSectionKey[] = ["header", "materials", "operations", "equipment", "inspections", "nonconformance", "sterilisation", "labels", "serials", "genealogy", "holds", "review"];
 
 export interface DhrCounts {
   major: number;
@@ -81,16 +66,9 @@ export interface DhrCounts {
   info: number;
   /** major + minor without a disposition */
   open: number;
-  open_major: number;
-  open_minor: number;
 }
 
-export interface DhrRef {
-  id: EntityId;
-  number: string;
-}
-
-/** D1 list row / review queue row. */
+/** D1 list row. */
 export interface DhrSummary {
   id: EntityId;
   number: string;
@@ -99,28 +77,40 @@ export interface DhrSummary {
   lot_id: EntityId | null;
   lot_code: string | null;
   wo_ids: EntityId[];
-  wos: DhrRef[];
-  item_id: EntityId;
-  item: QaItemRef | null;
-  line_code: string | null;
+  wo_numbers: string[];
+  item: M10ItemRef;
   status: DhrStatus;
   changed_after_release: boolean;
   superseded_by_id: EntityId | null;
-  assembled_at: IsoDateTime | null;
+  assembled_at: IsoDateTime;
+  age_days: number;
+  counts: DhrCounts;
   released_at: IsoDateTime | null;
   decision: "released" | "rejected" | null;
-  counts: DhrCounts;
-  /** oldest undispositioned major/minor exception (age of the review) */
-  oldest_open_at: IsoDateTime | null;
-  /** person who last dispositioned or started the review */
-  owner_id: EntityId | null;
   row_version: number;
+}
+
+/** D10: records waiting for review, oldest first. */
+export interface ReviewQueueRow {
+  id: EntityId;
+  number: string;
+  version: number;
+  status: DhrStatus;
+  item: M10ItemRef;
+  lot_code: string | null;
+  line_codes: string[];
+  open_major: number;
+  open_minor: number;
+  oldest_exception_age_days: number;
+  age_days: number;
+  changed_after_release: boolean;
+  reviewer_ids: EntityId[];
 }
 
 export interface DhrException {
   id: EntityId;
   record_id: EntityId;
-  code: DhrExceptionCode | string;
+  code: string;
   severity: ExcSeverity;
   section: DhrSectionKey;
   ref_type: string;
@@ -129,8 +119,6 @@ export interface DhrException {
   message: string;
   data: Record<string, unknown>;
   fingerprint: string;
-  /** dispositions the rule allows (4.2); empty for `info` */
-  allowed: DhrDisposition[];
   disposition: DhrDisposition | null;
   disposition_ref: string | null;
   disposition_ref_number: string | null;
@@ -138,6 +126,10 @@ export interface DhrException {
   carried: boolean;
   reviewed_by: EntityId | null;
   reviewed_at: IsoDateTime | null;
+  /** dispositions the rule allows (4.2); empty for `info` */
+  allowed: DhrDisposition[];
+  /** major / minor without a disposition */
+  needs_disposition: boolean;
   row_version: number;
 }
 export interface DhrDispositionInput {
@@ -146,83 +138,68 @@ export interface DhrDispositionInput {
   comment: string;
 }
 
-/** One releasability condition that fails (4.3, 409 `DHR_NOT_RELEASABLE` `details.blocking[]`). */
+export type BlockingCode = "EXCEPTION_OPEN" | "NCR_OPEN" | "DEVIATION_NOT_APPROVED" | "FINAL_INSPECTION" | "STERILITY_HOLD" | "LABEL_NOT_RECONCILED" | "DHR_STALE";
+/** One reason a record is not releasable (409 `DHR_NOT_RELEASABLE`, `details.blocking[]`). */
 export interface DhrBlocking {
-  code: string;
+  code: BlockingCode | string;
   message: string;
   ref_type?: string | null;
   ref_id?: string | null;
   ref_number?: string | null;
 }
+export interface Releasable {
+  ok: boolean;
+  blocking: DhrBlocking[];
+}
 
-/** A generic section body: key facts plus tables; bulk lists are paged through D5. */
-export interface DhrSectionTable {
-  key: string;
-  columns: { key: string; label?: string | null; unit?: string | null }[];
-  rows: Record<string, unknown>[];
-  /** rows in the full list when `rows` is a preview */
-  total?: number;
-}
-export interface DhrSection {
-  facts?: Record<string, unknown>;
-  tables?: DhrSectionTable[];
-  note?: string | null;
-  /** extra fields of a section the UI shows as facts */
-  [k: string]: unknown;
-}
-export type DhrContent = Partial<Record<DhrSectionKey, DhrSection>>;
+/** A section body: plain JSON (lists of row objects, facts, nested refs); keys per section in the S0 fixture. */
+export type DhrSection = Record<string, unknown>;
+export type DhrContent = Record<DhrSectionKey, DhrSection>;
 
 export interface DhrVersion {
   id: EntityId;
   version: number;
   status: DhrStatus;
   content_sha256: string;
-  section_hashes: Partial<Record<DhrSectionKey, string>>;
-  assembled_at: IsoDateTime | null;
+  section_hashes: Record<string, string>;
+  assembled_at: IsoDateTime;
   changed_after_release: boolean;
   reassemble_reason: string | null;
 }
 
+/** D2 (stored version) and D3 (live: `id` = "live", `status` = "open", not stored). */
 export interface DhrRecord extends DhrSummary {
-  item_revision: { bom_version_id?: string | null; routing_version_id?: string | null; ecos?: string[]; revision?: string | null } | null;
+  item_revision: Record<string, unknown>;
   content: DhrContent;
   content_sha256: string;
-  section_hashes: Partial<Record<DhrSectionKey, string>>;
+  section_hashes: Record<string, string>;
   exceptions: DhrException[];
   signatures: SignatureManifest[];
   versions: DhrVersion[];
   supersedes_id: EntityId | null;
   hold_id: EntityId | null;
-  hold_status: "held" | "released" | null;
-  rendition_id: EntityId | null;
+  hold_open: boolean;
+  dhr_required: boolean;
+  releasable: Releasable;
+  renditions: RenditionRef[];
   renderer_version: string | null;
   reassemble_reason: string | null;
-  releasable: { ok: boolean; blocking: DhrBlocking[] };
-  dhr_required: boolean;
-  people?: Record<string, string>;
 }
+/** D5: one section, its bulk list paged (serials, operation events). */
 export interface DhrSectionPage {
+  record_id: EntityId;
   section: DhrSectionKey;
-  table: string;
-  items: Record<string, unknown>[];
+  sha256: string;
+  data: Record<string, unknown>;
+  items: unknown[];
   total: number;
   page: number;
-  page_size: number;
-}
-export interface DhrQueueBucket {
-  bucket: "lt1d" | "d1to3" | "d3to7" | "gt7d";
-  records: number;
-  exceptions: number;
-}
-export interface DhrReviewQueue {
-  buckets: DhrQueueBucket[];
-  by_owner: { owner_id: EntityId | null; records: number; exceptions: number }[];
-  awaiting_review: number;
-  changed_after_release: number;
+  limit: number;
 }
 export interface DhrReleaseInput {
   decision: "released" | "rejected";
   ncr_id?: string | null;
+  note?: string;
 }
 
 // ---------------------------------------------------------------- 4.4 deviations
@@ -250,30 +227,35 @@ export interface DeviationInput {
   ncr_id: EntityId | null;
   capa_id: EntityId | null;
   external_ref: string | null;
-  /** create from a DHR exception (unplanned) */
+  /** created from a DHR exception (unplanned): the exception is dispositioned `deviation` by the creation */
   from_exception_id?: EntityId | null;
 }
-export interface Deviation extends Omit<DeviationInput, "from_exception_id"> {
+export interface Deviation {
   id: EntityId;
   number: string;
+  kind: DeviationKind;
+  title: string;
+  description: string;
+  scope: DeviationScope;
+  risk: DeviationRisk;
+  risk_score: number;
   status: DeviationStatus;
+  ncr_id: EntityId | null;
+  capa_id: EntityId | null;
   author_id: EntityId;
   approved_at: IsoDateTime | null;
   closed_at: IsoDateTime | null;
   outcome: string | null;
-  /** quantity received in scope so far (scope matching counts receipts) */
-  used_qty: number | null;
-  items: QaItemRef[];
-  lots: { id: EntityId; code: string }[];
-  wos: DhrRef[];
-  ncr_number: string | null;
-  capa_number: string | null;
+  external_ref: string | null;
+  sor: "superplanner" | "external";
+  /** received qty of lots in scope (4.4) */
+  used_qty: number;
+  signatures: SignatureManifest[];
+  links: (QaLink | Record<string, unknown>)[];
+  people: Record<string, string>;
   row_version: number;
   created_at: IsoDateTime;
   updated_at: IsoDateTime;
-  signatures: SignatureManifest[];
-  links: QaLink[];
-  attachments: AttachmentRef[];
 }
 
 // ---------------------------------------------------------------- 6 agreements, CoA, batch packs
@@ -286,12 +268,13 @@ export interface Spec {
   nominal: number | null;
   lsl: number | null;
   usl: number | null;
-  unit: string | null;
+  unit: string;
 }
 export interface CoaCharacteristic {
   item_id: EntityId | null;
   code: string;
   label: string;
+  label_fr: string;
   report: CoaReport;
   /** customer spec override; null = the inspection plan's spec */
   spec: Spec | null;
@@ -299,9 +282,9 @@ export interface CoaCharacteristic {
 export interface AgreementInput {
   customer: string;
   title: string;
-  external_ref: string | null;
+  external_ref: string;
   item_ids: EntityId[];
-  coa: { characteristics: CoaCharacteristic[]; statement: string; language: CoaLanguage };
+  coa: { characteristics: CoaCharacteristic[]; statement: string; statement_fr: string; language: CoaLanguage };
   pack: { documents: PackDoc[]; per: "lot" | "shipment" };
   effective_from: IsoDate | null;
 }
@@ -311,63 +294,64 @@ export interface Agreement extends AgreementInput {
   version: number;
   status: DocState;
   supersedes_id: EntityId | null;
-  items: QaItemRef[];
+  signatures: SignatureManifest[];
   row_version: number;
   created_at: IsoDateTime;
   updated_at: IsoDateTime;
-  signatures: SignatureManifest[];
-}
-/** Characteristic codes of the approved final inspection plans of an item (agreement picker). */
-export interface PlanCharacteristic {
-  item_id: EntityId;
-  plan_number: string;
-  code: string;
-  name: string;
-  kind: "variable" | "attribute";
-  spec: Spec | null;
 }
 
 export type CoaStatus = "draft" | "approved" | "void";
 export interface CoaLine {
   code: string;
   label: string;
+  label_fr: string;
   report: CoaReport;
   spec: Spec | null;
-  spec_source: "customer" | "plan";
+  spec_source: "customer" | "plan" | "none";
   n: number;
+  defects: number;
   mean: number | null;
   min: number | null;
   max: number | null;
-  defects: number | null;
   conforms: boolean;
+  result_text: string;
 }
 export interface Coa {
   id: EntityId;
   number: string;
   agreement_id: EntityId;
-  agreement_number: string;
+  agreement_number: string | null;
   agreement_version: number;
   lot_id: EntityId;
-  lot_code: string;
-  item: QaItemRef | null;
+  lot_code: string | null;
+  item_id: EntityId | null;
   dhr_id: EntityId;
-  dhr_number: string;
+  dhr_number: string | null;
   customer: string;
   demand_line_id: EntityId | null;
-  content: { lines: CoaLine[]; statement: string; language: CoaLanguage };
+  content: {
+    lines: CoaLine[];
+    statement: string;
+    statement_fr?: string;
+    language: CoaLanguage;
+    lot?: { lot_code: string; expires_on: IsoDate | null };
+    item?: { part_number: string; name: string };
+    dhr?: { number: string; version: number; content_sha256: string };
+  };
   content_sha256: string;
   status: CoaStatus;
-  rendition_id: EntityId | null;
   void_reason: string | null;
+  rendition: RenditionRef | null;
+  signatures: SignatureManifest[];
   row_version: number;
   created_at: IsoDateTime;
-  signatures: SignatureManifest[];
+  updated_at: IsoDateTime;
 }
 export type PackStatus = "building" | "ready" | "failed";
 export interface PackDocument {
-  kind: PackDoc | "manifest";
+  kind: string;
+  lot_id: EntityId | null;
   ref_id: EntityId | null;
-  lot_code?: string | null;
   filename: string;
   sha256: string;
   size: number;
@@ -376,18 +360,17 @@ export interface BatchPack {
   id: EntityId;
   number: string;
   agreement_id: EntityId;
-  agreement_number: string;
   lot_ids: EntityId[];
-  lots: { id: EntityId; code: string }[];
   customer: string;
   demand_line_id: EntityId | null;
   status: PackStatus;
   documents: PackDocument[];
+  rendition: RenditionRef | null;
   manifest_sha256: string | null;
-  rendition_id: EntityId | null;
   error: string | null;
+  row_version: number;
   created_at: IsoDateTime;
-  created_by: EntityId;
+  updated_at: IsoDateTime;
 }
 
 // ---------------------------------------------------------------- 7 UDI
@@ -398,30 +381,35 @@ export interface PiFlags {
   expiry: boolean;
   mfg_date: boolean;
 }
+export type FdaClass = "" | "I" | "II" | "III" | "U";
+export type HcClass = "" | "I" | "II" | "III" | "IV";
+export type MriSafety = "" | "mr_safe" | "mr_conditional" | "mr_unsafe" | "not_evaluated" | "no_info";
 /** GUDID / Health Canada attributes (14.1). */
 export interface UdiAttrs {
-  brand: string | null;
-  version_model: string | null;
-  catalog_no: string | null;
-  description: string | null;
-  gmdn_code: string | null;
-  gmdn_term: string | null;
+  brand: string;
+  version_model: string;
+  catalog_no: string;
+  description: string;
+  gmdn_code: string;
+  gmdn_term: string;
   fda_product_codes: string[];
-  fda_class: string | null;
+  fda_class: FdaClass;
   premarket_nos: string[];
-  hc_licence_no: string | null;
-  hc_class: string | null;
+  hc_licence_no: string;
+  hc_class: HcClass;
   sterile: boolean;
-  ster_method: string | null;
+  ster_method: string;
   single_use: boolean;
   rx: boolean;
   kit: boolean;
   combination: boolean;
-  mri_safety: string | null;
+  mri_safety: MriSafety;
   latex: boolean;
-  storage: string[];
+  storage: Record<string, unknown>[];
 }
+/** U1 PUT `/udi/devices` (create when no record exists for the packaging row; If-Match on update). */
 export interface UdiDeviceInput {
+  packaging_id: EntityId;
   gtin: string;
   di_kind: DiKind;
   qty_per_package: number;
@@ -430,59 +418,70 @@ export interface UdiDeviceInput {
   attrs: UdiAttrs;
   commercial_distribution_date: IsoDate | null;
 }
-export interface UdiDevice extends UdiDeviceInput {
+export interface UdiDevice {
   id: EntityId;
   packaging_id: EntityId;
   item_id: EntityId;
-  item: QaItemRef | null;
-  level: PackLevel;
-  status: DocState;
+  item_part_number: string | null;
+  level: string;
+  gtin: string;
   /** labels were printed with this GTIN: it cannot change (409 `UDI_GTIN_IN_USE`) */
   gtin_locked: boolean;
-  row_version: number;
-  updated_at: IsoDateTime;
+  di_kind: DiKind | string;
+  qty_per_package: number;
+  contains_gtin: string | null;
+  pi_flags: PiFlags;
+  attrs: UdiAttrs;
+  status: DocState;
+  commercial_distribution_date: IsoDate | null;
   signatures: SignatureManifest[];
+  row_version: number;
+  created_at: IsoDateTime;
+  updated_at: IsoDateTime;
 }
 export interface UdiParse {
   ok: boolean;
   symbology: string | null;
   ais: Record<string, string>;
-  gtin: string | null;
-  lot: string | null;
-  serial: string | null;
+  gtin_check_ok: boolean | null;
   expiry: IsoDate | null;
-  mfg_date: IsoDate | null;
-  hri: string | null;
-  errors: { code: string; message: string }[];
+  production_date: IsoDate | null;
+  data: string;
+  hri: string;
+  errors: string[];
 }
 export type ExportKind = "gudid" | "hc";
 export type ExportFormat = "xlsx" | "csv" | "json";
 export interface ExportIssue {
   gtin: string | null;
-  item_id: EntityId | null;
-  part_number?: string | null;
   element: string | null;
-  code: string;
   message: string;
+  code?: string | null;
 }
 export interface UdiExport {
   id: EntityId;
   number: string;
   kind: ExportKind;
-  params: { item_ids: EntityId[] | null; format: ExportFormat };
+  params: { item_ids?: EntityId[] | null; format?: ExportFormat };
   status: JobStatus;
-  rule_version: string | null;
+  rule_version: string;
   result: { rows: number; errors: ExportIssue[]; warnings: ExportIssue[] } | null;
-  rendition_id: EntityId | null;
+  rendition: RenditionRef | null;
+  row_version: number;
   created_at: IsoDateTime;
-  created_by: EntityId;
 }
 
 // ---------------------------------------------------------------- 7.2 label templates
-export type LabelElementKind = "text" | "field" | "barcode" | "box" | "line";
+export type LabelElementKind = "text" | "field" | "barcode" | "box" | "line" | "symbol";
 export type Symbology = "gs1_datamatrix" | "gs1_128" | "code128";
-export type Ai = "01" | "17" | "10" | "21" | "11";
+export type Ai = "01" | "11" | "17" | "10" | "21";
 export const AIS: readonly Ai[] = ["01", "11", "17", "10", "21"];
+export interface BarcodeSpec {
+  symbology: Symbology;
+  module_mm: number;
+  ais: Ai[];
+  hri: boolean;
+}
 export interface LabelElement {
   kind: LabelElementKind;
   x_mm: number;
@@ -490,12 +489,14 @@ export interface LabelElement {
   w_mm: number;
   h_mm: number;
   rotation: 0 | 90 | 180 | 270;
-  font_pt: number | null;
+  font_pt: number;
   bold: boolean;
-  lang: string | null;
+  lang: "en" | "fr" | null;
   text: string | null;
   field: string | null;
-  barcode: { symbology: Symbology; module_mm: number; ais: Ai[] } | null;
+  barcode: BarcodeSpec | null;
+  /** `symbol`: SVG path data only */
+  path: string | null;
 }
 export const LABEL_FIELDS = [
   "item.name",
@@ -519,11 +520,11 @@ export type TemplateStatus = "draft" | "in_change" | "approved" | "obsolete";
 export interface LabelTemplateInput {
   code: string;
   name: string;
-  level: PackLevel;
+  level: string;
   width_mm: number;
   height_mm: number;
   dpi: 203 | 300 | 600;
-  languages: string[];
+  languages: ("en" | "fr")[];
   elements: LabelElement[];
 }
 export interface LabelTemplate extends LabelTemplateInput {
@@ -534,23 +535,22 @@ export interface LabelTemplate extends LabelTemplateInput {
   eco_number: string | null;
   approved_at: IsoDateTime | null;
   supersedes_id: EntityId | null;
+  /** validation findings (LBL_MODULE_TOO_SMALL ...) */
+  issues: { code?: string; message?: string; element?: number; [k: string]: unknown }[];
   row_version: number;
   created_at: IsoDateTime;
   updated_at: IsoDateTime;
 }
 export interface LabelAssignment {
-  id: EntityId;
   item_id: EntityId;
-  item: QaItemRef | null;
-  level: PackLevel;
+  level: string;
   customer: string | null;
   template_code: string;
 }
-export type LabelAssignmentInput = Omit<LabelAssignment, "id" | "item">;
 export interface PrinterInput {
   code: string;
   name: string;
-  kind: "zpl_raw";
+  kind: "zpl_raw" | "download";
   host: string;
   port: number;
   dpi: 203 | 300 | 600;
@@ -560,6 +560,8 @@ export interface PrinterInput {
 export interface Printer extends PrinterInput {
   id: EntityId;
   row_version: number;
+  created_at: IsoDateTime;
+  updated_at: IsoDateTime;
 }
 
 // ---------------------------------------------------------------- 7.3 print jobs
@@ -577,41 +579,41 @@ export interface PrintTotals {
 }
 export interface PrintEvent {
   id: EntityId;
+  job_id: EntityId;
   kind: PrintEventKind;
-  qty: number | null;
+  qty: number;
   serials: string[] | null;
   position: ScanPosition | null;
   scan: string | null;
   result: "match" | "mismatch" | null;
-  mismatch: Record<string, { expected: string | null; scanned: string | null }> | null;
+  mismatch: Record<string, { expected?: unknown; scanned?: unknown } | unknown> | null;
   reason: string | null;
   actor_id: EntityId;
-  actor_name?: string | null;
   at: IsoDateTime;
+  client_event_id: string;
 }
 export interface PrintJobInput {
   item_id: EntityId;
-  level: PackLevel;
+  level: string;
   lot_id: EntityId;
   wo_id: EntityId | null;
+  customer?: string | null;
   qty: number;
   output: "pdf" | "zpl";
   target: "download" | "printer";
   printer_id: EntityId | null;
-  customer?: string | null;
 }
 export interface PrintJob {
   id: EntityId;
   number: string;
   item_id: EntityId;
-  item: QaItemRef | null;
-  level: PackLevel;
+  item_part_number: string | null;
+  level: string;
   udi_id: EntityId;
   gtin: string;
   lot_id: EntityId;
-  lot_code: string;
+  lot_code: string | null;
   wo_id: EntityId | null;
-  wo_number: string | null;
   template_id: EntityId;
   template_code: string;
   template_version: number;
@@ -619,7 +621,8 @@ export interface PrintJob {
   serials: string[] | null;
   data: Record<string, unknown>;
   data_sha256: string;
-  hri: string | null;
+  element_string: string;
+  hri: string;
   output: "pdf" | "zpl";
   target: "download" | "printer";
   printer_id: EntityId | null;
@@ -627,115 +630,119 @@ export interface PrintJob {
   totals: PrintTotals;
   recon_explanation: string | null;
   reconciled_at: IsoDateTime | null;
-  /** first / last verification matched (7.4) */
-  verified: { first: boolean; last: boolean };
-  /** proposal for `used` (WO good qty at the level) */
-  used_proposal: number | null;
-  /** a signature is needed to reconcile (diff != 0 or Part 11 mode) */
-  recon_signature_required: boolean;
+  /** {first, last, mismatches} (7.4) */
+  verify: { first?: boolean; last?: boolean; mismatches?: number };
   events: PrintEvent[];
   signatures: SignatureManifest[];
   row_version: number;
   created_at: IsoDateTime;
-  created_by: EntityId;
+  updated_at: IsoDateTime;
 }
 export interface PrintEventInput {
-  kind: Exclude<PrintEventKind, "issued" | "verify">;
+  kind: "printed" | "reprint" | "used" | "destroyed" | "retained" | "unblock";
   qty: number;
   serials?: string[] | null;
   reason?: string | null;
   client_event_id: string;
 }
 export interface VerifyResult {
-  event: PrintEvent;
+  result: "match" | "mismatch";
+  mismatch: Record<string, unknown>;
+  parsed: UdiParse;
   job: PrintJob;
 }
 
 // ---------------------------------------------------------------- 8 validation package
 export type PackageKind = "full" | "iq" | "oq" | "pq" | "periodic" | "evidence";
-export interface ValPackageFile {
+export interface ManifestFile {
   path: string;
   sha256: string;
   size: number;
-  kind?: string | null;
+  kind: string;
 }
 export interface ValPackage {
   id: EntityId;
   number: string;
   kind: PackageKind;
   params: Record<string, unknown>;
-  status: JobStatus;
-  approval: "none" | "pending" | "approved";
+  status: JobStatus | "approved";
   baseline_id: EntityId | null;
   prev_baseline_id: EntityId | null;
-  manifest: { files: ValPackageFile[]; baseline_diff?: { path: string; change: string }[]; periodic?: Record<string, unknown>; summary?: Record<string, unknown> } | null;
+  manifest: { files?: ManifestFile[]; baseline_diff?: Record<string, unknown>[]; kind?: string; package?: string; statement?: string; [k: string]: unknown } | null;
   sha256: string | null;
+  size: number | null;
   error: string | null;
-  evidence_kind?: "ha_drill" | "load_report" | "ha_rehearsal" | null;
-  created_at: IsoDateTime;
-  created_by: EntityId;
-  row_version: number;
   signatures: SignatureManifest[];
+  row_version: number;
+  created_at: IsoDateTime;
+  updated_at: IsoDateTime;
 }
-export interface IqCheckRow {
-  code: string;
-  label: string;
-  result: "pass" | "fail" | "warn";
-  expected: string | null;
-  observed: string | null;
-  detail: string | null;
+export interface PackageInput {
+  kind: "full" | "iq" | "oq" | "pq" | "periodic";
+  junit_xml?: string | null;
+  label?: string;
+}
+export type EvidenceKind = "ha_drill" | "load_report" | "ha_rehearsal" | "other";
+export interface EvidenceInput {
+  kind: EvidenceKind;
+  title: string;
+  provisional: boolean;
+  content: Record<string, unknown>;
 }
 export interface IqCheck {
-  ran_at: IsoDateTime;
+  code: string;
+  label: string;
+  status: "pass" | "fail" | "warn" | "skip";
+  detail: string;
+  observed: unknown;
+  expected: unknown;
+}
+export interface IqResult {
   plant: string;
-  app_version: string;
+  at: IsoDateTime;
   ok: boolean;
-  checks: IqCheckRow[];
+  checks: IqCheck[];
 }
 
 // ---------------------------------------------------------------- 9 enterprise
-export type RegionEndpoint = "archive" | "backup" | "smtp" | "logs" | "ai";
+export interface ResidencyItem {
+  kind: "deployment" | "org" | "archive" | "backup" | "smtp" | "logs" | "ai" | "endpoint" | "assistant";
+  name: string;
+  region: string | null;
+  ok: boolean;
+  detail: string;
+  exception_signature_id: string | null;
+}
 export interface Residency {
-  org: string;
+  org_id: EntityId;
   data_region: string;
   deployment_region: string;
   ok: boolean;
-  endpoints: { name: RegionEndpoint; region: string | null; ok: boolean }[];
-  integrations: { id: EntityId; plant_code: string; name: string; region: string | null; ok: boolean; cross_region_signed: boolean }[];
-  plants: { code: string; name: string; part11_mode: boolean; assistant_enabled: boolean; ok: boolean }[];
-  mismatches: { code: string; subject: string; detail: string | null }[];
+  mismatches: ResidencyItem[];
+  items: ResidencyItem[];
 }
 export interface OrgAuditRow {
-  id: EntityId;
-  at: IsoDateTime;
-  plant_code: string;
+  id: number;
+  plant: string | null;
+  owner_id: EntityId | null;
   entity_type: string;
   entity_id: string;
   action: string;
   actor_id: EntityId | null;
-  actor_name: string | null;
+  created_at: IsoDateTime;
   reason: string | null;
-  changes: Record<string, unknown> | null;
+  signature_id: string | null;
+  details: Record<string, unknown>;
 }
-export interface PlantTemplateSummary {
-  plant: string;
-  sections: { key: string; count: number }[];
+export interface OrgAuditPage {
+  items: OrgAuditRow[];
+  total: number;
+  page: number;
+  limit: number;
+  people?: Record<string, string>;
 }
 export interface PlantTemplateApplyResult {
   applied: { key: string; count: number }[];
   drafts: { key: string; count: number }[];
   skipped: { key: string; reason: string }[];
-}
-
-/** M10 keys of `qa_settings` (3). */
-export interface QaSettingsM10 {
-  dhr_required: boolean | null;
-  dhr_review_days: number;
-  dhr_late_entry_hours: number;
-  dhr_min_yield_pct: number | null;
-  dhr_post_release_hold: boolean;
-  label_recon_tolerance: number;
-  label_verify_first_last: boolean;
-  paper: "letter" | "a4";
-  deviation_sor: "superplanner" | "external";
 }

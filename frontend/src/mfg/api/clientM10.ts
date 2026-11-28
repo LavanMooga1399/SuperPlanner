@@ -18,23 +18,22 @@ import type {
   DhrException,
   DhrRecord,
   DhrReleaseInput,
-  DhrReviewQueue,
   DhrSectionKey,
   DhrSectionPage,
   DhrSummary,
+  EvidenceInput,
+  OrgAuditPage,
+  PackageInput,
+  ReviewQueueRow,
   ExportFormat,
   ExportKind,
-  IqCheck,
+  IqResult,
   LabelAssignment,
-  LabelAssignmentInput,
   LabelTemplate,
   LabelTemplateInput,
   M10List,
   M10Page,
-  OrgAuditRow,
-  PlanCharacteristic,
   PlantTemplateApplyResult,
-  PlantTemplateSummary,
   PrintEventInput,
   PrintJob,
   PrintJobInput,
@@ -63,16 +62,17 @@ export const getDhr = (id: string, signal?: AbortSignal) => mfgRequest<DhrRecord
 export const getDhrLive = (query: { lot_id?: string; wo_id?: string }, signal?: AbortSignal) => mfgRequest<DhrRecord>("/dhr/live", { query: q(query), signal });
 export const assembleDhr = (body: { lot_id?: string; wo_id?: string; reason?: string | null }) =>
   mfgRequest<DhrRecord>("/dhr", { method: "POST", body, headers: reasonHeaders(body.reason) });
-export const getDhrSection = (id: string, section: DhrSectionKey, query: { table?: string; page?: number } = {}, signal?: AbortSignal) =>
+export const getDhrSection = (id: string, section: DhrSectionKey, query: { page?: number; limit?: number } = {}, signal?: AbortSignal) =>
   mfgRequest<DhrSectionPage>(`/dhr/${enc(id)}/sections/${enc(section)}`, { query: q(query), signal });
+/** D6: answers the updated exception (If-Match = the exception's row_version); reload the record after. */
 export const dispositionException = (recordId: string, x: DhrException, body: DhrDispositionInput, reason?: string | null) =>
-  mfgRequest<DhrRecord>(`/dhr/${enc(recordId)}/exceptions/${enc(x.id)}`, { method: "PUT", body, headers: reasonHeaders(reason, x.row_version) });
-export const startDhrReview = (r: DhrRecord) => mfgRequest<DhrRecord>(`/dhr/${enc(r.id)}/start-review`, { method: "POST", body: {}, headers: ifMatch(r.row_version) });
+  mfgRequest<DhrException>(`/dhr/${enc(recordId)}/exceptions/${enc(x.id)}`, { method: "PUT", body, headers: reasonHeaders(reason, x.row_version) });
+export const startDhrReview = (r: DhrRecord, note = "") => mfgRequest<DhrRecord>(`/dhr/${enc(r.id)}/start-review`, { method: "POST", body: { note }, headers: ifMatch(r.row_version) });
 export const releaseDhr = (r: DhrRecord, body: DhrReleaseInput, signature: SignatureInput | null, comment: string) =>
   signedAction<DhrRecord>(`/dhr/${enc(r.id)}/release`, { ...body }, { version: r.row_version, signature, reason: comment || null });
 export const exportDhr = (r: { id: string; number: string; version: number }, format: "pdf" | "json") =>
   mfgDownload(`/dhr/${enc(r.id)}/export`, { format }, `${r.number}-v${r.version}.${format}`);
-export const getReviewQueue = (signal?: AbortSignal) => mfgRequest<DhrReviewQueue>("/dhr/review-queue", { signal });
+export const getReviewQueue = (signal?: AbortSignal) => mfgRequest<M10List<ReviewQueueRow>>("/dhr/review-queue", { signal });
 
 // ---------------------------------------------------------------- V1-V4 deviations
 export const listDeviations = (query: Q = {}, signal?: AbortSignal) => mfgRequest<M10Page<Deviation>>("/deviations", { query: q(query), signal });
@@ -94,9 +94,6 @@ export const updateAgreement = (a: Agreement, body: AgreementInput, reason?: str
 export const approveAgreement = (a: Agreement, signature: SignatureInput | null, comment: string) =>
   signedAction<Agreement>(`/qa/agreements/${enc(a.id)}/approve`, {}, { version: a.row_version, signature, reason: comment || null });
 export const newAgreementVersion = (a: Agreement) => mfgRequest<Agreement>(`/qa/agreements/${enc(a.id)}/new-version`, { method: "POST", body: {}, headers: ifMatch(a.row_version) });
-/** Characteristic codes of the item's approved final plans (agreement editor picker). */
-export const listPlanCharacteristics = (itemIds: string[], signal?: AbortSignal) =>
-  mfgRequest<M10List<PlanCharacteristic>>("/qa/agreements/characteristics", { query: { item_ids: itemIds.join(",") }, signal });
 
 // ---------------------------------------------------------------- C4-C9 CoA and batch packs
 export const createCoa = (body: { lot_id: string; agreement_id: string; demand_line_id?: string | null }) => mfgRequest<Coa>("/coa", { method: "POST", body });
@@ -112,16 +109,17 @@ export const getBatchPack = (id: string, signal?: AbortSignal) => mfgRequest<Bat
 export const downloadBatchPack = (p: BatchPack) => mfgDownload(`/batch-packs/${enc(p.id)}/download`, undefined, `${p.number}.zip`);
 
 // ---------------------------------------------------------------- U1-U5 UDI
-export const listUdiDevices = (query: Q = {}, signal?: AbortSignal) => mfgRequest<M10Page<UdiDevice>>("/udi/devices", { query: q(query), signal });
-export const updateUdiDevice = (d: UdiDevice, body: UdiDeviceInput, reason?: string | null) =>
-  mfgRequest<UdiDevice>(`/udi/devices/${enc(d.id)}`, { method: "PUT", body, headers: reasonHeaders(reason, d.row_version) });
+export const listUdiDevices = (query: Q = {}, signal?: AbortSignal) => mfgRequest<M10List<UdiDevice>>("/udi/devices", { query: q(query), signal });
+/** U1 PUT: create (no If-Match) or update the draft DI record of a packaging row. */
+export const putUdiDevice = (body: UdiDeviceInput, current: UdiDevice | null, reason?: string | null) =>
+  mfgRequest<UdiDevice>("/udi/devices", { method: "PUT", body, headers: reasonHeaders(reason, current?.row_version) });
 export const approveUdiDevice = (d: UdiDevice, signature: SignatureInput | null, comment: string) =>
   signedAction<UdiDevice>(`/udi/devices/${enc(d.id)}/approve`, {}, { version: d.row_version, signature, reason: comment || null });
 export const parseUdi = (code: string, signal?: AbortSignal) => mfgRequest<UdiParse>("/udi/parse", { query: { code }, signal });
 export const createUdiExport = (body: { kind: ExportKind; item_ids?: string[] | null; format: ExportFormat }) => mfgRequest<UdiExport>("/udi/exports", { method: "POST", body });
 export const listUdiExports = (query: Q = {}, signal?: AbortSignal) => mfgRequest<M10Page<UdiExport>>("/udi/exports", { query: q(query), signal });
 export const getUdiExport = (id: string, signal?: AbortSignal) => mfgRequest<UdiExport>(`/udi/exports/${enc(id)}`, { signal });
-export const downloadUdiExport = (x: UdiExport) => mfgDownload(`/udi/exports/${enc(x.id)}/download`, undefined, `${x.number}.${x.params.format}`);
+export const downloadUdiExport = (x: UdiExport) => mfgDownload(`/udi/exports/${enc(x.id)}/download`, undefined, x.rendition?.filename ?? `${x.number}.${x.params.format ?? "csv"}`);
 
 // ---------------------------------------------------------------- L1-L6 labels
 export const listTemplates = (query: Q = {}, signal?: AbortSignal) => mfgRequest<M10Page<LabelTemplate>>("/labels/templates", { query: q(query), signal });
@@ -136,8 +134,9 @@ export async function templatePreview(id: string, query: { item_id?: string; lot
   return f.blob.text();
 }
 export const listAssignments = (query: Q = {}, signal?: AbortSignal) => mfgRequest<M10List<LabelAssignment>>("/labels/assignments", { query: q(query), signal });
-export const putAssignments = (items: LabelAssignmentInput[], reason?: string | null) =>
-  mfgRequest<M10List<LabelAssignment>>("/labels/assignments", { method: "PUT", body: { items }, headers: reasonHeaders(reason) });
+/** L5: replaces the assignments of the items named in `rows`. */
+export const putAssignments = (rows: LabelAssignment[], reason?: string | null) =>
+  mfgRequest<M10List<LabelAssignment>>("/labels/assignments", { method: "PUT", body: { rows }, headers: reasonHeaders(reason) });
 export const listPrinters = (signal?: AbortSignal) => mfgRequest<M10List<Printer>>("/labels/printers", { signal });
 export const createPrinter = (body: PrinterInput) => mfgRequest<Printer>("/labels/printers", { method: "POST", body });
 export const updatePrinter = (p: Printer, body: PrinterInput) => mfgRequest<Printer>(`/labels/printers/${enc(p.id)}`, { method: "PUT", body, headers: ifMatch(p.row_version) });
@@ -157,21 +156,21 @@ export const reconcileJob = (j: PrintJob, explanation: string, signature: Signat
 export const voidJob = (j: PrintJob, reason: string) => mfgRequest<PrintJob>(`/labels/jobs/${enc(j.id)}/void`, { method: "POST", body: { reason }, headers: reasonHeaders(reason, j.row_version) });
 
 // ---------------------------------------------------------------- Q1-Q5 validation
-export const runIqCheck = () => mfgRequest<IqCheck>("/validation/iq-check", { method: "POST", body: {} });
+export const runIqCheck = () => mfgRequest<IqResult>("/validation/iq-check", { method: "POST", body: {} });
 export const listPackages = (query: Q = {}, signal?: AbortSignal) => mfgRequest<M10Page<ValPackage>>("/validation/packages", { query: q(query), signal });
-export const createPackage = (body: { kind: Exclude<ValPackage["kind"], "evidence">; note?: string | null }) => mfgRequest<ValPackage>("/validation/packages", { method: "POST", body });
+export const createPackage = (body: PackageInput) => mfgRequest<ValPackage>("/validation/packages", { method: "POST", body });
 export const getPackage = (id: string, signal?: AbortSignal) => mfgRequest<ValPackage>(`/validation/packages/${enc(id)}`, { signal });
 export const downloadPackage = (p: ValPackage) => mfgDownload(`/validation/packages/${enc(p.id)}/download`, undefined, `${p.number}.zip`);
 export const approvePackage = (p: ValPackage, signature: SignatureInput | null, comment: string) =>
   signedAction<ValPackage>(`/validation/packages/${enc(p.id)}/approve`, {}, { version: p.row_version, signature, reason: comment || null });
-export const uploadEvidence = (file: File, kind: "ha_drill" | "load_report" | "ha_rehearsal") => mfgUpload<ValPackage>("/validation/evidence", file, { kind, filename: file.name });
+/** Q5 (JSON body): an HA drill / load report / rehearsal record stored as evidence. */
+export const uploadEvidence = (body: EvidenceInput) => mfgRequest<ValPackage>("/validation/evidence", { method: "POST", body });
 
 // ---------------------------------------------------------------- O1-O2 organisation (orgs router)
 export const getResidency = (org: string, signal?: AbortSignal) => v1Request<Residency>(`/orgs/${enc(org)}/residency`, { signal });
-export const listOrgAudit = (org: string, query: Q = {}, signal?: AbortSignal) => v1Request<M10Page<OrgAuditRow>>(`/orgs/${enc(org)}/audit`, { query: q(query), signal });
+export const listOrgAudit = (org: string, query: Q = {}, signal?: AbortSignal) => v1Request<OrgAuditPage>(`/orgs/${enc(org)}/audit`, { query: q(query), signal });
 export const downloadOrgAudit = (org: string, query: Q = {}) => v1Download(`/orgs/${enc(org)}/audit`, q({ ...query, format: "csv" }), `audit-${org}.csv`);
 
-// ---------------------------------------------------------------- plant template (9.4)
+// ---------------------------------------------------------------- plant template (9.4; route not in the S0 table - UI interpretation)
 export const exportPlantTemplate = () => mfgDownload("/plant/template", undefined, "plant-template.json");
-export const previewPlantTemplate = (file: File) => mfgUpload<PlantTemplateSummary>("/plant/template/preview", file);
 export const applyPlantTemplate = (file: File, reason: string) => mfgUpload<PlantTemplateApplyResult>("/plant/template/apply", file, { reason });

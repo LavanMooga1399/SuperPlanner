@@ -97,6 +97,8 @@ export function valueText(v: unknown, unit?: string | null): string {
   if (typeof v === "object") {
     const o = v as Record<string, unknown>;
     if ("number" in o && typeof o.number === "string") return o.number;
+    if (typeof o.part_number === "string") return [o.part_number, o.name].filter(Boolean).join(" ");
+    if (typeof o.lot_code === "string") return o.lot_code;
     if ("code" in o && typeof o.code === "string") return [o.code, o.name].filter(Boolean).join(" ");
     return Object.entries(o)
       .filter(([k]) => !k.endsWith("_id") && k !== "id")
@@ -221,3 +223,24 @@ export function KV({ rows, testId }: { rows: [string, ReactNode][]; testId?: str
 export const countNoun = (n: number, one: StringKey, other: StringKey) => plural(n, t(one), t(other));
 export const fmtN = (v: number | null | undefined) => (v === null || v === undefined ? "–" : formatNumber(v));
 export const today = () => new Date().toISOString().slice(0, 10);
+
+/** M10 item refs carry nullable fields; the quality item cell expects strings. */
+export const qaItem = (i: { id: string; part_number?: string | null; revision?: string | null; name?: string | null } | null | undefined) =>
+  i ? { id: i.id, part_number: i.part_number ?? "", revision: i.revision ?? "", name: i.name ?? "" } : null;
+
+/** Age given in days by the server: "5 h", "3 d", with an "Aging" marker at the review target. */
+export function AgeDays({ days, warnDays = 3 }: { days: number | null | undefined; warnDays?: number }) {
+  if (days === null || days === undefined) return <span className="faint">–</span>;
+  const text = days < 1 ? t("gxp.tpl.hours", { n: Math.floor(days * 24) }) : t("gxp.tpl.days", { n: Math.floor(days) });
+  const late = days >= warnDays;
+  return (
+    <span className={late ? "row" : undefined} style={late ? { gap: 4 } : undefined}>
+      <span className="pl-num">{text}</span>
+      {late ? (
+        <span className="badge warn">
+          <Icon name="clock" /> {t("gxp.str.aging")}
+        </span>
+      ) : null}
+    </span>
+  );
+}

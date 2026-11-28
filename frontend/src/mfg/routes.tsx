@@ -106,6 +106,9 @@ import { TradeReportPage } from "./trade/TradeReportPage";
 import { SourcingRiskPage } from "./trade/SourcingRiskPage";
 import { DhrQueuePage } from "./dhr/DhrQueuePage";
 import { DhrRecordPage } from "./dhr/DhrRecordPage";
+import { DeviationPage, DeviationsPage } from "./dhr/DeviationPages";
+import { AgreementPage, AgreementsPage } from "./coa/AgreementPages";
+import { BatchPackPage, BatchPacksPage, CoaPage, CoasPage } from "./coa/CoaPages";
 import { useAccess } from "./lib/permissions";
 import { FloorBatch } from "./floor/FloorBatch";
 import { FloorDowntime } from "./floor/FloorDowntime";
@@ -361,6 +364,14 @@ export const mfgRoutes: RouteObject[] = [
       // ---------------------------------------------------------------- M10 eDHR, deviations, CoA, labels, UDI
       { path: "dhr", element: <DhrQueuePage /> },
       { path: "dhr/:dhrId", element: <Keyed param="dhrId">{(k) => <DhrRecordPage key={k} />}</Keyed> },
+      { path: "deviations", element: <DeviationsPage /> },
+      { path: "deviations/:deviationId", element: <Keyed param="deviationId">{(k) => <DeviationPage key={k} />}</Keyed> },
+      { path: "quality/agreements", element: <AgreementsPage /> },
+      { path: "quality/agreements/:agreementId", element: <Keyed param="agreementId">{(k) => <AgreementPage key={k} />}</Keyed> },
+      { path: "coa", element: <CoasPage /> },
+      { path: "coa/:coaId", element: <Keyed param="coaId">{(k) => <CoaPage key={k} />}</Keyed> },
+      { path: "batch-packs", element: <BatchPacksPage /> },
+      { path: "batch-packs/:packId", element: <Keyed param="packId">{(k) => <BatchPackPage key={k} />}</Keyed> },
       { path: "*", element: <MfgNotFound /> },
     ],
   },

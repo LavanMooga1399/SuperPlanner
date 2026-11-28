@@ -134,6 +134,8 @@ export const MFG_NAV: NavGroupDef[] = [
     testId: "nav-group-records",
     sections: [
       { key: "dhr", get label() { return t("gxp.nav.dhr"); }, to: mfgPaths.dhr(), icon: "book", keywords: t("gxp.nav.kwDhr") },
+      { key: "deviations", get label() { return t("gxp.nav.deviations"); }, to: mfgPaths.deviations(), icon: "flag", keywords: t("gxp.nav.kwDeviations") },
+      { key: "agreements", get label() { return t("gxp.nav.agreements"); }, to: mfgPaths.agreements(), icon: "briefcase", match: ["/mfg/coa", "/mfg/batch-packs"], keywords: t("gxp.nav.kwAgreements") },
     ],
   },
   {

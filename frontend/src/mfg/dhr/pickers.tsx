@@ -3,7 +3,10 @@
  * a record (a disposition must reference a record of the same lot or WO, 422 `DHR_REF_SCOPE`).
  */
 import { useId, useState } from "react";
+import { Icon } from "../../components/Icon";
 import { t } from "../../lib/i18n";
+import { ItemPicker } from "../components/ItemPicker";
+import { ItemById } from "../forecast/shared";
 import { listLots, listWorkOrders } from "../api/clientM2";
 import { listNcrs } from "../api/clientM7";
 import { listDeviations } from "../api/clientM10";
@@ -140,5 +143,69 @@ export function DeviationSelect({ id, lotId, itemId, value, onChange, disabled, 
         </option>
       ))}
     </select>
+  );
+}
+
+/** A list of items (ids) edited with the item picker; each shown as a removable chip with its part number. */
+export function ItemListPicker({ ids, onChange, label, disabled, testId }: { ids: string[]; onChange(ids: string[]): void; label: string; disabled?: boolean; testId?: string }) {
+  return (
+    <div className="field" data-testid={testId}>
+      <span className="field-label">{label}</span>
+      {ids.length ? (
+        <div className="chips" style={{ marginBottom: 4 }}>
+          {ids.map((id) => (
+            <span key={id} className="chip">
+              <ItemById id={id} />
+              {!disabled ? (
+                <button type="button" className="btn link sm" aria-label={t("gxp.pick.remove")} onClick={() => onChange(ids.filter((x) => x !== id))}>
+                  <Icon name="x" size={12} />
+                </button>
+              ) : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {!disabled ? <ItemPicker value={null} onChange={(it) => it && !ids.includes(it.id) && onChange([...ids, it.id])} label={label} hideLabel /> : null}
+    </div>
+  );
+}
+
+/** Lots (id + code) as removable chips plus a lot search to add one. */
+export function LotListPicker({ lots, onChange, label, itemId, disabled, testId }: { lots: LotRef[]; onChange(l: LotRef[]): void; label: string; itemId?: string | null; disabled?: boolean; testId?: string }) {
+  const [pick, setPick] = useState<LotRef | null>(null);
+  const [k, setK] = useState(0);
+  return (
+    <div className="col" style={{ gap: 4 }} data-testid={testId}>
+      {lots.length ? (
+        <div className="chips">
+          {lots.map((l) => (
+            <span key={l.id} className="chip mono">
+              {l.code}
+              {!disabled ? (
+                <button type="button" className="btn link sm" aria-label={t("gxp.pick.remove")} onClick={() => onChange(lots.filter((x) => x.id !== l.id))}>
+                  <Icon name="x" size={12} />
+                </button>
+              ) : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {!disabled ? (
+        <LotPicker
+          key={k}
+          value={pick}
+          itemId={itemId}
+          label={label}
+          onChange={(l) => {
+            setPick(l);
+            if (l && !lots.some((x) => x.id === l.id)) {
+              onChange([...lots, l]);
+              setPick(null);
+              setK((x) => x + 1);
+            }
+          }}
+        />
+      ) : null}
+    </div>
   );
 }

@@ -17,7 +17,7 @@ import { plural, t } from "../../lib/i18n";
 import { formatDateTime, formatNumber } from "../../lib/locale";
 import { ApiError } from "../../api/client";
 import { assembleDhr, dispositionException, exportDhr, getDhr, getDhrSection, releaseDhr, startDhrReview } from "../api/clientM10";
-import { DHR_SECTIONS, type DhrBlocking, type DhrDisposition, type DhrException, type DhrRecord, type DhrSection, type DhrSectionKey, type DhrSectionTable, type ExcSeverity } from "../api/typesM10";
+import { DHR_SECTIONS, type DhrBlocking, type DhrDisposition, type DhrException, type DhrRecord, type DhrSectionKey, type ExcSeverity } from "../api/typesM10";
 import { DataTable, ShowMore } from "../components/DataTable";
 import { MfgError, Spinner } from "../components/Feedback";
 import type { Column } from "../components/VirtualTable";
@@ -25,14 +25,16 @@ import { mfgPaths } from "../lib/paths";
 import { useCan } from "../lib/permissions";
 import { errorCode, useLoad } from "../lib/useMfg";
 import { ItemCell, usePersonName } from "../qa/common";
+import { fmtBytes } from "../lib/importMapping";
 import { HistoryTab, linkPath, RecordHeader, SignatureList, useChangeReason } from "../qa/RecordShell";
 import { DeviationSelect, NcrSelect } from "./pickers";
-import { codeText10, colText, DhrStatusChip, DISPOSITION, dispositionText, excText, GxpChip, HashText, KV, OpenCounts, sectionText, SevChip, useDownload, valueText } from "./shared";
+import { codeText10, colText, DhrStatusChip, qaItem, DISPOSITION, dispositionText, excText, GxpChip, HashText, KV, OpenCounts, sectionText, SevChip, useDownload, valueText } from "./shared";
 
 type View = "exceptions" | DhrSectionKey | "versions" | "signatures" | "history";
 const SEV_ORDER: Record<ExcSeverity, number> = { major: 0, minor: 1, info: 2 };
 const needsDisposition = (x: DhrException) => x.severity !== "info";
-const isOpen = (x: DhrException) => needsDisposition(x) && !x.disposition;
+const isOpen = (x: DhrException) => x.needs_disposition ?? (needsDisposition(x) && !x.disposition);
+const openSev = (r: DhrRecord, sev: ExcSeverity) => r.exceptions.filter((x) => x.severity === sev && isOpen(x)).length;
 
 export function DhrRecordPage() {
   const { dhrId = "" } = useParams();
@@ -87,11 +89,11 @@ export function DhrRecordPage() {
                 <Icon name="refresh" /> {t("gxp.dhr.changedAfterRelease")}
               </span>
             ) : null}
-            {r.hold_status === "held" ? (
+            {r.hold_open ? (
               <span className="badge warn">
                 <Icon name="lock" /> {t("gxp.dhr.held")}
               </span>
-            ) : r.hold_status === "released" ? (
+            ) : r.hold_id ? (
               <span className="badge ok">
                 <Icon name="unlock" /> {t("gxp.dhr.holdReleased")}
               </span>
@@ -99,11 +101,11 @@ export function DhrRecordPage() {
           </>
         }
         facts={[
-          [t("gxp.head.item"), <ItemCell key="i" item={r.item} id={r.item_id} />],
+          [t("gxp.head.item"), <ItemCell key="i" item={qaItem(r.item)} id={r.item.id} />],
           [t("gxp.head.lot"), r.lot_code ? <span className="mono">{r.lot_code}</span> : null],
-          [t("gxp.head.wos"), r.wos.length ? <span className="mono">{r.wos.map((w) => w.number).join(", ")}</span> : null],
+          [t("gxp.head.wos"), r.wo_numbers.length ? <span className="mono">{r.wo_numbers.join(", ")}</span> : null],
           [t("gxp.dhr.head.assembled"), r.assembled_at ? formatDateTime(r.assembled_at) : null],
-          [t("gxp.dhr.fact.open"), <OpenCounts key="o" major={r.counts.open_major} minor={r.counts.open_minor} />],
+          [t("gxp.dhr.fact.open"), <OpenCounts key="o" major={openSev(r, "major")} minor={openSev(r, "minor")} />],
           [t("gxp.dhr.fact.hash"), <HashText key="h" h={r.content_sha256} />],
         ]}
         actions={
@@ -381,7 +383,8 @@ function DispositionForm({ x, record, onSaved, onCancel }: { x: DhrException; re
     setBusy(true);
     setErr(null);
     try {
-      onSaved(await dispositionException(record.id, x, { disposition: disp, disposition_ref: disp === "accepted" ? null : ref, comment: comment.trim() }, why || comment.trim() || null));
+      await dispositionException(record.id, x, { disposition: disp, disposition_ref: disp === "accepted" ? null : ref, comment: comment.trim() }, why || comment.trim() || null);
+      onSaved(await getDhr(record.id));
       toast(t("gxp.dhr.toast.dispositioned"));
     } catch (e) {
       setErr(e);
@@ -419,7 +422,7 @@ function DispositionForm({ x, record, onSaved, onCancel }: { x: DhrException; re
         {disp === "ncr" ? (
           <>
             <label htmlFor={`${fid}-r`}>{t("gxp.dhr.label.ncr")}</label>
-            <NcrSelect id={`${fid}-r`} itemId={record.item_id} lotId={record.lot_id} woIds={record.wo_ids} value={ref} onChange={setRef} testId="dhr-disp-ncr" />
+            <NcrSelect id={`${fid}-r`} itemId={record.item.id} lotId={record.lot_id} woIds={record.wo_ids} value={ref} onChange={setRef} testId="dhr-disp-ncr" />
             <span className="hint">
               {t("gxp.dhr.hint.ncr")} <Link to={mfgPaths.qaNcr("new")}>{t("gxp.dhr.link.newNcr")}</Link>
             </span>
@@ -427,10 +430,10 @@ function DispositionForm({ x, record, onSaved, onCancel }: { x: DhrException; re
         ) : disp === "deviation" ? (
           <>
             <label htmlFor={`${fid}-r`}>{t("gxp.dhr.label.deviation")}</label>
-            <DeviationSelect id={`${fid}-r`} lotId={record.lot_id} itemId={record.item_id} value={ref} onChange={setRef} testId="dhr-disp-dev" />
+            <DeviationSelect id={`${fid}-r`} lotId={record.lot_id} itemId={record.item.id} value={ref} onChange={setRef} testId="dhr-disp-dev" />
             <span className="hint">
               {t("gxp.dhr.hint.deviation")}{" "}
-              <Link to={mfgPaths.deviation("new", { exception: x.id, dhr: record.id, ...(record.lot_id ? { lot: record.lot_id } : {}), item: record.item_id })}>{t("gxp.dhr.link.newDeviation")}</Link>
+              <Link to={mfgPaths.deviation("new", { exception: x.id, dhr: record.id, ...(record.lot_id ? { lot: record.lot_id } : {}), item: record.item.id })}>{t("gxp.dhr.link.newDeviation")}</Link>
             </span>
           </>
         ) : (
@@ -463,11 +466,18 @@ function DispositionForm({ x, record, onSaved, onCancel }: { x: DhrException; re
 }
 
 // ---------------------------------------------------------------- sections
+const isRowList = (v: unknown): v is Record<string, unknown>[] => Array.isArray(v) && v.length > 0 && v.every((x) => x !== null && typeof x === "object" && !Array.isArray(x));
+/** Sections with a bulk list paged through D5 (serial numbers, raw floor events). */
+const PAGED: Partial<Record<DhrSectionKey, string>> = { serials: "gxp.dhr.btn.showSerials", operations: "gxp.dhr.btn.showEvents" };
+
 function SectionView({ record, section, exceptions, editable, onUpdated }: { record: DhrRecord; section: DhrSectionKey; exceptions: DhrException[]; editable: boolean; onUpdated(r: DhrRecord): void }) {
-  const body: DhrSection = record.content[section] ?? {};
-  const { facts, tables, note, ...rest } = body;
-  const scalarRest = Object.entries(rest).filter(([, v]) => v === null || typeof v !== "object" || (Array.isArray(v) && v.every((x) => typeof x !== "object")));
-  const factRows: [string, ReactNode][] = [...Object.entries(facts ?? {}), ...scalarRest].map(([k, v]) => [colText(k), valueText(v)]);
+  const body = record.content[section] ?? {};
+  const entries = Object.entries(body).filter(([k]) => !(section === "review" && (k === "exceptions" || k === "signatures")));
+  const tables = entries.filter(([, v]) => isRowList(v)) as [string, Record<string, unknown>[]][];
+  const facts: [string, ReactNode][] = entries
+    .filter(([k, v]) => !isRowList(v) && !(Array.isArray(v) && v.length === 0 && k !== "ranges") && k !== "id" && !k.endsWith("_id"))
+    .map(([k, v]) => [colText(k), k === "list_sha256" ? <HashText key={k} h={String(v)} /> : k === "ranges" ? rangesText(v) : valueText(v)]);
+  const empties = entries.filter(([, v]) => Array.isArray(v) && v.length === 0).map(([k]) => k);
   return (
     <section className="card" aria-labelledby="dhr-sec-h" data-testid={`dhr-section-${section}`}>
       <div className="card-header">
@@ -489,20 +499,36 @@ function SectionView({ record, section, exceptions, editable, onUpdated }: { rec
             <KV
               rows={[
                 [t("gxp.dhr.fact.exceptions"), plural(record.exceptions.length, t("gxp.noun.exception"), t("gxp.noun.exceptions"))],
-                [t("gxp.dhr.fact.open"), <OpenCounts key="o" major={record.counts.open_major} minor={record.counts.open_minor} />],
+                [t("gxp.dhr.fact.open"), <OpenCounts key="o" major={openSev(record, "major")} minor={openSev(record, "minor")} />],
                 [t("gxp.dhr.fact.decision"), record.decision ? <DhrStatusChip s={record.decision} /> : null],
                 [t("gxp.dhr.fact.releasedAt"), record.released_at ? formatDateTime(record.released_at) : null],
+                [t("gxp.dhr.fact.renderer"), record.renderer_version],
               ]}
             />
             <SignatureList signatures={record.signatures} />
+            {record.renditions.length ? (
+              <ul className="pl-bullets small" data-testid="dhr-renditions">
+                {record.renditions.map((x) => (
+                  <li key={x.id}>
+                    <span className="mono">{x.filename}</span> · {fmtBytes(x.size)} · <HashText h={x.sha256} /> · {formatDateTime(x.created_at)}
+                    {x.warnings.length ? <span className="badge warn" style={{ marginLeft: 6 }}><Icon name="alert" /> {x.warnings.map((w) => codeText10(w)).join(", ")}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </>
         ) : null}
-        {factRows.length ? <KV rows={factRows} testId="dhr-section-facts" /> : null}
-        {note ? <p className="small muted" style={{ margin: 0 }}>{note}</p> : null}
-        {(tables ?? []).map((tb) => (
-          <SectionTable key={tb.key} recordId={record.id} section={section} table={tb} />
+        {facts.length ? <KV rows={facts} testId="dhr-section-facts" /> : null}
+        {tables.map(([k, rows]) => (
+          <SectionTable key={k} section={section} name={k} rows={rows} />
         ))}
-        {!factRows.length && !(tables ?? []).length && section !== "review" && !exceptions.length ? (
+        {empties.length ? (
+          <p className="small muted" style={{ margin: 0 }}>
+            {t("gxp.tpl.noneRecorded", { what: empties.map((k) => colText(k)).join(", ") })}
+          </p>
+        ) : null}
+        {PAGED[section] && record.id !== "live" ? <PagedList recordId={record.id} section={section} label={t(PAGED[section] as "gxp.dhr.btn.showSerials")} /> : null}
+        {!facts.length && !tables.length && !empties.length && section !== "review" && !exceptions.length ? (
           <p className="muted" style={{ margin: 0 }}>
             {t("gxp.dhr.sectionEmpty")}
           </p>
@@ -512,60 +538,105 @@ function SectionView({ record, section, exceptions, editable, onUpdated }: { rec
   );
 }
 
-function SectionTable({ recordId, section, table }: { recordId: string; section: DhrSectionKey; table: DhrSectionTable }) {
-  const [rows, setRows] = useState(table.rows);
-  const [page, setPage] = useState(1);
+function rangesText(v: unknown): string {
+  if (!Array.isArray(v) || !v.length) return "–";
+  return v.map((r) => (Array.isArray(r) ? (r[0] === r[1] ? String(r[0]) : `${r[0]} – ${r[1]}`) : String(r))).join(", ");
+}
+
+function rowColumns(rows: Record<string, unknown>[]): Column<Record<string, unknown>>[] {
+  const keys: string[] = [];
+  for (const r of rows) for (const k of Object.keys(r)) if (!keys.includes(k) && k !== "id" && !k.endsWith("_id")) keys.push(k);
+  return keys.map((k, i) => {
+    const nested = rows.some((r) => isRowList(r[k]));
+    const numeric = rows.every((r) => r[k] === null || r[k] === undefined || typeof r[k] === "number");
+    return {
+      key: k,
+      header: colText(k),
+      width: i === 0 ? "minmax(120px, 1.2fr)" : numeric ? "minmax(80px, 0.6fr)" : "minmax(100px, 1fr)",
+      wrap: true,
+      align: numeric ? ("right" as const) : undefined,
+      sortValue: (r: Record<string, unknown>) => {
+        const v = r[k];
+        return typeof v === "number" || typeof v === "string" ? v : Array.isArray(v) ? v.length : null;
+      },
+      exportValue: (r: Record<string, unknown>) => (nested && Array.isArray(r[k]) ? (r[k] as unknown[]).length : valueText(r[k])),
+      render: (r: Record<string, unknown>) =>
+        nested && Array.isArray(r[k]) ? <span className="pl-num">{formatNumber((r[k] as unknown[]).length)}</span> : typeof r[k] === "boolean" ? <BoolText v={r[k] as boolean} /> : <span className={numeric ? "pl-num" : undefined}>{valueText(r[k])}</span>,
+    };
+  });
+}
+
+function BoolText({ v }: { v: boolean }) {
+  return v ? (
+    <span className="row" style={{ gap: 4 }}>
+      <Icon name="check" size={12} /> {t("gxp.str.yes")}
+    </span>
+  ) : (
+    <span className="muted">{t("gxp.str.no")}</span>
+  );
+}
+
+function SectionTable({ section, name, rows }: { section: DhrSectionKey; name: string; rows: Record<string, unknown>[] }) {
+  const columns = useMemo(() => rowColumns(rows), [rows]);
+  return (
+    <div className="col" style={{ gap: 4 }}>
+      <h3 className="small" style={{ margin: 0 }}>
+        {colText(name)}
+      </h3>
+      <div className="card card-table">
+        <DataTable<Record<string, unknown>> rows={rows} columns={columns} rowKey={(r) => String(r.id ?? r.number ?? r.seq ?? r.lot_code ?? JSON.stringify(r))} label={colText(name)} testId={`dhr-table-${name}`} exportName={`dhr-${section}-${name}`} empty={t("gxp.dhr.tableEmpty")} />
+      </div>
+    </div>
+  );
+}
+
+function PagedList({ recordId, section, label }: { recordId: string; section: DhrSectionKey; label: string }) {
+  const [items, setItems] = useState<unknown[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
-  const total = table.total ?? table.rows.length;
-  const columns = useMemo<Column<Record<string, unknown>>[]>(
-    () =>
-      table.columns.map((c, i) => ({
-        key: c.key,
-        header: colText(c.key, c.label),
-        width: i === 0 ? "minmax(120px, 1fr)" : "minmax(90px, 1fr)",
-        wrap: true,
-        align: rows.length && typeof rows[0][c.key] === "number" ? ("right" as const) : undefined,
-        sortValue: (r: Record<string, unknown>) => {
-          const v = r[c.key];
-          return typeof v === "number" || typeof v === "string" ? v : null;
-        },
-        exportValue: (r: Record<string, unknown>) => valueText(r[c.key], c.unit),
-        render: (r: Record<string, unknown>) => <span className={typeof r[c.key] === "number" ? "pl-num" : undefined}>{valueText(r[c.key], c.unit)}</span>,
-      })),
-    [table.columns, rows],
-  );
-  const more = async () => {
+  const load = async (p: number) => {
     setBusy(true);
     setErr(null);
     try {
-      const p = await getDhrSection(recordId, section, { table: table.key, page: page + 1 });
-      setRows((x) => [...x, ...p.items]);
-      setPage(p.page);
+      const r = await getDhrSection(recordId, section, { page: p, limit: 500 });
+      setItems((x) => [...(p === 1 ? [] : (x ?? [])), ...r.items]);
+      setTotal(r.total);
+      setPage(r.page);
     } catch (e) {
       setErr(e);
     } finally {
       setBusy(false);
     }
   };
-  return (
-    <div className="col" style={{ gap: 4 }}>
-      <h3 className="small" style={{ margin: 0 }}>
-        {colText(table.key)}
-      </h3>
-      <MfgError error={err} />
-      <div className="card card-table">
-        <DataTable<Record<string, unknown>>
-          rows={rows}
-          columns={columns}
-          rowKey={(r) => String(r.id ?? r.key ?? JSON.stringify(r))}
-          label={colText(table.key)}
-          testId={`dhr-table-${table.key}`}
-          exportName={`dhr-${section}-${table.key}`}
-          empty={t("gxp.dhr.tableEmpty")}
-          footer={total > rows.length ? <ShowMore shown={rows.length} total={total} noun={t("gxp.noun.rows")} loading={busy} onMore={() => void more()} /> : undefined}
-        />
+  const objRows = items && isRowList(items) ? items : null;
+  const columns = useMemo(() => (objRows ? rowColumns(objRows) : []), [objRows]);
+  if (!items)
+    return (
+      <div>
+        <MfgError error={err} />
+        <button type="button" className="btn sm" disabled={busy} onClick={() => void load(1)} data-testid={`dhr-paged-${section}`}>
+          {busy ? <span className="spinner" aria-hidden /> : <Icon name="list" />} {label}
+        </button>
       </div>
+    );
+  const more = items.length < total ? <ShowMore shown={items.length} total={total} noun={t("gxp.noun.rows")} loading={busy} onMore={() => void load(page + 1)} /> : undefined;
+  return (
+    <div className="col" style={{ gap: 4 }} data-testid={`dhr-paged-list-${section}`}>
+      <MfgError error={err} />
+      {objRows ? (
+        <div className="card card-table">
+          <DataTable<Record<string, unknown>> rows={objRows} columns={columns} rowKey={(r) => String(r.id ?? JSON.stringify(r))} label={label} exportName={`dhr-${section}-list`} footer={more} />
+        </div>
+      ) : (
+        <>
+          <p className="mono small" style={{ margin: 0, whiteSpace: "normal", wordBreak: "break-word" }}>
+            {items.map(String).join(", ")}
+          </p>
+          {more}
+        </>
+      )}
     </div>
   );
 }
@@ -732,7 +803,7 @@ function ReleaseBar({ record, onDone, onNotice, onOpenExceptions }: { record: Dh
                     <RefLink type={b.ref_type ?? ""} id={b.ref_id ?? null} number={b.ref_number ?? null} />
                   </>
                 ) : null}
-                {b.code === "DHR_UNDISPOSITIONED" ? (
+                {b.code === "EXCEPTION_OPEN" ? (
                   <>
                     {" "}
                     <button type="button" className="btn link sm" onClick={onOpenExceptions}>
@@ -776,7 +847,7 @@ function ReleaseBar({ record, onDone, onNotice, onOpenExceptions }: { record: Dh
           effect={sign === "rejected" ? t("gxp.dhr.effectReject") : step2 ? t("gxp.dhr.effectRelease") : t("gxp.dhr.effectReview")}
           canSubmit={sign === "released" || Boolean(ncr)}
           extraRows={[
-            { label: t("gxp.head.item"), value: record.item ? `${record.item.part_number} ${record.item.name}` : record.item_id },
+            { label: t("gxp.head.item"), value: `${record.item.part_number ?? ""} ${record.item.name ?? ""}`.trim() || record.item.id },
             { label: t("gxp.head.lot"), value: record.lot_code ?? "–" },
             { label: t("gxp.dhr.fact.exceptions"), value: t("gxp.tpl.excSummary", { major: record.counts.major, minor: record.counts.minor, info: record.counts.info }) },
             { label: t("gxp.dhr.fact.hash"), value: record.content_sha256.slice(0, 16) },
@@ -814,7 +885,7 @@ function ReleaseBar({ record, onDone, onNotice, onOpenExceptions }: { record: Dh
               <label htmlFor="dhr-rej-ncr">
                 {t("gxp.dhr.label.rejectNcr")} <span className="req" aria-hidden />
               </label>
-              <NcrSelect id="dhr-rej-ncr" itemId={record.item_id} lotId={record.lot_id} woIds={record.wo_ids} value={ncr} onChange={setNcr} testId="dhr-reject-ncr" />
+              <NcrSelect id="dhr-rej-ncr" itemId={record.item.id} lotId={record.lot_id} woIds={record.wo_ids} value={ncr} onChange={setNcr} testId="dhr-reject-ncr" />
               <span className="hint">{t("gxp.dhr.hint.rejectNcr")}</span>
             </div>
           ) : null}
