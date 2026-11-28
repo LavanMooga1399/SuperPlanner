@@ -77,7 +77,7 @@ def test_baseline_twice_with_policy_change(db_url_factory):
         api = Api(c)
         api.get("/esig/policies")
         a = api.post("/validation/baselines", {"label": "Before"})
-        assert len(a["sha256"]) == 64 and a["content"]["app"]["migration_head"] == "0012_m9"
+        assert len(a["sha256"]) == 64 and a["content"]["app"]["migration_head"] == "0013_m10"
         with owner_scope("usr_local"), c.app.state.ctx.db.write() as s:
             pol = s.query(EsigPolicyRow).filter_by(record_type="ncr", action="approve").one()
             pol.auth = "password_totp"

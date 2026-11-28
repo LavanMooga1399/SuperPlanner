@@ -64,11 +64,17 @@ def test_migration_0011_to_0012_and_back(empty_pg_db):
                               "now())"))
     finally:
         eng.dispose()
-    migrate.run_alembic_upgrade(url)
-    assert migrate.HEAD == "0012_m9" and migrate.schema_state(url) == "current"
+    migrate.run_alembic_upgrade(url, "0012_m9")
+    assert migrate.HEAD == "0013_m10" and migrate.schema_state(url) == "behind"     # (M10 0013_m10 on top)
     assert _tables(url) - t11 == set(M9_TABLES)
     assert {tc for tc in _columns(url) - c11 if tc[0] in t11} == set(M9_COLUMNS)
-    assert _diffs(url) == []
+    from superplanner.api.mfg.db_models_m10 import M10_COLUMNS, M10_TABLES   # (the M10 ORM is ahead of 0012)
+
+    def _m10(d: tuple) -> bool:
+        return (d[0] == "add_table" and d[1].name in M10_TABLES) or (d[0] == "add_index" and d[1].table.name in
+                                                                      M10_TABLES) or (d[0] == "add_column" and (
+            d[2], d[3].name) in M10_COLUMNS)
+    assert [d for d in _diffs(url) if not _m10(d)] == []
     eng = sa.create_engine(url)
     try:
         with eng.connect() as c:

@@ -461,21 +461,23 @@ class Auth:
     username: str
 
 
-def _part11_and_policy(ctx: AppContext, record_type: str, action: str) -> tuple[bool, POL.Policy | None]:
+def _part11_and_policy(ctx: AppContext, record_type: str, action: str, force: bool = False
+                       ) -> tuple[bool, POL.Policy | None]:
     from ..db_models import MfgPlantRow
 
     with read_tx(ctx) as s:
         on = bool(s.execute(select(MfgPlantRow.part11_mode).limit(1)).scalar() or False)
-        if not on and (record_type, action) not in POL.ALWAYS:
+        if not on and (record_type, action) not in POL.ALWAYS and not force:
             return False, None
         return True, effective_policy(s, record_type, action)
 
 
-def authenticate(ctx: AppContext, a: Any, record_type: str, action: str, sig: SignatureInput | None
-                 ) -> Auth | None:
+def authenticate(ctx: AppContext, a: Any, record_type: str, action: str, sig: SignatureInput | None,
+                 force: bool = False) -> Auth | None:
+    """`force` (M10 `POL.CONDITIONAL` actions): the service requires the signature outside Part 11 mode too."""
     if sig is None:
         return None
-    on, pol = _part11_and_policy(ctx, record_type, action)
+    on, pol = _part11_and_policy(ctx, record_type, action, force)
     if not on or pol is None or not pol.steps:
         return None
     if not ctx.settings.esig_enabled:
@@ -634,14 +636,14 @@ def _required_error(s: Session, a: Any, record_type: str, record_id: str, action
 def sign(s: Session, a: Any, auth: Auth | None, record_type: str, record_id: str, action: str,
          sig: SignatureInput | None, *, decision: str | None = None, loaded: C.Loaded | None = None,
          stored_content: dict[str, Any] | None = None, store_record_id: str | None = None,
-         store_version: int | None = None, ctx_settings: Any = None, params: dict[str, Any] | None = None
-         ) -> Outcome:
+         store_version: int | None = None, ctx_settings: Any = None, params: dict[str, Any] | None = None,
+         force: bool = False) -> Outcome:
     """Phase 2 inside the action's transaction (see module doc). `params`: the action's parameters (decision,
     new policy, verification result ...) - stored in the signed snapshot (`_params`) and identical for every step
     of a multi-step flow (review M9)."""
     from ...audit_diff import part11_on
 
-    always = (record_type, action) in POL.ALWAYS
+    always = (record_type, action) in POL.ALWAYS or force
     if not (part11_on(s) or always):
         return Outcome(True)
     seed_policies(s)

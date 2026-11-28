@@ -42,7 +42,10 @@ PERMISSIONS: tuple[str, ...] = ("view", "master_edit", "supplier_edit", "invento
                                 "kanban_scan", "validation_view",
                                 # M9-DESIGN 9
                                 "network_edit", "network_plan", "network_publish", "sop_edit", "sop_publish",
-                                "trade_admin")
+                                "trade_admin",
+                                # M10-DESIGN 10
+                                "dhr_review", "deviation_edit", "coa_edit", "udi_edit", "udi_export", "label_admin",
+                                "label_print", "validation_admin")
 _PLANNER = frozenset({"view", "master_edit", "supplier_edit", "pr_edit", "demand_edit", "wo_edit", "mrp_run",
                       "schedule_run", "schedule_publish", "import",   # M3-DESIGN 11
                       "floor_view", "floor_report", "downtime_report", "replan_manage", "trace_view", "eco_edit",
@@ -60,20 +63,24 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "viewer": frozenset({"view", "floor_view", "trace_view", "assistant_use"}),
     # M4-DESIGN 0.4 / 11: tablets (personal or station accounts) and shift supervisors
     "operator": frozenset({"view", "floor_view", "floor_report", "downtime_report", "trace_view", "qa_inspect",
-                           "kanban_scan"}),
+                           "kanban_scan", "label_print"}),                # M10 10: label count / verify on the floor
     "supervisor": frozenset({"view", "floor_view", "floor_report", "floor_supervise", "downtime_report", "trace_view",
-                            "assistant_use", "qa_inspect", "ncr_edit"}),   # M6 5: every plant role except operator
+                            "assistant_use", "qa_inspect", "ncr_edit",    # M6 5: every plant role except operator
+                            "deviation_edit", "label_print"}),            # M10 10
     # M7-DESIGN 9.1: quality roles (signing is decided by the signature policies, 4.3)
     "qa_inspector": frozenset({"view", "floor_view", "trace_view", "assistant_use", "qa_inspect", "qa_decide",
                               "ncr_edit"}),
     "qa_engineer": frozenset({"view", "floor_view", "trace_view", "assistant_use", "qa_inspect", "qa_decide",
                              "qa_plan_edit", "ncr_edit", "ncr_approve", "capa_edit", "complaint_edit",
-                             "field_action_edit", "equipment_edit", "audit_view"}),
+                             "field_action_edit", "equipment_edit", "audit_view",
+                             "dhr_review", "deviation_edit", "coa_edit", "label_admin"}),           # M10 10
     "qa_approver": frozenset({"view", "floor_view", "trace_view", "assistant_use", "eco_approve", "qa_inspect",
                              "qa_decide",
                              "qa_plan_edit", "ncr_edit", "ncr_approve", "capa_edit", "complaint_edit",
                              "field_action_edit", "capa_approve", "audit_view", "esig_policy_edit",
-                             "ster_release", "validation_view"}),                     # M8-DESIGN 11
+                             "ster_release", "validation_view",                       # M8-DESIGN 11
+                             "dhr_review", "deviation_edit", "coa_edit", "udi_edit", "udi_export",
+                             "validation_admin"}),                                    # M10-DESIGN 10
     "metrology": frozenset({"view", "floor_view", "assistant_use", "equipment_edit"}),
     # M8-DESIGN 11: plant manager (planner + forecast / inventory policy approvals), auditor (read + validation)
     "plant_manager": _PLANNER | {"forecast_approve", "inventory_policy_approve",
@@ -81,12 +88,15 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "auditor": frozenset({"view", "floor_view", "trace_view", "assistant_use", "audit_view", "validation_view"}),
     # M9-DESIGN 9: executives read and sign the S&OP approval (policy `sop_cycle.approve`)
     "executive": frozenset({"view", "assistant_use"}),
+    # M10-DESIGN 10: regulatory affairs (UDI records, GUDID / Health Canada files) and labelling
+    "regulatory": frozenset({"view", "trace_view", "assistant_use", "udi_edit", "udi_export"}),
+    "labeling": frozenset({"view", "floor_view", "trace_view", "assistant_use", "label_admin", "label_print"}),
 }
 ROLE_LABELS = {"owner": "Owner", "planner": "Planner", "purchaser": "Purchaser", "store_keeper": "Store keeper",
                "approver": "Approver", "viewer": "Viewer", "operator": "Operator", "supervisor": "Supervisor",
                "plant_admin": "Plant admin", "qa_inspector": "QA inspector", "qa_engineer": "QA engineer",
                "qa_approver": "QA approver", "metrology": "Metrology", "plant_manager": "Plant manager",
-               "auditor": "Auditor", "executive": "Executive"}
+               "auditor": "Auditor", "executive": "Executive", "regulatory": "Regulatory", "labeling": "Labelling"}
 WORKSPACE_HEADER = "X-SP-Workspace"
 
 
@@ -119,7 +129,7 @@ def permissions_of(roles: tuple[str, ...] | list[str]) -> frozenset[str]:
 def roles_allowed(perm: str) -> list[str]:
     return [r for r in ("owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver", "viewer",
                         "operator", "supervisor", "qa_inspector", "qa_engineer", "qa_approver", "metrology",
-                        "plant_manager", "auditor", "executive")
+                        "plant_manager", "auditor", "executive", "regulatory", "labeling")
             if perm in ROLE_PERMISSIONS[r]]
 
 

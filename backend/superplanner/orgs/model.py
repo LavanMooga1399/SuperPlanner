@@ -49,11 +49,11 @@ class OrgRecord(BaseModel):
 
 class OrgMemberIn(_In):
     email: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=254)]
-    org_role: Literal["org_admin", "org_member"] = "org_member"
+    org_role: Literal["org_admin", "org_member", "org_auditor"] = "org_member"   # M10 9.3: org_auditor
 
 
 class OrgMemberUpdate(_In):
-    org_role: Literal["org_admin", "org_member"] | None = None
+    org_role: Literal["org_admin", "org_member", "org_auditor"] | None = None
     #: 15.WP-S: org admins disable / enable the member's account (sessions and API tokens stop working)
     disabled: bool | None = None
 

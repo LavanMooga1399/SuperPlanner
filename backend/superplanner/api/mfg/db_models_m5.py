@@ -113,6 +113,8 @@ class OrgRow(Base):
     row_version: Mapped[int] = mapped_column(Integer)
     #: M7-DESIGN 4.6: idle timeout of the organisation's people (minutes; None = platform default)
     session_idle_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: M10-DESIGN 9.1: data residency region (set at creation from SP_REGION; immutable through the API)
+    data_region: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
 
 class OrgMemberRow(Base):
@@ -223,6 +225,9 @@ class IntEndpointRow(OwnedMixin, _Editable, Base):
     secret_enc: Mapped[str] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean)
     cursor: Mapped[int] = mapped_column(BigInteger)                      # last delivered seq (FIFO)
+    #: M10-DESIGN 9.1: region of the target; another region than the org's needs a signed exception
+    region: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    cross_region_signature_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class IntValueMapRow(OwnedMixin, Base):

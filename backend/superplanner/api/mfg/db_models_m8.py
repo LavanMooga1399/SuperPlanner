@@ -73,6 +73,8 @@ class MfgItemPlanningRow(OwnedMixin, _Editable, Base):
     post_days: Mapped[int | None] = _i(True)
     abc: Mapped[str | None] = _s(1, True)
     xyz: Mapped[str | None] = _s(1, True)
+    #: M10-DESIGN 3: eDHR release required (None = the plant default, QA settings `dhr_required`)
+    dhr_required: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class MfgItemPackagingRow(OwnedMixin, _Editable, Base):

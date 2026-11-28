@@ -43,19 +43,50 @@ DEFAULTS: dict[tuple[str, str], tuple[list[dict[str, Any]], str, bool, bool]] = 
     # M9-DESIGN 6.6: S&OP cycle approval in the network workspace (always signed)
     ("sop_cycle", "approve"): ([{"meaning": "reviewed", "roles": ["plant_manager"]},
                                 {"meaning": "approved", "roles": ["executive"]}], "password", True, False),
+    # M10-DESIGN 3: eDHR release (last step = QA settings `final_release_role`; meaning released / rejected)
+    ("dhr", "release"): ([{"meaning": "reviewed", "roles": ["qa_engineer", "qa_approver"]},
+                          {"meaning": "released", "roles": ["qa_approver"]}], "password_totp", True, False),
+    ("deviation", "approve"): ([{"meaning": "reviewed", "roles": ["qa_engineer"]},
+                                {"meaning": "approved", "roles": ["qa_approver"]}], "password", True, False),
+    ("customer_agreement", "approve"): ([{"meaning": "approved", "roles": ["qa_approver"]}], "password", True,
+                                        False),
+    ("coa", "approve"): ([{"meaning": "approved", "roles": ["qa_approver"]}], "password", True, False),
+    ("eco", "approve_label"): ([{"meaning": "reviewed", "roles": ["approver"]},
+                                {"meaning": "approved", "roles": ["qa_approver"]}], "password", True, True),
+    ("udi_device", "approve"): ([{"meaning": "approved", "roles": ["regulatory", "qa_approver"]}], "password", True,
+                                False),
+    ("label_job", "reconcile"): ([{"meaning": "verified", "roles": ["qa_inspector", "qa_engineer", "supervisor"]}],
+                                 "password", True, False),
+    ("validation_package", "approve"): ([{"meaning": "reviewed", "roles": ["qa_engineer"]},
+                                         {"meaning": "approved", "roles": ["qa_approver"]}], "password_totp", True,
+                                        False),
+    ("plant", "assistant_on"): ([{"meaning": "approved", "roles": ["owner", "plant_admin"]}], "password_totp", True,
+                                False),
+    ("int_endpoint", "cross_region"): ([{"meaning": "approved", "roles": ["owner", "plant_admin"]}],
+                                       "password_totp", True, False),
 }
 #: policies seeded only in the organisation's network workspace (M9 6.6)
 NETWORK_ONLY: frozenset[tuple[str, str]] = frozenset({("sop_cycle", "approve")})
 #: actions whose last step cannot be removed (4.3)
-FIXED: frozenset[tuple[str, str]] = frozenset({("esig_policy", "update"), ("plant", "part11_on")})
+FIXED: frozenset[tuple[str, str]] = frozenset({("esig_policy", "update"), ("plant", "part11_on"), ("dhr", "release"),
+                                               ("plant", "assistant_on"), ("int_endpoint", "cross_region")})
 #: actions that create their record when signed: one step only (14)
 SINGLE_STEP: frozenset[tuple[str, str]] = frozenset({("calibration", "record")})
 #: actions that are signed even when the plant is not in Part 11 mode
 ALWAYS: frozenset[tuple[str, str]] = frozenset({("plant", "part11_on"), ("ster_load", "release"),
-                                               ("sop_cycle", "approve")})
+                                               ("sop_cycle", "approve"),
+                                               # M10-DESIGN 0.3, 0.7, 6, 8, 9.1: signed wherever they are used
+                                               ("dhr", "release"), ("deviation", "approve"),
+                                               ("customer_agreement", "approve"), ("coa", "approve"),
+                                               ("eco", "approve_label"), ("udi_device", "approve"),
+                                               ("validation_package", "approve"), ("plant", "assistant_on"),
+                                               ("int_endpoint", "cross_region")})
+#: M10-DESIGN 3: signed in Part 11 mode and whenever the service asks for it (`label_job.reconcile` when diff != 0)
+CONDITIONAL: frozenset[tuple[str, str]] = frozenset({("label_job", "reconcile")})
 PLANT_ROLES: frozenset[str] = frozenset({"owner", "plant_admin", "planner", "purchaser", "store_keeper", "approver",
                                          "viewer", "operator", "supervisor", "qa_inspector", "qa_engineer",
-                                         "qa_approver", "metrology", "plant_manager", "auditor", "executive"})
+                                         "qa_approver", "metrology", "plant_manager", "auditor", "executive",
+                                         "regulatory", "labeling"})
 AUTH_RANK = {"password": 0, "password_totp": 1}
 
 
@@ -78,6 +109,8 @@ def default(record_type: str, action: str, final_release_role: str = "qa_approve
     steps = [dict(x, roles=list(x["roles"])) for x in d[0]]
     if (record_type, action) == ("inspection_lot", "decide_final"):
         steps[0]["roles"] = [final_release_role]
+    if (record_type, action) == ("dhr", "release"):           # M10-DESIGN 0.3: released by final_release_role
+        steps[-1]["roles"] = [final_release_role]
     return Policy(None, record_type, action, steps, d[1], d[2], d[3], 1)
 
 
@@ -94,6 +127,8 @@ def validate(record_type: str, action: str, steps: list[dict[str, Any]], auth: s
         return "The authentication level of this action cannot be lowered."
     if key == ("sop_cycle", "approve") and not any(st.get("meaning") == "approved" for st in steps):
         return "The S&OP approval keeps at least one 'approved' step."
+    if key == ("dhr", "release") and (not steps or steps[-1].get("meaning") != "released"):
+        return "The eDHR release ends with a 'released' step."
     for st in steps:
         bad = [r for r in st["roles"] if r not in PLANT_ROLES]
         if bad:
@@ -104,6 +139,8 @@ def validate(record_type: str, action: str, steps: list[dict[str, Any]], auth: s
 def expected_meanings(action: str, step: dict[str, Any], decision: str | None) -> list[str]:
     if action in ("decide", "decide_final"):
         return ["rejected"] if decision == "reject" else ["released"]
+    if action == "release" and step.get("meaning") == "released" and decision == "rejected":   # M10 eDHR reject
+        return ["rejected"]
     return [step["meaning"]]
 
 
@@ -120,5 +157,5 @@ def step_block(policy: Policy, step_index: int, roles: tuple[str, ...], user_id:
     return None
 
 
-__all__ = ["ALWAYS", "AUTH_RANK", "DEFAULTS", "FIXED", "PLANT_ROLES", "Policy", "SINGLE_STEP", "default",
+__all__ = ["ALWAYS", "AUTH_RANK", "CONDITIONAL", "DEFAULTS", "FIXED", "PLANT_ROLES", "Policy", "SINGLE_STEP", "default",
            "expected_meanings", "step_block", "validate"]

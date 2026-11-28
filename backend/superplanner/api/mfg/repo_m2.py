@@ -33,7 +33,9 @@ SERIES_PREFIX = {"PO": "PO-", "PR": "PR-", "DO": "DO-", "WO": "WO-", "TXN": "TXN
                  "RCL": "RCL-", "ECO": "ECO-", "TO": "TO-",   # M5-DESIGN 5, 6.3, 3.5
                  "IP": "IP-", "IL": "IL-", "NCR": "NCR-", "CAPA": "CAPA-", "CMP": "CMP-", "FA": "FA-",   # M7 3
                  "FC": "FC-", "FCV": "FCV-", "SSP": "SSP-", "RR": "RR-", "SL": "SL-", "KB": "KB-",       # M8 3
-                 "NR": "NR-", "SC": "SC-", "TR": "TR-"}                                                 # M9 3
+                 "NR": "NR-", "SC": "SC-", "TR": "TR-",                                                 # M9 3
+                 "DHR": "DHR-", "DEV": "DEV-", "QAAG": "QA-AG-", "COA": "COA-", "BP": "BP-", "LP": "LP-",   # M10 3
+                 "UX": "UX-", "VP": "VP-"}
 SERIES_WIDTH = 6
 
 

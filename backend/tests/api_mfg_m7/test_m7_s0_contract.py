@@ -63,7 +63,7 @@ def test_migration_0009_to_0010_and_back(empty_pg_db):
         eng.dispose()
     t9, c9 = _tables(url), _columns(url)
     migrate.run_alembic_upgrade(url, "0010_m7")
-    assert migrate.HEAD == "0012_m9" and migrate.schema_state(url) == "behind"   # (M8 0011_m8 on top)
+    assert migrate.HEAD == "0013_m10" and migrate.schema_state(url) == "behind"   # (M8 0011_m8 on top)
     assert _tables(url) - t9 == set(M7_TABLES)
     assert _columns(url) - c9 >= set(M7_COLUMNS)
     eng = sa.create_engine(url)

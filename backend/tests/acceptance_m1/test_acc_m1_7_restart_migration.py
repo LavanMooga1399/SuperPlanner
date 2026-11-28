@@ -107,10 +107,12 @@ def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_u
     from superplanner.api.mfg.db_models_m6 import M6_TABLES
     from superplanner.api.mfg.db_models_m7 import M7_TABLES
     from superplanner.api.mfg.db_models_m8 import M8_TABLES
+    from superplanner.api.mfg.db_models_m9 import M9_TABLES
+    from superplanner.api.mfg.db_models_m10 import M10_TABLES
     from superplanner.api.mfg.db_models_ux import UX_TABLES
 
     all_mfg = set(MFG_TABLES) | set(M2_TABLES) | set(M3_TABLES) | set(M4_TABLES) | set(M5_TABLES) | set(M6_TABLES) | \
-        set(UX_TABLES) | set(M7_TABLES) | set(M8_TABLES)
+        set(UX_TABLES) | set(M7_TABLES) | set(M8_TABLES) | set(M9_TABLES) | set(M10_TABLES)
     assert set(at_head) - set(at_0002) == all_mfg
     assert len(MFG_TABLES) == 18
     assert at_0002 == {t: n for t, n in at_head.items() if t not in all_mfg}
@@ -129,7 +131,7 @@ def test_0002_database_upgrades_without_loss_and_downgrade_removes_only_mfg(db_u
         assert api.get("/summary")["counts"]["items"] == 0          # mfg starts empty after the downgrade
         api.load("small")
         assert api.health()["ok"]
-    assert migrate.current_revision(db_url) == migrate.HEAD == "0012_m9"     # head moved with M2 / M3 / M4 / M5 / M6 / UX / M7
+    assert migrate.current_revision(db_url) == migrate.HEAD == "0013_m10"     # head moved with M2 / M3 / M4 / M5 / M6 / UX / M7
     after = _table_counts(db_url)
     for t, n in at_0002.items():
         if t == "audit_events":

@@ -41,7 +41,25 @@ JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integrat
              "push_delivery", "digest_send", "inventory_snapshot",   # M6-DESIGN 6
              "part11_export", "qa_due_scan",                           # M7-DESIGN 3
              "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync",   # M8
-             "net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report")      # M9
+             "net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report",      # M9
+             "dhr_assemble", "batch_pack", "udi_export", "label_send", "validation_package")       # M10
+
+
+def _region_endpoints() -> dict[str, str]:
+    import json
+
+    raw = os.environ.get("SP_REGION_ENDPOINTS") or ""
+    if not raw.strip():
+        return {}
+    try:
+        doc = json.loads(raw)
+    except ValueError:
+        raise ConfigError("SP_REGION_ENDPOINTS must be a JSON object, e.g. {\"archive\": \"ca\", \"ai\": \"us\"}.") \
+            from None
+    if not isinstance(doc, dict):
+        raise ConfigError("SP_REGION_ENDPOINTS must be a JSON object.")
+    return {str(k).lower(): str(v).lower() for k, v in doc.items()
+            if k in ("archive", "backup", "smtp", "logs", "ai")}
 
 
 class ConfigError(ValueError):
@@ -336,6 +354,10 @@ class Settings:
     integration_allow_private_targets: bool = field(default_factory=_bool("INTEGRATION_ALLOW_PRIVATE_TARGETS",
                                                                           False))
     archive_dir: str | None = field(default_factory=_str("ARCHIVE_DIR"))
+    #: M10-DESIGN 9.1: the deployment's data region (e.g. `ca`; unset = residency not enforced) and the declared
+    #: regions of its archive / backup / SMTP / log / AI endpoints (JSON object, operator-declared)
+    sp_region: str | None = field(default_factory=lambda: (_env("SP_REGION") or "").strip().lower() or None)
+    sp_region_endpoints: dict[str, str] = field(default_factory=lambda: _region_endpoints())
     #: M7-DESIGN 4.2 / 4.6: electronic signatures (needs SECRETS_KEY(S) once a plant is in Part 11 mode), the
     #: local-credentials fallback for SSO users whose IdP has no step-up, the app/DB clock skew limit for signing,
     #: and the step-up MFA claim values accepted for `password_totp` steps

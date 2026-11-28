@@ -30,7 +30,8 @@ JOB_KINDS = ("solver_run", "finance_run", "aps_run", "aps_simulation", "integrat
              "integration_delivery", "integration_reconcile", "org_publish", "maintenance_retention", "trace_backfill",
              "push_delivery", "digest_send", "inventory_snapshot", "part11_export", "qa_due_scan",
              "forecast_run", "ss_run", "rate_run", "ster_plan", "nightly_plan", "history_refresh", "sap_sync",
-             "net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report")
+             "net_run", "net_publish", "sop_scenario_run", "sop_publish", "content_rollup", "tariff_report",
+             "dhr_assemble", "batch_pack", "udi_export", "label_send", "validation_package")
 QUEUE_STATUSES = ("queued", "running")
 AUTH_EVENTS = ("sign_in_ok", "sign_in_failed", "sign_up", "rate_limited", "csrf_failed")
 COLLECTOR_TTL_SECONDS = 5.0

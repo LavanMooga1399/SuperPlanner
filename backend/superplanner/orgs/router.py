@@ -3,7 +3,9 @@ members see the overview of the plants they can view. Sessions only (API tokens 
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, Response
 
 from ..api.auth.deps import Principal, require_user
@@ -122,3 +124,24 @@ def get_publish(org_id: str, publish_id: str, u: str = Depends(person), ctx: App
 def accept(org_id: str, u: str = Depends(person), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
     """An invited member accepts the organisation's invitation."""
     return _ok(svc.accept(ctx, u, org_id))
+
+
+# ---------------------------------------------------------------- M10-DESIGN 9.1 / 9.3 (O1, O2)
+
+@router.get("/{org_id}/residency")
+def residency(org_id: str, u: str = Depends(person), ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    from . import residency as res
+
+    return _ok(res.report(ctx, u, org_id))
+
+
+@router.get("/{org_id}/audit")
+def org_audit(org_id: str, from_: date | None = Query(default=None, alias="from"), to: date | None = None,
+              plant: str | None = Query(default=None, max_length=32),
+              entity_type: str | None = Query(default=None, max_length=32),
+              actor: str | None = Query(default=None, max_length=64), page: int = Query(default=1, ge=1, le=100_000),
+              limit: int = Query(default=100, ge=1, le=1000), u: str = Depends(person),
+              ctx: AppContext = Depends(get_ctx)) -> JSONResponse:
+    from . import residency as res
+
+    return _ok(res.org_audit(ctx, u, org_id, from_, to, plant, entity_type, actor, page, limit))

@@ -305,6 +305,9 @@ class MfgOperationRow(OwnedMixin, Base):
     inspection_gate: Mapped[bool] = mapped_column(Boolean)
     interruptible: Mapped[bool] = mapped_column(Boolean)
     capture_serial: Mapped[bool] = mapped_column(Boolean, default=False)        # M4-DESIGN 3.1
+    #: M10-DESIGN 3 / 4.2: DHR time windows (operation duration; wait until the next operation starts)
+    max_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_wait_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     row_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

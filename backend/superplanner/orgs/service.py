@@ -39,6 +39,7 @@ def _org(s: Any, org_id: str, user_id: str, *, admin: bool) -> tuple[OrgRow, str
 def org_record(s: Any, o: OrgRow, role: str | None) -> dict[str, Any]:
     return {"id": o.id, "name": o.name, "slug": o.slug, "require_2fa": o.require_2fa,
             "session_idle_minutes": o.session_idle_minutes, "my_role": role,
+            "data_region": o.data_region,                                     # M10-DESIGN 9.1 (immutable)
             "plants": int(s.execute(select(func.count()).select_from(OrgPlantRow).where(OrgPlantRow.org_id == o.id))
                           .scalar() or 0),
             "members": int(s.execute(select(func.count()).select_from(OrgMemberRow).where(
@@ -64,7 +65,7 @@ def create_org(ctx: AppContext, user_id: str, inp: Any, *, operator: bool = Fals
             raise ApiError(409, "MFG_DUPLICATE_KEY", f"An organisation with slug {inp.slug!r} exists.",
                            {"key": {"slug": inp.slug}})
         o = OrgRow(id=new_id("org_"), name=inp.name, slug=inp.slug, require_2fa=inp.require_2fa, created_at=now,
-                   updated_at=now, row_version=1)
+                   updated_at=now, row_version=1, data_region=getattr(ctx.settings, "sp_region", None))
         s.add(o)
         s.flush()
         s.add(OrgMemberRow(id=new_id("orm_"), org_id=o.id, user_id=user_id, org_role="org_admin", accepted_at=now,
