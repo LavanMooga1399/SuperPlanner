@@ -530,3 +530,22 @@ flag, max length and enumerations, and the reference table version it encodes; t
 reviews it as part of PQ.
 
 Implementation notes: (S0 and later phases append here.)
+
+- **S0 (backend)**: route table = docstring of `backend/superplanner/api/mfg/router_m10.py` (66 mfg routes) plus
+  O1-O2 on the orgs router; response shapes = `api/mfg/fixtures/example_m10.json` (keys named in the route table),
+  contracts in `dhr/model.py`, `udi/model.py`, `qa/model_m10.py`, `validation/model.py`. Path parameter names:
+  `dhr_id`, `exception_id`, `section`, `deviation_id`, `agreement_id`, `coa_id`, `pack_id`, `udi_id`,
+  `udi_export_id`, `label_template_id`, `printer_id`, `print_job_id`, `package_id`, `org_id`.
+- `mfg_routing_operations` of 3 is the existing `mfg_operations` table (max_minutes / max_wait_minutes there).
+- `orgs.data_region` is nullable: organisations created before M10 adopt `SP_REGION` on their first residency
+  check; new organisations get it at creation. Without `SP_REGION` residency is not enforced (development).
+- Number series are 6 digits like every other series (`QA-AG-000001`, not `QA-AG-0001`).
+- Signed everywhere they are used (POL.ALWAYS): dhr.release, deviation.approve, customer_agreement.approve,
+  coa.approve, eco.approve_label, udi_device.approve, validation_package.approve, plant.assistant_on,
+  int_endpoint.cross_region. `label_job.reconcile` is conditional (`POL.CONDITIONAL`: Part 11 mode or diff != 0;
+  `esig.authenticate/sign(force=True)`). The `dhr.release` last step takes `final_release_role` (as decide_final)
+  and its meaning is `released` or `rejected` by decision.
+- Extra list routes for the UI: `GET /batch-packs`, `GET /udi/exports`. Label template routes use
+  `/labels/templates/{label_template_id}`. `GET /labels/jobs/{id}/output` needs `label_print` (it records print
+  events). Validation package GETs use `validation_view` (as the M8 validation kit).
+- Printer kind gains `download` besides `zpl_raw` (the sample's "download" printer).
